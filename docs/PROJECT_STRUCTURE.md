@@ -136,17 +136,11 @@ common/components/
 │   ├── useBreadcrumb.ts      Hook — auto-derives breadcrumbs from current pathname
 │   └── index.ts
 │
-├── charts/                   Primary chart exports (use these)
+├── charts/                   All chart components live here
 │   ├── BarChart.tsx          Recharts bar chart — vertical/horizontal/stacked, click handler
 │   ├── PieChart.tsx          Recharts pie/donut — hover expand, custom tooltip
 │   ├── DrilldownChart.tsx    Stub — not yet implemented
 │   └── index.ts
-│
-├── bar-chart/                Legacy alias for charts/BarChart — prefer charts/
-│   └── BarChart.tsx
-│
-├── pie-chart/                Legacy alias for charts/PieChart — prefer charts/
-│   └── PieChart.tsx
 │
 ├── data-display/
 │   ├── StatCard.tsx          Dashboard stat card — title, value, icon, colour variant

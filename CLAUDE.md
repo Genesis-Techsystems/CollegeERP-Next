@@ -46,14 +46,12 @@ Mirrors Angular's `src/app/common/components/`. Each component mirrors an Angula
 | `common/components/date-picker/` | `DatePicker`, `MonthYearPicker` — react-day-picker v9 |
 | `common/components/search/` | `SearchInput` — instant by default (0 ms debounce); pass `serverSearch` for 300 ms debounce on API searches; pass `collapsible` to render as icon button that expands on click |
 | `common/components/select/` | `Select` (async-safe, Radix Popover), `MultiSelect` (Popover + Checkbox) |
-| `common/components/bar-chart/` | `BarChart` — recharts v3 (vertical/horizontal, stacked, click handler) |
-| `common/components/pie-chart/` | `PieChart` — recharts v3 (donut mode, hover expand, custom tooltip) |
+| `common/components/charts/` | `BarChart` — recharts v3 (vertical/horizontal, stacked, click handler); `PieChart` — recharts v3 (donut mode, hover expand, custom tooltip); `DrilldownChart` stub |
 | `common/components/theme-setting-modal/` | `ThemeSettingModal` — appearance, color scheme, sidebar, font size |
 | `common/components/breadcrumb/` | `Breadcrumb`, `useBreadcrumb` hook |
 | `common/components/data-display/` | `StatusBadge`, `StatCard` |
 | `common/components/feedback/` | `ConfirmDialog`, `EmptyState`, `ErrorBoundary`, `FormModal` |
 | `common/components/forms/` | `ActiveStatusField` (isActive checkbox + conditional reason input), `CollegeFilterPanel`, `FormField` |
-| `common/components/charts/` | Re-exports `BarChart`, `PieChart` + `DrilldownChart` stub |
 
 Import from subdirectory: `import { DataTable } from '@/common/components/table'`
 Import from barrel: `import { DataTable, Select, ConfirmDialog } from '@/common/components'`
