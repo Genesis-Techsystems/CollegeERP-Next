@@ -10,19 +10,3 @@ export interface ApiResponse<T> {
   resultList?: T[]
 }
 
-/**
- * Paginated variant — resultList is always present and totalCount is populated.
- */
-export interface PaginatedResponse<T> extends ApiResponse<T> {
-  resultList: T[]
-  totalCount?: number
-}
-
-/**
- * Error shape used for client-side error handling (not from the API directly).
- */
-export interface ApiError {
-  message: string
-  statusCode: number
-  errors?: Record<string, string[]>
-}

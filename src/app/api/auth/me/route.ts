@@ -4,7 +4,7 @@ import { getIronSession } from 'iron-session'
 import { cookies } from 'next/headers'
 import { sessionOptions } from '@/lib/session'
 import type { IronSessionData } from '@/types/user'
-import { SESSION_MAX_AGE_MS } from '@/config/constants'
+import { APP_CONFIG } from '@/config/constants/app'
 
 export async function GET() {
   const session = await getIronSession<IronSessionData>(await cookies(), sessionOptions)
@@ -13,7 +13,7 @@ export async function GET() {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
   }
 
-  if (Date.now() - session.issuedAt > SESSION_MAX_AGE_MS) {
+  if (Date.now() - session.issuedAt > APP_CONFIG.SESSION_MAX_AGE_MS) {
     session.destroy()
     return NextResponse.json({ message: 'Session expired' }, { status: 401 })
   }

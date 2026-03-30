@@ -4,9 +4,17 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import type { ColDef, CellClickedEvent, ICellRendererParams } from 'ag-grid-community'
+import { PlusIcon, ClipboardList } from 'lucide-react'
 import { useSessionContext } from '@/context/SessionContext'
 import type { ExamMaster, CollegeWiseFilterRow } from '@/types/exam-master'
+import {
+  getCollegeFilters,
+  fetchExamsByUniversity as fetchExamsByUniversityService,
+  fetchExamsByCollege as fetchExamsByCollegeService,
+} from '@/services/exam-master.service'
+import { distinct } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -18,18 +26,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import DataTable from '@/components/data-table/DataTable'
 import PageHeader from '@/components/layout/PageHeader'
 import ExamMasterModal from './ExamMasterModal'
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function distinct<T>(arr: T[], keyFn: (item: T) => number): T[] {
-  const seen = new Set<number>()
-  return arr.filter((item) => {
-    const key = keyFn(item)
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
@@ -60,25 +56,9 @@ export default function ExamMasterPage() {
   const fetchFilterDetails = useCallback(async () => {
     setLoadingFilters(true)
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const orgId = (user as any)?.organizationId ?? 0
+      const orgId = user?.organizationId ?? 0
       const empId = user?.employeeId ?? 0
-      const url = `/api/proxy/getAllRecords/s_get_collegewisedetails_bycode?in_flag=clg_filters&in_org_id=${orgId}&in_college_id=0&in_course_id=0&in_course_group_id=0&in_course_year_id=0&in_group_section_id=0&in_academic_year_id=0&in_dept_id=0&in_isadmin=0&in_loginuser_empid=${empId}&in_loginuser_roleid=0&in_subject=&in_employee=&in_gm_codes=`
-      const res = await fetch(url)
-      const json = await res.json()
-      if (json.statusCode !== 200) return
-
-      const result: CollegeWiseFilterRow[][] = json.data?.result ?? []
-
-      let filters: CollegeWiseFilterRow[] = []
-      let academic: CollegeWiseFilterRow[] = []
-
-      for (const arr of result) {
-        if (arr.length > 0) {
-          if (arr[0].flag === 'clg_filters') filters = arr
-          if (arr[0].clg_filters_ay === 'clg_filters_ay') academic = arr
-        }
-      }
+      const { filtersData: filters, academicData: academic } = await getCollegeFilters(orgId, empId)
 
       setFiltersdata(filters)
       setAcademicData(academic)
@@ -94,8 +74,7 @@ export default function ExamMasterPage() {
     } finally {
       setLoadingFilters(false)
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }, [(user as any)?.organizationId, user?.employeeId])
+  }, [user?.organizationId, user?.employeeId])
 
   useEffect(() => {
     fetchFilterDetails()
@@ -199,10 +178,8 @@ export default function ExamMasterPage() {
     setLoadingExams(true)
     setTableVisible(true)
     try {
-      const url = `/api/proxy/domain/list/ExamMaster?size=99999&query=Universities.universityId==${uniId}.and.Course.courseId==${courseId}.and.AcademicYear.academicYearId==${ayId}.order(createdDt=DESC)`
-      const res = await fetch(url)
-      const json = await res.json()
-      setExamsList(json.data?.resultList ?? [])
+      const results = await fetchExamsByUniversityService(uniId, courseId, ayId)
+      setExamsList(results)
     } finally {
       setLoadingExams(false)
     }
@@ -216,10 +193,8 @@ export default function ExamMasterPage() {
     setLoadingExams(true)
     setTableVisible(true)
     try {
-      const url = `/api/proxy/domain/list/ExamMaster?size=99999&query=College.collegeId==${colId}.and.Course.courseId==${courseId}.and.AcademicYear.academicYearId==${ayId}.order(createdDt=DESC)`
-      const res = await fetch(url)
-      const json = await res.json()
-      setExamsList(json.data?.resultList ?? [])
+      const results = await fetchExamsByCollegeService(colId, courseId, ayId)
+      setExamsList(results)
     } finally {
       setLoadingExams(false)
     }
@@ -293,7 +268,7 @@ export default function ExamMasterPage() {
               href={p.data.feeNotificationFilePath}
               target="_blank"
               rel="noreferrer"
-              className="text-teal-600 underline text-xs"
+              className="text-indigo-600 underline text-xs"
               onClick={(e) => e.stopPropagation()}
             >
               Download
@@ -311,7 +286,7 @@ export default function ExamMasterPage() {
               href={p.data.notificationFilePath}
               target="_blank"
               rel="noreferrer"
-              className="text-teal-600 underline text-xs"
+              className="text-indigo-600 underline text-xs"
               onClick={(e) => e.stopPropagation()}
             >
               Download
@@ -324,7 +299,7 @@ export default function ExamMasterPage() {
         headerName: 'Exam Labels',
         minWidth: 120,
         cellRenderer: () => (
-          <span className="text-teal-600 underline cursor-pointer text-xs">Create Label</span>
+          <span className="text-indigo-600 underline cursor-pointer text-xs">Create Label</span>
         ),
       },
       {
@@ -348,9 +323,9 @@ export default function ExamMasterPage() {
         flex: 0,
         width: 100,
         cellRenderer: () => (
-          <button className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700">
+          <Button size="sm" variant="ghost">
             Edit
-          </button>
+          </Button>
         ),
       },
     ],
@@ -379,7 +354,12 @@ export default function ExamMasterPage() {
       <PageHeader
         title="Exam Master"
         subtitle="Manage examination master records"
-        action={<Button onClick={() => { setEditingExam(null); setModalOpen(true) }}>Add Exam</Button>}
+        action={
+          <Button size="sm" onClick={() => { setEditingExam(null); setModalOpen(true) }}>
+            <PlusIcon />
+            Add Exam
+          </Button>
+        }
       />
 
       {/* Filter panel */}
@@ -399,10 +379,10 @@ export default function ExamMasterPage() {
           </label>
         </RadioGroup>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="flex flex-wrap items-end gap-4">
           {/* University */}
-          <div>
-            <label className="text-sm font-medium text-slate-700 mb-1 block">University</label>
+          <div className="space-y-1 min-w-[160px]">
+            <Label>University</Label>
             <Select
               value={selectedUniversityId != null ? String(selectedUniversityId) : undefined}
               onValueChange={(v) => handleUniversityChange(Number(v))}
@@ -422,8 +402,8 @@ export default function ExamMasterPage() {
           </div>
 
           {/* Course */}
-          <div>
-            <label className="text-sm font-medium text-slate-700 mb-1 block">Course</label>
+          <div className="space-y-1 min-w-[160px]">
+            <Label>Course</Label>
             <Select
               value={selectedCourseId != null ? String(selectedCourseId) : undefined}
               onValueChange={(v) => handleCourseChange(Number(v))}
@@ -443,8 +423,8 @@ export default function ExamMasterPage() {
           </div>
 
           {/* Academic Year */}
-          <div>
-            <label className="text-sm font-medium text-slate-700 mb-1 block">Academic Year</label>
+          <div className="space-y-1 min-w-[160px]">
+            <Label>Academic Year</Label>
             <Select
               value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : undefined}
               onValueChange={(v) => handleAcademicYearChange(Number(v))}
@@ -468,8 +448,8 @@ export default function ExamMasterPage() {
 
           {/* College — only when mode=2 */}
           {mode === 2 && (
-            <div>
-              <label className="text-sm font-medium text-slate-700 mb-1 block">College</label>
+            <div className="space-y-1 min-w-[160px]">
+              <Label>College</Label>
               <Select
                 value={selectedCollegeId != null ? String(selectedCollegeId) : undefined}
                 onValueChange={(v) => handleCollegeChange(Number(v))}
@@ -493,13 +473,20 @@ export default function ExamMasterPage() {
 
       {/* Table */}
       {tableVisible && (
-        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-          <DataTable
-            rowData={examsList}
-            columnDefs={columnDefs}
-            loading={loadingExams}
-            onCellClicked={onCellClicked}
-          />
+        <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+          {!loadingExams && examsList.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+              <ClipboardList className="h-10 w-10 mb-3 opacity-40" />
+              <p className="text-sm">No records found</p>
+            </div>
+          ) : (
+            <DataTable
+              rowData={examsList}
+              columnDefs={columnDefs}
+              loading={loadingExams}
+              onCellClicked={onCellClicked}
+            />
+          )}
         </div>
       )}
 

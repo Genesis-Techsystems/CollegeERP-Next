@@ -12,13 +12,13 @@
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
 
-  /* Brand: teal */
-  --primary: 174 72% 40%;            /* teal-500 */
+  /* Brand: indigo */
+  --primary: 239 68% 55%;            /* indigo-600 */
   --primary-foreground: 0 0% 100%;
 
-  /* Neutral surface */
-  --secondary: 220 14% 96%;
-  --secondary-foreground: 222 47% 11%;
+  /* Secondary accent — dark amber-orange */
+  --secondary: 35 90% 48%;             /* amber-600 */
+  --secondary-foreground: 0 0% 100%;
   --muted: 220 14% 96%;
   --muted-foreground: 215 16% 47%;
   --accent: 220 14% 96%;
@@ -33,7 +33,7 @@
   /* Borders & inputs */
   --border: 220 13% 91%;
   --input: 220 13% 91%;
-  --ring: 174 72% 40%;               /* teal focus ring */
+  --ring: 239 68% 55%;               /* indigo focus ring */
   --radius: 0.5rem;
 
   /* Sidebar — slate-900 dark */
@@ -41,16 +41,16 @@
   --sidebar-surface: 217 33% 17%;       /* slate-800 hover */
   --sidebar-foreground: 215 20% 65%;    /* slate-400 */
   --sidebar-foreground-active: 0 0% 100%;
-  --sidebar-primary: 174 72% 40%;       /* teal-500 */
+  --sidebar-primary: 239 68% 55%;       /* indigo-600 */
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 174 72% 56%;        /* teal-400 icon */
+  --sidebar-accent: 234 68% 72%;        /* indigo-400 icon */
   --sidebar-accent-foreground: 0 0% 100%;
   --sidebar-border: 217 33% 20%;
   --sidebar-ring: 243 75% 59%;
 
   /* Custom brand vars */
-  --amber: 38 92% 50%;
-  --amber-light: 43 96% 56%;
+  --amber: 35 90% 48%;               /* matches --secondary */
+  --amber-light: 40 95% 58%;
   --navy-deep: 225 47% 7%;
 
   /* Shadows */
@@ -59,6 +59,41 @@
   --shadow-lg: 0 12px 32px rgba(15,23,42,0.10), 0 4px 8px rgba(15,23,42,0.06);
   --shadow-card-hover: 0 16px 40px rgba(79,70,229,0.12), 0 4px 12px rgba(15,23,42,0.08);
   --shadow-indigo: 0 4px 20px rgba(79,70,229,0.25);
+
+  /* ── Status colors ──────────────────────────────────────────────────────── */
+  --color-status-active: oklch(0.527 0.154 150.069);      /* green */
+  --color-status-inactive: oklch(0.577 0.245 27.325);     /* red */
+  --color-status-pending: oklch(0.714 0.143 85.873);      /* amber */
+  --color-status-draft: oklch(0.551 0.027 264.364);       /* slate */
+  --color-status-published: oklch(0.546 0.245 262.881);   /* blue */
+
+  /* ── Feedback colors ────────────────────────────────────────────────────── */
+  --color-success: oklch(0.527 0.154 150.069);
+  --color-warning: oklch(0.714 0.143 85.873);
+  --color-error: oklch(0.577 0.245 27.325);
+  --color-info: oklch(0.546 0.245 262.881);
+
+  /* ── Data display ───────────────────────────────────────────────────────── */
+  --color-table-header-bg: oklch(0.967 0.003 264.542);    /* light gray */
+  --color-table-row-hover: oklch(0.985 0.002 264.542);    /* very light */
+  --color-table-row-stripe: oklch(0.975 0.002 264.542);   /* alternate row */
+
+  /* ── Spacing ────────────────────────────────────────────────────────────── */
+  --spacing-page-x: 1.5rem;
+  --spacing-page-y: 1.5rem;
+  --spacing-card-x: 1.25rem;
+  --spacing-card-y: 1rem;
+
+  /* ── Typography ─────────────────────────────────────────────────────────── */
+  --font-size-page-title: 1.5rem;
+  --font-size-section-title: 1.125rem;
+  --font-size-label: 0.875rem;
+  --font-size-caption: 0.75rem;
+
+  /* ── Border radius ──────────────────────────────────────────────────────── */
+  --radius-card: 0.5rem;
+  --radius-modal: 0.75rem;
+  --radius-badge: 9999px;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -73,8 +108,8 @@
   --popover-foreground: 210 40% 96%;
   --primary: 239 84% 67%;
   --primary-foreground: 222 47% 7%;
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 96%;
+  --secondary: 32 80% 38%;             /* darker amber for dark bg */
+  --secondary-foreground: 0 0% 100%;
   --muted: 217 33% 17%;
   --muted-foreground: 215 20% 60%;
   --accent: 217 33% 17%;
@@ -351,12 +386,12 @@ body {
   color: #64748b; /* slate-500 */
 }
 
-/* Float up + brand teal when focused */
+/* Float up + brand indigo when focused */
 .fl-input:focus ~ .fl-label {
   top: 0.625rem;
   transform: translateY(0);
   font-size: 0.6875rem;
-  color: #00C9B0;
+  color: #4F46E5;
 }
 
 

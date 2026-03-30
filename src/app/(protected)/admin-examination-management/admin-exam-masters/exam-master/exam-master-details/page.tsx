@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { ArrowLeft, ClipboardList } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -14,6 +15,16 @@ import type {
   CourseGroup,
   CourseYear,
 } from '@/types/exam-master'
+import {
+  getExamMasterById,
+  getGeneralDetails,
+  getRegulations,
+  getCourseGroups,
+  getCourseYears,
+  getExamMasterDetails as fetchExamMasterDetails,
+  saveExamMasterDetails,
+} from '@/services/exam-master.service'
+import { GM_CODES } from '@/config/constants/ui'
 
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
@@ -80,11 +91,9 @@ function ExamMasterDetailsInner() {
     if (stored) {
       setExam(JSON.parse(stored))
     } else {
-      fetch(`/api/proxy/domain/list/ExamMaster?size=99999&query=examId==${examId}`)
-        .then((r) => r.json())
-        .then((body) => {
-          if (body.data?.resultList?.[0]) setExam(body.data.resultList[0])
-        })
+      getExamMasterById(examId).then((result) => {
+        if (result) setExam(result)
+      })
     }
   }, [examId, router])
 
@@ -131,29 +140,18 @@ function ExamMasterDetailsInner() {
   // ── Load reference data when exam is ready ──────────────────────────────────
   useEffect(() => {
     if (!exam) return
-    const courseId = exam.courseId
+    const courseId = exam.courseId!
     setLoadingRefs(true)
 
     Promise.all([
-      fetch(
-        `/api/proxy/domain/list/GeneralDetail?size=99999&query=GeneralMaster.generalMasterCode==EXMFEETYP.and.isActive==true`
-      ).then((r) => r.json()),
-      fetch(
-        `/api/proxy/domain/list/Regulation?size=99999&query=Course.courseId==${courseId}.and.isActive==true`
-      ).then((r) => r.json()),
-      fetch(
-        `/api/proxy/domain/list/CourseGroup?size=99999&query=Course.courseId==${courseId}.and.isActive==true`
-      ).then((r) => r.json()),
-      fetch(
-        `/api/proxy/domain/list/CourseYear?size=100&query=Course.courseId==${courseId}.and.isActive==true.order(sortOrder=ASC)`
-      ).then((r) => r.json()),
-      fetch(
-        `/api/proxy/domain/list/ExamMasterDetails?size=99999&query=examMaster.examId==${examId}.and.isActive==true`
-      ).then((r) => r.json()),
+      getGeneralDetails(GM_CODES.EXAM_FEE_TYPE),
+      getRegulations(courseId),
+      getCourseGroups(courseId),
+      getCourseYears(courseId),
+      fetchExamMasterDetails(examId),
     ])
-      .then(([typesRes, regsRes, groupsRes, yearsRes, detailsRes]) => {
+      .then(([allTypes, regs, groups, years, details]) => {
         // Filter exam fee types by exam flags
-        const allTypes: GeneralDetail[] = typesRes.data?.resultList ?? []
         const allowed: string[] = []
         if (exam.isRegularExam) allowed.push('Regular')
         if (exam.isSupplyExam) allowed.push('Supple')
@@ -162,10 +160,10 @@ function ExamMasterDetailsInner() {
         setExamFeeTypes(filtered)
         if (filtered.length > 0) setSelectedTabId(filtered[0].generalDetailId)
 
-        setRegulations(regsRes.data?.resultList ?? [])
-        setCourseGroups(groupsRes.data?.resultList ?? [])
-        setCourseYears(yearsRes.data?.resultList ?? [])
-        setExamMasterDetails(detailsRes.data?.resultList ?? [])
+        setRegulations(regs)
+        setCourseGroups(groups)
+        setCourseYears(years)
+        setExamMasterDetails(details)
       })
       .finally(() => setLoadingRefs(false))
   }, [exam, examId])
@@ -277,22 +275,13 @@ function ExamMasterDetailsInner() {
   async function handleSubmit() {
     setSaving(true)
     try {
-      const res = await fetch('/api/proxy/addExamMasterDetails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(examMasterDetails),
-      })
-      const body = await res.json()
-      if (body.statusCode === 200 && body.success) {
-        setToast({ message: body.message || 'Saved successfully', type: 'success' })
-        setTimeout(() => {
-          router.push('/admin-examination-management/admin-exam-masters/exam-master')
-        }, 1500)
-      } else {
-        setToast({ message: body.message || 'Save failed', type: 'error' })
-      }
-    } catch {
-      setToast({ message: 'Network error', type: 'error' })
+      const result = await saveExamMasterDetails(examMasterDetails)
+      setToast({ message: result.message || 'Saved successfully', type: 'success' })
+      setTimeout(() => {
+        router.push('/admin-examination-management/admin-exam-masters/exam-master')
+      }, 1500)
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : 'Network error', type: 'error' })
     } finally {
       setSaving(false)
     }
@@ -307,12 +296,14 @@ function ExamMasterDetailsInner() {
     <div className="p-6 space-y-5">
       {/* Back button + header */}
       <div className="flex items-center gap-3">
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => router.back()}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50 transition-colors"
         >
-          &larr; Back
-        </button>
+          <ArrowLeft />
+          Back
+        </Button>
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
             Exam Master Details
@@ -325,8 +316,11 @@ function ExamMasterDetailsInner() {
 
       {/* Tabs */}
       {examFeeTypes.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-400">
-          No exam types configured for this exam.
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+            <ClipboardList className="h-10 w-10 mb-3 opacity-40" />
+            <p className="text-sm">No exam types configured for this exam.</p>
+          </div>
         </div>
       ) : (
         <Tabs
@@ -513,11 +507,11 @@ function ExamMasterDetailsInner() {
                   <tbody>
                     {filteredDetails.length === 0 ? (
                       <tr>
-                        <td
-                          colSpan={7}
-                          className="text-center py-8 text-slate-400"
-                        >
-                          No records
+                        <td colSpan={7}>
+                          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                            <ClipboardList className="h-10 w-10 mb-3 opacity-40" />
+                            <p className="text-sm">No records found</p>
+                          </div>
                         </td>
                       </tr>
                     ) : (
@@ -541,18 +535,23 @@ function ExamMasterDetailsInner() {
                             {row.isBridgeCourse ? 'Yes' : 'No'}
                           </td>
                           <td className="px-4 py-3">
-                            <button
-                              onClick={() => handleEdit(row)}
-                              className="text-xs text-teal-600 hover:underline mr-3"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDelete(row)}
-                              className="text-xs text-red-600 hover:underline"
-                            >
-                              Delete
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEdit(row)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleDelete(row)}
+                              >
+                                Delete
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))

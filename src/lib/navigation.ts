@@ -1,6 +1,28 @@
 import type { Module, SubModule, Page, NavItem } from '@/types/navigation'
 
 /**
+ * Removes any doubled leading segment from a URL path.
+ * e.g. "a/b/a/b/c" → "/a/b/c"
+ * Also ensures the result always starts with "/".
+ */
+function normalizeHref(path: string): string {
+  // Strip any leading slash for processing
+  const stripped = path.startsWith('/') ? path.slice(1) : path
+  const segments = stripped.split('/')
+
+  // Find longest prefix that immediately repeats after itself
+  for (let prefixLen = 1; prefixLen <= Math.floor(segments.length / 2); prefixLen++) {
+    const prefix = segments.slice(0, prefixLen)
+    const next = segments.slice(prefixLen, prefixLen * 2)
+    if (prefix.length === next.length && prefix.every((s, i) => s === next[i])) {
+      return '/' + segments.slice(prefixLen).join('/')
+    }
+  }
+
+  return '/' + stripped
+}
+
+/**
  * Replicates Angular's addModuleToNavigation + addPagesToNavigation logic.
  * Takes raw modules[] and pages[] from UserDTO/SessionUser and builds a
  * hierarchical NavItem tree sorted by sortOrder.
@@ -42,21 +64,29 @@ function buildStandalonePages(pages: Page[]): NavItem[] {
     let subModuleUrl = page.submoduleName
       ? page.submoduleName.toLowerCase().trim().replace(' ', '-')
       : null
-    let href = page.url ?? ''
+    const rawUrl = page.url ?? ''
+    let href = rawUrl
 
     if (moduleUrl && subModuleUrl) {
-      href = `${moduleUrl}/${subModuleUrl}/${href}`
+      const fullPrefix = `${moduleUrl}/${subModuleUrl}`
+      href = rawUrl.startsWith(fullPrefix + '/') || rawUrl === fullPrefix
+        ? rawUrl
+        : `${fullPrefix}/${rawUrl}`
     } else if (moduleUrl) {
-      href = `${moduleUrl}/${href}`
+      href = rawUrl.startsWith(moduleUrl + '/') || rawUrl === moduleUrl
+        ? rawUrl
+        : `${moduleUrl}/${rawUrl}`
     } else if (subModuleUrl) {
-      href = `${subModuleUrl}/${href}`
+      href = rawUrl.startsWith(subModuleUrl + '/') || rawUrl === subModuleUrl
+        ? rawUrl
+        : `${subModuleUrl}/${rawUrl}`
     }
 
     return {
       id: `page_${page.pageId}`,
       label: page.displayName,
       icon,
-      href,
+      href: normalizeHref(href),
       sortOrder: page.sortOrder,
       isActive: page.isActive,
     }
@@ -87,7 +117,7 @@ function buildModuleTree(modules: Module[], pages: Page[]): NavItem[] {
         id: `module_${module.moduleId}`,
         label: module.displayName,
         icon,
-        href: moduleUrl,
+        href: normalizeHref(moduleUrl),
         sortOrder: module.sortOrder,
         isActive: module.isActive,
       })
@@ -97,11 +127,15 @@ function buildModuleTree(modules: Module[], pages: Page[]): NavItem[] {
       if (moduleHasPages) {
         const sortedPages = [...module.pages].sort((a, b) => a.sortOrder - b.sortOrder)
         for (const page of sortedPages) {
+          const rawUrl = page.url ?? ''
+          const href = rawUrl.startsWith(moduleUrl + '/') || rawUrl === moduleUrl
+            ? rawUrl
+            : `${moduleUrl}/${rawUrl}`
           children.push({
             id: `page_${page.pageId}`,
             label: page.displayName,
             icon: normalizePageIcon(page.iconName),
-            href: `${moduleUrl}/${page.url ?? ''}`,
+            href: normalizeHref(href),
             sortOrder: page.sortOrder,
             isActive: page.isActive,
           })
@@ -136,11 +170,16 @@ function buildSubModuleItem(subModule: SubModule, moduleUrl: string): NavItem {
   if (subModule.pages && subModule.pages.length > 0) {
     const sorted = [...subModule.pages].sort((a, b) => a.sortOrder - b.sortOrder)
     for (const page of sorted) {
+      const rawUrl = page.url ?? ''
+      const fullPrefix = `${moduleUrl}/${subModuleUrl}`
+      const href = rawUrl.startsWith(fullPrefix + '/') || rawUrl === fullPrefix
+        ? rawUrl
+        : `${fullPrefix}/${rawUrl}`
       subChildren.push({
         id: `page_${page.pageId}`,
         label: page.displayName,
         icon: normalizePageIcon(page.iconName),
-        href: `${moduleUrl}/${subModuleUrl}/${page.url ?? ''}`,
+        href: normalizeHref(href),
         sortOrder: page.sortOrder,
         isActive: page.isActive,
       })

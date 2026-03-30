@@ -14,5 +14,18 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/(protected)/:path*', '/dashboard/:path*'],
+  matcher: [
+    /*
+     * Match all request paths EXCEPT:
+     * - /login          — public auth page
+     * - /api/           — API routes handle auth internally
+     * - /_next/static   — Next.js static assets
+     * - /_next/image    — Next.js image optimization
+     * - /favicon.ico, /robots.txt, /sitemap.xml — static files
+     *
+     * Route groups like (protected) are filesystem-only — they never
+     * appear in actual request URLs, so `/(protected)/:path*` would never match.
+     */
+    '/((?!login|api|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml).*)',
+  ],
 }

@@ -74,6 +74,8 @@ export interface SessionUser {
   collegeId: number
   collegeCode: string
   collegeName: string
+  /** Organization ID -- used for college-wise filter queries */
+  organizationId?: number
   academicYearId: number
   academicYear: string
   employeeId?: number

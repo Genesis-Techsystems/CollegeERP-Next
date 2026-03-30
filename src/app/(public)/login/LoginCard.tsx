@@ -11,14 +11,14 @@ import logo from '@/assets/images/logo.jpg'
 
 const loginSchema = z.object({
   usernameOrEmail: z.string().min(1, 'Username is required'),
-  password:        z.string().min(1, 'Password is required'),
+  password: z.string().min(1, 'Password is required'),
 })
 type LoginFormData = z.infer<typeof loginSchema>
 
 export function LoginCard() {
   const router = useRouter()
   const [showPassword, setShowPw] = useState(false)
-  const [error, setError]         = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } =
@@ -29,10 +29,11 @@ export function LoginCard() {
   const onSubmit = async (data: LoginFormData) => {
     setError(null)
     try {
+      //TODO replace with Constants
       const res = await fetch('/api/auth/login', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ ...data, isMobile: false }),
+        body: JSON.stringify({ ...data, isMobile: false }),
       })
 
       if (!res.ok) {
@@ -48,8 +49,8 @@ export function LoginCard() {
     }
   }
 
-  const base   = 'fl-input peer w-full h-14 rounded-xl border bg-white px-4 pt-5 pb-2 text-sm text-slate-900 outline-none transition-all duration-200 placeholder-transparent disabled:bg-slate-50 disabled:text-slate-400'
-  const normal = 'border-slate-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-400/20'
+  const base = 'fl-input peer w-full h-14 rounded-xl border bg-white px-4 pt-5 pb-2 text-sm text-slate-900 outline-none transition-all duration-200 placeholder-transparent disabled:bg-slate-50 disabled:text-slate-400'
+  const normal = 'border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20'
   const errCls = 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-300/20'
 
   return (
@@ -60,7 +61,7 @@ export function LoginCard() {
       {/* Accent bar */}
       <div
         className="w-full rounded-t-2xl"
-        style={{ height: '8px', background: 'linear-gradient(90deg, #00C9B0, #7DD8CC, #FFB080, #F07070)' }}
+        style={{ height: '8px', background: 'linear-gradient(90deg, #4F46E5, #818CF8, #A78BFA, #C084FC)' }}
       />
 
       {/* Logo */}
@@ -123,7 +124,7 @@ export function LoginCard() {
             >
               {showPassword
                 ? <EyeOff className="h-4 w-4" aria-hidden="true" />
-                : <Eye    className="h-4 w-4" aria-hidden="true" />}
+                : <Eye className="h-4 w-4" aria-hidden="true" />}
             </button>
             {errors.password && (
               <p className="mt-1.5 flex items-center gap-1 text-xs text-red-500">
@@ -145,7 +146,7 @@ export function LoginCard() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full h-11 rounded-xl text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 active:scale-[0.98] transition-all duration-150 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 mt-2"
+            className="w-full h-11 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all duration-150 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 mt-2"
           >
             {isLoading
               ? <><Loader2 className="h-4 w-4 animate-spin" data-animate="functional" aria-hidden="true" /> Signing in…</>

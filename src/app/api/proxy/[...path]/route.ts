@@ -12,7 +12,7 @@ async function proxyRequest(request: NextRequest, context: Context): Promise<Nex
   // 1. Validate session — get jwt server-side only
   const session = await getIronSession<IronSessionData>(await cookies(), sessionOptions)
   if (!session.jwt || !session.user) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'UNAUTHORIZED', message: 'Session expired' }, { status: 401 })
   }
 
   // 2. Build target URL

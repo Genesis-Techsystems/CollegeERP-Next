@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
 import { Paperclip, X } from 'lucide-react'
 import type { ExamMaster } from '@/types/exam-master'
+import { createExamMaster, updateExamMaster, uploadExamFiles } from '@/services/exam-master.service'
 import {
   Dialog,
   DialogContent,
@@ -22,22 +23,27 @@ import MonthYearPicker from '@/components/forms/MonthYearPicker'
 
 // ─── Schema ─────────────────────────────────────────────────────────────────
 
-const schema = z.object({
-  examName: z.string().min(1, 'Required'),
-  examShortName: z.string().min(1, 'Required'),
-  examMonthYr: z.date().nullable(),
-  fromDate: z.date().nullable(),
-  toDate: z.date().nullable(),
-  isRegularExam: z.boolean(),
-  isSupplyExam: z.boolean(),
-  isInternalExam: z.boolean(),
-  isPublished: z.boolean(),
-  isResultprocessStarted: z.boolean(),
-  isActive: z.boolean(),
-  reason: z.string(),
-  notificationPublishedOn: z.date().nullable(),
-  feeNotificationPublishedOn: z.date().nullable(),
-})
+const schema = z
+  .object({
+    examName: z.string().min(1, 'Required'),
+    examShortName: z.string().min(1, 'Required'),
+    examMonthYr: z.date().nullable(),
+    fromDate: z.date().nullable(),
+    toDate: z.date().nullable(),
+    isRegularExam: z.boolean(),
+    isSupplyExam: z.boolean(),
+    isInternalExam: z.boolean(),
+    isPublished: z.boolean(),
+    isResultprocessStarted: z.boolean(),
+    isActive: z.boolean(),
+    reason: z.string(),
+    notificationPublishedOn: z.date().nullable(),
+    feeNotificationPublishedOn: z.date().nullable(),
+  })
+  .refine((d) => d.isRegularExam || d.isSupplyExam || d.isInternalExam, {
+    message: 'Select at least one exam type (Regular, Supply, or Internal)',
+    path: ['isRegularExam'],
+  })
 
 type FormValues = z.infer<typeof schema>
 
@@ -84,25 +90,28 @@ function FileInput({
         onChange={(e) => onChange(e.target.files?.[0] ?? null)}
       />
       <div className="flex items-center gap-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => inputRef.current?.click()}
-          className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-input bg-transparent text-sm text-slate-700 hover:bg-slate-50 transition-colors"
         >
           <Paperclip className="h-3.5 w-3.5 text-slate-400" />
           {displayName ? 'Replace' : 'Choose file'}
-        </button>
+        </Button>
         {displayName && (
           <div className="flex items-center gap-1 min-w-0">
             <span className="text-xs text-slate-500 truncate max-w-[140px]">{displayName}</span>
             {file && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 shrink-0 text-slate-400 hover:text-slate-600"
                 onClick={() => { onChange(null); if (inputRef.current) inputRef.current.value = '' }}
-                className="shrink-0 text-slate-400 hover:text-slate-600"
               >
                 <X className="h-3 w-3" />
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -195,35 +204,13 @@ export default function ExamMasterModal({
 
       let savedExam: ExamMaster
       if (isEdit) {
-        const res = await fetch(
-          `/api/proxy/domain/update/ExamMaster?query=examId==${exam!.examId}`,
-          { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
-        )
-        const json = await res.json()
-        if (!res.ok || json.statusCode !== 200) throw new Error(json.message || 'Update failed')
-        savedExam = json.data
+        savedExam = await updateExamMaster(exam!.examId, payload)
       } else {
-        const res = await fetch('/api/proxy/domain/create/ExamMaster', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-        const json = await res.json()
-        if (!res.ok || json.statusCode !== 200) throw new Error(json.message || 'Create failed')
-        savedExam = json.data
+        savedExam = await createExamMaster(payload)
       }
 
       // Upload files if any
-      if (notificationFile || feeNotificationFile) {
-        const formData = new FormData()
-        formData.append('examId ', String(savedExam.examId)) // Note: key has trailing space to match Angular
-        if (notificationFile) formData.append('notificationFilePath', notificationFile)
-        if (feeNotificationFile) formData.append('feeNotificationFilePath', feeNotificationFile)
-        await fetch('/api/proxy/examnotificationupload', {
-          method: 'POST',
-          body: formData,
-        })
-      }
+      await uploadExamFiles(savedExam.examId, notificationFile, feeNotificationFile)
 
       onSaved()
       onClose()
@@ -261,64 +248,58 @@ export default function ExamMasterModal({
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Exam Name — full width */}
-          <div>
+          <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Exam Name</label>
             <input
               {...register('examName')}
-              className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
             />
-            {errors.examName && <p className="text-xs text-red-500 mt-1">{errors.examName.message}</p>}
+            {errors.examName && <p className="text-xs text-red-500">{errors.examName.message}</p>}
           </div>
 
           {/* Exam Short Name | Month/Year */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Exam Short Name</label>
               <input
                 {...register('examShortName')}
-                className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
               />
-              {errors.examShortName && <p className="text-xs text-red-500 mt-1">{errors.examShortName.message}</p>}
+              {errors.examShortName && <p className="text-xs text-red-500">{errors.examShortName.message}</p>}
             </div>
-            <div>
+            <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Exam Month/Year</label>
-              <div className="mt-1">
-                <Controller
-                  control={control}
-                  name="examMonthYr"
-                  render={({ field }) => (
-                    <MonthYearPicker value={field.value} onChange={field.onChange} />
-                  )}
-                />
-              </div>
+              <Controller
+                control={control}
+                name="examMonthYr"
+                render={({ field }) => (
+                  <MonthYearPicker value={field.value} onChange={field.onChange} />
+                )}
+              />
             </div>
           </div>
 
           {/* From Date | To Date */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">From Date</label>
-              <div className="mt-1">
-                <Controller
-                  control={control}
-                  name="fromDate"
-                  render={({ field }) => (
-                    <DatePicker value={field.value} onChange={field.onChange} />
-                  )}
-                />
-              </div>
+              <Controller
+                control={control}
+                name="fromDate"
+                render={({ field }) => (
+                  <DatePicker value={field.value} onChange={field.onChange} />
+                )}
+              />
             </div>
-            <div>
+            <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">To Date</label>
-              <div className="mt-1">
-                <Controller
-                  control={control}
-                  name="toDate"
-                  render={({ field }) => (
-                    <DatePicker value={field.value} onChange={field.onChange} />
-                  )}
-                />
-              </div>
+              <Controller
+                control={control}
+                name="toDate"
+                render={({ field }) => (
+                  <DatePicker value={field.value} onChange={field.onChange} />
+                )}
+              />
             </div>
           </div>
 
@@ -357,6 +338,9 @@ export default function ExamMasterModal({
                 )}
               />
             </div>
+            {errors.isRegularExam && (
+              <p className="text-xs text-red-500 mt-1">{errors.isRegularExam.message}</p>
+            )}
           </div>
 
           {/* Is Published | Is Result Process Started */}
@@ -385,19 +369,17 @@ export default function ExamMasterModal({
 
           {/* Notification Published On | Notification File */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Notification Published On</label>
-              <div className="mt-1">
-                <Controller
-                  control={control}
-                  name="notificationPublishedOn"
-                  render={({ field }) => (
-                    <DatePicker value={field.value} onChange={field.onChange} />
-                  )}
-                />
-              </div>
+              <Controller
+                control={control}
+                name="notificationPublishedOn"
+                render={({ field }) => (
+                  <DatePicker value={field.value} onChange={field.onChange} />
+                )}
+              />
             </div>
-            <div>
+            <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Notification File</label>
               <FileInput
                 file={notificationFile}
@@ -409,19 +391,17 @@ export default function ExamMasterModal({
 
           {/* Fee Notification Published On | Fee Notification File */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Fee Notification Published On</label>
-              <div className="mt-1">
-                <Controller
-                  control={control}
-                  name="feeNotificationPublishedOn"
-                  render={({ field }) => (
-                    <DatePicker value={field.value} onChange={field.onChange} />
-                  )}
-                />
-              </div>
+              <Controller
+                control={control}
+                name="feeNotificationPublishedOn"
+                render={({ field }) => (
+                  <DatePicker value={field.value} onChange={field.onChange} />
+                )}
+              />
             </div>
-            <div>
+            <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Fee Notification File</label>
               <FileInput
                 file={feeNotificationFile}
@@ -444,11 +424,11 @@ export default function ExamMasterModal({
               )}
             />
             {!isActive && (
-              <div>
+              <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Reason</label>
                 <input
                   {...register('reason')}
-                  className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
             )}

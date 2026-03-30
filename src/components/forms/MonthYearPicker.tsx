@@ -12,10 +12,18 @@ const MONTHS = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ]
 
+/**
+ * Month/year picker that lets the user select a month within any year.
+ * Always sets the day component to 1. Returns a `Date | null` via `onChange`.
+ */
 interface MonthYearPickerProps {
+  /** Currently selected month/year, or null if nothing selected */
   value: Date | null
+  /** Callback fired when the user selects a month */
   onChange: (date: Date | null) => void
+  /** Placeholder text shown when no value is selected */
   placeholder?: string
+  /** Disables the trigger button */
   disabled?: boolean
 }
 

@@ -33,7 +33,7 @@ export function Topbar() {
     ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase()
     : '?'
 
-  const avatarStyle = roleAvatarStyle[user?.userRole ?? ''] ?? 'bg-teal-100 text-teal-700'
+  const avatarStyle = roleAvatarStyle[user?.userRole ?? ''] ?? 'bg-indigo-100 text-indigo-700'
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -66,7 +66,7 @@ export function Topbar() {
           className={cn(
             'h-9 w-full rounded-lg border border-slate-200 bg-slate-50',
             'pl-9 pr-4 text-sm text-slate-700 placeholder:text-slate-400',
-            'focus:border-teal-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-400/20',
+            'focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400/20',
             'transition-colors duration-150'
           )}
         />
@@ -116,7 +116,7 @@ export function Topbar() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+              className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
               aria-label="User menu"
             >
               {/* Name + role stacked */}

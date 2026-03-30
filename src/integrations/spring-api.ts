@@ -1,6 +1,7 @@
 // SERVER ONLY — never import this in client components
 import type { UserDTO } from '@/types/user'
 import type { ApiResponse } from '@/types/api'
+import { AUTH_API } from '@/config/constants/api'
 
 /**
  * Calls Spring Boot login endpoint, returns JWT string on success.
@@ -10,7 +11,7 @@ export async function springLogin(
   usernameOrEmail: string,
   password: string,
 ): Promise<string> {
-  const url = `${process.env.SPRING_API_URL}/api/auth/login`
+  const url = `${process.env.SPRING_API_URL}/${AUTH_API.LOGIN}`
 
   let res: Response
   try {
@@ -46,7 +47,7 @@ export async function springLogin(
  * Throws a generic error on failure — never exposes backend details.
  */
 export async function springGetUserDetails(jwt: string): Promise<UserDTO> {
-  const url = `${process.env.SPRING_API_URL}/api/authorization?isMobile=false`
+  const url = `${process.env.SPRING_API_URL}/${AUTH_API.AUTHORIZATION}?isMobile=false`
 
   let res: Response
   try {

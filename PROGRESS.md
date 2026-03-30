@@ -5,6 +5,220 @@
 
 ---
 
+## Phase 6 — QueryDSL Field Audit vs Angular Source (2026-03-29)
+
+Cross-checked all service `buildQuery` calls against the Angular `CrudService` and component source code to find field names, relationship paths, and sort fields that diverged from the original. Four bugs fixed.
+
+### Fixes
+
+| Service | Issue | Angular source | Fix applied |
+|---|---|---|---|
+| `exam-grade.service.ts` | Wrong flat field names in query | `Course.courseId`, `Regulation.regulationId`, `disabled` | Changed `courseId`→`Course.courseId`, `regulationId`→`Regulation.regulationId`, `isForDisabled`→`disabled` |
+| `exam-grade.service.ts` | Extra `universityId` filter Angular never sent | Not in Angular call | Removed from service signature + conditions |
+| `exam-max-marks.service.ts` | Wrong boolean field name | Angular uses `disabled` (entity field); `isForDisabled` is the form field only | Changed `isForDisabled`→`disabled` in `buildQuery` |
+| `invigilator-remuneration.service.ts` | Sort by PK instead of `createdDt` | `order(createdDt=desc)` | Changed `examInvgRemunerationId`→`createdDt` |
+| `revaluation-fee.service.ts` | Sort by PK instead of `createdDt` | `order(createdDt=desc)` | Changed `examFeeStructureId`→`createdDt` |
+
+### What was confirmed correct
+
+| Service | Angular | Next.js | Status |
+|---|---|---|---|
+| `exam-master.service.ts` | `Universities.universityId`, `Course.courseId`, `AcademicYear.academicYearId` | Same relationship paths | ✓ |
+| `exam-session.service.ts` | `order(createdDt=desc)`, `size=99999` | `order(createdDt=DESC)`, `size=99999` | ✓ |
+| `exam-max-marks.service.ts` | `Course.courseId`, `Regulation.regulationId` | Same | ✓ |
+| `exam-timetable.service.ts` | No `size` on custom `/examtimetabledetails` endpoint | No `size` (raw fetch, not `domainList`) | ✓ |
+| `seating-plan.service.ts` | All records, no exam filter | Filter by `ExamMaster.examId` + `isActive==true` | Intentional improvement (Angular loaded all records) |
+| `exam-fee-setup.service.ts` | Stored proc params (15 fields) | Same 15 fields | ✓ |
+| `crud.service.ts` `domainList` | `size=99999` on domain/list calls | `size=99999` always | ✓ |
+
+### Key Angular convention confirmed
+
+The Spring Boot entity `ExamGrade` / `ExamMarkssetup` uses **`disabled`** as the boolean field name (Java entity), while Angular's form binds it to **`isForDisabled`**. QueryDSL filters must use the entity field name (`disabled`), not the form field name. This distinction applies to any entity with a `disabled` / `isForDisabled` field mismatch.
+
+---
+
+## Phase 5 — Refactoring & Code Quality (2026-03-29)
+
+### New Shared Utilities
+
+#### `src/lib/utils.ts` — `distinct<T>()`
+Added the `distinct<T>(arr, keyFn)` deduplication helper. Was copy-pasted verbatim into 6 page files; now lives in one place and is imported everywhere.
+
+#### `src/hooks/useCollegeFilters.ts` — cascading filter hook
+New custom hook that encapsulates the University → Course → Regulation cascade used by all filter-bearing exam pages.
+
+```typescript
+const filters = useCollegeFilters({ withRegulations: true })
+// filters.universities, filters.courses, filters.regulations
+// filters.selectedUniversityId, filters.setUniversityId, ...
+```
+
+- Uses `getCollegeFilters(orgId, empId)` for University/Course data (shared `'college-filters'` TanStack Query cache key)
+- Loads regulations lazily via `getRegulations(courseId)` (keyed `['regulations', courseId]`)
+- Auto-selects first item in each list on load
+- `staleTime: 5 min` on both queries
+
+#### `src/components/forms/CollegeFilterPanel.tsx` — filter panel component
+Renders the standard University → Course → Regulation filter grid from `useCollegeFilters` state. Regulation and "For Disabled Students" sections are opt-in (only rendered when the caller passes the corresponding props). Accepts a `children` slot for page-specific extra filters.
+
+### Pages Refactored
+
+| Page | Change | Line delta |
+|---|---|---|
+| `grade-setup/page.tsx` | Replaced ~140 lines of filter state + cascade logic + panel JSX with `useCollegeFilters` + `CollegeFilterPanel` | 387 → 202 (−48%) |
+| `exam-max-marks-setup/page.tsx` | Same; also migrated regulation source from stored-proc bundle to `getRegulations(courseId)` | 394 → 226 (−43%) |
+| `exam-timetable/page.tsx` | Removed local `distinct` copy, imported from `lib/utils` | −10 lines |
+| `exam-fee-setup/page.tsx` | Same; also unified `'college-filters-fee'` cache key → `'college-filters'` | −10 lines |
+| `exam-master/page.tsx` | Removed local `distinct` copy | −10 lines |
+| `seating-plan-setup/page.tsx` | Removed local `distinct` copy | −10 lines |
+| `invigilator-remuneration/page.tsx` | Replaced raw `<button className="...">` with `<Button size="sm" variant>`; added `PlusIcon` to header button | |
+
+### Bug Fixes
+
+- **`saveMarksSetup` (`&&` → `||`)** in `exam-max-marks.service.ts` — was using logical AND so a response with `success: false` but `statusCode: 200` would silently pass as successful. Fixed to `||`.
+
+### Service Layer Cleanup
+
+- **`exam-fee-setup.service.ts` `getExamFilters()`** — replaced raw `fetch` + manual `URLSearchParams` + manual error handling with `getAllRecords('s_get_exam_filters_bycode', ...)` from `crud.service`. Removed local `SpringProcResponse<T>` interface that duplicated the standard response shape.
+- **`exam-timetable.service.ts`** — removed dead `getSubjectsForCourseYear()` (superseded by `getSubjectsForYear()` which accepts an optional `regulationId`).
+
+### Query Cache Unification
+
+`exam-fee-setup/page.tsx` used `'college-filters-fee'` as the TanStack Query key for `getCollegeFilters`. Changed to `'college-filters'` (matching the hook and all other pages) so the cache is shared — the same API call is not made twice when navigating between pages.
+
+### Grade Modal Query Invalidation Fix
+
+`GradeSetupModal.tsx` was calling `queryClient.invalidateQueries({ queryKey: ['exam-grades'] })` inside the mutation's `onSuccess`, then also calling the page's `onSuccess()` callback which already invalidates with the full parameterized key. Removed the redundant invalidation from the modal and the unused `useQueryClient` import.
+
+### Dead Code Removal
+
+| Location | Removed |
+|---|---|
+| `src/types/api.ts` | `PaginatedResponse<T>`, `SpringListResponse<T>`, `ApiError` — defined but never imported anywhere |
+| `src/config/constants/api.ts` `EXAM_API` | 11 `LIST_*` / `CREATE_*` / `UPDATE_*` constants for domain paths that `domainList`/`domainCreate` build internally; never referenced |
+| `src/config/constants/api.ts` `EXAM_MASTERS_API` | `EXAM_SESSION_ENTITY`, `EXAM_GRADE_ENTITY` (services hardcode the strings directly), `GET_EXAM_FILTERS_BY_CODE` (service now calls `getAllRecords` with the proc name directly) |
+
+### Service Type Safety
+
+Removed `| Record<string, unknown>` union type from all create/update service functions. The union defeated TypeScript inference at every call site — callers would have to check which branch they're on even though only one type is ever passed.
+
+| Service | Functions fixed |
+|---|---|
+| `invigilator-remuneration.service.ts` | `createInvigilatorRemuneration`, `updateInvigilatorRemuneration` |
+| `revaluation-fee.service.ts` | `createRevaluationFee`, `updateRevaluationFee` |
+
+Fixed type narrowing in `exam-max-marks.service.ts` `getMarksSetupFilters()`:
+- Before: `arr[0] as unknown as Record<string, unknown>` (double cast, unsafe)
+- After: `arr[0] as { flag?: string; clg_filters_regulation?: string }` (targeted shape, no unsafe double cast)
+
+### BFF Proxy Audit (2026-03-29)
+
+Full audit of `src/app/api/proxy/[...path]/route.ts`, `src/app/api/auth/`, `src/lib/session.ts`, and `src/lib/errors.ts`.
+
+**Verdict: Production-ready. No critical issues.**
+
+What was confirmed correct:
+- JWT never exposed to browser (Iron Session HTTP-only cookie)
+- Session validated on every proxy request; returns 401 if missing
+- Spring Boot 401 destroys session (lifecycle sync)
+- Multipart `Content-Type` boundary preserved for file uploads
+- Error messages extracted correctly from Spring Boot envelope
+- Rate limiting on login (10 req/min per IP)
+
+Known limitations (non-blocking):
+- Proxy always parses response as JSON — binary file download endpoints would fail (no such endpoints currently)
+- No HTTP `Cache-Control` headers on reference data (TanStack Query `staleTime` handles client-side deduplication adequately)
+- Session age check exists on `/api/auth/me` but not on the proxy route (Iron Session TTL is sufficient)
+
+Created `src/docs/architecture/data-fetching.md` — documents when to use `domainList` vs `getAllRecords` vs raw `fetch`, TanStack Query conventions (query key structure, staleTime guidelines, cache invalidation), and the full security model.
+
+---
+
+---
+
+## Phase 4 — Angular Parity Audit & Data-Loading Fixes (2026-03-29)
+
+### Root Cause Fixed — All Grid Data Was Empty
+- **`crud.service.ts` `domainList()`** — Spring Boot `domain/list` wraps results in `ApiResponse<PageResponse>` where `data.resultList` is the actual array. The function was reading `body.data` (the PageResponse object) instead of `body.data.resultList`. Also added `size=99999` to URL so all records are returned (Spring Boot defaults to 100). This single fix restores data display across every page that uses `domainList`.
+- **`exam-master.service.ts` `fetchExamsByUniversity` / `fetchExamsByCollege` / `getExamMasterById`** — a previous session accidentally changed these from `json.data?.resultList` (correct) to `json.data` (wrong). Refactored all three to delegate to the now-correct `domainList` instead of raw fetch.
+
+### Exam Timetable — Correct List Endpoint
+- **`exam-timetable.service.ts` `getExamTimetables()`** — was calling `domain/list/ExamTimetable` (generic CRUD). Spring Boot has a dedicated denormalised endpoint `GET /examtimetabledetails?examId=X&courseYearId=Y&courseId=Z` (controller: `ExamTimetableController`) that returns `ExamTimetableDetailDTO` with all joined fields (groupCode, regulationCode, subjectCode, examSessionName, etc.). Fixed to call the correct endpoint.
+
+### Exam Sessions — Missing Fields and Columns
+- **`ExamSessionModal.tsx`** — added `universityId` (required) and `examsessioninCatId` (optional) fields; modal now fetches `s_get_collegewisedetails_bycode` with `in_flag: 'clg_filters,gm_codes'` and `in_gm_codes: 'EXMSESN'` to populate University and Session-In dropdowns; both fields included in create/update payload
+- **`exam-session/page.tsx`** — added `universityCode` and `examsessioninCatCode` ("Session In") columns to match Angular `displayedColumns`
+- **`exam-session.service.ts`** — fixed sort order: `examSessionName ASC` → `createdDt DESC` to match Angular
+
+### Grade Setup — Filter Panel and Payload
+- **`grade-setup/page.tsx`** — added cascading University → Course → Regulation filter panel (same pattern as exam-max-marks-setup); grades query only fires when courseId + regulationId are both selected; passes filter values to `getExamGrades()`
+- **`GradeSetupModal.tsx`** — added `context` prop `{ universityId, courseId, regulationId, isForDisabled }`; these FK fields are merged into create/update payload (Angular injects them at save time)
+- **`exam-grade.ts` types** — added optional FK fields to `ExamGradeFormValues`
+- Column order fixed: Grade Code now before Grade Name (matches Angular)
+
+### Exam Max Marks — Missing Columns and Fields
+- **`exam-max-marks-setup/page.tsx`** — removed `isForDisabled` column (filter param, not a display column); added `finalIntPercentage` and `finalExtPercentage` columns after `externalPassPercentage`
+- **`ExamMaxMarksModal.tsx`** — added `finalIntPercentage` and `finalExtPercentage` fields to Zod schema, form UI, and save payload; context FK fields (`courseId`, `regulationId`, `universityId`, `isForDisabled`) already present
+
+### Angular Parity Audit — Pages Needing Deeper Redesign
+Full audit performed comparing each Angular component against its Next.js counterpart. The following pages have correctly-functioning basic CRUD but are missing complex Angular features that require dedicated per-page work:
+
+| Page | Missing |
+|---|---|
+| **Exam Timetable** | Calendar grid view (primary Angular UI), multi-step batch-add flow (session→regulation→subjects→courseGroups), conflict-check dialog |
+| **Exam Fee Setup** | Course-group/year applicability matrix, additional fees sub-table, late fee fines sub-table; `POST /examfeestructure` batch endpoint needed |
+| **Revaluation Fee Setup** | Subject1–Subject7 per-subject fee fields, course-group/year matrix, additional fee and fine sub-tables; no filter panel (shows all records) |
+| **Seating Plan** | College + Exam Timetable filter levels, seating grid visualization, student auto-assignment, all print features |
+
+---
+
+## Phase 3 — Examination Module Bug Fixes (2026-03-29)
+
+### Fixed
+- `crud.service.ts` `domainList()` — Spring Boot returns a bare object (not array) when exactly one record matches. Added normalisation: `null → []`, `object → [object]`, `array → array`. This was the root cause of all "`.map` is not a function" runtime errors across the entire app.
+- `exam-master.service.ts` `fetchExamsByUniversity` / `fetchExamsByCollege` / `getExamMasterById` — same single-object guard applied to functions that bypass `domainList` with raw `fetch`
+- `exam-max-marks.service.ts` `fetchMarksSetup` — wrong QueryDSL field name `disabled` → `isForDisabled`
+- `exam-max-marks.service.ts` `getMarksSetupFilters` — replaced raw `fetch` block with `getAllRecords` helper (removes duplicate error handling and stale `SpringListResponse` type)
+- `ExamFeeSetupModal.tsx` payload — was sending `examMaster: { examId }` (nested) instead of flat `examId` that Spring Boot entity expects
+- `seating-plan.service.ts` `buildSeatingPayload` — was sending PascalCase nested FKs (`ExamMaster: { examId }`, `ExamTimetable: { examTimetableId }`, `Room: { roomId }`); fixed to flat fields as Angular source confirms
+- `SeatingPlanModal.tsx` — added `timetableSlots = []` default prop guard
+- `InvigilatorRemunerationModal.tsx` — added `colleges = []` default prop guard
+- `RevaluationFeeModal.tsx` — added `exams = []` default prop guard
+- `invigilator-remuneration/page.tsx` — replaced fragile `onCellClicked` + `target.textContent` detection with proper `onClick` handlers inside cell renderer
+- `revaluation-fee-setup/page.tsx` — same action button fix
+- `ExamMasterModal.tsx` — added Zod `.refine()` validation: at least one of Regular/Supply/Internal exam type must be selected
+- `exam-fee-setup/page.tsx` — college dropdown in college-specific mode (mode=2) was empty because `univ_exam_filters` stored proc doesn't include `fk_college_id`; now fetches college data via separate `getCollegeFilters` call using `s_get_collegewisedetails_bycode`
+- Navigation sidebar — doubled URL paths fixed via `normalizeHref()` deduplication in `navigation.ts`
+- Navigation sidebar — active state highlight now works for parent collapsible items via `hasActiveDescendant()` recursive check in `NavItem.tsx`
+- Navigation sidebar — active link now gets `aria-current="page"`; `Sidebar.tsx` uses `scrollIntoView({ block: 'nearest' })` on route change so the active item is always visible without manual scrolling
+- `not-found.tsx` — replaced full-page redirect with slide-up toast notification that auto-navigates back after 3s
+- `src/app/(protected)/not-found.tsx` — 404 inside protected routes now renders **within** the `(protected)` layout so the sidebar stays intact; root `src/app/not-found.tsx` simplified to a silent redirect to `/dashboard` (no sidebar available at root level anyway)
+
+---
+
+## Phase 2 — Foundation & Component System (2026-03-29)
+
+### Added
+- `src/config/constants/` — api.ts, app.ts, ui.ts, proc.ts, index.ts — all endpoint paths and app constants
+- `src/services/exam-master.service.ts` — service layer for exam master pages
+- `src/lib/errors.ts` — AppError class, parseApiError, isAppError, getErrorMessage
+- `src/types/common.ts` — SelectOption, DateRange, FilterState, PaginationState
+- `src/components/feedback/` — ConfirmDialog, ErrorBoundary, EmptyState
+- `src/components/data-display/` — StatusBadge, StatCard
+- `src/components/forms/SearchInput` and `FilterBar`
+- `src/components/shared/RoleGuard` and `PageContainer`
+- `src/docs/` — architecture/, flows/, components/ documentation
+- DataTable enhanced: pagination, CSV export, search input
+- Dashboard: StatCard refactor, DEBUG panel removed
+
+### Changed
+- All exam master pages: inline fetches replaced with service calls
+- SessionUser type: added organizationId field
+- Dashboard: removed [DEBUG] amber panel
+- API proxy: improved error response shaping
+
+---
+
 ## Table of Contents
 
 1. [Tech Stack](#tech-stack)
@@ -347,6 +561,8 @@ Proxy route handler
 ## What Is Done
 
 ### Infrastructure
+- [x] `src/services/crud.service.ts` — generic domain CRUD: `buildQuery`, `domainList`, `domainGet`, `domainCreate`, `domainUpdate`, `domainSoftDelete`, `domainDelete`, `getAllRecords`
+- [x] `exam-master.service.ts` refactored to use crud.service.ts internally (all inline `fetch()` calls replaced)
 - [x] Iron Session BFF auth — JWT stored server-side only, never exposed to browser
 - [x] `/api/proxy/[...path]` — catch-all proxy to Spring Boot with JWT injection
 - [x] Proxy multipart fix — file uploads forwarded correctly
@@ -415,6 +631,22 @@ Proxy route handler
 - [x] `MonthYearPicker` — custom month/year grid
 - [x] `FileInput` — styled file picker with filename display and clear button
 
+### Navigation UX
+- [x] Sidebar active link gets `aria-current="page"` — used for scroll targeting and accessibility
+- [x] Sidebar auto-scrolls active nav item into view on every route change (`scrollIntoView({ block: 'nearest', behavior: 'smooth' })`)
+- [x] 404 inside `(protected)` routes renders toast with sidebar intact — `src/app/(protected)/not-found.tsx`
+- [x] Root 404 (`src/app/not-found.tsx`) silently redirects to `/dashboard`
+
+### Admin Exam Masters — Sub-pages
+- [x] `/exam-session` — ExamSession entity, time slot management (start/end time, HH:mm:ss stored, 12-hr display)
+- [x] `/grade-setup` — ExamGrade entity, grade/GPA thresholds with score and points range
+- [x] `/exam-max-marks-setup` — ExamMarkssetup entity (lowercase 's'), marks config with University → Course → Regulation → isForDisabled filter cascade
+- [x] `/exam-fee-setup` — ExamFeeStructure entity, exam fee configuration with University/College mode and exam filter cascade
+- [x] `/seating-plan-setup` — ExamRoomAllotment entity, room allocation per timetable slot
+- [x] `/exam-timetable` — ExamTimetable entity, subject scheduling per date/session
+- [x] `/invigilator-remuneration` — ExamInvigilationRemuneration entity, invigilator pay rates by designation
+- [x] `/revaluation-fee-setup` — ExamFeeStructure entity (revaluation context), re-check fee collection windows
+
 ---
 
 ## What Is NOT Done
@@ -425,6 +657,9 @@ Proxy route handler
 
 ### Navigation
 - [ ] Sidebar nav items are built from `modules[]`/`pages[]` returned by Spring Boot but the actual URLs may not match Next.js routes yet — routing works only for pages that have been built
+- [x] Active nav item highlighted and scrolled into view automatically
+- [x] Doubled URL paths fixed (`normalizeHref()` in `navigation.ts`)
+- [x] 404 toast shows with sidebar intact; auto-navigates back after 3s
 - [ ] Help Center button (static placeholder, no page behind it)
 - [ ] Notification bell (static placeholder — no API, no page)
 - [ ] Apps grid icon (static placeholder)
@@ -433,7 +668,7 @@ Proxy route handler
 
 ### Session security
 - [ ] The `[DEBUG] SessionUser` panel on the dashboard should be removed before production
-- [ ] `organizationId` is not on `SessionUser` type — used as `(user as any)?.organizationId ?? 0` in the exam master page. Needs proper type addition if required.
+- [ ] `organizationId` is used as `(user as any)?.organizationId ?? 0` in exam master / exam max marks pages. If it is available from Spring Boot's UserDTO, add it to `SessionUser` in `src/types/user.ts` and the session-building logic in `/api/auth/login/route.ts`.
 
 ### Exam Master — Missing features
 - [ ] Quick search / filter text box above the AG Grid (DataTable accepts `quickFilterText` prop but no UI input is wired to it on the exam master page)
@@ -446,15 +681,8 @@ Proxy route handler
 - [ ] `batchId` field exists in the Angular form but is commented out — not included here either (matches Angular's current state)
 
 ### Other examination pages (not started)
-All other routes under `admin-examination-management/admin-exam-masters/` are not built:
-- [ ] `/exam-max-marks-setup`
-- [ ] `/grade-setup`
-- [ ] `/exam-session`
-- [ ] `/exam-fee-setup`
-- [ ] `/seating-plan-setup`
-- [ ] `/exam-timetable`
-- [ ] `/invigilator-remuneration`
-- [ ] `/revaluation-fee-setup`
+All other routes under `admin-examination-management/admin-exam-masters/` that remain:
+_(All 8 admin-exam-master sub-pages have been built — see below)_
 
 All other module areas from the Angular app are not started:
 - [ ] Student management
