@@ -1,14 +1,25 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Image from 'next/image'
-import { HelpCircle, LogOut, PanelLeftClose, PanelLeftOpen, Pin, PinOff } from 'lucide-react'
+import {
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  Search,
+  X,
+} from 'lucide-react'
 import { NavItem } from '@/components/layout/NavItem'
+import type { NavItem as NavItemType } from '@/types/navigation'
 import { useSessionContext } from '@/context/SessionContext'
 import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
 import smartLogo from '@/assets/images/smart-campus-logo.png'
+import { NEXT_API } from '@/config/constants/api'
+import { IS_DEBUG_MODE, DebugTrigger, useDebugStore } from '@/debug'
 
 export function Sidebar() {
   const router = useRouter()
@@ -19,21 +30,81 @@ export function Sidebar() {
     isSidebarOpen,
     isSidebarCollapsed,
     isSidebarHovered,
-    autoCollapse,
+    sidebarPosition,
     toggleSidebarCollapsed,
-    toggleAutoCollapse,
     setSidebarHovered,
   } = useNavigationStore()
+
+  // Debug store — only subscribed to when IS_DEBUG_MODE is true
+  const debugSettings = useDebugStore((s) => s.settings)
 
   const navRef = useRef<HTMLElement>(null)
   const savedScrollRef = useRef(0)
   const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout>>()
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
 
   // Same mounted guard as AppShell to stay in sync and avoid mismatches
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
   const isExpanded = !mounted ? true : !isSidebarCollapsed || isSidebarHovered
+
+  // ── Nav search filter ────────────────────────────────────────────────────
+  function filterBySearch(items: NavItemType[], term: string): NavItemType[] {
+    const lower = term.toLowerCase()
+    return items.reduce<NavItemType[]>((acc, item) => {
+      if (item.label.toLowerCase().includes(lower)) {
+        acc.push(item)
+      } else if (item.children?.length) {
+        const matched = filterBySearch(item.children, term)
+        if (matched.length) acc.push({ ...item, children: matched })
+      }
+      return acc
+    }, [])
+  }
+
+  // ── Debug visibility filter ──────────────────────────────────────────────
+  // Recursively removes items whose IDs are in the debug hidden set.
+  // A hidden parent implicitly hides all its children.
+  function filterByDebug(items: NavItemType[], hiddenSet: Set<string>): NavItemType[] {
+    return items.reduce<NavItemType[]>((acc, item) => {
+      if (hiddenSet.has(item.id)) return acc
+      acc.push(
+        item.children?.length
+          ? { ...item, children: filterByDebug(item.children, hiddenSet) }
+          : item,
+      )
+      return acc
+    }, [])
+  }
+
+  const displayedItems = useMemo(() => {
+    let items = navItems.slice().sort((a, b) => a.sortOrder - b.sortOrder)
+    if (searchTerm.trim()) items = filterBySearch(items, searchTerm)
+    if (IS_DEBUG_MODE && debugSettings.nav.hiddenIds.length > 0) {
+      items = filterByDebug(items, new Set(debugSettings.nav.hiddenIds))
+    }
+    return items
+  }, [navItems, searchTerm, debugSettings.nav.hiddenIds])
+
+  // Scroll nav to top whenever search results change
+  useEffect(() => {
+    if (searchTerm && navRef.current) {
+      navRef.current.scrollTop = 0
+    }
+  }, [searchTerm])
+
+  // Focus input when search opens
+  useEffect(() => {
+    if (searchOpen) {
+      requestAnimationFrame(() => searchInputRef.current?.focus())
+    } else {
+      setSearchTerm('')
+    }
+  }, [searchOpen])
 
   // Preserve nav scroll position across collapse/expand cycles
   useEffect(() => {
@@ -80,15 +151,18 @@ export function Sidebar() {
   }
 
   async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
+    await fetch(NEXT_API.AUTH.LOGOUT, { method: 'POST' })
     router.push('/login')
   }
+
+  const isRightPositioned = sidebarPosition === 'right'
 
   return (
     <aside
       className={cn(
         'flex h-full w-full flex-col bg-slate-900',
         isSidebarOpen ? '' : 'overflow-hidden md:flex',
+        isRightPositioned && 'order-last',
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -111,15 +185,40 @@ export function Sidebar() {
         </div>
         {isExpanded && (
           <div className="min-w-0">
-            <p className="truncate text-[13px] font-bold uppercase tracking-wide text-white leading-none">
+            <p className="text-[13px] font-bold uppercase tracking-wide text-white leading-tight">
               {user?.collegeName ?? 'College ERP'}
-            </p>
-            <p className="mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500 leading-none">
-              Institutional Intelligence
             </p>
           </div>
         )}
       </div>
+
+      {/* ── Search input ─────────────────────────────────────────────── */}
+      {isExpanded && searchOpen && (
+        <div className="shrink-0 px-3 pb-2">
+          <div className="relative flex items-center">
+            <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
+              placeholder="Search menu…"
+              className="h-8 w-full rounded-md bg-slate-800 pl-8 pr-8 text-[13px] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-600"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2 text-slate-400 hover:text-white"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Navigation ───────────────────────────────────────────────── */}
       <nav
@@ -132,66 +231,70 @@ export function Sidebar() {
         }}
       >
         <ul className="space-y-0.5">
-          {navItems
-            .slice()
-            .sort((a, b) => a.sortOrder - b.sortOrder)
-            .map((item) => (
-              <li key={item.id}>
-                <NavItem item={item} depth={0} />
-              </li>
-            ))}
+          {displayedItems.map((item) => (
+            <li key={item.id}>
+              <NavItem item={item} depth={0} />
+            </li>
+          ))}
         </ul>
+        {searchTerm && displayedItems.length === 0 && (
+          <p className="px-4 py-6 text-center text-[12px] text-slate-500">No results</p>
+        )}
       </nav>
 
-      {/* ── Footer — compact icon row ─────────────────────────────────── */}
+      {/* ── Footer ───────────────────────────────────────────────────── */}
       <div className="shrink-0 px-2 py-2">
-        <div className="flex items-center justify-around">
+        <div className={cn('flex items-center gap-1', isExpanded ? 'justify-around' : 'justify-center')}>
 
+          {/* Collapse / expand toggle */}
           <button
             type="button"
             onClick={toggleSidebarCollapsed}
             title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors duration-150"
           >
-            {isSidebarCollapsed
-              ? <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
-              : <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
-            }
-          </button>
-
-          <button
-            type="button"
-            onClick={toggleAutoCollapse}
-            title={autoCollapse ? 'Auto-collapse on — click to pin' : 'Sidebar pinned — click to enable auto-collapse'}
-            className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-md transition-colors duration-150',
-              autoCollapse
-                ? 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                : 'text-indigo-400 hover:bg-slate-800 hover:text-indigo-300',
+            {isRightPositioned ? (
+              isSidebarCollapsed
+                ? <PanelRightOpen className="h-4 w-4" aria-hidden="true" />
+                : <PanelRightClose className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              isSidebarCollapsed
+                ? <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+                : <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
             )}
-          >
-            {autoCollapse
-              ? <PinOff className="h-4 w-4" aria-hidden="true" />
-              : <Pin className="h-4 w-4" aria-hidden="true" />
-            }
           </button>
 
-          <button
-            type="button"
-            title="Help Center"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors duration-150"
-          >
-            <HelpCircle className="h-4 w-4" aria-hidden="true" />
-          </button>
+          {isExpanded && (
+            <>
+              {/* Nav search toggle */}
+              <button
+                type="button"
+                onClick={() => setSearchOpen((v) => !v)}
+                title={searchOpen ? 'Close search' : 'Search menu'}
+                className={cn(
+                  'flex h-8 w-8 items-center justify-center rounded-md transition-colors duration-150',
+                  searchOpen
+                    ? 'bg-slate-700 text-white'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white',
+                )}
+              >
+                <Search className="h-4 w-4" aria-hidden="true" />
+              </button>
 
-          <button
-            type="button"
-            onClick={handleLogout}
-            title="Logout"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-red-900/40 hover:text-red-400 transition-colors duration-150"
-          >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-          </button>
+              {/* Debug trigger — profile avatar, only in debug mode */}
+              {IS_DEBUG_MODE && <DebugTrigger />}
+
+              {/* Logout */}
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Logout"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-red-900/40 hover:text-red-400 transition-colors duration-150"
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </>
+          )}
 
         </div>
       </div>

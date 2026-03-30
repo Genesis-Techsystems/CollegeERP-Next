@@ -3,100 +3,585 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
+  // Dashboard / Core
   LayoutDashboard,
+  Home,
+  AppWindow,
+  LayoutGrid,
+  Layers,
+  // People / HR
   Users,
+  User,
+  UserCog,
+  UserCheck,
+  UserPlus,
+  UsersRound,
+  Contact,
+  BadgeCheck,
+  // Academics
   GraduationCap,
   BookOpen,
-  Settings2,
-  BarChart3,
-  CalendarClock,
-  Receipt,
-  ClipboardCheck,
-  Home,
-  ChevronRight,
-  UserCog,
-  FileCheck2,
-  TrendingUp,
-  Megaphone,
-  Library,
-  Bus,
-  Building2,
-  SlidersHorizontal,
-  Bell,
   BookMarked,
-  CalendarCheck,
-  CreditCard,
-  ScanFace,
-  MapPin,
-  BedDouble,
+  BookCopy,
+  Library,
   LibraryBig,
+  School,
+  Notebook,
+  NotebookPen,
+  FlaskConical,
+  Microscope,
+  // Exams / Assessment
+  ClipboardCheck,
+  ClipboardList,
+  FileCheck2,
+  FileText,
+  FileBadge,
+  FilePen,
+  FileSearch,
+  // Finance / Fees
+  Receipt,
+  CreditCard,
+  Banknote,
+  Wallet,
+  DollarSign,
+  PiggyBank,
+  Landmark,
+  // Attendance / Biometric
+  ScanFace,
+  Fingerprint,
+  CheckSquare,
+  UserRoundCheck,
+  // Timetable / Calendar
+  CalendarClock,
+  CalendarCheck,
+  CalendarDays,
+  CalendarRange,
+  Calendar,
+  Clock,
+  // Reports / Analytics
+  BarChart3,
+  BarChart2,
+  TrendingUp,
+  PieChart,
+  LineChart,
+  // Settings / Config
+  Settings,
+  Settings2,
+  SlidersHorizontal,
+  Wrench,
+  // Communication
+  Megaphone,
+  Bell,
+  BellRing,
+  Mail,
+  MessageSquare,
+  MessageCircle,
+  Send,
+  // Transport / Location
+  Bus,
+  Car,
+  MapPin,
+  Map,
+  Navigation,
+  // Hostel / Buildings
+  Building2,
+  Building,
+  BedDouble,
+  Hotel,
+  // Library / Files
+  FileUp,
+  FolderOpen,
+  Folder,
+  Download,
+  Upload,
+  Printer,
+  // Admin / Security
+  ShieldCheck,
+  Shield,
+  Lock,
+  Key,
+  // Actions / Misc
+  ChevronRight,
+  ChevronDown,
+  ArrowRight,
+  Star,
+  Award,
+  Trophy,
+  Clipboard,
+  List,
+  ListChecks,
+  Grid3X3,
+  Search,
+  Filter,
+  RefreshCw,
+  Edit,
+  Trash2,
+  Plus,
+  Minus,
+  Check,
+  X,
+  Info,
+  AlertCircle,
+  HelpCircle,
+  Tag,
+  Tags,
+  Hash,
+  Link as LinkIcon,
+  ExternalLink,
+  Image,
+  Video,
+  Music,
+  Globe,
+  Wifi,
+  Cpu,
+  Database,
+  Server,
+  Monitor,
+  Smartphone,
+  Tablet,
+  Laptop,
+  Code,
+  Terminal,
+  GitBranch,
+  Package,
+  Box,
+  Archive,
+  Zap,
+  Activity,
+  Heart,
+  Smile,
+  Sun,
+  Moon,
+  Cloud,
+  Wind,
 } from 'lucide-react'
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible'
 import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
 import type { NavItem as NavItemType } from '@/types/navigation'
 
+// ---------------------------------------------------------------------------
+// Icon map: Material Icons (single-word) → Lucide React components
+// Keys match Angular's mat-icon ligature names exactly (snake_case).
+// ---------------------------------------------------------------------------
+
 const ICON_MAP: Record<string, React.ElementType> = {
-  /* Core pages */
-  dashboard:       LayoutDashboard,
-  home:            Home,
+  // ── Dashboard / Core ──────────────────────────────────────────────────────
+  dashboard:              LayoutDashboard,
+  home:                   Home,
+  apps:                   AppWindow,
+  grid_view:              LayoutGrid,
+  widgets:                LayoutGrid,
+  layers:                 Layers,
+  menu:                   List,
+  view_module:            LayoutGrid,
+  view_list:              List,
+  view_quilt:             LayoutGrid,
 
-  /* People */
-  people:          Users,
-  person:          Users,
-  group:           Users,
-  staff:           UserCog,
-  students:        GraduationCap,
+  // ── People / HR ───────────────────────────────────────────────────────────
+  people:                 Users,
+  group:                  UsersRound,
+  groups:                 UsersRound,
+  person:                 User,
+  person_add:             UserPlus,
+  person_outline:         User,
+  contacts:               Contact,
+  account_circle:         User,
+  supervisor_account:     UserCog,
+  manage_accounts:        UserCog,
+  how_to_reg:             UserCheck,
+  badge:                  BadgeCheck,
+  assignment_ind:         UserCheck,
+  face:                   User,
+  emoji_people:           User,
 
-  /* Academics */
-  school:          GraduationCap,
-  book:            BookOpen,
-  library_books:   LibraryBig,
-  library:         Library,
-  book_marked:     BookMarked,
-  academics:       BookOpen,
+  // ── Academics ─────────────────────────────────────────────────────────────
+  school:                 GraduationCap,
+  book:                   BookOpen,
+  menu_book:              BookOpen,
+  book_online:            BookOpen,
+  library_books:          LibraryBig,
+  local_library:          Library,
+  book_marked:            BookMarked,
+  auto_stories:           BookCopy,
+  class:                  Notebook,
+  subject:                Notebook,
+  edit_note:              NotebookPen,
+  note:                   Notebook,
+  notes:                  NotebookPen,
+  science:                FlaskConical,
+  biotech:                Microscope,
+  calculate:              Cpu,
+  functions:              Cpu,
+  psychology:             Microscope,
+  history_edu:            GraduationCap,
+  model_training:         GraduationCap,
+  cast_for_education:     GraduationCap,
+  import_contacts:        BookOpen,
+  collections_bookmark:   BookMarked,
 
-  /* Exams & Assessments */
-  assignment:      ClipboardCheck,
-  assessment:      FileCheck2,
-  exam:            FileCheck2,
+  // ── Exams / Assessment ────────────────────────────────────────────────────
+  assignment:             ClipboardCheck,
+  assignment_turned_in:   FileCheck2,
+  assignment_return:      FileText,
+  assessment:             FileBadge,
+  fact_check:             ListChecks,
+  quiz:                   FilePen,
+  rule:                   ListChecks,
+  task:                   ClipboardList,
+  task_alt:               ClipboardCheck,
+  checklist:              ListChecks,
+  grading:                FilePen,
+  rate_review:            FilePen,
+  text_snippet:           FileText,
+  description:            FileText,
+  article:                FileText,
+  content_paste:          Clipboard,
+  document_scanner:       FileSearch,
+  find_in_page:           FileSearch,
+  post_add:               FileText,
+  summarize:              FileText,
+  score:                  Trophy,
+  grade:                  Star,
+  stars:                  Star,
+  emoji_events:           Trophy,
+  military_tech:          Award,
+  workspace_premium:      Award,
+  verified:               BadgeCheck,
 
-  /* Finance */
-  attach_money:    CreditCard,
-  payment:         Receipt,
-  fee:             Receipt,
+  // ── Finance / Fees ────────────────────────────────────────────────────────
+  attach_money:           CreditCard,
+  money:                  Banknote,
+  payment:                Receipt,
+  receipt:                Receipt,
+  receipt_long:           Receipt,
+  credit_card:            CreditCard,
+  account_balance:        Landmark,
+  account_balance_wallet: Wallet,
+  savings:                PiggyBank,
+  monetization_on:        DollarSign,
+  currency_rupee:         DollarSign,
+  currency_exchange:      DollarSign,
+  local_atm:              Banknote,
+  price_check:            CheckSquare,
+  sell:                   Tag,
+  price_change:           TrendingUp,
+  paid:                   CreditCard,
+  request_quote:          FileText,
+  point_of_sale:          Landmark,
 
-  /* Attendance */
-  attendance:      ScanFace,
-  calendar_today:  CalendarCheck,
+  // ── Attendance / Biometric ────────────────────────────────────────────────
+  attendance:             ScanFace,
+  fingerprint:            Fingerprint,
+  person_search:          ScanFace,
+  how_to_vote:            CheckSquare,
+  co_present:             UserRoundCheck,
+  present_to_all:         UserRoundCheck,
+  group_add:              UserPlus,
+  transfer_within_a_station: UserCheck,
+  directions_walk:        UserCheck,
 
-  /* Timetable / Schedule */
-  event:           CalendarClock,
-  timetable:       CalendarClock,
-  schedule:        CalendarClock,
+  // ── Timetable / Calendar / Schedule ──────────────────────────────────────
+  event:                  CalendarClock,
+  event_note:             CalendarDays,
+  event_available:        CalendarCheck,
+  today:                  CalendarDays,
+  calendar_today:         CalendarCheck,
+  calendar_month:         CalendarDays,
+  date_range:             CalendarRange,
+  schedule:               Clock,
+  alarm:                  Clock,
+  timer:                  Clock,
+  pending_actions:        Clock,
+  watch_later:            Clock,
+  history:                RefreshCw,
+  update:                 RefreshCw,
+  next_plan:              CalendarRange,
+  view_timeline:          CalendarRange,
 
-  /* Reports */
-  bar_chart:       BarChart3,
-  trending_up:     TrendingUp,
-  reports:         BarChart3,
+  // ── Reports / Analytics ───────────────────────────────────────────────────
+  bar_chart:              BarChart3,
+  bar_chart_4_bars:       BarChart2,
+  stacked_bar_chart:      BarChart3,
+  insert_chart:           BarChart3,
+  insert_chart_outlined:  BarChart3,
+  area_chart:             LineChart,
+  show_chart:             LineChart,
+  multiline_chart:        LineChart,
+  trending_up:            TrendingUp,
+  trending_down:          TrendingUp,
+  analytics:              PieChart,
+  donut_large:            PieChart,
+  pie_chart:              PieChart,
+  ssid_chart:             LineChart,
+  leaderboard:            BarChart3,
+  query_stats:            BarChart3,
+  data_usage:             PieChart,
+  table_chart:            Grid3X3,
+  grid_on:                Grid3X3,
+  pivot_table_chart:      Grid3X3,
 
-  /* Settings */
-  settings:        Settings2,
-  config:          SlidersHorizontal,
+  // ── Settings / Configuration ──────────────────────────────────────────────
+  settings:               Settings2,
+  settings_applications:  Settings,
+  settings_suggest:       Settings,
+  tune:                   SlidersHorizontal,
+  build:                  Wrench,
+  build_circle:           Wrench,
+  handyman:               Wrench,
+  admin_panel_settings:   ShieldCheck,
+  miscellaneous_services: Settings,
+  display_settings:       Settings,
+  manage_search:          Search,
+  rule_settings:          SlidersHorizontal,
+  format_list_bulleted:   List,
+  filter_list:            Filter,
+  category:               Tag,
 
-  /* Communication */
-  announcement:    Megaphone,
-  bell:            Bell,
+  // ── Communication ─────────────────────────────────────────────────────────
+  announcement:           Megaphone,
+  campaign:               Megaphone,
+  notifications:          Bell,
+  notifications_active:   BellRing,
+  notifications_none:     Bell,
+  add_alert:              BellRing,
+  email:                  Mail,
+  mail:                   Mail,
+  inbox:                  Mail,
+  mark_email_read:        Mail,
+  message:                MessageSquare,
+  sms:                    MessageSquare,
+  chat:                   MessageCircle,
+  chat_bubble:            MessageCircle,
+  question_answer:        MessageCircle,
+  forum:                  MessageCircle,
+  send:                   Send,
+  reply:                  Send,
+  share:                  ExternalLink,
 
-  /* Transport / Hostel */
-  transport:       Bus,
-  location:        MapPin,
-  hostel:          Building2,
-  bed:             BedDouble,
+  // ── Transport / Location ──────────────────────────────────────────────────
+  directions_bus:         Bus,
+  bus_alert:              Bus,
+  airport_shuttle:        Bus,
+  local_taxi:             Car,
+  drive_eta:              Car,
+  directions_car:         Car,
+  electric_car:           Car,
+  location_on:            MapPin,
+  location_city:          Building2,
+  map:                    Map,
+  navigation:             Navigation,
+  near_me:                Navigation,
+  place:                  MapPin,
+  room:                   MapPin,
+  my_location:            MapPin,
+  explore:                Globe,
+  route:                  Navigation,
+  alt_route:              Navigation,
+  roundabout_right:       Navigation,
+  traffic:                Navigation,
+
+  // ── Hostel / Buildings ────────────────────────────────────────────────────
+  hotel:                  BedDouble,
+  house:                  Home,
+  domain:                 Building2,
+  business:               Building,
+  apartment:              Building,
+  corporate_fare:         Building2,
+  foundation:             Building,
+  villa:                  Home,
+  night_shelter:          Hotel,
+  bungalow:               Home,
+  bedroom_parent:         BedDouble,
+  bedroom_child:          BedDouble,
+  king_bed:               BedDouble,
+  single_bed:             BedDouble,
+  meeting_room:           Building,
+  sensor_door:            Building,
+
+  // ── Library / Files / Documents ───────────────────────────────────────────
+  upload:                 Upload,
+  download:               Download,
+  file_upload:            FileUp,
+  cloud_upload:           Upload,
+  cloud_download:         Download,
+  folder:                 Folder,
+  folder_open:            FolderOpen,
+  folder_shared:          Folder,
+  insert_drive_file:      FileText,
+  file_copy:              BookCopy,
+  copy_all:               BookCopy,
+  print:                  Printer,
+  local_printshop:        Printer,
+  picture_as_pdf:         FileText,
+  image:                  Image,
+  photo:                  Image,
+  collections:            Image,
+  video_library:          Video,
+  music_note:             Music,
+  attachment:             LinkIcon,
+  link:                   LinkIcon,
+  open_in_new:            ExternalLink,
+
+  // ── Admin / Security / Access ─────────────────────────────────────────────
+  security:               Shield,
+  verified_user:          ShieldCheck,
+  gpp_good:               ShieldCheck,
+  lock:                   Lock,
+  lock_open:              Lock,
+  vpn_key:                Key,
+  key:                    Key,
+  password:               Key,
+  no_encryption:          Lock,
+  enhanced_encryption:    ShieldCheck,
+  privacy_tip:            ShieldCheck,
+
+  // ── IT / Tech ─────────────────────────────────────────────────────────────
+  computer:               Monitor,
+  laptop:                 Laptop,
+  phone_android:          Smartphone,
+  tablet:                 Tablet,
+  memory:                 Cpu,
+  developer_board:        Cpu,
+  storage:                Database,
+  dns:                    Server,
+  cloud:                  Cloud,
+  wifi:                   Wifi,
+  code:                   Code,
+  terminal:               Terminal,
+  integration_instructions: Code,
+  developer_mode:         Code,
+  api:                    Code,
+  data_object:            Database,
+  data_array:             Database,
+  schema:                 GitBranch,
+  source:                 GitBranch,
+  inventory:              Package,
+  inventory_2:            Box,
+  archive:                Archive,
+  unarchive:              Archive,
+
+  // ── Misc / General ────────────────────────────────────────────────────────
+  info:                   Info,
+  info_outline:           Info,
+  help:                   HelpCircle,
+  help_outline:           HelpCircle,
+  warning:                AlertCircle,
+  error:                  AlertCircle,
+  error_outline:          AlertCircle,
+  new_releases:           Zap,
+  whatshot:               Zap,
+  bolt:                   Zap,
+  flash_on:               Zap,
+  highlight:              Zap,
+  health_and_safety:      Heart,
+  favorite:               Heart,
+  medical_services:       Heart,
+  local_hospital:         Heart,
+  sentiment_satisfied:    Smile,
+  emoji_emotions:         Smile,
+  light_mode:             Sun,
+  dark_mode:              Moon,
+  wb_sunny:               Sun,
+  nights_stay:            Moon,
+  air:                    Wind,
+  tag:                    Hash,
+  label:                  Tag,
+  label_important:        Tags,
+  new_label:              Tags,
+  work:                   Landmark,
+  work_outline:           Landmark,
+  business_center:        Landmark,
+  cases:                  Box,
+  move_to_inbox:          Mail,
+  outbox:                 Send,
+  pending:                Clock,
+  done:                   Check,
+  done_all:               CheckSquare,
+  check_circle:           Check,
+  check_box:              CheckSquare,
+  close:                  X,
+  delete:                 Trash2,
+  remove_circle:          Minus,
+  add_circle:             Plus,
+  edit:                   Edit,
+  create:                 Edit,
+  search:                 Search,
+  star:                   Star,
+  star_border:            Star,
+  bookmark:               BookMarked,
+  bookmark_border:        BookMarked,
+  flag:                   Activity,
+  arrow_forward:          ArrowRight,
+  arrow_forward_ios:      ChevronRight,
+  chevron_right:          ChevronRight,
+  expand_more:            ChevronDown,
+  more_vert:              List,
+  more_horiz:             List,
+  refresh:                RefreshCw,
+  sync:                   RefreshCw,
+  autorenew:              RefreshCw,
+  swap_horiz:             ArrowRight,
+  swap_vert:              ArrowRight,
+  compare_arrows:         ArrowRight,
+  call_made:              ArrowRight,
+  north_east:             ArrowRight,
+  open_in_browser:        ExternalLink,
 }
 
-function NavIcon({ name, active }: { name?: string; active?: boolean }) {
-  const Icon = (name && ICON_MAP[name]) || ChevronRight
+// ---------------------------------------------------------------------------
+// Multi-word CSS class icon resolver (e.g. "fa fa-graduation-cap")
+// Strips fa-/icon- prefix, converts dashes to underscores, looks up ICON_MAP.
+// Also tries the dashed form without conversion as a fallback.
+// ---------------------------------------------------------------------------
+
+function resolveIcon(name?: string): React.ElementType | null {
+  if (!name) return null
+  const trimmed = name.trim()
+  if (!trimmed) return null
+
+  // Single-word Material icon (most common)
+  if (!trimmed.includes(' ')) {
+    return ICON_MAP[trimmed] ?? null
+  }
+
+  // Multi-word CSS class icon: "fa fa-graduation-cap", "icon-home", etc.
+  // Try tokens from right to left (last token is usually the most specific)
+  const tokens = trimmed.split(/\s+/)
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const token = tokens[i]
+    // Strip common prefixes
+    const stripped = token.replace(/^fa-/, '').replace(/^icon-/, '').replace(/^glyphicon-/, '')
+    // Try underscore form ("graduation-cap" → "graduation_cap")
+    const underscored = stripped.replace(/-/g, '_')
+    if (ICON_MAP[underscored]) return ICON_MAP[underscored]
+    // Try dashed form as-is ("bar_chart" stored with dashes)
+    if (ICON_MAP[stripped]) return ICON_MAP[stripped]
+    // Try without any transformation
+    if (ICON_MAP[token]) return ICON_MAP[token]
+  }
+
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// NavIcon sub-component
+// kind='module' → fallback LayoutDashboard (top-level module)
+// kind='page'   → fallback ChevronRight (leaf page)
+// ---------------------------------------------------------------------------
+
+function NavIcon({
+  name,
+  active,
+  kind = 'page',
+}: {
+  name?: string
+  active?: boolean
+  kind?: 'module' | 'page'
+}) {
+  const resolved = resolveIcon(name)
+  const Icon = resolved ?? (kind === 'module' ? LayoutDashboard : ChevronRight)
+
   return (
     <span
       className={cn(
@@ -108,6 +593,10 @@ function NavIcon({ name, active }: { name?: string; active?: boolean }) {
     </span>
   )
 }
+
+// ---------------------------------------------------------------------------
+// NavItem component
+// ---------------------------------------------------------------------------
 
 interface NavItemProps {
   item: NavItemType
@@ -175,7 +664,7 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
             aria-hidden="true"
           />
         )}
-        <NavIcon name={item.icon} active={isActive} />
+        <NavIcon name={item.icon} active={isActive} kind="module" />
       </button>
     )
   }
@@ -213,7 +702,7 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
               aria-hidden="true"
             />
           )}
-          <NavIcon name={item.icon} active={isActive} />
+          <NavIcon name={item.icon} active={isActive} kind={depth === 0 ? 'module' : 'page'} />
           <span className="flex-1 text-left leading-none">{item.label}</span>
           <span
             className={cn(
@@ -259,7 +748,7 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
           aria-hidden="true"
         />
       )}
-      <NavIcon name={item.icon} active={isActive} />
+      <NavIcon name={item.icon} active={isActive} kind="page" />
       <span className="flex-1 leading-none">{item.label}</span>
     </Link>
   )

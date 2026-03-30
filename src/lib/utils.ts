@@ -1,8 +1,14 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import type { ValueGetterParams } from 'ag-grid-community'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+/** AG Grid valueGetter that returns a 1-based sequential row number. */
+export function rowIndexGetter(p: ValueGetterParams): number {
+  return (p.node?.rowIndex ?? 0) + 1
 }
 
 /**

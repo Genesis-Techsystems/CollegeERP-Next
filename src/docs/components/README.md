@@ -8,13 +8,19 @@
 
 ## Categories
 
+### `src/components/` — Structural Components
 1. [UI Primitives (`ui/`)](#ui-primitives-ui) — Shadcn-generated Radix wrappers
 2. [Layout (`layout/`)](#layout-layout) — App shell, nav, page-level structure
-3. [Forms (`forms/`)](#forms-forms) — Reusable form controls
-4. [Data Table (`data-table/`)](#data-table-data-table) — AG Grid wrapper
-5. [Feedback (`feedback/`)](#feedback-feedback) — User feedback dialogs
-6. [Data Display (`data-display/`)](#data-display-data-display) — Badges, stat cards (planned)
-7. [Shared (`shared/`)](#shared-shared) — Cross-domain reusables (planned)
+
+### `src/common/components/` — Reusable UI Components
+3. [Table (`table/`)](#table-table) — DataTable (AG Grid) + Table (simple)
+4. [Date Picker (`date-picker/`)](#date-picker-date-picker) — DatePicker, MonthYearPicker
+5. [Search (`search/`)](#search-search) — SearchInput
+6. [Select (`select/`)](#select-select) — Select, MultiSelect
+7. [Charts (`bar-chart/`, `pie-chart/`)](#charts) — recharts wrappers
+8. [Data Display (`data-display/`)](#data-display-data-display) — StatusBadge, StatCard
+9. [Feedback (`feedback/`)](#feedback-feedback) — ConfirmDialog, EmptyState, ErrorBoundary, FormModal
+10. [Forms (`forms/`)](#forms-forms) — CollegeFilterPanel, FormField
 
 ---
 
@@ -81,7 +87,9 @@ Contains the logout button (calls `POST /api/auth/logout`).
 
 ### `Topbar.tsx`
 
-**Purpose:** Sticky header bar (h-14). Contains hamburger (mobile), search bar (placeholder), bell notification (placeholder), apps grid (placeholder), and user dropdown.
+**Purpose:** Sticky header bar (h-14). Contains hamburger (mobile), live page search with API-backed dropdown results (keyboard navigable with ↑↓/Enter/Escape), bell notification, apps grid, and user dropdown.
+
+Fetches all pages accessible to the current user on mount from Spring Boot via `/api/proxy`. The search input filters pages by display name, shows up to 8 results in a dropdown, and navigates on Enter or click.
 
 User dropdown shows name, role, and a "Sign out" option.
 
@@ -119,7 +127,31 @@ Uses CSS custom property `var(--font-size-page-title)` for the title size (defin
 
 ---
 
-## Forms (`forms/`)
+### `PageContainer.tsx`
+
+**Purpose:** Standard page wrapper applying consistent outer padding via CSS custom properties `--spacing-page-x` and `--spacing-page-y` (defined in `globals.css`).
+
+**Props:**
+```typescript
+interface PageContainerProps {
+  children: ReactNode
+  className?: string
+}
+```
+
+**Usage:**
+```tsx
+<PageContainer>
+  <PageHeader title="Organizations" subtitle="Manage organization records" />
+  <DataTable rowData={data} columnDefs={cols} />
+</PageContainer>
+```
+
+Import: `import { PageContainer } from '@/components/layout'`
+
+---
+
+## Forms (`common/components/forms/`)
 
 ### `CollegeFilterPanel.tsx`
 
@@ -182,176 +214,108 @@ To add a page-specific extra filter (e.g. an Academic Year dropdown), pass it as
 
 ---
 
-### `DatePicker.tsx`
-
-**Purpose:** Date input backed by Radix Popover + Shadcn Calendar. Returns `Date | null`.
-
-**Props:**
-```typescript
-interface DatePickerProps {
-  value: Date | null
-  onChange: (date: Date | null) => void
-  placeholder?: string    // default: 'Pick a date'
-  disabled?: boolean
-  minDate?: Date          // dates before this are disabled
-  maxDate?: Date          // dates after this are disabled
-  className?: string
-}
-```
-
-Display format: `dd/MM/yyyy`. Used in `ExamMasterModal` for `fromDate`, `toDate`, `notificationPublishedOn`, `feeNotificationPublishedOn`.
-
-**Usage with react-hook-form:**
-```tsx
-<Controller
-  control={control}
-  name="fromDate"
-  render={({ field }) => (
-    <DatePicker value={field.value} onChange={field.onChange} />
-  )}
-/>
-```
-
----
-
-### `MonthYearPicker.tsx`
-
-**Purpose:** Month/year picker that shows a 3x4 month grid with year navigation arrows. Day component is always set to 1. Returns `Date | null`.
-
-**Props:**
-```typescript
-interface MonthYearPickerProps {
-  value: Date | null
-  onChange: (date: Date | null) => void
-  placeholder?: string    // default: 'Pick month/year'
-  disabled?: boolean
-}
-```
-
-Display format: `MM/yyyy`. Used in `ExamMasterModal` for `examMonthYr`. When this value changes, the modal's `useEffect` auto-syncs `fromDate` and `toDate` to the first of that month.
-
----
-
-## Data Table (`data-table/`)
+## Table (`common/components/table/`)
 
 ### `DataTable.tsx`
 
-**Purpose:** Generic typed AG Grid wrapper. Handles module registration, default column options, and auto-height mode.
+**Purpose:** Generic typed AG Grid wrapper. Handles module registration, default column options, client-side pagination (manual row slicing so autoHeight sizes to visible rows), server-side pagination, and auto-height mode.
+
+**Import:** `import { DataTable } from '@/common/components/table'`
 
 **Props:**
 ```typescript
 interface DataTableProps<T> {
   rowData: T[]
   columnDefs: ColDef<T>[]
-  loading?: boolean           // shows AG Grid loading overlay
-  height?: string             // default '500px', use 'auto' for autoHeight
-  quickFilterText?: string    // externally controlled search filter
+  loading?: boolean                    // 'auto' for autoHeight; default '500px'
+  height?: string
+  getRowId?: GetRowIdFunc<T>
   onCellClicked?: (event: CellClickedEvent<T>) => void
-  pagination?: boolean        // (prop accepted but not yet wired to AgGridReact)
-  paginationPageSize?: number // (prop accepted but not yet wired)
-  exportCsv?: boolean         // (prop accepted but not yet wired)
-  showSearch?: boolean        // (prop accepted but not yet wired)
-  onRowSelected?: (row: T | null) => void  // (prop accepted but not yet wired)
+  onRowClick?: (row: T) => void
+
+  // Client-side pagination
+  pagination?: boolean               // slices rowData internally; renders pagination bar
+  paginationPageSize?: number        // default 10
+
+  // Server-side pagination
+  serverSide?: boolean               // parent supplies current page's rowData slice
+  totalCount?: number
+  currentPage?: number               // 0-based
+  onPageChange?: (page: number, pageSize: number) => void
+
+  exportCsv?: boolean                // shows Export CSV button
 }
 ```
 
-**Note:** Several props (`pagination`, `exportCsv`, `showSearch`, `onRowSelected`) are declared in the interface but not yet implemented in the component body. The current implementation only wires: `rowData`, `columnDefs`, `loading`, `height`, `quickFilterText`, `onCellClicked`.
+Default column settings: `sortable: true`, `filter: false`, `resizable: true`, `minWidth: 100`.
 
-Default column settings: `sortable: true`, `filter: true`, `resizable: true`, `flex: 1`, `minWidth: 100`.
+**AG Grid is client-only.** Any page using `DataTable` must be a `'use client'` component.
+Dynamic import: `dynamic(() => import('@/common/components/table/DataTable'), { ssr: false })`
 
-**AG Grid is client-only.** Any page using `DataTable` must be a `'use client'` component. Do not use in Server Components. If you need lazy loading: `dynamic(() => import('@/components/data-table/DataTable'), { ssr: false })`.
+### `Table.tsx`
 
-**Usage:**
-```tsx
-const columnDefs = useMemo<ColDef<ExamMaster>[]>(() => [
-  { field: 'examName', headerName: 'Exam Name' },
-  {
-    headerName: 'Status',
-    cellRenderer: (p: ICellRendererParams<ExamMaster>) =>
-      p.data?.isActive ? <span>Active</span> : <span>Inactive</span>,
-  },
-], [])
+**Purpose:** Lightweight simple HTML table (no AG Grid). Use for read-only lists where AG Grid feature weight is not needed. Supports column types: `default`, `image`, `status`, `action`, `id`, `eval-status`.
 
-<DataTable
-  rowData={examsList}
-  columnDefs={columnDefs}
-  loading={isLoading}
-  onCellClicked={handleCellClick}
-/>
-```
-
-JSX cell renderers (`cellRenderer`) work because the page is already a client component.
+**Import:** `import { Table } from '@/common/components/table'`
 
 ---
 
-## Feedback (`feedback/`)
+## Feedback (`common/components/feedback/`)
+
+Import: `import { ConfirmDialog, FormModal, EmptyState, ErrorBoundary } from '@/common/components/feedback'`
 
 ### `ConfirmDialog.tsx`
 
-**Purpose:** Confirmation dialog for destructive or important actions. Blocks user interaction until confirmed or cancelled.
+**Purpose:** Confirmation dialog for destructive or important actions.
 
 **Props:**
 ```typescript
 interface ConfirmDialogProps {
   open: boolean
-  title: string                            // e.g. "Delete Exam Master?"
-  description: string                      // consequence explanation
+  title: string
+  description: string
   confirmLabel?: string                    // default: 'Confirm'
-  confirmVariant?: 'destructive' | 'default'  // default: 'destructive'
+  confirmVariant?: 'destructive' | 'default'
   onConfirm: () => void
   onCancel: () => void
-  isLoading?: boolean                      // shows spinner, disables buttons
+  isLoading?: boolean
 }
 ```
 
-Uses Shadcn Dialog (`ui/dialog.tsx`) internally. Calls `onCancel` when the dialog is closed via the backdrop or escape key.
+### `FormModal.tsx`
 
-**Usage:**
-```tsx
-<ConfirmDialog
-  open={deleteDialogOpen}
-  title="Delete Exam Label?"
-  description="This will mark the label as inactive and cannot be undone from this screen."
-  confirmLabel="Delete"
-  confirmVariant="destructive"
-  onConfirm={handleConfirmDelete}
-  onCancel={() => setDeleteDialogOpen(false)}
-  isLoading={isDeleting}
-/>
-```
+**Purpose:** Generic modal wrapper for add/edit forms. Provides consistent title + scrollable body + footer action area.
 
-**Current gap:** The exam master details page deletes labels immediately without a confirmation dialog. `ConfirmDialog` exists to solve this but has not been wired in yet.
+### `EmptyState.tsx`
+
+**Purpose:** Empty state illustration + message for when a list has no results.
+
+### `ErrorBoundary.tsx`
+
+**Purpose:** React error boundary to catch render errors and show a fallback UI.
 
 ---
 
-## Data Display (`data-display/`)
+## Data Display (`common/components/data-display/`)
 
-**Status: Directory and barrel file exist. No component files yet — planned by Foundation agent.**
+Import: `import { StatusBadge, StatCard } from '@/common/components/data-display'`
 
-`src/components/data-display/index.ts` is a stub:
+### `StatusBadge.tsx`
+
+**Purpose:** Colored pill badge for active/inactive/other status states.
+
+**Props:**
 ```typescript
-// Data display components barrel — status badges, data cards, stat widgets
+interface StatusBadgeProps {
+  active: boolean
+  activeLabel?: string     // default: 'Active'
+  inactiveLabel?: string   // default: 'Inactive'
+}
 ```
 
-Planned components:
-- `StatusBadge` — colored pill badge for active/inactive/status states
-- `StatCard` — dashboard stat card with label, value, icon
+### `StatCard.tsx`
 
----
-
-## Shared (`shared/`)
-
-### `PageContainer.tsx`
-
-**Purpose:** Standard page wrapper providing consistent horizontal padding and max-width constraint for all protected pages.
-
-**Usage:**
-```tsx
-<PageContainer>
-  <PageHeader title="..." />
-  <DataTable ... />
-</PageContainer>
-```
+**Purpose:** Dashboard stat card with label, value, trend, and optional icon.
 
 ---
 
@@ -430,16 +394,244 @@ Do not redefine this per-file — it was previously duplicated in 6 page files.
 
 ---
 
+---
+
+## Common Components (`src/common/components/`)
+
+Components in `src/common/` mirror Angular's `src/app/common/components/`. They are reusable across all modules. Import from their directory path, e.g. `@/common/components/bar-chart/BarChart`.
+
+---
+
+### `BarChart`
+
+**Purpose:** Renders a bar chart using recharts. OSS replacement for Highcharts used in Angular.
+
+**Props:**
+```typescript
+interface BarChartProps {
+  data: BarChartDataItem[]    // array of data objects
+  xKey: string                // key in data to use for x-axis labels
+  yKeys: string[]             // one or more keys to plot as bars
+  colors?: string[]           // bar fill colors (defaults to theme palette)
+  height?: number             // chart height in px, default 300
+  className?: string
+}
+```
+
+**Usage:**
+```tsx
+<BarChart
+  data={[{ month: 'Jan', passed: 40, failed: 10 }]}
+  xKey="month"
+  yKeys={['passed', 'failed']}
+  colors={['#4ade80', '#f87171']}
+  height={320}
+/>
+```
+
+---
+
+### `PieChart`
+
+**Purpose:** Renders a pie/donut chart using recharts.
+
+**Props:**
+```typescript
+interface PieChartProps {
+  data: PieChartDataItem[]    // [{ name: string; value: number }]
+  dataKey: string             // key holding the numeric value
+  nameKey: string             // key holding the slice label
+  colors?: string[]           // slice fill colors
+  height?: number             // default 300
+  className?: string
+}
+```
+
+**Usage:**
+```tsx
+<PieChart
+  data={[{ label: 'Pass', count: 80 }, { label: 'Fail', count: 20 }]}
+  dataKey="count"
+  nameKey="label"
+  height={280}
+/>
+```
+
+---
+
+### `SearchInput`
+
+**Purpose:** Controlled search input with optional debounce. Mirrors Angular `SearchComponent`.
+
+**Props:**
+```typescript
+interface SearchInputProps {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string        // default: 'Search…'
+  debounceMs?: number         // debounce delay in ms (0 = no debounce)
+  disabled?: boolean
+  className?: string
+}
+```
+
+**Usage:**
+```tsx
+const [query, setQuery] = useState('')
+<SearchInput value={query} onChange={setQuery} placeholder="Search students…" debounceMs={300} />
+```
+
+---
+
+### `Select`
+
+**Purpose:** Labeled dropdown wrapping the Shadcn Select primitive. Provides a consistent label + select layout used across the app.
+
+**Props:**
+```typescript
+interface SelectProps {
+  options: { value: string; label: string }[]
+  value: string | null
+  onChange: (value: string) => void
+  label?: string
+  placeholder?: string        // default: 'Select…'
+  disabled?: boolean
+  className?: string
+}
+```
+
+**Usage:**
+```tsx
+<Select
+  label="Academic Year"
+  options={yearOptions}
+  value={selectedYear}
+  onChange={setSelectedYear}
+  placeholder="Choose year"
+/>
+```
+
+Note: this is a higher-level wrapper. For raw Radix primitives use `src/components/ui/select.tsx`.
+
+---
+
+### `DatePicker` (common)
+
+**Purpose:** Date input backed by Radix Popover + Shadcn Calendar. Mirrors Angular `DatePickerComponent`. The canonical DatePicker for all pages. Import from `@/common/components/date-picker`.
+
+**Props:**
+```typescript
+interface DatePickerProps {
+  value: Date | null
+  onChange: (date: Date | null) => void
+  placeholder?: string        // default: 'Pick a date'
+  disabled?: boolean
+  minDate?: Date
+  maxDate?: Date
+  className?: string
+}
+```
+
+**Usage:**
+```tsx
+<DatePicker value={startDate} onChange={setStartDate} placeholder="Start date" />
+```
+
+---
+
+### `Breadcrumb`
+
+**Purpose:** Renders a breadcrumb trail from an array of items. Last item is rendered as plain text; earlier items are links.
+
+**Props:**
+```typescript
+interface BreadcrumbProps {
+  items: { label: string; href?: string }[]
+  className?: string
+}
+```
+
+**Usage:**
+```tsx
+<Breadcrumb
+  items={[
+    { label: 'Admin', href: '/admin' },
+    { label: 'Organizations' },
+  ]}
+/>
+```
+
+---
+
+### `Table`
+
+**Purpose:** Lightweight generic data table (not AG Grid). Use for simple read-only lists where AG Grid's feature weight is not needed.
+
+**Props:**
+```typescript
+interface TableColumn<T> {
+  key: keyof T | string
+  header: string
+  render?: (row: T) => ReactNode   // custom cell renderer
+}
+
+interface TableProps<T> {
+  rows: T[]
+  columns: TableColumn<T>[]
+  loading?: boolean
+  emptyText?: string               // default: 'No data'
+  onRowClick?: (row: T) => void
+  className?: string
+}
+```
+
+**Usage:**
+```tsx
+<Table
+  rows={campusList}
+  columns={[
+    { key: 'campusName', header: 'Campus Name' },
+    { key: 'campusCode', header: 'Code' },
+    {
+      key: 'isActive',
+      header: 'Status',
+      render: (row) => <span>{row.isActive ? 'Active' : 'Inactive'}</span>,
+    },
+  ]}
+  loading={isLoading}
+  onRowClick={(row) => openEditModal(row)}
+/>
+```
+
+---
+
+### `ThemeSettingModal`
+
+**Purpose:** Modal for user appearance/theme preferences (e.g. color scheme, density). Mirrors Angular `ThemeSettingModalComponent`.
+
+**Props:**
+```typescript
+interface ThemeSettingModalProps {
+  open: boolean
+  onClose: () => void
+}
+```
+
+**Usage:**
+```tsx
+const [themeOpen, setThemeOpen] = useState(false)
+
+<ThemeSettingModal open={themeOpen} onClose={() => setThemeOpen(false)} />
+```
+
+---
+
 ## Adding a New Component
 
-1. **Choose the right category:**
-   - `ui/` — Shadcn primitives (Radix-based, no business logic)
-   - `forms/` — controlled inputs and pickers
-   - `layout/` — structural/shell components
-   - `data-table/` — table/grid components
-   - `feedback/` — toasts, dialogs, error states
-   - `data-display/` — status indicators, stat cards
-   - `shared/` — cross-domain reusables
+1. **Choose the right location:**
+   - `src/components/ui/` — Shadcn primitives (Radix-based, no business logic)
+   - `src/components/layout/` — structural/shell components (AppShell, Topbar, Sidebar, PageHeader, PageContainer)
+   - `src/common/components/<category>/` — reusable UI used in pages; add to the most relevant subdirectory (table, date-picker, search, select, bar-chart, pie-chart, data-display, feedback, forms)
 
 2. **TypeScript props interface with JSDoc on every prop:**
    ```typescript

@@ -7,6 +7,16 @@
  *   Client (services/):     `fetch(\`/api/proxy/\${EXAM_API.GET_COLLEGE_FILTERS}?...\`)`
  */
 
+// ─── Domain CRUD paths ───────────────────────────────────────────────────────
+// Used exclusively by CrudService (src/services/crud.ts).
+
+export const DOMAIN = {
+  LIST:   'domain/list',
+  CREATE: 'domain/create',
+  UPDATE: 'domain/update',
+  PROC:   'getAllRecords',
+} as const
+
 // ─── Authentication ──────────────────────────────────────────────────────────
 // Used in integrations/spring-api.ts ONLY — never call from client components.
 
@@ -68,8 +78,12 @@ export const EXAM_API = {
   SAVE_EXAM_TIMETABLE: 'examtimetable',
   /** GET: exam timetable details by exam date */
   EXAM_TIMETABLE_DETAILS_BY_DATE: 'examtimetabledetailsbyexamdate',
+  /** GET: exam timetable display DTO (denormalised — examId, courseYearId, courseId params) */
+  EXAM_TIMETABLE_DETAILS: 'examtimetabledetails',
   /** POST: save exam room allotment rows */
   SAVE_EXAM_ROOM_ALLOTMENT: 'examroomallotment',
+  /** POST: save/update an array of ExamMarkssetup rows in one request */
+  SAVE_EXAM_MARKS_SETUP: 'exammarkssetup',
 } as const
 
 // ─── Exam Online Paper ───────────────────────────────────────────────────────
@@ -1007,4 +1021,46 @@ export const EXAM_MASTERS_API = {
    * (regFee, subjectFees, collectionDates, nested additional/fine rows).
    */
   EXAM_FEE_STRUCTURE_ENTITY: 'ExamFeeStructure',
+} as const
+
+// ─── Organization ─────────────────────────────────────────────────────────────
+
+export const ORG_API = {
+  /** POST: upload / replace organization logo (multipart/form-data) */
+  LOGO_UPLOAD: 'organizationlogoupload',
+} as const
+
+// ─── Next.js Internal API Routes ─────────────────────────────────────────────
+//
+// These are the Next.js /api/* routes that client components call directly.
+// They are NOT Spring Boot paths — do not prefix with /api/proxy/.
+//
+// Usage:
+//   fetch(NEXT_API.AUTH.LOGIN, { method: 'POST', ... })
+//   fetch(NEXT_API.PROXY(AUTH_API.USER_ACCESS) + '?userId=...')
+
+/**
+ * Minio object-storage base URL.
+ * Prepend to any `logoPath` / file path returned by Spring Boot.
+ *
+ * @example  `${MINIO_URL}${org.logoPath}`
+ */
+export const MINIO_URL = process.env.NEXT_PUBLIC_MINIO_URL ?? ''
+
+export const NEXT_API = {
+  AUTH: {
+    /** POST: authenticate — sets iron-session cookie */
+    LOGIN:  '/api/auth/login',
+    /** POST: clear iron-session cookie */
+    LOGOUT: '/api/auth/logout',
+    /** GET: return current SessionUser from iron-session */
+    ME:     '/api/auth/me',
+  },
+  /**
+   * Build a /api/proxy/{path} URL for any Spring Boot endpoint.
+   *
+   * @example  NEXT_API.PROXY(AUTH_API.USER_ACCESS)
+   * // → '/api/proxy/useraccess'
+   */
+  PROXY: (path: string) => `/api/proxy/${path}` as const,
 } as const

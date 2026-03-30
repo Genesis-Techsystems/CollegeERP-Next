@@ -5,6 +5,123 @@
 
 ---
 
+## Phase 8: UI Polish, SearchInput Improvements & Angular Parity Fixes (2026-03-30)
+
+### Breadcrumbs
+
+Added breadcrumb navigation to every protected page.
+
+- **`PageHeader`** — imports `useBreadcrumb` + `Breadcrumb` and renders the trail automatically above the title. All pages using `PageHeader` (Organizations, Campus, and all future pages) get breadcrumbs for free.
+- **`dashboard/page.tsx`** — Dashboard uses a custom welcome header instead of `PageHeader`, so breadcrumbs were added directly via `useBreadcrumb`.
+- The `useBreadcrumb` hook auto-generates the trail from the URL path (strips route groups, converts kebab-case to Title Case). No per-page configuration needed.
+
+---
+
+### Topbar: Search → Collapsible Icon Button
+
+Replaced the always-visible search input on the left side of the Topbar with a search icon button in the right icon group (alongside bell, apps, help).
+
+- Default state: search icon button only.
+- On click: expands to a focused input (`w-56`) with the same live-search dropdown behaviour as before.
+- Collapse triggers: clicking outside, pressing `Escape`, or navigating to a result.
+- Added `isSearchExpanded` state; `openSearch()` sets it and focuses the input via `setTimeout`.
+
+---
+
+### SearchInput Component — 3 improvements
+
+**File:** `src/common/components/search/SearchInput.tsx`
+
+#### 1. Fixed controlled-mode display lag
+`displayValue` was bound to the debounced parent `value` prop, making every keystroke lag by the debounce delay before appearing. Fixed by always using `localValue` for display — the input is instant, debounce only throttles the `onChange` callback to the parent.
+
+#### 2. `collapsible` prop
+When `collapsible={true}`, renders as a plain icon button. Click expands to the full input with auto-focus. Blur on empty value or `Escape` collapses back to the icon.
+
+```tsx
+<SearchInput collapsible value={q} onChange={setQ} placeholder="Search..." />
+```
+
+#### 3. `serverSearch` prop — zero debounce by default
+Default debounce changed from 300 ms to **0 ms** (instant). Pass `serverSearch` to opt into 300 ms debounce for API-backed searches.
+
+```tsx
+// Client-side filter — instant (default)
+<SearchInput value={q} onChange={setQ} />
+
+// Server/API search — 300 ms debounce
+<SearchInput serverSearch value={q} onChange={setQ} />
+```
+
+---
+
+### Angular Parity Audit: Campus & Organizations
+
+Cross-checked both pages against `college_erp_angular_foundation_work` and `college_erp_angular_old`.
+
+#### Campus — ✅ Full parity confirmed
+Columns, form fields, validations, cascading dropdowns, and API calls all match across all three codebases.
+
+#### Organizations — 3 gaps fixed
+
+| Gap | Angular source | Fix applied |
+|---|---|---|
+| Mobile number validation | `Validators.pattern('[6-9]{1}[0-9]{9}')` | Added Zod `.refine()` with `/^[6-9][0-9]{9}$/` |
+| Email validation | `Validators.email` | Added Zod `.refine()` with standard email regex |
+| License date range | `calDays()` — resets To date if before From date | Added `useEffect` watching `licenseFdate`; auto-sets `licenseTdate = licenseFdate` when violated |
+
+**Banner logo** — The old repo had a banner logo upload field in the Add modal HTML, but it was never wired to any API endpoint, not present in the Organization model, and absent from the Edit modal. Field was **not added** to Next.js.
+
+---
+
+## Phase 7: Angular Foundation Structure Migration (2026-03-29)
+
+Migrated Angular's `src/app/common/` structure into the Next.js project as `src/common/`, providing shared constants, utility functions, and reusable chart/form/table components that mirror the original Angular foundation layer.
+
+### New `src/common/` Directory
+
+Mirrors Angular's `src/app/common/` structure. Contains project-wide constants, utility functions, and reusable presentational components.
+
+#### Constant Files (`src/common/`)
+
+| File | Purpose |
+|---|---|
+| `constants.ts` | Core application-wide constants (API base paths, pagination defaults, app name) |
+| `general-constants.ts` | Domain constants: roles, status codes, academic year formats, exam-related enums |
+| `alias-labels.ts` | Human-readable label mappings for entity field names (mirrors Angular alias map) |
+| `generic-functions.ts` | Shared utility functions: date formatting, string helpers, data transformations |
+| `print-config.ts` | Print layout configuration for PDF/print views |
+
+#### New `src/common/components/`
+
+| Component | Angular equivalent | Notes |
+|---|---|---|
+| `bar-chart/` | `BarChartComponent` | Recharts `BarChart` (replaces Highcharts) |
+| `pie-chart/` | `PieChartComponent` | Recharts `PieChart` (replaces Highcharts) |
+| `breadcrumb/` | `BreadcrumbComponent` | Path-based breadcrumb trail |
+| `search/` | `SearchComponent` | Controlled search input with debounce |
+| `select/` | `SelectComponent` | Labeled dropdown wrapping Shadcn Select |
+| `date-picker/` | `DatePickerComponent` | Date input backed by Radix Popover + Calendar |
+| `table/` | `TableComponent` | Generic data table (lightweight, non-AG Grid) |
+| `theme-setting-modal/` | `ThemeSettingModalComponent` | Theme/appearance preferences modal |
+
+#### New Pages
+
+| Route | Notes |
+|---|---|
+| `admin/organizations` | Organization management page |
+| `admin/campus` | Campus management page |
+| `dashboards/evaluation-dashboard` | Evaluation statistics dashboard using chart components |
+| `evaluation/*` | Evaluation module pages |
+| `pdf-download` | PDF download/export page |
+| `sample` | Component showcase / developer reference page |
+
+### Tech Added
+
+- **recharts** — used by `bar-chart` and `pie-chart` components as an OSS replacement for Highcharts (which requires a commercial licence). API differs from Highcharts; see `src/common/components/bar-chart/` and `pie-chart/` for the props interface.
+
+---
+
 ## Phase 6 — QueryDSL Field Audit vs Angular Source (2026-03-29)
 
 Cross-checked all service `buildQuery` calls against the Angular `CrudService` and component source code to find field names, relationship paths, and sort fields that diverged from the original. Four bugs fixed.
@@ -719,3 +836,241 @@ SESSION_SECRET=<32+ char random string>     # iron-session encryption key
 SESSION_COOKIE_NAME=college_erp_session     # optional, this is the default
 NODE_ENV=development                        # 'production' enables Secure cookie flag
 ```
+
+---
+
+## Phase 8 — Component Audit (`COMPONENT_AUDIT.md`) (2026-03-30)
+
+A 19-section comparison report was produced by comparing every component in `src/common/components/` (Angular port) against the Angular source in `college_erp_angular_old/`. The report identified:
+
+- **Missing features**: server-side pagination, async/searchable Select, MultiSelect, DatePicker clear button + bounds, live Topbar search, sidebar position wiring
+- **Unnecessary additions**: features in the Next.js port that Angular never had
+- **Library capability gaps**: AG Grid, recharts, react-day-picker features available but unused
+
+Full report: `COMPONENT_AUDIT.md`
+
+---
+
+## Phase 9 — `src/kit/` Canonical Component Library (2026-03-30)
+
+Created `src/kit/` as the canonical component directory. All pages must import from `@/kit/` — not from `src/common/components/` or direct shadcn primitives. `src/common/` is retained as the Angular-parity foundation layer but is **not** the primary import path for pages.
+
+### Rule: use `@/kit/`, not `@/common/`
+
+`src/common/` is frozen. `src/kit/` is the evolving, production-quality layer. Whenever a component is needed on a page, import it from `@/kit/`.
+
+### Components Built or Fixed
+
+#### `src/kit/table/DataTable.tsx` — AG Grid Community v35
+
+Over `src/common/components/table/`:
+- `serverSide` + `totalCount` / `currentPage` / `onPageChange` for server-side pagination
+- Custom pagination bar with 10 / 20 / 50 / 100 page-size selector
+- `getRowId` for stable row identity
+- `onRowClick` convenience prop
+- `showSearch` prop enables AG Grid quick-filter input
+- Named export (not default — avoids import ambiguity)
+
+#### `src/kit/date-picker/DatePicker.tsx` — react-day-picker v9
+
+- `Date | null` consistency throughout
+- `startMonth` / `endMonth` navigation bounds
+- `autoFocus` (replaces deprecated `initialFocus`)
+- Clear button
+- `label` / `required` / `error` props with `useId()` for `htmlFor`
+
+#### `src/kit/date-picker/MonthYearPicker.tsx` — 3×4 month grid
+
+- Bounded year navigation
+- Per-month disabled state via `isMonthDisabled()`
+- `role="grid"` + `aria-selected` / `aria-disabled` accessibility
+- Keyboard ArrowKey navigation
+- Clear button
+
+#### `src/kit/search/SearchInput.tsx`
+
+Consolidated two conflicting search inputs (`common/search/` with `onSearch` prop, `forms/SearchInput` with `onChange` prop) into one component using `onChange`.
+
+#### `src/kit/select/Select.tsx` — Radix Popover (not Radix Select)
+
+Using Radix Popover instead of Radix Select enables loading async options after mount (Radix Select cannot). Added:
+- `searchable` boolean prop (explicit, not magic >6 threshold)
+- `onSearch` server-side callback
+- `isLoading` spinner
+- `required` / `error` / `label` with `htmlFor` / `id` via `useId()`
+
+#### `src/kit/select/MultiSelect.tsx` — Radix Popover + Checkbox
+
+Mirrors Angular `mat-select multiple` + `ngx-mat-select-search`:
+- `showSelectAll` with indeterminate tri-state
+- `maxDisplay` pill trigger (shows "N selected" after threshold)
+- `onSearch` async callback
+- Never closes on selection
+
+#### `src/kit/charts/BarChart.tsx` — recharts
+
+- `stacked` prop → `stackId="stack"` on all bars
+- `onClick` handler
+- K / M / B number abbreviation on Y axis
+- Configurable `legendPosition`
+- `domain={[0,'auto']}` on Y axis
+- Horizontal layout when `type='column'`
+
+#### `src/kit/charts/PieChart.tsx` — recharts
+
+- Active shape expands on hover (+8px outerRadius)
+- `onClick`
+- `paddingAngle`
+- `showLabels` toggle
+- Custom `renderTooltip` prop
+
+#### `src/kit/charts/DrilldownChart.tsx`
+
+Stub with full `// TODO` implementation notes: 3-level District → College → Fee Category drilldown with manual drill state using recharts `onClick`.
+
+#### `src/kit/breadcrumb/Breadcrumb.tsx` + `useBreadcrumb.ts`
+
+- `maxItems` collapse with ellipsis
+- `useBreadcrumb` hook auto-builds items from `usePathname()`
+
+#### `src/kit/layout/Topbar.tsx` — live page search (Angular parity)
+
+- Fetches `GET /api/proxy/useraccess?userId=X&status=true` on mount
+- Flattens `modules → subModules → pages` tree to `{ displayName, url }[]` using same `slugify` logic as Angular
+- Client-side prefix filter, max 8 results
+- Keyboard ArrowUp / Down / Enter / Escape navigation
+- `role="listbox"` / `"option"` + `aria-activedescendant` accessibility
+- `onPointerDown preventDefault` prevents focus loss on item click
+
+#### `src/kit/layout/ThemeSettingModal.tsx`
+
+- `aria-checked` wired to actual boolean value (was broken)
+- `<DialogDescription className="sr-only">` added for accessibility
+- Sidebar position toggle now calls both `updateSettings` AND `setSidebarPosition` from Zustand store
+
+#### `src/store/navigation-store.ts`
+
+Added `sidebarPosition: 'left' | 'right'` state + `setSidebarPosition` action, persisted in localStorage.
+
+#### `src/components/layout/Sidebar.tsx`
+
+Reads `sidebarPosition` from store. Renders `order-last` CSS class when `'right'`. Switches to `PanelRightClose` / `PanelRightOpen` icons when right-positioned.
+
+#### New discovered components (extracted from page repetition)
+
+| Component | Location | How discovered |
+|---|---|---|
+| `FormModal` | `kit/feedback/FormModal.tsx` | Same Dialog + form + Cancel/Submit/Loader footer in every modal |
+| `FormField` | `kit/forms/FormField.tsx` | `label + children + error` repeated 5–12× per modal |
+
+#### Copied + cleaned from `src/components/`
+
+`StatusBadge`, `StatCard`, `ConfirmDialog`, `EmptyState`, `ErrorBoundary`, `CollegeFilterPanel`, `PageHeader` (converted to named export), `PageContainer`
+
+#### `src/kit/index.ts`
+
+Barrel export: `export * from './table'`, `'./date-picker'`, `'./search'`, `'./select'`, `'./charts'`, `'./breadcrumb'`, `'./layout'`, `'./data-display'`, `'./feedback'`, `'./forms'`
+
+---
+
+## Phase 10 — Page Migration to `@/kit/` (2026-03-30)
+
+All 22+ page files and 2 modal files under `src/app/(protected)/` were updated to import from `@/kit/` instead of old component paths.
+
+### Bug fixed: default vs named export on DataTable
+
+Six pages were generated with `import DataTable from '@/kit/table'` (default import). `DataTable` is a named export. Build failed with "Export default doesn't exist in target module". Fixed with targeted replacement across all 6 affected files:
+
+- `admin/organizations/page.tsx`
+- `admin/campus/page.tsx`
+- `evaluation-process/create-questionpaper-template/page.tsx`
+- `evaluation-process/evaluation-templates/page.tsx`
+- `evaluation-process/exam-question-paper-marks/page.tsx`
+- `evaluation/evaluator-assigned-answer-sheet/page.tsx`
+
+**Root cause / lesson:** All exports in `src/kit/` are named exports. Never use default imports from kit paths.
+
+---
+
+## Phase 11 — Architecture Analysis (2026-03-30)
+
+Three parallel audit agents scanned the entire codebase. Full findings in `ARCHITECTURE_PLAN.md`.
+
+### Summary of gaps found
+
+| Priority | Issue |
+|---|---|
+| High | `reason: 'active'` hard-coded in 8+ modal `getDefaults()` functions |
+| High | Entity names (`'ExamSession'`, `'ExamGrade'`, etc.) as bare strings in all service files |
+| High | Query keys as inline string arrays — no factory, invalidation is fragile |
+| High | 3 pages use raw `useState + useCallback + useEffect` instead of React Query |
+| High | No toast/notification system — errors only visible inside modal forms |
+| Medium | `InvigilatorRemunerationFormValues` typed `number | ''` but form produces `string` |
+| Medium | `SeatingPlanFormValues` typed `number | null` but Zod schema disallows null |
+| Medium | `ApiResponse<T>.data` typed `T` but runtime guards against null |
+| Medium | No `PageResponse<T>` interface — duck-typed in `domainList` |
+| Medium | `staleTime: 5 * 60 * 1000` magic number repeated 4+ times — `APP_CONFIG.SESSION_STALE_TIME` exists but unused |
+| Medium | `src/config/constants.ts` (root) duplicates `src/config/constants/app.ts` |
+| Low | `queryKey: unknown[]` prop on two modals — workaround for missing key factory |
+| Low | `GeneralDetailRow` locally declared in `ExamSessionModal` instead of using shared `GeneralDetail` type |
+
+### Planned infrastructure (not yet implemented — see `ARCHITECTURE_PLAN.md`)
+
+- `src/config/constants/entities.ts` — ENTITIES map (entity name + pk per domain type)
+- `src/config/constants/defaults.ts` — `DEFAULT_ACTIVE_REASON`, `DEFAULT_IS_ACTIVE`, `DEFAULT_PAGE_SIZE`
+- `src/lib/query-keys.ts` — typed `QK` React Query key registry
+- `src/lib/schemas.ts` — `baseEntitySchema` Zod fragment
+- `src/lib/toast.ts` — `toastError` / `toastSuccess`
+- `src/types/domain.ts` — `DomainEntity` base interface
+- `src/hooks/useEntityForm.ts` — form setup boilerplate hook
+- `src/hooks/useCrudList.ts` — React Query list + invalidate hook
+- `src/hooks/useCrudMutation.ts` — React Query mutation + auto-invalidate hook
+- `src/kit/forms/ActiveStatusField.tsx` — `isActive` checkbox + conditional reason field
+
+---
+
+## Phase 12 — API Constants Cleanup (2026-03-30)
+
+### Problem
+
+`AUTH_API` in `src/config/constants/api.ts` stores Spring Boot paths (`'api/auth/login'`) for **server-side** use in `src/integrations/spring-api.ts`. These are not the same as the Next.js internal routes that the browser calls (`'/api/auth/login'`). No constant existed for the client-side Next.js routes. Eight hardcoded `fetch()` strings were found across 6 files — one even had a `//TODO replace with Constants` comment.
+
+### New constants added to `src/config/constants/api.ts`
+
+```ts
+/** Next.js internal API routes — called from client components, NOT Spring Boot paths */
+export const NEXT_API = {
+  AUTH: {
+    LOGIN:  '/api/auth/login',   // POST — sets iron-session cookie
+    LOGOUT: '/api/auth/logout',  // POST — clears iron-session cookie
+    ME:     '/api/auth/me',      // GET  — returns current SessionUser
+  },
+  /** Build a /api/proxy/{path} URL for any Spring Boot endpoint */
+  PROXY: (path: string) => `/api/proxy/${path}`,
+}
+
+export const ORG_API = {
+  LOGO_UPLOAD: 'organizationlogoupload',  // POST multipart
+}
+
+// Added to EXAM_API:
+EXAM_TIMETABLE_DETAILS: 'examtimetabledetails',  // GET — denormalised DTO endpoint
+```
+
+### Files updated
+
+| File | Hardcoded string removed | Constant used |
+|---|---|---|
+| `app/(public)/login/LoginCard.tsx` | `'/api/auth/login'` | `NEXT_API.AUTH.LOGIN` |
+| `hooks/useSession.ts` | `'/api/auth/me'` | `NEXT_API.AUTH.ME` |
+| `components/layout/Sidebar.tsx` | `'/api/auth/logout'` | `NEXT_API.AUTH.LOGOUT` |
+| `components/layout/Topbar.tsx` | `'/api/auth/logout'` | `NEXT_API.AUTH.LOGOUT` |
+| `kit/layout/Topbar.tsx` | `'/api/auth/logout'` + `` `/api/proxy/useraccess?...` `` | `NEXT_API.AUTH.LOGOUT` + `NEXT_API.PROXY(AUTH_API.USER_ACCESS)` |
+| `services/organization.service.ts` | `'/api/proxy/organizationlogoupload'` | `NEXT_API.PROXY(ORG_API.LOGO_UPLOAD)` |
+| `services/exam-timetable.service.ts` | `` `/api/proxy/examtimetabledetails?...` `` | `NEXT_API.PROXY(EXAM_API.EXAM_TIMETABLE_DETAILS)` |
+
+### Convention going forward
+
+- **Spring Boot paths** (no leading `/`) → `AUTH_API`, `EXAM_API`, etc. → used with `NEXT_API.PROXY(...)` on the client, or directly in `src/integrations/spring-api.ts` on the server.
+- **Next.js internal routes** (leading `/`) → `NEXT_API.AUTH.*` → used directly in `fetch()` calls from client components.
+- **Never** write a raw `fetch('/api/...')` string in application code. Always go through a constant.

@@ -410,7 +410,8 @@ The sidebar uses a single component in both contexts; the rendering mode is cont
 | User avatar (PARENT) | Default | `bg-purple-100 text-purple-700` |
 | User avatar (other/default) | Default | `bg-indigo-100 text-indigo-700` |
 | Notification bell | Always | Red dot badge (`bg-red-500 ring-2 ring-white`) |
-| Search input | Focused | `border-indigo-400 bg-white ring-2 ring-indigo-400/20` |
+| Search input | Focused | `border-indigo-400 bg-white ring-2 ring-indigo-400/20` (via Tailwind focus styles) |
+| Search dropdown result | Active (keyboard/hover) | `bg-accent` |
 
 ### CSS Transition Summary
 
@@ -466,8 +467,8 @@ All 14 documented edge cases:
 - Note: Intentional design decision. Persisting collapse state risks stale entries if the nav tree changes after an API update.
 
 **8. Missing or unknown icon name**
-- Trigger: Spring API returns an `iconName` value not present in `ICON_MAP` (e.g., `'arrow_forward'`, `'star'`, any unmapped string).
-- Behavior: `ICON_MAP[name]` returns `undefined`. `NavIcon` falls back to `ChevronRight`.
+- Trigger: Spring API returns an `iconName` value not present in `ICON_MAP` (e.g., any unmapped string).
+- Behavior: `resolveIcon(name)` returns `undefined`. `NavIcon` falls back to `LayoutDashboard` (for modules) or `ChevronRight` (for pages).
 - Note: No crash, no error. The visual result is a small chevron icon where a domain icon was expected. Add the key to `ICON_MAP` to fix.
 
 **9. Pathname not matching any nav href**
@@ -510,43 +511,57 @@ Icons come from the `lucide-react` package. The `ICON_MAP` object maps string ke
 
 ### Resolution Flow
 
+Icons come from the Spring Boot API's `iconName` field. The `resolveIcon()` function handles two formats:
+
 ```
 item.icon (string from API)
     |
-    v
-ICON_MAP[item.icon]  →  found?  →  YES → use Lucide component
-                                  →  NO  → use ChevronRight (fallback)
+    ├─ Single-word (e.g. "dashboard", "school")
+    │       └─ Direct lookup: ICON_MAP[name]
+    │
+    └─ Multi-word CSS class (e.g. "fa fa-graduation-cap", "icon-home")
+            └─ Strip fa-/icon-/glyphicon- prefix from last token
+               Try underscore form ("graduation_cap")
+               Try dashed form ("graduation-cap")
+               Fallback: next token, same logic
 ```
 
-The `NavIcon` component handles this: `const Icon = (name && ICON_MAP[name]) || ChevronRight`.
+If nothing resolves: `kind='module'` → `LayoutDashboard`, `kind='page'` → `ChevronRight`.
 
-Icon renders at `h-[15px] w-[15px]` with `strokeWidth={1.75}`. The wrapping `<span>` is `h-[18px] w-[18px]` for consistent hit-area.
+### Full ICON_MAP (200+ entries)
 
-### Full ICON_MAP Keys
+Organized by category. All keys are the exact string the Spring Boot API returns in `iconName`.
 
-| Category | Keys |
-|----------|------|
-| Core | `dashboard`, `home` |
-| People | `people`, `person`, `group`, `staff`, `students` |
-| Academics | `school`, `book`, `library_books`, `library`, `book_marked`, `academics` |
-| Exams & Assessments | `assignment`, `assessment`, `exam` |
-| Finance | `attach_money`, `payment`, `fee` |
-| Attendance | `attendance`, `calendar_today` |
-| Timetable / Schedule | `event`, `timetable`, `schedule` |
-| Reports | `bar_chart`, `trending_up`, `reports` |
-| Settings | `settings`, `config` |
-| Communication | `announcement`, `bell` |
-| Transport / Hostel | `transport`, `location`, `hostel`, `bed` |
+| Category | Example keys |
+|----------|-------------|
+| Dashboard / Core | `dashboard`, `home`, `apps`, `grid_view`, `widgets`, `layers` |
+| People / HR | `people`, `group`, `groups`, `person`, `person_add`, `supervisor_account`, `manage_accounts`, `how_to_reg`, `badge`, `contacts`, `face` |
+| Academics | `school`, `book`, `menu_book`, `library_books`, `local_library`, `class`, `subject`, `science`, `biotech`, `history_edu`, `auto_stories`, `edit_note` |
+| Exams / Assessment | `assignment`, `assessment`, `assignment_turned_in`, `fact_check`, `quiz`, `grading`, `task`, `task_alt`, `checklist`, `score`, `grade`, `stars`, `emoji_events` |
+| Finance / Fees | `attach_money`, `money`, `payment`, `receipt`, `receipt_long`, `credit_card`, `account_balance`, `account_balance_wallet`, `savings`, `currency_rupee`, `paid`, `request_quote`, `point_of_sale` |
+| Attendance / Biometric | `fingerprint`, `attendance`, `how_to_vote`, `co_present`, `transfer_within_a_station` |
+| Timetable / Calendar | `event`, `event_note`, `event_available`, `today`, `calendar_today`, `calendar_month`, `date_range`, `schedule`, `alarm`, `timer`, `view_timeline` |
+| Reports / Analytics | `bar_chart`, `stacked_bar_chart`, `insert_chart`, `area_chart`, `show_chart`, `trending_up`, `analytics`, `donut_large`, `pie_chart`, `leaderboard`, `query_stats`, `table_chart` |
+| Settings / Config | `settings`, `settings_applications`, `tune`, `build`, `handyman`, `admin_panel_settings`, `filter_list`, `category` |
+| Communication | `announcement`, `campaign`, `notifications`, `notifications_active`, `email`, `mail`, `message`, `sms`, `chat`, `forum`, `send` |
+| Transport / Location | `directions_bus`, `bus_alert`, `local_taxi`, `directions_car`, `location_on`, `location_city`, `map`, `navigation`, `place`, `route` |
+| Hostel / Buildings | `hotel`, `house`, `domain`, `business`, `apartment`, `corporate_fare`, `bedroom_parent`, `king_bed`, `night_shelter` |
+| Library / Files | `upload`, `download`, `file_upload`, `cloud_upload`, `folder`, `folder_open`, `insert_drive_file`, `file_copy`, `print`, `picture_as_pdf`, `attachment`, `link` |
+| Admin / Security | `security`, `verified_user`, `gpp_good`, `lock`, `vpn_key`, `key`, `password`, `enhanced_encryption` |
+| IT / Tech | `computer`, `laptop`, `phone_android`, `memory`, `storage`, `dns`, `cloud`, `wifi`, `code`, `terminal`, `api`, `database`, `schema` |
+| Misc / General | `info`, `help`, `warning`, `error`, `new_releases`, `bolt`, `favorite`, `medical_services`, `star`, `bookmark`, `arrow_forward`, `chevron_right`, `search`, `edit`, `delete`, `refresh`, `sync` |
 
-Note: `normalizeModuleIcon()` in `src/lib/navigation.ts` defaults missing module icons to `'dashboard'`. `normalizePageIcon()` defaults missing page icons to `'arrow_forward'`. Since `'arrow_forward'` is not in `ICON_MAP`, it renders as a `ChevronRight` fallback — this is the intended default appearance for generic page items.
+### FontAwesome (multi-word) aliases
+
+Multi-word icon values like `"fa fa-graduation-cap"` or `"icon-home"` are resolved by `resolveIcon()` which strips the `fa-`/`icon-` prefix, converts dashes to underscores, and looks up in the same `ICON_MAP`. Example: `"fa fa-graduation-cap"` → `"graduation_cap"` → `GraduationCap`.
 
 ### Adding a New Icon
 
 1. Import the icon from `lucide-react` at the top of `NavItem.tsx`.
 2. Add a key/value entry to `ICON_MAP`.
-3. Set the corresponding `iconName` in the Spring Boot data for the module or page.
+3. Set the corresponding `iconName` in the Spring Boot data.
 
-No other files need to change. The icon resolves automatically at runtime.
+No other files need to change.
 
 ---
 
@@ -554,15 +569,15 @@ No other files need to change. The icon resolves automatically at runtime.
 
 **File:** `src/components/layout/Topbar.tsx`
 
-The Topbar is a `'use client'` component rendered at the top of the main content area (not inside the sidebar).
+The Topbar is a `'use client'` component rendered at the top of the main content area.
 
-- **Height:** `h-14` (56px), `sticky top-0 z-20`
+- **Height:** `h-14` (56px)
 - **Background:** `bg-white`, `border-b border-slate-200`
 
 | Element | Behavior |
 |---------|----------|
-| Hamburger (Menu icon) | `md:hidden`, calls `toggleSidebar()` |
-| Search input | Renders with placeholder "Search records…". No `onChange` handler. Non-functional. |
+| Hamburger (Menu icon) | `md:hidden` — calls `toggleSidebar()` |
+| Live search input | Full-width on the left. Fetches all accessible pages for the current user from Spring Boot on mount. Filters by display name prefix as user types. Shows dropdown of up to 8 results. Keyboard: `↓`/`↑` to navigate results, `Enter` to navigate, `Escape` to close. |
 | Bell icon | Renders with a static red dot badge. Non-interactive. |
 | LayoutGrid icon | Non-interactive. |
 | Help icon | Non-interactive. |
@@ -577,7 +592,6 @@ The Topbar is a `'use client'` component rendered at the top of the main content
 | Mobile sidebar does not close after navigation | `AppShell.tsx`, auto-collapse effect | On mobile, after tapping a nav link, the drawer stays open and covers the content. User must manually dismiss it. | Add `if (isMobile && isSidebarOpen) setSidebarOpen(false)` to the pathname effect in AppShell, or call `setSidebarOpen(false)` unconditionally alongside `setSidebarCollapsed(true)`. |
 | Mobile overlay has no tap-to-close handler | `AppShell.tsx`, overlay div | Tapping the dark backdrop behind the sidebar on mobile does nothing. | Add `onClick={() => setSidebarOpen(false)}` to the overlay div. |
 | `collapsedItems` resets on page refresh | `navigation-store.ts`, `partialize` | Users who manually collapse several modules lose that arrangement on refresh. | Intentional for now; add `collapsedItems` to `partialize` with custom serialization if it becomes a UX issue (Set is not JSON-serializable by default). |
-| Search bar is non-functional | `Topbar.tsx` | The search input has no handler; it is purely decorative. | Implement a search handler or remove the input until a search feature is ready. |
 | Active parent flickers on close attempt | `NavItem.tsx`, `isOpen` forced true | Clicking a CollapsibleTrigger of an active parent causes a brief close-then-open animation. | Guard the `onOpenChange` call: `onOpenChange={() => { if (!isActive) toggleCollapsed(item.id) }}`. |
 | "Profile" menu item is disabled | `Topbar.tsx` | The Profile dropdown item exists but has `disabled` and `cursor-not-allowed`. No user profile page exists. | Implement a profile page or remove the item. |
 

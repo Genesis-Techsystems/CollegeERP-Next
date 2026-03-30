@@ -71,7 +71,7 @@ All service files are re-exported from `src/services/index.ts`.
 // src/services/exam-master.service.ts
 
 import type { ExamMaster } from '@/types/exam-master'
-import { domainList, buildQuery } from '@/services/crud.service'
+import { domainList, buildQuery } from '@/services/crud'
 
 /**
  * Fetches exam master list filtered by university, course, and academic year.
@@ -105,7 +105,7 @@ export async function fetchExamsByUniversity(
 `getAllRecords` from `crud.service.ts` wraps `GET /api/proxy/getAllRecords/{procName}?{params}` with the same error handling as `domainList`. Use it instead of raw `fetch` for any stored-procedure call:
 
 ```typescript
-import { getAllRecords } from '@/services/crud.service'
+import { getAllRecords } from '@/services/crud'
 
 export async function getExamFilters(empId: number): Promise<ExamFiltersResult> {
   const data = await getAllRecords<{ result: ExamFilterRow[][] }>(
@@ -194,7 +194,7 @@ Services are the `queryFn` bodies. The service function handles the fetch and er
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { getExamMasterList } from '@/services/exam-master.service'
+import { getExamMasterList } from '@/services/exam-master'
 
 function ExamMasterPage() {
   const { user } = useSessionContext()
@@ -221,7 +221,7 @@ This ensures correct cache invalidation when parameters change.
 
 ```typescript
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createExamMaster } from '@/services/exam-master.service'
+import { createExamMaster } from '@/services/exam-master'
 
 function useCreateExamMaster() {
   const queryClient = useQueryClient()

@@ -11,6 +11,8 @@ interface NavigationState {
   isSidebarHovered: boolean
   /** When true, sidebar auto-collapses to icon-only after every navigation */
   autoCollapse: boolean
+  /** Which side of the screen the sidebar is docked to */
+  sidebarPosition: 'left' | 'right'
   setNavItems: (items: NavItem[]) => void
   toggleCollapsed: (id: string) => void
   toggleSidebar: () => void
@@ -19,6 +21,7 @@ interface NavigationState {
   toggleSidebarCollapsed: () => void
   setSidebarHovered: (hovered: boolean) => void
   toggleAutoCollapse: () => void
+  setSidebarPosition: (pos: 'left' | 'right') => void
 }
 
 export const useNavigationStore = create<NavigationState>()(
@@ -30,6 +33,7 @@ export const useNavigationStore = create<NavigationState>()(
       isSidebarCollapsed: false,
       isSidebarHovered: false,
       autoCollapse: false,
+      sidebarPosition: 'left',
 
       setNavItems: (items) => set({ navItems: items }),
 
@@ -51,6 +55,7 @@ export const useNavigationStore = create<NavigationState>()(
         set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
       setSidebarHovered: (hovered) => set({ isSidebarHovered: hovered }),
       toggleAutoCollapse: () => set((state) => ({ autoCollapse: !state.autoCollapse })),
+      setSidebarPosition: (pos) => set({ sidebarPosition: pos }),
     }),
     {
       name: 'nav-settings',
@@ -59,6 +64,7 @@ export const useNavigationStore = create<NavigationState>()(
       partialize: (state) => ({
         autoCollapse: state.autoCollapse,
         isSidebarCollapsed: state.isSidebarCollapsed,
+        sidebarPosition: state.sidebarPosition,
       }),
     },
   ),

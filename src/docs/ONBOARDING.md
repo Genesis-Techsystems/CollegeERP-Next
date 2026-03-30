@@ -80,15 +80,47 @@ Check `node_modules/next/dist/docs/` before writing any Next.js-specific code. K
 3. Create service: `src/services/{domain}.service.ts` — see `src/docs/architecture/service-layer.md`
 4. Add types: `src/types/{domain}.ts`
 5. Add API constants to: `src/config/constants/` (once split by Foundation agent)
-6. Use `<PageHeader>` from `@/components/layout/PageHeader`
+6. Use `<PageHeader>` and `<PageContainer>` from `@/components/layout`
 7. Write TanStack Query with service as queryFn — see service layer docs
 8. Document the flow in `src/docs/flows/{module}-flow.md`
 
 ---
 
+## The `src/common/` Directory
+
+`src/common/` mirrors Angular's `src/app/common/`. It holds project-wide constants and **reusable UI components** shared across all modules. This is the canonical source for reusable components — import from here on all pages.
+
+**Constants** — import directly from the file:
+```typescript
+import { API_BASE } from '@/common/constants'
+import { ROLES } from '@/common/general-constants'
+import { formatDate } from '@/common/generic-functions'
+```
+
+**Reusable UI Components** — import from the component barrel or subdirectory:
+```typescript
+// Preferred: use the subdirectory barrel
+import { DataTable } from '@/common/components/table'
+import { SearchInput } from '@/common/components/search'
+import { BarChart } from '@/common/components/bar-chart'
+import { StatusBadge, StatCard } from '@/common/components/data-display'
+import { ConfirmDialog, FormModal } from '@/common/components/feedback'
+import { DatePicker } from '@/common/components/date-picker'
+
+// Or import from the common barrel
+import { DataTable, SearchInput, StatusBadge } from '@/common/components'
+```
+
+Chart components (`bar-chart`, `pie-chart`) use **recharts** — not Highcharts. See `src/docs/components/README.md` for props.
+
+---
+
 ## Adding a Reusable Component
 
-1. Choose the right category: `ui/` (Shadcn primitives), `forms/`, `layout/`, `data-table/`, `feedback/`, `data-display/`, `shared/`
+1. Choose the right location:
+   - `src/components/ui/` — Shadcn primitives (Radix-based, no business logic)
+   - `src/components/layout/` — structural/shell components (AppShell, Topbar, Sidebar, NavItem, PageHeader, PageContainer)
+   - `src/common/components/<category>/` — reusable UI components used in pages (table, date-picker, search, select, bar-chart, pie-chart, charts, breadcrumb, data-display, feedback, forms, theme-setting-modal)
 2. TypeScript props interface with JSDoc on every prop
 3. Add `'use client'` if it uses any hooks or browser APIs
 4. Export from category's `index.ts` (if the barrel exports)
@@ -154,7 +186,7 @@ AG Grid is client-side only. Make sure the page has `'use client'` and `DataTabl
 
 ```typescript
 const DataTable = dynamic(
-  () => import('@/components/data-table/DataTable'),
+  () => import('@/common/components/table/DataTable'),
   { ssr: false }
 )
 ```
@@ -223,14 +255,22 @@ See `PROGRESS.md` for the complete list. Summary:
 **Built:**
 - Iron Session BFF auth (login, logout, session check)
 - API proxy with JWT injection and multipart file support
-- Edge middleware (cookie existence check)
-- App shell (sidebar, topbar, mobile hamburger)
-- Dashboard (role-based, stat values hardcoded to 0)
-- Exam Master — list, add/edit modal, details/labels page
+- Edge middleware (cookie existence check → redirect to /login)
+- App shell: sidebar (with collapse/expand, auto-collapse, search icon, debug trigger), topbar (live page search with API integration, keyboard navigation, user dropdown)
+- Dashboard (role-based, stat cards — values hardcoded to 0)
+- Admin: Organizations (list, add/edit modal with logo upload, status)
+- Admin: Campus (list, add/edit modal)
+- Exam Master module: exam-master, exam-session, exam-timetable, exam-fee-setup, exam-max-marks-setup, grade-setup, seating-plan-setup, invigilator-remuneration, revaluation-fee-setup (all with list + add/edit + confirm delete)
+- Evaluation: evaluation-process, evaluator-assigned-answer-sheet, paper, create-questionpaper-template, evaluation-templates, exam-question-paper-marks
+- Evaluation dashboard (recharts bar/pie charts)
+- Debug system (flag-gated via NEXT_PUBLIC_DEBUG_MODE — nav visibility panel with search, persisted to localStorage)
+- DataTable: AG Grid Community v35 with client-side pagination, auto-height, rows-per-page selector, CSV export, server-side pagination support
+- NavItem: 200+ Material Icon → Lucide React mappings; multi-word CSS class icon resolution (fa fa-icon syntax)
 
 **Not built yet:**
 - Dashboard stat cards wired to real APIs
-- All other modules (student, staff, fee, attendance, timetable, admissions, reports, etc.)
-- AG Grid pagination, CSV export, quick search UI
-- Confirmation dialog on exam label delete
-- Any page under `admin-exam-masters` other than `exam-master/`
+- All other modules: student, staff, fee, attendance, timetable, admissions, reports, HR, library, transport, hostel
+- User profile page
+- Mobile sidebar auto-close after navigation
+- Notification bell functionality
+- Breadcrumb integration on pages

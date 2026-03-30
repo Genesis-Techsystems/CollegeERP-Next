@@ -7,6 +7,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
 import type { NavItem } from '@/types/navigation'
+import { IS_DEBUG_MODE, DebugPanel } from '@/debug'
 
 interface AppShellProps {
   children: ReactNode
@@ -51,6 +52,7 @@ export function AppShell({ children, initialNavItems }: AppShellProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
+      {IS_DEBUG_MODE && <DebugPanel />}
       {/* Mobile overlay when sidebar is open */}
       {isSidebarOpen && (
         <div

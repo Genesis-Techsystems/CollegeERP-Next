@@ -1,0 +1,279 @@
+'use client'
+
+import * as React from 'react'
+import { useId, useRef, useEffect, useState, useCallback } from 'react'
+import { ChevronDown, X, Search, Check, Loader2 } from 'lucide-react'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface SelectOption {
+  value: string
+  label: string
+  disabled?: boolean
+}
+
+export interface SelectProps {
+  value: string | null
+  onChange: (value: string | null) => void
+  options: SelectOption[]
+  placeholder?: string
+  label?: string
+  required?: boolean
+  error?: string
+  disabled?: boolean
+  /** Show a search input inside the dropdown. Never auto-shown — must be explicit. */
+  searchable?: boolean
+  /** Called on every search input change (debounced 300 ms). Use for server-side filtering. */
+  onSearch?: (term: string) => void
+  /** Shows a centred spinner in the list area instead of options. */
+  isLoading?: boolean
+  /** Render a × button in the trigger to clear the current value. */
+  clearable?: boolean
+  className?: string
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function useDebounce(fn: (v: string) => void, delay: number) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  return useCallback(
+    (v: string) => {
+      if (timer.current !== null) clearTimeout(timer.current)
+      timer.current = setTimeout(() => fn(v), delay)
+    },
+    [fn, delay],
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function Select({
+  value,
+  onChange,
+  options,
+  placeholder = 'Select an option',
+  label,
+  required = false,
+  error,
+  disabled = false,
+  searchable = false,
+  onSearch,
+  isLoading = false,
+  clearable = false,
+  className,
+}: SelectProps) {
+  const id = useId()
+  const triggerId = `select-trigger-${id}`
+  const searchId = `select-search-${id}`
+
+  const [open, setOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  const selectedOption = options.find((o) => o.value === value) ?? null
+
+  // Debounced server-side search callback
+  const debouncedOnSearch = useDebounce(onSearch ?? (() => undefined), 300)
+
+  // Focus search input when popover opens
+  useEffect(() => {
+    if (open && searchable) {
+      // Let the popover finish its open animation before focusing
+      const t = setTimeout(() => searchInputRef.current?.focus(), 50)
+      return () => clearTimeout(t)
+    }
+  }, [open, searchable])
+
+  // Reset local search when closing
+  useEffect(() => {
+    if (!open) setSearchTerm('')
+  }, [open])
+
+  const filteredOptions = searchTerm
+    ? options.filter((o) => o.label.toLowerCase().includes(searchTerm.toLowerCase()))
+    : options
+
+  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const term = e.target.value
+    setSearchTerm(term)
+    if (onSearch) debouncedOnSearch(term)
+  }
+
+  function handleSelect(optValue: string) {
+    onChange(optValue)
+    setOpen(false)
+  }
+
+  function handleClear(e: React.MouseEvent) {
+    e.stopPropagation()
+    onChange(null)
+  }
+
+  return (
+    <div className={cn('flex flex-col gap-1', className)}>
+      {/* Label */}
+      {label && (
+        <label
+          htmlFor={triggerId}
+          className="text-sm font-medium text-foreground"
+        >
+          {label}
+          {required && (
+            <span className="ml-0.5 text-destructive" aria-hidden="true">
+              {' '}*
+            </span>
+          )}
+        </label>
+      )}
+
+      {/* Popover wrapper */}
+      <Popover open={open} onOpenChange={disabled ? undefined : setOpen}>
+        <PopoverTrigger asChild>
+          {/* Trigger button */}
+          <button
+            id={triggerId}
+            type="button"
+            role="combobox"
+            aria-expanded={open}
+            aria-required={required || undefined}
+            aria-invalid={error ? true : undefined}
+            aria-haspopup="listbox"
+            disabled={disabled}
+            className={cn(
+              'flex h-10 w-full items-center justify-between rounded-lg border bg-white px-3 py-2 text-sm shadow-sm transition-colors',
+              'focus-visible:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/20',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+              open && 'border-indigo-500 ring-2 ring-indigo-500/20',
+              error
+                ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20'
+                : 'border-slate-300',
+            )}
+          >
+            {/* Label / placeholder */}
+            <span
+              className={cn(
+                'truncate',
+                !selectedOption && 'text-slate-400',
+              )}
+            >
+              {selectedOption ? selectedOption.label : placeholder}
+            </span>
+
+            {/* Right-side icons */}
+            <span className="ml-2 flex shrink-0 items-center gap-1">
+              {clearable && value !== null && (
+                <span
+                  role="button"
+                  aria-label="Clear selection"
+                  tabIndex={0}
+                  onClick={handleClear}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') handleClear(e as unknown as React.MouseEvent)
+                  }}
+                  className="rounded p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </span>
+              )}
+              <ChevronDown
+                className={cn(
+                  'h-4 w-4 text-slate-400 transition-transform duration-200',
+                  open && 'rotate-180',
+                )}
+              />
+            </span>
+          </button>
+        </PopoverTrigger>
+
+        {/* Dropdown */}
+        <PopoverContent
+          align="start"
+          sideOffset={4}
+          className="w-[var(--radix-popover-trigger-width)] min-w-[180px] p-0"
+          // Prevent closing when clicking the search input
+          onInteractOutside={(e) => {
+            if (searchInputRef.current?.contains(e.target as Node)) {
+              e.preventDefault()
+            }
+          }}
+        >
+          {/* Search input */}
+          {searchable && (
+            <div className="border-b px-2 py-1.5">
+              <div className="relative flex items-center">
+                <Search className="pointer-events-none absolute left-2 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  ref={searchInputRef}
+                  id={searchId}
+                  type="text"
+                  role="searchbox"
+                  aria-label="Search options"
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  placeholder="Search..."
+                  className="h-8 w-full rounded-md bg-transparent pl-7 pr-2 text-sm placeholder:text-slate-400 focus:outline-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Options list */}
+          <div role="listbox" className="max-h-60 overflow-y-auto py-1">
+            {isLoading ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading…</span>
+              </div>
+            ) : filteredOptions.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                No results found
+              </div>
+            ) : (
+              filteredOptions.map((opt) => {
+                const isSelected = opt.value === value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    disabled={opt.disabled}
+                    onClick={() => !opt.disabled && handleSelect(opt.value)}
+                    className={cn(
+                      'flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors',
+                      'hover:bg-accent hover:text-accent-foreground',
+                      'focus:bg-accent focus:text-accent-foreground focus:outline-none',
+                      'disabled:cursor-not-allowed disabled:opacity-50',
+                      isSelected && 'bg-accent/50 font-medium',
+                    )}
+                  >
+                    {/* Checkmark slot — keeps label alignment consistent */}
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                      {isSelected && <Check className="h-3.5 w-3.5 text-primary" />}
+                    </span>
+                    <span className="truncate">{opt.label}</span>
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {/* Error message */}
+      {error && (
+        <p className="text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}

@@ -1,3 +1,18 @@
+// ─── Auth Guard — Layer 3 of 3 ───────────────────────────────────────────────
+//
+// Client-side UI guard. Renders children only when the current user holds one
+// of the required roles. Use this to hide buttons, sections, or entire panels
+// from users who shouldn't see them.
+//
+// IMPORTANT: This is UI-only — it is NOT a security boundary. A determined user
+// can bypass client-side checks. Real protection is in Layers 1 & 2.
+//
+// Layer 1 → src/middleware.ts
+//   Fast cookie-presence check on every request.
+//
+// Layer 2 → src/app/(pages)/(protected)/layout.tsx
+//   Full server-side session validation before any page renders.
+//
 'use client'
 
 import type { ReactNode } from 'react'

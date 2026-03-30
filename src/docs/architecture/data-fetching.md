@@ -56,7 +56,7 @@ POST /api/proxy/getAllRecords/{procName}?…       →  {SPRING_BOOT}/getAllReco
 Use for any `domain/list`, `domain/create`, `domain/update`, `domain/softdelete` endpoint.
 
 ```typescript
-import { domainList, domainCreate, domainUpdate, domainSoftDelete, buildQuery } from '@/services/crud.service'
+import { domainList, domainCreate, domainUpdate, domainSoftDelete, buildQuery } from '@/services/crud'
 
 // List (GET /api/proxy/domain/list/ExamMaster?query=…&sort=…)
 return domainList<ExamMaster>('ExamMaster', buildQuery({ 'Course.courseId': courseId }))
@@ -78,7 +78,7 @@ return domainSoftDelete('ExamMaster', 'examId', 5)
 Use for `GET /api/proxy/getAllRecords/{procName}` endpoints.
 
 ```typescript
-import { getAllRecords } from '@/services/crud.service'
+import { getAllRecords } from '@/services/crud'
 
 const data = await getAllRecords<{ result: SomeRow[][] }>(
   's_get_exam_filters_bycode',
