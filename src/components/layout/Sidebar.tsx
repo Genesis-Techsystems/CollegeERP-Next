@@ -40,7 +40,7 @@ export function Sidebar() {
 
   const navRef = useRef<HTMLElement>(null)
   const savedScrollRef = useRef(0)
-  const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout>>()
+  const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   const [searchOpen, setSearchOpen] = useState(false)

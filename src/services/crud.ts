@@ -104,7 +104,7 @@ class CrudService {
       throw new AppError('API_ERROR', body.message ?? `Failed to create ${entity}`)
     }
 
-    return body.data
+    return body.data as T
   }
 
   // ── Update ────────────────────────────────────────────────────────────────
@@ -143,7 +143,7 @@ class CrudService {
       throw new AppError('API_ERROR', body.message ?? `Failed to update ${entity}`)
     }
 
-    return body.data
+    return body.data as T
   }
 
   // ── Soft Delete ───────────────────────────────────────────────────────────
@@ -185,7 +185,7 @@ class CrudService {
       throw new AppError('API_ERROR', body.message ?? `Failed to call ${procName}`)
     }
 
-    return body.data
+    return body.data as T
   }
 
   // ── Proxy Helpers ─────────────────────────────────────────────────────────
@@ -216,7 +216,7 @@ class CrudService {
       throw new AppError('API_ERROR', body.message ?? `GET ${path} failed`)
     }
 
-    return body.data
+    return body.data as T
   }
 
   /**
@@ -242,7 +242,7 @@ class CrudService {
       throw new AppError('API_ERROR', body.message ?? `POST ${path} failed`)
     }
 
-    return body.data
+    return body.data as T
   }
 
   /**

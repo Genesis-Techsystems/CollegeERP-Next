@@ -319,7 +319,7 @@ export default function CampusModal({
             render={({ field }) => (
               <ActiveStatusField
                 isActive={field.value}
-                reason={watch('reason')}
+                reason={watch('reason') ?? ''}
                 onActiveChange={field.onChange}
                 onReasonChange={(v) => setValue('reason', v)}
                 reasonError={errors.reason?.message}
