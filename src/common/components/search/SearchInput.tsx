@@ -153,8 +153,8 @@ export function SearchInput({
         autoFocus={autoFocus}
         aria-label="Search"
         className={cn(
-          'h-9 w-full rounded-md border border-input bg-background',
-          'pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground',
+          'h-8 w-full rounded-md border border-input bg-background',
+          'pl-9 pr-9 text-[12px] text-foreground placeholder:text-muted-foreground',
           'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0',
           'transition-colors duration-150',
         )}

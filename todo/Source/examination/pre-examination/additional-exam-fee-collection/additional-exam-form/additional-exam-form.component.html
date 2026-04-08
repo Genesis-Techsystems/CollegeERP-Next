@@ -1,0 +1,242 @@
+<div id="dashboard" class="page-layout simple" id="printNone">
+
+    <div class="center" fusePerfectScrollbar>
+ 
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Student Exam Fee Collection</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Form</span>
+                </div>
+            </div>
+        </div>
+        <!-- / HEADER -->
+ 
+        <!-- CONTENT -->
+        <div class="layout main-div">
+          <div id="dashboard" id="printsection">
+            <div class="layout" *ngIf="orgCode === 'SUK'">
+              <img src="assets/images/avatars/SUK_BANNER_NEW.jpg">
+            </div>
+            <div class="layout" *ngIf="orgCode === 'SUK'">
+              <p class="p-tag">KALABURAGI-585103, KARNATAKA, INDIA</p>
+            </div>
+            <hr width="100%" color="black" size="1px" style="margin: 15px !important;" />
+            <div class="layout">
+              <div style="text-align: center !important;">
+                <h2 style="text-align: center !important">EXAM FORM</h2>
+              </div>
+              <table id="sigtable-1">
+                <tr>
+                  <td>Application Id :  {{studentDetails?.otherPaymentNumber}}</td>
+                  <td> {{studentDetails?.examName}}</td>
+                </tr>
+              </table>
+
+        
+            
+            </div>
+            <div class="faculty-details">
+              <table class="course-table" id="pageNumber" >
+                <thead>
+                  <tr>
+                      <th colspan="2">USN :<span style="font-weight: 100 !important;">{{studentDetails?.stdRollNumber}} </span></th>
+                      <th colspan="2">Student Name :<span style="font-weight: 100 !important;"> {{studentDetails?.stdName}}</span></th>
+                    </tr>
+                    <tr>
+                      <th colspan="2">Father Name :<span style="font-weight: 100 !important;">{{studentDetails?.stdFatherName}} </span></th>
+                      <th colspan="2"> Student Type :<span style="font-weight: 100 !important;">{{studentDetails?.studentType}} </span></th>
+                    </tr>
+      
+                  <tr>
+                    <th colspan="4">Faculty :<span style="font-weight: 100 !important;">{{studentDetails?.collegeName}}</span></th>
+                  </tr>
+                  <tr>
+                    <th  colspan="2">Programme :<span style="font-weight: 100 !important;">{{studentDetails?.courseCode}} - {{studentDetails?.groupCode}}</span></th>
+                    <td   colspan="2">
+                      <span style="font-weight: 550 !important;">Semester :</span>
+                      <span *ngFor="let obj of SemisterList">
+                        <span *ngIf="obj.id == studentDetails?.courseYearCode">{{obj.value}}</span>
+                      </span>
+                    </td>
+                   
+                  </tr>
+                </thead>
+              </table>
+              <table class="course-table" id="pageNumber" >
+                  <thead>
+                    <tr>
+                      <th style="text-align: center !important;">Course Code</th>
+                     
+                      <th style="text-align: center !important;">Course Title</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let object of studentSubjects?.examStudentDetailDTOs; let i = index">
+                      <td style="text-align: left !important;font-size: 12px !important;">{{object?.subjectCode}}</td>
+                      <td style="text-align: left !important;font-size: 12px !important;">{{object?.subjectName}}</td>
+                    
+                    </tr>
+                  </tbody>
+                </table>
+           
+            </div>
+            <div class="layout">
+              <p><b>  FEE Details</b></p>
+              <div class="admit-card">
+                <div class="signatures-4">
+                  <div class="signature-1">
+                    <label>Receipt No : </label>
+                  </div>
+                  <div class="signature-1">
+                    <label>Date : {{studentDetails?.receiptDate | date:'dd-MM-yyyy'}}</label>
+                  </div>
+                  <div class="signature-1">
+                      <label>UTR No : {{studentDetails?.transactionNo}}</label>
+                    </div>
+                    <div class="signature-1">
+                      <label>Total : {{studentDetails?.examTotalAmount}}</label>
+                    </div>
+                </div>
+              </div>
+            </div>
+            <div style="justify-content: end;">
+              <p style="text-align: end !important;">Printed Date : {{this.Date | date:'dd-MM-yyyy'}}</p>
+            </div>
+            
+            <div class="layout">
+              <table id="sigtable">
+                <tr>
+                  <td>Student Name & Signature : </td>
+                  <td>Chairperson Signature :</td>
+                </tr>
+              </table>
+            
+            </div>
+            <!-- <div class="page-footer" style="position: absolute; bottom: 0; width: 100%; text-align: center; font-size: 10pt;">
+              Page
+            </div> -->
+          </div>
+        </div>
+          <div class="printbtn">
+            <button id="printNone" mat-raised-button class="back-btn" (click)="goBack()">
+                Back</button>
+            <button id="printNone" mat-raised-button color="accent"
+                (click)="printSection('printsection')">
+                Print</button>
+        </div>
+    </div>
+ </div>
+
+
+ <!-- print-section -->
+ <div class="layout">
+    <div id="dashboard" id="printsection">
+      <div class="layout" *ngIf="orgCode === 'SUK'">
+        <img src="assets/images/avatars/SUK_BANNER_NEW.jpg">
+      </div>
+      <div class="layout" *ngIf="orgCode === 'SUK'">
+        <p class="p-tag">KALABURAGI-585103, KARNATAKA, INDIA</p>
+      </div>
+      <hr width="100%" color="black" size="1px" style="margin: 15px !important;" />
+      <div style="text-align: center !important;">
+        <h2 style="text-align: center !important">EXAM FORM</h2>
+      </div>
+      <div class="layout">
+        <table id="sigtable-1">
+          <tr>
+            <td>Application Id : {{studentDetails?.otherPaymentNumber}} </td>
+            <td> {{studentDetails?.examName}}</td>
+          </tr>
+        </table>
+      
+      </div>
+      <div class="faculty-details">
+        <table class="course-table" id="pageNumber" >
+          <thead>
+            <tr>
+                <th colspan="2">USN :<span style="font-weight: 100 !important;">{{studentDetails?.stdRollNumber}} </span></th>
+                <th colspan="2">Student Name :<span style="font-weight: 100 !important;"> {{studentDetails?.stdName}}</span></th>
+              </tr>
+              <tr>
+                <th colspan="2">Father Name :<span style="font-weight: 100 !important;">{{studentDetails?.stdFatherName}} </span></th>
+                <th colspan="2"> Student Type :<span style="font-weight: 100 !important;"> {{studentDetails?.studentType}}</span></th>
+              </tr>
+
+            <tr>
+              <th colspan="4">Faculty :<span style="font-weight: 100 !important;">{{studentDetails?.collegeName}}</span></th>
+            </tr>
+            <tr>
+              <th  colspan="2">Programme :<span style="font-weight: 100 !important;">{{studentDetails?.courseCode}} - {{studentDetails?.groupCode}}</span></th>
+              <td  colspan="2">
+                <span style="font-weight: 550 !important;">Semester :</span>
+                <span *ngFor="let obj of SemisterList">
+                  <span *ngIf="obj.id == studentDetails?.courseYearCode">{{obj.value}}</span>
+                </span>
+              </td>
+              
+            </tr>
+          </thead>
+        </table>
+        <table class="course-table" id="pageNumber" >
+            <thead>
+              <tr>
+                <th style="text-align: center !important;">Course Code</th>
+               
+                <th style="text-align: center !important;">Course Title</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let object of studentSubjects?.examStudentDetailDTOs; let i = index">
+                <td style="text-align: left !important;font-size: 12px !important;">{{object?.subjectCode}}</td>
+                <td style="text-align: left !important;font-size: 12px !important;">{{object?.subjectName}}</td>
+              
+              </tr>
+            </tbody>
+          </table>
+     
+      </div>
+      <div class="layout">
+        <p><b>  FEE Details</b></p>
+        <div class="admit-card">
+          <div class="signatures-4">
+            <div class="signature-1">
+              <label>Receipt No : </label>
+            </div>
+            <div class="signature-1">
+              <label>Date :  {{studentDetails?.receiptDate | date:'dd-MM-yyyy'}}</label>
+            </div>
+            <div class="signature-1">
+                <label>UTR No : {{studentDetails?.transactionNo}}</label>
+              </div>
+              <div class="signature-1">
+                <label>Total : {{studentDetails?.examTotalAmount}}</label>
+              </div>
+          </div>
+        </div>
+      </div>
+      <div style="justify-content: end;">
+        <p style="text-align: end !important;">Printed Date : {{this.Date | date:'dd-MM-yyyy'}}</p>
+      </div>
+      
+      <div class="layout">
+        <table id="sigtable">
+          <tr>
+            <td>Student Name & Signature : </td>
+            <td>Chairperson Signature :</td>
+          </tr>
+        </table>
+      
+      </div>
+      <!-- <div class="page-footer" style="position: absolute; bottom: 0; width: 100%; text-align: center; font-size: 10pt;">
+        Page
+      </div> -->
+    </div>
+  </div>

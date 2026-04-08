@@ -1,0 +1,154 @@
+<div id="admission-dashboard" class="page-layout simple">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination Management</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Masters</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Master</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Master Details</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+
+        <div class="mat-elevation-z8 bkgrd">
+            <form name="firstFormGroup" class="form-pad" novalidate>
+                <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between">
+                    <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                            <i class="material-icons icon-align ">
+                                    computer
+                                    </i>
+                            <strong class="table-heads">Add Exam Master Details</strong>
+                        </div>
+                    </div>
+                </div>
+                        <div fxLayout="column">
+                    <div fxLayout="row wrap " fxFlex="100">
+
+
+                        <mat-tab-group dynamicHeight="true" (selectedTabChange)="onTabChange($event)" style="border: 1px solid #dedede;margin-top: 10px;"
+                        fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+
+                            <mat-tab [label]="examTypes.generalDetailCode" *ngFor="let examTypes of examFeeTypes">
+                                <div fxLayout="column">
+                                    <div fxLayout="row wrap " fxFlex="100">
+                                        <mat-accordion class="accordion-align">
+                                            <mat-expansion-panel [expanded]="step === 0">
+                                                <mat-expansion-panel-header>
+                                                    <mat-panel-title>
+                                                        <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center" class="form-header">
+                                                                <i class="fa fa-plus icon-align" aria-hidden="true"></i>
+                                                                <strong class="table-heads">Add Exam Master Details</strong>
+                                                            </div>
+                                                        </div>
+                                                    </mat-panel-title>
+                                                </mat-expansion-panel-header>
+                
+                                                <form name="particularForm" #myForm="ngForm" [formGroup]="examMasterDetailsForm" novalidate>
+                                                    <div fxLayout="column">
+                                                        <div fxLayout="row wrap " fxFlex="100">
+                                                            <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                                                <mat-select placeholder="Batch" name="batchId" formControlName="batchId">
+                                                                    <mat-option *ngFor="let batch of batches" [value]="batch.batchId">{{batch.batchName}}</mat-option>
+                                                                </mat-select>
+                                                            </mat-form-field> -->
+                                                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                                                <mat-select placeholder="Regulation" name="regulationId" formControlName="regulationId">
+                                                                    <mat-option *ngFor="let regulation of regulations" [value]="regulation.regulationId">{{regulation.regulationName}}</mat-option>
+                                                                </mat-select>
+                                                            </mat-form-field>
+                                                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                                                <mat-select placeholder="Course Group" name="courseGroupId" formControlName="courseGroupId" required>
+                                                                    <mat-option *ngFor="let courseGroup of courseGroups" [value]="courseGroup.courseGroupId">{{courseGroup.groupCode}}</mat-option>
+                                                                </mat-select>
+                                                            </mat-form-field>
+                                                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                                                <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId" required>
+                                                                    <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.courseYearId">{{courseYear.courseYearName}}</mat-option>
+                                                                </mat-select>
+                                                            </mat-form-field>
+                                                         </div>
+                                                        <div fxLayout="row wrap " fxFlex="100">
+                                                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40">
+                                                                <input matInput placeholder="Exam Label" name="examLabel" formControlName="examLabel" required>
+                                                            </mat-form-field>
+                                                            <section fxLayout="column" fxLayoutAlign="center start" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                                            <mat-checkbox name="isBridgeCourse" formControlName="isBridgeCourse">Is BridgeCourse</mat-checkbox>
+                                                            </section>
+                                                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="5" fxFlex.gt-md="5"></div>
+                                                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                                                     <button mat-raised-button class="add-btn" (click)="addOrUpdate()" *ngIf="addBtn"
+                                                                style="margin-right: 15px;" color="accent"> Add </button>
+                                                                <button mat-raised-button class="add-btn " color="accent" (click)="updateDetails()"
+                                                                    *ngIf="updateBtn">Update</button>
+                                                            </div>
+                                                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                                           <button mat-raised-button class="add-btn btn-map" (click)="clearForm()"
+                                                                style="width:30px;margin-right: 15px;">Clear</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </form>
+                
+                                            </mat-expansion-panel>
+                                        </mat-accordion>
+                                        <div fxLayout="row wrap " style="margin: 15px 23px;" fxFlex="100"  *ngIf="filteredDetails.length > 0">
+                                            <table border="1">
+                                                <thead>
+                                                  <tr>
+                                                    <th>SI.No</th>
+                                                    <!-- <th>Batch</th> -->
+                                                    <th>Regulation</th>
+                                                    <th>Course Group</th>
+                                                    <th>Course Year</th>
+                                                    <th>Exam Label</th>
+                                                    <th>Is BridgeCourse</th>
+                                                    <th>Actions</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  <tr *ngFor="let data of filteredDetails index as i">
+                                                    <td> {{i + 1}} </td>
+                                                    <!-- <td> {{data?.batchName}} </td> -->
+                                                    <td> {{data?.regulationCode}} </td>
+                                                    <td> {{data?.courseGroupCode}} </td>
+                                                    <td> {{data?.courseYearName}} </td>
+                                                    <td> {{data?.examLabel}} </td>
+                                                    <td> {{data?.isBridgeCourse}} </td>
+                                                    <td>
+                                                         <i class="material-icons edit" matTooltip="Edit" (click)="edit(data,i)"
+                                                style="margin-left:6%"> border_color</i>
+                                            |
+                                                      <i class="fa fa-times edit"  title="Delete" (click)="deleteRow(data)"></i>
+                                                    </td>
+                                                  </tr>
+                                                </tbody>
+                                              </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </mat-tab>
+
+                        </mat-tab-group>
+                    </div>
+                    </div>
+                <div class="form-btn" >
+                    <button mat-raised-button class="add-btn back-btn" (click)="goBack()">Back</button>
+                    <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+                    Save
+                </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

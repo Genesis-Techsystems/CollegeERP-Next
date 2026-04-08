@@ -1,0 +1,115 @@
+<div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Checklist</span>
+                </div>
+            </div>
+           
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step=== 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads">Exam Checklist</strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                    </mat-expansion-panel-header>
+                     <form name="staffForm" [formGroup]="checklistform" novalidate>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30">
+                                <mat-select placeholder="College" name="collegeId" formControlName="collegeId" required>
+                                    <mat-option *ngFor="let college of colleges" [value]="college.collegeId">{{college.orgCode}} - {{college.collegeCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                          
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                </mat-expansion-panel>
+            </mat-accordion>
+            <mat-card class="pd-card table-align" >
+                <mat-card-content>
+                    <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                            <label for="search" class="mr-8">
+                            <mat-icon class="secondary-text">search</mat-icon>
+                        </label>
+                            <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                                <input matInput (keyup)="applyFilter($event.target.value)" placeholder="Search">
+                            </mat-form-field>
+                        </div>
+                    </div>
+                </mat-card-content>
+
+                <div class="mat-elevation-z8">
+                    <div class="example-container ">
+                        <table mat-table [dataSource]="dataSource" matSort>
+
+                            <!-- sl.no Column -->
+                            <ng-container matColumnDef="sno">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>SI No. </th>
+                                <td mat-cell *matCellDef="let row; let i=index">{{i+1}}  </td>
+                            </ng-container>
+
+                            <!--module Column -->
+                            <ng-container matColumnDef="module">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Module</th>
+                                <td mat-cell *matCellDef="let row"> {{row.module}} </td>
+                            </ng-container>
+
+                            <!-- submodule Column -->
+                            <ng-container matColumnDef="submodule">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Sub Module</th>
+                                <td mat-cell *matCellDef="let row">{{row.submodule}}</td>
+                            </ng-container>
+
+                            <!--page Column -->
+                            <ng-container matColumnDef="page">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Page</th>
+                                <td mat-cell *matCellDef="let row">{{row.page}}</td>
+                            </ng-container>
+
+                            <!-- status Column -->
+                            <ng-container matColumnDef="status">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+                                <td mat-cell *matCellDef="let row">
+                                    <textarea 
+                                    [(ngModel)]="text"
+                                    class="textarea-inline-control"  
+                                     style="height:30px">  
+                                  </textarea>
+                                </td>
+                            </ng-container>
+                            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                            <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                            </tr>
+                        </table>
+                    </div>
+                    <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+                </div>
+               
+            </mat-card>
+
+            <!-- / CONTENT -->
+        </div>
+    </div>   
+</div>

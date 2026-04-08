@@ -1,0 +1,174 @@
+<div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Evaluation Process</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span> View Answer Sheet</span>
+                </div>
+            </div>
+
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads"> View Answer Sheet</strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="evaluatorForm" [formGroup]="evaluatorForm" novalidate>
+                        <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd" style="padding: 0px 15px;">
+                            <div fxLayout="row wrap" fxFlex="100">
+
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                    <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(evaluatorForm.value.collegeId)" required>
+                                        <mat-option *ngFor="let college of colleges" [value]="college.collegeId">{{college.collegeCode}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+        
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                    <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(evaluatorForm.value.courseId)" required>
+                                        <mat-option *ngFor="let course of courses" [value]="course.courseId">{{course.courseCode}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field> 
+        
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                    <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(evaluatorForm.value.academicYearId)" required>
+                                        <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.academicYearId">{{obcjt.academicYear}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="55" fxFlex.gt-md="55">
+                                    <mat-select placeholder="Exam" name="examId" formControlName="examId"(selectionChange)="selectedExam()" required>
+                                        <mat-option *ngFor="let exam of examsList" [value]="exam.examId" matTooltip="{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})"
+                                        >{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})
+                                            <span *ngIf="exam.isInternalExam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                            <span *ngIf="exam.isRegularExam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                            <span *ngIf="exam.isSupplyExam" style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+        
+                               
+                            </div>
+                          
+                        <div fxLayout="row">
+                          
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId" (selectionChange)="selectedCourseYear(this.evaluatorForm.value.courseYearId)" required>
+                                    <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.courseYearId">{{courseYear.courseYearName}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                <mat-select placeholder="Course Group" name="courseGroupId" formControlName="courseGroupId" (selectionChange)="selectedcourseGroupId(this.evaluatorForm.value.courseGroupId)" required>
+                                    <ngx-mat-select-search [formControl]="subjectFilterCtrl" (keyup)="searchdata($event.target.value)" [placeholderLabel]="'Search Subjects...'" [noEntriesFoundLabel]="'no matching data found'"></ngx-mat-select-search>
+                                    <mat-option *ngFor="let Couregroups of courseGroups" [value]="Couregroups.courseGroupId">{{Couregroups.groupCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30">
+                                <mat-select placeholder="Subject" name="examTimetableDetId" formControlName="examTimetableDetId"   (selectionChange)="selectedSubject()">
+                                    <ngx-mat-select-search [formControl]="subjectFilterCtrl" (keyup)="searchdata($event.target.value)" [placeholderLabel]="'Search Subjects...'" [noEntriesFoundLabel]="'no matching data found'"></ngx-mat-select-search>
+                                    <mat-option *ngFor="let objt of selectedSubjects" [value]="objt.examTimetableDetId"  matTooltip="{{objt.subjectName}} - {{objt.subjectCode}} ({{objt.regulationCode}}) ({{objt.examTypeCatCode}}) ">{{objt.subjectName}} 
+                                        <span class="rol-no"> - {{objt.subjectCode}}</span>
+                                        <span class="rol-no">({{objt.regulationCode}})</span>
+                                        <span>({{objt.examTypeCatCode}})</span>
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13">
+                                <button mat-raised-button class="add-btn" color="accent" (click)="getAnswerPaperList()">Get List</button>    
+                            </div>
+                        </div>
+                       
+                    </div>
+
+                    </form>
+                </mat-expansion-panel>
+            </mat-accordion>
+
+        
+            <div fxLayout="row" *ngIf="flag" >
+                <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                    <mat-card class="pd-card table-align">
+                        <mat-card-content>
+                            <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                                <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                                    <label for="search" class="mr-8">
+                                    <mat-icon class="secondary-text">search</mat-icon>
+                                </label>
+                                    <mat-form-field floatLabel="never" fxFlex="1 0 auto" style="margin-left: 10px">
+                                        <input matInput (keyup)="applyFilter($event.target.value)" placeholder="Search">
+                                    </mat-form-field>
+                                </div>
+                            </div>
+                        </mat-card-content>                
+                        <div class="mat-elevation-z8 ">
+                            <div class="example-container ">
+                                <table mat-table [dataSource]="dataSource" matSort>
+                                    <ng-container matColumnDef="id">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                        <td mat-cell *matCellDef="let row"> {{examAnswerPapaerList.indexOf(row) + 1}} </td>
+                                    </ng-container>
+
+                                    <!-- Semisters Column -->
+                                    <ng-container matColumnDef="omrSerialNo">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>BarcodeNumber</th>
+                                        <td mat-cell *matCellDef="let row"> {{row?.omrSerialNo}} </td>
+                                    </ng-container>
+
+                                    <!-- Semisters Column -->
+                                    <ng-container matColumnDef="studentAnswerPath">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Student Answer Path</th>
+                                        <td mat-cell *matCellDef="let row"> 
+                                            <!-- {{row?.studentAnswerPath}}  -->
+                                            <p *ngIf="row.studentAnswerPath != null"><mat-icon class="hover" (click)="openFile(row?.studentAnswerPath)">remove_red_eye</mat-icon></p>
+                                            <span *ngIf="row.studentAnswerPath == null">No Docs Uploaded</span>
+
+                                            <!-- <a>{{row?.studentAnswerPath}} 
+                                                <i class="material-icons remove_red_eye hover"  matTooltip="View" (click)="View(row)">
+                                                    remove_red_eye</i></a> -->
+                                        </td>
+                                    </ng-container>
+                                 
+                                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                                    <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                                    </tr>
+                                </table>
+                             
+                            </div>
+                           <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+
+                        </div>
+
+               
+            </mat-card>
+          
+</div>
+</div>           
+            <!-- / CONTENT -->
+
+        </div>
+    </div>
+</div>

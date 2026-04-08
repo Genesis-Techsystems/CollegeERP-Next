@@ -1,0 +1,206 @@
+/* ================== GLOBAL ================== */
+table#PivotView_grid_content_table,
+table.e-table {
+  width: 100% !important;
+}
+
+.pd-page {
+  padding: 0 24px !important;
+}
+
+.mar {
+  margin: 0;
+}
+
+p {
+  margin: 5px 0;
+  color: #c76d2f;
+}
+
+.txt-uppercase {
+  text-transform: uppercase;
+}
+
+/* ================== TABLE ================== */
+table {
+  border-spacing: 1px !important;
+}
+
+.table-th {
+  padding: 8px 5px !important;
+  background: #C3D9FF;
+  font-weight: 550;
+}
+
+.table-td {
+  padding: 8px !important;
+  text-align: left;
+  font-weight: 200;
+}
+
+/* ================== BUTTON / ICON ================== */
+.icon {
+  color: aliceblue !important;
+  padding: 4px;
+}
+
+.ptnbtn {
+  margin-top: 4% !important;
+}
+
+/* ================== HEADER LAYOUT ================== */
+.header-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+/* LOGO */
+.header-logo {
+  width: 140px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.logo {
+  width: 105px;          /* FIXED */
+  height: auto;         /* FIXED */
+  object-fit: contain;  /* FIXED */
+  margin-top: -8px;
+}
+
+/* CENTER TEXT */
+.header-text {
+  flex: 1;
+  text-align: center;
+}
+
+.college-name {
+  font-size: 42px;
+  font-weight: 700;
+  margin: 0;
+  color: #000;
+}
+
+.report-title {
+  font-size: 32px;
+  font-weight: 600;
+  margin: 2px 0;
+  color: #000;
+}
+
+.exam {
+  font-size: 15px;
+  color: #000;
+  margin-top: 4px;
+}
+
+/* ================== FOOTER ================== */
+.footer {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #000;
+}
+
+.footer-left {
+  text-align: left;
+}
+
+.footer-right {
+  text-align: right;
+}
+
+/* ================== PRINT ================== */
+@media print {
+
+  #printNone {
+    display: none !important;
+  }
+
+  .print-section {
+    display: block;
+    width: 100% !important;
+  }
+
+  .clgname {
+    font-size: 30px !important;
+    margin-bottom: -16px;
+    font-family: none;
+    text-transform: capitalize !important;
+    justify-content: center;
+    font-weight: 550 !important;
+  }
+
+  .title {
+    font-size: 25px !important;
+    justify-content: center;
+    margin-bottom: -14px;
+    font-family: none;
+    font-weight: 550 !important;
+  }
+
+  .exam {
+    font-size: 22px !important;
+    justify-content: center;
+    font-family: none;
+  }
+
+  .clgname-2 {
+    font-size: 23px !important;
+    margin-top: 1.8% !important;
+    font-family: none;
+    text-transform: capitalize !important;
+    justify-content: center;
+    font-weight: 550 !important;
+    text-align: center !important;
+  }
+
+  .title-2 {
+    font-size: 20px !important;
+    justify-content: center;
+    font-family: none;
+    font-weight: 550 !important;
+    text-align: center !important;
+  }
+
+  .exam-2 {
+    font-size: 18px !important;
+    justify-content: center;
+    font-family: none;
+    margin-bottom: 1% !important;
+    text-align: center !important;
+  }
+
+  header,
+  nav {
+    display: none !important;
+  }
+
+  table {
+    border: 1px solid black !important;
+    border-collapse: collapse !important;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12px;
+    margin-bottom: 1% !important;
+  }
+
+  .table-th,
+  .table-td {
+    border: 1px solid black !important;
+  }
+.overall-title{
+  color: #000;
+}
+  .logo {
+    margin-top: -5px; /* gentle upward shift */
+  }
+
+  .footer {
+    page-break-inside: avoid;
+  }
+}

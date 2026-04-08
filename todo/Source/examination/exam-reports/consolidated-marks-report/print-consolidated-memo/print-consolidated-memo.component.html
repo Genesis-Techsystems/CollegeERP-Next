@@ -1,0 +1,87 @@
+
+<div class="layout"  >
+  <div id="dashboard" class="page-layout simple "  id="printsection" >
+    <div fxLayout="row" >
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="border-bottom: 2px solid #ccc;padding-bottom: 10px;margin-bottom: 10px;">
+
+      <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" >
+          <img  [src]="MINIO+data[0]?.logo_path" style="height:100px;width:100px;">
+          
+
+
+      </div>
+      <div fxLayout="column" fxFlex="70" fxFlex.gt-xs="70" fxFlex.gt-md="70">
+          <p style="font-size: 30px; margin-top: 20px; font-family: none; color: rgb(36, 99, 154);"> {{data[0]?.org_name}}</p>
+          <p style="font-family: none;"> {{data[0]?.org_Address}}</p>
+          <p>CONSOLIDATED MARKS MEMO / CREDIT SHEET</p>
+          <p> {{data[0]?.course_name}}-{{data[0]?.group_name}}</p>
+             
+            
+        </div>
+        <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" class="STDIMG">
+          <img  [src]="MINIO+data[0]?.student_photo_path" style="height:100px;width:100px;">
+
+        </div>
+    </div>
+    </div>
+    <div fxLayout="row">
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+          <table  id="table1">
+            <tr>
+              <td style="text-align: left; width: 50%;">Year Of Admission : {{data[0]?.yearOfAdmission}}</td>
+              <td style="text-align: left; width: 35%;">Month & Year of Examination : {{data[0]?.exam_month_yr}}</td>
+            </tr>
+            <tr>
+                <td style="text-align: left; width: 50%;" >Hall Ticket Number : {{data[0]?.roll_number}}</td>
+                <td style="text-align: left; width: 35%;">Name : {{data[0]?.student_name}}</td>
+            </tr>
+          </table>
+      </div>
+    </div>
+    <div fxLayout="row" *ngFor="let ex of examdata;" style="margin-top: 5px;">
+     
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+         
+          <table id="table2" >
+            <tr>
+                <td colspan="6" style="text-align: left; width: 100%;" ><b style="text-transform: capitalize;">{{ex.exam_name}} / {{ex.examtype}} / {{ex.course_year_code}} / {{ex.regulation_code}}</b></td>
+            </tr>
+            
+              <tr>
+                <th>S.No</th>
+                <th>Subject</th>
+                <th>InternalMarks</th>
+                <th>External Marks</th>
+                <th>Result</th>
+                <th>Credits</th>
+              </tr>
+              <tr  *ngFor="let studentAtt of ex.subjects; let i=index">
+                <td>{{ex.subjects.indexOf(studentAtt) + 1}}</td>
+                <td>{{studentAtt.subject_name}} - {{studentAtt.subject_code}}</td>
+                <td>
+                  <span *ngIf="studentAtt.internal_marks != null">{{studentAtt.internal_marks}}</span>
+                  <span *ngIf="studentAtt.internal_marks == null"> - </span>
+                </td>
+                <td>  
+                   <span *ngIf="studentAtt.external_marks != null">{{studentAtt.external_marks}}</span>
+                  <span *ngIf="studentAtt.external_marks == null"> - </span>
+                </td>
+                <td>{{studentAtt.result}}</td>
+                <td>{{studentAtt.credits}}</td>
+              </tr>
+            
+            </table>
+      </div>
+    </div>
+    
+
+    
+
+  </div>
+  <div class="printbtn">
+   <button  id="printPageButton" mat-raised-button class="back-btn" (click)="printBack()">
+     Back</button>
+     <button  id="printPageButton" mat-raised-button color="accent" (click)="printPage('printsection')">
+         print</button>
+ </div>
+  </div>

@@ -84,7 +84,7 @@ const DEFAULT_COL_DEF: ColDef = {
   sortable: true,
   filter: false,
   resizable: true,
-  minWidth: 100,
+  minWidth: 70,
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const
@@ -96,7 +96,7 @@ export function DataTable<T>({
   rowData,
   columnDefs,
   loading = false,
-  height = '500px',
+  height = 'auto',
   getRowId,
   onCellClicked,
   onRowClick,
@@ -228,8 +228,9 @@ export function DataTable<T>({
           rowData={pagedRowData}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
-          domLayout={isAutoHeight ? 'autoHeight' : undefined}
+          domLayout="autoHeight"
           loading={loading}
+          suppressHorizontalScroll
           onFirstDataRendered={handleFirstDataRendered}
           onRowDataUpdated={handleRowDataUpdated}
           onGridSizeChanged={handleGridSizeChanged}

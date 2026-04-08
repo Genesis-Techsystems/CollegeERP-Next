@@ -1,0 +1,215 @@
+table#PivotView_grid_content_table {
+  width: 100% !important;
+}
+
+table.e-table {
+  width: 100% !important;
+}
+
+.pd-page {
+  padding: 0px 24px 0px 24px !important;
+}
+
+.mar {
+  margin: 0px 0;
+}
+
+.table-td {
+  padding: 8px 8px !important;
+  text-align: left;
+  font-weight: 400;
+}
+
+.mp-5 {
+  margin-top: 5px;
+}
+
+p {
+  margin: 5px 0px;
+  color: #c76d2f;
+}
+
+.table-th {
+  padding: 8px 5px !important;
+  background: #C3D9FF;
+  // background: #ecf3ff;
+  font-weight: 550;
+  text-align: center !important;
+}
+
+.back-grnd {
+  border: 1px solid #fff;
+  margin: 1px;
+  background: #eaf2ff;
+}
+
+.txt-uppercase {
+  text-transform: uppercase;
+}
+
+table {
+  border-spacing: 1px !important;
+}
+
+.radio-btn {
+  margin: 10px 0px 12px 5px;
+}
+
+.r-btn {
+  margin-left: 35px;
+}
+
+.e-grid {
+  margin: 0.1%
+}
+
+@media print {
+  #printNone {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .print-section {
+    display: block;
+  }
+
+  #table-print {
+    width: 100%;
+  }
+
+  table,
+  th,
+  td {
+    padding: 3px !important;
+  }
+
+  th {
+    background-color: #f2f2f2;
+    padding: 3px !important;
+  }
+
+  td {
+    padding: 3px !important;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  header nav,
+  footer {
+    display: none;
+  }
+
+  //  .instructtable{
+  //   margin: 5px !important;
+  //  }
+}
+
+.collegeName {
+  text-align: center !important;
+  font-size: 25px !important;
+  margin-top: 16px !important;
+  margin-bottom: -10px !important;
+  font-family: none !important;
+  color: rgb(0, 0, 0) !important;
+  font-weight: 550 !important;
+}
+
+.title {
+  text-align: center !important;
+  font-size: 22px !important;
+  font-family: none !important;
+  color: rgb(0, 0, 0) !important;
+  margin-bottom: 0.5%;
+  font-weight: 550 !important;
+}
+
+.details {
+  font-size: 20px !important;
+  justify-content: center;
+  font-family: none;
+  color: rgb(0, 0, 0) !important;
+  text-align: center !important;
+}
+
+.print-btn {
+  border: none !important;
+  background: white !important;
+}
+
+.icon {
+  color: aliceblue !important;
+  padding: 4px;
+}
+
+.ptnbtn {
+  margin-top: 4% !important;
+}
+
+.search-align {
+  margin: -0.9% !important;
+}
+
+.align-items {
+  margin-top: 0.4% !important;
+}
+
+.header {
+  justify-content: center;
+  color: black !important;
+
+  // margin-bottom: -16px;
+  p {
+    text-align: center !important;
+  }
+
+  // display: flex;
+  .clgname {
+    font-size: 28px;
+    font-family: none;
+    text-transform: capitalize !important;
+    justify-content: center;
+    color: black !important;
+    font-weight: 550 !important;
+  }
+
+  .title {
+    font-size: 24px;
+    justify-content: center;
+    // margin-bottom: -16px;
+    font-family: none;
+    color: black !important;
+  }
+
+  .exam {
+    font-size: 20px;
+    justify-content: center;
+    font-family: none;
+    color: black !important;
+  }
+
+}
+
+.buttons {
+  justify-content: end !important;
+  display: flex !important;
+}
+
+.portraitLogo {
+  height: 80%;
+  width: 80%;
+}

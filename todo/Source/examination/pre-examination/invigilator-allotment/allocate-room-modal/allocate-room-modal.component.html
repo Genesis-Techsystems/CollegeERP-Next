@@ -1,0 +1,86 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                        ballot
+                    </i>
+                    <span>{{data.generalDetailCode}} Allotment</span>
+                </div>
+            </div>
+        </div>
+
+        <div fxLayout="column" class="div-border" *ngIf="!isEmptyObject(data)">
+            <div fxLayout="row wrap " fxFlex="100">
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                    <p class="details-off">College </p>
+                </div>
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <p class="details-off"><span class="colr"> {{data.collegeCode}}</span></p>
+                </div>
+            </div>
+            <div fxLayout="row wrap " fxFlex="100">
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                    <p class="details-off">Exam : </p>
+                </div>
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <p class="details-off"><span class="colr"> {{data.examName}}</span></p>
+                </div>
+            </div>
+            <div fxLayout="row wrap " fxFlex="100">
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                    <p class="details-off">Exam Timetable : </p>
+                </div>
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <p class="details-off"><span class="colr"> {{data.examName}} - ({{data.examDate}}) </span></p>
+                </div>
+            </div>
+            <div fxLayout="row wrap " fxFlex="100">
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                    <p class="details-off">Room : </p>
+                </div>
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <p class="details-off"><span class="colr"> {{data.buildingCode}} /{{data.blockCode}} / {{data.floorNo}} / {{data.roomName}} - ( {{data.roomCode}} )</span></p>
+                </div>
+            </div>
+        </div>
+        <form name="invStaffForm" [formGroup]="invStaffForm" novalidate>
+            <mat-dialog-content>
+                <div fxLayout="column" class="div-border" style="margin-bottom: 20px">
+                    <div fxLayout="row wrap " fxFlex="100">
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                            <mat-select placeholder="Employee" [formControl]="employeeSingleCtrl" #singleSelect required>
+                                <ngx-mat-select-search [formControl]="employeeFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" (keyup)="enteredEmployee($event)"></ngx-mat-select-search>
+                                <mat-option *ngFor="let employee of filteredEmployees | async" [value]="employee.employeeId">{{employee.empNumber}}<span class="rol-no" *ngIf="employee.firstName != null">({{employee.firstName}})</span></mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30">
+                            <mat-select placeholder="Invigilator Designation" name="invgdesignationCatId" formControlName="invgdesignationCatId" required>
+                                <mat-option *ngFor="let objt of invigilatorDisg" [value]="objt.generalDetailId">
+                                    {{objt.generalDetailCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                        <input matInput placeholder="Comments" name="comments" formControlName="comments">
+                                    </mat-form-field> -->
+                        <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
+                        </section>
+                    </div>
+                </div>
+            </mat-dialog-content>
+            <mat-dialog-actions>
+                <button mat-raised-button class="cls-btn" mat-dialog-close>
+        Close
+    </button>
+                <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+        Save
+    </button>
+            </mat-dialog-actions>
+        </form>
+    </div>
+</div>

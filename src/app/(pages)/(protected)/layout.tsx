@@ -41,7 +41,9 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   return (
     <SessionProvider initialUser={session.user}>
-      <AppShell initialNavItems={navItems}>{children}</AppShell>
+      <div className="theme-examination">
+        <AppShell initialNavItems={navItems}>{children}</AppShell>
+      </div>
     </SessionProvider>
   )
 }

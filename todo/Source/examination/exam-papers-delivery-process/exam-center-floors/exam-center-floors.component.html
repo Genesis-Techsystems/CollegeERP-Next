@@ -1,0 +1,117 @@
+<div id="dashboard" class="page-layout simple">
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Centers</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Floors</span>
+                </div>
+            </div>
+
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between">
+
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <!-- <mat-icon class="secondary-text fs icon-align">calendar_view_day</mat-icon> -->
+                        <i class="material-icons icon-align">
+                            layers
+                            </i>
+                        <!-- <h1 class="secondary-text table-head fs-20">Floors</h1> -->
+                        <strong class="table-heads">Floors</strong>
+                    </div>
+                </div>
+
+            </div>
+            <mat-card class="pd-card table-align">
+                <mat-card-content>
+                    <div fxLayout="row" class="search-align" fxLayout.xs="column" fxLayoutAlign="space-between" fxLayoutGap="5">
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                            <label for="search" class="mr-8">
+                                <mat-icon class="secondary-text">search</mat-icon>
+                            </label>
+                            <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                                <input matInput name="search" (keyup)="applyFilter($event.target.value)" placeholder="Search">
+                            </mat-form-field>
+                        </div>
+                        <button class="btn-add" mat-raised-button color="accent" (click)="openDialog()">
+                    <i class="material-icons">add</i>
+                    Add Floor</button>
+                    </div>
+                </mat-card-content>
+
+
+                <div class="mat-elevation-z8">
+                    <div class="example-container">
+                        <table mat-table [dataSource]="dataSource" matSort>
+
+                            <!-- ID Column -->
+                            <ng-container matColumnDef="id">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> No. </th>
+                                <td mat-cell *matCellDef="let row; let i=index"> {{floors.indexOf(row)+1}} </td>
+                            </ng-container>
+
+                            <!-- Block Name Column -->
+                            <ng-container matColumnDef="blockname">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Block Name</th>
+                                <td mat-cell *matCellDef="let row"> {{row.blockname}} </td>
+                            </ng-container>
+
+                            <!-- Floor Name Column -->
+                            <ng-container matColumnDef="floorName">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Floor Name</th>
+                                <td mat-cell *matCellDef="let row"> {{row.floorName}} </td>
+                            </ng-container>
+                            <!-- Floor No Column -->
+                            <ng-container matColumnDef="floorNo">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Floor No</th>
+                                <td mat-cell *matCellDef="let row"> {{row.floorNo}} </td>
+                            </ng-container>
+
+                            <!-- No Of Rooms Column -->
+                            <ng-container matColumnDef="noOfRooms">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>No Of Rooms</th>
+                                <td mat-cell *matCellDef="let row"> {{row.noOfRooms}} </td>
+                            </ng-container>
+
+                            <!-- Is Active Column -->
+                            <ng-container matColumnDef="isActive">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
+                                <td mat-cell *matCellDef="let row">
+                                    <span *ngIf="row.isActive==true" class="active">Active</span>
+                                    <span *ngIf="row.isActive==false" class="in-active">InActive</span>
+                                </td>
+                            </ng-container>
+
+                            <!-- Actions Column -->
+                            <ng-container matColumnDef="actions">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Actions </th>
+                                <td mat-cell *matCellDef="let row" class="text-ctr"> <i class="material-icons edit " matTooltip="Edit" (click)="editDialog(row)"> border_color</i> </td>
+                            </ng-container>
+
+
+                            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                            <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                            </tr>
+                        </table>
+                    </div>
+                    <mat-paginator [pageSizeOptions]="[5, 10, 25, 100]"></mat-paginator>
+                </div>
+            </mat-card>
+        </div>
+
+        <!-- / CONTENT -->
+    </div>
+</div>

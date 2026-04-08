@@ -1,0 +1,130 @@
+table {
+
+  td,
+  th {
+    text-align: center;
+  }
+
+  th {
+    font-weight: 400;
+    color: #dedede;
+  }
+}
+
+.icon {
+  color: aliceblue !important;
+  padding: 4px;
+}
+
+.print-section {
+  display: none;
+}
+
+@media print {
+  .table {
+    width: 100% !important;
+    margin: 0px !important;
+    padding: 0px !important;
+  }
+
+  @page {
+    margin: 0;
+  }
+
+  #printNone {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .print-section {
+    display: block !important;
+  }
+
+  header nav,
+  footer {
+    display: none;
+  }
+
+  .clgname {
+    font-size: 30px !important;
+    margin-bottom: -16px;
+    font-family: none;
+    text-transform: capitalize !important;
+    justify-content: center;
+    font-weight: 550 !important;
+  }
+
+  .title {
+    font-size: 25px !important;
+    justify-content: center;
+    margin-bottom: -14px;
+    font-family: none;
+    font-weight: 550 !important;
+  }
+
+  .exam {
+    font-size: 22px !important;
+    justify-content: center;
+    font-family: none;
+  }
+
+  .clgname-2 {
+    font-size: 33px !important;
+    margin-top: 1.8% !important;
+    font-family: none;
+    text-transform: capitalize !important;
+    justify-content: center;
+    font-weight: 550 !important;
+    text-align: center !important;
+  }
+
+  .title-2 {
+    font-size: 28px !important;
+    justify-content: center;
+    font-family: none;
+    font-weight: 550 !important;
+    text-align: center !important;
+  }
+
+  .exam-2 {
+    font-size: 24px !important;
+    justify-content: center;
+    font-family: none;
+    margin-bottom: 1% !important;
+    text-align: center !important;
+  }
+}
+
+.header {
+  justify-content: center;
+  margin-bottom: -16px;
+
+  p {
+    text-align: center !important;
+  }
+
+  // display: flex;
+}
+
+.buttons {
+  justify-content: end !important;
+  display: flex !important;
+}
+
+.ptnbtn {
+  margin-top: 4% !important;
+}
+
+.search-align {
+  margin: -0.9% !important;
+}
+
+.align-items {
+  margin-top: 0.4% !important;
+}
+
+.portraitLogo {
+  height: 135px;
+  width: 150px;
+  margin-left: 28% !important;
+}

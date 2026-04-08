@@ -1,0 +1,247 @@
+<div id="dashboard" class="page-layout simple">
+    <div class="center" fusePerfectScrollbar>
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Pre Examination</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Lab Batches Students</span>
+                </div>
+            </div>
+        </div>
+        <!-- / HEADER -->
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <i class="fa fa-user-plus icon-align" aria-hidden="true"></i>
+                                    <strong class="table-heads">Assign Students To Lab</strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="sectionsForm" [formGroup]="sectionsForm" novalidate>
+
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                    (selectionChange)="selectedCourse(sectionsForm.value.courseId)" required>
+                                    <mat-option *ngFor="let course of courses"
+                                        [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Exam Year" name="academicYearId"
+                                    formControlName="academicYearId"
+                                    (selectionChange)="selectedAcademicYear(sectionsForm.value.academicYearId)"
+                                    required>
+                                    <mat-option *ngFor="let academicYear of academicYears"
+                                        [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                                fxFlex.gt-md="60">
+                                <mat-select placeholder="Exam Master" name="examId" formControlName="examId"
+                                    (selectionChange)="selectedExam(sectionsForm.value.examId)" required>
+                                    <ngx-mat-select-search [formControl]="ExamMasterFilterCtrl"
+                                        [placeholderLabel]="'Search...'"
+                                        [noEntriesFoundLabel]="'no matching data found'"
+                                        (keyup)="searchexam($event.target.value)"></ngx-mat-select-search>
+                                    <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                        matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})">
+
+                                        {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date |
+                                        date:dateFormate}})
+                                        <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;"
+                                            matTooltip='Internal'>(Internal)</span>
+                                        <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;"
+                                            matTooltip="Regular">(Regular)</span>
+                                        <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;"
+                                            matTooltip="Supple">(Supple)</span>
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+
+
+
+                        </div>
+                        <div class="row-wrap">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="College" name="collegeId" formControlName="collegeId"
+                                    (selectionChange)="selectedCollege(sectionsForm.value.collegeId)" required>
+                                    <mat-option *ngFor="let college of colleges"
+                                        [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Course Group " name="courseGroupId"
+                                    formControlName="courseGroupId"
+                                    (selectionChange)="selectedGroup(sectionsForm.value.courseGroupId)" required>
+                                    <mat-option *ngFor="let courseGroup of courseGroups"
+                                        [value]="courseGroup.fk_course_group_id">{{courseGroup.group_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Course Years" name="courseYearId"
+                                    formControlName="courseYearId"
+                                    (selectionChange)="selectedYear(sectionsForm.value.courseYearId)" required>
+                                    <mat-option *ngFor="let courseYear of courseYears"
+                                        [value]="courseYear.fk_course_year_id">{{courseYear.course_year_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                            fxFlex.gt-md="20">
+                            <mat-select placeholder="Regulation" name="regulationId"
+                                formControlName="regulationId"
+                                (selectionChange)="selectedRegulation(sectionsForm.value.regulatonId)" required>
+                                <mat-option *ngFor="let obj of regulationList"
+                                    [value]="obj.fk_regulation_id">{{obj.regulation_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
+                                fxFlex.gt-md="30">
+                                <mat-select placeholder="Subject" name="subjectId" formControlName="subjectId" required
+                                   >
+                                    <ngx-mat-select-search (keyup)="searchSubject($event.target.value)"
+                                        [placeholderLabel]="'Search Subject...'"
+                                        [noEntriesFoundLabel]="'no matching data found'">
+                                    </ngx-mat-select-search>
+                                    <mat-option *ngFor="let subject of subjectData" [value]="subject.fk_subject_id"
+                                        matTooltip="{{subject.subject_name}} ({{subject.subject_code}})">{{subject.subject_name}}
+                                        ({{subject.subject_code}})
+
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                <button mat-raised-button class="add-btn" color="accent" (click)="getDetails()">Get
+                                    List</button>
+                            </div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                </mat-expansion-panel>
+            </mat-accordion>
+            <div class="header pd-page-1" fxLayout="column" fxLayoutAlign="space-between" *ngIf="students.length > 0">
+                <div fxLayout="column" class="page-table-head" style="position: relative;" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg color" fxLayout="row" fxLayoutAlign="start center">
+                        <!-- <mat-icon class="secondary-text fs">play_for_work</mat-icon> -->
+                        <i class="fa fa-user-plus icon-align" aria-hidden="true"></i>
+                        <strong class="table-heads">Students - <span class="span-hdr">{{clgName}} / {{courseName}} / {{courseGroupName}} / {{courseYearName}} / {{examName}} / {{subjectCode}}</span></strong>
+                    </div>
+                    <i class="fa fa-refresh" style="position: absolute;
+                    right: 5px;
+                    top: 15px;
+                    font-size: 18px;
+                    cursor: pointer;" aria-hidden="true" (click)="selectedSection(staffForm.value.groupSectionId)"></i>
+                </div>
+            </div>
+            <mat-card class="pd-card table-align" *ngIf="students.length > 0">
+                <form name="subjectForm">
+                    <div class="mat-elevation-z8">
+                        <div class="layout-padding bckgrd">
+                            <div fxLayout="row" fxFlex="100" class="list-board">
+                                <div fxLayout="column" fxFlex="33" class="box-border">
+                                    <pre>Students<span class="flt-rht">{{studentList.length}}</span></pre>
+                                    <mat-list dndDropzone dndEffectAllowed="move" (dndDrop)="onDrop($event, studentList)" class="dndList mat-lst">
+                                        <mat-list-item dndPlaceholderRef class="dndPlaceholder">
+                                        </mat-list-item>
+                                        <div class="search-box">
+                                            <i class="fa fa-search" aria-hidden="true"></i>
+                                            <input [(ngModel)]="searchText" placeholder="Search..." [ngModelOptions]="{standalone: true}">
+                                        </div>
+                                        <mat-list-item *ngFor="let student of studentList | studentFilter: searchText;" [dndDraggable]="student" [dndType]="student" dndEffectAllowed="move" (dndMoved)="onDragged(student, studentList)">
+                                            <h1 mat-line matTooltip='{{student.split(":")[0]}}'><img class="gender-img" *ngIf="student.split(':')[1] == 'M'" src="assets/images/avatars/male.png"><img class="gender-img" *ngIf="student.split(':')[1] == 'F'" src="assets/images/avatars/female.png"> {{student.split(':')[0].split('(')[0]}}(
+                                                <span class="rolno-clr">{{student.split(':')[0].split('(')[1].substring(0, student.split(':')[0].split('(')[1].length - 1)}}</span>)</h1>
+                                        </mat-list-item>
+                                    </mat-list>
+                                </div>
+                                <div fxLayout="column" fxFlex="66">
+                                    <div fxLayout="row" class="mat-lt" fxFlex="100" *ngIf="studentBatches.length > 0 || studentBatches.length < 3">
+                                        <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="box-border" *ngIf="studentBatches[0] != null">
+                                            <pre>Lab : {{studentBatches[0].batchName}}<span class="flt-rht">{{studentsLab1.length}}</span></pre>
+                                            <mat-list dndDropzone dndEffectAllowed="move" (dndDrop)="onDrop($event, studentsLab1)" class="dndList">
+                                                <mat-list-item dndPlaceholderRef class="dndPlaceholder">
+                                                </mat-list-item>
+                                                <mat-list-item *ngFor="let studentsLb1 of studentsLab1" [dndDraggable]="studentsLb1" [dndType]="studentsLb1" dndEffectAllowed="none" (dndMoved)="onDragged(studentsLb1, studentsLab1)">
+                                                    <h1 mat-line matTooltip='{{studentsLb1.split(":")[0]}}'><img class="gender-img" *ngIf="studentsLb1.split(':')[1] == 'M'" src="assets/images/avatars/male.png"><img class="gender-img" *ngIf="studentsLb1.split(':')[1] == 'F'" src="assets/images/avatars/female.png">                                                        {{studentsLb1.split(':')[0].split('(')[0]}}(
+                                                        <span class="rolno-clr">{{studentsLb1.split(':')[0].split('(')[1].substring(0, studentsLb1.split(':')[0].split('(')[1].length - 1)}}</span>)</h1>
+                                                </mat-list-item>
+                                            </mat-list>
+                                        </div>
+                                        <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="box-border" *ngIf="studentBatches[1] != null">
+                                            <pre>Lab : {{studentBatches[1].batchName}}<span class="flt-rht">{{studentsLab2.length}}</span></pre>
+                                            <mat-list dndDropzone dndEffectAllowed="move" (dndDrop)="onDrop($event, studentsLab2)" class="dndList">
+                                                <mat-list-item dndPlaceholderRef class="dndPlaceholder">
+                                                </mat-list-item>
+                                                <mat-list-item *ngFor="let studentsLb1 of studentsLab2" [dndDraggable]="studentsLb1" [dndType]="studentsLb1" dndEffectAllowed="none" (dndMoved)="onDragged(studentsLb1, studentsLab2)">
+                                                    <h1 mat-line matTooltip='{{studentsLb1.split(":")[0]}}'><img class="gender-img" *ngIf="studentsLb1.split(':')[1] == 'M'" src="assets/images/avatars/male.png"><img class="gender-img" *ngIf="studentsLb1.split(':')[1] == 'F'" src="assets/images/avatars/female.png">                                                        {{studentsLb1.split(':')[0].split('(')[0]}}(
+                                                        <span class="rolno-clr">{{studentsLb1.split(':')[0].split('(')[1].substring(0, studentsLb1.split(':')[0].split('(')[1].length - 1)}}</span>)</h1>
+                                                </mat-list-item>
+                                            </mat-list>
+                                        </div>
+                                    </div>
+                                    <div fxLayout="row" class="mat-lt" fxFlex="100" *ngIf="studentBatches.length > 2 || studentBatches.length < 5">
+                                        <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="box-border" *ngIf="studentBatches[2] != null">
+                                            <pre>Lab : {{studentBatches[2].batchName}}<span class="flt-rht">{{studentsLab3.length}}</span></pre>
+                                            <mat-list dndDropzone dndEffectAllowed="move" (dndDrop)="onDrop($event, studentsLab3)" class="dndList">
+                                                <mat-list-item dndPlaceholderRef class="dndPlaceholder">
+                                                </mat-list-item>
+                                                <mat-list-item *ngFor="let studentsLb1 of studentsLab3" [dndDraggable]="studentsLb1" [dndType]="studentsLb1" dndEffectAllowed="none" (dndMoved)="onDragged(studentsLb1, studentsLab3)">
+                                                    <h1 mat-line matTooltip='{{studentsLb1.split(":")[0]}}'><img class="gender-img" *ngIf="studentsLb1.split(':')[1] == 'M'" src="assets/images/avatars/male.png"><img class="gender-img" *ngIf="studentsLb1.split(':')[1] == 'F'" src="assets/images/avatars/female.png">                                                        {{studentsLb1.split(':')[0].split('(')[0]}}(
+                                                        <span class="rolno-clr">{{studentsLb1.split(':')[0].split('(')[1].substring(0, studentsLb1.split(':')[0].split('(')[1].length - 1)}}</span>)</h1>
+                                                </mat-list-item>
+                                            </mat-list>
+                                        </div>
+                                        <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="box-border" *ngIf="studentBatches[3] != null">
+                                            <pre>Lab : {{studentBatches[3].batchName}}<span class="flt-rht">{{studentsLab4.length}}</span></pre>
+                                            <mat-list dndDropzone dndEffectAllowed="move" (dndDrop)="onDrop($event, studentsLab4)" class="dndList">
+                                                <mat-list-item dndPlaceholderRef class="dndPlaceholder">
+                                                </mat-list-item>
+                                                <mat-list-item *ngFor="let studentsLb1 of studentsLab4" [dndDraggable]="studentsLb1" [dndType]="studentsLb1" dndEffectAllowed="none" (dndMoved)="onDragged(studentsLb1, studentsLab4)">
+                                                    <h1 mat-line matTooltip='{{studentsLb1.split(":")[0]}}'><img class="gender-img" *ngIf="studentsLb1.split(':')[1] == 'M'" src="assets/images/avatars/male.png"><img class="gender-img" *ngIf="studentsLb1.split(':')[1] == 'F'" src="assets/images/avatars/female.png">                                                        {{studentsLb1.split(':')[0].split('(')[0]}}(
+                                                        <span class="rolno-clr">{{studentsLb1.split(':')[0].split('(')[1].substring(0, studentsLb1.split(':')[0].split('(')[1].length - 1)}}</span>)</h1>
+                                                </mat-list-item>
+                                            </mat-list>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class=" bckgrd" style="text-align: right;" *ngIf="studentsLab2.length > 0 || studentsLab1.length > 0 || studentsLab3.length > 0 || studentsLab4.length > 0 || students.length > 0">
+                        <button mat-raised-button class="add-btn" color="accent" (click)="assignStudents()">
+                    Save
+                    </button>
+                    </div>
+                </form>
+            </mat-card>
+        </div>
+        <!-- / CONTENT -->
+    </div>
+</div>

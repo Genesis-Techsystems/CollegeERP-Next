@@ -30,12 +30,25 @@ export const useNavigationStore = create<NavigationState>()(
       navItems: [],
       collapsedItems: new Set(),
       isSidebarOpen: true,
-      isSidebarCollapsed: false,
+      isSidebarCollapsed: true,
       isSidebarHovered: false,
-      autoCollapse: false,
+      autoCollapse: true,
       sidebarPosition: 'left',
 
-      setNavItems: (items) => set({ navItems: items }),
+      setNavItems: (items) =>
+        set(() => {
+          // Close all parents by default: collect IDs of items that have children
+          const collapsed = new Set<string>()
+          const stack = [...items]
+          while (stack.length) {
+            const node = stack.pop()!
+            if (node.children && node.children.length > 0) {
+              collapsed.add(node.id)
+              for (const child of node.children) stack.push(child)
+            }
+          }
+          return { navItems: items, collapsedItems: collapsed }
+        }),
 
       toggleCollapsed: (id) =>
         set((state) => {

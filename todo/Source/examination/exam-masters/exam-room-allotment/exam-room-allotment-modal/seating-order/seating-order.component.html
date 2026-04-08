@@ -1,0 +1,121 @@
+<div class="add-form">
+  <div class="content">
+      <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+          <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+              <div fxLayoutAlign="start center" class="mod-head">
+                  <i class="material-icons icon-align ">
+                              ballot
+                              </i>
+                  <span>  {{dialogTitle}}</span>
+              </div>
+          </div>
+      </div>
+     
+      <form name="seatForm" [formGroup]="seatForm" novalidate>
+          <mat-dialog-content>
+              <div fxLayout="column" class="div-border">
+                  <div fxLayout="row wrap " fxFlex="100">
+                      <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                          <p class="details-off">College : </p>
+                      </div>
+                      <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                          <p class="details-off"><span class="colr"> {{data.collegeCode}} / {{data.academicYear}} / {{data.courseCode}}</span></p>
+                      </div>
+                  </div>
+                  <div fxLayout="row wrap " fxFlex="100">
+                      <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                          <p class="details-off">Exam : </p>
+                      </div>
+                      <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                          <p class="details-off" ><span class="colr"> {{data.examName}}</span></p>
+                      </div>
+                  </div>
+                  <div fxLayout="row wrap " fxFlex="100">
+                      <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                          <p class="details-off">Exam Timetable : </p>
+                      </div>
+                      <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                          <p class="details-off" ><span class="colr"> {{data.collegeCode}} / {{data.examSessionName}}/ {{data.examTypeCatCode}} </span> -  ({{data?.examDate  | date:'dd MMM, y'}})</p>
+                      </div>
+                  </div>
+                  <div fxLayout="row wrap " fxFlex="100" *ngIf="data.roomName != null">
+                    <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                        <p class="details-off">Room Details : </p>
+                    </div>
+                    <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                        <p class="details-off" ><span class="colr"> {{data.roomName}}  </span> </p>
+                    </div>
+                </div>
+                  <!-- <div fxLayout="row wrap " fxFlex="100">
+                      <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                          <p class="details-off">Subject : </p>
+                      </div>
+                      <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                          <p class="details-off" ><span class="colr"> {{data.subjectName}}</span> - {{data.subjectCode}}</p>
+                      </div>
+                  </div> -->
+                
+              </div>
+              <div fxLayout="column">
+                  <div fxLayout="row wrap " fxFlex="100">
+                       <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                        <div *ngIf="data.stdName != '' && data.stdName != null;else elseblock">
+                            <mat-select placeholder="Student" name="studentId" formControlName="studentId" #singleSelect (selectionChange)="selectedStudent(seatForm.value.studentId)" >
+                                <ngx-mat-select-search [formControl]="studentFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" ></ngx-mat-select-search>
+                                <mat-option [value]="data.studentId"> {{data.stdRollNumber}}
+                                    <span class="rol-no" *ngIf="data.stdName != null">({{data.stdName}})</span>
+                                    <span class="rol-no" *ngIf="data.shortName != null"> / {{data.examName}} / {{data.shortName}}</span>
+                                </mat-option>
+                            </mat-select>
+                        </div>
+                        <ng-template #elseblock>
+
+                           
+                        <mat-select placeholder="Student" name="studentId" formControlName="studentId" #singleSelect (selectionChange)="selectedStudent(seatForm.value.studentId)" >
+                                <ngx-mat-select-search [formControl]="studentFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" ></ngx-mat-select-search>
+                                    <mat-option *ngFor="let student of filteredStudents | async" [value]="student.studentId"> {{student.rollNumber}}
+                                        <span class="rol-no" *ngIf="student.firstName != null">({{student.firstName}})</span>
+                                        <span class="rol-no" *ngIf="student.shortName != null"> / {{student.groupCode}} / {{student.courseYearCode}} / {{student.shortName}} / {{student.examTypeCode}}</span>
+                                    </mat-option> 
+                            </mat-select>
+                        </ng-template>
+                        </mat-form-field>
+                       
+                      
+                  </div>
+
+
+                  <div fxLayout="row wrap " fxFlex="100">
+
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                        <mat-select placeholder="Exam Seat Status" name="examseatstatusCatId" formControlName="examseatstatusCatId" required>
+                            <mat-option *ngFor="let examSeatStatus of data.generalDetails" [value]="examSeatStatus.generalDetailId">{{examSeatStatus.generalDetailDisplayName}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+
+                  
+              </div>
+            
+
+
+              <!-- <div fxLayout="column">
+                <div fxLayout="row wrap" fxFlex="100" fxLayoutAlign="space-between center">
+                    <h3>Comments</h3>
+                    <textarea class="textAR" fxFlex="100" placeholder="Comments" name="comments" formControlName="comments"></textarea>
+                    <p style="color: red;margin: 3px 8px !important;" *ngIf="seatForm.value.comments === '' && flag">Note: To submit the form comments are mandatory.</p>
+                </div>
+              </div>  -->
+          </mat-dialog-content>
+          <mat-dialog-actions>
+              <button mat-raised-button class="cls-btn" mat-dialog-close>
+                          Close
+                          </button>
+              <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+               Save
+               </button>
+
+          </mat-dialog-actions>
+      </form>
+  </div>
+</div>

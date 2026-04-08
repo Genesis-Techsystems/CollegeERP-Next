@@ -1,0 +1,250 @@
+<div id="dashboard" class="page-layout simple" id="printNone">
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Reports</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Batch Wise Sgpa Report</span>
+                </div>
+            </div>
+
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                                fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <i class="fa fa-user-plus icon-align" aria-hidden="true"></i>
+                                    <strong class="table-heads">Batch Wise Sgpa Report</strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="staffForm" [formGroup]="staffForm" novalidate>
+                        <div fxLayout="row" fxLayoutGap="10px">
+                            <!-- College dropdown -->
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40"
+                                fxFlex.gt-md="40">
+                                <mat-select placeholder="College" name="collegeId" formControlName="collegeId"
+                                    (selectionChange)="selectedCollege(staffForm.value.collegeId)" required>
+                                    <mat-option *ngFor="let college of colleges" [value]="college.fk_college_id">
+                                        {{ college.college_code }}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33"
+                                fxFlex.gt-md="33" *ngIf="check === 1">
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                    (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                    <mat-option *ngFor="let course of courses" [value]="course.fk_course_id"
+                                        matTooltip="{{course.course_name}}({{course.course_code}})">{{course.course_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <!-- Batch dropdown -->
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40"
+                                fxFlex.gt-md="40" *ngIf="check === 1">
+                                <mat-select placeholder="Batch" name="batchId" formControlName="batchId"
+                                    (selectionChange)="selectedBatch(staffForm.value.batchId)" required>
+                                    <mat-option *ngFor="let batches of batches" [value]="batches.fk_batch_id">
+                                        {{ batches.batch_name }}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Course Group " name="courseGroupId"
+                                    formControlName="courseGroupId"
+                                    (selectionChange)="selectedGroup(staffForm.value.courseGroupId)" required>
+                                    <mat-option [value]="0">All</mat-option>
+                                    <mat-option *ngFor="let courseGroup of courseGroups"
+                                        [value]="courseGroup.fk_course_group_id">{{courseGroup.group_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <!-- Buttons -->
+                            <div fxLayout="row" fxLayoutAlign="start center" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <div class="savebtn-align" fxFlex="70">
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="getDetails()">
+                                        Get Report
+                                    </button>
+                                </div>
+
+                            </div>
+                        </div>
+                    </form>
+
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                </mat-expansion-panel>
+            </mat-accordion>
+            <div class="header pd-pag2" fxLayout="column" fxLayoutAlign="space-between"
+                *ngIf="this.examSubjectStats.length>0">
+
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                    fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <!-- <mat-icon class="secondary-text fs icon-align">assessment</mat-icon> -->
+                        <i class="fa fa-th-large icon-align" aria-hidden="true"></i>
+                        <!-- <h1 class="secondary-text table-head fs-20">Blocks</h1> -->
+                        <strong class="table-heads">Batch Wise Sgpa Report</strong>
+                    </div>
+                </div>
+
+
+            </div>
+
+            <mat-card class="pd-card table-align" *ngIf="examSubjectStats.length > 0">
+                <mat-card-content>
+                    <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between"
+                        fxLayoutGap="5">
+                        <div fxFlex.gt-xs="28" fxFlex.gt-md="28" fxLayout="row" fxLayoutAlign="start center"
+                            class="align-items">
+                            <button mat-raised-button class="add-btn" color="accent" (click)="exportAsExcel()">
+                                <i class="fa fa-file-excel-o icon" aria-hidden="true"></i>Export Excel</button>
+                            <button mat-raised-button class="add-btn" color="accent" (click)="Print()">
+                                <i class="fa fa-print icon" aria-hidden="true"></i>Print Report</button>
+
+                        </div>
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="25" fxFlex.gt-md="25"
+                            fxLayout="row" fxLayoutAlign="start end">
+                            <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                                <input matInput (keyup)="applyFilter($event.target.value)" name="search"
+                                    placeholder="Search">
+                            </mat-form-field>
+                        </div>
+
+                    </div>
+                </mat-card-content>
+                <div class="mat-elevation-z8">
+                    <div class="example-container">
+
+                        <table mat-table [dataSource]="dataSource">
+
+                            <!-- S.No -->
+                            <ng-container matColumnDef="sno">
+                                <th mat-header-cell *matHeaderCellDef>S.No</th>
+                                <td mat-cell *matCellDef="let row; let i = index">
+                                    {{ (paginator.pageIndex * paginator.pageSize) + i + 1 }}
+                                </td>
+                            </ng-container>
+
+                            <!-- Roll No -->
+                            <ng-container matColumnDef="hallticket_number">
+                                <th mat-header-cell *matHeaderCellDef>ROLL NO</th>
+                                <td mat-cell *matCellDef="let row">
+                                    {{ row.hallticket_number }}
+                                </td>
+                            </ng-container>
+
+                            <!-- Student Name -->
+                            <ng-container matColumnDef="first_name">
+                                <th mat-header-cell *matHeaderCellDef>NAME OF THE STUDENT</th>
+                                <td mat-cell *matCellDef="let row">
+                                    {{ row.first_name }}
+                                </td>
+                            </ng-container>
+
+                            <!-- Semester Columns -->
+                            <ng-container *ngFor="let sem of subjectCodes" [matColumnDef]="sem.course_year_code">
+
+                                <th mat-header-cell *matHeaderCellDef>
+                                    {{ sem.course_year_name }}
+                                </th>
+
+                                <td mat-cell *matCellDef="let row">
+                                    {{ row[sem.course_year_code] }}
+                                </td>
+
+                            </ng-container>
+
+                            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+
+                        </table>
+
+                    </div>
+
+                    <mat-paginator #paginator [pageSize]="25" [pageSizeOptions]="[10, 25, 50]"
+                        showFirstLastButtons></mat-paginator>
+                </div>
+
+
+            </mat-card>
+
+        </div>
+    </div>
+</div>
+
+
+<div id="printSection" class="print-section">
+
+    <!-- ✅ Header -->
+    <div class="print-header">
+        <div class="header-row">
+            <img class="portraitLogo" [src]="Logo || 'assets/images/avatars/default_logo.png'" />
+            <div class="header-text">
+                <p class="collegeName">{{ collegeName }}</p>
+                <p class="title">Batch Wise Sgpa Report</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ Table Section -->
+    <div class="print-content" #excelTable>
+
+        <table border="1" style="width:100%; border-collapse:collapse;">
+
+            <thead>
+                <tr>
+                    <th>S.No</th>
+                    <th>ROLL NO</th>
+                    <th>NAME OF THE STUDENT</th>
+
+                    <th *ngFor="let sem of subjectCodes">
+                        {{ sem.course_year_name }}
+                    </th>
+
+                </tr>
+            </thead>
+
+            <tbody>
+
+                <tr *ngFor="let row of dataSource.data; let i = index">
+
+                    <td>{{ i + 1 }}</td>
+                    <td>{{ row.hallticket_number }}</td>
+                    <td>{{ row.first_name }}</td>
+
+                    <td *ngFor="let sem of subjectCodes">
+                        {{ row[sem.course_year_code] }}
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>

@@ -1,0 +1,265 @@
+<div id="admission-dashboard" class="page-layout simple">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Papers Delivery Process</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Center Rooms</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+        <div class="mat-elevation-z8 bkgrd">
+            <form name="staffForm" [formGroup]="staffForm" style="padding-bottom: 1px;" class="form-pad" novalidate>
+                <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                    <i class="material-icons sub-header-icon">computer</i>
+                    <span class="sub-header-text"> Exam Center Rooms</span>
+                </div>
+          
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                    <div fxLayout="row">
+                        
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20" >
+                            <mat-select placeholder="Program" name="courseId" formControlName="courseId"   (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="18" fxFlex.gt-md="18">
+                            <mat-select placeholder="Academic Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)" required>
+                                <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                       
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60" fxFlex.gt-md="60">
+                          <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExam(staffForm.value.examId)">
+                              <ngx-mat-select-search [placeholderLabel]="'Search Exam...'"
+                              [noEntriesFoundLabel]="'no matching data found'" (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>   
+                              <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id" matTooltip="{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})"
+                              >{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})
+                                  <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                  <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                  <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                              </mat-option>
+                          </mat-select>
+                      </mat-form-field>
+                      <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60" fxFlex.gt-md="60">
+                        <mat-select placeholder="Exam Center" name="univExamcenterId" formControlName="univExamcenterId" (selectionChange)="selectedExamCenter(staffForm.value.univExamcenterId)" required>
+                            <mat-option *ngFor="let obj of univExamCenters" [value]="obj.univExamcenterId">{{obj.examcenterCode}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                      </div>
+                    <div fxLayout="row" fxFlex="100">                       
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                <mat-select placeholder="Exam Center - Building" name="buildingId" formControlName="buildingId" (selectionChange)="SelectedBuilding(staffForm.value.buildingId)" >
+                                    <mat-option [value]="0">All</mat-option>
+                                    <mat-option *ngFor="let objct of buildings" [value]="objct.buildingId" matTooltip="{{objct.campusName}} - {{objct.buildingCode}}"
+                                    >{{objct.campusName}} - {{objct.buildingCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="16" fxFlex.gt-md="16">
+                                <mat-select placeholder="Block" name="blockId" formControlName="blockId" (selectionChange)="SelectedBlock(staffForm.value.blockId)" >
+                                    <mat-option [value]="0">All</mat-option>
+                                    <mat-option *ngFor="let objct of blocks" [value]="objct.blockId">{{objct.blockCode}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                                <mat-select placeholder="Floor - No" name="floorId" formControlName="floorId"  (selectionChange)="SelectedFloor(staffForm.value.floorId)">
+                                    <mat-option [value]="0">All</mat-option>
+                                    <mat-option *ngFor="let object of floors" [value]="object.floorId">{{object.floorName}} - {{object.floorNo}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                <button mat-raised-button class="add-btn" color="accent" (click)="getList()">Get List</button>
+                            </div>
+                    </div>
+                </div>
+              
+
+
+               
+              
+            </form>
+        </div>
+    </div>
+
+        <div class="content pd-card mt-15" *ngIf="vacancyRoomList.length > 0" >
+            <div class="mat-elevation-z8 bkgrd">
+            <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                <i class="material-icons sub-header-icon">computer</i>
+                <span class="sub-header-text"> Exam Center Rooms - {{examCenterName}} / {{buildingName}} / {{block}} / {{floorName}}-{{floor}}</span>
+            </div>
+
+            <div class="content pd-card">
+ 
+              
+            <div fxLayout="row">
+                <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+ 
+                <div   fxLayout="column" style="margin-top: 10px !important;" class="inner-bkgrd yar-bordr" >
+                    <div fxLayout="row wrap " fxFlex="100">
+                            <!-- <div fxLayout="column" class="p-8 bordr" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25"  style="background: white;">
+                             
+                         </div> -->
+                            <div fxLayout="column" class="bordr" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40" style="background: white;">
+                                <div fxLayout="row" fxLayoutAlign="space-between center">
+                                    <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="50" fxFlex.gt-md="50" fxLayout="row" fxLayoutAlign="start center">
+                                        <!-- <div class="search-box">
+                                            <i class="fa fa-search" aria-hidden="true"></i>
+                                            <input  placeholder="Search..."   (keyup)="searchProfile($event.target.value)" [ngModelOptions]="{standalone: true}">
+                                        </div> -->
+                                    </div>
+                                </div>
+                                <div fxLayout="row" fxLayoutAlign="space-between center">
+                                    <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="50"
+                                        fxFlex.gt-md="50" fxLayout="row" fxLayoutAlign="start center">
+                                        <div class="search-box">
+                                            <i class="fa fa-search" aria-hidden="true"></i>
+                                            <input placeholder="Search..."
+                                                (keyup)="searchRooms($event.target.value)"
+                                                [ngModelOptions]="{standalone: true}">
+                                        </div>
+                                    </div>
+                                    <span class="roll-no" style="color: blue;font-weight:bold;">
+                                        Selected : <span>{{selectedCount}}</span> &nbsp;
+                                    </span>
+                                </div>
+                                    <table class="mar firstTable" >
+                                        <thead>
+
+                                            <tr>
+                                                <th class="table-th" style="width: 15% !important;">
+                                                    <mat-checkbox [(ngModel)]="isAllrooms" style=" padding: 5px;"  (change)="checkAll($event)" [ngModelOptions]="{standalone: true}"></mat-checkbox>All</th>
+                                                <th class="table-th" style="color: blue !important;font-weight:bold;">Rooms</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr *ngFor="let rm of vacancyRoomDupList">
+                                                <td class="table-td" style="width: 15% !important;">
+                                                    <mat-checkbox name="checked" (change)="selectSingleRoom(rm.checked, rm)" [(ngModel)]="rm.checked" [ngModelOptions]="{standalone: true}"></mat-checkbox>
+                                                </td>
+                                                <td>{{rm.room}}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                 
+                            </div>
+                            <div fxLayout="column" class="bordr" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40" >
+                                <table class="mar firstTable">
+                                    <thead>
+                                        <tr>
+                                            <th class="table-th" style="color: blue !important;font-weight:bold;">Selected Rooms : <span >{{selectedCount}}</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr *ngFor="let  selectedRoom of selectedRooms; let i=index">
+                                            <td>{{ selectedRoom.room }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20" style="position: relative;" >
+                                <button mat-raised-button class="add-btn" style="position: absolute;
+                                bottom: -12px;" color="accent" (click)="Save()">
+                                        Save
+                                </button>
+                            </div>
+                        </div>
+                        </div>
+                   
+                </div>
+                </div>  
+                </div>
+                </div>
+ 
+                   
+        </div>
+
+        <div class="content pd-card mt-15"   *ngIf="examCenterRoomsList.length > 0"  >
+            <div class="mat-elevation-z8 bkgrd">
+            <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                <i class="material-icons sub-header-icon">computer</i>
+                <span class="sub-header-text"> Exam Center Rooms - {{examCenterName}} / {{buildingName}} / {{block}} / {{floorName}}-{{floor}}</span>
+            </div>
+
+            <div fxLayout="row"  >
+                 
+                <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                    <mat-card class="pd-card table-align">
+                        <mat-card-content>
+                            <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                                <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                                    <label for="search" class="mr-8">
+                                    <mat-icon class="secondary-text">search</mat-icon>
+                                </label>
+                                    <mat-form-field floatLabel="never" fxFlex="1 0 auto" style="margin-left: 10px">
+                                        <input matInput (keyup)="applyFilter($event.target.value)" placeholder="Search">
+                                    </mat-form-field>
+                                </div>
+                            </div>
+                         
+                        </mat-card-content>                
+                        <div class="mat-elevation-z8 ">
+                            <div class="example-container" style="overflow: hidden !important;">
+                                <table mat-table [dataSource]="dataSource" matSort>
+                                    <ng-container matColumnDef="id">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                        <td mat-cell *matCellDef="let row;let i = index"> {{i+ 1}} </td>
+                                    </ng-container>
+k
+                                    <!-- Semisters Column -->
+                                    <ng-container matColumnDef="examCenterName">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Exam Center</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.examCenterName}} </td>
+                                    </ng-container>
+
+                                    <!-- Semisters Column -->
+                                    <ng-container matColumnDef="Building">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Building</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.buildingId}} </td>
+                                    </ng-container>
+
+                                    <ng-container matColumnDef="RoomName">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Room Name</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.roomName}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="RoomCode">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Room Code</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.roomCode}} </td>
+                                    </ng-container>
+
+                                    <ng-container matColumnDef="actions">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Actions </th>
+                                        <td mat-cell *matCellDef="let row" class="text-ctr"> <i class="material-icons edit" matTooltip="Edit" (click)="editDialog(row)" > border_color</i> </td>
+                                    </ng-container>
+                                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                                    <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                                    </tr>
+                                </table>
+                             
+                            </div>
+                           <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+
+                        </div>
+
+               
+            </mat-card>
+         
+</div>
+            </div>   
+
+
+            </div>
+            </div>
+
+   
+    <!-- / CONTENT -->
+
+</div>

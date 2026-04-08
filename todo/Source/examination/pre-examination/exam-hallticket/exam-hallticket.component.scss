@@ -1,0 +1,999 @@
+.pd-page {
+    padding: 0px 24px 0px 24px !important;
+}
+
+.mar {
+    margin: 0px 0;
+}
+
+.table-td {
+    padding: 5px 5px !important;
+    text-align: left;
+    font-weight: 500;
+}
+
+.absent_std {
+    color: #fff;
+    background: red;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+.mp-5 {
+    margin-top: 5px;
+}
+
+.table-th {
+    padding: 5px 5px !important;
+    background: #C3D9FF;
+    font-weight: 500;
+}
+
+.back-grnd {
+    border: 1px solid #fff;
+    margin: 1px;
+    background: #eaf2ff;
+}
+
+.txt-uppercase {
+    text-transform: uppercase;
+}
+
+table {
+    border-spacing: 1px !important;
+    margin: 0px !important;
+}
+
+.bat_ch {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 12px;
+    color: blue;
+    font-weight: 500;
+}
+
+.font-align {
+    font-size: medium;
+    font-weight: 500;
+    margin: 0px;
+}
+
+.align {
+    margin: 0px;
+}
+
+.student-img-active {
+    height: 50px;
+    width: 50px;
+    border-radius: 50%;
+    border: 2px solid #34e834;
+}
+
+.student-img-inactive {
+    height: 50px;
+    width: 50px;
+    border-radius: 50%;
+    border: 2px solid #f44336;
+}
+
+td {
+    cursor: pointer;
+}
+
+i {
+    color: black;
+}
+
+.radio-btn {
+    margin: 10px 20px;
+}
+
+.r-btn {
+    margin-left: 35px;
+}
+
+td {
+    padding: 0px 5px !important;
+}
+
+.clr {
+    color: blue;
+}
+
+.stnt-status-active {
+    color: green;
+    font-weight: 500;
+}
+
+.stnt-status-inActive {
+    color: red;
+    font-weight: 500;
+}
+
+.reg {
+    position: absolute;
+    right: 10px;
+    top: 5px;
+    font-weight: 500;
+}
+
+.rol-no {
+    color: #828282;
+    font-weight: 500;
+    position: relative;
+}
+
+span i {
+    position: absolute;
+    top: -3px;
+}
+
+.ava {
+    float: right;
+    display: flex;
+    color: #4CAF50;
+    font-weight: bold;
+    font-size: large;
+}
+
+.cYear-btn {
+    width: 100%;
+    padding: 5px;
+}
+
+.week-day {
+    margin-top: 5px !important;
+}
+
+.exp-con {
+    overflow: hidden !important;
+}
+
+.bordr {
+    border: 1px solid #dedede;
+}
+
+p {
+    font-weight: 500;
+    margin: 5px 0px !important;
+}
+
+table {
+    width: 100%;
+    border-spacing: 0px !important;
+    margin: 0px 5px 0px 5px !important;
+}
+
+th {
+    padding: 5px 5px !important;
+    // background: #fff !important;
+    border-bottom: 5px solid #c3d9ff !important;
+}
+
+tr:nth-child(even) {
+    background: #f1f6ff
+}
+
+tr:nth-child(odd) {
+    background: #FFF
+}
+
+.table-bac {
+    background: #C3D9FF;
+    // margin: 0 9px;
+    padding: 4px 0px;
+    border-radius: 3px;
+}
+
+.inpt-amt {
+    height: 26px;
+    width: 100%;
+    text-align: right;
+    border: 1px solid #cecece;
+    border-radius: 3px;
+    font-weight: 700 !important;
+    font-size: 16px;
+}
+
+.star {
+    position: absolute;
+    color: red;
+    top: -3px;
+    font-size: 15px;
+    right: 0px;
+}
+
+.std-his {
+    margin: 0px 24px 12px 24px;
+    border: 4px solid #c3d9ff;
+    border-radius: 3px;
+}
+
+.pay {
+    border: 10px solid #c3d9ff;
+    margin: 0px 24px 0px 24px !important;
+    padding: 5px 5px;
+    border-radius: 3px;
+    background: #f1f6ff;
+}
+
+.pic {
+    width: 75%;
+    padding: 6px;
+    background: #c3d9ff;
+    margin: 2px;
+}
+
+.discount_head {
+    margin: 5px;
+}
+
+.delete-table {
+    color: red !important;
+    font-size: 23px;
+    cursor: pointer;
+    margin-left: 15px;
+    position: absolute;
+    top: 6px;
+    right: -32px;
+}
+
+.delete {
+    color: red !important;
+    font-size: 23px;
+    cursor: pointer;
+    margin-left: 0px;
+    position: absolute;
+    left: 0;
+}
+
+h2 {
+    margin: 3px 0px;
+    font-weight: 500;
+    font-size: 15px;
+    background: #c3d9ff;
+    padding: 7px 10px;
+    border-radius: 3px;
+}
+
+.paid {
+    // color: #00c500;
+    font-weight: 500;
+}
+
+.pay-btn {
+    position: absolute;
+    right: 6px;
+    bottom: 0px;
+}
+
+.position-rel {
+    position: relative;
+}
+
+.amt {
+    input {
+        text-align: right;
+        font-weight: 500;
+    }
+
+    .mat-form-field-label-wrapper {
+        text-align: right !important;
+    }
+}
+
+.tr-bakgrnd {
+    background: transparent !important;
+}
+
+.pay-box {
+    border: 1px solid #cacaca;
+    height: 30px;
+    border-radius: 3px;
+    text-align: right;
+    margin-top: 10px;
+}
+
+.tick {
+    position: absolute;
+    z-index: 9999;
+    height: 20px;
+    right: 30px;
+    top: 2px;
+}
+
+.mat-form-field-appearance-outline .mat-form-field-infix {
+    padding: 5px 0px !important;
+}
+
+.div-border {
+    margin: 10px 8px !important;
+    padding: 6px !important;
+}
+
+.colr {
+    color: #0d29ff;
+}
+
+.dtnd {
+    color: red;
+    font-weight: bold;
+}
+
+.incollege {
+    color: green;
+    font-weight: bold;
+}
+
+.passedout {
+    color: #461eb6;
+    font-weight: bold;
+}
+
+.discontinued {
+    color: red;
+    font-weight: bold;
+}
+
+.detainRecmnd {
+    color: orangered;
+    font-weight: bold;
+}
+
+.delete-table-sub {
+    color: red !important;
+    font-size: 23px;
+    cursor: pointer;
+    margin-left: 15px;
+}
+
+.mlr-15 {
+    margin-left: 15px !important;
+    margin-right: 15px !important;
+}
+
+.clr-view {
+    background: #00b8ff;
+    padding: 1px 7px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+img {
+    max-width: 100%;
+    height: 100px;
+    widows: 120px;
+    vertical-align: top;
+    border: none;
+}
+
+.search-box {
+    position: relative;
+    margin-left: 7px;
+
+    input {
+        width: 100%;
+        border: 2px solid #dcdad3;
+        padding: 7px 10px 7px 32px;
+        margin: 3px 0px 3px 0px;
+        border-radius: 5px;
+    }
+
+    i {
+        position: absolute;
+        top: 11px;
+        left: 10px;
+        font-size: 15px;
+    }
+}
+
+@media print {
+    #printNone {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    .mar-20 {
+        margin: 0px 20px !important;
+    }
+
+    .print-section {
+        display: block;
+    }
+
+    #table-print {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    table,
+    th,
+    td {
+        padding: 8px;
+    }
+
+    th {
+        background-color: #f2f2f2;
+    }
+
+    table {
+        page-break-inside: auto;
+    }
+
+    tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+
+    thead {
+        display: table-header-group;
+    }
+
+    tfoot {
+        display: table-footer-group;
+    }
+
+    header nav,
+    footer {
+        display: none;
+    }
+}
+
+.firstborder {
+    border-collapse: collapse;
+    border-style: solid !important;
+    border-width: 2px !important;
+    border-color: #c5bec0 !important;
+    margin-bottom: 10px !important;
+}
+
+.lastborder {
+    border-collapse: collapse;
+    border-style: solid !important;
+    border-width: 2px !important;
+    border-color: #c5bec0 !important;
+    margin-top: 5px !important;
+}
+
+#table2 {
+    font-family: arial, sans-serif;
+    font-size: 12px !important;
+    border-collapse: collapse;
+    border-style: solid !important;
+    border-width: 2px !important;
+    border-color: #c5bec0 !important;
+
+    th {
+        font-family: arial, sans-serif;
+        font-size: 12px !important;
+        border-style: solid;
+        border-style: solid !important;
+        border-width: 2px !important;
+        border-color: #c5bec0 !important;
+        padding: 8px !important;
+        justify-content: left;
+    }
+
+    td {
+        font-family: arial, sans-serif;
+        font-size: 12px !important;
+        border-style: solid !important;
+        border-width: 2px !important;
+        border-color: #c5bec0 !important;
+        padding: 8px !important;
+    }
+}
+
+#table {
+    font-family: arial, sans-serif;
+    font-size: 12px !important;
+    border: none !important;
+    padding: 5px !important;
+
+    th {
+        font-family: arial, sans-serif;
+        font-size: 12px !important;
+        border: none !important;
+        width: 20% !important;
+        text-align: right;
+        padding: 0px !important;
+    }
+
+    td {
+        font-family: arial, sans-serif;
+        font-size: 12px !important;
+        text-align: left !important;
+        border: none !important;
+        padding: 0px !important;
+    }
+}
+
+span {
+    padding: 8px;
+}
+
+.Hallticket {
+    height: 1048px !important;
+    max-height: 1048px !important;
+    overflow: auto !important;
+}
+
+.admit-card {
+    max-width: 800px;
+    margin: 0 auto;
+    // padding: 20px;
+    font-family: Arial, sans-serif;
+}
+
+h2 {
+    text-align: center;
+    // text-transform: uppercase;
+    // margin-bottom: 40px;
+    font-weight: bold !important;
+    margin-top: 15px !important;
+    font-size: 20px !important;
+}
+
+.student-info {
+    max-width: 100% !important;
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    justify-content: center;
+}
+
+.details-table {
+    width: 80%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    border: 1px solid #000 !important;
+
+}
+
+.details-table th,
+.details-table td {
+    border: 1px solid #000 !important;
+    padding: 3px !important;
+    text-align: left;
+    font-size: 12px !important
+}
+
+.photo img {
+    width: 100px !important;
+    height: auto !important;
+    border: 1px solid #000 !important;
+}
+
+.courses-details {
+    max-width: 100% !important;
+    display: flex;
+    flex-wrap: wrap;
+
+    .course-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        border: 1px solid #000 !important;
+    }
+
+    .course-table th,
+    .course-table td {
+        border: 1px solid #000 !important;
+        // padding: 2px !important;
+        text-align: center !important;
+        font-size: 12px !important;
+    }
+}
+
+.p-tag {
+    font-size: 10px !important;
+    margin-bottom: -8px !important;
+    text-align: center !important;
+}
+
+.signatures {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8% !important;
+    font-weight: bold;
+    padding: 0 10px;
+}
+
+.signatures-2 {
+    display: flex;
+    justify-content: space-between;
+    margin: 60px 0px;
+}
+
+.signature-1 {
+    width: 33%;
+    text-align: center;
+}
+
+.issue-date {
+    text-align: left;
+    // margin-left: 8px !important;
+}
+
+.p-collegeName {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: -10px !important;
+    font-size: 22px;
+    margin-top: 5px;
+    font-family: none;
+    color: rgb(36, 99, 154);
+    text-transform: uppercase !important;
+}
+
+.p-collegAdd {
+    font-size: 15px;
+    font-family: none;
+    color: rgb(36, 99, 154);
+    text-align: center !important;
+    font-weight: bold;
+    margin-bottom: -10px !important;
+}
+
+.ht-head {
+    text-align: center !important;
+    font-weight: bold;
+    margin-bottom: -10px !important;
+    font-size: 26px;
+    font-family: none;
+    margin-top: 12px;
+    text-align: center !important;
+}
+
+.p-examName {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: -10px;
+    font-size: 15px;
+    margin-bottom: 7px !important;
+    margin-bottom: 10px !important;
+    font-family: none !important;
+    display: flex !important;
+    justify-content: center !important;
+}
+
+.std-img {
+    height: 96px !important;
+    width: 100px !important;
+    align-items: center !important;
+    vertical-align: middle !important;
+    margin: 15px !important;
+}
+
+.org-logo {
+    vertical-align: middle !important;
+    align-items: center !important;
+    display: flex !important;
+    width: 100px !important;
+    height: 100px !important;
+    margin-top: 10px !important;
+}
+
+.Hallticket {
+    height: 1048px !important;
+    max-height: 1048px !important;
+    overflow: hidden !important;
+}
+///////
+.hall-ticket-wrapper {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    // padding: 10px;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #000;
+}
+
+.hall-ticket-border {
+    border: 2px solid #000;
+    padding: 10px;
+}
+
+.college-banner {
+    width: 100%;
+    height: 105px !important;
+}
+
+.college-banner-2 {
+    width: 100%;
+    height: 90px !important;
+}
+
+.hall-title-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #b6b5b5 !important;
+    border: 1px solid black;
+    padding: 3px 3px;
+    font-family: 'Times New Roman', Times, serif;
+    font-weight: bold;
+    font-size: 12px;
+    margin-top: 3px;
+    margin-bottom: 1.4% !important;
+}
+
+.hall-left,
+.hall-right {
+    text-transform: uppercase;
+}
+
+.hall-title {
+    text-align: center;
+    margin-top: 5px;
+    margin-bottom: 10px;
+}
+
+.hall-title h3 {
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.hall-title p {
+    margin: 0;
+}
+
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 10px;
+    border: none !important;
+}
+
+.info-table td {
+    padding: 8px I !important;
+    border: none !important;
+    vertical-align: top;
+}
+
+.photo-cell {
+    text-align: center;
+    width: 110px;
+}
+
+.student-photo {
+    width: 100px;
+    height: 110px;
+    border: 1px solid #000;
+    object-fit: cover;
+}
+
+.subject-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.subject-table th,
+.subject-table td {
+    border: 1px solid #000;
+    text-align: center;
+    padding: 5px;
+    font-size: 12px;
+}
+
+.cut-line-container {
+    display: flex;
+    align-items: flex-start;
+    margin-top: 2% !important;
+}
+
+.left-line {
+    width: 1px;
+    height: 20px;
+    /* Adjust height as per image */
+    background-color: black;
+    margin-right: 2px;
+}
+
+.dashed-line {
+    flex-grow: 1;
+    border-top: 2px dashed black;
+    height: 2px;
+}
+
+.instructions {
+    margin-top: -2.5% !important;
+    margin-bottom: 15px;
+}
+
+.instructions h4 {
+    text-align: center;
+    text-decoration: underline;
+    margin-bottom: 5px;
+    font-size: 13px;
+}
+
+.instructions ol {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 12px;
+}
+
+.subject-table-refined {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1% !important;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12px;
+}
+
+.subject-table-refined th,
+.subject-table-refined td {
+    border: 1px solid black !important;
+    padding: 4px !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+.subject-table-refined th {
+    font-weight: bold !important;
+}
+
+.subject-table-refined td:nth-child(2),
+/* Registered Subjects */
+.subject-table-refined td:nth-child(3),
+.subject-table-refined td:nth-child(4) {
+    text-align: left !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
+
+.page-align {
+    border: 1px solid black;
+    height: 100vh !important;
+    padding: 8px !important;
+    font-family: 'Times New Roman', serif;
+    box-sizing: border-box;
+}
+
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.info-table td {
+  padding: 3px 6px;
+  vertical-align: top;
+}
+
+.photo-cell {
+  text-align: center;
+  vertical-align: top;
+  width: 210px;
+}
+
+.photo-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.photo-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 5px; /* minimal spacing between dotted box and image */
+}
+
+.attach-photo-box {
+  border: 1px dotted #000;
+  width: 90px;
+  height: 110px;
+  font-size: 10px;
+  color: #555;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.photo-container {
+  border: 1px solid #000;
+  width: 90px;
+  height: 110px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.student-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.signature-box {
+  border: 1px solid #000;
+  width: 190px;
+  height: 30px;
+  font-size: 10px;
+  text-align: center;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 3px;
+}
+
+.signatures-3 {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 4% !important;
+    padding: 0 20px;
+    font-weight: bold;
+}
+
+.sig-block {
+    text-align: center;
+    width: 30%; /* Each section takes equal width */
+}
+
+.sig-image {
+    width: 120px;
+    height: 30px !important;
+    margin-bottom: 5px; /* gap between image and text */
+}
+
+.sig-label {
+    font-size: 13px;
+}
+//
+.signature-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.signature-box {
+  width: 100px;
+  height: 35px;
+  border: 1px solid #000;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.exam-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  margin-top: 5px;
+  margin-bottom: 2px;
+}
+.regulation-box {
+  position: absolute;
+  right: 0;
+  border: 1px solid #000;
+  padding: 2px 10px;
+  bottom: 2px;
+  font-size: 13px;
+  font-weight: bold;
+  background-color: white;
+  height: 22px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-transform: uppercase;
+  min-width: 45px;
+}
+
+.signatures-new {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 2% !important;
+    padding: 0 20px;
+    font-weight: bold;
+}

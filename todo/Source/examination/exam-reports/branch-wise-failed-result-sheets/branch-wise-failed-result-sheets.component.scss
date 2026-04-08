@@ -1,0 +1,220 @@
+#table2 {
+    font-family: arial, sans-serif;
+    font-size: 14px !important;
+    border: none;
+
+    th {
+        font-family: arial, sans-serif;
+        font-size: 15px !important;
+        border: none;
+    }
+
+    td {
+        font-family: arial, sans-serif;
+        font-size: 13px !important;
+        border: none;
+        padding: 2px 2px !important;
+    }
+}
+
+table#PivotView_grid_content_table {
+    width: 100% !important;
+}
+
+table.e-table {
+    width: 100% !important;
+}
+
+.pd-page {
+    padding: 0px 24px 0px 24px !important;
+}
+
+.mar {
+    margin: 0px 0;
+}
+
+.table-td {
+    padding: 8px 8px !important;
+    text-align: left;
+    font-weight: 400;
+}
+
+.mp-5 {
+    margin-top: 5px;
+}
+
+p {
+    margin: 5px 0px;
+    color: #c76d2f;
+}
+
+.table-th {
+    padding: 8px 5px !important;
+    background: #C3D9FF;
+    font-weight: 500;
+    font-size: larger;
+}
+
+.back-grnd {
+    border: 1px solid #fff;
+    margin: 1px;
+    background: #eaf2ff;
+}
+
+.txt-uppercase {
+    text-transform: uppercase;
+}
+
+table {
+    border-spacing: 1px !important;
+}
+
+.radio-btn {
+    margin: 10px 0px 12px 5px;
+}
+
+.r-btn {
+    margin-left: 35px;
+}
+
+.e-grid {
+    margin: 0.1%
+}
+
+@media print {
+    #printNone {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    .print-section {
+        display: block;
+    }
+
+    header nav,
+    footer {
+        font-size: inherit;
+        display: none;
+    }
+
+    .collegeName {
+        text-align: center !important;
+        font-size: 28px !important;
+        margin-top: 20px !important;
+        margin-bottom: -8px !important;
+        font-family: none !important;
+        color: rgb(0, 0, 0) !important
+    }
+
+    .title {
+        text-align: center !important;
+        font-size: 23px !important;
+        font-family: none !important;
+        color: rgb(0, 0, 0) !important;
+        margin-top: 1%;
+        margin-bottom: -3px !important;
+    }
+
+    .details {
+        font-size: 18px;
+        justify-content: center;
+        font-family: none;
+        color: rgb(0, 0, 0) !important;
+        text-align: center !important;
+    }
+
+    .header {
+        justify-content: center !important;
+
+        p {
+            text-align: center !important;
+        }
+    }
+
+    .table-td {
+        padding: 5px 5px !important;
+        text-align: left !important;
+        font-weight: 400;
+    }
+
+    .lfttxt {
+        text-align: left !important;
+        color: rgb(0, 0, 0) !important;
+        width: 50% !important;
+        font-weight: 500 !important;
+        font-size: medium !important;
+    }
+}
+
+.print-btn {
+    border: none !important;
+    background: white !important;
+}
+
+.icon {
+    color: aliceblue !important;
+    padding: 4px;
+}
+
+.ptnbtn {
+    margin-top: 4% !important;
+}
+
+.search-align {
+    margin: -0.9% !important;
+}
+
+.align-items {
+    margin-top: 0.4% !important;
+}
+
+.prntd {
+    margin: 0;
+    float: left;
+    width: 20%;
+    border: none !important;
+    vertical-align: middle !important;
+}
+
+hr {
+    clear: both;
+    display: block;
+    width: 100%;
+    color: #000000;
+    height: 1px !important;
+    background: black;
+}
+
+.footer {
+    font-weight: 550;
+    width: 40%;
+    text-align: left !important;
+    color: rgb(0, 0, 0) !important
+}
+
+.lfttxt {
+    text-align: left !important;
+    color: rgb(0, 0, 0) !important;
+    width: 50% !important;
+    font-weight: 500 !important;
+    font-size: medium !important;
+}
+
+.rghtxt {
+    text-align: right !important;
+    color: rgb(0, 0, 0) !important;
+    font-weight: 500 !important;
+    width: 100% !important;
+    font-size: larger !important;
+    margin-bottom: 1% !important;
+}
+
+.height {
+    height: 1100px !important;
+    max-height: 1100px !important;
+}
+
+.mp-24 {
+    margin-top: 16px !important;
+    margin-left: 2% !important;
+}

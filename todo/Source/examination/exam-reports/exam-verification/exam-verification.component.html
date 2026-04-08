@@ -1,0 +1,119 @@
+
+<div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+            fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Reports</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination Reports</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span> Exam Verification Report</span>
+            </div>
+        </div>
+        </div>
+      <div class="content">
+        <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+            <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                <mat-expansion-panel-header>
+                    <mat-panel-title>
+                        <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                <mat-icon class="fs  icon-align ">book</mat-icon>
+                                <strong class="table-heads">Exam Verification Report</strong>
+                            </div>
+                        </div>
+                    </mat-panel-title>
+                    <!-- <label class="filter-align">Filter</label> -->
+                    <!-- <mat-icon>filter_list</mat-icon> -->
+                </mat-expansion-panel-header>
+               
+                    <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                <div style="padding: 12px 0px 0px 0px;">
+                  <div fxLayout="row">
+                    <div  fxLayout="column" class="p-8 yar-bordr" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                        <h2 class="ptag">1. Exam AnswerSheets Upload Report </h2>
+                        <h3>this report gives count of no.of students register , Answerpaper upload for every subject. </h3>
+                        <div class="divbuttons">
+                            <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="ExamAnswerSheet()">Exam AnswerSheets Upload Report</button>
+                        </div>
+                    </div>
+                    <div  fxLayout="column" class="p-8 yar-bordr" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                        <h2 class="ptag">2. Subject Wise Evaluators List Report </h2>
+                        <h3>This report will give all the evaluators list for every subject. </h3>
+                        <div class="divbuttons">
+                            <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="subjectWiseEvaluators()">Subject Wise Evaluators List Report</button>
+                        </div>
+                    </div>
+                   
+                </div>
+                <!-- <div fxLayout="column" class="yar-bordr">
+                    <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                        <h2 class="ptag"> Subject Wise Evaluators Report </h2>
+                        <h3>The objective of this is to update the status from Evaluated to Finalized.</h3>
+                    </div>
+                      <div class="divbuttons">
+                        <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="subjectWiseEvaluators()">Subject Wise Evaluators Report</button>
+                      </div>
+                </div> -->
+                <div fxLayout="row">
+                    <div  fxLayout="column" class="p-8 yar-bordr" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                        <h2 class="ptag">3. Exam Evaluation Status Report </h2>
+                        <h3>This report list of all evaluation status by evaluators for on exam. </h3>
+                        <div  class="divbuttons">
+                            <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="ExamEvaluationReport()">Exam Evaluation Status Report</button>
+                        </div>
+                    </div>
+                    <div  fxLayout="column" class="p-8 yar-bordr" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                        <h2 class="ptag">4. Evaluator report in data range</h2>
+                        <h3> This report will give no.of evaluations done by evaluators in a date range. </h3>
+                        <div  class="divbuttons">
+                            <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="DailyEvaluatedReport()">Daily Evaluated Report</button>
+                        </div>
+                    </div>
+                    
+                   
+                </div>
+                <div fxLayout="row">
+                    <!-- <div  fxLayout="column" class="p-8 yar-bordr" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                        <h2 class="ptag">5. Verify Exam Status</h2>
+                        <h3>The objective of this update is to review student assignments, OMR details, and answer papers. </h3>
+                        <div  class="divbuttons">
+                            <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="VerifyExamStatus()">Verify Exam Status</button>
+                        </div>
+                    </div> -->
+                    <div  fxLayout="column" class="p-8 yar-bordr" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                        <h2 class="ptag">5. Marks Entered Status </h2>
+                        <h3>This report  will give list of evaluator marks status.</h3>
+                        <div  class="divbuttons">
+                            <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="VerifyExamMarks()">Verify Exam Marks</button>
+                        </div>
+                    </div>
+                    <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50"></div>
+                </div>
+                <!-- <div fxLayout="column" class="yar-bordr">
+                    <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                        <h2 class="ptag">Verify Exam Marks</h2>
+                        <h3> Marks will be Finalized after Finalized Evaluation Status</h3>
+                    </div>
+                    <div class="divbuttons">
+                        <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="VerifyExamMarks()">Verify Exam Marks</button>
+                      </div>
+                    
+                </div> -->
+                </div>    
+            </div> 
+            </mat-expansion-panel>
+        </mat-accordion>
+      
+    </div>
+        </div>
+        </div>
+      

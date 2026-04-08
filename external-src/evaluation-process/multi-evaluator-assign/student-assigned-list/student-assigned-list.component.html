@@ -1,0 +1,91 @@
+
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                                ballot
+                                </i>
+                    <span> Student Answer Sheets List</span>
+                </div>
+            </div>
+        </div>
+        <mat-dialog-content>
+
+        <div class="mat-elevation-z8">
+            <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="35" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                    <label for="search" class="mr-8">
+                        <mat-icon class="secondary-text">search</mat-icon>
+                    </label>
+                    <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                        <input matInput [(ngModel)]="searchText" name="search" placeholder="Search">
+                    </mat-form-field>
+                </div>
+                <div fxFlex.gt-xs="65" fxFlex.gt-md="65" fxLayout="row" fxLayoutAlign="start end" class="buttons">
+                        </div>
+            </div>
+            <div class="example-container">
+                <table class="mar">
+                    <thead>
+                        <tr>
+                            <th class="table-th">S.No</th>
+                            <th class="table-th">Omr Serial No</th>
+                            <th class="table-th">Evaluated Total Marks</th>
+                            
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr *ngFor="let studentAtt of data | filter:searchText; let i=index">
+                            <td class="table-td"> {{i+ 1}}</td>
+                            <td class="table-td">
+                               {{studentAtt.omr_serial_no}}
+                            </td>
+                            <td class="table-td">
+                                {{studentAtt.evaluated_totalmarks}}
+                            </td>
+                           
+                        </tr>
+                    
+                    </tbody>
+                </table>
+                <!-- <table mat-table [dataSource]="dataSource" matSort>
+                    <ng-container matColumnDef="id">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>SI.No</th>
+                        <td mat-cell *matCellDef="let row; let i = index"> {{i + 1}} </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="omrSerialNo">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Omr Serial No</th>
+                        <td mat-cell *matCellDef="let row"> {{row?.omr_serial_no}} </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="evaluatedTotalMarks">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Evaluated Total Marks</th>
+                        <td mat-cell *matCellDef="let row"> {{row?.evaluated_totalmarks}} </td>
+                    </ng-container>
+                  
+                
+                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                    </tr>
+                </table>
+              -->
+            </div>
+</div>
+
+</mat-dialog-content>
+<mat-dialog-actions>
+<button mat-raised-button class="cls-btn" mat-dialog-close>
+            Close
+            </button>
+<!-- <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+ Save
+ </button> -->
+
+</mat-dialog-actions>
+</div>
+</div>
+

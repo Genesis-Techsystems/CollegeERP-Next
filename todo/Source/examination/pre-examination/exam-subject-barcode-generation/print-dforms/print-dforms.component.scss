@@ -1,0 +1,131 @@
+
+.printbtn{
+    display: flex;
+    justify-content: end;
+    margin: 10px;
+}
+
+@media print {
+    #printPageButton {
+      display: none;
+    }
+    header nav, footer {
+      display: none;
+   }
+   
+  }
+ 
+
+ button{
+  margin-left: 15px;
+ }
+ .layout{
+  margin: auto !important;
+  margin-top: 0px !important;
+  
+  width:990px !important;
+ }
+
+.STDIMG{
+align-items: end;
+}
+
+
+.firstborder{
+margin-bottom: 10px !important;
+justify-content: center;
+display: flex;
+}
+.lastborder{
+    margin-top: 5px !important;
+    }
+
+
+
+    .sheet{
+        text-align: center !important;
+        // margin-bottom: 10px;
+        
+    }
+    #table2{
+      font-family: arial, sans-serif;
+      font-size: 17px !important;
+    border: none;
+      
+      th{
+        font-family: arial, sans-serif;
+        font-size: 17px !important;
+      border: none;
+      }
+      td{
+        font-family: arial, sans-serif;
+        font-size: 17px !important;
+      border: none;
+      }
+      }
+#table1{
+border: none !important;
+tr{
+  border: none !important;
+}
+td{
+  border: none !important;
+  width: 249px !important;
+  font-family: arial, sans-serif;
+  font-size: 14px !important;
+  padding: 6px !important;
+  font-weight: bold !important;
+  border: none !important;
+  // width: 25% !important;
+}
+      }
+      .header{
+        font-weight: bold !important;
+      }
+      
+      .numwidth{
+        width: 70px !important;
+      }
+      hr {
+        clear:both;
+        display:block;
+        width: 100%;
+        color: #000000;
+        height:1px !important;
+        background: black;
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

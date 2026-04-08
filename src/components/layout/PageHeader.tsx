@@ -1,7 +1,6 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Breadcrumb, useBreadcrumb } from '@/common/components/breadcrumb'
 
 /**
  * Page-level header with title, optional subtitle, and an optional action slot.
@@ -17,19 +16,14 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
-  const breadcrumbs = useBreadcrumb()
-
   return (
-    <div className="pb-4 border-b border-[hsl(var(--border))] mb-6 space-y-2">
-      <Breadcrumb items={breadcrumbs} maxItems={5} />
+    <div className="pb-2 border-b border-[hsl(var(--border))] mb-3">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="font-bold text-foreground" style={{ fontSize: 'var(--font-size-page-title)' }}>
+          <h1 className="font-bold text-[hsl(var(--page-title))] text-[20px] leading-[1.15]">
             {title}
           </h1>
-          {subtitle && (
-            <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
-          )}
+          {/* Subtitle intentionally hidden globally per UI preference */}
         </div>
         {action && <div>{action}</div>}
       </div>

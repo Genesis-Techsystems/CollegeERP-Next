@@ -1,0 +1,177 @@
+<div id="dashboard" class="page-layout simple">
+    <div class="center" fusePerfectScrollbar>
+  
+        <!-- HEADER -->
+        <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+  
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Pre Examination</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Create Question Paper Marks</span>
+                </div>
+            </div>
+        </div>
+         <!-- HEADER -->
+        <div class="content">
+
+        <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+            <mat-expansion-panel [expanded]="true" hideToggle style="margin: 0px 25px;">
+                <mat-expansion-panel-header>
+                    <mat-panel-title>
+                        <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                <mat-icon class="fs  icon-align ">book</mat-icon>
+                                <span class="sub-header-text" style="margin-left: 30px;"> Manage Questions 
+                                </span><span style="color: blue; font-size: 13px;"><strong>&nbsp;(Question Paper: {{params.questionpaper_title}})</strong></span>
+                            </div>
+                        </div>
+                    </mat-panel-title>
+                </mat-expansion-panel-header>
+            </mat-expansion-panel>
+        </mat-accordion>
+        <!-- CONTENT -->
+        <div fxLayout="row" >
+            <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <mat-card class="pd-card table-align" >
+              <!-- <mat-card-content >
+                <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                    <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                        <label for="search" class="mr-8">
+                            <mat-icon class="secondary-text">search</mat-icon>
+                        </label>
+                        <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                            <input matInput (keyup)="applyFilter($event.target.value)" name="search" placeholder="Search">
+                        </mat-form-field>
+                    </div>
+                    <div fxFlex.gt-xs="70" fxFlex.gt-md="65" fxLayout="row">
+                    <div class="save-btn-align">
+                        <button mat-raised-button class="add-btn back-btn" (click)="goBack()">Back</button>
+                        <button mat-raised-button class="add-btn" color="accent" *ngIf=" examQuestionpapersmarks1.length > 0" (click)="questionList(examQuestionpapersmarks1)">Print Question Paper</button>
+                    </div>
+                    </div>
+                </div>
+            </mat-card-content> -->
+            <mat-card-content >
+                <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                    <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                        <label for="search" class="mr-8">
+                            <mat-icon class="secondary-text">search</mat-icon>
+                        </label>
+                        <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                            <input matInput (keyup)="applyFilter($event.target.value)" name="search" placeholder="Search">
+                        </mat-form-field>
+                    </div>
+                    <div class="save-btn">
+                        <button mat-raised-button class="back-btn" (click)="goBack()">Back</button>
+                        <button mat-raised-button class="add-btn" color="accent" *ngIf=" examQuestionpapersmarks1.length > 0" (click)="questionList(examQuestionpapersmarks1)">Print Question Paper</button>
+                <button mat-raised-button class="add-btn"  color="accent" *ngIf=" examQuestionpapersmarks1.length > 0" (click)="printQA(examQuestionpapersmarks1)">Print QA</button>
+
+                    </div>
+                   
+                </div>
+            </mat-card-content>
+                <div class="mat-elevation-z8">
+                    <div class="example-container">
+                        <table mat-table [dataSource]="dataSource" matSort>
+
+                            <!-- ID Column -->
+                            <ng-container matColumnDef="id">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header style="width:5%"> SI.No </th>
+                                <td mat-cell *matCellDef="let row; let i = index">
+                                    {{i+1}}</td>
+                            </ng-container>
+
+                            <!--Bank Column -->
+                            <!-- <ng-container matColumnDef="questionNo">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header style="width:5%">Question No</th>
+                                <td mat-cell *matCellDef="let row">{{row.groupno}}
+                                </td>
+                            </ng-container> -->
+
+                            <!-- Setnumber Column -->
+                            <ng-container matColumnDef="subQuestion">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header style="width:5%">QuestionNo</th>
+                                <td mat-cell *matCellDef="let row">{{row.questioncode}}
+                                </td>
+                            </ng-container>
+
+                            <!-- passmarks column -->
+                            <ng-container matColumnDef="question">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Question</th>
+                                <td mat-cell *matCellDef="let row">
+                                    <p class="align" style="position: relative !important;">
+                                        <span style="font-weight: bold; text-transform: capitalize;" *ngIf="!row.questioncode || row.questioncode === ''">{{row.QuestionTitle | htmlToPlaintext}}</span>
+                                    </p>
+                                    
+                                    <p class="align" style="position: relative !important;">
+                                        <span class="font-align" *ngIf="row.questioncode && row.questioncode !== ''">
+                                            <!-- {{row.question | htmlToPlaintext}} -->
+                                               <span [innerHtml]="row.question"></span>
+                                        </span>
+                                    </p>
+                                    <p class="align" style="position: relative !important;">
+                                        <span *ngIf="(row.question === null || row.question === '') && (row.questioncode !== null && row.questioncode !== '')"> 
+                                            <button mat-raised-button color="primary" style="display: flex;" (click)="questionBank(row)">
+                                                <i style="color: white;" class="material-icons">add</i> QB
+                                            </button>
+                                        </span>
+                                    </p>
+                                </td>
+                            </ng-container>
+                            <!-- totalmarks Column -->
+                            <ng-container matColumnDef="totalMarks">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header style="width:5%">Marks</th>
+                                <td mat-cell *matCellDef="let row" style="text-align: center;">
+                                    <span *ngIf="row.questioncode == null">{{row.question_marks}}</span>
+                                    <span *ngIf="row.questioncode != null">{{row.individual_question_marks}}</span>
+                                </td>
+                            </ng-container>
+
+                            <!--STUDENT  Column -->
+                            <ng-container matColumnDef="Actions">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header >Actions
+                                </th>
+                                <td mat-cell *matCellDef="let row" class="button-icon text-ctr">
+                                    <span style="margin: 6px 0px !important; display: flex;justify-content: center;" *ngIf="row.questioncode != null">
+                                        <span *ngIf="row.pk_questionpaper_marks_id != null">
+                                            <!-- <button mat-raised-button color="primary"
+                                                (click)="editQuestion(row)">
+                                                Edit</button> -->
+                                                <i class="material-icons edit "  (click)="editQuestion(row)" matTooltip="Edit"> border_color</i>
+                                        </span>
+                                        <!-- <span  *ngIf="row.pk_questionpaper_marks_id == null">
+                                            <button mat-raised-button color="primary"
+                                                 (click)="questionBank(row)">
+                                                Question Bank</button>
+                                            <button style="margin-left: 15px;" mat-raised-button color="primary"
+                                                 (click)="addQuestion(row)">
+                                                Manually</button>
+                                        </span> -->
+                                    </span>
+                                    
+                                </td>
+                            </ng-container>
+                            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                            <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                            </tr>
+                        </table>
+                    </div>
+                    <mat-paginator [pageSizeOptions]="[50, 100]"></mat-paginator>
+                </div>
+            </mat-card>
+            <div class="save-btn-align">
+                <button mat-raised-button class="back-btn" (click)="goBack()">Back</button>
+                <button mat-raised-button class="add-btn" color="accent" *ngIf=" examQuestionpapersmarks1.length > 0" (click)="questionList(examQuestionpapersmarks1)">Print Question Paper</button>
+                <button mat-raised-button class="add-btn"  color="accent" *ngIf=" examQuestionpapersmarks1.length > 0" (click)="printQA(examQuestionpapersmarks1)">Print QA</button>
+
+            </div>
+        </div>
+</div>
+    </div>
+</div>
+</div>

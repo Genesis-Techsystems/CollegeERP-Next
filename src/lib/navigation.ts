@@ -6,8 +6,55 @@ import type { Module, SubModule, Page, NavItem } from '@/types/navigation'
  * Also ensures the result always starts with "/".
  */
 function normalizeHref(path: string): string {
+  let raw = (path ?? '').trim()
+
+  // Convert Angular/hash URLs to app-router paths.
+  // Examples:
+  // - https://host/#/admin-examination-management/... -> /admin-examination-management/...
+  // - #/admin-examination-management/... -> /admin-examination-management/...
+  if (raw.includes('#/')) {
+    raw = raw.slice(raw.indexOf('#/') + 1)
+  }
+
+  // Drop domain if a full URL is provided.
+  raw = raw.replace(/^https?:\/\/[^/]+/i, '')
+
+  // Remove Angular "pages/" prefix when present.
+  raw = raw.replace(/^\/?pages\//i, '')
+
+  // Compatibility mapping: legacy admin-pre-examination variants -> pre-examination.
+  raw = raw
+    .replace(
+      /\/admin-examination-management\/admin-pre-examination\//i,
+      '/admin-examination-management/pre-examination/',
+    )
+    .replace(
+      /\/admin-examination-management\/admin-pre-examinations\//i,
+      '/admin-examination-management/pre-examination/',
+    )
+    .replace(
+      /\/admin-examination-management\/pre-examinations\//i,
+      '/admin-examination-management/pre-examination/',
+    )
+    // Legacy short page slugs used in old pre-examination sidebar.
+    .replace(
+      /\/admin-examination-management\/pre-examination\/subject-barcode$/i,
+      '/admin-examination-management/pre-examination/exam-subject-barcode-generation',
+    )
+    .replace(
+      /\/admin-examination-management\/pre-examination\/hallticket$/i,
+      '/admin-examination-management/pre-examination/exam-hallticket',
+    )
+    .replace(
+      /\/admin-examination-management\/pre-examination\/exam-hall-ticket$/i,
+      '/admin-examination-management/pre-examination/exam-hallticket',
+    )
+
+  // Normalize slashes and trim trailing slash.
+  raw = raw.replace(/\/{2,}/g, '/').replace(/\/$/, '')
+
   // Strip any leading slash for processing
-  const stripped = path.startsWith('/') ? path.slice(1) : path
+  const stripped = raw.startsWith('/') ? raw.slice(1) : raw
   const segments = stripped.split('/')
 
   // Find longest prefix that immediately repeats after itself
@@ -20,6 +67,31 @@ function normalizeHref(path: string): string {
   }
 
   return '/' + stripped
+}
+
+function overrideLegacyPreExamHref(href: string, label: string): string {
+  const lower = (label ?? '').toLowerCase()
+  const base = '/admin-examination-management/pre-examination'
+
+  if (!href.startsWith(base)) return href
+
+  if (lower.includes('student exam fee')) return `${base}/student-exam-fee-registration`
+  if (lower.includes('exam scheduling')) return `${base}/exam-scheduling-forms`
+  if (lower.includes('exam register subjec')) return `${base}/exam-register-subjects`
+  if (lower.includes('online exam fee')) return `${base}/online-exam-fee-registration`
+  if (lower.includes('internal exam registr')) return `${base}/internal-exam-registration-multiple`
+  if (lower.includes('exam hallticket')) return `${base}/exam-hallticket`
+  if (lower.includes('exam subject barcode')) return `${base}/exam-subject-barcode-generation`
+  if (lower.includes('exam forms')) return `${base}/exam-forms`
+  if (lower.includes('invigilator allot')) return `${base}/invigilator-allotment`
+  if (lower.includes('additional exam fee')) return `${base}/additional-exam-fees`
+  if (lower.includes('exam attendance-wise') || lower.includes('exam attendancewise')) {
+    return `${base}/exam-attendancewise-subject-barcode`
+  }
+  if (lower.includes('student exam lab bat')) return `${base}/student-exam-lab-batches`
+  if (lower.includes('manual') && lower.includes('fee')) return `${base}/exam-registration-manual-feeless`
+
+  return href
 }
 
 /**
@@ -82,11 +154,13 @@ function buildStandalonePages(pages: Page[]): NavItem[] {
         : `${subModuleUrl}/${rawUrl}`
     }
 
+    const normalizedHref = normalizeHref(overrideLegacyPreExamHref(href, page.displayName))
+
     return {
       id: `page_${page.pageId}`,
       label: page.displayName,
       icon,
-      href: normalizeHref(href),
+      href: normalizedHref,
       sortOrder: page.sortOrder,
       isActive: page.isActive,
     }
@@ -131,11 +205,12 @@ function buildModuleTree(modules: Module[], pages: Page[]): NavItem[] {
           const href = rawUrl.startsWith(moduleUrl + '/') || rawUrl === moduleUrl
             ? rawUrl
             : `${moduleUrl}/${rawUrl}`
+          const normalizedHref = normalizeHref(overrideLegacyPreExamHref(href, page.displayName))
           children.push({
             id: `page_${page.pageId}`,
             label: page.displayName,
             icon: normalizePageIcon(page.iconName),
-            href: normalizeHref(href),
+            href: normalizedHref,
             sortOrder: page.sortOrder,
             isActive: page.isActive,
           })
@@ -175,11 +250,12 @@ function buildSubModuleItem(subModule: SubModule, moduleUrl: string): NavItem {
       const href = rawUrl.startsWith(fullPrefix + '/') || rawUrl === fullPrefix
         ? rawUrl
         : `${fullPrefix}/${rawUrl}`
+      const normalizedHref = normalizeHref(overrideLegacyPreExamHref(href, page.displayName))
       subChildren.push({
         id: `page_${page.pageId}`,
         label: page.displayName,
         icon: normalizePageIcon(page.iconName),
-        href: normalizeHref(href),
+        href: normalizedHref,
         sortOrder: page.sortOrder,
         isActive: page.isActive,
       })

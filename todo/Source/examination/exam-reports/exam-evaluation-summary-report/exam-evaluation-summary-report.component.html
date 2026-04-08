@@ -1,0 +1,214 @@
+<div id="dashboard" class="page-layout simple" id="printNone">
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Reports</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Reports</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Evaluation Summary Report</span>
+                </div>
+            </div>
+
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content" style="margin-top: 25px;">
+
+            <div class="header pd-pag2" fxLayout="column" fxLayoutAlign="space-between">
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <strong>Exam Evaluation Summary Report</strong>
+                    </div>
+                </div>
+            </div>
+            <mat-card class="pd-card table-align">
+
+                <div class="mat-elevation-z8">
+                    <div class="example-container">
+                        <form [formGroup]="reportForm">
+                            <div fxLayout="row" style="margin:1% !important">
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" >
+                                    <mat-select placeholder="Faculty" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(reportForm.value.collegeId)"  required>
+                                        <mat-option *ngFor="let college of colleges" [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" >
+                                    <mat-select placeholder="Program" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(reportForm.value.courseId)"  required>
+                                        <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                    <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(reportForm.value.academicYearId)" >
+                                            <mat-option [value]="0">Select</mat-option>  
+                                        <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+    
+                                <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="55" fxFlex.gt-md="55">
+                                    <mat-select placeholder="Exam" name="examId" formControlName="examId" #singleSelect (selectionChange)="selectedExam(reportForm.value.examId)">
+                                        <ngx-mat-select-search [formControl]="examFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'"></ngx-mat-select-search>
+                                        <mat-option *ngFor="let exam of filteredExams | async" [value]="exam.examId" matTooltip="{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})"
+                                        >{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})
+                                            <span *ngIf="exam.isInternalExam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                            <span *ngIf="exam.isRegularExam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                            <span *ngIf="exam.isSupplyExam" style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                                    </mat-option>
+                                    </mat-select>
+                          
+                                </mat-form-field> -->
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="52" fxFlex.gt-md="52">
+                                    <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExam(reportForm.value.examId)">
+                                        <ngx-mat-select-search [placeholderLabel]="'Search Exam...'"
+                                        [noEntriesFoundLabel]="'no matching data found'" (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>   
+                                        <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id" matTooltip="{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})"
+                                        >{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})
+                                            <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                            <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                            <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                            <!-- <div fxFlex.gt-xs="82" fxFlex.gt-md="82" fxLayout="row" fxLayoutAlign="end start" class="align-items">
+                                <button mat-raised-button class="add-btn" color="accent" (click)="exportAsExcel()" >
+                        <i class="fa fa-file-excel-o icon" aria-hidden="true"></i>Export Excel</button>
+                        <button mat-raised-button class="add-btn ptnbtn" color="accent" (click)="Print()" >
+                            <i class="fa fa-print icon" aria-hidden="true"></i>Print Report</button>
+                            
+                            </div> -->
+                            </div>
+                        </form>
+                        <span *ngIf="noOfSelectedSteps.length > 0"
+                            style="padding: 5px 10px;" colspan="10"> <span class="drilldown" *ngFor="let sel of noOfSelectedSteps; index as i">{{sel.name }} {{(noOfSelectedSteps &&
+                                noOfSelectedSteps.length === i+1)?'':'>'}} </span>
+                            </span>
+                        <span class="drill-back" (click)="back()" *ngIf="noOfSelectedSteps && noOfSelectedSteps.length > 0">
+                            <button class="btn-add" mat-raised-button color="accent" >Back</button>
+                        </span>
+                       <!-- TABLE -->
+                       <table class="mar" *ngIf="summaryList.length > 0">
+                        <thead>
+                            <tr>
+                                <th class="table-th" *ngIf="currentPosition != 'final_stage'">Expand</th>
+                                <th class="table-th" >S.NO</th>
+                                <th class="table-th" *ngIf="currentPosition == 'intial_stage'">Subject Code</th>
+                                <th class="table-th" *ngIf="currentPosition == 'intial_stage'">Evaluators Count</th>
+                                <th class="table-th" *ngIf="currentPosition == 'intial_stage'">Assigned Answerpapers Count</th>
+                                <th class="table-th" *ngIf="currentPosition == 'intial_stage'">Evaluated Answerpapers Count</th>
+
+                                <th class="table-th" *ngIf="currentPosition == 'second_stage'">Evaluators List</th>
+                                <th class="table-th" *ngIf="currentPosition == 'second_stage'">Role</th>
+                                <th class="table-th" *ngIf="currentPosition == 'second_stage'">Assigned Answerpapers Count</th>
+                                <th class="table-th" *ngIf="currentPosition == 'second_stage'">Due Answerpapers Count</th>
+
+                                <th class="table-th" *ngIf="currentPosition == 'final_stage'">Evaluator Name</th>
+                                <th class="table-th" *ngIf="currentPosition == 'final_stage'">Role</th>
+                                <th class="table-th" *ngIf="currentPosition == 'final_stage'">Omr Serial Number</th>
+                                <th class="table-th" *ngIf="currentPosition == 'final_stage'">Marks</th>
+                            </tr>
+                        </thead>
+                        <tbody style="position: relative;">
+                            <!-- <span class="drill-back" (click)="back()" *ngIf="noOfSelectedSteps && noOfSelectedSteps.length > 0">
+                                <button class="btn-add" mat-raised-button color="accent" >Back</button>
+                                     
+                            </span> -->
+                            <!-- <ng-container *ngIf="noOfSelectedSteps.length > 0">
+                                <tr>
+                                    <td style="padding: 5px 10px;" colspan="10"> <span class="drilldown" *ngFor="let sel of noOfSelectedSteps; index as i">{{sel.name }} {{(noOfSelectedSteps &&
+                                        noOfSelectedSteps.length === i+1)?'':'>'}} </span>
+                                    </td>
+                                </tr>
+                            </ng-container> -->
+                            <ng-container *ngIf="summaryList.length > 0">
+                              <tr *ngFor="let datum of summaryList; index as i">
+                                <!-- <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'intial_stage'" (click)="task(datum.varaiableValue,'student_fee_details_ac',datum.fk_college_id,'',0,0,0,0,0,'Academic Year','academic_year', 'add'); $event.stopPropagation()">
+                                  <span class=""> >
+                                </span>
+                                </td> -->
+                               
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'intial_stage'" (click)="task(datum.varaiableValue,'sub_eval_assign_count',datum.course_code, datum.subject_code,datum.fk_exam_id,0,'SubjectCode','second_stage','add'); $event.stopPropagation()">
+                                    <span>  > </span>
+                                </td>
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'second_stage'" (click)="task(datum.varaiableValue,'sub_eval_assign_marks',datum.course_code, datum.subject_code,datum.fk_exam_id,datum.pk_exam_evaluator_profile_id,'SubjectCode','final_stage','add'); $event.stopPropagation()" >
+                                    <span> > </span>
+                                </td>
+                                <!-- <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'student_particular'" >
+                                    <span> > </span>
+                                </td> -->
+                                <!-- <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'intial_stage'" (click)="task(datum.varaiableValue,'student_fee_details_ac',datum.fk_college_id,'',0,0,0,0,0,'Academic Year','academic_year', 'add'); $event.stopPropagation()">
+                                    {{datum.varaiableName}}
+                                </td> -->
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'intial_stage'" (click)="task(datum.varaiableValue,'sub_eval_assign_count',datum.in_course_code, datum.subject_code,datum.fk_exam_id,0,'SubjectCode','in_subject_code','add'); $event.stopPropagation()">
+                                    <span>  {{i+1}}</span>
+                                </td>
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'second_stage'"  >
+                                    <span>  {{i+1}}</span>
+                                </td>
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'final_stage'"  >
+                                    <span>  {{i+1}}</span>
+                                </td>
+
+                                
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'intial_stage'">
+                                    {{datum.subject_code}}
+                                </td>
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'intial_stage'">
+                                    {{datum.evaluator_count}}
+                                </td> 
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'intial_stage'">
+                                    {{datum.cnt_omr_serial_no}}
+                                </td>
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'intial_stage'">
+                                    {{datum.evaluated_count}}
+                                </td>    
+                                
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'second_stage'">
+                                    {{datum.evaluator_name}}
+                                </td>
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'second_stage'">
+                                    {{datum.role_name}}
+                                </td>
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'second_stage'">
+                                    {{datum.assigned_count}}
+                                </td>
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'second_stage'">
+                                    {{datum.evaluated_count}}
+                                </td>
+
+
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'final_stage'">
+                                    {{datum.evaluator_name}}
+                                </td>
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'final_stage'">
+                                    {{datum.role_name}}
+                                </td>
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'final_stage'">
+                                    {{datum.omr_serial_no}}
+                                </td>
+                                <td class="table-td" style="text-align: center; cursor: pointer;" *ngIf="currentPosition === 'final_stage'">
+                                    {{datum.evaluated_totalmarks}}
+                                </td>
+                              </tr>
+                            </ng-container>
+                        </tbody>
+                    </table>
+                    </div>
+                </div>
+
+            </mat-card>
+
+            <!-- / CONTENT -->
+
+        </div>
+
+        <!-- / CONTENT -->
+    </div>
+</div>
+

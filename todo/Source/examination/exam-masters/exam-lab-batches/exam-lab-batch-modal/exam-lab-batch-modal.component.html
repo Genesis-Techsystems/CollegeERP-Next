@@ -1,0 +1,69 @@
+<div class="content">
+    <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+        <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+            <div fxLayoutAlign="start center" class="mod-head">
+                <i class="fa fa-puzzle-piece icon-align" aria-hidden="true"></i>
+                <span>  {{dialogTitle}}</span>
+            </div>
+        </div>
+    </div>
+    <form name="studentBatchForm" [formGroup]="studentBatchForm" novalidate>
+        <mat-dialog-content>
+            <div fxLayout="column">
+                <div fxLayout="row wrap " fxFlex="100">
+                    <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                        <mat-select placeholder="College" (selectionChange)="selectedCollege(studentBatchForm.value.collegeId)" name="collegeId" formControlName="collegeId">
+                            <mat-option *ngFor="let college of colleges" [value]="college.collegeId">
+                                {{college.collegeCode}}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                        <mat-select placeholder="Course" name="courseId" formControlName="courseId" required>
+                            <mat-option *ngFor="let course of courses" [value]="course.courseId">{{course.courseCode}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                        <mat-select placeholder="Subject Type" name="subtypeId" formControlName="subtypeId" required>
+                            <mat-option *ngFor="let type of subjectTypeDetails" [value]="type.generalDetailId">{{type.generalDetailDisplayName}}</mat-option>
+                        </mat-select>
+                    </mat-form-field> -->
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                    fxFlex.gt-md="25">
+                    <mat-select placeholder="Exam Type" name="examtypeCatdetId"  [disabled]="disble"
+                        formControlName="examtypeCatdetId" required>
+                        <mat-option *ngFor="let examFeeTypes of examFeeTypes"
+                            [value]="examFeeTypes.generalDetailId">{{examFeeTypes.generalDetailCode}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                        <input matInput placeholder="Batch Name" name="batchName" formControlName="batchName" required>
+                    </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                        <input matInput type="number" placeholder="Capacity" name="capacity" formControlName="capacity">
+                    </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                        <input matInput type="number" placeholder="Sort Order" name="sortOrder" formControlName="sortOrder">
+                    </mat-form-field>
+                </div>
+                <div fxLayout="row wrap " fxFlex="100">
+                    <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="25">
+                        <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
+                    </section>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" *ngIf="studentBatchForm.controls.isActive.value === false">
+                        <input matInput placeholder="Reason" name="reason" formControlName="reason">
+                    </mat-form-field>
+                </div>
+            </div>
+        </mat-dialog-content>
+        <mat-dialog-actions>
+            <button mat-raised-button class="cls-btn" mat-dialog-close>
+                    Close
+                    </button>
+            <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+          Save
+          </button>
+
+        </mat-dialog-actions>
+    </form>
+</div>

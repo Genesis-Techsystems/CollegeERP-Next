@@ -1,0 +1,331 @@
+<div id="dashboard" class="page-layout simple">
+  <div class="center" fusePerfectScrollbar>
+
+    <!-- HEADER -->
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+
+      <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+        fxLayoutAlign.gt-xs="center start">
+        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+          <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Examination Management</span>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Evaluation Process</span>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>{{params.examQpTemplateId ? 'Edit': 'Create'}} Template</span>
+        </div>
+      </div>
+    </div>
+    <!-- / HEADER -->
+    <div class="content">
+
+      <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+        <mat-expansion-panel [expanded]="true" hideToggle style="margin: 0px 25px;">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                  <mat-icon class="fs  icon-align ">book</mat-icon>
+                  <strong class="table-heads">{{params.examQpTemplateId ? 'Edit': 'Create'}} Template</strong>
+                </div>
+              </div>
+            </mat-panel-title>
+            <label class="filter-align">Filter</label>
+            <mat-icon>filter_list</mat-icon>
+
+          </mat-expansion-panel-header>
+          <div class="container">
+            <mat-card class="header-card">
+              <mat-card-title class="title">Question Paper Template</mat-card-title>
+
+              <form name="templateForm" [formGroup]="templateForm" novalidate>
+                <div fxLayout="row wrap" fxLayoutGap="16px" class="form-container">
+                  <!-- Template Title -->
+                  <mat-form-field appearance="outline" fxFlex="100" fxFlex.gt-sm="30">
+                    <mat-label>Template Title</mat-label>
+                    <input matInput placeholder="Enter template title" name="templateTitle"
+                      formControlName="templateTitle" required>
+                    <mat-error
+                      *ngIf="templateForm.get('templateTitle')?.hasError('required') && (templateForm.get('templateTitle')?.touched || templateForm.get('templateTitle')?.dirty)">
+                      Title is required
+                    </mat-error>
+                  </mat-form-field>
+
+                  <!-- Total Marks -->
+                  <mat-form-field appearance="outline" fxFlex="100" fxFlex.gt-sm="30">
+                    <mat-label>Total Marks</mat-label>
+                    <input matInput type="number" placeholder="Enter total marks" name="totalmarks"
+                      formControlName="totalmarks" required>
+                    <mat-error
+                      *ngIf="templateForm.get('totalmarks')?.hasError('required') && (templateForm.get('totalmarks')?.touched || templateForm.get('totalmarks')?.dirty)">
+                      Total marks are required
+                    </mat-error>
+                    <mat-error *ngIf="templateForm.get('totalmarks')?.hasError('min')">
+                      Marks must be greater than 0
+                    </mat-error>
+                  </mat-form-field>
+
+                  <!-- Template Description -->
+                  <mat-form-field appearance="outline" fxFlex="100">
+                    <mat-label>Template Description</mat-label>
+                    <textarea matInput placeholder="Enter description" name="templateDescription"
+                      formControlName="templateDescription" ></textarea>
+                  </mat-form-field>
+                </div>
+              </form>
+            </mat-card>
+          </div>
+
+
+
+
+          <div class="container">
+            <h2>Template Details</h2>
+
+            <button mat-raised-button class="add-btn" color="accent" (click)="addSection()">
+              <mat-icon>add</mat-icon> Add Section
+            </button>
+
+            <div *ngFor="let section of sections; let sectionIndex = index" class="section">
+              <div class="section-header">
+                <h3>{{ section.title }} (Marks: {{ section.totalMarks }})</h3>
+                <button mat-icon-button color="warn" (click)="removeSection(sectionIndex)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+
+              <div class="section-input-fields">
+                <label>Title: <input [(ngModel)]="section.title" required /></label>
+                <label>Total Marks: <input type="number" [(ngModel)]="section.totalMarks" required /></label>
+                <label>Min Questions: <input type="number" [(ngModel)]="section.minQuestions" required /></label>
+                <label>Instructions: <input [(ngModel)]="section.instructions" /></label>
+                <label>Display Down Text: <input [(ngModel)]="section.displayDownText" /></label>
+                <p><strong>Total Questions:</strong> {{ section.totalQuestions }}</p>
+              </div>
+
+              <button mat-raised-button class="add-btn" color="primary" (click)="addGroup(section)">
+                <mat-icon>add</mat-icon> Add Group
+              </button>
+              <!-- <button mat-raised-button class="add-btn" color="primary" (click)="addQuestion(section)">
+                <mat-icon>add</mat-icon> Add Question
+              </button> -->
+
+              <ng-container *ngFor="let group of section.groups">
+                <ng-container [ngTemplateOutlet]="groupTemplate"
+                  [ngTemplateOutletContext]="{ group: group, parent: section }"></ng-container>
+              </ng-container>
+
+              <div *ngFor="let question of section.questions" class="question">
+                <label>Question: <input [(ngModel)]="question.title" required /></label>
+                <label>Marks: <input type="number" [(ngModel)]="question.marks" required /></label>
+                <label>Display Down Text: <input [(ngModel)]="question.displayDownText" /></label>
+                <button mat-icon-button color="warn" (click)="removeQuestion(section, question)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+
+              <!-- <div *ngFor="let question of section.questions" class="question">
+                    <p>Q{{ question.displayOrder }}: {{ question.title }} (Marks: {{ question.marks }})</p>
+                    <button mat-icon-button color="warn" (click)="removeQuestion(section, question)">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div> -->
+            </div>
+
+          <div fxLayout="row" fxLayoutGap="12px">
+  <button mat-raised-button color="primary" (click)="saveAsJSON()">
+    <mat-icon>save</mat-icon> Save as JSON
+  </button>
+
+  <button mat-raised-button color="primary" (click)="saveTemplate()">
+    Save Template
+  </button>
+
+  <button mat-raised-button color="primary" (click)="saveAsPDF()">
+    Get Template
+  </button>
+</div>
+
+
+          </div>
+
+          <!-- Group Template -->
+          <ng-template #groupTemplate let-group="group" let-parent="parent">
+            <div class="group">
+              <div class="group-header">
+                <h4>{{ group.title }} (Marks: {{ group.totalMarks }})</h4>
+                <button mat-icon-button color="warn" (click)="removeGroup(parent, group)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+
+              <div class="input-fields">
+                <label>Title: <input [(ngModel)]="group.title" required /></label>
+                <label>Total Marks: <input type="number" [(ngModel)]="group.totalMarks" required /></label>
+                <label>Min Questions: <input type="number" [(ngModel)]="group.minQuestions" required /></label>
+                <label>Instructions: <input [(ngModel)]="group.instructions" /></label>
+                <label>Display Down Text: <input [(ngModel)]="group.displayDownText" /></label>
+                <p><strong>Total Questions:</strong> {{ group.totalQuestions }}</p>
+              </div>
+
+              <button mat-raised-button class="add-btn" color="primary" (click)="addGroup(group)">
+                <mat-icon>add</mat-icon> Add Group
+              </button>
+              <!-- <button mat-raised-button class="add-btn" color="primary" (click)="addQuestion(group)">
+                <mat-icon>add</mat-icon> Add Question
+              </button> -->
+
+              <ng-container *ngFor="let subGroup of group.groups">
+                <ng-container [ngTemplateOutlet]="groupTemplate"
+                  [ngTemplateOutletContext]="{ group: subGroup, parent: group }"></ng-container>
+              </ng-container>
+
+              <div *ngFor="let question of group.questions" class="question">
+                <label>Question: <input [(ngModel)]="question.title" required /></label>
+                <label>Marks: <input type="number" [(ngModel)]="question.marks" required /></label>
+                <label>Display Down Text: <input [(ngModel)]="question.displayDownText" /></label>
+                <button mat-icon-button color="warn" (click)="removeQuestion(group, question)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
+          </ng-template>
+
+
+          <div class="print-container">
+            <div *ngIf="templateDetails">
+              <div *ngFor="let section of sections" class="section-block">
+
+                <!-- Section Header -->
+                <div class="section-title">
+                  {{ section.title }}
+                  <span *ngIf="section.totalMarks">[{{ section.totalMarks }} Marks]</span>
+                </div>
+                <div class="instruction" *ngIf="section.instructions">{{ section.instructions }}</div>
+
+                <!-- Section Children -->
+                <div *ngFor="let child of getChildren(section.blockId)">
+
+                  <!-- Group -->
+                  <div *ngIf="child.qpBlockTypeId === 6046" class="group-block">
+                    <div class="group-title">
+                      {{ child.title }}
+                      <span *ngIf="child.totalMarks">[{{ child.totalMarks }} Marks]</span>
+                    </div>
+                    <div class="instruction" *ngIf="child.instruction">{{ child.instruction }}</div>
+
+                    <!-- Group Questions -->
+                    <div *ngFor="let q of getChildren(child.blockId)">
+                      <div class="question-row">
+                        <div class="question-left">{{ q.questionNoDisplaytext }}.</div>
+                        <div class="question-text">{{ q.title }}</div>
+                        <div class="question-marks">{{ q.totalMarks }} Marks</div>
+                      </div>
+                      <div class="display-down" *ngIf="q.displaydowntext?.trim() !== ''">{{ q.displaydowntext }}</div>
+                    </div>
+
+
+                    <!-- Group Down Text -->
+                    <div class="display-down" *ngIf="child.displaydowntext">{{ child.displaydowntext }}</div>
+                  </div>
+
+                  <!-- Direct Question (not in group) -->
+                  <div *ngIf="child.qpBlockTypeId === 6047">
+                    <div class="question-row">
+                      <div class="question-left">{{ child.questionNoDisplaytext }}.</div>
+                      <div class="question-text">{{ child.title }}</div>
+                      <div class="question-marks">{{ child.totalMarks }} Marks</div>
+                    </div>
+                    <div class="display-down" *ngIf="child.displaydowntext">{{ child.displaydowntext }}</div>
+                  </div>
+
+                </div>
+
+                <!-- Section Down Text -->
+                <div class="display-down" *ngIf="section.displayDownText">{{ section.displayDownText }}</div>
+              </div>
+            </div>
+
+
+
+          </div>
+          <div class="print-container">
+            <div *ngIf="templateDetailList">
+              <div *ngFor="let section of gethierarchicalBlocks">
+
+                <!-- Section Header -->
+                <div class="section-block">
+                  <div class="section-title">
+                    {{ section.title }}
+                    <span *ngIf="section.totalMarks">[{{ section.totalMarks }} Marks]</span>
+                  </div>
+                  <div class="instruction" *ngIf="section.instruction">{{ section.instruction }}</div>
+
+                  <!-- Section Children -->
+                  <ng-container *ngFor="let child of section.children">
+                    <ng-container *ngTemplateOutlet="renderBlock; context: { $implicit: child }"></ng-container>
+                  </ng-container>
+
+                  <!-- Section Down Text -->
+                  <div class="display-down" *ngIf="section.displaydowntext">{{ section.displaydowntext }}</div>
+                </div>
+              </div>
+
+              <!-- Recursive Template -->
+              <ng-template #renderBlock let-block>
+                <!-- GROUP -->
+                <div *ngIf="block.qpBlockTypeId === 6046" class="group-block">
+                  <div class="group-title">
+                    {{ block.title }}
+                    <span *ngIf="block.totalMarks">[{{ block.totalMarks }} Marks]</span>
+                  </div>
+                  <div class="instruction" *ngIf="block.instruction">{{ block.instruction }}</div>
+
+                  <!-- Group Questions and Nested Groups -->
+                  <ng-container *ngFor="let child of block.children">
+                    <ng-container *ngTemplateOutlet="renderBlock; context: { $implicit: child }"></ng-container>
+                  </ng-container>
+
+                  <div class="display-down" *ngIf="block.displaydowntext">{{ block.displaydowntext }}</div>
+                </div>
+
+                <!-- QUESTION -->
+                <div *ngIf="block.qpBlockTypeId === 6047">
+                  <div class="question-row">
+                    <div class="question-left">{{ block.title }}.</div>
+                    <div class="question-text">{{ block.title }}</div>
+                    <div class="question-marks">{{ block.totalMarks }} Marks</div>
+                  </div>
+                  <div class="display-down" *ngIf="block.displaydowntext">{{ block.displaydowntext }}</div>
+                </div>
+              </ng-template>
+            </div>
+          </div>
+
+
+
+
+
+
+
+
+
+
+        </mat-expansion-panel>
+
+      </mat-accordion>
+
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+

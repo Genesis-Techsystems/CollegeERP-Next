@@ -1,0 +1,171 @@
+
+.printbtn{
+    display: flex;
+    justify-content: end;
+    margin: 10px;
+  }
+  
+  @media print {
+    #printPageButton {
+      display: none;
+    }
+    header nav, footer {
+      display: none;
+   }
+   
+  }
+  
+  
+  button{
+  margin-left: 15px;
+  }
+  .layout{
+  margin: auto !important;
+  margin-top: 0px !important;
+  
+  width:990px !important;
+  }
+  
+  .STDIMG{
+  align-items: end;
+  }
+  
+  
+  .firstborder{
+  margin-bottom: 10px !important;
+  justify-content: center;
+  display: flex;
+  }
+  .lastborder{
+    margin-top: 5px !important;
+    }
+    .sheet{
+        text-align: center !important;
+        // margin-bottom: 10px;
+        
+    }
+    #table2{
+      font-family: arial, sans-serif;
+      border: none;
+      
+      th{
+        font-family: arial, sans-serif;
+        font-size: 16px !important;
+      border: none;
+      }
+      td{
+        font-family: arial, sans-serif;
+        font-size: 14px !important;
+         border: none;
+      }
+      }
+  #table1{
+  border: none !important;
+  tr{
+  border: none !important;
+  }
+  td{
+  border: none !important;
+  width: 249px !important;
+  font-family: arial, sans-serif;
+  font-size: 14px !important;
+  padding: 6px !important;
+  font-weight: bold !important;
+  border: none !important;
+  // width: 25% !important;
+  }
+  //   span::after {
+  //     content: ",";
+  //     padding-right: 10px;
+  // }
+      }
+      .header{
+        font-weight: bold !important;
+      }
+      
+      .numwidth{
+        width: 70px !important;
+      }
+      hr {
+        clear:both;
+        display:block;
+        width: 100%;
+        color: #000000;
+        height:1px !important;
+        background: black;
+        }
+  
+  #table{
+  table, th, td {
+    padding: 8px;
+  }
+  
+  th {
+    padding: 5px 16px !important;
+    border: 1px solid #000 !important;
+    border-collapse: collapse !important;
+    font-size: 15px !important;
+  
+  }
+  .table-td {
+    padding: 8px 8px !important;
+    text-align: left !important;
+    font-weight: 500;
+    border: 1px solid #000 !important;
+    color: black !important;
+    border-collapse: collapse !important;
+  
+    }
+    table {
+    page-break-inside: auto;
+    border-collapse: collapse !important;
+    margin-bottom: 2% !important;
+    width: 100% !important;
+    border:#000 !important
+  }
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+    border-collapse: collapse !important;
+  }
+  thead {
+    display: table-header-group;
+  }
+  }
+  .collegeName{
+  text-align: center !important;
+  font-size: 23px !important;
+  margin-top: 1% !important; 
+  margin-bottom: -15px !important; 
+  font-family: none !important;
+  color: rgb(0, 0, 0) !important;
+  font-weight: 550 !important;
+  }
+  .title{
+  text-align: center !important;
+  font-size: 18px !important;
+  font-family: none !important;
+  color: rgb(0, 0, 0) !important;
+  font-weight: 500 !important;
+  margin-bottom: -5px !important; 
+  }
+  .title2{
+  text-align: right !important;
+  font-size: 15px !important;
+  font-family: none !important;
+  color: rgb(0, 0, 0) !important;
+  font-weight: 650 !important;
+  margin-bottom: -1px !important;
+  }
+  .text{
+  font-size:14px !important;
+  font-weight: 550 !important;
+  font-family: arial, sans-serif;
+  font-size: 14px !important; 
+  padding: 8px !important;
+  font-weight: bold !important;
+  }
+  .portraitLogo{
+    height:80%;
+    width:80%;
+  }

@@ -1,0 +1,27 @@
+import { Component, OnInit, Inject } from '@angular/core';
+import { FormBuilder } from '@angular/forms';
+import { GenericFunctions } from 'app/main/common/generic-functions';
+import { NgxSpinnerService } from 'ngx-spinner';
+import { SnotifyService } from 'ng-snotify';
+import { CrudService } from 'app/main/services/crud.service';
+import { Router } from '@angular/router';
+import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+@Component({
+  selector: 'app-view-re-valuation-feesetup',
+  templateUrl: './view-re-valuation-feesetup.component.html',
+  styleUrls: ['./view-re-valuation-feesetup.component.scss']
+})
+export class ViewReValuationFeesetupComponent implements OnInit {
+
+ 
+  constructor(private formBuilder: FormBuilder, private dialogRef: MatDialogRef<ViewReValuationFeesetupComponent>, private genericFunctions: GenericFunctions,
+    @Inject(MAT_DIALOG_DATA) public data, private spinner: NgxSpinnerService,
+    private snotifyService: SnotifyService, private crudService: CrudService, public router: Router) {
+
+}
+
+// tslint:disable-next-line:typedef
+ngOnInit() {
+}
+
+}

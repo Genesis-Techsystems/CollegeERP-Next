@@ -1,0 +1,44 @@
+<div class="add-form">
+    <!-- <h2 mt-dialog-title>Add Organization</h2>
+     <hr> -->
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align">
+                                event_note
+                                </i>
+                    <!-- <span>Are You Sure! Do You Want to Run?</span> -->
+                    <span>Run Confirm Modal</span>
+                </div>
+            </div>
+        </div>
+        
+            <mat-dialog-content>
+                <div  fxLayout="row" >
+                    <div fxLayout="column" style="display: flow;margin-left: 25%;margin-top:0.5%" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">  
+                       <!-- <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                        <mat-icon class="msgicon">check_circle_outline</mat-icon>
+                        </div> -->
+                       <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                        <span class="msg" >
+                      Are You Sure! Do You Want to Run?
+                        </span>
+                        </div>
+                        </div>
+                 </div>  
+        
+            </mat-dialog-content>
+            <mat-dialog-actions class="popup-btn">
+                <button mat-raised-button class="back-btn"  mat-dialog-close >
+                    No
+                    </button>
+                <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+                    Yes
+                    </button>
+             
+            
+            </mat-dialog-actions>
+    </div>
+    </div>
+

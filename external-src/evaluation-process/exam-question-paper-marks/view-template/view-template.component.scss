@@ -1,0 +1,46 @@
+
+@media print {
+    #printPageButton {
+      display: none;
+    }
+    header nav, footer {
+      display: none;
+   }
+   
+  }
+  button{
+    margin-left: 15px;
+  }
+  .layout{
+    margin: auto !important;
+    margin-top: 0px !important;
+   }
+   .header{
+    text-align: center;
+   }
+   hr {
+    width: 96%;
+    color: #000000;
+    height: 1px;
+    background-color: #000000;
+}
+// h2{
+//   margin-bottom: -20px;
+// }
+p{
+  display: flex !important;
+}
+.capital{
+  text-transform: uppercase !important;
+}
+.printbtn{
+  display: flex;
+  justify-content: end;
+  margin: 10px;
+}
+td{
+  border: 0px !important;
+}
+.mb-20{
+  margin-bottom: -20px !important;
+}

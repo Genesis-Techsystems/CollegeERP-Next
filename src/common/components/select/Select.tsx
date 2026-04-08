@@ -148,7 +148,7 @@ export function Select({
             aria-haspopup="listbox"
             disabled={disabled}
             className={cn(
-              'flex h-10 w-full items-center justify-between rounded-lg border bg-white px-3 py-2 text-sm shadow-sm transition-colors',
+              'flex h-9 w-full items-center justify-between rounded-md border bg-white px-3 py-2 text-sm shadow-sm transition-colors',
               'focus-visible:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/20',
               'disabled:cursor-not-allowed disabled:opacity-50',
               open && 'border-indigo-500 ring-2 ring-indigo-500/20',
@@ -156,6 +156,7 @@ export function Select({
                 ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20'
                 : 'border-slate-300',
             )}
+            style={{ fontSize: '11px' }}
           >
             {/* Label / placeholder */}
             <span

@@ -1,0 +1,134 @@
+.example-container {
+    width: 100%;
+    overflow: overlay;
+    padding-bottom: 15px !important;
+}
+
+table#PivotView_grid_content_table {
+    width: 100% !important;
+}
+table.e-table {
+    width: 100% !important;
+}
+
+.pd-page {
+    padding: 0px 24px 0px 24px !important;
+}
+.mar{
+    margin: 0px 0;
+}
+.table-td {
+    padding: 6px 8px !important;
+    text-align: left;
+    font-weight: 500;
+}
+.absent_std {
+    color: #fff;
+    background: red;
+    border-radius: 4px;
+    padding: 4px;
+}
+.mp-5{
+    margin-top: 5px;
+}
+p{
+    margin: 5px 0px;
+    color: #c76d2f;
+}
+.table-th{
+    padding: 9px 5px !important;
+    background: #C3D9FF;
+    font-weight: 500;
+    width: 10% !important;
+    text-align: center !important;
+}
+.back-grnd{
+    border: 1px solid #fff;
+    margin: 1px;
+    background: #eaf2ff;
+}
+.txt-uppercase{
+    text-transform: uppercase;
+}
+table {
+    border-spacing: 1px !important;
+}
+.txt-align{
+    text-align: right;
+}
+.drilldown{
+    color:#0c51a4 !important;
+    font-size: 16px;
+    font-weight: 500;
+}
+.drill-back{
+    color: #0c51a4;
+    text-decoration: underline;
+    position: absolute;
+    right: 28px;
+    top: 75px;
+    font-size: 19px;
+    cursor: pointer;
+}
+.table-td:hover{
+    background-color: #c3d9ff59;
+}
+@media print {
+    #printNone {
+      display: none !important;
+      visibility: hidden !important;
+    }
+    .print-section{
+display: block;
+    }
+    header nav, footer {
+      display: none;
+   }
+   table{
+        border-collapse: collapse !important;
+   }
+   .collegeName{
+    text-align: left !important;
+    font-size: 24px !important;
+     margin-top: 20px !important; 
+     margin-bottom: -10px !important; 
+     font-family: none !important;
+     color: rgb(0, 0, 0) !important;
+     font-weight:550 !important;
+
+}
+.title{
+    text-align: left !important;
+    font-size: 20px !important;
+    font-family: none !important;
+     color: rgb(0, 0, 0) !important;
+     font-weight:550 !important;
+}
+.details{
+    font-size: 18px;
+    justify-content: center;
+    font-family: none;
+    color: rgb(0, 0, 0) !important;
+    text-align: center !important;
+  }
+  .header{
+    justify-content: center !important;
+    p{
+        text-align: center !important;
+    }
+  }
+  .table-td {
+    padding: 5px 8px !important;
+    text-align: left !important;
+    font-weight: 400;
+    text-align: center !important;
+}
+  }
+  .print-btn{
+    border:none !important;
+    background: white !important;
+  }
+  .icon{
+    color: aliceblue !important;
+    padding: 4px;
+}

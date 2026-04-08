@@ -1,0 +1,291 @@
+<div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Pre Examination</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Invigilation Allotment</span>
+                </div>
+            </div>
+
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads">Invigilation Allotment</strong>
+                                    <span *ngIf="dataSecStaff || dataSECPrincipal" style="font-weight: 550;
+                                                    margin-left: 7px;
+                                                    font-size: 16px;">For : {{data}}</span>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="staffForm" [formGroup]="staffForm" novalidate>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                                <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(staffForm.value.collegeId)" required>
+                                    <mat-option *ngFor="let college of colleges" [value]="college.collegeId">
+                                        {{college.collegeCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="16" fxFlex.gt-md="16">
+                                <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)" required>
+                                    <mat-option *ngFor="let academicYear of academicYears" [value]="academicYear.academicYearId">{{academicYear.academicYear}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="16" fxFlex.gt-md="16">
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                    <mat-option *ngFor="let course of courses" [value]="course.courseId">
+                                        {{course.courseCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60" fxFlex.gt-md="60">
+                                <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExam(staffForm.value.examId)"  required>
+                                  <!-- <ngx-mat-select-search (keyup)="searchExam($event.target.value)" [placeholderLabel]="'Search Exam'" [noEntriesLabelFound]="'no matching data found'"></ngx-mat-select-search> -->
+                                <ngx-mat-select-search [placeholderLabel]="'Search Exam...'" (keyup)="searchExam($event.target.value)" [noEntriesFoundLabel]="'no matching data found'" ></ngx-mat-select-search>
+                                  <mat-option *ngFor="let objct of examData" [value]="objct.examId" matTooltip="{{objct.examName}}">
+                                        {{objct.examName}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+                        <div fxLayout="row">
+                            <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId"  required>
+                                    <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.courseYearId">{{courseYear.courseYearName}}</mat-option>
+                                </mat-select>
+                            </mat-form-field> -->
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="32" fxFlex.gt-md="32">
+                                <mat-select placeholder="Exam Timetable" name="examTimeTableId" formControlName="examTimeTableId" (selectionChange)="selectedExamTimetable(staffForm.value.examTimeTableId)" required>
+                                    <mat-option *ngFor="let objct of examTimetables" [value]="objct.examTimetableId">
+                                        {{objct.examDate}}&nbsp;
+                                        <span *ngIf="objct.examDate != null" class="rol-no">({{objct.examSessionName}})</span>
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                </mat-expansion-panel>
+            </mat-accordion>
+            <div class="header pd-page-dub" fxLayout="column" fxLayoutAlign="space-between" *ngIf="staffForm.value.examTimeTableId && flag">
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                    <!-- <div fxLayout="row" fxLayoutAlign="space-between center">
+                            <mat-icon class="fs icon-align fs">library_books</mat-icon>
+                            <strong class="table-heads"> Books </strong>
+                            <button class="btn-add" mat-raised-button color="accent" [routerLink]="[ '/library/add-books']">
+                                <i class="material-icons">add</i>
+                                Add Books</button>
+                        </div> -->
+                    <div fxLayout="row wrap" fxFlex="100" fxLayoutAlign="space-between center">
+                        <div fxLayoutAlign="start center" class="mod-head">
+                            <strong class="table-heads">Exam Allocated Rooms List
+                                <span>({{collegeCode}} / {{courseCode}} / {{exam}} / {{examTimetable | date: 'dd MMM, yyyy'}})</span></strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <mat-card class="pd-card table-align" *ngIf="flag">
+                <mat-card-content>
+                    <div fxLayout="column">
+                        <form name="staffForm" [formGroup]="staffForm" novalidate>
+                            <div fxLayout="row" style="margin-top: 15px;">
+                                <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                    <mat-select placeholder="Campus - Building" name="buildingId" formControlName="buildingId" (selectionChange)="SelectedBuilding(staffForm.value.buildingId)">
+                                        <mat-option [value]="0">Select</mat-option>
+                                        <mat-option *ngFor="let objct of buildings" [value]="objct.buildingId">{{objct.campusName}} - {{objct.buildingCode}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="16" fxFlex.gt-md="16">
+                                    <mat-select placeholder="Block" name="blockId" formControlName="blockId" (selectionChange)="SelectedBlock(staffForm.value.blockId)">
+                                        <mat-option [value]="0">Select</mat-option>
+                                        <mat-option *ngFor="let objct of blocks" [value]="objct.blockId">{{objct.blockCode}}
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                                    <mat-select placeholder="Floor - No" name="floorId" formControlName="floorId" (selectionChange)="SelectedFloors(staffForm.value.floorId)">
+                                        <mat-option [value]="0">Select</mat-option>
+                                        <mat-option *ngFor="let object of floors" [value]="object.floorId">{{object.floorName}} - {{object.floorNo}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field> -->
+                                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20" style="position: relative;margin-bottom: 12px;" >
+                                        <i class="material-icons exam-inv-icon" [ngStyle]="{'color': '#cc0a96'}">account_box</i>
+                                        <span class="icons-details" >&nbsp; OBSERVER</span>
+                                      <span *ngIf="obersersList.length>0" class="obs">
+                                           {{obersersList[0].invigilatorEmpName}}({{obersersList[0].invigilatorEmpNumber}})
+                                      </span>
+                                      <span *ngIf="obersersList.length==0" class="obs-err">currently no observer</span>
+                                </div>
+                            </div>
+
+                        </form>
+                        <div fxLayout="row wrap" fxFlex="100" *ngIf="flag">
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33" style="position: relative;" >
+                                <i class="material-icons exam-inv-icon" [ngStyle]="{'color': 'blue'}">account_box</i>
+                                <span class="icons-details" >&nbsp; INVIGILATOR</span>
+                            </div>
+                        </div>
+                        <div fxLayout="row wrap" fxFlex="100">
+                            <mat-grid-list fxFlex="100" *ngIf="flag">
+                                <mat-grid-tile fxLayout="column"  class="grid-bckgrnd" fxFlex="100" fxFlex.gt-xs="32" fxFlex.gt-md="32" *ngFor="let tile of filteredRoomsList" (click)="selectedRoomDetails(tile, 'List')">
+                                    <div fxLayout="row wrap" style="max-height: fit-content !important;">
+                                        <div fxLayout="column" class="p-8" fxFlex="100">
+                                            <p class="title">{{tile.roomName}}
+                                            </p>
+                                            <mat-hint style="text-align: center;" *ngIf="tile.buildingCode != null">{{tile.buildingCode}} / {{tile.blockCode}} / {{tile.floorNo}}</mat-hint>
+                                        </div>
+
+                                    </div>
+                                    <div fxLayout="row wrap" fxFlex="100">
+                                        <div fxLayout="column" class="p-8" fxFlex="100">
+                                            <div fxLayout="row" fxFlex="100" style="position: relative;">
+                                                <div fxLayout="column" class=" p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                                    <span *ngFor="let object of invigilatorDisg">
+                                                        <div *ngIf="object.generalDetailCode =='INVIGILATOR'">
+                                                            <i class="material-icons "
+                                                                [ngStyle]="{'color':getColor(object.colorValue)}"
+                                                                matTooltip='{{object.generalDetailCode}}'
+                                                                (click)="$event.stopPropagation()"
+                                                                (click)="allocateNewStaff(object, tile, 'single')">
+                                                                add_circle
+                                                            </i>
+                                                        </div>
+                                                        </span>
+                                                        
+                                                </div>
+                                                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="84" fxFlex.gt-md="84">
+                                                    <p *ngFor="let tileObject of tile.examInvigilationAllotmentsList" class=" tooltip right" style=" margin: 2px 0px;">
+                                                        <span *ngIf="tileObject.invgdesignationCatCode == 'INVIGILATOR'">
+                                                        <span class=" col-xs-3 col-sm-3 designation btn" [ngClass]="{
+                                                            'blue': getColorValue(tileObject) == 1,
+                                                            'pink': getColorValue(tileObject) == 2,
+                                                            'green': getColorValue(tileObject) == 3,
+                                                            'yello': getColorValue(tileObject) == 4,
+                                                            'brown': getColorValue(tileObject) == 5,
+                                                            'orange': getColorValue(tileObject) == 6}">
+                                                            <span  style="max-width:100px">
+                                                            {{tileObject.invigilatorEmpName}}
+                                                           
+                                                        </span>
+                                                        <span class="rol-no"> - {{tileObject.invigilatorEmpNumber}}</span>
+                                                        </span>
+                                                        <span class="tooltip-content">
+                                                            <h5>Employee Details</h5>
+                                                            <span style="color: black;font-weight: 600;display: block;">Name :</span> {{tileObject.invigilatorEmpName}}
+                                                        <small class="rol-no">({{tileObject.invigilatorEmpNumber}})</small>
+                                                        <p>
+                                                            <span style="color: black;font-weight: 600;">Dept :</span> {{tileObject.empDeptName}}
+                                                        </p>
+                                                        <p>
+                                                            <span style="color: black;font-weight: 600;">Mobile :</span> {{tileObject.mobile}}
+                                                        </p>
+                                                        </span>
+                                                        </span>
+                                                    </p>
+                                                  
+                                                </div>
+                                                <mat-hint *ngIf="tile.examRoomAllotmentId == null" style="position: absolute;bottom:0px;width: 81%;right: 0px;">This room not allocated to timetable </mat-hint>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </mat-grid-tile>
+                                <!-- <mat-grid-tile fxLayout="column"  class="grid-bckgrnd" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33" *ngFor="let tile of filteredRoomsList" (click)="selectedRoomDetails(tile, 'List')">
+                                    <div fxLayout="row wrap" style="max-height: fit-content !important;">
+                                        <div fxLayout="column" class="p-8" fxFlex="100">
+                                            <p class="title">{{tile.roomName}}
+                                            </p>
+                                            <mat-hint style="text-align: center;" *ngIf="tile.buildingCode != null">{{tile.buildingCode}} / {{tile.blockCode}} / {{tile.floorNo}}</mat-hint>
+                                        </div>
+
+                                    </div>
+                                    <div fxLayout="row wrap" fxFlex="100">
+                                        <div fxLayout="column" class="p-8" fxFlex="100">
+                                            <div fxLayout="row" fxFlex="100" style="position: relative;">
+                                                <div fxLayout="column" class=" p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                                    <span *ngFor="let object of invigilatorDisg">
+                                                        <div *ngIf="object.generalDetailCode =='OBSERVER'">
+                                                            <i class="material-icons "
+                                                                [ngStyle]="{'color':getColor(object.colorValue)}"
+                                                                matTooltip='{{object.generalDetailCode}}'
+                                                                (click)="$event.stopPropagation()"
+                                                                (click)="allocateNewStaff(object, tile, 'single')">
+                                                                add_circle
+                                                            </i>
+                                                        </div>
+                                                        </span>
+                                                </div>
+                                                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="84" fxFlex.gt-md="84">
+                                                    <p *ngFor="let tileObject of tile.examInvigilationAllotmentsList" class=" tooltip right" style=" margin: 2px 0px;">
+                                                        <span *ngIf="tileObject.invgdesignationCatCode == 'OBSERVER'">
+                                                        <span class=" col-xs-3 col-sm-3 designation btn" [ngClass]="{
+                                                            'blue': getColorValue(tileObject) == 1,
+                                                            'pink': getColorValue(tileObject) == 2,
+                                                            'green': getColorValue(tileObject) == 3,
+                                                            'yello': getColorValue(tileObject) == 4,
+                                                            'brown': getColorValue(tileObject) == 5,
+                                                            'orange': getColorValue(tileObject) == 6}">
+                                                            <span class="text-align" style="max-width:100px" >
+                                                            {{tileObject.invigilatorEmpName}}
+                                                           
+                                                        </span>
+                                                        <span class="rol-no"> - {{tileObject.invigilatorEmpNumber}}</span>
+                                                        </span>
+                                                        <span class="tooltip-content">
+                                                            <h5>Employee Details</h5>
+                                                            <span style="color: black;font-weight: 600;display: block;">Name :</span> {{tileObject.invigilatorEmpName}}
+                                                        <small class="rol-no">({{tileObject.invigilatorEmpNumber}})</small>
+                                                        <p>
+                                                            <span style="color: black;font-weight: 600;">Dept :</span> {{tileObject.empDeptName}}
+                                                        </p>
+                                                        <p>
+                                                            <span style="color: black;font-weight: 600;">Mobile :</span> {{tileObject.mobile}}
+                                                        </p>
+                                                        </span>
+                                                        </span>
+                                                    </p>
+                                                  
+                                                </div>
+                                                <mat-hint *ngIf="tile.examRoomAllotmentId == null" style="position: absolute;bottom:0px;width: 81%;right: 0px;">This room not allocated to timetable </mat-hint>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </mat-grid-tile> -->
+                                <!-- <mat-grid-tile fxLayout="column" class="p-8 grid-bckgrnd min-height" fxFlex="100" fxFlex.gt-xs="18" fxFlex.gt-md="18" (click)="selectedRoomDetails('update', 'List')">
+                                    <i class="material-icons add-room-btn" matTooltip="Allocate New Room">
+                                        add_circle
+                                    </i>
+                                </mat-grid-tile> -->
+                            </mat-grid-list>
+                        </div>
+                    </div>
+                </mat-card-content>
+                <div class="save-btn-align" *ngIf="flag">
+                    <button mat-raised-button class="add-btn" color="accent" (click)="autoAssign()">Auto Assign Invigilators</button>
+                </div>
+            </mat-card>
+            <!-- / CONTENT -->
+        </div>
+    </div>
+</div>

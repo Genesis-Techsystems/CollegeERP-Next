@@ -1,0 +1,440 @@
+
+<div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Post Examination</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Complete Exam Process</span>
+                </div>
+            </div>
+
+        </div>
+      <div class="content">
+        <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+            <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                <mat-expansion-panel-header>
+                    <mat-panel-title>
+                        <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                <mat-icon class="fs  icon-align ">book</mat-icon>
+                                <strong class="table-heads">Complete Exam Process</strong>
+                            </div>
+                        </div>
+                    </mat-panel-title>
+                    <!-- <label class="filter-align">Filter</label> -->
+                    <!-- <mat-icon>filter_list</mat-icon> -->
+                </mat-expansion-panel-header>
+                <form>
+                    <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                        <div style="padding: 12px 0px 0px 0px;">
+                
+						  <div fxLayout="column" class="yar-bordr">
+                            <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                                <h2 class="ptag">Finalise Evaluator Profiles </h2>
+                                <h3>The objective of this is to finalise the evaluator profiles by skipping the Committee</h3>
+                            </div>
+                            <div class="divbuttons">
+                                <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="setupCommittes()">Finalise Evaluator Profiles</button>
+        
+                            </div>
+                         </div>
+                             </div>
+            </div> 
+                </form>
+            </mat-expansion-panel>
+        </mat-accordion>
+        <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+            <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                <mat-expansion-panel-header>
+                    <mat-panel-title>
+                        <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                <mat-icon class="fs  icon-align ">book</mat-icon>
+                                <strong class="table-heads">Complete Exam Process</strong>
+                            </div>
+                        </div>
+                    </mat-panel-title>
+                    <!-- <label class="filter-align">Filter</label> -->
+                    <!-- <mat-icon>filter_list</mat-icon> -->
+                </mat-expansion-panel-header>
+                <form name="evaluationForm" [formGroup]="evaluationForm"  novalidate>
+                    <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                        <div fxLayout="row wrap " fxFlex="100">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                            fxFlex.gt-md="20">
+                            <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                (selectionChange)="selectedCourse(evaluationForm.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses"
+                                    [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+    
+    
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                            fxFlex.gt-md="20">
+                            <mat-select placeholder="Exam Year" name="academicYearId"
+                                formControlName="academicYearId"
+                                (selectionChange)="selectedAcademicYear(evaluationForm.value.academicYearId)"
+                                required>
+                                <mat-option *ngFor="let academicYear of academicYears"
+                                    [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                            fxFlex.gt-md="60">
+                            <mat-select placeholder="Exam Master" name="examId" formControlName="examId"
+                                (selectionChange)="selectedExam(evaluationForm.value.examId)" required>
+                                <ngx-mat-select-search
+                                    [placeholderLabel]="'Search...'"
+                                    [noEntriesFoundLabel]="'no matching data found'"
+                                    (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>
+                                <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                    matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})">
+    
+                                    {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date |
+                                    date:dateFormate}})
+                                    <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;"
+                                        matTooltip='Internal'>(Internal)</span>
+                                    <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;"
+                                        matTooltip="Regular">(Regular)</span>
+                                    <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;"
+                                        matTooltip="Supple">(Supple)</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Exam Month Year" name="academicYearId"  formControlName="academicYearId" (selectionChange)="selectedMonthyr(evaluatorForm.value.ExamMonthYear)">
+                                <mat-option *ngFor="let monthYr of monthYear" [value]="monthYr.exam_month_yr">{{monthYr.exam_month_yr| date: 'dd/MM/yyyy'}}</mat-option>
+                            </mat-select>
+                        </mat-form-field> -->
+                      
+                  </div>
+                 
+                <div style="padding: 12px 0px 0px 0px;">
+                  <div fxLayout="column" class="yar-bordr">
+                
+                    <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                        <h2 class="ptag">Setup Assignments </h2>
+                        <h3>The objective of this update is to review student assignments, OMR details, and answer papers. </h3>
+                        <!-- <p class="ptag">Setup Assignments</p> -->
+                    </div>
+                    <div class="divbuttons">
+                        <!-- <button mat-raised-button class="add-btn" color="accent"  (click)="exportAsExcel()">
+                            <i class="fa fa-file-excel-o icon" aria-hidden="true"></i>Export Excel</button> -->
+                        <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="AssignmentRun()">Setup Assignments</button>
+
+                    </div>
+
+                    
+                    <!-- <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                        <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="AssignmentRun()">Setup Assignments</button>
+                      </div> -->
+                </div>
+                <div fxLayout="column" class="yar-bordr">
+                    <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                        <h2 class="ptag"> Finalize Evaluation Status </h2>
+                        <h3>The objective of this is to update the status from Evaluated to Finalized.</h3>
+
+
+                    </div>
+                      <div class="divbuttons">
+                        <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="FinaliseEvaluationStatus()">Finalize Evaluation Status</button>
+                      </div>
+                    
+                       
+                </div>
+                <div fxLayout="column" class="yar-bordr">
+                    <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                        <h2 class="ptag">Finalize Evaluation Marks</h2>
+                        <h3> Marks will be Finalized after Finalized Evaluation Status</h3>
+                    </div>
+                    <div class="divbuttons">
+                        <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="FinalisedEvaluationMarks()">Finalize Evaluation Marks</button>
+                      </div>
+                    
+                </div>
+                <!-- <div fxLayout="column" class="yar-bordr">
+                    <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                        <h2 class="ptag">Verify Exam Status</h2>
+                        <h3> Marks will be Finalized after Finalized Evaluation Status</h3>
+                    </div>
+                    <div class="divbuttons">
+                        <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="VerifyExamStatus()">Verify Exam Status</button>
+                      </div>
+                    
+                </div> -->
+                <div fxLayout="column" class="yar-bordr">
+                    <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                        <h2 class="ptag">Marks Entered Status</h2>
+                        <h3> This report  will give list of evaluator marks status.</h3>
+                    </div>
+                    <div class="divbuttons">
+                        <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="VerifyExamMarks()">Verify Exam Marks</button>
+                      </div>
+                    
+                </div>
+                </div>
+                
+            </div> 
+                </form>
+            </mat-expansion-panel>
+        </mat-accordion>
+        <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+            <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                <mat-expansion-panel-header>
+                    <mat-panel-title>
+                        <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                <mat-icon class="fs  icon-align ">book</mat-icon>
+                                <strong class="table-heads"> Exam Re-Evalaution</strong>
+                            </div>
+                        </div>
+                    </mat-panel-title>
+                    <!-- <label class="filter-align">Filter</label> -->
+                    <!-- <mat-icon>filter_list</mat-icon> -->
+                </mat-expansion-panel-header>
+                <form name="evaluationForm" [formGroup]="evaluationForm"  novalidate>
+                    <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                        <div fxLayout="row wrap " fxFlex="100">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                            fxFlex.gt-md="20">
+                            <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                (selectionChange)="selectedCourse(evaluationForm.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses"
+                                    [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+    
+    
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                            fxFlex.gt-md="20">
+                            <mat-select placeholder="Exam Year" name="academicYearId"
+                                formControlName="academicYearId"
+                                (selectionChange)="selectedAcademicYear(evaluationForm.value.academicYearId)"
+                                required>
+                                <mat-option *ngFor="let academicYear of academicYears"
+                                    [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                            fxFlex.gt-md="60">
+                            <mat-select placeholder="Exam Master" name="examId" formControlName="examId"
+                                (selectionChange)="selectedExam(evaluationForm.value.examId)" required>
+                                <ngx-mat-select-search
+                                    [placeholderLabel]="'Search...'"
+                                    [noEntriesFoundLabel]="'no matching data found'"
+                                    (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>
+                                <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                    matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})">
+    
+                                    {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date |
+                                    date:dateFormate}})
+                                    <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;"
+                                        matTooltip='Internal'>(Internal)</span>
+                                    <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;"
+                                        matTooltip="Regular">(Regular)</span>
+                                    <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;"
+                                        matTooltip="Supple">(Supple)</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                            <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <mat-select placeholder="Program" name="Course" formControlName="CourseCode" (selectionChange)="selectedCourse(evaluatorForm.value.CourseCode)">
+                                    <mat-option *ngFor="let courseCode of courseCode" [value]="courseCode.course_code">{{courseCode.course_code}}</mat-option>
+
+                                 </mat-select>
+                            </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Exam Month Year" name="ExamMonthYear"  formControlName="ExamMonthYear" (selectionChange)="selectedMonthyr(evaluatorForm.value.ExamMonthYear)">
+                                <mat-option *ngFor="let monthYr of monthYear" [value]="monthYr.exam_month_yr">{{monthYr.exam_month_yr| date: 'dd/MM/yyyy'}}</mat-option>
+                            </mat-select>
+                        </mat-form-field> -->
+                      
+                  </div>
+                
+                        <div style="padding: 12px 0px 0px 0px;">
+                        <div fxLayout="column" class="yar-bordr" >
+                            <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                                <h2 class="ptag">Setup Re-Evaluation Assignments</h2>
+                              <h3>The objective of this update is to review student assignments, OMR details, and answer papers.</h3>
+                            </div>
+                            <div  class="divbuttons">
+                                <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="ReEvaluationAssignmentRun()">Setup Re-Evaluation Assignments</button>
+
+                              </div>
+                        </div>
+                        <div fxLayout="column" class="yar-bordr">
+                            <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                                <h2 class="ptag"> Finalize Re-Evaluation Status </h2>
+                              <h3>The objective of this is to update the status from Evaluated to Finalized</h3>
+        
+                            </div>
+                              <div class="divbuttons">
+                                <button mat-raised-button class="action-btn addBtn" (click)="finalizeReevaluationStatus()" color="accent">Finalize Re-Evaluation Status</button>
+                              </div>
+                               
+                        </div>
+                        <div fxLayout="column" class="yar-bordr" >
+                            <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                                <h2 class="ptag">Finalize Re-Evaluation Marks</h2>
+                                <h3> Marks will be Finalized after Finalized Evaluation Status</h3>
+
+                            </div>
+                            <div class="divbuttons">
+                                <button mat-raised-button class="action-btn addBtn" color="accent"  (click)="FinalisedReEvaluationMarks()"> Finalize Re-Evaluation Marks</button>
+                              </div>
+                            
+                        </div>
+                    </div>
+                     
+            </div> 
+                </form>
+            </mat-expansion-panel>
+        </mat-accordion>
+        <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+            <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                <mat-expansion-panel-header>
+                    <mat-panel-title>
+                        <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                <mat-icon class="fs  icon-align ">book</mat-icon>
+                                <strong class="table-heads"> Result Processing </strong>
+                            </div>
+                        </div>
+                    </mat-panel-title>
+                    <!-- <label class="filter-align">Filter</label> -->
+                    <!-- <mat-icon>filter_list</mat-icon> -->
+                </mat-expansion-panel-header>
+                <!-- <form name="evaluatorForm" [formGroup]="evaluatorForm"  novalidate> -->
+                    <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                        <div style="padding: 12px 0px 0px 0px;">
+                            <form name="evaluationForm" [formGroup]="evaluationForm" novalidate>
+                                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                                <div fxLayout="row wrap " fxFlex="100">
+                                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                        (selectionChange)="selectedCourse(evaluationForm.value.courseId)" required>
+                                        <mat-option *ngFor="let course of courses"
+                                            [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+            
+            
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Exam Year" name="academicYearId"
+                                        formControlName="academicYearId"
+                                        (selectionChange)="selectedAcademicYear(evaluationForm.value.academicYearId)"
+                                        required>
+                                        <mat-option *ngFor="let academicYear of academicYears"
+                                            [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                                    fxFlex.gt-md="60">
+                                    <mat-select placeholder="Exam Master" name="examId" formControlName="examId"
+                                        (selectionChange)="selectedExam(evaluationForm.value.examId)" required>
+                                        <ngx-mat-select-search
+                                            [placeholderLabel]="'Search...'"
+                                            [noEntriesFoundLabel]="'no matching data found'"
+                                            (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>
+                                        <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                            matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})">
+            
+                                            {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date |
+                                            date:dateFormate}})
+                                            <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;"
+                                                matTooltip='Internal'>(Internal)</span>
+                                            <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;"
+                                                matTooltip="Regular">(Regular)</span>
+                                            <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;"
+                                                matTooltip="Supple">(Supple)</span>
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                </div>
+                                <div class="divbuttons">
+                                    <button mat-raised-button class="action-btn addBtn" color="accent" (click)="resultPro()">Result Processing</button> &nbsp; &nbsp;
+                                    <button mat-raised-button class="action-btn addBtn" color="accent" (click)="resultProPublish()"> Publish Result Processing </button>
+                                </div>
+                               </div>
+                               
+                            </form>
+                        </div>
+            </div> 
+                <!-- </form> -->
+            </mat-expansion-panel>
+        </mat-accordion>
+        <!-- <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+            <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                <mat-expansion-panel-header>
+                    <mat-panel-title>
+                        <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                <mat-icon class="fs  icon-align ">book</mat-icon>
+                                <strong class="table-heads">Result Processing</strong>
+                            </div>
+                        </div>
+                    </mat-panel-title>
+                  
+                </mat-expansion-panel-header>
+                <form name="feeFormGroup" [formGroup]="feeFormGroup" novalidate>
+                    <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="Faculty" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(feeFormGroup.value.collegeId)" required>
+                                <mat-option *ngFor="let college of colleges" [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="18" fxFlex.gt-md="18">
+                            <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(feeFormGroup.value.academicYearId)" required>
+                                <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="Program" name="courseId" formControlName="courseId" (selectionChange)="selectedCours(feeFormGroup.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="52" fxFlex.gt-md="52">
+                            <mat-select placeholder="Exam" name="examId" formControlName="examId"  required>
+                                <ngx-mat-select-search [placeholderLabel]="'Search Exam...'"
+                                [noEntriesFoundLabel]="'no matching data found'" (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>   
+                                <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id" matTooltip="{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})"
+                                >{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})
+                                    <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                    <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                    <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                    <div fxLayout="row">
+                        <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60" fxFlex.gt-md="60"></div>
+                        <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                        <button mat-raised-button class="action-btn addBtn" color="accent" (click)="resultPro()">Result Processing</button>
+                        </div>
+                        <div  fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                        <button mat-raised-button class="action-btn addBtn" color="accent" (click)="resultProPublish()"> Publish Result Processing </button>
+                            </div>
+                    </div>
+                   </div>
+                  
+                </form>
+            </mat-expansion-panel>
+        </mat-accordion> -->
+    </div>
+        </div>
+        </div>
+      

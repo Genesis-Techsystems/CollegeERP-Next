@@ -1,0 +1,139 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                        ballot
+                    </i>
+                    <span> {{dialogTitle}} </span>
+                </div>
+            </div>
+        </div>
+        <form name="addaddevaluatorform" [formGroup]="addevaluatorform" novalidate>
+            <mat-dialog-content>
+                <div fxLayout="column">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div *ngIf="dialogTitle == 'Create Evaluator Profile'" fxLayout="row wrap " fxFlex="100">
+                            <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="28"
+                                fxFlex.gt-md="28">
+                                <mat-checkbox name="isEmp" formControlName="isEmp">Existing Employee</mat-checkbox>
+                            </section>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50"
+                                fxFlex.gt-md="50" *ngIf="this.addevaluatorform.value.isEmp == true">
+                                <mat-select placeholder="Employee" name="employeeId" formControlName="evaluatorEmpId"
+                                    #singleSelect (selectionChange)="setEmployee($event)">
+                                    <ngx-mat-select-search [formControl]="employeeFilterCtrl"
+                                        [placeholderLabel]="'Search...'"
+                                        [noEntriesFoundLabel]="'no matching data found'"
+                                        (keyup)="enteredEmployee($event)"></ngx-mat-select-search>
+                                    <mat-option *ngFor="let employee of filteredEmployees | async"
+                                        [value]="employee.employeeId">{{employee.empNumber}} <span class="rolno-clr"
+                                            *ngIf="employee.firstName != null"> ( {{employee.firstName}} )</span>
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33"
+                            *ngIf="this.addevaluatorform.value.isEmp == false">
+                            <mat-select placeholder="University College" name="collegeId" formControlName="collegeId"
+                                required>
+                                <mat-option *ngFor="let college of universityColleges"
+                                    [value]="college.collegeId">{{college.collegeCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <mat-select placeholder="Title" name="titleId" formControlName="titleId">
+                                <mat-option *ngFor="let title of titles"
+                                    [value]="title.generalDetailId">{{title.generalDetailDisplayName}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput placeholder="Name" name="Name" formControlName="evaluatorName" required>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput type="email" placeholder="Email" name="email" formControlName="email"
+                                required>
+                            <mat-error
+                                *ngIf="!addevaluatorform.get('email').valid && (addevaluatorform.get('email').dirty || addevaluatorform.get('email').touched)">
+                                {{emailValidation}}
+                            </mat-error>
+                        </mat-form-field>
+                        <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="36" fxFlex.gt-md="36">
+                            <mat-select placeholder="Evaluator Role" name="evaluatorrole" formControlName="roleId" required (selectionChange)="getTitle()">
+                                <mat-option [value]="64">Evaluator</mat-option>
+                                <mat-option [value]="67">Moderator</mat-option>
+                                <mat-option [value]="70">QuestionPapersetter</mat-option>
+                                <mat-option [value]="96">External Evaluator</mat-option>
+                                <mat-option [value]="97">Internal Evaluator</mat-option>
+                            </mat-select>
+                        </mat-form-field>  -->
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput type="number" placeholder="Phone Number" name="phoneNumber"
+                                formControlName="phoneNumber" required>
+                            <mat-error
+                                *ngIf="!addevaluatorform.get('phoneNumber').valid && (addevaluatorform.get('phoneNumber').dirty || addevaluatorform.get('phoneNumber').touched)">
+                                {{phNoValidation}}
+                            </mat-error>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput type="number" placeholder="Alternate Phone" name="Phone"
+                                formControlName="alternatephoneNumber" required>
+                            <mat-error
+                                *ngIf="!addevaluatorform.get('alternatephoneNumber').valid && (addevaluatorform.get('alternatephoneNumber').dirty || addevaluatorform.get('alternatephoneNumber').touched)">
+                                {{phNoValidation}}
+                            </mat-error>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput type="number" placeholder="Aadhar" name="aadhar" formControlName="aadhar"
+                                required>
+                            <mat-error
+                                *ngIf="!addevaluatorform.get('aadhar').valid && (addevaluatorform.get('aadhar').dirty || addevaluatorform.get('aadhar').touched)">
+                                {{aadharNoValidation}}
+                            </mat-error>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput placeholder="Pan Card No." name="panCardNo" formControlName="panCardNo"
+                                required>
+                            <mat-error
+                                *ngIf="!addevaluatorform.get('panCardNo').valid && (addevaluatorform.get('panCardNo').dirty || addevaluatorform.get('panCardNo').touched)">
+                                {{panValidation}}
+                            </mat-error>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput [matDatepicker]="startDate" placeholder="Start Date" name="startDate"
+                                formControlName="profileValidFromDate">
+                            <mat-datepicker-toggle matSuffix [for]="startDate"></mat-datepicker-toggle>
+                            <mat-datepicker #startDate></mat-datepicker>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput [matDatepicker]="endDate" placeholder="End Date" name="endDate"
+                                formControlName="profileValidToDate">
+                            <mat-datepicker-toggle matSuffix [for]="endDate"></mat-datepicker-toggle>
+                            <mat-datepicker #endDate></mat-datepicker>
+                        </mat-form-field>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="20"
+                            fxFlex.gt-md="20">
+                            <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
+                        </section>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="45" fxFlex.gt-md="45"
+                            *ngIf="addevaluatorform.controls.isActive.value === false">
+                            <input matInput placeholder="Reason" name="reason" formControlName="reason">
+                        </mat-form-field>
+                    </div>
+                </div>
+            </mat-dialog-content>
+            <mat-dialog-actions>
+                <button mat-raised-button class="cls-btn" mat-dialog-close>
+                    Close
+                </button>
+                <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+                    Save
+                </button>
+            </mat-dialog-actions>
+        </form>
+    </div>
+</div>

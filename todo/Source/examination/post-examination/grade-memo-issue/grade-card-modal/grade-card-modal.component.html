@@ -1,0 +1,1457 @@
+<div [ngClass]="{ 'print-content': isPrintMode }" id="main">
+  <div fxLayout="row"  *ngIf="!isPrintMode" >
+    <div class="savebtn-align" >
+      <button mat-raised-button class="back-btn"  (click)="Back()">Back</button>
+      <button mat-raised-button class="add-btn" color="accent" (click)="printPage()">Print</button>
+
+    </div>
+
+
+  </div>
+  <div *ngIf="universityCode === 'SUK'">
+    <div class="main-div" id="printNone" *ngIf="!isPrintMode">
+      <div *ngIf="single">
+
+        <div  class="page-layout simple"  style="background: white !important;" >
+
+          <div  class="firstborder"  >
+
+            <!-- <div fxLayout="row" >
+                  <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+                
+                  <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"  >
+                    <img class="imgg" src="assets\images\avatars\svdcLogo.jpg" style="height:100%;width:100%;">
+                </div>
+                </div>
+                </div> -->
+            <div fxLayout="row" style="margin-top: 170px !important;" >
+              <div id="line"><hr /></div>
+
+            </div>
+            <div fxLayout="row" style="margin-top: 10px !important;">
+              <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                <p  style="font-size: 20px !important; margin-top: 0px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                  GRADE CARD</p>
+                <!-- <p  style="font-size: 15px !important; margin-top: 10px !important;  color: rgb(0, 0, 0); text-align: center !important;  ">{{resultListDetails[0]?.group_name}} <span style="text-transform: uppercase !important;"> {{resultListDetails[0]?.exam_month_year}}</span></p> -->
+                <p  style="font-size: 15px !important; margin-top: 10px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                  <!-- <span *ngFor="let obj of SemisterList">
+                            <span *ngIf="obj.id == resultListDetails[0]?.course_year_code" >{{resultListDetails[0]?.course_code}} - {{obj.value}} Examination {{resultListDetails[0]?.exam_month_year}}</span>
+                           </span> -->
+                  <span >{{resultListDetails[0]?.exam_name}}</span>
+                </p>
+              </div>
+              <!-- <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                          <p  style="font-size: 12px !important; margin-top: 0px !important;  color: rgb(0, 0, 0); text-align: left !important; "> 
+                         {{resultListDetails[0]?.memo_no}}</p> 
+                             
+                          </div> -->
+
+              <!-- <p style="font-size: 10px;   margin-bottom: -8px !important; ">KALABURAGI-585103, KARNATAKA, INDIA  </p>
+                  <p style="font-size: 10px;   margin-bottom: -8px !important;">(Under the aegis of Centenary Celebrated Shambasveshwar Vidya Vardhak Sangha)</p>
+                  <p style="font-size: 10px;   margin-bottom: -8px !important;">A Private University Approved by Govt. of Karnataka vide notification No.ED 144 URC 2016 Dated 29/07/2017</p>
+                  <p style="font-size: 10px;   margin-bottom: -8px !important;">Approved by UGC u/s 21 vide letter No. FB-29/2017 (CPP-I/PU), Dated 20/12/2017</p> -->
+
+
+            </div>
+
+            <!-- <div fxLayout="row" style="margin-bottom: 10px !important;">
+                  <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                      <p  style="font-size: 17px !important; margin-top: 0px !important;  color: rgb(229, 49, 49); text-align: center !important; ">
+                          <span *ngFor="let obj of SemisterList">
+                           <span *ngIf="obj.id == student.courseYearCode" >{{student.courseCode}} {{obj.value}} EXAMINATION {{exam_month_year}}</span>
+                          </span>
+                    </p>
+                  </div>
+                </div> -->
+            <div fxLayout="row" style="margin-top: 10px !important;">
+              <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+                <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                  <table id="table">
+                    <tr>
+                      <th >Name of the Student</th>
+                      <td style="padding: 0px 3px !important; text-align: center !important;" >:</td>
+                      <td style="text-transform: uppercase !important;">{{ resultListDetails[0]?.student_name}}</td>
+                    </tr>
+                    <tr>
+                      <th>Father's / Mother's Name</th>
+                      <td style="padding: 0px 3px !important; text-align: center !important;" >:</td>
+
+                      <td style="text-transform: uppercase !important;">{{ resultListDetails[0]?.father_name}}</td>
+                    </tr>
+                    <tr>
+                      <th>Faculty Name</th>
+                      <td style="padding: 0px 3px !important; text-align: center !important;" >:</td>
+                      <td style="text-transform: none !important;" >{{ resultListDetails[0]?.clg_name}}</td>
+                    </tr>
+
+                    <tr>
+                      <th>Programme</th>
+                      <td style="padding: 0px 3px !important; text-align: center !important;" >:</td>
+                      <td  style="text-transform: none !important;">{{ resultListDetails[0]?.course_code}} - {{ resultListDetails[0]?.group_name}}</td>
+                    </tr>
+                  </table>
+
+
+                </div>
+                <div fxLayout="column"  fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20" class="stdImg" *ngIf="resultListDetails[0]?.student_photo_path != null">
+                  <img   [src]="MINIO+resultListDetails[0]?.student_photo_path" class="IMGG">
+                  <span style="font-size: 12px !important; font-weight: bold !important;">USN : {{resultListDetails[0]?.hallticket_number}}</span>
+                </div>
+                <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20" *ngIf="resultListDetails[0]?.student_photo_path == null">
+                  <img src="assets/images/avatars/default_Student.png" style="height:96px;width: 100px;">
+                </div>
+              </div>
+            </div>
+            <!-- <img class="wmimg" [src]="MINIO+resultListDetails[0]?.org_logo" /> -->
+
+            <div fxLayout="row">
+              <div fxLayout="row" fxFlex="100">
+                <table id="table2">
+                  <thead>
+                    <tr>
+                      <th style="width: 4% !important;">Sl. No.</th>
+                      <th style="width: 12% !important;">Course Code</th>
+                      <th style="width: 32% !important;">Course Title</th>
+                      <th>Theory/ <br>Practical</th>
+                      <th>Credits Assigned</th>
+                      <th>Credits Earned <br> (C)</th>
+                      <th>Grade Points <br> (G)</th>
+                      <th>Letter Grade</th>
+                      <th>Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let subjects of resultListDetails; index as i">
+                      <td>{{i + 1}}</td>
+                      <td style="text-align: left !important; text-transform: uppercase !important;">{{subjects.subject_code}}</td>
+                      <td style="text-align: left !important; text-transform: uppercase !important;">{{subjects.subject_name}}</td>
+                      <td  style="text-transform: none !important;"><span  *ngIf="subjects.subject_type != 'LAB'">Th.</span>
+                        <span  *ngIf="subjects.subject_type == 'LAB'">Pr.</span></td>
+                      <td>{{subjects.credits_assigned}}</td>
+                      <td>{{subjects.credits}}</td>
+                      <td>{{subjects.grade_points}}</td>
+                      <td>{{subjects.grade}}</td>
+                      <td>{{subjects.examresult}}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div fxLayout="row" >
+
+              <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"  style="margin-top:10px">
+                <table id="table-1" >
+                  <tr>
+                    <td>Credit Registered</td>
+                    <td>Credits Earned</td>
+                    <td>Σ (Ci) X (Gi)</td>
+                    <td>SGPA</td>
+                    <td>CGPA</td>
+
+                  </tr>
+                  <tr>
+                    <td> {{ getTotalCreditsRegistered() }}</td>
+                    <td>{{getTotalCreditsAssigned()}}</td>
+                    <td>{{getMultiplesOfGiCi()}}</td>
+                    <td><span *ngIf="resultListDetails[0]?.sgpa != null" >{{resultListDetails[0]?.sgpa}}</span> <span style="color: red; font-weight: bold; " *ngIf="resultListDetails[0]?.sgpa == null" >-</span></td>
+                      <td><span *ngIf="resultListDetails[0]?.cgpa != null" >{{resultListDetails[0]?.cgpa}}</span> <span  style="color: red; font-weight: bold;  " *ngIf="resultListDetails[0]?.cgpa == null" >-</span></td>
+
+                  </tr>
+
+                </table>
+              </div>
+            </div>
+            <div fxLayout="row"  style="padding: 5px 20px !important;">
+              <div  fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+              <!-- <p style="text-align: left !important; margin: 0px !important;">Medium of Instruction  : <span style="font-weight: 500;">English</span></p>  -->
+              <p style="text-align: left !important; margin: 0px !important;">Medium of Instruction  : <span style="font-weight: 500;"> <span *ngIf="resultListDetails[0]?.group_code == 'MA(K)'">Kannada</span> <span  *ngIf="resultListDetails[0]?.group_code != 'MA(K)'">English</span> </span></p> 
+             <p style="text-align: left !important; margin: 0px !important;">Date :  <span style="font-weight: 500;">{{memoDate | date:'d-MMM-y' }}</span> </p> 
+             <!-- <p style="text-align: left !important; margin: 0px !important;"> Note : This is a system generated grade card,needs to be authenticated </p> -->
+      
+              </div>
+      
+          </div>
+
+
+
+            <div fxLayout="row" style="padding: 15px !important;" >
+                  <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                      <!-- <span *ngIf="resultListDetails[0]?.memo_serial_no_barcode=='-'">-</span> -->
+                      <!-- <span *ngIf="resultListDetails[0]?.memo_serial_no_barcode!='-'"> -->
+                      <!-- <img src="assets\images\avatars\240308000001.png"  style="height: 100px !important; width: 100px !important;" /> -->
+                  </div>
+                  
+                 
+                   <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80" >
+                      <!-- <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content: end !important;">
+                          <p class="signatures" >SG</p>
+                      </div>
+                      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content: end !important;">
+                          <p  >Registrar (Evaluation)</p>
+                       </div> -->
+                   </div>
+                </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="bulk">
+        <div class="bulkPage" *ngFor=" let list of mainList">
+          <div  class="page-layout simple"  style="background: white !important;" >
+
+            <div  class="firstborder"  >
+
+              <!-- <div fxLayout="row" >
+                    <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+                  
+                    <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"  >
+                      <img class="imgg" src="assets\images\avatars\svdcLogo.jpg" style="height:100%;width:100%;">
+                  </div>
+                  </div>
+                  </div> -->
+              <div fxLayout="row" style="margin-top: 170px !important;" >
+                    <div id="line"><hr /></div>
+
+              </div>
+              <div fxLayout="row" style="margin-top: 10px !important;">
+                    <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                        <p  style="font-size: 20px !important; margin-top: 0px !important;  color: rgb(0, 0, 0); text-align: center !important; "> 
+                          GRADE CARD</p> 
+                          <!-- <p  style="font-size: 15px !important; margin-top: 10px !important;  color: rgb(0, 0, 0); text-align: center !important;  ">{{resultListDetails[0]?.group_name}} <span style="text-transform: uppercase !important;"> {{resultListDetails[0]?.exam_month_year}}</span></p> -->
+                          <p  style="font-size: 15px !important; margin-top: 10px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                            <!-- <span *ngFor="let obj of SemisterList">
+                              <span *ngIf="obj.id == list[0]?.course_year_code" >{{list[0]?.course_code}} - {{obj.value}} Examination {{list[0]?.exam_month_year}}</span>
+                             </span> -->
+                             <span >{{list[0]?.exam_name}}</span>
+                      </p>
+                        </div>
+                        <!-- <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <p  style="font-size: 12px !important; margin-top: 0px !important;  color: rgb(0, 0, 0); text-align: left !important; "> 
+                           {{resultListDetails[0]?.memo_no}}</p> 
+                               
+                            </div> -->
+        
+                    <!-- <p style="font-size: 10px;   margin-bottom: -8px !important; ">KALABURAGI-585103, KARNATAKA, INDIA  </p>
+                    <p style="font-size: 10px;   margin-bottom: -8px !important;">(Under the aegis of Centenary Celebrated Shambasveshwar Vidya Vardhak Sangha)</p>
+                    <p style="font-size: 10px;   margin-bottom: -8px !important;">A Private University Approved by Govt. of Karnataka vide notification No.ED 144 URC 2016 Dated 29/07/2017</p>
+                    <p style="font-size: 10px;   margin-bottom: -8px !important;">Approved by UGC u/s 21 vide letter No. FB-29/2017 (CPP-I/PU), Dated 20/12/2017</p> -->
+        
+        
+                  </div>
+
+              <!-- <div fxLayout="row" style="margin-bottom: 10px !important;">
+                    <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                        <p  style="font-size: 17px !important; margin-top: 0px !important;  color: rgb(229, 49, 49); text-align: center !important; ">
+                            <span *ngFor="let obj of SemisterList">
+                             <span *ngIf="obj.id == student.courseYearCode" >{{student.courseCode}} {{obj.value}} EXAMINATION {{exam_month_year}}</span>
+                            </span>
+                      </p>
+                    </div>
+                  </div> -->
+              <div fxLayout="row" style="margin-top: 10px !important;">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+                  <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <table id="table">
+                      <tr>
+                        <th >Name of the Student</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;" >:</td>
+                        <td style="text-transform: uppercase !important;">{{ list[0]?.student_name}}</td>
+                      </tr>
+                      <tr>
+                        <th>Father's / Mother's Name</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;" >:</td>
+
+                        <td style="text-transform: uppercase !important;">{{ list[0]?.father_name}}</td>
+                      </tr>
+                      <tr>
+                        <th>Faculty Name</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;" >:</td>
+                        <td style="text-transform: none !important;" >{{ list[0]?.clg_name}}</td>
+                      </tr>
+
+                      <tr>
+                            <th>Programme</th>
+                            <td style="padding: 0px 3px !important; text-align: center !important;" >:</td>
+                            <td  style="text-transform: none !important;">{{ list[0]?.course_code}} - {{ list[0]?.group_name}}</td>
+                          </tr>
+                    </table>
+
+
+                  </div>
+                  <div fxLayout="column"  fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20" class="stdImg" *ngIf="list[0]?.student_photo_path != null">
+                        <img   [src]="MINIO+list[0]?.student_photo_path" class="IMGG">
+                        <span style="font-size: 12px !important; font-weight: bold !important;">USN : {{list[0]?.hallticket_number}}</span>
+                      </div>
+                      <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20" *ngIf="list[0]?.student_photo_path == null">
+                        <img src="assets/images/avatars/default_Student.png" style="height:96px;width: 100px;">
+                      </div>
+                </div>
+              </div>
+              <!-- <img class="wmimg" [src]="MINIO+resultListDetails[0]?.org_logo" /> -->
+
+              <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100">
+                  <table id="table2">
+                    <thead>
+                      <tr>
+                        <th style="width: 4% !important;">Sl. No.</th>
+                        <th style="width: 12% !important;">Course Code</th>
+                        <th style="width: 32% !important;">Course Title</th>
+                        <th>Theory/ <br>Practical</th>
+                        <th>Credits Assigned</th>
+                        <th>Credits Earned <br> (C)</th>
+                        <th>Grade Points <br> (G)</th>
+                        <th>Letter Grade</th>
+                        <th>Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr  *ngFor="let subjects of list; index as i">
+                              <td>{{i + 1}}</td>
+                              <td style="text-align: left !important; text-transform: uppercase !important;">{{subjects.subject_code}}</td>
+                              <td style="text-align: left !important; text-transform: uppercase !important;">{{subjects.subject_name}}</td>
+                              <td  style="text-transform: none !important;"><span  *ngIf="subjects.subject_type != 'LAB'">Th.</span>
+                                <span  *ngIf="subjects.subject_type == 'LAB'">Pr.</span></td>
+                              <td>{{subjects.credits_assigned}}</td>
+                              <td>{{subjects.credits}}</td>
+                              <td>{{subjects.grade_points}}</td>
+                              <td>{{subjects.grade}}</td>
+                              <td>{{subjects.examresult}}</td>
+                          </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div fxLayout="row" >
+
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"  style="margin-top:10px">
+                  <table id="table-1" >
+                    <tr>
+                      <td>Credit Registered</td>
+                      <td>Credits Earned</td>
+                      <td>Σ (Ci) X (Gi)</td>
+                      <td>SGPA</td>
+                      <td>CGPA</td>
+
+                    </tr>
+                    <tr>
+                      <td> {{ list[0]?.total_credits_registered}}</td>
+                      <td>{{list[0]?.grandtotal_credits}}</td>
+                      <td>{{list[0]?.grand_ci_gi_points}}</td>
+                      <td><span *ngIf="list[0]?.sgpa != null" >{{list[0]?.sgpa}}</span> <span style="color: red; font-weight: bold; " *ngIf="list[0]?.sgpa == null" >-</span></td>
+                      <td><span *ngIf="list[0]?.cgpa != null" >{{list[0]?.cgpa}}</span> <span  style="color: red; font-weight: bold;  " *ngIf="list[0]?.cgpa == null" >-</span></td>
+
+                    </tr>
+
+                  </table>
+                </div>
+              </div>
+              <div fxLayout="row"  style="padding: 5px 20px !important;">
+                <div  fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                <!-- <p style="text-align: left !important; margin: 0px !important;">Medium of Instruction  : <span style="font-weight: 500;">English</span></p>  -->
+                <p style="text-align: left !important; margin: 0px !important;">Medium of Instruction  : <span style="font-weight: 500;"> <span *ngIf="list[0]?.group_code == 'MA(K)'">Kannada</span> <span  *ngIf="list[0]?.group_code != 'MA(K)'">English</span> </span></p> 
+               <p style="text-align: left !important; margin: 0px !important;">Date :  <span style="font-weight: 500;">{{memoDate | date:'d-MMM-y' }}</span> </p> 
+               <!-- <p style="text-align: left !important; margin: 0px !important;"> Note : This is a system generated grade card,needs to be authenticated </p> -->
+        
+                </div>
+        
+            </div>
+
+
+
+              <div fxLayout="row" style="padding: 15px !important;" >
+                    <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                        <!-- <span *ngIf="resultListDetails[0]?.memo_serial_no_barcode=='-'">-</span> -->
+                        <!-- <span *ngIf="resultListDetails[0]?.memo_serial_no_barcode!='-'"> -->
+                        <!-- <img src="assets\images\avatars\240308000001.png"  style="height: 100px !important; width: 100px !important;" /> -->
+                    </div>
+                    
+                   
+                     <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80" >
+                        <!-- <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content: end !important;">
+                            <p class="signatures" >SG</p>
+                        </div>
+                        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content: end !important;">
+                            <p  >Registrar (Evaluation)</p>
+                         </div> -->
+                     </div>
+                  </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <div class="savebtn-align" >
+      <button mat-raised-button class="back-btn"  (click)="Back()">Back</button>
+      <button mat-raised-button class="add-btn" color="accent" (click)="printPage()">Print</button>
+    
+    </div>
+    </div>
+  </div>
+
+  
+  <div class="grade-card full-width">
+     <div *ngIf="universityCode != 'SUK'" class="font-style">
+    <div id="printNone" *ngIf="!isPrintMode">
+      <div *ngIf="single">
+
+        <div class="page-layout simple" style="background: white !important;">
+
+          <div class="firstborder">
+
+            <!-- <div fxLayout="row" >
+                  <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+                
+                  <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"  >
+                    <img class="imgg" src="assets\images\avatars\svdcLogo.jpg" style="height:100%;width:100%;">
+                </div>
+                </div>
+                </div> -->
+            <div fxLayout="row" style="margin-top: 150px !important;">
+              <!-- <div id="line">
+                <hr />
+              </div> -->
+
+            </div>
+            <div fxLayout="row" style="margin-top: 10px !important;">
+              <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                <p
+                  style="font-size: 20px !important; margin-top: 0px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                  SEMESTER GRADE REPORT</p>
+                <!-- <p  style="font-size: 15px !important; margin-top: 10px !important;  color: rgb(0, 0, 0); text-align: center !important;  ">{{resultListDetails[0]?.group_name}} <span style="text-transform: uppercase !important;"> {{resultListDetails[0]?.exam_month_year}}</span></p> -->
+                <p
+                  style="font-size: 15px !important; margin-top: 10px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                  <!-- <span *ngFor="let obj of SemisterList">
+                            <span *ngIf="obj.id == resultListDetails[0]?.course_year_code" >{{resultListDetails[0]?.course_code}} - {{obj.value}} Examination {{resultListDetails[0]?.exam_month_year}}</span>
+                           </span> -->
+                  <span>{{resultListDetails[0]?.exam_name}}</span>
+                </p>
+              </div>
+              <!-- <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                          <p  style="font-size: 12px !important; margin-top: 0px !important;  color: rgb(0, 0, 0); text-align: left !important; "> 
+                         {{resultListDetails[0]?.memo_no}}</p> 
+                             
+                          </div> -->
+
+              <!-- <p style="font-size: 10px;   margin-bottom: -8px !important; ">KALABURAGI-585103, KARNATAKA, INDIA  </p>
+                  <p style="font-size: 10px;   margin-bottom: -8px !important;">(Under the aegis of Centenary Celebrated Shambasveshwar Vidya Vardhak Sangha)</p>
+                  <p style="font-size: 10px;   margin-bottom: -8px !important;">A Private University Approved by Govt. of Karnataka vide notification No.ED 144 URC 2016 Dated 29/07/2017</p>
+                  <p style="font-size: 10px;   margin-bottom: -8px !important;">Approved by UGC u/s 21 vide letter No. FB-29/2017 (CPP-I/PU), Dated 20/12/2017</p> -->
+
+
+            </div>
+
+            <!-- <div fxLayout="row" style="margin-bottom: 10px !important;">
+                  <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                      <p  style="font-size: 17px !important; margin-top: 0px !important;  color: rgb(229, 49, 49); text-align: center !important; ">
+                          <span *ngFor="let obj of SemisterList">
+                           <span *ngIf="obj.id == student.courseYearCode" >{{student.courseCode}} {{obj.value}} EXAMINATION {{exam_month_year}}</span>
+                          </span>
+                    </p>
+                  </div>
+                </div> -->
+            <div fxLayout="row" style="margin-top: 10px !important;">
+              <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                  <table id="table">
+                    <tr>
+                      <th>Name of the Student</th>
+                      <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                      <td style="text-transform: uppercase !important;">{{ resultListDetails[0]?.student_name}}</td>
+                    </tr>
+                    <tr>
+                      <th>Father's / Mother's Name</th>
+                      <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+
+                      <td style="text-transform: uppercase !important;">{{ resultListDetails[0]?.father_name}}</td>
+                    </tr>
+                    <tr>
+                      <th>Faculty Name</th>
+                      <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                      <td style="text-transform: none !important;">{{ resultListDetails[0]?.clg_name}}</td>
+                    </tr>
+
+                    <tr>
+                      <th>Programme</th>
+                      <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                      <td style="text-transform: none !important;">{{ resultListDetails[0]?.course_code}} - {{
+                        resultListDetails[0]?.group_name}}</td>
+                    </tr>
+                  </table>
+
+
+                </div>
+                <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20" class="stdImg"
+                  *ngIf="resultListDetails[0]?.student_photo_path != null">
+                  <img [src]="MINIO+resultListDetails[0]?.student_photo_path" class="IMGG">
+                  <span style="font-size: 12px !important; font-weight: bold !important;">USN :
+                    {{resultListDetails[0]?.hallticket_number}}</span>
+                </div>
+                <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20"
+                  *ngIf="resultListDetails[0]?.student_photo_path == null">
+                  <img src="assets/images/avatars/default_Student.png" style="height:96px;width: 100px;">
+                </div>
+              </div>
+            </div>
+            <!-- <img class="wmimg" [src]="MINIO+resultListDetails[0]?.org_logo" /> -->
+
+            <div fxLayout="row">
+              <div fxLayout="row" fxFlex="100">
+                <table id="table2">
+                  <thead>
+                    <tr>
+                      <th style="width: 4% !important;">Sl. No.</th>
+                      <th style="width: 12% !important;">Course Code</th>
+                      <th style="width: 32% !important;">Course Title</th>
+                      <th>Theory/ <br>Practical</th>
+                      <th>Credits Assigned</th>
+                      <th>Credits Earned <br> (C)</th>
+                      <th>Grade Points <br> (G)</th>
+                      <th>Letter Grade</th>
+                      <th>Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let subjects of resultListDetails; index as i">
+                      <td>{{i + 1}}</td>
+                      <td style="text-align: left !important; text-transform: uppercase !important;">
+                        {{subjects.subject_code}}</td>
+                      <td style="text-align: left !important; text-transform: uppercase !important;">
+                        {{subjects.subject_name}}</td>
+                      <td style="text-transform: none !important;"><span
+                          *ngIf="subjects.subject_type != 'LAB'">Th.</span>
+                        <span *ngIf="subjects.subject_type == 'LAB'">Pr.</span>
+                      </td>
+                      <td>{{subjects.credits_assigned}}</td>
+                      <td>{{subjects.credits}}</td>
+                      <td>{{subjects.grade_points}}</td>
+                      <td>{{subjects.grade}}</td>
+                      <td>{{subjects.examresult}}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div fxLayout="row">
+
+              <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="margin-top:10px">
+                <table id="table-1">
+                  <tr>
+                    <td>Credit Registered</td>
+                    <td>Credits Earned</td>
+                    <td>Σ (Ci) X (Gi)</td>
+                    <td>SGPA</td>
+                    <td>CGPA</td>
+
+                  </tr>
+                  <tr>
+                    <td> {{ getTotalCreditsRegistered() }}</td>
+                    <td>{{getTotalCreditsAssigned()}}</td>
+                    <td>{{getMultiplesOfGiCi()}}</td>
+                    <td><span *ngIf="resultListDetails[0]?.sgpa != null">{{resultListDetails[0]?.sgpa}}</span> <span
+                        style="color: red; font-weight: bold; " *ngIf="resultListDetails[0]?.sgpa == null">-</span></td>
+                    <td><span *ngIf="resultListDetails[0]?.cgpa != null">{{resultListDetails[0]?.cgpa}}</span> <span
+                        style="color: red; font-weight: bold;  " *ngIf="resultListDetails[0]?.cgpa == null">-</span>
+                    </td>
+
+                  </tr>
+
+                </table>
+              </div>
+            </div>
+            <div fxLayout="row" style="padding: 5px 20px !important;">
+              <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                <!-- <p style="text-align: left !important; margin: 0px !important;">Medium of Instruction  : <span style="font-weight: 500;">English</span></p>  -->
+                <p style="text-align: left !important; margin: 0px !important;">Medium of Instruction : <span
+                    style="font-weight: 500;"> <span *ngIf="resultListDetails[0]?.group_code == 'MA(K)'">Kannada</span>
+                    <span *ngIf="resultListDetails[0]?.group_code != 'MA(K)'">English</span> </span></p>
+                <p style="text-align: left !important; margin: 0px !important;">Date : <span
+                    style="font-weight: 500;">{{memoDate | date:'d-MMM-y' }}</span> </p>
+                <!-- <p style="text-align: left !important; margin: 0px !important;"> Note : This is a system generated grade card,needs to be authenticated </p> -->
+
+              </div>
+
+            </div>
+
+
+
+            <div fxLayout="row" style="padding: 15px !important;">
+              <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                <!-- <span *ngIf="resultListDetails[0]?.memo_serial_no_barcode=='-'">-</span> -->
+                <!-- <span *ngIf="resultListDetails[0]?.memo_serial_no_barcode!='-'"> -->
+                <!-- <img src="assets\images\avatars\240308000001.png"  style="height: 100px !important; width: 100px !important;" /> -->
+              </div>
+
+
+              <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                <!-- <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content: end !important;">
+                          <p class="signatures" >SG</p>
+                      </div>
+                      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content: end !important;">
+                          <p  >Registrar (Evaluation)</p>
+                       </div> -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="bulk">
+        <div class="bulkPage" *ngFor=" let list of mainList">
+          <div class="page-layout simple" style="background: white !important;">
+
+            <div class="firstborder">
+              <div fxLayout="row" style="margin-top: 115px !important;">
+                <div id="line">
+                  <hr />
+                </div>
+
+              </div>
+              <div fxLayout="row" style="margin-top: 10px !important;">
+                <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                  <p
+                    style="font-size: 20px !important; margin-top: 0px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                    SEMESTER GRADE REPORT</p>
+                  <p
+                    style="font-size: 15px !important; margin-top: 10px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                    <span>{{list[0]?.exam_name}}</span>
+                  </p>
+                </div>
+
+              </div>
+              <br>
+
+              <div fxLayout="row" style="margin-top: 10px !important;">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                  <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <table id="table">
+                      <tr>
+                        <th>Examination</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                        <td>
+                          {{ list[0]?.exam_name}}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>REF.No.</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                        <td>{{ list[0]?.ref_no}}</td>
+                      </tr>
+                      <tr>
+                        <th>Name</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                        <td style="text-transform: uppercase !important;">{{ list[0]?.student_name}}</td>
+                      </tr>
+                      <tr>
+                        <th>Father's Name</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+
+                        <td style="text-transform: uppercase !important;">{{ list[0]?.father_name}}</td>
+                      </tr>
+                      <tr>
+                        <th>Mother's Name</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                        <td style="text-transform: none !important;">{{ list[0]?.mother_name}}</td>
+                      </tr>
+                    </table>
+
+
+                  </div>
+                  <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20" class="stdImg"
+                    *ngIf="list[0]?.student_photo_path != null">
+                    <span style="font-size: 9px !important; font-weight: bold !important;">RollNo:
+                      {{list[0]?.hallticket_number}}</span>
+                    <img [src]="MINIO+list[0]?.student_photo_path" class="IMGG">
+                  </div>
+                  <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20"
+                    *ngIf="list[0]?.student_photo_path == null">
+                    <img src="assets/images/avatars/default_Student.png" style="height:96px;width: 100px;">
+                  </div>
+                </div>
+              </div>
+              <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100">
+                  <table id="table2">
+                    <thead>
+                      <tr>
+
+                        <th style="width: 16% !important;">Subject Code</th>
+                        <th style="width: 44% !important;">Subject</th>
+
+                        <th style="width: 6%;">Credits</th>
+
+
+                        <th style="width: 8%;">Grade <br> Awarded</th>
+
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let subjects of list; index as i">
+
+                        <td style="text-align: left !important; text-transform: uppercase !important;">
+                          {{subjects.subject_code}}</td>
+                        <td style="text-align: left !important; text-transform: uppercase !important;">
+                          {{subjects.subject_name}}</td>
+
+
+                        <td>{{subjects.credits}}</td>
+
+                        <td>{{subjects.grade}}</td>
+
+                      </tr>
+                      <tr *ngFor="let empty of getEmptyRows(list)">
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                    </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div fxLayout="row" style="margin: 0px 20px !important;">
+                <div fxLayout="row" fxFlex="50" style="margin-top:1.5% !important">
+                    <span style="text-align:left !important;font-weight: bold !important">
+                        S.G.P.A &nbsp;&nbsp;: &nbsp;&nbsp; {{list[0]?.sgpa}} <br>
+                        The date of decleration of result &nbsp;&nbsp;:&nbsp;&nbsp; {{memoDate | date:'d/MMM/y' }}
+                    </span>
+                 </div>
+                 <div fxLayout="row" fxFlex="50" style="margin-top:1.5% !important">
+                      <span style="text-align:right !important;font-weight: bold !important;margin-left: auto !important;"> 
+                          Result &nbsp;&nbsp;: &nbsp;&nbsp; {{list[0]?.result}}
+                      </span>
+                 </div>
+              </div>
+              <div fxLayout="row">
+
+
+              </div>
+
+              <div fxLayout="row" style="padding: 15px !important;">
+                <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                </div>
+
+
+                <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <div class="savebtn-align">
+        <button mat-raised-button class="back-btn" (click)="Back()">Back</button>
+        <button mat-raised-button class="add-btn" color="accent" (click)="printPage()">Print</button>
+
+      </div>
+    </div>
+  </div>
+  </div>
+
+
+ 
+
+  <!-- PRINT VIEW -->
+
+  <div *ngIf="universityCode === 'SUK'">
+    <div *ngIf="isPrintMode" class="print-div ">
+
+      <div style="background: white !important;" *ngIf="single">
+
+        <div class="firstborder">
+
+          <!-- <div fxLayout="row" >
+                    <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+                  
+                    <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"  >
+                      <img class="imgg" src="assets\images\avatars\svdcLogo.jpg" style="height:100%;width:100%;">
+                  </div>
+                  </div>
+                  </div> -->
+          <div fxLayout="row" style="margin-top: 170px !important;">
+            <div id="line">
+              <hr />
+            </div>
+
+          </div>
+          <div fxLayout="row" style="margin-top: 10px !important;">
+            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+              <p
+                style="font-size: 20px !important; margin-top: 0px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                GRADE CARD</p>
+              <!-- <p  style="font-size: 15px !important; margin-top: 10px !important;  color: rgb(0, 0, 0); text-align: center !important;  ">{{resultListDetails[0]?.group_name}} <span style="text-transform: uppercase !important;"> {{resultListDetails[0]?.exam_month_year}}</span></p> -->
+              <p
+                style="font-size: 15px !important; margin-top: 10px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                <!-- <span *ngFor="let obj of SemisterList">
+                              <span *ngIf="obj.id == resultListDetails[0]?.course_year_code" >{{resultListDetails[0]?.course_code}} - {{obj.value}} Examination {{resultListDetails[0]?.exam_month_year}}</span>
+                             </span> -->
+                <span>{{resultListDetails[0]?.exam_name}}</span>
+              </p>
+            </div>
+            <!-- <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <p  style="font-size: 12px !important; margin-top: 0px !important;  color: rgb(0, 0, 0); text-align: left !important; "> 
+                           {{resultListDetails[0]?.memo_no}}</p> 
+                               
+                            </div> -->
+
+            <!-- <p style="font-size: 10px;   margin-bottom: -8px !important; ">KALABURAGI-585103, KARNATAKA, INDIA  </p>
+                    <p style="font-size: 10px;   margin-bottom: -8px !important;">(Under the aegis of Centenary Celebrated Shambasveshwar Vidya Vardhak Sangha)</p>
+                    <p style="font-size: 10px;   margin-bottom: -8px !important;">A Private University Approved by Govt. of Karnataka vide notification No.ED 144 URC 2016 Dated 29/07/2017</p>
+                    <p style="font-size: 10px;   margin-bottom: -8px !important;">Approved by UGC u/s 21 vide letter No. FB-29/2017 (CPP-I/PU), Dated 20/12/2017</p> -->
+
+
+          </div>
+
+          <!-- <div fxLayout="row" style="margin-bottom: 10px !important;">
+                    <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                        <p  style="font-size: 17px !important; margin-top: 0px !important;  color: rgb(229, 49, 49); text-align: center !important; ">
+                            <span *ngFor="let obj of SemisterList">
+                             <span *ngIf="obj.id == student.courseYearCode" >{{student.courseCode}} {{obj.value}} EXAMINATION {{exam_month_year}}</span>
+                            </span>
+                      </p>
+                    </div>
+                  </div> -->
+          <div fxLayout="row" style="margin-top: 10px !important;">
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+              <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                <table id="table">
+                  <tr>
+                    <th>Name of the Student</th>
+                    <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                    <td style="text-transform: uppercase !important;">{{ resultListDetails[0]?.student_name}}</td>
+                  </tr>
+                  <tr>
+                    <th>Father's / Mother's Name</th>
+                    <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+
+                    <td style="text-transform: uppercase !important;">{{ resultListDetails[0]?.father_name}}</td>
+                  </tr>
+                  <tr>
+                    <th>Faculty Name</th>
+                    <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                    <td style="text-transform: none !important;">{{ resultListDetails[0]?.clg_name}}</td>
+                  </tr>
+
+                  <tr>
+                    <th>Programme</th>
+                    <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                    <td style="text-transform: none !important;">{{ resultListDetails[0]?.course_code}} - {{
+                      resultListDetails[0]?.group_name}}</td>
+                  </tr>
+                </table>
+
+
+              </div>
+              <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20" class="stdImg"
+                *ngIf="resultListDetails[0]?.student_photo_path != null">
+                <img [src]="MINIO+resultListDetails[0]?.student_photo_path" class="IMGG">
+                <span style="font-size: 12px !important; font-weight: bold !important;">USN :
+                  {{resultListDetails[0]?.hallticket_number}}</span>
+              </div>
+              <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20"
+                *ngIf="resultListDetails[0]?.student_photo_path == null">
+                <img src="assets/images/avatars/default_Student.png" style="height:96px;width: 100px;">
+              </div>
+            </div>
+          </div>
+          <!-- <img class="wmimg" [src]="MINIO+resultListDetails[0]?.org_logo" /> -->
+
+          <div fxLayout="row">
+            <div fxLayout="row" fxFlex="100">
+              <table id="table2">
+                <thead>
+                  <tr>
+                    <th style="width: 4% !important;">Sl. No.</th>
+                    <th style="width: 12% !important;">Course Code</th>
+                    <th style="width: 32% !important;">Course Title</th>
+                    <th>Theory/ <br>Practical</th>
+                    <th>Credits Assigned</th>
+                    <th>Credits Earned <br> (C)</th>
+                    <th>Grade Points <br> (G)</th>
+                    <th>Letter Grade</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let subjects of resultListDetails; index as i">
+                    <td>{{i + 1}}</td>
+                    <td style="text-align: left !important; text-transform: uppercase !important;">
+                      {{subjects.subject_code}}</td>
+                    <td style="text-align: left !important; text-transform: uppercase !important;">
+                      {{subjects.subject_name}}</td>
+                    <td style="text-transform: none !important;"><span *ngIf="subjects.subject_type != 'LAB'">Th.</span>
+                      <span *ngIf="subjects.subject_type == 'LAB'">Pr.</span>
+                    </td>
+                    <td>{{subjects.credits_assigned}}</td>
+                    <td>{{subjects.credits}}</td>
+                    <td>{{subjects.grade_points}}</td>
+                    <td>{{subjects.grade}}</td>
+                    <td>{{subjects.examresult}}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div fxLayout="row">
+
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="margin-top:10px">
+              <table id="table-1">
+                <tr>
+                  <td>Credit Registered</td>
+                  <td>Credits Earned</td>
+                  <td>Σ (Ci) X (Gi)</td>
+                  <td>SGPA</td>
+                  <td>CGPA</td>
+
+                </tr>
+                <tr>
+                  <td> {{ getTotalCreditsRegistered() }}</td>
+                  <td>{{getTotalCreditsAssigned()}}</td>
+                  <td>{{getMultiplesOfGiCi()}}</td>
+                  <td><span *ngIf="resultListDetails[0]?.sgpa != null">{{resultListDetails[0]?.sgpa}}</span> <span
+                      style="color: red; font-weight: bold; " *ngIf="resultListDetails[0]?.sgpa == null">-</span></td>
+                  <td><span *ngIf="resultListDetails[0]?.cgpa != null">{{resultListDetails[0]?.cgpa}}</span> <span
+                      style="color: red; font-weight: bold;  " *ngIf="resultListDetails[0]?.cgpa == null">-</span></td>
+
+                </tr>
+
+              </table>
+            </div>
+          </div>
+          <div fxLayout="row" style="padding: 5px 20px !important;">
+            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+              <!-- <p style="text-align: left !important; margin: 0px !important;">Medium of Instruction  : <span style="font-weight: 500;">English</span></p>  -->
+              <p style="text-align: left !important; margin: 0px !important;">Medium of Instruction : <span
+                  style="font-weight: 500;"> <span *ngIf="resultListDetails[0]?.group_code == 'MA(K)'">Kannada</span>
+                  <span *ngIf="resultListDetails[0]?.group_code != 'MA(K)'">English</span> </span></p>
+              <p style="text-align: left !important; margin: 0px !important;">Date : <span
+                  style="font-weight: 500;">{{memoDate | date:'d-MMM-y' }}</span> </p>
+              <!-- <p style="text-align: left !important; margin: 0px !important;"> Note : This is a system generated grade card,needs to be authenticated </p> -->
+
+            </div>
+
+          </div>
+
+
+
+          <div fxLayout="row" style="padding: 15px !important;">
+            <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+              <!-- <span *ngIf="resultListDetails[0]?.memo_serial_no_barcode=='-'">-</span> -->
+              <!-- <span *ngIf="resultListDetails[0]?.memo_serial_no_barcode!='-'"> -->
+              <!-- <img src="assets\images\avatars\240308000001.png"  style="height: 100px !important; width: 100px !important;" /> -->
+            </div>
+
+
+            <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+              <!-- <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content: end !important;">
+                            <p class="signatures" >SG</p>
+                        </div>
+                        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content: end !important;">
+                            <p  >Registrar (Evaluation)</p>
+                         </div> -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="bulk">
+        <div class="bulkPage" *ngFor=" let list of mainList">
+          <div class="page-layout simple" style="background: white !important;">
+
+            <div class="firstborder">
+              <div fxLayout="row" style="margin-top: 170px !important;">
+                <div id="line">
+                  <hr />
+                </div>
+
+              </div>
+              <div fxLayout="row" style="margin-top: 10px !important;">
+                <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                  <p
+                    style="font-size: 20px !important; margin-top: 0px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                    GRADE CARD</p>
+                  <p
+                    style="font-size: 15px !important; margin-top: 10px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                    <span>{{list[0]?.exam_name}}</span>
+                  </p>
+                </div>
+              </div>
+              <div fxLayout="row" style="margin-top: 10px !important;">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                  <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <table id="table">
+                      <tr>
+                        <th>Name of the Student</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                        <td style="text-transform: uppercase !important;">{{ list[0]?.student_name}}</td>
+                      </tr>
+                      <tr>
+                        <th>Father's / Mother's Name</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+
+                        <td style="text-transform: uppercase !important;">{{ list[0]?.father_name}}</td>
+                      </tr>
+                      <tr>
+                        <th>Faculty Name</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                        <td style="text-transform: none !important;">{{ list[0]?.clg_name}}</td>
+                      </tr>
+
+                      <tr>
+                        <th>Programme</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                        <td style="text-transform: none !important;">{{ list[0]?.course_code}} - {{
+                          list[0]?.group_name}}</td>
+                      </tr>
+                    </table>
+
+
+                  </div>
+                  <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20" class="stdImg"
+                    *ngIf="list[0]?.student_photo_path != null">
+                    <img [src]="MINIO+list[0]?.student_photo_path" class="IMGG">
+                    <span style="font-size: 12px !important; font-weight: bold !important;">USN :
+                      {{list[0]?.hallticket_number}}</span>
+                  </div>
+                  <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20"
+                    *ngIf="list[0]?.student_photo_path == null">
+                    <img src="assets/images/avatars/default_Student.png" style="height:96px;width: 100px;">
+                  </div>
+                </div>
+              </div>
+              <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100">
+                  <table id="table2">
+                    <thead>
+                      <tr>
+                        <th style="width: 4% !important;">Sl. No.</th>
+                        <th style="width: 12% !important;">Course Code</th>
+                        <th style="width: 32% !important;">Course Title</th>
+                        <th>Theory/ <br>Practical</th>
+                        <th>Credits Assigned</th>
+                        <th>Credits Earned <br> (C)</th>
+                        <th>Grade Points <br> (G)</th>
+                        <th>Letter Grade</th>
+                        <th>Remarks</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let subjects of list; index as i">
+                        <td>{{i + 1}}</td>
+                        <td style="text-align: left !important; text-transform: uppercase !important;">
+                          {{subjects.subject_code}}</td>
+                        <td style="text-align: left !important; text-transform: uppercase !important;">
+                          {{subjects.subject_name}}</td>
+                        <td style="text-transform: none;"><span *ngIf="subjects.subject_type !=  'LAB'">Th.</span>
+                          <span *ngIf="subjects.subject_type == 'LAB'">Pr.</span>
+                        </td>
+                        <td>{{subjects.credits_assigned}}</td>
+                        <td>{{subjects.credits}}</td>
+                        <td>{{subjects.grade_points}}</td>
+                        <td>{{subjects.grade}}</td>
+                        <td>{{subjects.examresult}}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div fxLayout="row">
+
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="margin-top:10px">
+                  <table id="table-1">
+                    <tr>
+                      <td>Credit Registered</td>
+                      <td>Credits Earned</td>
+                      <td>Σ (Ci) X (Gi)</td>
+                      <td>SGPA</td>
+                      <td>CGPA</td>
+
+                    </tr>
+                    <tr>
+                      <td> {{ list[0]?.total_credits_registered}}</td>
+                      <td>{{list[0]?.grandtotal_credits}}</td>
+                      <td>{{list[0]?.grand_ci_gi_points}}</td>
+                      <td><span *ngIf="list[0]?.sgpa != null">{{list[0]?.sgpa}}</span> <span
+                          style="color: red; font-weight: bold; " *ngIf="list[0]?.sgpa == null">-</span></td>
+                      <td><span *ngIf="list[0]?.cgpa != null">{{list[0]?.cgpa}}</span> <span
+                          style="color: red; font-weight: bold;  " *ngIf="list[0]?.cgpa == null">-</span></td>
+
+                    </tr>
+
+                  </table>
+                </div>
+              </div>
+              <div fxLayout="row" style="padding: 5px 20px !important;">
+                <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                  <p style="text-align: left !important; margin: 0px !important;">Medium of Instruction : <span
+                      style="font-weight: 500;"> <span *ngIf="list[0]?.group_code == 'MA(K)'">Kannada</span> <span
+                        *ngIf="list[0]?.group_code != 'MA(K)'">English</span> </span></p>
+                  <p style="text-align: left !important; margin: 0px !important;">Date : <span
+                      style="font-weight: 500;">{{memoDate | date:'d-MMM-y' }}</span> </p>
+                </div>
+              </div>
+              <div fxLayout="row" style="padding: 15px !important;">
+                <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                </div>
+                <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div *ngIf="universityCode != 'SUK'" class="font-style">
+    <div *ngIf="isPrintMode" class="print-div ">
+
+      <div style="background: white !important;" *ngIf="single">
+
+        <div class="firstborder">
+          <div fxLayout="row" style="margin-top: 170px !important;">
+            <div id="line">
+              <hr />
+            </div>
+
+          </div>
+          <div fxLayout="row" style="margin-top: 10px !important;">
+            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+              <p
+                style="font-size: 20px !important; margin-top: 0px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                SEMESTER GRADE REPORT</p>
+              <p
+                style="font-size: 15px !important; margin-top: 10px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                <span>{{resultListDetails[0]?.exam_name}}</span>
+              </p>
+            </div>
+          </div>
+          <div fxLayout="row" style="margin-top: 10px !important;">
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+              <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                <table id="table">
+                  <tr>
+                    <th>Name</th>
+                    <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                    <td style="text-transform: uppercase !important;">{{ resultListDetails[0]?.student_name}}</td>
+                  </tr>
+                  <tr>
+                    <th>Father's Name</th>
+                    <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+
+                    <td style="text-transform: uppercase !important;">{{ resultListDetails[0]?.father_name}}</td>
+                  </tr>
+                  <tr>
+                    <th>Mother's Name</th>
+                    <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                    <td style="text-transform: none !important;">{{ resultListDetails[0]?.clg_name}}</td>
+                  </tr>
+                </table>
+
+
+              </div>
+              <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20" class="stdImg"
+                *ngIf="resultListDetails[0]?.student_photo_path != null">
+                <img [src]="MINIO+resultListDetails[0]?.student_photo_path" class="IMGG">
+                <span style="font-size: 12px !important; font-weight: bold !important;">USN :
+                  {{resultListDetails[0]?.hallticket_number}}</span>
+              </div>
+              <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20"
+                *ngIf="resultListDetails[0]?.student_photo_path == null">
+                <img src="assets/images/avatars/default_Student.png" style="height:96px;width: 100px;">
+              </div>
+            </div>
+          </div>
+          <div fxLayout="row">
+            <div fxLayout="row" fxFlex="100">
+              <table id="table2">
+                <thead>
+                  <tr>
+                    <th style="width: 4% !important;">Sl. No.</th>
+                    <th style="width: 12% !important;">Course Code</th>
+                    <th style="width: 32% !important;">Course Title</th>
+                    <th>Theory/ <br>Practical</th>
+                    <th>Credits Assigned</th>
+                    <th>Credits Earned <br> (C)</th>
+                    <th>Grade Points <br> (G)</th>
+                    <th>Letter Grade</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let subjects of resultListDetails; index as i">
+                    <td>{{i + 1}}</td>
+                    <td style="text-align: left !important; text-transform: uppercase !important;">
+                      {{subjects.subject_code}}</td>
+                    <td style="text-align: left !important; text-transform: uppercase !important;">
+                      {{subjects.subject_name}}</td>
+                    <td style="text-transform: none !important;"><span *ngIf="subjects.subject_type != 'LAB'">Th.</span>
+                      <span *ngIf="subjects.subject_type == 'LAB'">Pr.</span>
+                    </td>
+                    <td>{{subjects.credits_assigned}}</td>
+                    <td>{{subjects.credits}}</td>
+                    <td>{{subjects.grade_points}}</td>
+                    <td>{{subjects.grade}}</td>
+                    <td>{{subjects.examresult}}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div fxLayout="row">
+
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="margin-top:10px">
+              <table id="table-1">
+                <tr>
+                  <td>Credit Registered</td>
+                  <td>Credits Earned</td>
+                  <td>Σ (Ci) X (Gi)</td>
+                  <td>SGPA</td>
+                  <td>CGPA</td>
+
+                </tr>
+                <tr>
+                  <td> {{ getTotalCreditsRegistered() }}</td>
+                  <td>{{getTotalCreditsAssigned()}}</td>
+                  <td>{{getMultiplesOfGiCi()}}</td>
+                  <td><span *ngIf="resultListDetails[0]?.sgpa != null">{{resultListDetails[0]?.sgpa}}</span> <span
+                      style="color: red; font-weight: bold; " *ngIf="resultListDetails[0]?.sgpa == null">-</span></td>
+                  <td><span *ngIf="resultListDetails[0]?.cgpa != null">{{resultListDetails[0]?.cgpa}}</span> <span
+                      style="color: red; font-weight: bold;  " *ngIf="resultListDetails[0]?.cgpa == null">-</span></td>
+
+                </tr>
+
+              </table>
+            </div>
+          </div>
+          <div fxLayout="row" style="padding: 5px 20px !important;">
+            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+              <p style="text-align: left !important; margin: 0px !important;">Medium of Instruction : <span
+                  style="font-weight: 500;"> <span *ngIf="resultListDetails[0]?.group_code == 'MA(K)'">Kannada</span>
+                  <span *ngIf="resultListDetails[0]?.group_code != 'MA(K)'">English</span> </span></p>
+              <p style="text-align: left !important; margin: 0px !important;">Date : <span
+                  style="font-weight: 500;">{{memoDate | date:'d-MMM-y' }}</span> </p>
+            </div>
+
+          </div>
+          <div fxLayout="row" style="padding: 15px !important;">
+            <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+            </div>
+
+
+            <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="bulk">
+        <div class="bulkPage"
+     *ngFor="let list of mainList; let last = last"
+     [style.page-break-after]="last ? 'auto' : 'always'">
+          <div class="page-layout simple" style="background: white !important;">
+
+            <div class="firstborder">
+              <div fxLayout="row">
+                <!-- <div id="line">
+                  <hr />
+                </div> -->
+
+              </div>
+              <div fxLayout="row">
+                <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                
+                  <!-- <p
+                    style="font-size: 15px !important; margin-top: 10px !important;  color: rgb(0, 0, 0); text-align: center !important; ">
+                    <span>{{list[0]?.exam_name}}</span>
+                  </p> -->
+                </div>
+
+              </div>
+              <br>
+
+              <div fxLayout="row" style="margin-top: 10px !important;">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                  <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <table id="table"  class="student-info-table">
+                     <tr >
+  <th style="margin-top: 2% !important">Examination</th>
+
+  <td style="padding: 0px 3px !important; text-align: center !important;">
+    :
+  </td>
+
+  <td>
+    {{ list[0]?.exam_name }}
+  </td>
+</tr>
+
+
+                      <tr>
+                        <th>REF.No.</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                        <td>{{ list[0]?.ref_no}}</td>
+                      </tr>
+                      <tr>
+                        <th>Name</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                        <td style="text-transform: uppercase !important;font-weight: bold !important">{{ list[0]?.student_name}}</td>
+                      </tr>
+                      <tr>
+                        <th>Father's Name</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+
+                        <td style="text-transform: uppercase !important">{{ list[0]?.father_name}}</td>
+                      </tr>
+                      <tr>
+                        <th>Mother's Name</th>
+                        <td style="padding: 0px 3px !important; text-align: center !important;">:</td>
+                        <td style="text-transform: none !important">{{ list[0]?.mother_name}}</td>
+                      </tr>
+                    </table>
+
+
+                  </div>
+                  <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20" class="stdImg"
+                    *ngIf="list[0]?.student_photo_path != null">
+                    <!-- <span style="font-size: 11px !important; font-weight: bold !important;">Roll.No :
+                      {{list[0]?.hallticket_number}}</span> -->
+<span
+  style="
+    font-size: 13px !important;
+    font-weight: bold !important;
+    position: relative;
+    top: -37px;
+    margin-left: 1% !important;
+    white-space: nowrap;
+    display: inline-block;
+  "
+>
+  <span
+    style="
+      margin-left: 2% !important;
+      font-size: 14px !important;
+      font-weight: 600 !important;
+      position: relative;
+      top: -19px;
+    "
+  >
+    {{ list[0]?.hallticket_number }}
+  </span>
+</span>
+
+                    <img [src]="MINIO+list[0]?.student_photo_path" class="IMGG">
+                  </div>
+                  <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20"
+                    *ngIf="list[0]?.student_photo_path == null">
+                    <img src="assets/images/avatars/default_Student.png" style="height:96px;width: 100px;">
+                  </div>
+                </div>
+              </div>
+              <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100">
+                  <table id="table2" class="table-wrapper">
+                    <thead>
+                      <tr>
+
+                        <th style="width: 16% !important;">Subject Code</th>
+                        <th style="width: 44% !important;">Subject</th>
+
+                        <th style="width: 6%;">Credits</th>
+
+
+                        <th style="width: 8%;">Grade <br> Awarded</th>
+
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr *ngFor="let subjects of list; index as i">
+
+                        <td style="text-align: left !important; text-transform: uppercase !important">
+                          {{subjects.subject_code}}</td>
+                        <td style="text-align: left !important; text-transform: uppercase !important">
+                          {{subjects.subject_name}}</td>
+                        <td>{{subjects.credits}}</td>
+
+                        <td>{{subjects.grade}}</td>
+
+                      </tr>
+                      <tr *ngFor="let empty of getEmptyRows(list)">
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                    </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div fxLayout="row" style="margin: 0px 20px !important;">
+                <div fxLayout="row" fxFlex="50" style="margin-top:1.5% !important">
+      <span
+  style="
+    text-align: left !important;
+    font-weight: bold !important;
+    display: inline-block;
+    position: relative;
+    top: 28px;
+  "
+>
+  <div style="margin-bottom: 6px;">
+    Credits Acquired: {{list[0]?.grandtotal_credits}}
+  </div>
+
+  <div style="margin-bottom: 4px;">
+    S.G.P.A : {{list[0]?.sgpa}}
+    ({{ numberToWords(list[0]?.sgpa) }})
+  </div>
+
+  <div>
+    Date :
+    {{memoDate | date:'dd-MM-yyyy'}}
+  </div>
+</span>
+
+
+
+                 </div>
+                 <div fxLayout="row" fxFlex="50" style="margin-top:1.5% !important">
+                     <span
+  style="
+    text-align: right !important;
+    font-weight: bold !important;
+    margin-left: auto !important;
+    position: relative;
+    top: 42px;
+    display: inline-block;
+  "
+>
+  Result &nbsp;: &nbsp;
+  <span>{{list[0]?.result}}</span>
+</span>
+
+                 </div>
+              </div>
+              <div fxLayout="row" style="padding: 15px !important;">
+                <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                </div>
+                <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                </div>
+              </div>
+              <!-- Bottom Signature Labels -->
+               <div fxLayout="row" style="margin-top:10% !important;font-weight: bold !important">
+                <div fxLayout="column" fxFlex="48" fxFlex.gt-xs="48" fxFlex.gt-md="48">
+                </div>
+                
+                <div fxLayout="column" fxFlex="2" fxFlex.gt-xs="2" fxFlex.gt-md="2">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

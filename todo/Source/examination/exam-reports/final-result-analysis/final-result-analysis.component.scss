@@ -1,0 +1,121 @@
+#table{
+    border-width: 2px !important;
+        border-color: #96aacb !important;;
+    border-collapse: collapse;
+    border-spacing: 0px !important;
+    margin: 0px 16px !important;
+    width: 97% !important;
+
+    tr{
+        border-width: 1px !important;
+        border-color: #96aacb !important;;
+    border-collapse: collapse !important;;
+    }
+    th{
+        border-width: 1px !important;
+        border-color:  #96aacb !important;;
+        border-collapse: collapse !important;;  
+       text-align: center;
+  
+    }
+    td{
+        border-width: 1px !important;
+        border-color: #96aacb !important;;
+        border-collapse: collapse !important;;
+           text-align: center;
+
+    }
+}
+
+.table-th {
+    padding: 5px 5px !important;
+    background: #C3D9FF;
+    font-weight: 500;
+    text-align: center !important;
+
+}
+table {
+    border-spacing: 1px !important;
+    width: 97% !important;
+    margin: 0px 16px !important;
+
+}
+.table-td {
+    padding: 6px 8px !important;
+    font-weight: 500;
+    text-align: center !important;
+
+}
+.table-td1 {
+    padding: 6px 8px !important;
+    text-align: center !important;
+}
+
+.icon{
+    color: aliceblue !important;
+    padding: 4px;
+}
+.print-section{
+    display: none;
+  }
+  @media print {
+    #printNone {
+      display: none !important;
+      visibility: hidden !important;
+    }
+    .print-section{
+display: block;
+    }
+    header nav, footer {
+      display: none;
+   }
+  }
+  .header{ 
+    justify-content: center;
+    margin-bottom: -16px;
+    p{
+      text-align: center !important;
+    }
+    // display: flex;
+}
+.clgname{
+  font-size: 25px;
+  margin-bottom: -20px; 
+  font-family: none; 
+  text-transform: capitalize !important;
+  justify-content: center;
+  font-weight: 550 !important;
+  text-align: center !important;
+}
+.title{
+  font-size: 22px;
+  justify-content: center;
+  margin-bottom: -16px;
+  font-family: none;
+  font-weight: 550 !important;
+  text-align: center !important;
+}
+
+.exam{
+  font-size: 19px;
+  justify-content: center;
+  font-family: none;
+  text-align: center !important;
+}
+.buttons{
+  justify-content: end !important;
+  display: flex !important;
+}
+.ptnbtn{
+  margin-top:4% !important;
+}
+.search-align{
+  margin:-0.9% !important;
+}
+.align-items{
+  margin-top:0.4% !important;
+}
+.portraitLogo{
+  height:80%;
+  width:80%;
+}

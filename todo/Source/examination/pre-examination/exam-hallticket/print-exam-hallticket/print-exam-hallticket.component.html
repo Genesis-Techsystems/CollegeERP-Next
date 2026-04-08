@@ -1,0 +1,868 @@
+
+
+<div class="layout" *ngIf="flag == 2">
+  <div class="printbtn">
+    <button id="printPageButton" mat-raised-button class="back-btn" (click)="backBulkPrint()">
+      Back</button>
+    <button id="printPageButton" mat-raised-button color="add-btn" color="accent" (click)="printPage('printsection')">
+      Print</button>
+  </div>
+  <div *ngIf="universityCode =='AMS'">
+  <div id="dashboard" class="page-layout simple " id="printsection" class="Hallticket" *ngFor="let d of bulkData">
+
+    <div fxLayout="row">
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="firstborder">
+        <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="d[0]?.logo_path != null">
+          <img [src]="MINIO+d[0]?.logo_path" class="org-logo">
+        </div>
+        <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="d[0]?.logo_path == null">
+          <img src="assets/images/avatars/default_logo.png" class="org-logo">
+        </div>
+        <div fxLayout="column" fxFlex="85" fxFlex.gt-xs="85" fxFlex.gt-md="85">
+          <p class="p-collegeName">
+            {{d[0]?.college_name}} </p>
+          <p class="p-collegAdd">{{d[0]?.address}} </p>
+          <p class="ht-head"> HALL TICKET </p>
+          <p class="p-examName"> {{ d[0]?.exam_label_name }} </p>
+        </div>
+      </div>
+    </div>
+
+    <div fxLayout="row">
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="firstborder">
+        <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+          <table id="table">
+            <tr>
+              <th>Hallticket No :</th>
+              <td>&nbsp;&nbsp;{{d[0]?.hallticket_number}}</td>
+              <!-- <td>&nbsp;&nbsp;{{data?.hallticketNo}}</td> -->
+            </tr>
+          </table>
+          <table id="table">
+            <tr>
+              <th>Name :</th>
+              <td>&nbsp;&nbsp;{{d[0]?.first_name}}</td>
+            </tr>
+          </table>
+          <table id="table">
+            <tr>
+              <th>Program  :</th>
+              <td>&nbsp;&nbsp;{{d[0]?.course_code}} &nbsp; - {{d[0]?.group_code}}</td>
+            </tr>
+          </table>
+          <table id="table">
+            <tr>
+              <th>Center :</th>
+              <td style="text-transform: uppercase;">&nbsp;&nbsp;{{d[0]?.college_name}}
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20" *ngIf="d[0]?.student_photo_path != null">
+          <img [src]="MINIO+d[0]?.student_photo_path" class="std-img">
+        </div>
+        <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20" *ngIf="d[0]?.student_photo_path == null">
+          <img src="assets/images/avatars/default_Student.png" class="std-img">
+        </div>
+      </div>
+    </div>
+
+    <div fxLayout="row">
+
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+
+        <table id="table2">
+          <tr>
+            <th>Course Code</th>
+            <th>Course Name</th>
+            <th>Exam Date </th>
+            <th>Exam Time</th>
+            <th>Invigilator Signature</th>
+          </tr>
+          <tr *ngFor="let obj of d">
+            <td>{{obj?.subject_code}}</td>
+            <td>{{obj?.subject_name}}</td>
+            <td>{{obj?.exam_date | date:'dd/MM/yyyy'}}</td>
+            <td>
+              <span *ngIf="obj?.session_start_time == null && obj?.session_end_time == null">-</span>
+              <span *ngIf="obj?.session_start_time != null && obj?.session_end_time != null"> {{tConvert(obj?.session_start_time)}}-{{tConvert(obj?.session_end_time)}}</span>
+             </td>
+            <td></td>
+          </tr>
+
+        </table>
+      </div>
+    </div>
+
+    <div fxLayout="row">
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content: center;">
+        <table id="table" style="margin-top: 30px !important;">
+          <tr>
+            <th  style="align-items: center !important;" ></th>
+            <th style="text-align: center; " >
+              <!-- <img src="assets/ams/kiranmai-sign.png" style="height:50px; margin-bottom: -10px !important;"> -->
+            </th>
+            <th style="text-align: center; ">
+              <!-- <img src="assets/ams/jhansi-rani-sign.png" style="height:50px; margin-bottom: -15px !important;"> -->
+            </th>
+          </tr>
+          <tr>
+            <th style="text-align: center; font-family: none !important;">Signature Of Student</th>
+            <th style="text-align: center; font-family: none !important;">Controller Of Examination</th>
+            <th style="text-align: center; font-family: none !important;">Principal</th>
+
+          </tr>
+
+        </table>
+      </div>
+    </div>
+
+    <div fxLayout="row">
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content: center;">
+        <span style="text-align: left; margin-top: 20px;"> <b>INSTRUCTIONS TO CANDIDATE</b></span>
+      </div>
+    </div>
+    <div fxLayout="row">
+
+      <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="lastborder">
+        <div style="text-align: left !important;">
+          <ol>
+            <li>
+              Candidates should take their seats at least 15 minutes before the commencement of examination.
+            </li>
+            <li>
+              Candidates are prohibited to bring any printed/written material of any kind to the examination hall.
+            </li>
+            <li>
+              Candidates are prohibited to bring mobile phones or any electronic devices.
+            </li>
+            <li>
+              <b> Candidates MUST CARRY HALL TICKET.Without hall ticket candidate will not be permitted into
+                examination hall.</b>
+
+            </li>
+            <li>
+              <b> CANDIDATES MUST CARRY IDENTITY CARD.</b>
+
+            </li>
+          </ol>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+<div *ngIf="universityCode == 'SUK'">
+  <div *ngFor="let student of bulkData">
+    <!-- Iterate over each student's course year groups -->
+    <div  id="dashboard" class=" Hallticket page-layout simple" *ngFor="let courseGroup of student">
+      <div fxLayout="row">
+        <div fxFlex="100">
+          <img src="assets/images/avatars/SUK_BANNER_NEW.jpg" />
+        </div>
+      </div>
+  
+      <!-- <div fxLayout="row" style="margin-top: -15px !important;">
+        <div fxFlex="100">
+          <p class="p-tag">KALABURAGI-585103, KARNATAKA, INDIA</p>
+        </div>
+      </div> -->
+  
+      <div fxLayout="row">
+        <div class="admit-card">
+          <h2>Admit Card: {{ courseGroup[0]?.exam_label_name }}</h2>
+  
+          <!-- Student Information -->
+          <div class="student-info">
+            <table class="details-table">
+              <tr>
+                <td>Name</td>
+                <td>{{ courseGroup[0]?.first_name }}</td>
+                <td rowspan="5" style="text-align: center !important;">
+                  <div
+                    fxLayout="column"
+                    style="align-items: center !important;"
+                    *ngIf="courseGroup[0]?.student_photo_path != null"
+                  >
+                    <img
+                      [src]="MINIO + courseGroup[0]?.student_photo_path"
+                      style="height: 100px; width: 100px;"
+                    />
+                  </div>
+                  <div
+                    fxLayout="column"
+                    style="align-items: center !important;"
+                    *ngIf="courseGroup[0]?.student_photo_path == null"
+                  >
+                    <img
+                      src="assets/images/avatars/default_Student.png"
+                      style="height: 100px; width: 100px;"
+                    />
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>Father's Name</td>
+                <td>{{ courseGroup[0]?.father_name }}</td>
+              </tr>
+              <tr>
+                <td>USN</td>
+                <td>{{ courseGroup[0]?.hallticket_number }}</td>
+              </tr>
+              <tr>
+                <td>Programme</td>
+                <td>{{ courseGroup[0]?.course_code }} - {{ courseGroup[0]?.group_code }}</td>
+              </tr>
+              <tr>
+                <td>Semester</td>
+                <td>
+                  <span *ngFor="let obj of SemisterList">
+                    <span
+                      *ngIf="obj.id == courseGroup[0]?.course_year_code"
+                      style="margin-left: -15px !important;"
+                    >
+                      {{ obj.value }}
+                    </span>
+                  </span>
+                </td>
+              </tr>
+            </table>
+          </div>
+  
+          <!-- Course Details -->
+          <div class="courses-details">
+            <table class="course-table">
+              <thead>
+                <tr>
+                  <th>Sl No.</th>
+                  <th>Course Code</th>
+                  <th>Course Title</th>
+                  <th>Course Type</th>
+                  <th>Date</th>
+                  <th>Signature of the Invigilator</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let subject of courseGroup; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td style="text-align: left !important;">{{ subject?.subject_code }}</td>
+                  <td style="text-align: left !important;">{{ subject?.subject_name }}</td>
+                  <td style="text-align: left !important;">{{ subject?.subjecttype }}</td>
+                  <td style="width: 143px !important;">
+                    <span>
+                      <span *ngIf="subject?.subjecttype == 'LAB'">-</span>
+                      <span
+                        style="font-size: 12px !important;"
+                        *ngIf="subject?.subjecttype != 'LAB'"
+                      >
+                        {{ subject?.exam_date | date: 'dd/MM/yyyy' }}
+                      </span>
+                    </span>
+                    <br />
+                    <span style="padding: 0px !important; margin: 0px !important;">
+                      <span *ngIf="subject?.subjecttype == 'LAB'">-</span>
+                      <span
+                        style="font-size: 10px !important;"
+                        *ngIf="
+                          subject?.subjecttype != 'LAB' &&
+                          subject?.session_start_time != null &&
+                          subject?.session_end_time != null
+                        "
+                      >
+                        ({{ tConvert(subject?.session_start_time) }} -
+                        {{ tConvert(subject?.session_end_time) }})
+                      </span>
+                    </span>
+                  </td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+  
+          <!-- Signatures Section -->
+          <div class="signatures-2">
+            <div class="signature-1" style="text-align: left !important;">
+              <label>Signature of the Candidate</label>
+            </div>
+            <div class="signature-1">
+              <label>Signature of Chairperson with Seal</label>
+            </div>
+            <div class="signature-1">
+              <label>Registrar (Evaluation)</label>
+            </div>
+          </div>
+  
+          <!-- Date of Issue -->
+          <div class="issue-date">
+            <label>Date of Issue:</label>
+            <span>{{ myDate | date: 'd, MMM, y' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div *ngIf="this.universityCode === 'MVSR'">
+  <div *ngFor="let student of bulkData">
+
+    <!-- OUTER A4 BORDER -->
+    <div id="dashboard" class="page-align Hallticket-2 page-layout simple" *ngFor="let group of student">
+
+      <!-- Header -->
+      <div class="college-header">
+        <img src="assets/images/avatars/MVSR-NEW-BANNER.png" class="college-banner-2" />
+      </div><br>
+
+    <!-- Exam Name + Regulation Code Row -->
+<div class="exam-header">
+
+  <!-- Centered Exam Name -->
+  <h4 class="exam-title">
+    {{ group[0]?.exam_label_name }}
+  </h4>
+
+  <!-- Small Regulation Code Box -->
+  <div class="regulation-box" *ngIf="group[0]?.regulation_code">
+    {{ group[0]?.regulation_code }}
+  </div>
+
+</div>
+
+
+      <!-- Hall Ticket Title Bar -->
+      <div class="hall-title-bar">
+        <div class="hall-left">HALL TICKET</div>
+        <div class="hall-right">
+          {{ group[0]?.course_code }} ({{ group[0]?.group_name?.toUpperCase() }})
+        </div>
+      </div>
+
+      <!-- Student Info -->
+      <table class="info-table">
+        <tr>
+          <td style="font-weight:550 !important">Hall Ticket No :</td>
+          <td style="font-weight:550 !important">{{ group[0]?.hallticket_number }}</td>
+
+          <td rowspan="5" class="photo-cell">
+  <div class="photo-layout">
+
+    <!-- Photo Row -->
+    <div class="photo-row">
+      <div class="photo-container">
+        <img
+          [src]="MINIO + group[0]?.student_photo_path"
+          onerror="this.src='assets/images/avatars/default_Student.png'"
+          class="student-photo"
+          alt="Student Photo"
+        />
+      </div>
+
+      <div class="attach-photo-box">
+        Affix latest photo of the candidate <br />
+        duly attested by the HOD
+      </div>
+    </div>
+
+    <!-- Two signature boxes -->
+    <div class="signature-row">
+      <div class="signature-box"></div>
+      <div class="signature-box"></div>
+    </div>
+
+  </div>
+</td>
+
+        </tr>
+
+        <tr>
+          <td style="font-weight:550 !important">Student Name :</td>
+          <td style="font-weight:550 !important">{{ group[0]?.first_name }}</td>
+        </tr>
+        <tr>
+          <td td style="font-weight:550 !important">Father Name :</td>
+          <td td style="font-weight:550 !important">{{ group[0]?.father_name }}</td>
+        </tr>
+        <tr>
+          <td td style="font-weight:550 !important">Center Name : <br />& Address</td>
+          <td td style="font-weight:550 !important">
+            {{ group[0]?.examcenter_name}}
+          </td>
+        </tr>
+      </table>
+
+      <!-- Subjects -->
+      <table class="subject-table-refined">
+        <thead>
+          <tr>
+            <th>Subject Code</th>
+            <th>Registered Subjects</th>
+            <th>Date of Exam</th>
+             <th>Time</th>
+      <th>Invigilator Sign</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let d of group">
+            <td class="left-cell">{{ d?.subject_code }}</td>
+            <td>{{ d?.subject_name }}</td>
+            <td>{{ d?.exam_date | date: 'dd/MM/yyyy' }}</td>
+            <td>
+        <span *ngIf="d?.session_start_time && d?.session_end_time">
+          {{ tConvert(d?.session_start_time) }} - {{ tConvert(d?.session_end_time) }}
+        </span>
+      </td>
+      <td></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Signature Line -->
+      <!-- <div class="signatures">
+        <div>Signature of HOD</div>
+        <div>Controller of Examinations</div>
+      </div> -->
+
+      <div class="signatures-2">
+
+        <!-- HOD -->
+        <div class="sig-block">
+          <div class="sig-image"></div>
+          <div class="sig-label">Signature of HOD</div>
+        </div>
+
+        <!-- Principal -->
+        <div class="sig-block">
+          <img src="assets/images/avatars/MVSR_COE-SIGN.jpg" class="sig-image-2" />
+          <div class="sig-label">Controller of Examinations</div>
+        </div>
+
+      </div>
+
+      <!-- Cut Line -->
+      <div class="cut-line-container">
+        <div class="left-line"></div>
+        <div class="dashed-line"></div>
+      </div>
+
+      <!-- Instructions (INSIDE border now — FIXED!) -->
+      <div class="instructions">
+        <h4>Hall ticket should be preserved till the end of the examinations</h4>
+
+        <ol style="list-style-type: none; padding-left: 0;">
+          <li>INSTRUCTIONS TO THE CANDIDATES</li>
+          <li>NOTE: CANDIDATES ARE NOT ALLOWED AFTER COMMENCEMENT OF EXAM</li>
+        </ol>
+
+        <ol>
+          <li>Hall ticket should be preserved till the declaration of results.</li>
+          <li>
+            The candidates are held responsible for obtaining correct question paper from the Invigilator as per the
+            Paper Title and Question Paper Code given against in the Hall Ticket. Answering a wrong Question Paper may
+            lead to cancellation of examination of that paper.
+          </li>
+          <li>
+            University reserves the right to cancel the admission at any stage if rules are violated.
+          </li>
+          <li>Candidates should occupy their seats at least 15 minutes before the exam.</li>
+          <li>Candidates are prohibited from bringing printed/written material.</li>
+          <li>
+            Mathematical tables, if required, will be supplied. Students may bring non-programmable calculators.
+          </li>
+          <li>No Mobiles/Electronic gadgets allowed. Violation leads to malpractice.</li>
+          <li>
+            Candidates indulging in malpractice will be expelled and cannot appear for remaining exams.
+          </li>
+          <li>Bring the Hall Ticket every day and ID cards.</li>
+          <li>Do not write anything except Hall Ticket number on the Question Paper.</li>
+        </ol>
+      </div>
+
+    </div> <!-- page-align closes AFTER instructions -->
+
+  </div>
+</div>
+
+<div *ngIf="this.universityCode === 'MECS'" class="mecs-ticket">
+  <div *ngFor="let student of bulkData">
+
+    <!-- OUTER BORDER BOX -->
+    <div id="dashboard" class="page-align Hallticket-2 page-layout simple" *ngFor="let group of student">
+
+      <!-- Header Banner -->
+      <div class="college-header">
+        <img src="assets/images/avatars/MECS_BANNER.png" class="college-banner-2" />
+      </div><br>
+
+      <!-- Exam Name + Regulation Code Row -->
+      <div class="exam-header">
+
+        <!-- Centered Exam Name -->
+        <h4 class="exam-title">
+          {{ group[0]?.exam_label_name }}
+        </h4>
+
+        <!-- Small Regulation Code Box -->
+        <div class="regulation-box" *ngIf="group[0]?.regulation_code">
+          {{ group[0]?.regulation_code }}
+        </div>
+
+      </div>
+
+      <!-- Hall Ticket Title Bar -->
+      <div class="hall-title-bar">
+        <div class="hall-left">HALL TICKET</div>
+        <div class="hall-right">
+          {{ group[0]?.course_code }} ({{ group[0]?.group_name?.toUpperCase() }})
+        </div>
+      </div>
+
+      <!-- Student Info -->
+      <table class="info-table">
+        <tr>
+          <td style="font-weight:550 !important">Hall Ticket No :</td>
+          <td style="font-weight:550 !important">{{ group[0]?.hallticket_number }}</td>
+
+          <td rowspan="4" class="photo-cell">
+            <div class="photo-layout">
+
+              <!-- Photo Row -->
+              <div class="photo-row">
+                <div class="photo-container">
+                  <img
+                    [src]="MINIO + group[0]?.student_photo_path"
+                    onerror="this.src='assets/images/avatars/default_Student.png'"
+                    class="student-photo"
+                    alt="Student Photo"
+                  />
+                </div>
+
+                <!-- Attach photo text -->
+                <div class="attach-photo-box">
+                  Affix latest photo of the candidate <br />
+                  duly attested by the HOD
+                </div>
+              </div>
+
+              <!-- Two signature boxes -->
+              <div class="signature-row">
+                <div class="signature-box"></div>
+                <div class="signature-box"></div>
+              </div>
+
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:550 !important">Student Name :</td>
+          <td style="font-weight:550 !important">{{ group[0]?.first_name }}</td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:550 !important">Father Name :</td>
+          <td style="font-weight:550 !important">{{ group[0]?.father_name }}</td>
+        </tr>
+
+        <tr>
+          <td style="font-weight:550 !important">Center Name : <br />& Address</td>
+          <td style="font-weight:550 !important">
+           {{ group[0]?.examcenter_name}}
+          </td>
+        </tr>
+      </table>
+
+      <!-- Subjects Table -->
+      <table class="subject-table-refined mecs-table">
+        <thead>
+          <tr>
+            <th>Subject Code</th>
+            <th>Registered Subjects</th>
+            <th>Date of Exam</th>
+            <th>Time</th>
+            <th>Invigilator Sign</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let d of group">
+            <td class="left-cell">{{ d?.subject_code }}</td>
+            <td>{{ d?.subject_name }}</td>
+            <td>{{ d?.exam_date | date: 'dd/MM/yyyy' }}</td>
+            <td>
+              <span *ngIf="d?.session_start_time && d?.session_end_time">
+                {{ tConvert(d?.session_start_time) }} - {{ tConvert(d?.session_end_time) }}
+              </span>
+            </td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="signatures-new">
+      <!-- Student -->
+      <div class="sig-block">
+        <div class="sig-label">Signature of HOD</div>
+      </div>
+
+      <!-- Principal -->
+      <div class="sig-block">
+          <img src="assets/images/avatars/MECS_EXAMINATION_SIGN.png" class="sig-image" />
+          <div class="sig-label">Controller of Examinations</div>
+        </div>
+    </div>
+
+      <!-- Cut Line -->
+      <div class="cut-line-container">
+        <div class="left-line"></div>
+        <div class="dashed-line"></div>
+      </div>
+
+      <!-- Instructions -->
+      <div class="instructions">
+      <h4>Hall ticket should be preserved till the end of the examinations</h4>
+      <ol style="list-style-type: none; padding-left: 0;"> 
+        <li> INSTRUCTIONS TO THE CANDIDATES </li>
+        <li> NOTE  :  CANDIDATES ARE NOT ALLOWED AFTER COMMENCEMENT OF EXAM </li>
+      </ol>
+      <ol>
+        <li>Hall ticket should be preserved till the declaration of results.</li>
+        <li>
+          The candidates are held responsible for obtaining correct question paper from the Invigilator as per the Paper Title and Question Paper Code given against in the Hall Ticket. Answering a wrong Question Paper may lead to cancellation of examination of that paper.
+        </li>
+        <li>
+          University reserves the right to cancel the admission of the candidates at any stage, when it is detected that his/her admission to the examination or the college is against the rules.
+        </li>
+        <li>Candidates should occupy their seats at least 15 minutes before the commencement of the examination.</li>
+        <li>Candidates are prohibited from bringing and using printed/written material of any kind into the Exam Hall.</li>
+        <li>
+          Candidates are prohibited from bringing Mathematical Tables, however, if required will be supplied by the Controller of Examiner. Students of Mathematics, Science and Engineering are allowed to bring their own non programmable calculator.
+        </li>
+        <li>No Electronic gadgets/Mobiles are permitted in the exam Hall. If found in the exam hall booked under malpractice.</li>
+        <li>
+          Candidates if found in copying/communicating with others or indulging in any malpractice will be expelled from the examination Hall and will not be allowed to appear for the remaining papers/subjects.
+        </li>
+        <li>Candidates are required to bring their Hall Ticket and ID cards every day.</li>
+        <li>Candidate should not write anything except his / her hall ticket number on Question Paper.
+        </li>
+        <li> Student will not be allowed to leave the examination hall during the first two hours of the examination. </li>
+      </ol>
+      <!-- <ol>
+        <li>Hall ticket should be preserved till the declaration of results.</li>
+        <li>
+          The candidates are held responsible for obtaining correct question paper from the Invigilator as per the Paper Title and Question Paper Code given against in the Hall Ticket. Answering a wrong Question Paper may lead to cancellation of examination of that paper.
+        </li>
+        <li>
+          University reserves the right to cancel the admission of the candidates at any stage, when it is detected that his/her admission to the examination or the college is against the rules.
+        </li>
+        <li>Candidates should occupy their seats at least 15 minutes before the commencement of the examination.</li>
+        <li>Candidates are prohibited from bringing and using printed/written material of any kind into the Exam Hall.</li>
+        <li>
+          Candidates are prohibited from bringing Mathematical Tables, however, if required will be supplied by the Controller of Examiner. Students of Mathematics, Science and Engineering are allowed to bring their own non programmable calculator.
+        </li>
+        <li>No Electronic gadgets/Mobiles are permitted in the exam Hall. If found in the exam hall booked under malpractice.</li>
+        <li>
+          Candidates if found in copying/communicating with others or indulging in any malpractice will be expelled from the examination Hall and will not be allowed to appear for the remaining papers/subjects.
+        </li>
+        <li>Candidates are required to bring their Hall Ticket and ID cards every day.</li>
+        <li>Candidate should not write anything except his / her hall ticket number on Question Paper.
+        </li>
+        <li> Student will not be allowed to leave the examination hall during the first two hours of the examination. </li>
+      </ol> -->
+    </div>
+
+    </div>
+  </div>
+</div>
+
+<div *ngIf=" universityCode !== 'AMS' && universityCode !== 'SUK' && universityCode !== 'MVSR' && universityCode !== 'MECS'">
+   <div *ngFor="let student of bulkData">
+
+    <!-- OUTER A4 BORDER -->
+    <div id="dashboard" class="page-align Hallticket-2 page-layout simple" *ngFor="let group of student">
+
+      <!-- Header -->
+      <div class="college-header">
+        <!-- <img src="assets/images/avatars/GULogo.png" class="college-banner-2" /> -->
+      </div><br>
+
+    <!-- Exam Name + Regulation Code Row -->
+<div class="exam-header">
+
+  <!-- Centered Exam Name -->
+  <h4 class="exam-title">
+    {{ group[0]?.exam_label_name }}
+  </h4>
+
+  <!-- Small Regulation Code Box -->
+  <div class="regulation-box" *ngIf="group[0]?.regulation_code">
+    {{ group[0]?.regulation_code }}
+  </div>
+
+</div>
+
+
+      <!-- Hall Ticket Title Bar -->
+      <div class="hall-title-bar">
+        <div class="hall-left">HALL TICKET</div>
+        <div class="hall-right">
+          {{ group[0]?.course_code }} ({{ group[0]?.group_name?.toUpperCase() }})
+        </div>
+      </div>
+
+      <!-- Student Info -->
+      <table class="info-table">
+        <tr>
+          <td style="font-weight:550 !important">Hall Ticket No :</td>
+          <td style="font-weight:550 !important">{{ group[0]?.hallticket_number }}</td>
+
+          <td rowspan="5" class="photo-cell">
+  <div class="photo-layout">
+
+    <!-- Photo Row -->
+    <div class="photo-row">
+      <div class="photo-container">
+        <img
+          [src]="MINIO + group[0]?.student_photo_path"
+          onerror="this.src='assets/images/avatars/default_Student.png'"
+          class="student-photo"
+          alt="Student Photo"
+        />
+      </div>
+
+      <div class="attach-photo-box">
+        Affix latest photo of the candidate <br />
+        duly attested by the HOD
+      </div>
+    </div>
+
+    <!-- Two signature boxes -->
+    <div class="signature-row">
+      <div class="signature-box"></div>
+      <div class="signature-box"></div>
+    </div>
+
+  </div>
+</td>
+
+        </tr>
+
+        <tr>
+          <td style="font-weight:550 !important">Student Name :</td>
+          <td style="font-weight:550 !important">{{ group[0]?.first_name }}</td>
+        </tr>
+        <tr>
+          <td td style="font-weight:550 !important">Father Name :</td>
+          <td td style="font-weight:550 !important">{{ group[0]?.father_name }}</td>
+        </tr>
+        <tr>
+          <td td style="font-weight:550 !important">Center Name : <br />& Address</td>
+          <td td style="font-weight:550 !important">
+            {{ group[0]?.examcenter_name }}
+          </td>
+        </tr>
+      </table>
+
+      <!-- Subjects -->
+      <table class="subject-table-refined">
+        <thead>
+          <tr>
+            <th>Subject Code</th>
+            <th>Registered Subjects</th>
+            <th>Date of Exam</th>
+             <th>Time</th>
+      <th>Invigilator Sign</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let d of group">
+            <td class="left-cell">{{ d?.subject_code }}</td>
+            <td>{{ d?.subject_name }}</td>
+            <td>{{ d?.exam_date | date: 'dd/MM/yyyy' }}</td>
+            <td>
+        <span *ngIf="d?.session_start_time && d?.session_end_time">
+          {{ tConvert(d?.session_start_time) }} - {{ tConvert(d?.session_end_time) }}
+        </span>
+      </td>
+      <td></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Signature Line -->
+      <!-- <div class="signatures">
+        <div>Signature of HOD</div>
+        <div>Controller of Examinations</div>
+      </div> -->
+
+      <div class="signatures">
+
+        <!-- HOD -->
+        <div class="sig-block">
+          <!-- <div class="sig-image"></div> -->
+          <div class="sig-label">Signature of HOD</div>
+        </div>
+
+        <!-- Principal -->
+        <div class="sig-block">
+          <!-- <img class="sig-image" /> -->
+          <!-- <img src="assets/images/avatars/MVSR_COE-SIGN.jpg" class="sig-image" /> -->
+          <div class="sig-label">Controller of Examinations</div>
+        </div>
+
+      </div>
+
+      <!-- Cut Line -->
+      <div class="cut-line-container">
+        <div class="left-line"></div>
+        <div class="dashed-line"></div>
+      </div>
+
+      <!-- Instructions (INSIDE border now — FIXED!) -->
+      <div class="instructions">
+        <h4>Hall ticket should be preserved till the end of the examinations</h4>
+
+        <ol style="list-style-type: none; padding-left: 0;">
+          <li>INSTRUCTIONS TO THE CANDIDATES</li>
+          <li>NOTE: CANDIDATES ARE NOT ALLOWED AFTER COMMENCEMENT OF EXAM</li>
+        </ol>
+
+        <ol>
+          <li>Hall ticket should be preserved till the declaration of results.</li>
+          <li>
+            The candidates are held responsible for obtaining correct question paper from the Invigilator as per the
+            Paper Title and Question Paper Code given against in the Hall Ticket. Answering a wrong Question Paper may
+            lead to cancellation of examination of that paper.
+          </li>
+          <li>
+            University reserves the right to cancel the admission at any stage if rules are violated.
+          </li>
+          <li>Candidates should occupy their seats at least 15 minutes before the exam.</li>
+          <li>Candidates are prohibited from bringing printed/written material.</li>
+          <li>
+            Mathematical tables, if required, will be supplied. Students may bring non-programmable calculators.
+          </li>
+          <li>No Mobiles/Electronic gadgets allowed. Violation leads to malpractice.</li>
+          <li>
+            Candidates indulging in malpractice will be expelled and cannot appear for remaining exams.
+          </li>
+          <li>Bring the Hall Ticket every day and ID cards.</li>
+          <li>Do not write anything except Hall Ticket number on the Question Paper.</li>
+        </ol>
+      </div>
+
+    </div> <!-- page-align closes AFTER instructions -->
+
+  </div>
+  </div>
+
+  <div class="printbtn">
+    <button id="printPageButton" mat-raised-button class="back-btn" (click)="backBulkPrint()">
+      Back</button>
+    <button id="printPageButton" mat-raised-button color="add-btn" color="accent" (click)="printPage('printsection')">
+      Print</button>
+  </div>
+</div>
+

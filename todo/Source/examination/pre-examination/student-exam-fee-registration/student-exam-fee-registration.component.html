@@ -1,0 +1,227 @@
+<div id="dashboard" class="page-layout simple">
+
+  <div class="center" fusePerfectScrollbar>
+
+      <!-- HEADER -->
+      <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+          <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+              <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination Management</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Pre Examination</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Fee Registrations</span>
+              </div>
+          </div>
+
+      </div>
+      <!-- / HEADER -->
+
+      <!-- CONTENT -->
+      <div class="content">
+          <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+              <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                  <mat-expansion-panel-header>
+                      <mat-panel-title>
+                          <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                              <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                  <mat-icon class="fs  icon-align ">book</mat-icon>
+                                  <strong class="table-heads">Exam Fee Registrations</strong>
+                              </div>
+                          </div>
+                      </mat-panel-title>
+                      <label class="filter-align">Filter</label>
+                      <mat-icon>filter_list</mat-icon>
+                  </mat-expansion-panel-header>
+                  <form name="examFeeRegistrationForm" [formGroup]="examFeeRegistrationForm" novalidate>
+                      <div fxLayout="row">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                        fxFlex.gt-md="20">
+                        <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                            (selectionChange)="selectedCourse(examFeeRegistrationForm.value.courseId)" required>
+                            <mat-option *ngFor="let course of courses"
+                                [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                        fxFlex.gt-md="20">
+                        <mat-select placeholder="Exam Year" name="academicYearId"
+                            formControlName="academicYearId"
+                            (selectionChange)="selectedAcademicYear(examFeeRegistrationForm.value.academicYearId)"
+                            required>
+                            <mat-option *ngFor="let academicYear of academicYears"
+                                [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                        fxFlex.gt-md="60">
+                        <mat-select placeholder="Exam Master" name="examId" formControlName="examId"
+                            (selectionChange)="selectedExam(examFeeRegistrationForm.value.examId)" required>
+                            <ngx-mat-select-search [formControl]="ExamMasterFilterCtrl"
+                                [placeholderLabel]="'Search...'"
+                                [noEntriesFoundLabel]="'no matching data found'"
+                                (keyup)="searchexam($event.target.value)"></ngx-mat-select-search>
+                            <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})">
+
+                                {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date |
+                                date:dateFormate}})
+                                <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;"
+                                    matTooltip='Internal'>(Internal)</span>
+                                <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;"
+                                    matTooltip="Regular">(Regular)</span>
+                                <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;"
+                                    matTooltip="Supple">(Supple)</span>
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                    fxFlex.gt-md="20">
+                    <mat-select placeholder="College" name="collegeId" formControlName="collegeId"
+                        (selectionChange)="selectedCollege(examFeeRegistrationForm.value.collegeId)" required>
+                        <mat-option *ngFor="let college of colleges"
+                            [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                        <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                          <button mat-raised-button class="add-btn" color="accent" (click)="getFeePayments()" style="width: 100%;">Get List</button>
+                      </div>
+                      </div>
+                  </form>
+              </mat-expansion-panel>
+              <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+              </mat-expansion-panel>
+          </mat-accordion>
+          <mat-card class="pd-card table-align" *ngIf="flag">
+              <mat-card-content>
+                  <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                      <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                          <label for="search" class="mr-8">
+                              <mat-icon class="secondary-text">search</mat-icon>
+                          </label>
+                          <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                              <input matInput (keyup)="applyFilter($event.target.value)" placeholder="Search">
+                          </mat-form-field>
+                      </div>
+                  </div>
+              </mat-card-content>
+
+              <div class="mat-elevation-z8">
+                  <div class="example-container ">
+                      <table mat-table [dataSource]="dataSource" matSort>
+
+                          <!-- ID Column -->
+                          <ng-container matColumnDef="id">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                              <td mat-cell *matCellDef="let row; let i=index"> {{feeRegistrationPayments.indexOf(row)+1}} </td>
+                          </ng-container>
+
+                          <!-- Exam Name Column -->
+                          <ng-container matColumnDef="studentName">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>Student</th>
+                              <td mat-cell *matCellDef="let row"> {{row.studentName}} 
+                                  <span style="color: blue;font-weight: 500;">({{row.rollNumber}})</span> </td>
+                          </ng-container>
+
+                          <ng-container matColumnDef="courseYear">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>Course Year</th>
+                              <td mat-cell *matCellDef="let row"> 
+                                  <p *ngFor="let item of row.examStdRegDTOs" style="    color: blue;
+                                  text-decoration: underline;
+                                  cursor: pointer;
+                              " (click)="viewCourseYearSubjectsListDialog(item)">{{item.courseYearName}} ({{item.examTypeCode}})</p>
+                            </td>
+                          </ng-container>
+
+                          <ng-container matColumnDef="receiptNo">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>Receipt No.</th>
+                              <td mat-cell *matCellDef="let row"> {{row.receiptNo}} </td>
+                          </ng-container>
+
+                          <ng-container matColumnDef="paymentModeCatDisplayName">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>Payment Mode</th>
+                              <td mat-cell *matCellDef="let row"> {{row.paymentModeCatDisplayName}}
+                              </td>
+                          </ng-container>
+
+                          <!-- To Date Column -->
+                          <ng-container matColumnDef="settledDate">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Payment Date</th>
+                            <td mat-cell *matCellDef="let row"> {{row.settledDate | date:'MMM d, y'}} </td>
+                          </ng-container>
+
+                          <!-- From Date Column -->
+                          <ng-container matColumnDef="receiptAmount">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>Receipt Amount</th>
+                              <td mat-cell *matCellDef="let row"> {{row.receiptAmount}} </td>
+                          </ng-container>
+
+                          <!-- From Date Column -->
+                          <ng-container matColumnDef="regPaymentStatusCatDisplayName">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+                              <td mat-cell *matCellDef="let row"> 
+                                  <span *ngIf="row.regPaymentStatusCatDisplayName === 'Paid'" style="background: yellow;
+                                  padding: 0px 10px;
+                                  border-radius: 3px;">{{row.regPaymentStatusCatDisplayName}}</span> 
+                                  <span *ngIf="row.regPaymentStatusCatDisplayName === 'Rejected'" style="background: red;
+                                  padding: 0px 10px;
+                                  border-radius: 3px;">{{row.regPaymentStatusCatDisplayName}}</span> 
+                                  <span *ngIf="row.regPaymentStatusCatDisplayName === 'Approved'"
+                                  style="background: greenyellow;
+                                  padding: 0px 10px;
+                                  border-radius: 3px;">{{row.regPaymentStatusCatDisplayName}}</span> 
+                                </td>
+                          </ng-container>
+
+                          <!-- Is Active Column -->
+                          <ng-container matColumnDef="isActive">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
+                              <td mat-cell *matCellDef="let row">
+                                  <span *ngIf="row.isActive==true" class="active">Active</span>
+                                  <span *ngIf="row.isActive==false" class="in-active">InActive</span>
+                              </td>
+                          </ng-container>
+
+                          <!-- Actions Column -->
+                          <ng-container matColumnDef="transactions">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header> Transactions </th>
+                              <td mat-cell *matCellDef="let row" class="text-ctr">
+                                    <button mat-icon-button>
+                                            <i class="fa fa-eye edit" aria-hidden="true" matTooltip="Transactions" style="color: #9E9E9E  !important;"  (click)="viewTransactions(row)"></i>
+                                        </button> 
+                              </td>
+                          </ng-container>
+
+                           <!-- Actions Column -->
+                          <ng-container matColumnDef="actions">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header> Actions </th>
+                              <td mat-cell *matCellDef="let row" class="text-ctr">
+                                <button mat-raised-button style="background: #ffcf46;cursor: pointer;" 
+                                (click)="register(row)" *ngIf="row.regPaymentStatusCatDisplayName === 'Approved' && row.isPaymentSettled === null">Register</button>
+                                <span *ngIf="row.isPaymentSettled" style="background: chartreuse;
+                                padding: 3px 6px;
+                                border-radius: 3px;"> Registered </span>
+                              </td>
+                          </ng-container>
+
+                          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                          <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                          </tr>
+                      </table>
+                  </div>
+                  <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+              </div>
+
+          </mat-card>
+
+          <!-- / CONTENT -->
+
+      </div>
+  </div>
+</div>

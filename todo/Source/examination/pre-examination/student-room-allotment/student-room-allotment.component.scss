@@ -1,0 +1,307 @@
+mat-grid-tile {
+    background: #eaf2ff;
+    margin: 2px;
+    box-shadow: 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
+    border-radius: 3px;
+    cursor: pointer;
+    height: 100px; // height: auto;
+    border: 1px solid #6fa2ff;
+    .title {
+        text-align: center;
+        font-size: larger;
+        line-height: 0em;
+    }
+    mat-hint {
+        font-size: smaller;
+    }
+}
+
+mat-grid-list {
+    border-right: 1px solid #9E9E9E !important;
+    .min-height {
+        min-height: 100px !important;
+    }
+}
+
+.table-align mat-card-content {
+    background: #fff;
+    padding: 7px 15px 0px 15px;
+    color: #000;
+    margin-bottom: 0;
+    height: auto;
+}
+
+.exam-obser-icon {
+    color: #03A9F4;
+}
+
+.blue {
+    border: 1px solid #03A9F4;
+    color: #03A9F4 !important;
+}
+
+.pink {
+    border: 1px solid #E91E63;
+    color: #E91E63 !important;
+}
+
+.green {
+    border: 1px solid #1ee939;
+    color: #1ee939 !important;
+}
+
+.yello {
+    border: 1px solid #e9d51e;
+    color: #e9d51e !important;
+}
+
+.brown {
+    border: 1px solid #b47d15;
+    color: #b47d15 !important;
+}
+
+.orange {
+    border: 1px solid #e97c23;
+    color: #e97c23 !important;
+}
+
+// .exam-inv-icon {
+//     color: #E91E63;
+// }
+.designation {
+    display: inline-block;
+    width: 100%;
+    background: white !important;
+    position: inherit;
+    .text-align {
+        display: inline-block;
+        white-space: nowrap;
+        overflow: hidden !important;
+        text-overflow: ellipsis;
+        margin: 0px 2px;
+        max-width: 45px;
+        width: initial!important;
+    }
+}
+
+
+.example-ripple-container {
+    cursor: pointer;
+    text-align: center;
+    width: 300px;
+    height: 300px;
+    line-height: 300px;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-user-drag: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+
+/** Styles to make the demo look better. */
+
+.example-ripple-checkbox {
+    margin: 6px 12px 6px 0;
+}
+
+.example-ripple-form-field {
+    margin: 0 12px 0 0;
+}
+
+.icons-details {
+    position: absolute;
+    left: 35px;
+    top: 2px;
+    font-weight: 500;
+}
+
+.add-room-btn {
+    margin: auto;
+    color: #ffcf46;
+}
+
+
+/*=============== ToolTip ========== */
+
+
+/* USELESS CSS */
+
+// .content {
+//     align-items: center;
+//     box-sizing: border-box;
+//     display: flex;
+//     flex-direction: column;
+//     font-family: 'Fira Sans', sans-serif;
+//     justify-content: center;
+//     padding: 2rem 0;
+//     width: 100vw;
+// }
+
+/* COLORS */
+
+$white: #ffffff;
+$gray-light: #cdd2d6;
+$black: #000000;
+$blue: #042956;
+$orange: #ff7033;
+$red: #f7404f;
+$green: #49c562;
+$shadow: rgba(205, 210, 214, .8);
+
+/* BUTTONS */
+
+.btn {
+    transition: all .3s ease;
+    &:hover {
+        border: 1px solid $blue;
+        border-color: $blue;
+    }
+}
+
+
+/* TOOLTIP */
+
+.tooltip {
+    position: relative;
+    overflow: hidden;
+    &:hover {
+        overflow: visible;
+        z-index: 1;
+        .tooltip-content {
+            opacity: 1;
+        }
+    }
+    .tooltip-content {
+        background: #fff;
+        border: 1px solid;
+        box-shadow: 0 5px 25px 5px rgba(205, 210, 214, 0.8);
+        box-sizing: border-box;
+        color: #000;
+        font-size: 12px;
+        line-height: 1.2;
+        letter-spacing: 1px;
+        max-width: 200px;
+        min-width: 190px;
+        padding: 1em;
+        position: absolute;
+        opacity: 0;
+        transition: all .3s ease;
+        font-size: 10px;
+        &::after {
+            background: #fff;
+            content: "";
+            border-left: 1px solid #042956;
+            border-bottom: 1px solid #042956;
+            height: 10px;
+            position: absolute;
+            -webkit-transform: rotate(45deg);
+            transform: rotate(45deg) !important;
+            width: 10px;
+        }
+        h5 {
+            background: #00bcd433;
+            padding: 7px 0px;
+            margin: 2px 0px 10px 0px;
+            text-align: center;
+        }
+    }
+    &.right {
+        .tooltip-content {
+            left: calc(100% + 1.5em);
+            top: 50%;
+            transform: translateY(-50%);
+            &::after {
+                left: -5px;
+                margin-top: -5px;
+                top: 50%;
+            }
+        }
+    }
+}
+
+#parent_div_1,
+#parent_div_2,
+#parent_div_3 {
+    width: 100px;
+    height: 100px;
+    //  border: 1px solid red;
+    margin-right: 10px;
+    float: left;
+}
+
+.child_div_1 {
+    float: left;
+    margin-right: 5px;
+}
+
+.mat-radio-button {
+    padding: 5px 0px;
+}
+
+.table-th{
+    padding: 5px 5px !important;
+    background: #C3D9FF !important;
+    font-weight: 500;
+    color: #000 !important;
+}
+table {
+    border-spacing: 1px !important;
+}
+.table-td {
+    padding: 3px 8px !important;
+   // background: #C3D9FF !important;
+}
+tbody tr:nth-child(odd){
+    background-color: #eaf2ff;
+    color: #fff;
+  }
+
+
+  
+.firstTable {
+    margin: 0 0 0 0px;
+    table {
+        width: 100%;
+    }
+    thead {
+        display: table;
+        /* to take the same width as tr */
+        width: calc(100% - 12px);
+        /* - 17px because of the scrollbar width */
+    }
+    tbody {
+        display: block;
+        /* to enable vertical scrolling */
+        max-height: 200px;
+        /* e.g. */
+        overflow-y: scroll;
+        /* keeps the scrollbar even if it doesn't need it; display purpose */
+    }
+    th,
+    td {
+        width: 25%;
+        /* to enable "word-break: break-all" */
+        padding: 5px;
+        word-break: break-all;
+        /* 4. */
+    }
+    tr {
+        display: table;
+        /* display purpose; th's border */
+        width: 100%;
+        box-sizing: border-box;
+        /* because of the border (Chrome needs this line, but not FF) */
+    }
+    td {
+        text-align: center;
+        border-bottom: none;
+        border-left: none;
+    }
+}
+h4{
+    margin: 0;
+    font-weight: 500;
+    color: blue;
+}

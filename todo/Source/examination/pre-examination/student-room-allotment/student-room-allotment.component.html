@@ -1,0 +1,282 @@
+<div id="admission-dashboard" class="page-layout simple">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination Management</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Pre Examination</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Student Room Allotment</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content  mt-15">
+        <mat-accordion >
+            <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                <mat-expansion-panel-header>
+                    <mat-panel-title>
+                        <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                <mat-icon class="fs  icon-align ">book</mat-icon>
+                                <strong class="table-heads">Student Room Allotment</strong>
+                            </div>
+                        </div>
+                    </mat-panel-title>
+                    <label class="filter-align">Filter</label>
+                    <mat-icon>filter_list</mat-icon>
+                </mat-expansion-panel-header>
+                <form name="studentAllotmentForm" [formGroup]="studentAllotmentForm" novalidate>
+                    <div fxLayout="row">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(studentAllotmentForm.value.collegeId)" required>
+                                <mat-option *ngFor="let college of colleges" [value]="college.collegeId">{{college.collegeCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(studentAllotmentForm.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses" [value]="course.courseId">{{course.courseCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="17" fxFlex.gt-md="17">
+                            <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(studentAllotmentForm.value.academicYearId)" required>
+                                <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.academicYearId">{{obcjt.academicYear}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="53" fxFlex.gt-md="53">
+                            <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExamsList(studentAllotmentForm.value.examId)">
+                                <mat-option *ngFor="let exam of examsList" [value]="exam.examId">
+                                    {{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})
+                                    <span *ngIf="exam.isInternalExam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                    <span *ngIf="exam.isRegularExam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                    <span *ngIf="exam.isSupplyExam" style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                    <div fxLayout="row">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                            <mat-select placeholder="Exam Timetable" name="examTimetableId" formControlName="examTimetableId" required>
+                                <mat-option *ngFor="let objct of details" [value]="objct.examTimetableId">
+                                    {{objct.examName}}
+                                    <span *ngIf="objct.examDate != null" class="rol-no">({{objct.examDate}})</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30">
+                            <mat-select placeholder="Room" name="roomId" formControlName="roomId" #singleSelect (selectionChange)="selectedRoom(studentAllotmentForm.value.roomId)" required>
+                                <mat-select-trigger> {{roomDetails}}</mat-select-trigger>
+                                <ngx-mat-select-search [formControl]="roomFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" (keyup)="enteredRoom($event, 'input')"></ngx-mat-select-search>
+                                <mat-option *ngFor="let room of filteredRooms | async" [value]="room.roomId" style="height: auto;border-bottom: 0.5px solid;">
+
+                                    <div style="width: 80%;top: 5px;line-height: 30px;">
+                                        <span class="book-title">{{room.roomName}}</span>
+                                        <span class="rol-no1" *ngIf="room.roomType != null">
+                                                <small>( {{room.roomType}})</small>
+                                                <small *ngIf="room.occupancy" style="color: darkorange;">( {{room.occupancy}})</small>
+                                            </span><br>
+                                        <span class="rol-no">
+                                                        <small> {{room.campuName}}</small>
+                                                        <small *ngIf= "room.buildingName != null"> / {{room.buildingName}}</small>
+                                                        <small *ngIf= "room.blockName != null"> / {{room.blockName}}</small>
+                                                        <small *ngIf= "room.floorName != null"> / {{room.floorName}}</small>
+                                                        <small *ngIf= "room.occupancy != null">( / {{room.occupancy}})</small>
+                                                     </span>
+                                    </div>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13">
+                            <button mat-raised-button class="add-btn" color="accent" (click)="getlist()" style="width: 100%;">Show</button>
+                        </div>
+                    </div>
+                    <p style="color: red;
+                    font-weight: 500;
+                    margin: 0 8px;" *ngIf="isEmptyObject(this.room) && this.room.examRows == null && isRoom"><i class="fa fa-info-circle" style="color: #e80000;" aria-hidden="true"></i>
+                    Selected room is not alloted, Please contact admin.</p>
+                    <p style="font-weight: 500;
+                            font-size: 15px;" *ngIf="!isEmptyObject(this.room) && this.room.examRows != null && isRoom">
+                            Total Strength of room {{room.roomName}} is {{room.examRows * room.examColumns}}.</p>
+                </form>
+            </mat-expansion-panel>
+            <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+            </mat-expansion-panel>
+        </mat-accordion>
+
+        <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" *ngIf="flag">
+            <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <!-- <div fxLayout="row" fxLayoutAlign="space-between center">
+                        <mat-icon class="fs icon-align fs">library_books</mat-icon>
+                        <strong class="table-heads"> Books </strong>
+                        <button class="btn-add" mat-raised-button color="accent" [routerLink]="[ '/library/add-books']">
+                            <i class="material-icons">add</i>
+                            Add Books</button>
+                    </div> -->
+                <div fxLayout="row wrap " fxFlex="100" fxLayoutAlign="space-between center">
+                    <div fxLayoutAlign="start center" class="mod-head">
+                        <strong class="table-heads">Exam Allocations</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <mat-card class="pd-card table-align" *ngIf="flag">
+            <mat-card-content>
+                <div fxLayout="column">
+                    <!-- <form name="studentAllotmentForm" [formGroup]="studentAllotmentForm" novalidate>
+                        <div fxLayout="row" style="margin-top: 15px;">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <mat-select placeholder="Campus - Building" name="buildingId" formControlName="buildingId" (selectionChange)="SelectedBuilding(studentAllotmentForm.value.buildingId)">
+                                    <mat-option [value]="0">Select</mat-option>
+                                    <mat-option *ngFor="let objct of buildings" [value]="objct.buildingId">{{objct.campusName}} - {{objct.buildingCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="16" fxFlex.gt-md="16">
+                                <mat-select placeholder="Block" name="blockId" formControlName="blockId" (selectionChange)="SelectedBlock(studentAllotmentForm.value.blockId)">
+                                    <mat-option [value]="0">Select</mat-option>
+                                    <mat-option *ngFor="let objct of blocks" [value]="objct.blockId">{{objct.blockCode}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                                <mat-select placeholder="Floor - No" name="floorId" formControlName="floorId" (selectionChange)="SelectedFloors(studentAllotmentForm.value.floorId)">
+                                    <mat-option [value]="0">Select</mat-option>
+                                    <mat-option *ngFor="let object of floors" [value]="object.floorId">{{object.floorName}} - {{object.floorNo}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+                    </form> -->
+                    <div fxLayout="row wrap" fxFlex="100">
+                        <!-- <div fxLayout="column" fxFlex="60">
+                          <mat-grid-list fxFlex="100" fxLayout="row wrap ">
+                              <mat-grid-tile fxLayout="column" class="grid-bckgrnd" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20" *ngFor="let tile of filteredRoomsList" (click)="selectedRoomDetails(tile, 'List')">
+                                  <div fxLayout="row wrap" style="max-height: fit-content !important;">
+                                      <div fxLayout="column" class="p-8" fxFlex="100">
+                                          <p class="title">{{tile.roomName}}
+                                          </p>
+                                          <mat-hint style="text-align: center;">{{tile.buildingCode}} / {{tile.blockCode}} / {{tile.floorNo}}</mat-hint>
+                                      </div>
+                                  </div>
+                              </mat-grid-tile>
+                          </mat-grid-list>
+                        </div> -->
+                      
+                        <div fxLayout="column" fxFlex="50">
+                            
+                            <div fxLayout="row wrap" fxFlex="100" class="firstTable">
+                                    <!-- <h4>Students</h4> -->
+                                    <table>
+                                            <thead>
+                                                    <tr>
+                                                        <th class="table-th" style="width: 5%;">
+                                                            <mat-checkbox name="check" [(ngModel)]="checkCourse" (click)="markAllCourse()" [ngModelOptions]="{standalone: true}"></mat-checkbox>
+                                                        </th>
+                                                        <th class="table-th">Students</th>
+                                                        <th class="table-th">Subject</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr *ngFor="let tile of students; let i=index">
+                                                        <td class="table-td" style="width: 5%;">
+                                                            <mat-checkbox name="check" [(ngModel)]="tile.checked" (click)="checkedCourses(!tile.checked,tile)" [ngModelOptions]="{standalone: true}"></mat-checkbox>
+                                                        </td>
+                                                        <td class="table-td" > {{tile.firstName}}
+                                                            <p style="margin: 0px;">({{tile.groupCode}}/{{tile.courseYearCode}}/{{tile.rollNumber}})</p>
+                                                        </td>
+                                                        <td class="table-td" > {{tile.subjectName}}</td>
+                                                    </tr>
+                                                </tbody>
+                                    </table>
+                            </div>
+                            
+                            <!-- <div fxLayout="row wrap " fxFlex="100" class="firstTable" >
+                                   
+                            </div> -->
+                        </div>
+                        <div fxLayout="column" fxFlex="50">
+                               
+                        <div fxLayout="row wrap" fxFlex="100" class="firstTable" >
+                            <!-- <h4>Selected Students</h4> -->
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th class="table-th" style="width: 5%;">SI.No</th>
+                                        <th class="table-th">Selected Students</th>
+                                        <th class="table-th">Subject</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr *ngFor="let tile of selectedCourses; let i=index">
+                                        <td class="table-td" style="width: 5%;">{{selectedCourses.indexOf(tile) + 1}}</td>
+                                        <td class="table-td" > {{tile.firstName}} </td>
+                                        <td class="table-td" matTooltip={{tile.subjectCode}} > {{tile.subjectName}} </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            </div>
+                            <!-- <div fxLayout="row wrap " fxFlex="100" class="firstTable" >
+                                    <h4>Selected Rooms List</h4>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th class="table-th">SI No.</th>
+                                                <th class="table-th">Rooms</th>
+                                                <th class="table-th">Strength</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr *ngFor="let tile of selectedRooms; let i=index">
+                                                <td class="table-td">{{selectedRooms.indexOf(tile) + 1}}</td>
+                                                <td class="table-td" matTooltip={{tile.roomdata}} > {{tile.roomName}}</td>
+                                                <td class="table-td" matTooltip={{tile.roomdata}}  > {{tile.totalRows}}  X {{tile.totalColumns}} 
+                                                    <span class="rol-no">({{tile.roomStrength}})</span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                            </div> -->
+                            <div fxLayout="row" fxFlex="100" class="firstTable" >
+                                <div class="form-btn">
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="createStudentAllotment()">
+                                        Create Seating Plan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- <div fxLayout="column" fxFlex="100">
+                            <div fxLayout="row wrap " fxFlex="100" >
+                                    <div fxLayout="column" class="p-8" fxFlex="100" >
+                                            <button mat-raised-button class="add-btn" style="width: 20%;" color="accent" (click)="createStudentAllotment()">
+                                                <i class="material-icons" style="color: white;">add</i> Create Seating Plan
+                                            </button>
+                                        </div> -->
+                        <!-- <div fxLayout="column" fxFlex="18" >
+                            <div fxLayout="row wrap " fxFlex="100" >
+                                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="createStudentAllotment()">
+                                        <i class="material-icons" style="color: white;">add</i> Create Seating Plan
+                                    </button>
+                                </div>
+                                </div>
+                                <div fxLayout="row wrap " fxFlex="100" >
+                                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="printStudentAllotment()">
+                                        <i class="material-icons" style="color: white;">print</i> Print Seating Plan
+                                    </button>
+                                </div>
+                            </div>
+                        </div> -->
+                    <!-- </div>
+                        </div> -->
+                    </div>
+                </div>
+            </mat-card-content>
+        </mat-card>
+    </div>
+    <!-- / CONTENT -->
+
+</div>

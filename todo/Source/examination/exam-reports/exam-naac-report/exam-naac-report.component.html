@@ -1,0 +1,151 @@
+<div id="admission-dashboard" class="page-layout simple">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination Management</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Reports</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam NAAC Report</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+        <div class="mat-elevation-z8 bkgrd">
+            <form name="internalMarksCalForm" [formGroup]="internalMarksCalForm" style="padding-bottom: 1px;" class="form-pad" novalidate>
+                <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                    <i class="material-icons sub-header-icon">money</i>
+                    <span class="sub-header-text">Exam NAAC Report</span>
+                </div>
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd" style="padding: 0px 15px;">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(internalMarksCalForm.value.collegeId)" required>
+                                <mat-option *ngFor="let college of colleges" [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAYear()" required>
+                                <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(internalMarksCalForm.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Course Group" name="courseGroupId" formControlName="courseGroupId" (selectionChange)="selectedCourseGroup(internalMarksCalForm.value.courseGroupId)" required>
+                                <mat-option *ngFor="let obcjt of courseGroups" [value]="obcjt.fk_course_group_id">{{obcjt.group_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId" (selectionChange)="selectedYear(internalMarksCalForm.value.courseYearId)" required>
+                                <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.fk_course_year_id">{{courseYear.course_year_name}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="65" fxFlex.gt-md="65">
+                            <mat-select placeholder="Exam" [formControl]="examsMultiCtrl" [multiple]="true" (selectionChange)="selectedExamsList()">
+                                <mat-option *ngFor="let exam of filteredExamsList | async" [value]="exam.fk_exam_id"
+                                matTooltip="{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})">
+                                    {{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Subject" name="subjectId" formControlName="subjectId" (selectionChange)="selectedSubject()" required>
+                                <mat-option *ngFor="let objt of subjects; let i = index" [value]="objt.fk_subject_id">{{objt.subject_name}}
+                                    <span class="rol-no"> - {{objt.subject_code}}</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                      
+
+                        <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13" *ngIf="selectedExamslist.length>0">
+                            <button mat-raised-button class="add-btn" color="accent" (click)="getList()" style="width: 100%;">Get List</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- <p *ngIf="examIntMarkTypeId == null && flag" style="color: red;
+                margin: 0 22px;
+                font-weight: 600;">Note: Exam internal marks type is not updated in regulation master.</p> 
+                <p *ngIf="examIntMarkTypeId != null && flag" style="color: red;
+                margin: 0 22px;
+                font-weight: 600;">Note: For Regulation {{regulationCode}} the Exam internal marks type is {{internalType}}.</p> -->
+            </form>
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" *ngIf="examStudentsList.length>0" style="margin-top: 10px;
+                border-top: 7px solid #eff0f2;">
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <strong class="table-heads" style="font-size: 14px !important">{{selectedData}}</strong> &nbsp;
+                       ( <small style="color: darkgray !important;">{{tempV}}</small>)
+                    </div>
+                </div>
+
+            </div>
+            <mat-card class="table-align" *ngIf="examStudentsList.length>0" >
+                <mat-card-content>
+                    <div fxLayout="row" fxLayout.xs="column" style="position: relative;" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                            <label for="search" class="mr-8">
+                          <mat-icon class="secondary-text">search</mat-icon>
+                      </label>
+                            <mat-form-field floatLabel="never" fxFlex="1 0
+                          auto">
+                                <input matInput [(ngModel)]="searchText" autocomplete="off" [ngModelOptions]="{standalone: true}" placeholder="Search">
+                            </mat-form-field>
+                        </div>
+                       
+                        <i class="fa fa-print print" (click)="print()" matTooltip="Print Report" aria-hidden="true"></i>
+                    </div>
+                </mat-card-content>
+    
+                <div class="mat-elevation-z8">
+                    <div class="example-container firstTable">
+                        <table class="table table-striped fee fee_">
+                            <thead>
+                                <tr>
+                                    <th class="table-th" style="width: 5%;text-align: center;">SI.No</th>
+                                    <th class="table-th" style="width: 5%;text-align: center;">Roll No.</th>
+                                    <th class="table-th" style="width: 10%;text-align: center;">Student Name</th>
+                                    <th class="table-th" style="width: 4%;text-align: center;padding: 0 !important;
+                                    margin: 0;" *ngFor="let  key of keys; let i=index">
+                                        <p class="p-had">{{key.detailCode}}</p>
+                                        <p class="p-had" *ngIf="key.courseOutcomeCatdetCode != ''">{{key.courseOutcomeCatdetCode}}</p>
+                                        <p class="p-had" *ngIf="key.detailMarks != ''">{{key.detailMarks}}</p>
+                                    </th>
+                                    <th class="table-th" style="width: 5%;text-align: center;">Best of II</th>
+                                </tr>
+                            </thead>
+                            <tbody *ngIf="examStudentsList.length>0">
+                                <tr *ngFor="let object of examStudentsList | studentRollnoFilter: searchText; let i = index" >
+                                        
+                                    <td style="width: 5%;">{{i+1}}</td>
+                                    <td style="text-align: left;width: 5%;">{{object.rollNumber}}</td>
+                                    <td style="width: 10%;text-align: left;">{{object.firstName}}</td>
+                                    <td style="width: 4%;text-align: center;" *ngFor="let mid of object.mids; let i=index">
+                                        <span *ngIf="mid.marks != null">{{mid.marks}}</span>
+                                        <span *ngIf="mid.marks == null">-</span>
+                                    </td>
+                                    <td style="width: 5%;text-align: center;">{{cal(object)}}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+    
+            </mat-card>
+        </div>
+    </div>
+    <!-- / CONTENT -->
+
+</div>

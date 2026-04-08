@@ -1,0 +1,53 @@
+<div class="layout" >
+   <div fxLayout="row" >
+      <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+       <!-- <table id="table-print" >
+         <thead>
+            <tr>
+               <td style="margin:auto; float:left; width:100%; border: 1px solid !important; vertical-align: middle !important; padding: 25px 0px 9px 0px !important; ">
+                       Header
+               </td>
+            </tr>
+         </thead>
+         <tbody>    
+            <tr style="margin-top: 30px; display: block;">
+               <td *ngFor="let data of bulkdata" class="sticker-td">
+                   <span style="display: flex; justify-content: center; margin-bottom: -3px; font-size: 12px !important;"> {{data?.hallticket_number}}</span>
+                   <img [src]="'data:image/jpg;base64,'+data?.omr_barcode" style="height:30px; width: 192px !important;" /> 
+                   <span style="display: flex; justify-content: center; font-size:8px; margin-top: 1px;">{{data?.exam_date}} &nbsp; &nbsp; {{data?.subject_code}}</span>
+               </td>
+            </tr>
+         </tbody>
+         
+
+       </table> -->
+       <table id="table-print">
+         <thead>
+             <tr>
+                 <td class="header-cell"><span class="span-1">{{bulkdata[0].exam_name}}</span> <br>
+                  <span>{{collegeCode}} | {{academicyear}} | {{courseCode}} | {{courseGroupCode}} | {{courseYear}}</span> <br>
+                  <span>{{bulkdata[0].exam_date}}</span> &nbsp; <span>{{bulkdata[0].exam_session_name}}</span> <br>
+                  <span>{{bulkdata[0].subject_name}}-({{bulkdata[0].subject_code}})</span>
+
+                </td>
+             </tr>
+         </thead>
+         <tbody>
+            <tr style="margin:0px 4px; display: block;">
+               <td *ngFor="let data of bulkdata" class="sticker-td">
+                   <span style="display: flex; justify-content: center; margin-bottom: -3px; font-size: 12px !important;"> <span *ngIf="printHn">{{data?.hallticket_number}}</span> &nbsp; &nbsp; <span *ngIf="barcodeNo"> {{data?.omr_serial_no}}</span> </span>
+                   <img [src]="'data:image/jpg;base64,'+data?.omr_barcode" style="height:30px; width: 180px !important;" /> 
+                   <span style="display: flex; justify-content: center; font-size:7px; margin-top: 1px;">{{data?.exam_date}} &nbsp; &nbsp; {{data?.subject_code}}</span>
+               </td>
+            </tr>
+         </tbody>
+     </table>
+      </div>
+   </div>
+   <div class="printbtn">
+      <button  id="printPageButton" mat-raised-button class="back-btn" (click)="printBack()">
+        Back</button>
+        <button  id="printPageButton" mat-raised-button color="accent" (click)="printPage('printsection')">
+            Print</button>
+    </div>
+ </div>

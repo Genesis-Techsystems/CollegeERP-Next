@@ -1,0 +1,62 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                              ballot
+                              </i>
+                    <span>Exam Answer Paper Bag</span>
+                </div>
+            </div>
+        </div>
+        <mat-dialog-content>
+  
+            <div fxLayout="column" class="div-border" >
+                <div fxLayout="row wrap " fxFlex="100">
+                    <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                        <p class="details-off">Bag Serial No : </p>
+                    </div>
+                    <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                        <p class="details-off"><span class="colr"> {{data[0]?.bagSerialNo}}</span></p>
+                    </div>
+                </div>
+               
+            </div>
+            <div class="mat-elevation-z8 " style="margin-top: 15px;" >
+                <div class="example-container ">
+                    <table >
+                            <thead>
+                                <tr >
+                                    <th class="table-th">SI.No.</th>
+                                    <th class="table-th">Bag Serial Number</th>
+                                    <th class="table-th">Student Name</th>
+                                    <th class="table-th">Subject</th>
+                                   
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let dt of data; let i=index">
+                                    <td>{{i+1}}</td>
+                                    <td class="table-td">{{dt.bagSerialNo}}</td>
+                                    <td class="table-td">{{dt.stdFirstName}}  <span style="color:blue"> ({{dt?.hallticketNumber}})</span></td>
+                                    <td class="table-td">{{dt.subjectName}}   <span style="color:blue">({{dt.subjectCode}})</span></td>
+
+                                </tr>
+                               
+                            </tbody>
+                        </table>
+                        </div>
+            </div>
+        </mat-dialog-content>
+        <mat-dialog-actions>
+            <button mat-raised-button class="cls-btn" mat-dialog-close>
+                Close
+                </button>
+              <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+                  Save
+                  </button>
+        </mat-dialog-actions>
+  
+    </div>
+  </div>
