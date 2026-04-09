@@ -86,6 +86,17 @@ export const EXAM_API = {
   SAVE_EXAM_MARKS_SETUP: 'exammarkssetup',
 } as const
 
+// ─── Question Bank / Assessments ─────────────────────────────────────────────
+
+export const ASSESSMENT_API = {
+  /** POST: add or update a single question (create if no courseQuestionId, update otherwise) */
+  ADD_QUESTION: 'assessment/addQuestion',
+  /** POST: bulk-import questions from Excel; returns array of question objects */
+  BULK_IMPORT: 'assessment/importQuestionsDetails',
+  /** GET (domain/list): searchable course-lesson hierarchy for modal dropdown */
+  COURSE_SEARCH: 'CourseLessonSearch',
+} as const
+
 // ─── Exam Online Paper ───────────────────────────────────────────────────────
 
 export const EXAM_ONLINE_API = {

@@ -5,20 +5,20 @@
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   /* Semantic surface tokens */
-  --background: 40 33% 98%;          /* warm off-white canvas */
-  --foreground: 222 47% 11%;         /* deep navy text */
+  --background: 210 20% 98%;          /* light blue-gray canvas */
+  --foreground: 222 71% 10%;          /* deep navy text */
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card-foreground: 222 71% 10%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover-foreground: 222 71% 10%;
 
-  /* Brand: indigo */
-  --primary: 239 68% 55%;            /* indigo-600 */
+  /* Brand: cyan-blue */
+  --primary: 199 89% 40%;            /* cyan-600 */
   --primary-foreground: 0 0% 100%;
 
-  /* Secondary accent — dark amber-orange */
-  --secondary: 35 90% 48%;             /* amber-600 */
-  --secondary-foreground: 0 0% 100%;
+  /* Secondary accent — dark slate */
+  --secondary: 215 25% 27%;           /* dark slate */
+  --secondary-foreground: 210 40% 98%;
   --muted: 220 14% 96%;
   --muted-foreground: 215 16% 47%;
   --accent: 220 14% 96%;
@@ -31,34 +31,32 @@
   --warning: 38 92% 50%;
 
   /* Borders & inputs */
-  --border: 220 13% 91%;
-  --input: 220 13% 91%;
-  --ring: 239 68% 55%;               /* indigo focus ring */
-  --radius: 0.5rem;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 199 89% 40%;               /* cyan focus ring */
+  --radius: 0.375rem;
 
   /* Sidebar — slate-900 dark */
   --sidebar-background: 222 47% 11%;    /* slate-900 */
   --sidebar-surface: 217 33% 17%;       /* slate-800 hover */
   --sidebar-foreground: 215 20% 65%;    /* slate-400 */
   --sidebar-foreground-active: 0 0% 100%;
-  --sidebar-primary: 239 68% 55%;       /* indigo-600 */
+  --sidebar-primary: 199 89% 48%;       /* cyan (matches brand) */
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 234 68% 72%;        /* indigo-400 icon */
+  --sidebar-accent: 199 89% 65%;        /* cyan-400 icon */
   --sidebar-accent-foreground: 0 0% 100%;
   --sidebar-border: 217 33% 20%;
-  --sidebar-ring: 243 75% 59%;
+  --sidebar-ring: 199 89% 48%;
 
   /* Custom brand vars */
-  --amber: 35 90% 48%;               /* matches --secondary */
-  --amber-light: 40 95% 58%;
   --navy-deep: 225 47% 7%;
 
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(15,23,42,0.06);
   --shadow-md: 0 4px 12px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.05);
   --shadow-lg: 0 12px 32px rgba(15,23,42,0.10), 0 4px 8px rgba(15,23,42,0.06);
-  --shadow-card-hover: 0 16px 40px rgba(79,70,229,0.12), 0 4px 12px rgba(15,23,42,0.08);
-  --shadow-indigo: 0 4px 20px rgba(79,70,229,0.25);
+  --shadow-card-hover: 0 16px 40px rgba(0,167,212,0.12), 0 4px 12px rgba(15,23,42,0.08);
+  --shadow-primary: 0 4px 20px rgba(0,167,212,0.25);
 
   /* ── Status colors ──────────────────────────────────────────────────────── */
   --color-status-active: oklch(0.527 0.154 150.069);      /* green */
@@ -91,8 +89,8 @@
   --font-size-caption: 0.75rem;
 
   /* ── Border radius ──────────────────────────────────────────────────────── */
-  --radius-card: 0.5rem;
-  --radius-modal: 0.75rem;
+  --radius-card: 0.375rem;
+  --radius-modal: 0.5rem;
   --radius-badge: 9999px;
 }
 
@@ -106,10 +104,10 @@
   --card-foreground: 210 40% 96%;
   --popover: 222 47% 10%;
   --popover-foreground: 210 40% 96%;
-  --primary: 239 84% 67%;
+  --primary: 199 89% 55%;
   --primary-foreground: 222 47% 7%;
-  --secondary: 32 80% 38%;             /* darker amber for dark bg */
-  --secondary-foreground: 0 0% 100%;
+  --secondary: 215 25% 35%;
+  --secondary-foreground: 210 40% 98%;
   --muted: 217 33% 17%;
   --muted-foreground: 215 20% 60%;
   --accent: 217 33% 17%;
@@ -118,14 +116,14 @@
   --destructive-foreground: 210 40% 96%;
   --border: 217 33% 18%;
   --input: 217 33% 18%;
-  --ring: 239 84% 67%;
+  --ring: 199 89% 55%;
   --sidebar-background: 225 47% 5%;
   --sidebar-surface: 222 47% 10%;
   --sidebar-foreground: 215 20% 55%;
   --sidebar-foreground-active: 0 0% 100%;
-  --sidebar-primary: 239 84% 67%;
+  --sidebar-primary: 199 89% 55%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 234 89% 74%;
+  --sidebar-accent: 199 89% 70%;
   --sidebar-border: 222 47% 13%;
 }
 
@@ -165,7 +163,6 @@
   --color-sidebar-border: hsl(var(--sidebar-border));
 
   /* Brand tokens */
-  --color-amber: hsl(var(--amber));
   --color-navy-deep: hsl(var(--navy-deep));
 
   /* Custom animation tokens */
@@ -288,7 +285,7 @@ html {
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
   line-height: 1.6;
 }
 
@@ -334,6 +331,16 @@ body {
 }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.4);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   AG GRID — row borders (applies to every DataTable on every page)
+   ───────────────────────────────────────────────────────────────────────── */
+
+.ag-theme-quartz {
+  --ag-row-border-style: solid;
+  --ag-row-border-width: 1px;
+  --ag-row-border-color: hsl(var(--border));
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -386,14 +393,71 @@ body {
   color: #64748b; /* slate-500 */
 }
 
-/* Float up + brand indigo when focused */
+/* Float up + brand cyan when focused */
 .fl-input:focus ~ .fl-label {
   top: 0.625rem;
   transform: translateY(0);
   font-size: 0.6875rem;
-  color: #4F46E5;
+  color: hsl(199 89% 40%);
 }
 
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   AG GRID — quartz theme overrides to match design system
+   ───────────────────────────────────────────────────────────────────────── */
+
+.ag-theme-quartz {
+  --ag-font-family: var(--font-inter), 'Inter', system-ui, -apple-system, sans-serif;
+  --ag-font-size: 12px;
+
+  /* Colors */
+  --ag-background-color: hsl(var(--card));
+  --ag-odd-row-background-color: hsl(var(--card));
+  --ag-header-background-color: hsl(var(--muted) / 0.5);
+  --ag-header-foreground-color: hsl(var(--foreground));
+  --ag-row-hover-color: hsl(var(--muted) / 0.3);
+  --ag-selected-row-background-color: hsl(var(--muted) / 0.5);
+  --ag-border-color: hsl(var(--border));
+  --ag-row-border-color: hsl(var(--border));
+  --ag-secondary-border-color: hsl(var(--border));
+  --ag-foreground-color: hsl(var(--foreground));
+  --ag-secondary-foreground-color: hsl(var(--muted-foreground));
+  --ag-input-border-color: hsl(var(--border));
+  --ag-input-focus-border-color: hsl(var(--ring));
+
+  /* Sizing */
+  --ag-header-height: 38px;
+  --ag-row-height: 40px;
+  --ag-cell-horizontal-padding: 12px;
+
+  /* Header */
+  --ag-header-column-separator-display: none;
+  --ag-header-column-resize-handle-display: block;
+  --ag-header-column-resize-handle-color: hsl(var(--border));
+
+  /* Borders & radius */
+  --ag-border-radius: var(--radius-card);
+  --ag-wrapper-border-radius: var(--radius-card);
+
+  /* Suppress inner grid lines for cleaner look */
+  --ag-cell-horizontal-border: none;
+}
+
+/* Header text style — semibold, no uppercase */
+.ag-theme-quartz .ag-header-cell-text {
+  font-weight: 600;
+  font-size: 12px;
+  color: hsl(var(--foreground));
+}
+
+/* Pagination bar */
+.ag-theme-quartz .ag-paging-panel {
+  border-top: 1px solid hsl(var(--border));
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  padding: 6px 12px;
+  height: auto;
+}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    REDUCED MOTION — respect user preference

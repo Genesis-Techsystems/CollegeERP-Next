@@ -586,7 +586,7 @@ function NavIcon({
     <span
       className={cn(
         'flex items-center justify-center h-[18px] w-[18px] shrink-0 transition-colors duration-150',
-        active ? 'text-indigo-400' : 'text-slate-400',
+        active ? 'text-sidebar-primary' : 'text-sidebar-foreground',
       )}
     >
       <Icon className="h-[15px] w-[15px]" strokeWidth={1.75} aria-hidden="true" />
@@ -660,7 +660,7 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
       >
         {isActive && (
           <span
-            className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-indigo-400"
+            className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-sidebar-primary"
             aria-hidden="true"
           />
         )}
@@ -698,7 +698,7 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
         >
           {isActive && (
             <span
-              className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-indigo-400"
+              className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-sidebar-primary"
               aria-hidden="true"
             />
           )}
@@ -744,7 +744,7 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
     >
       {isActive && (
         <span
-          className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-indigo-400"
+          className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-sidebar-primary"
           aria-hidden="true"
         />
       )}

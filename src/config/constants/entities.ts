@@ -29,6 +29,9 @@ export const ENTITIES = {
   STATE:                  { name: 'State',                     pk: 'stateId'                     },
   DISTRICT:               { name: 'District',                  pk: 'districtId'                  },
   CITY:                   { name: 'City',                      pk: 'cityId'                      },
+  // ─── Question Bank ───────────────────────────────────────────────────────────
+  ASSESSMENT:              { name: 'Assessment',              pk: 'assessmentId'              },
+  COURSE_QUESTION:         { name: 'CourseQuestion',          pk: 'courseQuestionId'          },
   // ─── Reference / lookup ──────────────────────────────────────────────────────
   GENERAL_DETAIL:         { name: 'GeneralDetail',             pk: 'generalDetailId'             },
   REGULATION:             { name: 'Regulation',                pk: 'regulationId'                },

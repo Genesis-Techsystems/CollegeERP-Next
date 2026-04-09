@@ -239,7 +239,7 @@ export function Topbar() {
     : '?'
 
   const avatarStyle =
-    roleAvatarStyle[user?.userRole ?? ''] ?? 'bg-indigo-100 text-indigo-700'
+    roleAvatarStyle[user?.userRole ?? ''] ?? 'bg-cyan-100 text-cyan-700'
 
   async function handleLogout() {
     await fetch(NEXT_API.AUTH.LOGOUT, { method: 'POST' })
@@ -248,13 +248,13 @@ export function Topbar() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4">
+    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card px-4">
 
       {/* ── Mobile hamburger ─────────────────────────────────────────── */}
       <Button
         variant="ghost"
         size="icon"
-        className="shrink-0 text-slate-500 hover:bg-slate-100 hover:text-slate-700 md:hidden"
+        className="shrink-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground md:hidden"
         onClick={toggleSidebar}
         aria-label="Toggle navigation sidebar"
       >
@@ -277,12 +277,12 @@ export function Topbar() {
             <>
               {pagesLoading ? (
                 <Loader2
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
                   aria-hidden="true"
                 />
               ) : (
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                   aria-hidden="true"
                 />
               )}
@@ -308,9 +308,9 @@ export function Topbar() {
                   }
                 }}
                 className={cn(
-                  'h-9 w-56 rounded-lg border border-slate-200 bg-slate-50',
-                  'pl-9 pr-4 text-sm text-slate-700 placeholder:text-slate-400',
-                  'focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400/20',
+                  'h-8 w-52 rounded border border-input bg-background',
+                  'pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground',
+                  'focus:border-ring focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring/20',
                   'transition-all duration-150',
                 )}
               />
@@ -319,7 +319,7 @@ export function Topbar() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              className="h-9 w-9 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               aria-label="Open search"
               onClick={openSearch}
             >
@@ -336,7 +336,7 @@ export function Topbar() {
               id="search-results-listbox"
               role="listbox"
               aria-label="Page search results"
-              className="absolute top-full right-0 z-50 mt-1 w-64 bg-background border border-slate-200 rounded-md shadow-lg max-h-64 overflow-y-auto"
+              className="absolute top-full right-0 z-50 mt-1 w-64 bg-card border border-border rounded-md shadow-lg max-h-64 overflow-y-auto"
             >
               {filteredPages.map((page, index) => (
                 <button
@@ -379,7 +379,7 @@ export function Topbar() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          className="h-9 w-9 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           aria-label="All apps"
         >
           <LayoutGrid className="h-[18px] w-[18px]" aria-hidden="true" />
@@ -389,28 +389,28 @@ export function Topbar() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          className="h-9 w-9 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           aria-label="Help"
         >
           <HelpCircle className="h-[18px] w-[18px]" aria-hidden="true" />
         </Button>
 
         {/* Divider */}
-        <div className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
+        <div className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
 
         {/* User menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="User menu"
             >
               {/* Name + role stacked */}
               <div className="hidden text-right md:block">
-                <p className="text-[13px] font-semibold text-slate-800 leading-none">
+                <p className="text-[13px] font-semibold text-foreground leading-none">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="mt-0.5 text-[11px] text-slate-500 leading-none">
+                <p className="mt-0.5 text-[11px] text-muted-foreground leading-none">
                   {user?.roleName ?? 'User'}
                 </p>
               </div>
@@ -423,7 +423,7 @@ export function Topbar() {
               </Avatar>
 
               <ChevronDown
-                className="hidden h-3.5 w-3.5 text-slate-400 md:block"
+                className="hidden h-3.5 w-3.5 text-muted-foreground md:block"
                 aria-hidden="true"
               />
             </button>
@@ -431,10 +431,10 @@ export function Topbar() {
 
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuLabel className="pb-1">
-              <p className="text-[13px] font-semibold text-slate-800">
+              <p className="text-[13px] font-semibold text-foreground">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-[11px] text-slate-500 font-normal">{user?.roleName}</p>
+              <p className="text-[11px] text-muted-foreground font-normal">{user?.roleName}</p>
             </DropdownMenuLabel>
 
             <DropdownMenuSeparator />

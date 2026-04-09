@@ -5,6 +5,8 @@ import type { NavItem } from '@/types/navigation'
 interface NavigationState {
   navItems: NavItem[]
   collapsedItems: Set<string>
+  /** True once setNavItems has been called — prevents re-seeding collapsedItems on re-renders */
+  navItemsSeeded: boolean
   isSidebarOpen: boolean
   isSidebarCollapsed: boolean
   /** Transient: true while mouse is over the sidebar (not persisted) */
@@ -29,13 +31,23 @@ export const useNavigationStore = create<NavigationState>()(
     (set) => ({
       navItems: [],
       collapsedItems: new Set(),
+      navItemsSeeded: false,
       isSidebarOpen: true,
       isSidebarCollapsed: false,
       isSidebarHovered: false,
       autoCollapse: false,
       sidebarPosition: 'left',
 
-      setNavItems: (items) => set({ navItems: items }),
+      setNavItems: (items) =>
+        set((state) => ({
+          navItems: items,
+          // Seed collapsedItems with all top-level module IDs on first load so that
+          // every module starts collapsed. NavItem's isOpen logic forces the active
+          // module open via `isActive ? true : !collapsedItems.has(id)`.
+          ...(state.navItemsSeeded
+            ? {}
+            : { collapsedItems: new Set(items.map((item) => item.id)), navItemsSeeded: true }),
+        })),
 
       toggleCollapsed: (id) =>
         set((state) => {
