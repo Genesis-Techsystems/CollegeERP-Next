@@ -52,6 +52,41 @@ export function removeSecuredValue(key: string): void {
   sessionStorage.removeItem(key)
 }
 
+// ─── Date Helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Format a date string as DD/MM/YYYY.
+ * Returns '—' for null/undefined, returns the raw string if unparseable.
+ */
+export function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return dateStr
+  return [
+    String(d.getDate()).padStart(2, '0'),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    d.getFullYear(),
+  ].join('/')
+}
+
+// ─── HTML Helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Strip HTML tags and decode common entities, returning plain text.
+ * Mirrors Angular's htmlToPlaintext usage in evaluation marking.
+ */
+export function htmlToPlaintext(html: string): string {
+  if (!html) return ''
+  return html
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .trim()
+}
+
 // ─── Object Helpers ───────────────────────────────────────────────────────────
 
 /** Returns true when obj is a non-null object with no own enumerable keys. */

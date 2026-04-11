@@ -246,6 +246,49 @@ class CrudService {
   }
 
   /**
+   * PUT JSON to a non-domain API endpoint.
+   * Use this for custom PUT paths that are NOT the standard domain/update/{Entity} pattern.
+   *
+   * @param path   - API path constant (e.g. EXAM_EVAL_API.UPDATE_EVAL_ASSIGNMENTS)
+   * @param data   - request payload
+   * @param params - optional query-string params appended as ?key=value&...
+   */
+  async putDetails<T = void>(
+    path: string,
+    data: unknown,
+    params?: Record<string, string | number>,
+  ): Promise<T> {
+    let url = `${this.base}/${path}`
+    if (params && Object.keys(params).length > 0) {
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+      )
+      url += `?${qs}`
+    }
+
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      throw parseApiError(res, body)
+    }
+
+    // Many PUT endpoints return 200 with no body or an empty success wrapper
+    const text = await res.text()
+    if (!text) return undefined as T
+    const body = JSON.parse(text) as ApiResponse<T>
+    if (body?.success === false) {
+      throw new AppError('API_ERROR', body.message ?? `PUT ${path} failed`)
+    }
+
+    return (body?.data ?? undefined) as T
+  }
+
+  /**
    * Upload a file to an API endpoint (multipart/form-data).
    * Do NOT set Content-Type — fetch sets it automatically with the correct boundary.
    *
@@ -307,6 +350,12 @@ export const fetchDetails = <T>(
 
 export const postDetails = <T = void>(path: string, data: unknown): Promise<T> =>
   crud.postDetails<T>(path, data)
+
+export const putDetails = <T = void>(
+  path: string,
+  data: unknown,
+  params?: Record<string, string | number>,
+): Promise<T> => crud.putDetails<T>(path, data, params)
 
 export const uploadFile = (path: string, formData: FormData): Promise<void> =>
   crud.uploadFile(path, formData)

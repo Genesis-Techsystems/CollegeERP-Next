@@ -94,6 +94,8 @@ export async function POST(request: NextRequest) {
       employeeId: userDto.employeeId,
       studentId: userDto.studentId,
       organizationId: userDto.organizationId,
+      universityId: userDto.universityId,
+      universityCode: userDto.universityCode,
       isAdmin: userRole === 'ADMIN' || userRole === 'SUPERADMIN',
       isPrincipal: roleName.toUpperCase().includes('PRINCIPAL'),
       isManagement:

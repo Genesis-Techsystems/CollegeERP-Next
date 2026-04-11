@@ -149,6 +149,8 @@ export const EXAM_EVAL_API = {
   UPLOAD_EXAM_OMR: 'uploadExamOmr',
   /** CRUD: ExamStudentAnswerPaper */
   STUDENT_ANSWER_PAPER: 'ExamStudentAnswerPaper',
+  /** GET: base64 PDF for a student answer paper — Angular: sheetDataUrl = 'sheetData', param: id= */
+  SHEET_DATA: 'sheetData',
   /** CRUD: ExamQuestionPapers */
   QUESTION_PAPERS: 'ExamQuestionPapers',
   /** CRUD: ExamQuestionPaperMarks */
