@@ -80,6 +80,8 @@ export interface DataTableProps<T> {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// minWidth: 70 (not 100) — allows narrow columns like SI.No, Status, Actions
+// to fit without forcing excess table width. Callers can override per-column.
 const DEFAULT_COL_DEF: ColDef = {
   sortable: true,
   filter: false,
@@ -96,6 +98,9 @@ export function DataTable<T>({
   rowData,
   columnDefs,
   loading = false,
+  // Default 'auto' lets the grid grow to fit rows (good for paginated tables).
+  // Pass a fixed height like '500px' for large unpaginated datasets that need
+  // their own scrollbar instead of pushing the page down.
   height = 'auto',
   getRowId,
   onCellClicked,
@@ -228,9 +233,13 @@ export function DataTable<T>({
           rowData={pagedRowData}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
-          domLayout="autoHeight"
+          // domLayout must be conditional: 'autoHeight' sizes the grid to its rows
+          // (no inner scrollbar), but when a fixed height is passed the grid needs
+          // its own vertical scroll — forcing autoHeight would ignore the height prop.
+          // Do NOT add suppressHorizontalScroll — wide tables with many columns must
+          // remain horizontally scrollable or right-side columns get clipped.
+          domLayout={isAutoHeight ? 'autoHeight' : undefined}
           loading={loading}
-          suppressHorizontalScroll
           onFirstDataRendered={handleFirstDataRendered}
           onRowDataUpdated={handleRowDataUpdated}
           onGridSizeChanged={handleGridSizeChanged}
