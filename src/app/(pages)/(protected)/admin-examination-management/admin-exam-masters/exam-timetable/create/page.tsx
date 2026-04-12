@@ -23,6 +23,7 @@ import {
 	getExamSubjectsForSchedule,
 	getUnivExamSubjectFilters,
 } from '@/services/examination'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type Slot = {
 	date: string
@@ -294,7 +295,8 @@ export default function CreateExamTimetablePage() {
 	}, [paramCourseName, courses, selectedCourseId, paramAcademicYear, academicYears, selectedAcademicYearId, searchParams, courseYears, selectedCourseYearId, paramExamName, examMasters, selectedExamId])
 
 	return (
-		<div className="px-6 pb-6 pt-2 space-y-2">
+		<PageContainer className="space-y-5">
+		<PageHeader title="Create Exam Timetable" subtitle="Schedule exam dates and times" />
 			{/* Header card */}
 			<div className="app-card overflow-hidden">
 				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
@@ -452,7 +454,7 @@ export default function CreateExamTimetablePage() {
 					</div>
 				)}
 			</div>
-		</div>
+		</PageContainer>
 	)
 }
 

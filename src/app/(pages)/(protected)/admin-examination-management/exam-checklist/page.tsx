@@ -1,12 +1,12 @@
 'use client'
 
-import { PageHeader } from '@/components/layout'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 export default function ExamChecklistPage() {
 	return (
-		<div className="p-6 space-y-3">
+		<PageContainer className="space-y-5">
 			<PageHeader title="Exam Checklist" subtitle="Operational checklist for exams" />
-		</div>
+		</PageContainer>
 	)
 }
 

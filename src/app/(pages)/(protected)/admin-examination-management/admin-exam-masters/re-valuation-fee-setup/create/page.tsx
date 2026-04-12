@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
+import { toDateOnlyISO } from '@/common/generic-functions'
 import { distinct } from '@/lib/utils'
 import { buildQuery } from '@/services/crud'
 import {
@@ -24,6 +25,7 @@ import {
 } from '@/services/examination'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronDown, Filter } from 'lucide-react'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type LateFeeFine = { name: string; startDate: string; endDate: string; regFeeFine?: string; suppleFeeFine?: string }
 type AdditionalFee = { name: string; type: 'regular' | 'supple'; amount: string }
@@ -43,7 +45,7 @@ function parseDateValue(value?: string) {
 
 function toDateString(value: Date | null) {
 	if (!value) return ''
-	return value.toISOString().slice(0, 10)
+	return toDateOnlyISO(value)
 }
 
 export default function CreateRevaluationFeeStructurePage() {
@@ -407,7 +409,8 @@ export default function CreateRevaluationFeeStructurePage() {
 	}
 
 	return (
-		<div className="px-6 pb-6 pt-2 space-y-2">
+		<PageContainer className="space-y-5">
+		<PageHeader title="Add Re-Evaluation Fee" subtitle="Create a new re-evaluation fee structure" />
 			
 
 			<div className="app-card overflow-hidden">
@@ -732,8 +735,8 @@ export default function CreateRevaluationFeeStructurePage() {
 						<Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => router.push('/admin-examination-management/admin-exam-masters/re-valuation-fee-setup')}>Cancel</Button>
 						<Button type="button" className="h-8 text-[12px]" onClick={save} disabled={!canSave}>Save</Button>
 					</div>
-			
-		</div>
+
+		</PageContainer>
 	)
 }
 

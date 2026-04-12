@@ -21,6 +21,7 @@ import {
   getEvaluationApprovalsFilters,
   listEvaluationApprovals,
 } from '@/services/evaluation-process'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
@@ -304,7 +305,8 @@ export default function EvaluationApprovalsPage() {
   )
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Moderator Approvals" subtitle="Review and approve evaluation assignments" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Moderator Approvals</h2>
@@ -417,6 +419,6 @@ export default function EvaluationApprovalsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }

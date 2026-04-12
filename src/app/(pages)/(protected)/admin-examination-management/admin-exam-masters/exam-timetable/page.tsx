@@ -13,11 +13,13 @@ import {
 import { distinct } from '@/lib/utils'
 import { getCollegeFilters, getExamFiltersNoTimetable, getExamTimetableDetails, listCourseGroups, listCourseYears, listExamMasters } from '@/services/examination'
 import { buildQuery } from '@/services/crud'
+import { toDateOnlyISO } from '@/common/generic-functions'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, Filter } from 'lucide-react'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 export default function ExamTimetablePage() {
 	const router = useRouter()
@@ -255,7 +257,7 @@ export default function ExamTimetablePage() {
 					// Merge with previously found branches, de-dupe by code
 					const mergedBranches = distinct(
 						[...Array.from(brIdx.values()), ...baseBranches],
-						(x: any) => String(x.dept_code).toUpperCase(),
+						(x: any) => Number(x.dept_id ?? x.courseGroupId ?? 0),
 					)
 					setBranches(mergedBranches)
 					// dates from master range if available, else collected from rows
@@ -403,7 +405,8 @@ export default function ExamTimetablePage() {
 	}
 
 	return (
-		<div className="px-6 pb-6 pt-2 space-y-2">
+		<PageContainer className="space-y-5">
+		<PageHeader title="Exam University Timetable" subtitle="Manage university exam timetables" />
 			<div className="app-card overflow-hidden">
 				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
 					<h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Exam University Timetable</h2>
@@ -614,7 +617,7 @@ export default function ExamTimetablePage() {
 									</SelectTrigger>
 									<SelectContent>
 										{dates.map((d) => {
-											const val = d.toISOString().slice(0, 10)
+											const val = toDateOnlyISO(d)
 											const label = d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric', weekday: 'short' })
 											return (
 												<SelectItem key={val} value={val}>
@@ -669,7 +672,7 @@ export default function ExamTimetablePage() {
 					</form>
 				</DialogContent>
 			</Dialog>
-		</div>
+		</PageContainer>
 	)
 }
 

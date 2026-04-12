@@ -26,6 +26,7 @@ import { createExamFeeStructure } from '@/services/examination'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { listGeneralDetailsByMaster } from '@/services/examination'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type FineRow = {
 	fineName: string
@@ -516,7 +517,8 @@ export default function CreateExamFeeStructurePage() {
 	}
 
 	return (
-		<div className="px-6 pb-6 pt-2 space-y-3">
+		<PageContainer className="space-y-5">
+		<PageHeader title="Add Exam Fee Structure" subtitle="Create a new exam fee structure" />
 			<div className="app-card overflow-hidden">
 				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
 					<h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Add Exam Fee Structure</h2>
@@ -936,7 +938,7 @@ export default function CreateExamFeeStructurePage() {
 					</div>
 				</div>
 			</div>
-		</div>
+		</PageContainer>
 	)
 }
 

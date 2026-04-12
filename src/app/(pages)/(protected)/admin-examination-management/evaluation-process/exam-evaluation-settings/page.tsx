@@ -12,12 +12,14 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChevronDown, Filter } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
+import { toDateOnlyISO } from '@/common/generic-functions'
 import {
   createExamEvaluationSetting,
   getExamEvaluationSettingsFilters,
   listExamEvaluationSettings,
   updateExamEvaluationSetting,
 } from '@/services/evaluation-process'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 
@@ -50,7 +52,7 @@ const toYmd = (v?: string | Date) => {
   if (!v) return ''
   const d = new Date(v)
   if (Number.isNaN(d.getTime())) return ''
-  return d.toISOString().slice(0, 10)
+  return toDateOnlyISO(d)
 }
 const secondsToTime = (total: number) => {
   const h = String(Math.floor(total / 3600)).padStart(2, '0')
@@ -87,7 +89,7 @@ type FormState = {
 }
 
 function emptyForm(): FormState {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = toDateOnlyISO(new Date())
   return {
     minEvaluationTIme: '',
     evaluationStartDate: today,
@@ -285,7 +287,8 @@ export default function ExamEvaluationSettingsPage() {
   )
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Evaluation Settings" subtitle="Configure evaluation parameters" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Evaluation Settings</h2>
@@ -376,7 +379,7 @@ export default function ExamEvaluationSettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }
 

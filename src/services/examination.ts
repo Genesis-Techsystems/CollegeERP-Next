@@ -78,7 +78,7 @@ export async function updateExamSession(id: number, payload: Record<string, unkn
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function listExamGrades(filters?: { courseId?: number; regulationId?: number; isForDisabled?: boolean }) {
-	const where: Record<string, unknown> = { isActive: true }
+	const where: Record<string, string | number | boolean> = { isActive: true }
 	if (filters?.courseId) where['Course.courseId'] = filters.courseId
 	if (filters?.regulationId) where['Regulation.regulationId'] = filters.regulationId
 	// Spring Boot entity field is `disabled` (Angular form calls it `isForDisabled`)

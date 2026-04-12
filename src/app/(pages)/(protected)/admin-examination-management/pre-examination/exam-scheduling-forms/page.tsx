@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChevronDown, Filter } from 'lucide-react'
+import { toDateStr } from '@/common/generic-functions'
 import {
   getUnivExamFiltersRegSup,
   getUnivExamRestNoTt,
@@ -14,6 +15,7 @@ import {
   listExamTimetablesByExam,
 } from '@/services/pre-examination'
 import { getExamTimetableDetails, listCourseYears } from '@/services/examination'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 
@@ -228,7 +230,7 @@ export default function ExamSchedulingFormsPage() {
       subjectId: String(row.subjectId ?? row.subject_id ?? ''),
       sessionId: String(row.examSessionId ?? row.fk_exam_session_id ?? ''),
       roomCode: String([row.buildingCode, row.blockCode, row.floorName, row.roomCode].filter(Boolean).join(' / ')),
-      examDate: String(row.examDate ?? '').slice(0, 10),
+      examDate: toDateStr(row.examDate),
       examSession: String(row.examSessionName ?? ''),
       examRoomAllotmentId: String(row.examRoomAllotmentId ?? row.id ?? ''),
     })
@@ -236,7 +238,8 @@ export default function ExamSchedulingFormsPage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Scheduling Forms" subtitle="View and manage exam scheduling" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Scheduling Forms</h2>
@@ -370,7 +373,7 @@ export default function ExamSchedulingFormsPage() {
                       key={`tt-${i}`}
                       value={String(pickId(t, ['examTimetableId', 'fk_exam_timetable_id', 'exam_timetable_id', 'id']))}
                     >
-                      {String(t.examDate ?? '').slice(0, 10)} ({t.examSessionName ?? '-'})
+                      {toDateStr(t.examDate)} ({t.examSessionName ?? '-'})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -434,7 +437,7 @@ export default function ExamSchedulingFormsPage() {
                 {filteredRows.map((row, i) => (
                   <tr key={`rs-${i}`} className="border-t">
                     <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">{String(row.examDate ?? '').slice(0, 10) || '-'}</td>
+                    <td className="px-2 py-1">{toDateStr(row.examDate) || '-'}</td>
                     <td className="px-2 py-1">
                       {row.examSessionName ?? '-'} ({toTime12H(row.sessionStartTime)} - {toTime12H(row.sessionEndTime)})
                     </td>
@@ -467,7 +470,7 @@ export default function ExamSchedulingFormsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }
 

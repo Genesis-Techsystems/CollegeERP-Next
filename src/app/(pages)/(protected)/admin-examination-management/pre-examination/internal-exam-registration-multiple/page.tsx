@@ -16,6 +16,7 @@ import {
   listRegisteredStudentsForExam,
   saveRegisteredExamSubjects,
 } from '@/services/pre-examination'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 
@@ -318,7 +319,7 @@ export default function InternalExamRegistrationMultiplePage() {
       const regSet = new Set(stableRegList.map((s) => getStudentKey(s)))
 
       const mapped = allList.map((s) => {
-        const sid = getStudentId(s)
+        const sid = getStudentKey(s)
         const already = regSet.has(sid)
         return { ...s, checked: true, c: true, already }
       })
@@ -447,7 +448,8 @@ export default function InternalExamRegistrationMultiplePage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2 text-[12px]">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Internal Exam Registration" subtitle="Register multiple students for internal exams" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Internal Exam Registration Multiple Students</h2>
@@ -604,7 +606,7 @@ export default function InternalExamRegistrationMultiplePage() {
         </div>
       </div>
       )}
-    </div>
+    </PageContainer>
   )
 }
 

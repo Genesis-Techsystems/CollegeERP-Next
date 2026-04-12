@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select as SearchableSelect, type SelectOption } from '@/common/components/select/Select'
+import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
 import {
   addExamAdditionalFeeReceipt,
   getUnivExamFiltersRegSup,
@@ -17,6 +18,7 @@ import {
   getStudentExamFeeStructure,
   listExamFeeAdditionalStructureByExamType,
 } from '@/services/pre-examination'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 type AddedFeeRow = {
@@ -129,7 +131,7 @@ export default function AdditionalExamFeesPage() {
   const [addedFees, setAddedFees] = useState<AddedFeeRow[]>([])
   const [paymentMode, setPaymentMode] = useState('Cash')
   const [referenceNumber, setReferenceNumber] = useState('')
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10))
+  const [paymentDate, setPaymentDate] = useState(toDateOnlyISO(new Date()))
   const [feeComments, setFeeComments] = useState('')
   const [inlineNotice, setInlineNotice] = useState<string | null>(null)
   const [payConfirmOpen, setPayConfirmOpen] = useState(false)
@@ -429,8 +431,8 @@ export default function AdditionalExamFeesPage() {
           const name =
             pickText(e, ['exam_name', 'examName']) ||
             `Exam ${pickNum(e, ['fk_exam_id', 'examId', 'fk_examId'])}`
-          const fromDate = String(pickText(e, ['fromDate', 'from_date']) || '').slice(0, 10)
-          const toDate = String(pickText(e, ['toDate', 'to_date']) || '').slice(0, 10)
+          const fromDate = toDateStr(pickText(e, ['fromDate', 'from_date']))
+          const toDate = toDateStr(pickText(e, ['toDate', 'to_date']))
           const tags = [
             e?.isInternalExam ? '(Internal)' : '',
             e?.isRegularExam ? '(Regular)' : '',
@@ -727,7 +729,7 @@ export default function AdditionalExamFeesPage() {
       addtExamFeeTypeName: type?.generalDetailName ?? type?.generalDetailDisplayName ?? 'Additional Fee',
       addtFeeAmount: Number(feeAmount),
       collectedEmpId: employeeId,
-      addtReceiptDate: new Date().toISOString().slice(0, 10),
+      addtReceiptDate: toDateOnlyISO(new Date()),
       isActive: true,
     }
     await addExamAdditionalFeeReceipt(payload).catch(() => null)
@@ -743,7 +745,8 @@ export default function AdditionalExamFeesPage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2 text-[12px]">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Additional Fee Collection" subtitle="Manage additional exam fee receipts" />
       <div className="app-card overflow-hidden bg-white">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-white flex items-center justify-between gap-2">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Additional Fee Collection</h2>
@@ -1148,7 +1151,7 @@ export default function AdditionalExamFeesPage() {
               <span className="font-medium">Exam :</span>{' '}
               {pickText(selectedExamRow, ['exam_name', 'examName']) || '-'}
               {' '}
-              ({String(pickText(selectedExamRow, ['fromDate', 'from_date']) || '').slice(0, 10)} - {String(pickText(selectedExamRow, ['toDate', 'to_date']) || '').slice(0, 10)})
+              ({toDateStr(pickText(selectedExamRow, ['fromDate', 'from_date']))} - {toDateStr(pickText(selectedExamRow, ['toDate', 'to_date']))})
             </div>
           </div>
 
@@ -1187,6 +1190,6 @@ export default function AdditionalExamFeesPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }

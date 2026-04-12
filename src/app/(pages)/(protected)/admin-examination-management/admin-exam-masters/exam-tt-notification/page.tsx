@@ -1,12 +1,12 @@
 'use client'
 
-import { PageHeader } from '@/components/layout'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 export default function ExamTtNotificationPage() {
 	return (
-		<div className="p-6 space-y-3">
+		<PageContainer className="space-y-5">
 			<PageHeader title="Exam Timetable Notification" subtitle="Notify stakeholders about the timetable" />
-		</div>
+		</PageContainer>
 	)
 }
 

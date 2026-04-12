@@ -8,11 +8,26 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table/TableCard'
-import type { ColDef } from 'ag-grid-community'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { CollegeFilterPanel } from '@/common/components/forms/CollegeFilterPanel'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/common/components/data-display'
+import { PageContainer, PageHeader } from '@/components/layout'
 import { Pencil } from 'lucide-react'
 import { createExamGrade, getCollegeFilters, listExamGrades, listRegulations, updateExamGrade } from '@/services/examination'
+
+// ── Pure renderers ────────────────────────────────────────────────────────────
+function statusRenderer(p: ICellRendererParams) {
+  return <StatusBadge status={p.data?.isActive ?? false} />
+}
+
+function gradeCodeRenderer(p: ICellRendererParams) {
+  return <span className="font-mono text-xs text-indigo-700">{p.value ?? '—'}</span>
+}
+
+function creditPointsRenderer(p: ICellRendererParams) {
+  if (!p.value || p.value === '—') return <span className="text-[12px] text-slate-500">—</span>
+  return <span className="font-mono text-xs text-sky-700">{p.value}</span>
+}
 
 export default function GradeSetupPage() {
   const { user } = useSessionContext()
@@ -213,22 +228,12 @@ export default function GradeSetupPage() {
       field: 'gradeCode',
       headerName: 'Grade Code',
       width: 84,
-      cellRenderer: (p: any) => (
-        <div className="h-full flex items-center">
-          <Badge
-            variant="outline"
-            className="rounded-md border-indigo-200 bg-indigo-50 text-indigo-700 h-5 px-2 text-[11px] font-medium"
-          >
-            {p.value ?? '—'}
-          </Badge>
-        </div>
-      ),
+      cellRenderer: gradeCodeRenderer,
     },
     {
       field: 'gradeName',
       headerName: 'Grade Name',
       minWidth: 160,
-      cellRenderer: (p: any) => <span className="text-[12px] text-slate-900">{p.value ?? '—'}</span>,
     },
     {
       headerName: 'Min - Max Points',
@@ -242,7 +247,6 @@ export default function GradeSetupPage() {
         const right = max != null ? String(max) : ''
         return right ? `${left} - ${right}`.trim() : left || '—'
       },
-      cellRenderer: (p: any) => <span className="text-[12px] text-slate-800">{p.value}</span>,
     },
     {
       headerName: 'Min - Max Score %',
@@ -256,7 +260,6 @@ export default function GradeSetupPage() {
         const right = max != null ? String(max) : ''
         return right ? `${left} - ${right}`.trim() : left || '—'
       },
-      cellRenderer: (p: any) => <span className="text-[12px] text-slate-800">{p.value}</span>,
     },
     {
       headerName: 'Credit Points',
@@ -265,46 +268,13 @@ export default function GradeSetupPage() {
         const d = p.data ?? {}
         return d.creditPoints ?? d.gradePoint ?? '—'
       },
-      cellRenderer: (p: any) =>
-        p.value === '—' ? (
-          <div className="h-full flex items-center">
-            <span className="text-[12px] text-slate-500">—</span>
-          </div>
-        ) : (
-          <div className="h-full flex items-center">
-            <Badge
-              variant="outline"
-              className="rounded-md border-sky-200 bg-sky-50 text-sky-700 h-5 px-2 text-[11px] font-medium"
-            >
-              {p.value}
-            </Badge>
-          </div>
-        ),
+      cellRenderer: creditPointsRenderer,
     },
     {
       field: 'isActive',
       headerName: 'Status',
       width: 96,
-      cellRenderer: (p: any) =>
-        p.value ? (
-          <div className="h-full flex items-center">
-            <Badge
-              variant="outline"
-              className="rounded-md border-emerald-200 bg-emerald-50 text-emerald-700 h-5 px-2 text-[11px] font-medium"
-            >
-              Active
-            </Badge>
-          </div>
-        ) : (
-          <div className="h-full flex items-center">
-            <Badge
-              variant="outline"
-              className="rounded-md border-red-200 bg-red-50 text-red-700 h-5 px-2 text-[11px] font-medium"
-            >
-              Inactive
-            </Badge>
-          </div>
-        ),
+      cellRenderer: statusRenderer,
     },
     {
       headerName: 'Actions',
@@ -330,7 +300,8 @@ export default function GradeSetupPage() {
   ], [openEdit, selectedCourseId, selectedRegulationId])
 
 	return (
-		<div className="px-6 pb-6 pt-2 space-y-3">
+		<PageContainer className="space-y-5">
+      <PageHeader title="Grade Setup" subtitle="Configure examination grade bands" />
       <CollegeFilterPanel
         title="Exam Grades"
         collapsible
@@ -517,7 +488,7 @@ export default function GradeSetupPage() {
           </form>
         </DialogContent>
       </Dialog>
-		</div>
+		</PageContainer>
 	)
 }
 

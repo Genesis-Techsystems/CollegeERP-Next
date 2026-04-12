@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toDateStr } from '@/common/generic-functions'
 import {
   autoAssignInvigilators,
   createExamInvigilationAllotment,
@@ -26,6 +27,7 @@ import {
   listExamTimetablesByExam,
   listInvigilatorDesignations,
 } from '@/services/pre-examination'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
@@ -65,7 +67,7 @@ function getExamTimetableParts(row: AnyRow): { examDate: string; session: string
       '',
   ).trim()
   const examDateMatch = rawDate.match(/\d{4}-\d{2}-\d{2}/)
-  const examDate = examDateMatch ? examDateMatch[0] : (rawDate ? rawDate.slice(0, 10) : '')
+  const examDate = examDateMatch ? examDateMatch[0] : (rawDate ? toDateStr(rawDate) : '')
   const session = String(
     row?.examSessionName ??
       row?.examsessioninCatCode ??
@@ -367,7 +369,8 @@ export default function InvigilatorAllotmentPage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Invigilation Allotment" subtitle="Assign invigilators to exam rooms" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Invigilation Allotment</h2>
@@ -459,7 +462,7 @@ export default function InvigilatorAllotmentPage() {
                   const id = pickNum(t, ['examTimetableId', 'exam_timetable_id'])
                   return (
                     <SelectItem key={`t-${id || i}`} value={String(id)}>
-                      {String(t.examDate ?? '').slice(0, 10)} ({pickText(t, ['examSessionName', 'exam_session_name']) || '-'})
+                      {toDateStr(t.examDate)} ({pickText(t, ['examSessionName', 'exam_session_name']) || '-'})
                     </SelectItem>
                   )
                 })}
@@ -474,7 +477,7 @@ export default function InvigilatorAllotmentPage() {
         <>
           <div className="app-card p-3 flex items-center justify-between">
             <div className="text-[12px]">
-              Exam Allocated Rooms List ({selectedCollege?.collegeCode ?? ''} / {selectedCourse?.courseCode ?? ''} / {selectedExam?.examName ?? ''} / {selectedTimetable?.examDate ? String(selectedTimetable.examDate).slice(0, 10) : ''})
+              Exam Allocated Rooms List ({selectedCollege?.collegeCode ?? ''} / {selectedCourse?.courseCode ?? ''} / {selectedExam?.examName ?? ''} / {toDateStr(selectedTimetable?.examDate)})
             </div>
             <Button className="h-8 text-[12px]" onClick={onAutoAssign} disabled={autoAssigning}>
               {autoAssigning ? 'Assigning...' : 'Auto Assign Invigilators'}
@@ -633,7 +636,7 @@ export default function InvigilatorAllotmentPage() {
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   )
 }
 

@@ -19,6 +19,7 @@ import {
   listExamEvaluatorProfileDetails,
   updateEvaluatorProfile,
 } from '@/services/evaluation-process'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 
@@ -569,7 +570,8 @@ export default function EvaluatorSubjectRolesPage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-4">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Evaluator Subject Roles" subtitle="Manage evaluator subject role assignments" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-[hsl(var(--primary))]" />
@@ -924,6 +926,6 @@ export default function EvaluatorSubjectRolesPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }

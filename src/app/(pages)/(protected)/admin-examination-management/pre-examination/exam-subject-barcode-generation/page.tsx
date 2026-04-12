@@ -18,6 +18,7 @@ import {
   getUnivExamRestNoTtBundle,
   getUnivExamSubjectUc,
 } from '@/services/pre-examination'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 const REG_ID_KEYS = [
@@ -424,7 +425,8 @@ export default function ExamSubjectBarcodeGenerationPage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Subject Barcode" subtitle="Generate subject-wise barcodes" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Subject Barcode</h2>
@@ -630,7 +632,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }
 

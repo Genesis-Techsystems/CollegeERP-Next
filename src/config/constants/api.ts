@@ -194,6 +194,12 @@ export const EXAM_EVAL_API = {
   EVALUATION_MARKS_FINALISE: 'getAllRecords/s_pop_exam_evaluationmarksfinalise',
   /** GET: exam lab batches report */
   EXAM_LAB_BATCHES_REPORT: 'getAllRecords/s_get_exam_labbatches_report',
+  /** POST: add question paper colleges list (publish) */
+  ADD_QP_COLLEGES_LIST: 'addExamQuestionPaperCollegesList',
+  /** POST: generate secret code for published QP */
+  GENERATE_SECRET_CODE: 'generateSecretCodeForPublishedQp',
+  /** GET: validate secret code for published QP */
+  VALIDATE_SECRET_CODE: 'validateSecretCodeForPublishedQp',
 } as const
 
 // ─── Invigilator Remuneration ─────────────────────────────────────────────────

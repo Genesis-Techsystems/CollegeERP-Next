@@ -25,10 +25,11 @@ import {
   saveExamMasterDetails,
 } from '@/services/exam-master'
 import { GM_CODES } from '@/config/constants/ui'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 function PageSkeleton() {
   return (
-    <div className="p-6 space-y-3">
+    <PageContainer className="space-y-5">
       <div className="flex items-center gap-3">
         <Skeleton className="h-9 w-20" />
         <div className="space-y-2">
@@ -39,7 +40,7 @@ function PageSkeleton() {
       <Skeleton className="h-9 w-72" />
       <Skeleton className="h-48 w-full" />
       <Skeleton className="h-48 w-full" />
-    </div>
+    </PageContainer>
   )
 }
 
@@ -140,7 +141,7 @@ function ExamMasterDetailsInner() {
         if (exam.isRegularExam) allowed.push('Regular')
         if (exam.isSupplyExam) allowed.push('Supple')
         if (exam.isInternalExam) allowed.push('Internal')
-        const filtered = allTypes.filter((t) => allowed.includes(t.generalDetailCode))
+        const filtered = allTypes.filter((t) => allowed.includes(t.generalDetailCode ?? ''))
         setExamFeeTypes(filtered)
         if (filtered.length > 0) setSelectedTabId(filtered[0].generalDetailId)
 
@@ -189,11 +190,11 @@ function ExamMasterDetailsInner() {
       examMasterId: examId,
       examTypeCatId: selectedTabId,
       regulationId,
-      regulationCode: regulations.find((r) => r.regulationId === regulationId)?.regulationName,
+      regulationCode: regulations.find((r) => r.regulationId === regulationId)?.regulationName ?? '',
       courseGroupId,
-      courseGroupCode: courseGroups.find((c) => c.courseGroupId === courseGroupId)?.groupCode,
+      courseGroupCode: courseGroups.find((c) => c.courseGroupId === courseGroupId)?.groupCode ?? '',
       courseYearId,
-      courseYearName: courseYears.find((y) => y.courseYearId === courseYearId)?.courseYearName,
+      courseYearName: courseYears.find((y) => y.courseYearId === courseYearId)?.courseYearName ?? '',
       examLabel: formState.examLabel.trim(),
       isBridgeCourse: formState.isBridgeCourse,
       isActive: true,
@@ -206,11 +207,11 @@ function ExamMasterDetailsInner() {
     const idx = examMasterDetails.findIndex((d) => d === row)
     if (idx === -1) return
     setFormState({
-      regulationId: String(row.regulationId),
-      courseGroupId: String(row.courseGroupId),
-      courseYearId: String(row.courseYearId),
-      examLabel: row.examLabel,
-      isBridgeCourse: row.isBridgeCourse,
+      regulationId: String(row.regulationId ?? ''),
+      courseGroupId: String(row.courseGroupId ?? ''),
+      courseYearId: String(row.courseYearId ?? ''),
+      examLabel: row.examLabel ?? '',
+      isBridgeCourse: row.isBridgeCourse ?? false,
     })
     setIsEditing(true)
     setEditingIndex(idx)
@@ -269,7 +270,7 @@ function ExamMasterDetailsInner() {
   if (loadingRefs) return <PageSkeleton />
 
   return (
-    <div className="p-6 space-y-3">
+    <PageContainer className="space-y-5">
       <div className="flex items-center gap-3">
         <Button variant="outline" size="sm" onClick={() => router.back()}>
           <ArrowLeft />
@@ -482,7 +483,7 @@ function ExamMasterDetailsInner() {
       </div>
 
       {toast && <ToastNotification message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-    </div>
+    </PageContainer>
   )
 }
 

@@ -6,6 +6,11 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Select as SearchableSelect, type SelectOption } from '@/common/components/select/Select'
+import { format, parseISO } from 'date-fns'
+import type { ColDef } from 'ag-grid-community'
+import { DataTable } from '@/common/components/table'
+import { TableCard } from '@/common/components/table/TableCard'
+import { PageContainer, PageHeader } from '@/components/layout'
 import {
   getExamHalltickets,
   listExamMastersByCourseAndAy,
@@ -15,6 +20,30 @@ import {
 } from '@/services/pre-examination'
 
 type AnyRow = Record<string, any>
+
+// ── Column shape ─────────────────────────────────────────────────────────────
+const HALLTICKET_COL_DEFS: ColDef[] = [
+  { headerName: 'SI.No', valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1, width: 70, flex: 0 },
+  { field: 'hallticket_number', headerName: 'Hallticket', minWidth: 140 },
+  {
+    headerName: 'Student',
+    minWidth: 160,
+    valueGetter: (p: any) => p.data?.first_name ?? p.data?.student_name ?? '-',
+  },
+  {
+    field: 'exam_date',
+    headerName: 'Exam Date',
+    width: 120,
+    flex: 0,
+    valueFormatter: (p: any) => {
+      if (!p.value) return '-'
+      try { return format(parseISO(String(p.value)), 'dd MMM yyyy') } catch { return String(p.value) }
+    },
+  },
+  { field: 'subject_code', headerName: 'Subject Code', minWidth: 130 },
+  { field: 'subject_name', headerName: 'Subject Name', flex: 1, minWidth: 160 },
+  { field: 'subjecttype', headerName: 'Type', width: 90, flex: 0 },
+]
 
 const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
   const seen = new Set<string | number>()
@@ -333,7 +362,8 @@ export default function ExamHallticketPage() {
   }, [mode, studentId, studentExamId])
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Hall Tickets" subtitle="Generate and download hall tickets" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Hallticket</h2>
@@ -503,65 +533,21 @@ export default function ExamHallticketPage() {
         </div>
       </div>
 
-      {hasFetched && (
-        <div className="app-card p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="text-[12px] text-muted-foreground">{displayRows.length} records</div>
+      {(hasFetched || displayRows.length > 0) && (
+        <TableCard
+          headerLeft={
+            <span className="text-[12px] text-muted-foreground">{displayRows.length} records</span>
+          }
+          headerRight={
             <Button type="button" className="h-8 text-[12px]" onClick={() => window.print()}>
               {mode === 'student' ? 'Print' : 'Print All'}
             </Button>
-          </div>
-          <div className="overflow-auto rounded border">
-            <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="text-left px-2 py-1">SI.No</th>
-                  {mode !== 'student' && <th className="text-left px-2 py-1">Hallticket</th>}
-                  {mode !== 'student' && <th className="text-left px-2 py-1">Student</th>}
-                  <th className="text-left px-2 py-1">Exam Date</th>
-                  <th className="text-left px-2 py-1">Exam Time</th>
-                  <th className="text-left px-2 py-1">Subject Code</th>
-                  <th className="text-left px-2 py-1">Subject Name</th>
-                  <th className="text-left px-2 py-1">Subject Type</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayRows.map((r, i) => (
-                  <tr key={`ht-${i}`} className="border-t">
-                    <td className="px-2 py-1">{i + 1}</td>
-                    {mode !== 'student' && <td className="px-2 py-1">{r.hallticket_number ?? '-'}</td>}
-                    {mode !== 'student' && <td className="px-2 py-1">{r.first_name ?? r.student_name ?? '-'}</td>}
-                    <td className="px-2 py-1">
-                      {pick(r, ['exam_date', 'examDate', 'date_of_exam', 'exam_datetime', 'examDateTime'])
-                        ? String(pick(r, ['exam_date', 'examDate', 'date_of_exam', 'exam_datetime', 'examDateTime'])).slice(0, 10)
-                        : '-'}
-                    </td>
-                    <td className="px-2 py-1">
-                      {pick(r, ['session_start_time', 'sessionStartTime', 'start_time']) &&
-                      pick(r, ['session_end_time', 'sessionEndTime', 'end_time'])
-                        ? `${tConvert(String(pick(r, ['session_start_time', 'sessionStartTime', 'start_time'])))} - ${tConvert(
-                            String(pick(r, ['session_end_time', 'sessionEndTime', 'end_time'])),
-                          )}`
-                        : '-'}
-                    </td>
-                    <td className="px-2 py-1">{pick(r, ['subject_code', 'subjectCode']) || '-'}</td>
-                    <td className="px-2 py-1">{pick(r, ['subject_name', 'subjectName']) || '-'}</td>
-                    <td className="px-2 py-1">{pick(r, ['subjecttype', 'subjectType']) || '-'}</td>
-                  </tr>
-                ))}
-                {!loading && displayRows.length === 0 && (
-                  <tr className="border-t">
-                    <td colSpan={mode === 'student' ? 6 : 8} className="px-2 py-6 text-center text-muted-foreground">
-                      No records found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          }
+        >
+          <DataTable rowData={displayRows} columnDefs={HALLTICKET_COL_DEFS} pagination />
+        </TableCard>
       )}
-    </div>
+    </PageContainer>
   )
 }
 

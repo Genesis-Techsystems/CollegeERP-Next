@@ -17,6 +17,8 @@ import {
   getLabCreateFilters,
   saveExamLabTimetableBatches,
 } from '@/services/exam-lab-timetable'
+import { PageContainer, PageHeader } from '@/components/layout'
+import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
 
 type AnyRow = Record<string, any>
 
@@ -71,7 +73,7 @@ export default function AddExamLabTimetablesPage() {
       if (sess[0]?.examSessionId) setExamSessionId(Number(sess[0].examSessionId))
 
       const examMeta = (res.details ?? [])[0]
-      if (examMeta?.from_date) setExamDate(String(examMeta.from_date).slice(0, 10))
+      if (examMeta?.from_date) setExamDate(toDateStr(examMeta.from_date))
 
       const grid = await getExamLabTimetableGrid({
         orgId,
@@ -229,15 +231,16 @@ export default function AddExamLabTimetablesPage() {
     return groupCodes.map((g) => ({
       code: g.code,
       cells: dateColumns.map((d) => {
-        const ymd = d.toISOString().slice(0, 10)
-        const rows = (map[g.code] ?? []).filter((r) => String(r.examDate).slice(0, 10) === ymd)
+        const ymd = toDateOnlyISO(d)
+        const rows = (map[g.code] ?? []).filter((r) => toDateStr(r.examDate) === ymd)
         return { date: d, day: days[d.getDay()], rows }
       }),
     }))
   }, [existingRows, groupCodes, dateColumns])
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Create College Timetable" subtitle="Schedule lab exam timetables" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Create College Timetable</h2>
@@ -249,7 +252,7 @@ export default function AddExamLabTimetablesPage() {
               {details[0]?.college_code ?? ''} / {details[0]?.course_code ?? ''} / {pageParams.courseYearName}
             </span>{' '}
             - ({details[0]?.exam_name ?? ''}{' '}
-            {details[0]?.from_date ? `(${String(details[0]?.from_date).slice(0, 10)} - ${String(details[0]?.to_date ?? '').slice(0, 10)})` : ''})
+            {details[0]?.from_date ? `(${toDateStr(details[0]?.from_date)} - ${toDateStr(details[0]?.to_date)})` : ''})
             <span className="text-blue-700 ml-1">
               {details[0]?.is_internal_exam ? '[Internal] ' : ''}
               {details[0]?.is_regular_exam ? '[Regular] ' : ''}
@@ -419,7 +422,7 @@ export default function AddExamLabTimetablesPage() {
           Back
         </Button>
       </div>
-    </div>
+    </PageContainer>
   )
 }
 

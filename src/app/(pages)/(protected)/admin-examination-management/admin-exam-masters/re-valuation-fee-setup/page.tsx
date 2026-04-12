@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Pencil, Plus, ChevronDown, Filter } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useRouter } from 'next/navigation'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 export default function RevaluationFeeSetupPage() {
 	const router = useRouter()
@@ -167,7 +168,7 @@ export default function RevaluationFeeSetupPage() {
 		if (!selectedExamId) return
 		setLoadingList(true)
 		try {
-			const where: Record<string, unknown> = {
+			const where: Record<string, string | number | boolean> = {
 				'ExamMaster.examId': selectedExamId,
 				isActive: true,
 			}
@@ -217,7 +218,7 @@ export default function RevaluationFeeSetupPage() {
 		},
 		{ headerName: 'Regular Fee', minWidth: 130, valueGetter: (p) => p.data?.regularFee ?? p.data?.regFee ?? '—' },
 		{ headerName: 'Supple Fee', minWidth: 130, valueGetter: (p) => p.data?.suppleFee ?? p.data?.supplyFee ?? '—' },
-		{ field: 'isActive', headerName: 'Status', minWidth: 110, valueGetter: (p) => (p.value ? 'Active' : 'InActive') },
+		{ field: 'isActive', headerName: 'Status', minWidth: 110, valueGetter: (p) => (p.data?.isActive ? 'Active' : 'InActive') },
 		{
 			headerName: 'Actions',
 			minWidth: 110,
@@ -313,7 +314,8 @@ export default function RevaluationFeeSetupPage() {
 	}
 
 	return (
-		<div className="px-6 pb-6 pt-2 space-y-3">
+		<PageContainer className="space-y-5">
+		<PageHeader title="Re-Evaluation Fee Setup" subtitle="Configure re-evaluation fee structures" />
 			<div className="app-card overflow-hidden">
 				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
 					<h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Re-Evaluation Fee Setup</h2>
@@ -766,7 +768,7 @@ export default function RevaluationFeeSetupPage() {
 					</form>
 				</DialogContent>
 			</Dialog>
-		</div>
+		</PageContainer>
 	)
 }
 

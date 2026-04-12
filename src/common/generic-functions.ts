@@ -52,6 +52,32 @@ export function removeSecuredValue(key: string): void {
   sessionStorage.removeItem(key)
 }
 
+// ─── Date Helpers ────────────────────────────────────────────────────────────
+
+import { format, parseISO } from 'date-fns'
+
+/**
+ * Extract a YYYY-MM-DD string from a date-like value (ISO string, Date, etc.).
+ * Returns '' for falsy/invalid inputs.
+ */
+export function toDateStr(value: string | Date | null | undefined): string {
+  if (!value) return ''
+  try {
+    const d = typeof value === 'string' ? parseISO(value) : value
+    return isNaN(d.getTime()) ? '' : format(d, 'yyyy-MM-dd')
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Format a Date object to YYYY-MM-DD.
+ * Convenience wrapper around `format(d, 'yyyy-MM-dd')`.
+ */
+export function toDateOnlyISO(d: Date): string {
+  return format(d, 'yyyy-MM-dd')
+}
+
 // ─── Object Helpers ───────────────────────────────────────────────────────────
 
 /** Returns true when obj is a non-null object with no own enumerable keys. */

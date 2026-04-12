@@ -16,6 +16,7 @@ import {
   listStudents,
   listStudentExamFeeRegistrationPayments,
 } from '@/services/pre-examination'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 
@@ -89,7 +90,8 @@ export default function StudentExamFeeRegistrationPage() {
   }, [])
 
   return (
-    <div className="p-6 space-y-3">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Examination Fee Collection" subtitle="Manage student exam fee payments" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Examination Fee Collection</h2>
@@ -184,7 +186,7 @@ export default function StudentExamFeeRegistrationPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }
 

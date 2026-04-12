@@ -14,6 +14,7 @@ import {
   listActiveColleges,
   listStudentExamFeeRegistrationPayments,
 } from '@/services/pre-examination'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 
@@ -212,7 +213,8 @@ export default function OnlineExamFeeRegistrationPage() {
   }, [colleges, collegeId])
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2 text-[12px]">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Fee Registrations" subtitle="View online exam fee registration payments" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Exam Fee Registrations</h2>
@@ -425,7 +427,7 @@ export default function OnlineExamFeeRegistrationPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }
 

@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { format, parseISO } from 'date-fns'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { PageContainer, PageHeader } from '@/components/layout'
 import {
   Select,
   SelectContent,
@@ -160,8 +162,10 @@ export default function ExamLabTimetablePage() {
     return courseGroups.map((g) => {
       const code = String(g.group_code ?? '')
       const cells = dateColumns.map((d) => {
-        const ymd = d.toISOString().slice(0, 10)
-        const rows = (byGroup[code] ?? []).filter((r) => String(r.examDate).slice(0, 10) === ymd)
+        const ymd = format(d, 'yyyy-MM-dd')
+        const rows = (byGroup[code] ?? []).filter((r) => {
+          try { return format(parseISO(String(r.examDate)), 'yyyy-MM-dd') === ymd } catch { return false }
+        })
         return { date: d, day: days[d.getDay()], rows }
       })
       return { code, cells }
@@ -169,7 +173,8 @@ export default function ExamLabTimetablePage() {
   }, [gridRows, courseGroups, dateColumns])
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Lab Timetable" subtitle="View examination lab schedules" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam College Timetable</h2>
@@ -208,7 +213,13 @@ export default function ExamLabTimetablePage() {
                 {(courseYears.find((y) => Number(y.fk_course_year_id) === Number(courseYearId))?.course_year_code ?? '')}
                 {' | '}
                 <span className="font-medium text-slate-900">{examDetails?.exam_name ?? ''}</span>{' '}
-                {examDetails?.from_date ? `(${String(examDetails.from_date).slice(0, 10)} - ${String(examDetails?.to_date ?? '').slice(0, 10)})` : ''}{' '}
+                {examDetails?.from_date
+                  ? (() => {
+                      try {
+                        return `(${format(parseISO(String(examDetails.from_date)), 'dd MMM yyyy')} – ${format(parseISO(String(examDetails.to_date ?? '')), 'dd MMM yyyy')})`
+                      } catch { return '' }
+                    })()
+                  : ''}{' '}
                 <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] bg-[hsl(var(--primary))] text-white">{examTypeLabel}</span>
               </div>
               <Button
@@ -221,7 +232,7 @@ export default function ExamLabTimetablePage() {
                   )
                 }
               >
-                + Create Shedule
+                + Create Schedule
               </Button>
             </div>
             <p className="text-right text-[12px] mb-2"><span className="px-1 border bg-sky-200">M</span> MORNING <span className="px-1 border bg-yellow-200 ml-2">A</span> AFTERNOON</p>
@@ -271,7 +282,7 @@ export default function ExamLabTimetablePage() {
           </div>
         </>
       )}
-    </div>
+    </PageContainer>
   )
 }
 

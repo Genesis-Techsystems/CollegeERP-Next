@@ -11,12 +11,14 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChevronDown, Filter } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
+import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
 import {
   getFinalizeQuestionPaperFilters,
   getQuestionPaperPublishDetails,
   listViewFinalQuestionPapers,
   publishQuestionPaperColleges,
 } from '@/services/evaluation-process'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
@@ -215,10 +217,10 @@ export default function ViewFinalExamQuestionPaperPage() {
   }
 
   function openPublishModal(row: AnyRow) {
-    const dateVal = String(row?.published_date ?? row?.publishedDate ?? '').slice(0, 10)
+    const dateVal = toDateStr(row?.published_date ?? row?.publishedDate)
     const timeVal = String(row?.published_time ?? row?.publishedTime ?? '').slice(0, 8)
     const now = new Date()
-    const fallbackDate = now.toISOString().slice(0, 10)
+    const fallbackDate = toDateOnlyISO(now)
     const fallbackTime = now.toTimeString().slice(0, 8)
     setPublishRow(row)
     setPublishDate(dateVal || fallbackDate)
@@ -256,7 +258,7 @@ export default function ViewFinalExamQuestionPaperPage() {
         cellRenderer: subjectNameRenderer,
       },
       { field: 'questionPaper', headerName: 'Question Paper', minWidth: 200, flex: 2, valueGetter: (p) => p.data?.questionpaper_title ?? p.data?.questionPaper ?? '-' },
-      { field: 'publishedDate', headerName: 'Published Date', minWidth: 120, maxWidth: 130, flex: 1, valueGetter: (p) => String(p.data?.published_date ?? p.data?.publishedDate ?? p.data?.published_datetime ?? '').slice(0, 10) || '-' },
+      { field: 'publishedDate', headerName: 'Published Date', minWidth: 120, maxWidth: 130, flex: 1, valueGetter: (p) => toDateStr(p.data?.published_date ?? p.data?.publishedDate ?? p.data?.published_datetime) || '-' },
       { field: 'publishedTime', headerName: 'Published Time', minWidth: 110, maxWidth: 120, flex: 1, valueGetter: (p) => String(p.data?.published_time ?? p.data?.publishedTime ?? p.data?.published_datetime ?? '').slice(11, 19) || '-' },
       {
         field: 'questionPaperPath',
@@ -278,7 +280,8 @@ export default function ViewFinalExamQuestionPaperPage() {
   )
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Publish Exam Question Paper" subtitle="View and publish finalized question papers" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Publish Exam Question Paper</h2>
@@ -373,6 +376,6 @@ export default function ViewFinalExamQuestionPaperPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }

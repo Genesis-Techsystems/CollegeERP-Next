@@ -16,6 +16,7 @@ import {
   saveRegisteredExamSubjects,
 } from '@/services/pre-examination'
 import { MINIO_URL } from '@/config/constants/api'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 
@@ -284,7 +285,8 @@ export default function ExamRegistrationManualFeelessPage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Registration Manual Feeless" subtitle="Register students without fee requirements" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Registration Manual Feeless</h2>
@@ -550,7 +552,7 @@ export default function ExamRegistrationManualFeelessPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }
 

@@ -16,6 +16,7 @@ import {
   addExamLabBatchesStudentsList,
   updateExamLabBatchesStudents,
 } from '@/services/pre-examination'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 
@@ -462,7 +463,8 @@ export default function StudentExamLabBatchesPage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Lab Batches Students" subtitle="Manage student lab batch assignments" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Lab Batches Students</h2>
@@ -607,7 +609,7 @@ export default function StudentExamLabBatchesPage() {
           )}
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }
 

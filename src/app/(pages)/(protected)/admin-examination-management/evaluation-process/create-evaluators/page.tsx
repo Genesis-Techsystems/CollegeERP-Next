@@ -14,7 +14,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { StatusBadge } from '@/common/components/data-display'
+import { PageContainer, PageHeader } from '@/components/layout'
 import { toastError, toastSuccess } from '@/lib/toast'
+import { toDateOnlyISO } from '@/common/generic-functions'
 import { listActiveColleges } from '@/services/pre-examination'
 import { listRegulations } from '@/services/examination'
 import {
@@ -77,11 +80,11 @@ const toYmd = (v?: string | Date) => {
   if (!v) return ''
   const d = new Date(v)
   if (Number.isNaN(d.getTime())) return ''
-  return d.toISOString().slice(0, 10)
+  return toDateOnlyISO(d)
 }
 
 function statusRenderer(p: { value?: boolean }) {
-  return <span className={p.value ? 'text-emerald-700' : 'text-red-700'}>{p.value ? 'Active' : 'InActive'}</span>
+  return <StatusBadge status={p.value ?? false} />
 }
 
 function makeDetailsRenderer(
@@ -130,7 +133,7 @@ type FormState = {
 }
 
 function emptyForm(): FormState {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = toDateOnlyISO(new Date())
   return {
     collegeCode: '',
     title: '',
@@ -539,7 +542,8 @@ export default function CreateEvaluatorsPage() {
   const evaluatorName = pickText(prefRow, ['evaluatorName'])
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Create Evaluators" subtitle="Assign evaluators to examinations" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Evaluator&apos;s Profile</h2>
@@ -866,6 +870,6 @@ export default function CreateEvaluatorsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }

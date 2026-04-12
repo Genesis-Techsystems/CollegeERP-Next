@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import { DataTable } from '@/common/components/table'
+import { TableCard } from '@/common/components/table/TableCard'
+import { StatusBadge } from '@/common/components/data-display'
+import { PageContainer, PageHeader } from '@/components/layout'
 import {
   getUnivExamFilters,
   getUnivExamRestNoTimetable,
@@ -29,6 +34,30 @@ import {
 import { ChevronDown, Filter } from 'lucide-react'
 
 type Row = Record<string, any>
+
+// ── Column shape ─────────────────────────────────────────────────────────────
+const COL_DEFS = {
+  siNo:      { headerName: 'No.', valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1, width: 60, flex: 0 } as ColDef,
+  examType:  { field: 'examtypeCatdetCode', headerName: 'Exam Type', minWidth: 100 } as ColDef,
+  batchName: { field: 'batchName', headerName: 'Lab Batch', flex: 1, minWidth: 160 } as ColDef,
+  capacity:  { field: 'capacity', headerName: 'Capacity', width: 100, flex: 0 } as ColDef,
+  sortOrder: { field: 'sortOrder', headerName: 'Sort Order', width: 100, flex: 0 } as ColDef,
+  isActive:  { field: 'isActive', headerName: 'Status', width: 90, flex: 0 } as ColDef,
+  actions:   { headerName: 'Actions', width: 90, flex: 0 } as ColDef,
+}
+
+// ── Pure renderers ────────────────────────────────────────────────────────────
+function statusRenderer(p: ICellRendererParams) {
+  return <StatusBadge status={p.data?.isActive ?? false} />
+}
+
+function makeActionsRenderer(openEdit: (row: Row) => void) {
+  return (p: ICellRendererParams) => (
+    <Button variant="ghost" size="sm" onClick={() => p.data && openEdit(p.data)}>
+      Edit
+    </Button>
+  )
+}
 
 export default function ExamLabBatchesPage() {
   const empId = 31754
@@ -137,7 +166,7 @@ export default function ExamLabBatchesPage() {
     setRows(Array.isArray(data) ? data : [])
   }
 
-  function openAdd() {
+  const openAdd = useCallback(() => {
     setEditing(null)
     setExamTypeCode('Regular')
     setBatchName('')
@@ -146,9 +175,9 @@ export default function ExamLabBatchesPage() {
     setIsActive(true)
     setReason('active')
     setOpen(true)
-  }
+  }, [])
 
-  function openEdit(r: Row) {
+  const openEdit = useCallback((r: Row) => {
     setEditing(r)
     setExamTypeCode(String(r.examtypeCatdetCode ?? 'Regular'))
     setBatchName(String(r.batchName ?? ''))
@@ -157,7 +186,7 @@ export default function ExamLabBatchesPage() {
     setIsActive(Boolean(r.isActive))
     setReason(String(r.reason ?? ''))
     setOpen(true)
-  }
+  }, [])
 
   async function saveBatch() {
     if (!collegeId || !examId || !courseYearId || !courseGroupId || !regulationId || !subjectId || !batchName) return
@@ -190,8 +219,24 @@ export default function ExamLabBatchesPage() {
     return rows.filter((r) => `${r.batchName ?? ''} ${r.examtypeCatdetCode ?? ''} ${r.capacity ?? ''}`.toLowerCase().includes(s))
   }, [rows, q])
 
+  // ── Column assembly ─────────────────────────────────────────────────────────
+  const columnDefs = useMemo<ColDef[]>(
+    () => [
+      COL_DEFS.siNo,
+      COL_DEFS.examType,
+      COL_DEFS.batchName,
+      COL_DEFS.capacity,
+      COL_DEFS.sortOrder,
+      { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
+      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(openEdit) },
+    ],
+    [openEdit],
+  )
+
   return (
-    <div className="px-6 pb-6 pt-2 space-y-3">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Lab Batches" subtitle="Manage examination lab batches" />
+
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Lab Batches</h2>
@@ -223,45 +268,16 @@ export default function ExamLabBatchesPage() {
         )}
       </div>
 
-      {hasFetched && (
-      <div className="app-card p-3 space-y-2">
-        <div className="flex items-center gap-3">
+      <TableCard
+        headerLeft={
           <Input className="h-8 text-[12px] max-w-sm" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
-          <div className="ml-auto"><Button className="h-8 text-[12px]" onClick={openAdd}>+ Add Exam Batch</Button></div>
-        </div>
-        <div className="rounded-md border overflow-auto">
-          <table className="w-full text-[12px]">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-2 py-1 text-left">No.</th>
-                <th className="px-2 py-1 text-left">Exam Type</th>
-                <th className="px-2 py-1 text-left">Lab Batch</th>
-                <th className="px-2 py-1 text-left">Capacity</th>
-                <th className="px-2 py-1 text-left">Sort Order</th>
-                <th className="px-2 py-1 text-left">Status</th>
-                <th className="px-2 py-1 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.map((r, i) => (
-                <tr key={`row-${r.eaxmLabBatchId ?? i}`}>
-                  <td className="px-2 py-1">{i + 1}</td>
-                  <td className="px-2 py-1">{r.examtypeCatdetCode}</td>
-                  <td className="px-2 py-1">{r.batchName}</td>
-                  <td className="px-2 py-1">{r.capacity}</td>
-                  <td className="px-2 py-1">{r.sortOrder}</td>
-                  <td className="px-2 py-1">{r.isActive ? 'Active' : 'InActive'}</td>
-                  <td className="px-2 py-1"><Button variant="ghost" size="sm" onClick={() => openEdit(r)}>Edit</Button></td>
-                </tr>
-              ))}
-              {filteredRows.length === 0 && (
-                <tr><td className="px-2 py-2 text-muted-foreground" colSpan={7}>No records</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      )}
+        }
+        headerRight={
+          <Button className="h-8 text-[12px]" onClick={openAdd}>+ Add Exam Batch</Button>
+        }
+      >
+        <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loading} pagination />
+      </TableCard>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-xl p-0 overflow-hidden" hideClose>
@@ -283,7 +299,7 @@ export default function ExamLabBatchesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }
 
@@ -298,4 +314,3 @@ function dedupeBy<T extends Record<string, any>>(arr: T[], key: string): T[] {
   }
   return out
 }
-

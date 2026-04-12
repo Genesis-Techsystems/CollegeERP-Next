@@ -10,6 +10,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
+import type { ColDef } from 'ag-grid-community'
+import { DataTable } from '@/common/components/table'
+import { TableCard } from '@/common/components/table/TableCard'
+import { PageContainer, PageHeader } from '@/components/layout'
 import { distinct } from '@/lib/utils'
 import { listCourseYears, getExamTimetableDetails } from '@/services/examination'
 import {
@@ -25,6 +29,7 @@ import {
 import { ChevronDown, Filter } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { NEXT_API } from '@/config/constants/api'
+import { toDateStr } from '@/common/generic-functions'
 
 type AllocationRow = {
 	sl: number
@@ -44,6 +49,11 @@ type SessionOption = {
 	examDate: string
 	session: string
 	sessionId?: number
+	examSessionId?: number
+	fk_exam_session_id?: number
+	exam_session_id?: number
+	subjectId?: number
+	subject_id?: number
 }
 
 function formatAcademicYearLabel(row: any): string {
@@ -55,7 +65,7 @@ function formatAcademicYearLabel(row: any): string {
 
 function formatExamTimetableLabel(row: any): string {
 	const rawDate = String(row?.examDate ?? row?.exam_date ?? '').trim()
-	const date = rawDate ? rawDate.slice(0, 10) : ''
+	const date = toDateStr(rawDate)
 	const session = String(
 		row?.examSessionName ??
 		row?.examsessioninCatCode ??
@@ -81,7 +91,7 @@ function getExamTimetableParts(row: any): { examDate: string; session: string } 
 		'',
 	).trim()
 	const examDateMatch = rawDate.match(/\d{4}-\d{2}-\d{2}/)
-	const examDate = examDateMatch ? examDateMatch[0] : (rawDate ? rawDate.slice(0, 10) : '')
+	const examDate = examDateMatch ? examDateMatch[0] : toDateStr(rawDate)
 	const session = String(
 		row?.examSessionName ??
 		row?.examsessioninCatCode ??
@@ -174,7 +184,7 @@ function flattenLegacyResult(body: any): any[] {
 
 function formatTableDate(value?: string) {
 	const raw = String(value ?? '').trim()
-	const dateOnly = (raw.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? raw).slice(0, 10)
+	const dateOnly = toDateStr(raw.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? raw)
 	if (!dateOnly) return '-'
 	const d = new Date(dateOnly)
 	if (Number.isNaN(d.getTime())) return dateOnly
@@ -552,10 +562,7 @@ export default function SeatingPlanSetupPage() {
 				setPreviewRows([])
 				return
 			}
-			const selectedExamDate = String(
-				selectedTimetable?.examDate ??
-				'',
-			).slice(0, 10)
+			const selectedExamDate = toDateStr(selectedTimetable?.examDate)
 			const selectedSessionId =
 				Number(
 					selectedTimetable?.sessionId ??
@@ -600,7 +607,7 @@ export default function SeatingPlanSetupPage() {
 
 	async function handleCopyExistingSeating() {
 		if (!selectedExamId || !selectedExamTimetableId) return
-		const rows = await listExamRoomAllotments(selectedExamId, selectedExamTimetableId).catch(() => [])
+		const rows = await listExamRoomAllotmentsPre(selectedCollegeId ?? 0, selectedExamId, selectedExamTimetableId).catch(() => [])
 		const mapped: AllocationRow[] = (rows ?? []).map((r: any, i: number) => ({
 			sl: i + 1,
 			examDate: String(r.examDate ?? ''),
@@ -651,8 +658,8 @@ export default function SeatingPlanSetupPage() {
 			academicYear: String(
 				academicYearOptions.find((a) => a.id === selectedAcademicYearId)?.label ?? ''
 			),
-			courseCode: String(courseOptions.find((c) => c.id === selectedCourseId)?.label ?? ''),
-			examName: String(examOptions.find((e) => e.id === selectedExamId)?.label ?? ''),
+			courseCode: String(courses.find((c: any) => (c.courseId ?? c.id) === selectedCourseId)?.courseCode ?? courses.find((c: any) => (c.courseId ?? c.id) === selectedCourseId)?.course_code ?? ''),
+			examName: String(examMasters.find((e: any) => (e.examId ?? e.id) === selectedExamId)?.examName ?? ''),
 			sessionId: String(
 				selectedTimetable?.examSessionId ??
 				selectedTimetable?.fk_exam_session_id ??
@@ -717,8 +724,35 @@ export default function SeatingPlanSetupPage() {
 		)
 	}, [previewRows, searchText])
 
+	const columnDefs = useMemo<ColDef[]>(
+		() => [
+			{ headerName: 'Sl.No', valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1, width: 70, flex: 0 },
+			{ field: 'examDate', headerName: 'Exam Date', minWidth: 120, valueFormatter: (p: any) => formatTableDate(p.value) },
+			{ field: 'session', headerName: 'Session', minWidth: 110 },
+			{ field: 'roomCode', headerName: 'Room Code', minWidth: 110, valueFormatter: (p: any) => formatRoomCode(p.value) },
+			{ field: 'bookedSeats', headerName: 'Booked Seats', width: 120, flex: 0 },
+			{ field: 'blockedSeats', headerName: 'Blocked Seats', width: 130, flex: 0 },
+			{ field: 'availableSeats', headerName: 'Available Seats', width: 140, flex: 0 },
+			{ field: 'isActive', headerName: 'Status', width: 90, flex: 0, valueFormatter: (p: any) => p.value ? 'Active' : 'InActive' },
+			{
+				headerName: 'Actions', width: 150, flex: 0,
+				cellRenderer: (p: any) => (
+					<button
+						type="button"
+						className="text-[12px] text-[hsl(var(--primary))] hover:underline"
+						onClick={() => openSeatAllotStudents(p.data)}
+					>
+						Seat Allot Students
+					</button>
+				),
+			},
+		],
+		[],
+	)
+
 	return (
-		<div className="px-6 pb-6 pt-2 space-y-2">
+		<PageContainer className="space-y-5">
+			<PageHeader title="Seating Plan Setup" subtitle="Allocate exam room seating" />
 			<div className="app-card overflow-hidden">
 				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
 					<h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Seating Plan Setup</h2>
@@ -886,61 +920,10 @@ export default function SeatingPlanSetupPage() {
 						</div>
 					</div>
 
-					<div className="rounded-md border">
-						<div className="overflow-auto">
-							<table className="w-full text-[12px]">
-								<thead className="bg-slate-50">
-									<tr>
-										<th className="px-2 py-1 w-16 text-left">Sl.No</th>
-										<th className="px-2 py-1 text-left">Exam Date</th>
-										<th className="px-2 py-1 text-left">Exam Session</th>
-										<th className="px-2 py-1 text-left">Room Code</th>
-										<th className="px-2 py-1 text-left">Booked Seats</th>
-										<th className="px-2 py-1 text-left">Blocked Seats</th>
-										<th className="px-2 py-1 text-left">Available Seats</th>
-										<th className="px-2 py-1 text-left">Status</th>
-										<th className="px-2 py-1 text-left">Actions</th>
-									</tr>
-								</thead>
-								<tbody>
-									{filteredRows.map((r, i) => (
-										<tr key={`alloc-${i}`}>
-											<td className="px-2 py-1">{r.sl}</td>
-											<td className="px-2 py-1">{formatTableDate(r.examDate)}</td>
-											<td className="px-2 py-1">
-												{r.session}
-												{r.raw?.sessionStartTime || r.raw?.sessionEndTime
-													? ` (${tConvert(r.raw?.sessionStartTime)}-${tConvert(r.raw?.sessionEndTime)})`
-													: ''}
-											</td>
-											<td className="px-2 py-1">{formatRoomCode(r.roomCode)}</td>
-											<td className="px-2 py-1">{r.bookedSeats}</td>
-											<td className="px-2 py-1">{r.blockedSeats}</td>
-											<td className="px-2 py-1">{r.availableSeats}</td>
-											<td className="px-2 py-1">{r.isActive ? 'Active' : 'InActive'}</td>
-											<td className="px-2 py-1">
-												<button
-													type="button"
-													className="text-[hsl(var(--primary))] hover:underline"
-													onClick={() => openSeatAllotStudents(r)}
-												>
-													Seat Allot Students
-												</button>
-											</td>
-										</tr>
-									))}
-									{filteredRows.length === 0 && (
-										<tr>
-											<td className="px-2 py-2 text-muted-foreground" colSpan={9}>No rows for selected exam session.</td>
-										</tr>
-									)}
-								</tbody>
-							</table>
-						</div>
-					</div>
+					<DataTable rowData={filteredRows} columnDefs={columnDefs} pagination />
 				</div>
 			)}
-		</div>
+		</PageContainer>
 	)
 }
 

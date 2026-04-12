@@ -27,7 +27,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table/TableCard'
 import ExamMasterModal from './ExamMasterModal'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/common/components/data-display'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 export default function ExamMasterPage() {
   const router = useRouter()
@@ -161,7 +162,7 @@ export default function ExamMasterPage() {
       const filtered = filtersRef.filter(
         (r) => r.fk_university_id === universityId && r.fk_course_id === courseId
       )
-      const distinctColleges = distinct(filtered, (r) => r.fk_college_id)
+      const distinctColleges = distinct(filtered, (r) => r.fk_college_id ?? 0)
       setColleges(distinctColleges)
     }
   }
@@ -326,21 +327,11 @@ export default function ExamMasterPage() {
       {
         field: 'isActive',
         headerName: 'Status',
-        minWidth: 100,
-        cellRenderer: (p: ICellRendererParams<ExamMaster>) =>
-          p.data?.isActive ? (
-            <div className="h-full flex items-center">
-              <span className="inline-flex h-5 items-center rounded-md px-2 text-[11px] font-medium border border-emerald-200 bg-emerald-50 text-emerald-700">
-                Active
-              </span>
-            </div>
-          ) : (
-            <div className="h-full flex items-center">
-              <span className="inline-flex h-5 items-center rounded-md px-2 text-[11px] font-medium border border-red-200 bg-red-50 text-red-700">
-                Inactive
-              </span>
-            </div>
-          ),
+        width: 90,
+        flex: 0,
+        cellRenderer: (p: ICellRendererParams<ExamMaster>) => (
+          <StatusBadge status={p.data?.isActive ?? false} />
+        ),
       },
       {
         headerName: 'Actions',
@@ -392,7 +383,8 @@ export default function ExamMasterPage() {
   )
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-3">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Master" subtitle="Configure and manage examinations" />
       <div className="app-card space-y-3 overflow-hidden">
         <div className="px-4 py-2 border-b border-slate-200 bg-slate-50/60">
           <div className="flex items-center justify-between gap-2">
@@ -583,7 +575,7 @@ export default function ExamMasterPage() {
           else if (selectedCollegeId) fetchExamsByCollege()
         }}
       />
-    </div>
+    </PageContainer>
   )
 }
 

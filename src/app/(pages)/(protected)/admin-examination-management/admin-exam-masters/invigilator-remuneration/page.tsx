@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,6 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { format, parseISO } from 'date-fns'
+import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
+import { DataTable } from '@/common/components/table'
+import { TableCard } from '@/common/components/table/TableCard'
+import { StatusBadge } from '@/common/components/data-display'
+import { PageContainer, PageHeader } from '@/components/layout'
 import {
   createInvigilatorRemuneration,
   listActiveColleges,
@@ -37,6 +43,36 @@ function getRemunerationId(r: AnyRow | null | undefined): number {
     r?.invigilatorRemunerationId ??
     r?.invigRemunerationId ??
     0,
+  )
+}
+
+// ── Column shape ─────────────────────────────────────────────────────────────
+const COL_DEFS = {
+  siNo:        { headerName: 'No.', valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1, width: 60, flex: 0 } as ColDef,
+  designation: { field: 'invgdesignationCatCode', headerName: 'Invigilator Designation', flex: 1, minWidth: 160 } as ColDef,
+  college:     { field: 'collegeCode', headerName: 'College', minWidth: 120 } as ColDef,
+  amount:      { field: 'amount', headerName: 'Remuneration', width: 130, flex: 0 } as ColDef,
+  fromDate:    { field: 'fromDate', headerName: 'From Date', width: 120, flex: 0 } as ColDef,
+  toDate:      { field: 'toDate', headerName: 'To Date', width: 120, flex: 0 } as ColDef,
+  isActive:    { field: 'isActive', headerName: 'Status', width: 90, flex: 0 } as ColDef,
+  actions:     { headerName: 'Actions', width: 90, flex: 0 } as ColDef,
+}
+
+// ── Pure renderers ────────────────────────────────────────────────────────────
+function statusRenderer(p: ICellRendererParams) {
+  return <StatusBadge status={p.data?.isActive ?? false} />
+}
+
+function dateFormatter(p: ValueFormatterParams) {
+  if (!p.value) return '—'
+  try { return format(parseISO(String(p.value)), 'dd MMM yyyy') } catch { return String(p.value) }
+}
+
+function makeActionsRenderer(openEdit: (row: AnyRow) => void) {
+  return (p: ICellRendererParams) => (
+    <Button variant="ghost" size="sm" onClick={() => p.data && openEdit(p.data)}>
+      Edit
+    </Button>
   )
 }
 
@@ -84,7 +120,7 @@ export default function InvigilatorRemunerationPage() {
     setCollegeId(colleges[0]?.collegeId ?? colleges[0]?.fk_college_id ?? null)
     setInvgdesignationCatId(designations[0]?.generalDetailId ?? null)
     setAmount('')
-    const today = new Date().toISOString().slice(0, 10)
+    const today = format(new Date(), 'yyyy-MM-dd')
     setFromDate(today)
     setToDate(today)
     setIsActive(true)
@@ -92,19 +128,19 @@ export default function InvigilatorRemunerationPage() {
     setOpen(true)
   }
 
-  function openEdit(r: AnyRow) {
+  const openEdit = useCallback((r: AnyRow) => {
     setEditing(r)
     setCollegeId(Number(r.collegeId ?? r.fk_college_id ?? r.college?.collegeId ?? null))
     setInvgdesignationCatId(
       Number(r.invgdesignationCatId ?? r.invgdesignationCat?.generalDetailId ?? r.generalDetailId ?? null),
     )
     setAmount(String(r.amount ?? ''))
-    setFromDate(String(r.fromDate ?? r.from_date ?? '').slice(0, 10))
-    setToDate(String(r.toDate ?? r.to_date ?? '').slice(0, 10))
-    setIsActive(String(r.isActive ?? '').toLowerCase() === 'true' || Number(r.isActive) === 1)
+    try { setFromDate(r.fromDate ? format(parseISO(String(r.fromDate)), 'yyyy-MM-dd') : '') } catch { setFromDate('') }
+    try { setToDate(r.toDate ? format(parseISO(String(r.toDate)), 'yyyy-MM-dd') : '') } catch { setToDate('') }
+    setIsActive(Boolean(r.isActive))
     setReason(String(r.reason ?? ''))
     setOpen(true)
-  }
+  }, [])
 
   async function save() {
     if (!collegeId || !invgdesignationCatId || !amount || !fromDate || !toDate) return
@@ -151,60 +187,35 @@ export default function InvigilatorRemunerationPage() {
     await loadAll()
   }
 
+  // ── Column assembly ─────────────────────────────────────────────────────────
+  const columnDefs = useMemo<ColDef[]>(
+    () => [
+      COL_DEFS.siNo,
+      COL_DEFS.designation,
+      COL_DEFS.college,
+      COL_DEFS.amount,
+      { ...COL_DEFS.fromDate, valueFormatter: dateFormatter },
+      { ...COL_DEFS.toDate,   valueFormatter: dateFormatter },
+      { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
+      { ...COL_DEFS.actions,  cellRenderer: makeActionsRenderer(openEdit) },
+    ],
+    [openEdit],
+  )
+
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
-      <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Invigilator Remuneration</h2>
-        </div>
-        <div className="p-3 space-y-2">
-        <div className="flex items-center gap-3">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Invigilator Remuneration" subtitle="Manage invigilator pay rates" />
+
+      <TableCard
+        headerLeft={
           <Input className="h-8 text-[12px] max-w-sm" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
-          <div className="ml-auto">
-            <Button className="h-8 text-[12px]" onClick={openAdd}>+ Add Invigilator Remuneration</Button>
-          </div>
-        </div>
-        <div className="rounded-md border overflow-auto">
-          <table className="w-full text-[12px]">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-2 py-1 text-left">No.</th>
-                <th className="px-2 py-1 text-left">Invigilator Designation</th>
-                <th className="px-2 py-1 text-left">College</th>
-                <th className="px-2 py-1 text-left">Amount</th>
-                <th className="px-2 py-1 text-left">From Date</th>
-                <th className="px-2 py-1 text-left">To Date</th>
-                <th className="px-2 py-1 text-left">Status</th>
-                <th className="px-2 py-1 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.map((r, i) => (
-                <tr key={`r-${getRemunerationId(r) || i}`}>
-                  <td className="px-2 py-1">{i + 1}</td>
-                  <td className="px-2 py-1">{r.invgdesignationCatCode}</td>
-                  <td className="px-2 py-1">{r.collegeCode}</td>
-                  <td className="px-2 py-1">{r.amount}</td>
-                  <td className="px-2 py-1">{String(r.fromDate ?? '').slice(0, 10)}</td>
-                  <td className="px-2 py-1">{String(r.toDate ?? '').slice(0, 10)}</td>
-                  <td className="px-2 py-1">{r.isActive ? 'Active' : 'InActive'}</td>
-                  <td className="px-2 py-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(r)} aria-label="Edit remuneration">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-              {filteredRows.length === 0 && (
-                <tr>
-                  <td className="px-2 py-2 text-muted-foreground" colSpan={8}>No records</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        </div>
-      </div>
+        }
+        headerRight={
+          <Button className="h-8 text-[12px]" onClick={openAdd}>+ Add Invigilator Remuneration</Button>
+        }
+      >
+        <DataTable rowData={filteredRows} columnDefs={columnDefs} pagination />
+      </TableCard>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl">
@@ -275,7 +286,6 @@ export default function InvigilatorRemunerationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }
-

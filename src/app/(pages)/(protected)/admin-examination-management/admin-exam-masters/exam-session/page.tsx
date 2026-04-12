@@ -15,11 +15,62 @@ import {
 } from '@/components/ui/select'
 import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table/TableCard'
-import type { ColDef } from 'ag-grid-community'
-import { Badge } from '@/components/ui/badge'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import { StatusBadge } from '@/common/components/data-display'
+import { PageContainer, PageHeader } from '@/components/layout'
 import { listExamSessions, createExamSession, updateExamSession, getCollegeFilters } from '@/services/examination'
-import { ChevronDown, Filter, Pencil } from 'lucide-react'
 import { distinct } from '@/lib/utils'
+
+// ── Column shape ─────────────────────────────────────────────────────────────
+const COL_DEFS = {
+  siNo:      { headerName: 'SI.No', valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1, width: 80, flex: 0 } as ColDef,
+  name:      { field: 'examSessionName', headerName: 'Session Name', flex: 1, minWidth: 180 } as ColDef,
+  sessionIn: { field: 'examsessioninCatCode', headerName: 'Session In', minWidth: 120 } as ColDef,
+  uniCode:   { field: 'universityCode', headerName: 'University Code', minWidth: 140 } as ColDef,
+  startEnd:  {
+    headerName: 'Start - End',
+    minWidth: 180,
+    valueGetter: (p: any) =>
+      p.data?.sessionStartTime && p.data?.sessionEndTime
+        ? `${p.data.sessionStartTime} - ${p.data.sessionEndTime}`
+        : '—',
+  } as ColDef,
+  isActive:  { field: 'isActive', headerName: 'Status', width: 100, flex: 0 } as ColDef,
+  actions:   { headerName: 'Actions', width: 120, flex: 0 } as ColDef,
+}
+
+// ── Pure renderers ────────────────────────────────────────────────────────────
+function statusRenderer(p: ICellRendererParams) {
+  return <StatusBadge status={p.data?.isActive ?? false} />
+}
+
+function makeActionsRenderer(
+  setEditing: (row: any) => void,
+  setForm: (form: any) => void,
+  setOpen: (v: boolean) => void,
+) {
+  return (p: ICellRendererParams) => (
+    <Button
+      size="sm"
+      variant="ghost"
+      onClick={() => {
+        setEditing(p.data)
+        setForm({
+          examSessionName: p.data?.examSessionName ?? '',
+          examsessioninCatCode: p.data?.examsessioninCatCode ?? '',
+          universityCode: p.data?.universityCode ?? '',
+          sessionStartTime: p.data?.sessionStartTime ?? '',
+          sessionEndTime: p.data?.sessionEndTime ?? '',
+          isActive: !!p.data?.isActive,
+          reason: p.data?.reason ?? 'active',
+        })
+        setOpen(true)
+      }}
+    >
+      Edit
+    </Button>
+  )
+}
 
 export default function ExamSessionPage() {
   const [rows, setRows] = useState<any[]>([])
@@ -28,6 +79,7 @@ export default function ExamSessionPage() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
   const [filterOpen, setFilterOpen] = useState(true)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [universityOptions, setUniversityOptions] = useState<{ code: string; name?: string }[]>([])
 
   const [form, setForm] = useState({
@@ -74,6 +126,11 @@ export default function ExamSessionPage() {
     const lower = q.toLowerCase()
     return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(lower))
   }, [q, rows])
+
+  const filteredByStatus = useMemo(() => {
+    if (statusFilter === 'all') return filtered
+    return filtered.filter((r) => statusFilter === 'active' ? !!r.isActive : !r.isActive)
+  }, [filtered, statusFilter])
   function formatTime12h(value?: string) {
     if (!value) return ''
     const raw = String(value).trim()
@@ -87,61 +144,19 @@ export default function ExamSessionPage() {
     return `${hour12}:${mm} ${ampm}`
   }
 
-  const cols = useMemo<ColDef[]>(() => [
-    { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
-    { field: 'examSessionName', headerName: 'Session Name', minWidth: 180 },
-    { field: 'examsessioninCatCode', headerName: 'Session In', minWidth: 120 },
-    { field: 'universityCode', headerName: 'University Code', minWidth: 140 },
-    {
-      headerName: 'Start - End',
-      minWidth: 180,
-      valueGetter: (p) =>
-        p.data?.sessionStartTime && p.data?.sessionEndTime
-          ? `${formatTime12h(p.data.sessionStartTime)} - ${formatTime12h(p.data.sessionEndTime)}`
-          : '—',
-    },
-    {
-      field: 'isActive',
-      headerName: 'Status',
-      minWidth: 100,
-      cellRenderer: (p: any) =>
-        p.value ? (
-          <Badge variant="outline" className="rounded-md border-emerald-200 bg-emerald-50 text-emerald-700 h-5 px-2 text-[11px] font-medium">
-            Active
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="rounded-md border-red-200 bg-red-50 text-red-700 h-5 px-2 text-[11px] font-medium">
-            InActive
-          </Badge>
-        ),
-    },
-    {
-      headerName: 'Actions',
-      minWidth: 120,
-      cellRenderer: (p: any) => (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-8 w-8 p-0"
-          onClick={() => {
-            setEditing(p.data)
-            setForm({
-              examSessionName: p.data?.examSessionName ?? '',
-              examsessioninCatCode: p.data?.examsessioninCatCode ?? '',
-              universityCode: p.data?.universityCode ?? '',
-              sessionStartTime: p.data?.sessionStartTime ?? '',
-              sessionEndTime: p.data?.sessionEndTime ?? '',
-              isActive: !!p.data?.isActive,
-              reason: p.data?.reason ?? 'active',
-            })
-            setOpen(true)
-          }}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
-      ),
-    },
-  ], [])
+  // ── Column assembly ─────────────────────────────────────────────────────────
+  const columnDefs = useMemo<ColDef[]>(
+    () => [
+      COL_DEFS.siNo,
+      COL_DEFS.name,
+      COL_DEFS.sessionIn,
+      COL_DEFS.uniCode,
+      COL_DEFS.startEnd,
+      { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
+      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditing, setForm, setOpen) },
+    ],
+    [],
+  )
 
   async function save() {
     const payload = { ...form, reason: form.isActive ? 'active' : (form.reason || '') }
@@ -156,22 +171,34 @@ export default function ExamSessionPage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-3">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Sessions" subtitle="Create and manage exam time slots" />
+
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Exam Sessions</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
+        <div className="px-3 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={`h-5 rounded-md border px-2 text-[11px] font-medium ${statusFilter === 'all' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600'}`}
+              onClick={() => setStatusFilter('all')}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              className={`h-5 rounded-md border px-2 text-[11px] font-medium ${statusFilter === 'active' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-600'}`}
+              onClick={() => setStatusFilter('active')}
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              className={`h-5 rounded-md border px-2 text-[11px] font-medium ${statusFilter === 'inactive' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-slate-200 text-slate-600'}`}
+              onClick={() => setStatusFilter('inactive')}
+            >
+              InActive
+            </button>
+          </div>
         </div>
       </div>
 
@@ -205,7 +232,7 @@ export default function ExamSessionPage() {
           </Button>
         }
       >
-        <DataTable rowData={filtered} columnDefs={cols} loading={loading} pagination />
+        <DataTable rowData={filteredByStatus} columnDefs={columnDefs} loading={loading} pagination />
       </TableCard>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) { setOpen(false); setEditing(null) } }}>
@@ -272,7 +299,6 @@ export default function ExamSessionPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }
-

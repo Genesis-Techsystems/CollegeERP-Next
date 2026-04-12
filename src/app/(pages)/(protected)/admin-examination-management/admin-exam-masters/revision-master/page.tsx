@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ import {
   updateRevisionMaster,
 } from '@/services/revision-master'
 import { ChevronDown, Filter } from 'lucide-react'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 export default function RevisionMasterPage() {
   const [colleges, setColleges] = useState<any[]>([])
@@ -107,7 +109,7 @@ export default function RevisionMasterPage() {
   function openAdd() {
     setEditing(null)
     setExamRevisionTypeId(revisionTypes[0]?.generalDetailId ?? null)
-    const today = new Date().toISOString().slice(0, 10)
+    const today = toDateOnlyISO(new Date())
     setFromDate(today)
     setToDate(today)
     setAmount('0')
@@ -119,8 +121,8 @@ export default function RevisionMasterPage() {
   function openEdit(row: any) {
     setEditing(row)
     setExamRevisionTypeId(Number(row.examRevisionTypeId ?? null))
-    setFromDate(String(row.fromDate ?? '').slice(0, 10))
-    setToDate(String(row.toDate ?? '').slice(0, 10))
+    setFromDate(toDateStr(row.fromDate))
+    setToDate(toDateStr(row.toDate))
     setAmount(String(row.amount ?? 0))
     setIsActive(Boolean(row.isActive))
     setReason(String(row.reason ?? ''))
@@ -155,7 +157,8 @@ export default function RevisionMasterPage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Revision Master" subtitle="Manage revision types and rules" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Revision Master</h2>
@@ -230,8 +233,8 @@ export default function RevisionMasterPage() {
                   <tr key={`r-${r.revisionMasterId ?? i}`}>
                     <td className="px-2 py-1">{i + 1}</td>
                     <td className="px-2 py-1">{r.examRevisionTypeName}</td>
-                    <td className="px-2 py-1">{String(r.fromDate ?? '').slice(0, 10)}</td>
-                    <td className="px-2 py-1">{String(r.toDate ?? '').slice(0, 10)}</td>
+                    <td className="px-2 py-1">{toDateStr(r.fromDate)}</td>
+                    <td className="px-2 py-1">{toDateStr(r.toDate)}</td>
                     <td className="px-2 py-1">{r.amount}</td>
                     <td className="px-2 py-1">{r.isActive ? 'Active' : 'InActive'}</td>
                     <td className="px-2 py-1"><Button variant="ghost" size="sm" onClick={() => openEdit(r)}>Edit</Button></td>
@@ -304,7 +307,7 @@ export default function RevisionMasterPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }
 

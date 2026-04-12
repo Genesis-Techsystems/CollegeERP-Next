@@ -5,7 +5,6 @@ import type { ColDef } from 'ag-grid-community'
 import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -26,6 +25,9 @@ import {
   listEvaluationSubjects,
   listExamQuestionPapers,
 } from '@/services/evaluation-process'
+import { PageContainer, PageHeader } from '@/components/layout'
+import { StatusBadge } from '@/common/components/data-display'
+import { toDateOnlyISO } from '@/common/generic-functions'
 
 type AnyRow = Record<string, any>
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
@@ -80,7 +82,7 @@ export default function ExamQuestionPaperMarksPage() {
     totalMarks: '',
     passMarks: '',
     preparedByEmp: 'Praveen Reddy',
-    preparedDate: new Date().toISOString().slice(0, 10),
+    preparedDate: toDateOnlyISO(new Date()),
     questionPaperStatus: 'Prepared',
     statusComments: '',
     isActive: true,
@@ -96,7 +98,7 @@ export default function ExamQuestionPaperMarksPage() {
       totalMarks: '',
       passMarks: '',
       preparedByEmp: 'Praveen Reddy',
-      preparedDate: new Date().toISOString().slice(0, 10),
+      preparedDate: toDateOnlyISO(new Date()),
       questionPaperStatus: 'Prepared',
       statusComments: '',
       isActive: true,
@@ -315,17 +317,8 @@ export default function ExamQuestionPaperMarksPage() {
         field: 'isActive',
         headerName: 'Status',
         minWidth: 105,
-        cellRenderer: (p: { value?: string | boolean }) => (
-          <Badge
-            variant="outline"
-            className={
-              p.value === true || p.value === 'Active'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-red-200 bg-red-50 text-red-700'
-            }
-          >
-            {p.value === true || p.value === 'Active' ? 'Active' : 'Inactive'}
-          </Badge>
+        cellRenderer: (p: { data?: AnyRow }) => (
+          <StatusBadge status={p.data?.isActive === true || p.data?.isActive === 'Active'} />
         ),
       },
       {
@@ -343,7 +336,8 @@ export default function ExamQuestionPaperMarksPage() {
   )
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Question Paper" subtitle="Manage question paper marks setup" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Question Paper</h2>
@@ -639,6 +633,6 @@ export default function ExamQuestionPaperMarksPage() {
         </DialogContent>
       </Dialog>
 
-    </div>
+    </PageContainer>
   )
 }

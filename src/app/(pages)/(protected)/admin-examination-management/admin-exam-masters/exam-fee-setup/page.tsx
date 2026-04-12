@@ -1,6 +1,6 @@
 'use client'
 
-import { PageHeader } from '@/components/layout'
+import { PageContainer, PageHeader } from '@/components/layout'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSessionContext } from '@/context/SessionContext'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table/TableCard'
-import type { ColDef } from 'ag-grid-community'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import { StatusBadge } from '@/common/components/data-display'
 import { distinct } from '@/lib/utils'
 import { buildQuery } from '@/services/crud'
 import {
@@ -28,9 +29,13 @@ import {
 } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ChevronDown, Filter, Pencil, Plus } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
+
+// ── Pure renderer ─────────────────────────────────────────────────────────────
+function statusRenderer(p: ICellRendererParams) {
+  return <StatusBadge status={p.data?.isActive ?? false} />
+}
 
 export default function ExamFeeSetupPage() {
   const { user } = useSessionContext()
@@ -211,17 +216,9 @@ export default function ExamFeeSetupPage() {
     {
       field: 'isActive',
       headerName: 'Status',
-      minWidth: 110,
-      cellRenderer: (p: any) =>
-        p.value ? (
-          <span className="inline-flex h-5 items-center rounded-md px-2 text-[11px] font-medium border border-emerald-200 bg-emerald-50 text-emerald-700">
-            Active
-          </span>
-        ) : (
-          <span className="inline-flex h-5 items-center rounded-md px-2 text-[11px] font-medium border border-red-200 bg-red-50 text-red-700">
-            InActive
-          </span>
-        ),
+      width: 90,
+      flex: 0,
+      cellRenderer: statusRenderer,
     },
     {
       headerName: 'Actions',
@@ -318,7 +315,8 @@ export default function ExamFeeSetupPage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-3">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Fee Structures" subtitle="Configure fee structures per exam" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Exam Fee Structures</h2>
@@ -574,7 +572,7 @@ export default function ExamFeeSetupPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }
 

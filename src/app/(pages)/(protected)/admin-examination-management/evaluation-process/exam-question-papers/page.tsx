@@ -5,11 +5,15 @@ import type { ColDef } from 'ag-grid-community'
 import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChevronDown, Filter } from 'lucide-react'
+import { PageContainer, PageHeader } from '@/components/layout'
+import { StatusBadge } from '@/common/components/data-display'
+import { cn } from '@/lib/utils'
+import type { ICellRendererParams } from 'ag-grid-community'
 import { getEvaluationExamFilters, getEvaluationExamRestFilters, listExamQuestionPapers } from '@/services/evaluation-process'
+import { toDateStr } from '@/common/generic-functions'
 
 type AnyRow = Record<string, any>
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
@@ -37,13 +41,26 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
     return true
   })
 }
-function statusRenderer(p: { value?: boolean }) {
-  return p.value ? (
-    <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200">Active</Badge>
-  ) : (
-    <Badge className="bg-slate-100 text-slate-700 border border-slate-200">InActive</Badge>
+
+// ── Pure renderer — publish status ──────────────────────────────────────────
+function publishStatusRenderer(p: ICellRendererParams) {
+  const published = p.data?.publishStatus === 'Published'
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+        published ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600',
+      )}
+    >
+      {published ? 'Published' : 'Draft'}
+    </span>
   )
 }
+
+function statusRenderer(p: ICellRendererParams) {
+  return <StatusBadge status={p.data?.isActive ?? false} />
+}
+
 function actionsRenderer() {
   return (
     <div className="flex items-center gap-2">
@@ -123,7 +140,7 @@ export default function ExamQuestionPapersPage() {
               pickNum(r, ['fk_course_group_id', 'courseGroupId']) === Number(courseGroupId) &&
               pickNum(r, ['fk_course_year_id', 'courseYearId']) === Number(courseYearId),
           )
-          .map((r) => String(r.examDate ?? r.exam_date ?? '').slice(0, 10))
+          .map((r) => toDateStr(r.examDate ?? r.exam_date))
           .filter(Boolean),
         (d) => d,
       ),
@@ -133,7 +150,7 @@ export default function ExamQuestionPapersPage() {
     () =>
       dedupeBy(
         restRows.filter((r) => {
-          const rowDate = String(r.examDate ?? r.exam_date ?? '').slice(0, 10)
+          const rowDate = toDateStr(r.examDate ?? r.exam_date)
           return (
             pickNum(r, ['fk_college_id', 'collegeId']) === Number(collegeId) &&
             pickNum(r, ['fk_course_group_id', 'courseGroupId']) === Number(courseGroupId) &&
@@ -149,7 +166,7 @@ export default function ExamQuestionPapersPage() {
     () =>
       dedupeBy(
         restRows.filter((r) => {
-          const rowDate = String(r.examDate ?? r.exam_date ?? '').slice(0, 10)
+          const rowDate = toDateStr(r.examDate ?? r.exam_date)
           return (
             pickNum(r, ['fk_college_id', 'collegeId']) === Number(collegeId) &&
             pickNum(r, ['fk_course_group_id', 'courseGroupId']) === Number(courseGroupId) &&
@@ -248,9 +265,17 @@ export default function ExamQuestionPapersPage() {
       { field: 'questionPaperPath', headerName: 'QuestionPaper Path', minWidth: 180 },
       { field: 'modelAnswerSheetPath', headerName: 'AnswerSheet Path', minWidth: 180 },
       {
+        field: 'publishStatus',
+        headerName: 'Publish Status',
+        width: 130,
+        flex: 0,
+        cellRenderer: publishStatusRenderer,
+      },
+      {
         field: 'isActive',
         headerName: 'Status',
-        minWidth: 110,
+        width: 100,
+        flex: 0,
         cellRenderer: statusRenderer,
       },
       {
@@ -263,7 +288,8 @@ export default function ExamQuestionPapersPage() {
   )
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Question Papers" subtitle="Manage exam question papers" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Question Papers</h2>
@@ -305,6 +331,6 @@ export default function ExamQuestionPapersPage() {
         </div>
         <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
       </div>
-    </div>
+    </PageContainer>
   )
 }

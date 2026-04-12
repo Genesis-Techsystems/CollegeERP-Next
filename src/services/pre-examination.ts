@@ -1,6 +1,7 @@
 import { buildQuery, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords, postDetails } from '@/services/crud'
 import { EXAM_API } from '@/config/constants/api'
 import { GM_CODES } from '@/config/constants/ui'
+import { toDateStr } from '@/common/generic-functions'
 
 type AnyRow = Record<string, any>
 
@@ -42,7 +43,7 @@ export async function listExamTimetablesByExam(examId: number): Promise<AnyRow[]
         map.set(id, {
           ...row,
           examTimetableId: id,
-          examDate: examDate.slice(0, 10),
+          examDate: toDateStr(examDate),
           examSessionName: String(
             row?.examSessionName ??
               row?.exam_session_name ??

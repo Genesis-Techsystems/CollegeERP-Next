@@ -18,6 +18,7 @@ import {
   listStudents,
   saveRegisteredExamSubjects,
 } from '@/services/pre-examination'
+import { PageContainer, PageHeader } from '@/components/layout'
 import { listCourseYears } from '@/services/examination'
 
 type AnyRow = Record<string, any>
@@ -348,7 +349,8 @@ export default function ExamRegisterSubjectsPage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-2 text-[12px]">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Register Subjects" subtitle="Register and update exam subjects" />
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Exam Register Subjects Update</h2>
@@ -564,7 +566,7 @@ export default function ExamRegisterSubjectsPage() {
           )}
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }
 

@@ -50,6 +50,13 @@ bun-debug.log*
 *.key
 *.crt
 
+# ---- Angular reference source (branch-only) ----
+external-src/
+
+# ---- Audit docs (branch-only) ----
+docs/audit-admin-examination-management.md
+docs/convention-audit-report.md
+
 # ---- Vercel ----
 .vercel
 

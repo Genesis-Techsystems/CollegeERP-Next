@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NEXT_API } from '@/config/constants/api'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 function flattenLegacyResult(body: any): any[] {
 	const result = (body?.result ?? body?.data?.result ?? body?.data ?? body ?? []) as any[]
@@ -296,7 +297,8 @@ export default function SeatAllotStudentsPage() {
 	}, [seatRows, roomAllotment, roomMeta.totalRows, roomMeta.totalCols])
 
 	return (
-		<div className="px-6 pb-6 pt-2 space-y-2">
+		<PageContainer className="space-y-5">
+		<PageHeader title="Seat Allot Students" subtitle="Allocate seating for exam students" />
 			<div className="app-card overflow-hidden">
 				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
 					<h2 className="text-[15px] font-semibold text-[hsl(var(--primary))]">Exam Scheduling Forms</h2>
@@ -459,7 +461,7 @@ export default function SeatAllotStudentsPage() {
 					</div>
 				</div>
 			</div>
-		</div>
+		</PageContainer>
 	)
 }
 

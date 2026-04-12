@@ -1,6 +1,7 @@
 import { buildQuery, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords, postDetails } from '@/services/crud'
 import { EXAM_EVAL_API, NEXT_API } from '@/config/constants/api'
 import { getUnivExamFiltersByType, getUnivExamRestNoTtBundle, getUnivExamSubjectUc } from '@/services/pre-examination'
+import { toDateOnlyISO } from '@/common/generic-functions'
 
 type AnyRow = Record<string, any>
 
@@ -53,7 +54,7 @@ export async function listExamQuestionPapers(filters?: {
   examDate?: string
   isActive?: boolean
 }): Promise<AnyRow[]> {
-  const where: Record<string, unknown> = {}
+  const where: Record<string, string | number | boolean> = {}
   if (filters?.examId) where.examId = filters.examId
   if (filters?.courseYearId) where.courseYearId = filters.courseYearId
   if (filters?.courseGroupId) where.courseGroupId = filters.courseGroupId
@@ -265,7 +266,7 @@ export async function finalizeOneQuestionPaper(params: {
   const payload = {
     questionPaperStatusCatDetId: params.statusCatDetId ?? 623,
     approvedByEmpId: params.approvedByEmpId || 0,
-    approvedDate: new Date().toISOString().slice(0, 10),
+    approvedDate: toDateOnlyISO(new Date()),
     isActive: true,
   }
   const entities = ['ExamQuestionPaper', 'ExamQuestionPapers']

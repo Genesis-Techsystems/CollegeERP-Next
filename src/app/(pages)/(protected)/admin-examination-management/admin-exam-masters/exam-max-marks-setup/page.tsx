@@ -21,6 +21,7 @@ import {
   listSubjectCategories,
   saveExamMarksSetup,
 } from '@/services/examination'
+import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 
@@ -94,7 +95,7 @@ export default function ExamMaxMarksSetupPage() {
     const existing = Array.isArray(data) ? data : []
 
     const byCat = new Map<number, AnyRow>()
-    for (const r of existing) {
+    for (const r of existing as AnyRow[]) {
       const key = Number(r.subjectCategoryCatDetId ?? r.subjectCategory?.generalDetailId ?? 0)
       if (key) byCat.set(key, r)
     }
@@ -170,7 +171,8 @@ export default function ExamMaxMarksSetupPage() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-2 space-y-3">
+    <PageContainer className="space-y-5">
+      <PageHeader title="Exam Marks Setup" subtitle="Configure maximum marks per subject" />
       <div className="app-card overflow-hidden">
         <button
           type="button"
@@ -298,7 +300,7 @@ export default function ExamMaxMarksSetupPage() {
         </div>
       )}
 
-    </div>
+    </PageContainer>
   )
 }
 
