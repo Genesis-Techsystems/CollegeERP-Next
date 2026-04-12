@@ -119,25 +119,29 @@ export function Sidebar() {
     }
   }, [isExpanded])
 
-  // On navigation: scroll the active depth-0 module to the TOP of the nav area
-  // so the user always sees their current context starting from the top.
+  // On navigation / navItems load: scroll the nav container so the active item
+  // is visible. We use scrollTop instead of scrollIntoView so we control the
+  // scrollable container precisely. A short timeout lets Collapsible open
+  // animations finish before we measure positions.
   useEffect(() => {
-    if (!navRef.current) return
+    const nav = navRef.current
+    if (!nav) return
 
-    // Prefer scrolling the active parent module header to the top
-    const activeModule = navRef.current.querySelector<HTMLElement>(
-      '[data-nav-module][data-active="true"]',
-    )
-    if (activeModule) {
-      activeModule.scrollIntoView({ block: 'start', behavior: 'smooth' })
-      return
+    const scroll = () => {
+      const target =
+        nav.querySelector<HTMLElement>('[data-nav-module][data-active="true"]') ??
+        nav.querySelector<HTMLElement>('a[aria-current="page"]')
+      if (!target) return
+
+      const navTop = nav.getBoundingClientRect().top
+      const targetTop = target.getBoundingClientRect().top
+      const newScrollTop = nav.scrollTop + (targetTop - navTop) - 8 // 8px breathing room
+      nav.scrollTo({ top: Math.max(0, newScrollTop), behavior: 'instant' })
     }
 
-    // Fallback: active leaf item at depth-0 (module with no children)
-    const activeLink = navRef.current.querySelector<HTMLElement>('a[aria-current="page"]')
-    if (activeLink) {
-      activeLink.scrollIntoView({ block: 'start', behavior: 'smooth' })
-    }
+    // Wait for Collapsible open animations (~150 ms) before measuring
+    const timer = setTimeout(scroll, 160)
+    return () => clearTimeout(timer)
   }, [pathname, navItems])
 
   function handleMouseEnter() {

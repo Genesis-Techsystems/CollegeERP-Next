@@ -5,6 +5,8 @@ import type { NavItem } from '@/types/navigation'
 interface NavigationState {
   navItems: NavItem[]
   collapsedItems: Set<string>
+  /** True once setNavItems has been called — prevents re-seeding collapsedItems on re-renders */
+  navItemsSeeded: boolean
   isSidebarOpen: boolean
   isSidebarCollapsed: boolean
   /** Transient: true while mouse is over the sidebar (not persisted) */
@@ -29,26 +31,23 @@ export const useNavigationStore = create<NavigationState>()(
     (set) => ({
       navItems: [],
       collapsedItems: new Set(),
+      navItemsSeeded: false,
       isSidebarOpen: true,
-      isSidebarCollapsed: true,
+      isSidebarCollapsed: false,
       isSidebarHovered: false,
-      autoCollapse: true,
+      autoCollapse: false,
       sidebarPosition: 'left',
 
       setNavItems: (items) =>
-        set(() => {
-          // Close all parents by default: collect IDs of items that have children
-          const collapsed = new Set<string>()
-          const stack = [...items]
-          while (stack.length) {
-            const node = stack.pop()!
-            if (node.children && node.children.length > 0) {
-              collapsed.add(node.id)
-              for (const child of node.children) stack.push(child)
-            }
-          }
-          return { navItems: items, collapsedItems: collapsed }
-        }),
+        set((state) => ({
+          navItems: items,
+          // Seed collapsedItems with all top-level module IDs on first load so that
+          // every module starts collapsed. NavItem's isOpen logic forces the active
+          // module open via `isActive ? true : !collapsedItems.has(id)`.
+          ...(state.navItemsSeeded
+            ? {}
+            : { collapsedItems: new Set(items.map((item) => item.id)), navItemsSeeded: true }),
+        })),
 
       toggleCollapsed: (id) =>
         set((state) => {

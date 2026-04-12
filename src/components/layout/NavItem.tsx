@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   // Dashboard / Core
   LayoutDashboard,
@@ -586,10 +586,10 @@ function NavIcon({
     <span
       className={cn(
         'flex items-center justify-center h-[18px] w-[18px] shrink-0 transition-colors duration-150',
-        active ? 'text-[hsl(var(--sidebar-primary))]' : 'text-[hsl(var(--sidebar-foreground))]',
+        active ? 'text-sidebar-primary' : 'text-sidebar-foreground',
       )}
     >
-      <Icon className="h-[13px] w-[13px]" strokeWidth={1.75} aria-hidden="true" />
+      <Icon className="h-[15px] w-[15px]" strokeWidth={1.75} aria-hidden="true" />
     </span>
   )
 }
@@ -616,37 +616,13 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
 
 export function NavItem({ item, depth = 0 }: NavItemProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const { collapsedItems, toggleCollapsed, isSidebarCollapsed, isSidebarHovered, setSidebarCollapsed } =
     useNavigationStore()
 
   const hasChildren = item.children && item.children.length > 0
 
-  const labelLower = (item.label ?? '').toLowerCase()
-  const preExamBase = '/admin-examination-management/pre-examination'
-  const forcedRoute = (() => {
-    if (labelLower.includes('student exam fee col')) return `${preExamBase}/student-exam-fee-registration`
-    if (labelLower.includes('exam scheduling for')) return `${preExamBase}/exam-scheduling-forms`
-    if (labelLower.includes('exam register subjec')) return `${preExamBase}/exam-register-subjects`
-    if (labelLower.includes('online exam fee regi')) return `${preExamBase}/online-exam-fee-registration`
-    if (labelLower.includes('internal exam registr')) return `${preExamBase}/internal-exam-registration-multiple`
-    if (labelLower.includes('exam hallticket')) return `${preExamBase}/exam-hallticket`
-    if (labelLower.includes('exam subject barcode')) return `${preExamBase}/exam-subject-barcode-generation`
-    if (labelLower.includes('exam forms')) return `${preExamBase}/exam-forms`
-    if (labelLower.includes('exam invigilator allot')) return `${preExamBase}/invigilator-allotment`
-    if (labelLower.includes('additional exam fee')) return `${preExamBase}/additional-exam-fees`
-    if (labelLower.includes('exam attendance-wis') || labelLower.includes('exam attendancewis')) {
-      return `${preExamBase}/exam-attendancewise-subject-barcode`
-    }
-    if (labelLower.includes('student exam lab bat')) return `${preExamBase}/student-exam-lab-batches`
-    if (labelLower.includes('exam registration ma')) return `${preExamBase}/exam-registration-manual-feeless`
-    if (labelLower.includes('college exam timetable view')) return `${preExamBase}/college-exam-timetable-view`
-    return null
-  })()
-
-  const effectiveHref = forcedRoute ?? item.href
   const isSelfActive =
-    effectiveHref === pathname || (effectiveHref ? pathname.startsWith(effectiveHref + '/') : false)
+    item.href === pathname || (item.href ? pathname.startsWith(item.href + '/') : false)
   const isChildActive = hasChildren ? hasActiveDescendant(item, pathname) : false
   const isActive = isSelfActive || isChildActive
 
@@ -678,13 +654,13 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
           'group relative flex w-full items-center justify-center rounded-md py-2 px-1',
           'transition-all duration-150 ease-out',
           isActive
-            ? 'text-[hsl(var(--sidebar-primary))] bg-[hsl(var(--sidebar-active-bg))] ring-1 ring-[hsl(var(--sidebar-active-border))]'
-            : 'text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-surface))] hover:text-[hsl(var(--sidebar-foreground-active))]',
+            ? 'text-white bg-slate-800'
+            : 'text-slate-300 hover:bg-slate-700 hover:text-white',
         )}
       >
         {isActive && (
           <span
-            className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-[hsl(var(--sidebar-primary))]"
+            className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-sidebar-primary"
             aria-hidden="true"
           />
         )}
@@ -694,13 +670,11 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
   }
 
   /* Indent depth (used in expanded view) */
-  // Slightly tighter left indent to match reference and keep items on one line.
   const paddingLeft =
-    depth === 0 ? 'pl-2.5' : depth === 1 ? 'pl-6' : depth === 2 ? 'pl-9.5' : 'pl-12'
+    depth === 0 ? 'pl-3' : depth === 1 ? 'pl-7' : depth === 2 ? 'pl-11' : 'pl-14'
 
   const baseLinkClasses = cn(
-    // Typography + tighter vertical rhythm (reduced gaps)
-    'group relative flex items-center gap-2.5 rounded-lg py-2 text-[12px] font-medium',
+    'group relative flex items-center gap-2.5 rounded-md py-2 text-[13px] font-medium',
     'transition-all duration-150 ease-out',
     `pr-3 ${paddingLeft}`,
   )
@@ -712,41 +686,24 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
         <CollapsibleTrigger
           // data attributes let Sidebar's scroll effect target the active parent module
           {...(depth === 0 ? { 'data-nav-module': '', 'data-active': isActive ? 'true' : undefined } : {})}
-          onClick={(e) => {
-            if (forcedRoute) {
-              e.preventDefault()
-              e.stopPropagation()
-              router.push(forcedRoute)
-            }
-          }}
           className={cn(
             baseLinkClasses,
             'w-full',
             isChildActive && !isSelfActive
-              ? 'text-[hsl(var(--sidebar-foreground-active))]'
+              ? 'text-white'
               : isActive
-              ? [
-                  'text-[hsl(var(--sidebar-primary))]',
-                  'bg-[hsl(var(--sidebar-active-bg))]',
-                  'ring-1 ring-[hsl(var(--sidebar-active-border))]',
-                ]
-              : [
-                  'text-[hsl(var(--sidebar-foreground))]',
-                  'hover:bg-[hsl(var(--sidebar-hover-bg))]',
-                  'hover:text-[hsl(var(--sidebar-foreground-active))]',
-                ],
+              ? 'text-white bg-slate-700'
+              : 'text-slate-300 hover:bg-slate-700 hover:text-white',
           )}
         >
           {isActive && (
             <span
-              className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-[hsl(var(--sidebar-primary))]"
+              className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-sidebar-primary"
               aria-hidden="true"
             />
           )}
           <NavIcon name={item.icon} active={isActive} kind={depth === 0 ? 'module' : 'page'} />
-          <span className="flex-1 text-left leading-none truncate whitespace-nowrap">
-            {item.label}
-          </span>
+          <span className="flex-1 text-left leading-none">{item.label}</span>
           <span
             className={cn(
               'ml-auto shrink-0 text-slate-500 transition-transform duration-200',
@@ -758,7 +715,7 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
         </CollapsibleTrigger>
 
         <CollapsibleContent>
-          <ul className="mt-0.5 space-y-0">
+          <ul className="mt-0.5 space-y-0.5">
             {item.children!
               .slice()
               .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -776,40 +733,23 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
   /* ── Expanded: leaf items ────────────────────────────────────────── */
   return (
     <Link
-      href={forcedRoute ?? item.href ?? '#'}
-      onClick={(e) => {
-        if (forcedRoute) {
-          e.preventDefault()
-          router.push(forcedRoute)
-        }
-      }}
+      href={item.href ?? '#'}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
         baseLinkClasses,
         isActive
-          ? [
-              'text-[hsl(var(--sidebar-primary))]',
-              'bg-[hsl(var(--sidebar-active-bg))]',
-              'ring-1 ring-[hsl(var(--sidebar-active-border))]',
-              'hover:bg-[hsl(var(--sidebar-active-bg))]',
-            ]
-          : [
-              'text-[hsl(var(--sidebar-foreground))]',
-              'hover:bg-[hsl(var(--sidebar-hover-bg))] hover:text-[hsl(var(--sidebar-foreground-active))]',
-              'hover:translate-x-0.5',
-            ],
+          ? ['text-white bg-slate-800', 'hover:bg-slate-700']
+          : ['text-slate-300', 'hover:bg-slate-700 hover:text-white', 'hover:translate-x-0.5'],
       )}
     >
       {isActive && (
         <span
-          className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-[hsl(var(--sidebar-primary))]"
+          className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-sidebar-primary"
           aria-hidden="true"
         />
       )}
       <NavIcon name={item.icon} active={isActive} kind="page" />
-      <span className="flex-1 leading-none truncate whitespace-nowrap">
-        {item.label}
-      </span>
+      <span className="flex-1 leading-none">{item.label}</span>
     </Link>
   )
 }

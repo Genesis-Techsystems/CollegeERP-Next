@@ -76,11 +76,12 @@ export interface SessionUser {
   collegeName: string
   /** Organization ID -- used for college-wise filter queries */
   organizationId?: number
+  universityId?: number
+  universityCode?: string
   academicYearId: number
   academicYear: string
   employeeId?: number
   studentId?: number
-  universityCode?: string
   // Derived server-side — never trust client-provided values:
   isAdmin: boolean            // userRole === 'ADMIN' || userRole === 'SUPERADMIN'
   isPrincipal: boolean        // roleName includes 'PRINCIPAL'

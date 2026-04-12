@@ -5,6 +5,504 @@
 
 ---
 
+## Phase 11: Question Bank Module + Rich Text Editor (2026-04-09)
+
+### Overview
+
+Added the `assessments/question-bank` module and a full rich text editor component suite. Question banks are containers for typed exam questions (MC, TF, FB, SUB) with math/chemistry formula support. The editor integrates Tiptap, KaTeX, and MathLive for visual equation editing.
+
+---
+
+### New Component Suite: `src/common/components/rich-text-editor/`
+
+A Tiptap-based rich text editor with math and chemistry formula support. Replaces Angular's TinyMCE integration.
+
+#### `RichTextEditor.tsx`
+
+Full-featured editor component.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `value` | `string` | — | HTML content (controlled) |
+| `onChange` | `(html: string) => void` | — | Called on every content change |
+| `placeholder` | `string` | `'Type here… Use $…$ for math, \\ce{…} for chemistry'` | Placeholder text |
+| `minHeight` | `number` | `200` | Min height in px |
+| `compact` | `boolean` | `false` | Hides toolbar when true |
+| `disabled` | `boolean` | `false` | Read-only mode |
+| `className` | `string` | — | Additional CSS classes |
+
+**Key features:**
+- Custom Tiptap extensions: `FontSize` and `LineHeight` (both extend `TextStyle`)
+- Formatting: bold, italic, underline, strikethrough, text/background color, alignment, indent, bullet/numbered lists, line-height
+- Media: link insertion (via `window.prompt`), image upload (base64 via FileReader), 3×3 table insertion
+- Math/chemistry: `@tiptap/extension-mathematics` renders KaTeX inline (`$…$`) and block (`$$…$$`) math; `\ce{…}` renders chemistry via mhchem
+
+#### `RichTextToolbar.tsx`
+
+Toolbar UI that pairs with `RichTextEditor`. Accepts the Tiptap `Editor` instance as its only prop. Uses `onMouseDown` with `preventDefault()` on all buttons to prevent editor blur during interaction.
+
+Controls: Undo/Redo · Font family (5 options) · Font size (8pt–96pt) · Bold/Italic/Underline/Strikethrough · Text color · Highlight color · Alignment (4) · Indent/Outdent · Lists · Line height · Link · Image upload · Table · Math button · Chemistry button.
+
+Math and Chemistry buttons open `MathInsertModal`.
+
+#### `MathContent.tsx`
+
+Renders stored rich-text HTML containing Tiptap-serialized math nodes with live KaTeX rendering. Used wherever question/option HTML needs to be displayed (not edited).
+
+**How it works:** `useMemo` preprocesses the HTML string with regex to find `data-type="inline-math"` and `data-type="block-math"` nodes, injects KaTeX-rendered HTML, then renders via `dangerouslySetInnerHTML`. Runs synchronously (no `useEffect`) — prevents accordion flicker on expand.
+
+Decodes HTML entities (`&amp;`, `&quot;`, `&#39;`, `&lt;`, `&gt;`) in `data-latex` attributes before rendering.
+
+**Props:** `html: string`, `className?: string`
+
+#### `MathInsertModal.tsx`
+
+Visual equation editor modal using MathLive for formula input and KaTeX for live preview.
+
+**Props:** `open`, `onClose`, `onInsert(latex)`, `defaultMode?: 'math' | 'chemistry'`
+
+**Features:**
+- Math vs. Chemistry tabs
+- MathLive `<math-field>` web component (dynamically imported) — degrades to plain textarea if unavailable
+- Live KaTeX preview with error display
+- **Math symbol palettes:** Powers & Roots, Greek Letters, Relations, Operators, Calculus, Arrows
+- **Chemistry palettes:** Common Molecules, Reaction Arrows, States, Charges
+- Insert as Inline (`$…$`) or Block (`$$…$$`) for math; chemistry always inserts as `\ce{…}`
+- `onInteractOutside` prevented so MathLive virtual keyboard clicks don't dismiss the dialog
+
+**Virtual keyboard:** Controlled via `window.mathVirtualKeyboard` — shown on open, hidden on close.
+
+#### `index.ts`
+
+Exports: `RichTextEditor`, `RichTextEditorProps`, `MathContent`.
+
+**Import:**
+```ts
+import { RichTextEditor, MathContent } from '@/common/components/rich-text-editor'
+```
+
+---
+
+### New Pages: `assessments/question-bank/`
+
+#### `page.tsx` — Question Bank List
+
+Admin CRUD page for managing question bank containers.
+
+- **DataTable** (AG Grid) with columns: SI.No, Name, Description, Created Date, Status, Question count, Actions
+- **Client search** — filters by name or description (case-insensitive)
+- **Role-aware fetch** — ADMIN sees all banks; other roles see only their own (filtered by `userId`)
+- **Actions per row:**
+  - Edit bank → opens `QuestionBankModal`
+  - View questions → opens `QuestionsListDrawer`
+  - Add Question → navigates to `add-question/` page
+  - Import from Excel → hidden file input → `importQuestionsFromExcel()` → loops `addOrUpdateQuestion()` per question
+- **Header:** Template download link, "Add Question Bank" button
+- **Data source:** `listQuestionBanks(userId?)` from `src/services/admin/question-bank.ts`
+
+#### `QuestionBankModal.tsx` — Create / Edit Question Bank
+
+Form modal for creating or editing a question bank container.
+
+**Fields:** Assessment Name · Assessment No · Description · Is Active + Reason · Is Public · Link to Online Course (toggle) · Course search (debounced 300ms) → Lesson → Topic (cascading)
+
+**Cascading course selection:**
+1. "Link to Online Course" toggle shows course search
+2. `searchCourses(term)` populates course dropdown (debounced)
+3. Course selection → populate lessons from `courseLessonDTOs`
+4. Lesson selection → populate topics from `courseLessonTopicDTOs`
+5. Unchecking clears all downstream selections
+
+**API calls:** `searchCourses`, `createQuestionBank` or `updateQuestionBank`
+
+#### `QuestionsListDrawer.tsx` — View Questions in a Bank
+
+Modal displaying all questions in a bank as expandable accordion items.
+
+- Question header shows: type badge (MC=blue, TF=green, FB=yellow, SUB=purple), marks, status badge, truncated question text via `MathContent`
+- Expanded shows: full options/answer, edit & delete buttons
+- Options labeled A/B/C…; correct answer highlighted in green
+- Subjective questions show explanation in muted box
+- `MathContent` used for rendering HTML question text and option HTML
+
+**Known issue documented in code:** Delete (soft-delete via `isActive=false`) fails with "Duplicate question found" because the backend duplicate-check runs before the save even when updating by `courseQuestionId`. Backend fix required.
+
+#### `add-question/page.tsx` — Add / Edit a Single Question
+
+Full-page editor for creating or editing one question within a bank.
+
+**URL params:** `assessmentId` (required), `assessmentQuestionId` (optional, edit mode), `permission`, `page` (return URL)
+
+**Question types:**
+
+| Type | Code | Answer format |
+|---|---|---|
+| Multiple Choice | MC | 5 option rows with `RichTextEditor` + correct answer checkboxes |
+| True / False | TF | Radio buttons (True / False) |
+| Fill in the Blank | FB | Dynamic text inputs for accepted answers |
+| Subjective | SUB | Optional plain textarea for explanation/marking guide |
+
+**Key behaviors:**
+- Type buttons disabled when editing (type cannot be changed after creation)
+- Question body: `RichTextEditor` with math/chemistry support
+- Marks: number input (step 0.5)
+- On submit: validates question text and marks, calls `addOrUpdateQuestion()`, invalidates cache, redirects to return page
+
+**API calls:** `listQuestionTypes()` (staleTime: Infinity), `listQuestionsByBank(assessmentId)` (for edit-mode pre-fill), `addOrUpdateQuestion(payload)`
+
+---
+
+### New Service: `src/services/admin/question-bank.ts`
+
+| Function | Method | Description |
+|---|---|---|
+| `listQuestionBanks(userId?)` | `domainList` | List all banks; filter by userId for non-admin |
+| `createQuestionBank(data)` | `domainCreate` | Create new bank |
+| `updateQuestionBank(id, data)` | `domainUpdate` | Update existing bank |
+| `listQuestionsByBank(assessmentId)` | `domainList` | Fetch `assessmentQuestionDTOs` for a bank |
+| `addOrUpdateQuestion(payload)` | raw `fetch` POST | Specialized endpoint — not standard domain/create |
+| `importQuestionsFromExcel(id, file)` | raw `fetch` POST (multipart) | Bulk-import questions from Excel |
+| `searchCourses(term)` | `domainList` | Search `CourseLessonSearch` for modal dropdown |
+| `listQuestionTypes()` | `domainList` | Fetch MC/TF/FB/SUB types from GeneralDetail |
+
+**Note on raw fetch calls:** `addOrUpdateQuestion` and `importQuestionsFromExcel` use raw `fetch()` because they target specialized Spring Boot endpoints (`assessment/addQuestion`, `assessment/importQuestionsDetails`) that require custom payloads not handled by the generic `postDetails`/`uploadFile` helpers. A future pass should migrate these to `crud.postDetails` and `crud.uploadFile` respectively.
+
+---
+
+### New Constants
+
+**`src/config/constants/api.ts`** — `ASSESSMENT_API`:
+```ts
+ASSESSMENT_API.ADD_QUESTION      // 'assessment/addQuestion'
+ASSESSMENT_API.BULK_IMPORT       // 'assessment/importQuestionsDetails'
+ASSESSMENT_API.COURSE_SEARCH     // 'CourseLessonSearch'
+```
+
+**`src/config/constants/entities.ts`** — added:
+```ts
+ENTITIES.ASSESSMENT       // { name: 'Assessment', pk: 'assessmentId' }
+ENTITIES.COURSE_QUESTION  // { name: 'CourseQuestion', pk: 'courseQuestionId' }
+```
+
+**`src/lib/query-keys.ts`** — added:
+```ts
+QK.questionBanks.all
+QK.questionBanks.list(userId?)
+QK.questionBanks.questions(assessmentId)
+QK.questionBanks.questionTypes()
+```
+
+**`src/types/question-bank.ts`** — new type file: `Assessment`, `AssessmentQuestion`, `CourseQuestion`, `CourseQuestionOption`, `OnlineCourse`, `CourseLesson`, `CourseLessonTopic`, `QuestionType`, `QuestionBankFormValues`.
+
+---
+
+### Layout and Shell Updates (same commit)
+
+**`src/components/layout/NavItem.tsx`** — Added comprehensive Material Design → Lucide icon mapping (500+ entries). Handles multi-format CSS class names (`fa fa-graduation-cap`, `icon-dashboard`, etc.) by stripping prefixes and resolving to Lucide icons.
+
+**`src/components/layout/Sidebar.tsx`** — Added:
+- Auto-scroll to active nav item on pathname change (waits 160ms for Collapsible animation to settle, then scrolls active item into center view)
+- Debug visibility filter — recursively removes `hiddenIds` from nav tree (debug mode only)
+- Search scroll-reset behavior on open/close
+
+**`src/components/layout/Topbar.tsx`** — Added backend-driven global search:
+- On mount, fetches all accessible pages from `AUTH_API.USER_ACCESS`
+- Filters results by `displayName` prefix (up to 8 results)
+- Full keyboard navigation: ArrowUp/Down cycle results, Enter navigates, Escape clears
+- Loading spinner (`Loader2`) during page fetch
+- Full ARIA combobox pattern: `aria-expanded`, `aria-haspopup`, `aria-owns`, `aria-activedescendant`, `aria-autocomplete`
+- Role-based avatar background colors (ADMIN=red, PRINCIPAL=purple, STAFF=blue, STUDENT=green, PARENT=amber)
+
+**`src/app/layout.tsx`** — Added KaTeX CSS import (`katex/dist/katex.min.css`) for math rendering in question bank and anywhere `MathContent` is used.
+
+**`src/app/globals.css`** — Added extensive custom tokens and animations:
+- `--sidebar-*` color tokens (sidebar-background: slate-900, sidebar-foreground: slate-400, etc.)
+- oklch-format status colors: `--color-status-active/inactive/pending/draft/published`
+- Feedback colors: `--color-success/warning/error/info`
+- Data display colors: `--color-table-header-bg/row-hover/row-stripe`
+- Spacing tokens: `--spacing-page-x/y`, `--spacing-card-x/y`
+- Typography scale tokens: `--font-size-page-title/section-title/label/caption`
+- Shadow tokens including `--shadow-primary` (cyan glow)
+- Keyframes: `shimmer`, `fade-up`, `fade-in`, `slide-in-left`, `scale-in`, `spin-smooth`, `bounce-dots`, `pulse-ring`, `bar-grow`, `progress`, `login-card-in`, `field-in`
+- Custom utilities: `.scrollbar-sidebar`, `.scrollbar-thin`, `.skeleton-shimmer`, `.stagger-children`, `.fl-label`/`.fl-input` (floating label pattern), AG Grid theme overrides
+
+---
+
+## Phase 10: Build Fixes — TypeScript Errors, Node Version, Missing Types (2026-03-31)
+
+### Overview
+
+Resolved all TypeScript build errors accumulated during the Phase 7–9 foundation migration. Pinned the Node runtime version and added missing stubs so `tsc --noEmit` passes cleanly.
+
+### Changes
+
+| Fix | File | Detail |
+|---|---|---|
+| Pin Node 20 | `.nvmrc` | Was running on Node 16 which broke native binary installs (AG Grid, PDF.js). Pin to `20`. |
+| Add `sonner` dependency | `package.json` | `lib/toast.ts` imported from `sonner` but it was missing from dependencies. |
+| `CollegeWiseFilterRow`, `Regulation` types | `src/types/exam-master.ts` | New type file — required by `useCollegeFilters` and the examination module. |
+| `useCollegeFilters` hook stub | `src/hooks/useCollegeFilters.ts` | Cascading University → Course → Regulation filter state. Currently returns empty arrays — wired up once the examination module is restored from `todo/`. |
+| `CampusModal` + `OrganizationModal` | `watch('reason') ?? ''` | `watch()` returns `string \| undefined`; form controlled inputs require `string`. Added nullish coalescing. |
+| `Sidebar` timeout ref | `useRef<ReturnType<typeof setTimeout> \| undefined>(undefined)` | Explicit type annotation to satisfy strict mode. |
+| `crud.ts` return types | `body.data as T` on all return sites | `ApiResponse<T>.data` is `T \| null` — added cast where required. |
+| Exclude `todo/` from TS | `tsconfig.json` | The `todo/` directory contains WIP modules with unresolved imports. Excluded from type-checking. |
+
+### `src/hooks/useCollegeFilters.ts`
+
+Stub hook for the examination module's cascading college filter. Returns:
+- `isLoading: boolean`
+- `universities`, `selectedUniversityId`, `setUniversityId`
+- `courses`, `selectedCourseId`, `setCourseId`
+- `regulations`, `selectedRegulationId`, `setRegulationId`
+
+Options: `{ withRegulations?: boolean; autoSelectFirst?: boolean }` — accepted but not yet acted on.
+
+**Status:** Data fetching not implemented. Returns empty arrays until the examination module is restored and `src/services/examination/` services are wired in. See `todo/examination-module/RESTORE.md`.
+
+---
+
+## Phase 9: Evaluation Module — Full Implementation + Service Layer Compliance Audit (2026-04-10 → 2026-04-11)
+
+### Overview
+
+Built the complete evaluation module from scratch: three layered pages (Evaluator Subjects → Answer Sheets → Marking), an evaluation dashboard, a new shared `EvalStatusBadge` component, and the full `evaluation.ts` service. After implementation, a service-layer compliance audit caught and fixed four structural violations (raw `fetch()` calls, duplicated utilities) and added a missing `putDetails` helper to the `CrudService`.
+
+---
+
+### New Pages
+
+#### `admin-examination-management/evaluation-process/evaluator-subjects/`
+
+**File:** `src/app/(pages)/(protected)/admin-examination-management/evaluation-process/evaluator-subjects/page.tsx`
+
+Dashboard for an evaluator's assigned subjects. Entry point to the evaluation workflow.
+
+- **Stats strip** — 3 `StatCard`s: Total Subjects / Papers Evaluated / Pending Papers — aggregated across all assigned subjects.
+- **Subject cards** — one card per assigned subject, sorted by urgency: `pending → in-progress → completed`. Each card shows:
+  - Subject name, subject code, course name
+  - Deadline with urgency detection (`overdue` / `soon` / `normal` / `none`) — overdue and soon dates render in red/amber with an `AlertTriangle` icon
+  - Stats mini-row: Assigned / Done / Pending counts
+  - Progress bar: `Math.round((completed / assigned) * 100)%`, colored emerald at 100%, blue when partial
+  - Status-colored left border accent: amber = pending, blue = in-progress, emerald = completed
+  - CTA button label adapts: "Start Evaluation" / "Continue" / "View"
+- **Navigation** — clicking a card pushes to `answer-sheets/` with `examEvaluatorProfileId`, `examEvaluatorProfileDetId`, `subjectName`, `subjectCode` as query params.
+- **Data source** — `getEvaluatorDashboard(userId)` from `src/services/evaluation.ts`.
+
+---
+
+#### `admin-examination-management/evaluation-process/evaluator-subjects/answer-sheets/`
+
+**File:** `src/app/(pages)/(protected)/admin-examination-management/evaluation-process/evaluator-subjects/answer-sheets/page.tsx`
+
+Lists all answer papers for a chosen subject. Second layer of the evaluation workflow.
+
+- **Stats strip** — 4 `StatCard`s: Assigned / Evaluated / Pending / Rejected & UFM.
+- **Filter tabs** — All / To Do / In Progress / Done / Rejected, with live per-tab counts. `matchesTab()` maps tab keys to `EVAL_STATUS` codes.
+- **Search** — `SearchInput` filters by OMR serial number (client-side, instant).
+- **Table** — uses the standard `Table` component from `@/common/components/table` (not a custom hand-rolled list). Column definitions follow the CLAUDE.md pattern:
+  - Pure renderer functions outside the component (`serialRenderer`, `statusRenderer`, `marksRenderer`)
+  - `makeActionRenderer(navigate)` factory for the one renderer that closes over page state
+  - Assembled in `useMemo` inside the component
+  - `pageSize={0}` disables pagination (30–60 rows, no pagination needed)
+- **Status column** — uses `EvalStatusBadge` from `@/common/components/data-display`.
+- **Action column** — "Evaluate" / "Continue" button for actionable rows; `CheckCircle2` / `XCircle` icon for done/rejected.
+- **Progress bar footer** — emerald bar showing evaluated/total as a percentage, with in-progress / not-started / rejected sub-counts.
+- **Navigation** — clicking a row (or button) pushes to `marking/` with `examEvaluationAssignmentId`, `studentAnswerPaperId`, `examEvaluatorProfileId`, `examEvaluatorProfileDetId`, `subjectName`, `subjectCode`.
+- **Data source** — `getStudentAnswerPapers(examEvaluatorProfileId, examEvaluatorProfileDetId)` from `src/services/evaluation.ts`.
+
+---
+
+#### `admin-examination-management/evaluation-process/evaluator-subjects/marking/`
+
+**Files:**
+- `src/app/(pages)/(protected)/admin-examination-management/evaluation-process/evaluator-subjects/marking/page.tsx` — thin shell, dynamically imports `marking-content.tsx` with `ssr: false` to prevent PDF.js from running server-side (it calls browser-only `DOMMatrix` at module load time).
+- `src/app/(pages)/(protected)/admin-examination-management/evaluation-process/evaluator-subjects/marking/marking-content.tsx` — all logic.
+
+Full PDF annotation and marking tool. See `docs/marking-page-flow.md` for complete user-flow documentation.
+
+**Key capabilities:**
+- **PDF rendering** — `react-pdf` (PDF.js) with a temp-canvas isolation pattern to prevent canvas transform bleed between pages.
+- **Stamp placement** — click a mark button in the question panel to drop a stamp on the PDF canvas at the last-clicked position. Stamps are rendered as cyan-600 rounded squares with the mark value in bold white.
+- **Stamp drag-to-move** — hover a stamp to reveal a Move + Delete popup. Drag the stamp to a new position; drop recalculates coordinates from a fresh `getBoundingClientRect()` on mouseup to account for scroll.
+  - Drag ghost: `position: absolute` inside the canvas wrapper (not `fixed`) — avoids coordinate offset caused by CSS `transform` on ancestor sidebar elements.
+  - Ghost is live-positioned from `dragState.canvasRect` refreshed on every `mousemove`.
+- **Stamp delete** — trash icon in the popup; calls `deleteEvalMark()` and removes from local state.
+- **Question panel** — collapsible sidebar showing all questions grouped by PART. Mark buttons auto-generated from `maxMarks` and `marksInterval` via `buildMarkButtons()`. Supports Not Answered toggle.
+- **Timer** — elapsed seconds tracked via a `setInterval` ref, displayed as HH:MM:SS, paused when the paper is locked.
+- **Lock state** — paper is locked when `evaluationStatusCatDetId` is Evaluated / Finalized / Rejected / UFM. Locked papers are read-only (no stamps, no mark changes).
+- **Finalize flow** — validates all questions are answered → saves PDF annotations → calls `addFinalEvalPapers`, `updateEvalAssignment`, `saveFinalEvalPdf`, `finalizeEvalMarks`, `updateEvalsCompletedCount` in sequence → navigates back.
+- **Reject / UFM flow** — confirmation dialog collects reason, calls `rejectEvalAssignment()` / `ufmEvalAssignment()`, navigates back.
+- **Zoom** — 5 steps from 0.5× to 2.0×; PDF canvases re-render at each zoom level.
+- **Data sources** — `getExamQpDraftMarks`, `getAnswerPaperBase64`, `getEvalSetting`, all from `src/services/evaluation.ts`.
+
+---
+
+#### `dashboards/evaluation-dashboard/`
+
+**File:** `src/app/(pages)/(protected)/dashboards/evaluation-dashboard/page.tsx`
+
+Simpler evaluation overview dashboard — grid of subject cards, each showing assigned/evaluated/pending counts and a "Check Paper" button. Predates the evaluator-subjects page; the evaluator-subjects page supersedes it for the full evaluation workflow.
+
+---
+
+### New Service: `src/services/evaluation.ts`
+
+Single file covering all evaluation API calls. All calls route through `/api/proxy/` — never calls Spring Boot directly.
+
+**EVAL_STATUS constants:**
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `EVAL_STATUS.NEW` | 626 | Not yet opened |
+| `EVAL_STATUS.ASSIGNED` | 627 | Assigned to evaluator |
+| `EVAL_STATUS.IN_PROGRESS` | 628 | Evaluator has opened |
+| `EVAL_STATUS.EVALUATED` | 629 | Marked and submitted |
+| `EVAL_STATUS.FINALIZED` | 631 | Final marks confirmed |
+| `EVAL_STATUS.REJECTED` | 632 | Rejected by evaluator |
+| `EVAL_STATUS.UFM` | 633 | Unfair Means flagged |
+
+**Exported functions:**
+
+| Function | Method | Description |
+|---|---|---|
+| `getEvaluatorDashboard(userId)` | `getAllRecords` proc | Lists all assigned subjects for an evaluator |
+| `getStudentAnswerPapers(profileId, detId)` | `getAllRecords` proc | Lists all answer papers for a subject assignment |
+| `getExamQpDraftMarks(params)` | `getAllRecords` proc | Returns `[QuestionMark[], EvalAssignmentDetail]` for the marking page |
+| `getAnswerPaperBase64(studentAnswerPaperId)` | raw `fetch` ⚠️ | Fetches PDF as base64 — raw fetch because the backend returns `res.text()` not a standard JSON envelope |
+| `getEvalSetting(orgId, code)` | `domainList` | Fetches a general setting value (e.g. PDF page range) |
+| `updateEvalAssignmentStartDate(id, date)` | `putDetails` | Records when evaluator first opens a paper |
+| `updateEvalAssignment(id, data)` | `putDetails` | Saves evaluation progress or submits final status |
+| `saveStudentEvalPages(pages)` | `crud.postDetails` | Saves mark annotations (stamp positions, marks) for all pages |
+| `addFinalEvalPapers(data)` | `crud.postDetails` | Marks evaluation complete, links evaluated paper |
+| `updateEvalsCompletedCount(detId)` | `putDetails` | Increments evaluator's completed count |
+| `saveFinalEvalPdf(data)` | `crud.postDetails` | Saves path of the final annotated PDF |
+| `finalizeEvalMarks(assignmentId)` | `crud.getAllRecords` proc | Runs `exam_questionpaper_finalmarks_update` stored procedure |
+| `rejectEvalAssignment(id, data)` | `domainUpdate` | Sets assignment status to Rejected |
+| `ufmEvalAssignment(id, data)` | `domainUpdate` | Sets assignment status to UFM |
+| `deleteEvalMark(assignmentId, marksId)` | `crud.getAllRecords` proc | Runs `delete_question` stored procedure |
+| `isEvalLocked(statusId)` | pure function | Returns true when the status is Evaluated / Finalized / Rejected / UFM |
+| `evalStatusLabel(statusId)` | pure function | Maps a status code to a human-readable label |
+
+**Key types exported:** `EvaluatorDetail`, `StudentAnswerPaper`, `QuestionMark`, `EvalAssignmentDetail`, `ExamQuestionPaper`, `EvalPagePayload`.
+
+---
+
+### New Shared Component: `EvalStatusBadge`
+
+**File:** `src/common/components/data-display/EvalStatusBadge.tsx`
+**Export:** `src/common/components/data-display/index.ts`
+
+A reusable status badge for evaluation-specific status codes. Renders a colored dot + label inside a rounded-full border span.
+
+```tsx
+<EvalStatusBadge statusId={row.evaluationStatusCatDetId} />
+```
+
+**Status → color mapping:**
+
+| Status | Dot | Badge |
+|---|---|---|
+| New | `bg-blue-400` | blue-50 / blue-700 |
+| Assigned | `bg-blue-500` | blue-50 / blue-700 |
+| In Progress | `bg-amber-500` | amber-50 / amber-700 |
+| Evaluated | `bg-emerald-500` | emerald-50 / emerald-700 |
+| Finalized | `bg-teal-500` | teal-50 / teal-700 |
+| Rejected | `bg-red-500` | red-50 / red-700 |
+| UFM | `bg-purple-500` | purple-50 / purple-700 |
+
+Falls back to a slate style for unknown status codes.
+
+Used in: `answer-sheets/page.tsx`. Do not inline badge spans for evaluation status anywhere — always use this component.
+
+---
+
+### `crud.ts` — Added `putDetails`
+
+**File:** `src/services/crud.ts`
+
+Added `putDetails<T>(path, data, params?)` to `CrudService` and exported a standalone wrapper.
+
+**Why:** The existing `crud` API covered `GET` (via `fetchDetails`), `POST` (via `postDetails`), file upload (`uploadFile`), and domain `PUT` (`domainUpdate` for `domain/update/{Entity}`). But several evaluation endpoints use custom `PUT` paths that are not the standard domain-update pattern. There was no generic `putDetails` — so callers were falling back to raw `fetch()`, bypassing the service layer.
+
+```ts
+// Usage
+await putDetails(EXAM_EVAL_API.UPDATE_EVAL_ASSIGNMENTS, data, { examEvaluationAssignmentId })
+
+// Signature
+putDetails<T = void>(
+  path: string,
+  data: unknown,
+  params?: Record<string, string | number>,
+): Promise<T>
+```
+
+`params` are appended as query-string key=value pairs. Handles both empty-body and JSON-body responses gracefully.
+
+---
+
+### Service Layer Compliance Audit
+
+After the evaluation module was built, an audit of all uncommitted files against the project rules identified four violations:
+
+#### 1. Raw `fetch()` PUT calls in `evaluation.ts` → fixed with `putDetails`
+
+Three functions were calling `fetch()` directly with `method: 'PUT'` instead of using the service layer, because `putDetails` didn't exist yet. After adding `putDetails` to `crud.ts`, all three were replaced:
+
+| Function | Before | After |
+|---|---|---|
+| `updateEvalAssignmentStartDate` | `fetch('/api/proxy/...', { method: 'PUT', ... })` | `putDetails(EXAM_EVAL_API.UPDATE_EVAL_ASSIGNMENTS_START_DATE, data, { examEvaluationAssignmentId })` |
+| `updateEvalAssignment` | `fetch('/api/proxy/...', { method: 'PUT', ... })` | `putDetails(EXAM_EVAL_API.UPDATE_EVAL_ASSIGNMENTS, data, { examEvaluationAssignmentId })` |
+| `updateEvalsCompletedCount` | `fetch('/api/proxy/...', { method: 'PUT', ... })` | `putDetails(EXAM_EVAL_API.UPDATE_EVALS_COMPLETED_COUNT, { examEvaluatorProfileDetId })` |
+
+`getAnswerPaperBase64` is the **one legitimate exception**: the backend returns `res.text()` (a raw JSON-encoded string), not a standard `ApiResponse<T>` envelope. `crud.fetchDetails` calls `res.json()` which would fail. The raw `fetch()` is kept with a comment explaining this.
+
+#### 2. `formatDate` duplicated across 3 files → moved to `generic-functions.ts`
+
+`formatDate(dateStr)` (DD/MM/YYYY formatter) was copied identically into:
+- `evaluator-subjects/page.tsx`
+- `answer-sheets/page.tsx`
+- `dashboards/evaluation-dashboard/page.tsx`
+
+Moved the canonical implementation to `src/common/generic-functions.ts` and updated all three pages to import from `@/common/generic-functions`.
+
+#### 3. `htmlToPlaintext` defined inline in `marking-content.tsx` → moved to `generic-functions.ts`
+
+A generic HTML-to-plaintext stripper (removes tags, decodes `&nbsp;`, `&amp;`, `&lt;`, `&gt;`, `&quot;`) was defined locally inside the marking page. Moved to `src/common/generic-functions.ts` and updated the import.
+
+#### 4. `answer-sheets/page.tsx` used hand-rolled list rows instead of `Table`
+
+The initial implementation hand-rolled a `<div>`-based column header and per-row layout (`PaperRow` component) instead of using the standard `Table` component from `@/common/components/table`. Refactored to use `Table` with proper column definitions following the CLAUDE.md column pattern (pure renderers outside component, factory for state-dependent renderers, assembled in `useMemo`).
+
+---
+
+### `generic-functions.ts` — New Utilities
+
+**File:** `src/common/generic-functions.ts`
+
+Two new exports added:
+
+```ts
+/** Format a date string as DD/MM/YYYY. Returns '—' for null/undefined. */
+export function formatDate(dateStr: string | null | undefined): string
+
+/** Strip HTML tags and decode common HTML entities to plain text. */
+export function htmlToPlaintext(html: string): string
+```
+
+These are the canonical implementations — all code in this project that needs DD/MM/YYYY date formatting or HTML plaintext conversion must import from here.
+
+---
+
+### `api.ts` — New `EXAM_EVAL_API` Constants
+
+**File:** `src/config/constants/api.ts`
+
+Added `EXAM_EVAL_API` constant group covering all evaluation Spring Boot endpoint paths. These are used exclusively through `src/services/evaluation.ts` — never referenced directly in page files.
+
+---
+
 ## Phase 8: UI Polish, SearchInput Improvements & Angular Parity Fixes (2026-03-30)
 
 ### Breadcrumbs

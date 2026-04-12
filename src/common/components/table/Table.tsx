@@ -175,8 +175,8 @@ export default function Table<T = any>({
         <h2 className="text-base font-semibold text-foreground">{title}</h2>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-border shadow-sm">
-        <table className="min-w-full divide-y divide-border text-sm">
+      <div className="rounded-lg border border-border bg-card overflow-auto">
+        <table className="min-w-full divide-y divide-border text-xs">
           <thead className="bg-muted/50">
             <tr>
               {columns.map((col) => (
@@ -184,7 +184,7 @@ export default function Table<T = any>({
                   key={col.id as string}
                   scope="col"
                   style={col.width ? { width: `${col.width}%` } : undefined}
-                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  className="px-3 py-2.5 text-left font-semibold text-foreground"
                 >
                   {col.label}
                 </th>
@@ -192,13 +192,13 @@ export default function Table<T = any>({
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-border bg-background">
+          <tbody className="divide-y divide-border">
             {loading ? (
               Array.from({ length: pageSize || 5 }).map((_, i) => (
                 <tr key={i}>
                   {columns.map((col) => (
-                    <td key={col.id as string} className="px-4 py-3">
-                      <div className="h-4 w-full animate-pulse rounded bg-muted" />
+                    <td key={col.id as string} className="px-3 py-2.5">
+                      <div className="h-3.5 w-3/4 animate-pulse rounded bg-muted" />
                     </td>
                   ))}
                 </tr>
@@ -207,7 +207,7 @@ export default function Table<T = any>({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-4 py-8 text-center text-muted-foreground"
+                  className="px-3 py-8 text-center text-muted-foreground"
                 >
                   {emptyText}
                 </td>
@@ -219,14 +219,14 @@ export default function Table<T = any>({
                   onClick={() => onRowClick?.(row)}
                   className={cn(
                     'transition-colors',
-                    onRowClick && 'cursor-pointer hover:bg-muted/40'
+                    onRowClick ? 'cursor-pointer hover:bg-muted/30' : 'hover:bg-muted/30'
                   )}
                 >
                   {columns.map((col) => (
                     <td
                       key={col.id as string}
                       style={col.width ? { width: `${col.width}%` } : undefined}
-                      className="px-4 py-3 text-foreground"
+                      className="px-3 py-2.5 text-foreground"
                     >
                       {renderCell(col, row, localIndex)}
                     </td>
@@ -240,7 +240,7 @@ export default function Table<T = any>({
 
       {/* Pagination */}
       {paginate && totalPages > 1 && (
-        <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
           <span>
             Showing {pageOffset + 1}–{Math.min(pageOffset + pageSize, rows.length)} of {rows.length}
           </span>
@@ -248,12 +248,12 @@ export default function Table<T = any>({
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8"
+              className="h-7 w-7 rounded border border-border text-[11px] hover:bg-muted disabled:opacity-40"
               disabled={page === 0}
               onClick={() => setPage((p) => p - 1)}
               aria-label="Previous page"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
             <span className="px-2">
               {page + 1} / {totalPages}
@@ -261,12 +261,12 @@ export default function Table<T = any>({
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8"
+              className="h-7 w-7 rounded border border-border text-[11px] hover:bg-muted disabled:opacity-40"
               disabled={page >= totalPages - 1}
               onClick={() => setPage((p) => p + 1)}
               aria-label="Next page"
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>

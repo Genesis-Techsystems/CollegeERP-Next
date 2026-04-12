@@ -1,0 +1,1941 @@
+'use client'
+
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import {
+  AlertCircle, Check, X, Eye, Trash2, ZoomIn, ZoomOut,
+  ChevronLeft, ChevronRight, Clock, Undo2, XCircle, Flag,
+  LogOut, AlertTriangle, ArrowLeft, Move,
+} from 'lucide-react'
+import { Document, Page, pdfjs } from 'react-pdf'
+import 'react-pdf/dist/Page/AnnotationLayer.css'
+import 'react-pdf/dist/Page/TextLayer.css'
+import { cn } from '@/lib/utils'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
+import { useSessionContext } from '@/context/SessionContext'
+import { htmlToPlaintext } from '@/common/generic-functions'
+
+// Set up PDF.js worker — must run once before any Document is rendered
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString()
+
+import {
+  getExamQpDraftMarks,
+  getAnswerPaperBase64,
+  getEvalSetting,
+  updateEvalAssignmentStartDate,
+  updateEvalAssignment,
+  saveStudentEvalPages,
+  finalizeEvalMarks,
+  rejectEvalAssignment,
+  ufmEvalAssignment,
+  deleteEvalMark,
+  isEvalLocked,
+  EVAL_STATUS,
+  type QuestionMark,
+  type EvalAssignmentDetail,
+  type EvalPagePayload,
+} from '@/services/evaluation'
+
+const ANSWER_SHEETS_PATH = '/admin-examination-management/evaluation-process/evaluator-subjects/answer-sheets'
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatTime(s: number): string {
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  return [h, m, sec].map((v) => String(v).padStart(2, '0')).join(':')
+}
+
+function todayISO(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
+function partLabel(level: number): string {
+  return `PART ${'ABCDEFGHIJKLMNOP'[level - 1] ?? level}`
+}
+
+
+function calcTotal(questions: QuestionMark[]): number {
+  return questions.reduce((sum, q) => {
+    if (q.isNotAnswered) return sum
+    return sum + (q.answeredMarks ?? 0)
+  }, 0)
+}
+
+// ─── Mark value button array — mirrors Angular questionWiseMarksFormat() ──────
+
+function buildMarkButtons(maxMarks: number, interval: number): number[] {
+  const step = interval > 0 ? interval : 1
+  const buttons: number[] = []
+  for (let i = 0; i <= maxMarks; i = parseFloat((i + step).toFixed(2))) {
+    buttons.push(i)
+    if (buttons.length > 200) break
+  }
+  if (buttons[buttons.length - 1] !== maxMarks) buttons.push(maxMarks)
+  return buttons
+}
+
+// ─── Stamp ────────────────────────────────────────────────────────────────────
+
+interface Stamp {
+  id: string
+  pageNum: number
+  /** Canvas coords in BASE_SCALE (1.5) pixel space — matches Angular's saved coords */
+  x: number
+  y: number
+  questionId: number
+  label: string
+  marks: number
+}
+
+// ─── QuestionNavPanel — adapted from script-grader QuestionNav ────────────────
+
+interface QuestionNavPanelProps {
+  questions: QuestionMark[]
+  activeQId: number | null
+  onSelect: (id: number) => void
+}
+
+function QuestionNavPanel({ questions, activeQId, onSelect }: QuestionNavPanelProps) {
+  const parts = useMemo(() => {
+    const map = new Map<number, QuestionMark[]>()
+    for (const q of questions) {
+      const lv = q.level1No ?? 1
+      if (!map.has(lv)) map.set(lv, [])
+      map.get(lv)!.push(q)
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a - b)
+  }, [questions])
+
+  return (
+    <div className="space-y-3">
+      {parts.map(([level, qs]) => (
+        <div key={level}>
+          <h4 className="text-[9px] font-bold tracking-wide text-muted-foreground mb-1.5 uppercase">
+            {partLabel(level)}
+          </h4>
+          <div className="grid grid-cols-2 gap-1">
+            {qs.map((q) => {
+              const isActive = q.questionPaperMarksId === activeQId
+              const isNA = q.isNotAnswered
+              const isGraded = q.answeredMarks !== null && !q.isNotAnswered && q.no_action_yet === 0
+              return (
+                <button
+                  key={q.questionPaperMarksId}
+                  onClick={() => onSelect(q.questionPaperMarksId)}
+                  title={htmlToPlaintext(q.question || q.qvalue)}
+                  className={cn(
+                    'h-8 rounded text-[11px] font-bold transition-all duration-100 border relative',
+                    isActive
+                      ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                      : isNA
+                      ? 'bg-muted text-muted-foreground border-border line-through opacity-60 hover:opacity-80'
+                      : isGraded
+                      ? 'bg-green-500/15 text-green-700 border-green-500/40 hover:bg-green-500/25'
+                      : 'bg-card text-foreground border-border hover:border-primary/40',
+                  )}
+                >
+                  {q.qvalue}
+                  {isNA && !isActive && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-muted-foreground text-background text-[7px] font-black rounded-full h-3.5 w-3.5 flex items-center justify-center leading-none">
+                      N
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── MarkSelectorPanel — adapted from script-grader MarkSelector ──────────────
+
+interface MarkSelectorPanelProps {
+  maxMarks: number
+  marksInterval: number
+  selectedMark: number | null
+  answeredMarks: number | null
+  isNotAnswered: boolean
+  activeQId: number | null
+  stamps: Stamp[]
+  onSelect: (mark: number) => void
+  onNAClick: () => void
+}
+
+function MarkSelectorPanel({
+  maxMarks, marksInterval, selectedMark, answeredMarks, isNotAnswered,
+  activeQId, stamps, onSelect, onNAClick,
+}: MarkSelectorPanelProps) {
+  const marks = buildMarkButtons(maxMarks, marksInterval)
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {/* NA button */}
+      <button
+        onClick={onNAClick}
+        className={cn(
+          'h-8 rounded text-[10px] font-bold transition-all duration-100 w-full border',
+          isNotAnswered
+            ? 'bg-amber-500 text-white border-amber-500'
+            : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100',
+        )}
+      >
+        N / A
+      </button>
+
+      {/* Mark value buttons */}
+      <div className="grid grid-cols-2 gap-1">
+        {marks.map((mark, i) => {
+          const isSelected = selectedMark === mark
+          const isPlaced =
+            answeredMarks === mark &&
+            !isNotAnswered &&
+            stamps.some((s) => s.questionId === activeQId && s.marks === mark)
+          const isAssigned = answeredMarks === mark && !isNotAnswered
+          return (
+            <button
+              key={i}
+              onClick={() => onSelect(mark)}
+              className={cn(
+                'h-8 rounded text-[11px] font-bold transition-all duration-100 border',
+                isSelected
+                  ? 'bg-amber-500 text-white border-amber-500 shadow-md scale-105'
+                  : isPlaced
+                  ? 'bg-primary text-primary-foreground border-primary shadow-sm ring-1 ring-primary/30'
+                  : isAssigned
+                  ? 'bg-primary/70 text-white border-primary/50'
+                  : 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100',
+              )}
+            >
+              {mark}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── PDF Canvas Viewer — mirrors Angular's canvas-based rendering ─────────────
+
+const PDF_BASE_SCALE = 1.5
+
+interface PdfCanvasViewerProps {
+  url: string
+  stamps: Stamp[]
+  selectedMark: number | null
+  locked: boolean
+  stampSize: number
+  showThumbnails: boolean
+  onCloseThumbnails: () => void
+  onCanvasClick: (pageNum: number, x: number, y: number) => void
+  onStampDelete: (stamp: Stamp) => void
+  onStampMove: (stamp: Stamp, newX: number, newY: number) => void
+}
+
+function PdfCanvasViewer({
+  url, stamps, selectedMark, locked, stampSize,
+  showThumbnails, onCloseThumbnails, onCanvasClick,
+  onStampDelete, onStampMove,
+}: PdfCanvasViewerProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const pageWrapRefs = useRef<Record<number, HTMLDivElement | null>>({})
+  const canvasRefs = useRef<Record<number, HTMLCanvasElement | null>>({})
+  const genRef = useRef<Record<number, number>>({})
+  const prevStampsRef = useRef<Stamp[]>([])
+
+  const [numPages, setNumPages] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [zoomMultiplier, setZoomMultiplier] = useState(1.0)
+  const [pdfError, setPdfError] = useState(false)
+  const pdfDocRef = useRef<any>(null)
+
+  // Stamp hover popup — fixed-position so crossing the div boundary doesn't lose it
+  const [stampPopup, setStampPopup] = useState<{ stamp: Stamp; x: number; y: number } | null>(null)
+  const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Stamp drag state
+  const [dragState, setDragState] = useState<{
+    stamp: Stamp
+    offsetX: number
+    offsetY: number
+    screenX: number
+    screenY: number
+    canvasRect: DOMRect
+  } | null>(null)
+
+  function clearPopupTimer() {
+    if (popupTimerRef.current) clearTimeout(popupTimerRef.current)
+  }
+  function schedulePopupClose() {
+    popupTimerRef.current = setTimeout(() => setStampPopup(null), 250)
+  }
+
+  const handleStampMouseDown = useCallback((e: React.MouseEvent, stamp: Stamp) => {
+    if (locked) return
+    e.preventDefault()
+    e.stopPropagation()
+    const canvasEl = canvasRefs.current[stamp.pageNum]
+    if (!canvasEl) return
+    const canvasRect = canvasEl.getBoundingClientRect()
+    clearPopupTimer()
+    setStampPopup(null)
+    setDragState({
+      stamp,
+      offsetX: e.clientX - (canvasRect.left + stamp.x * zoomMultiplier),
+      offsetY: e.clientY - (canvasRect.top + stamp.y * zoomMultiplier),
+      screenX: e.clientX,
+      screenY: e.clientY,
+      canvasRect,
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locked, zoomMultiplier])
+
+  useEffect(() => {
+    if (!dragState) return
+    const onMove = (e: MouseEvent) => {
+      // Refresh canvasRect on every move so the absolute preview stays accurate even through scroll
+      const canvas = canvasRefs.current[dragState.stamp.pageNum]
+      const freshRect = canvas ? canvas.getBoundingClientRect() : dragState.canvasRect
+      setDragState((prev) => prev ? { ...prev, screenX: e.clientX, screenY: e.clientY, canvasRect: freshRect } : null)
+    }
+    const onUp = (e: MouseEvent) => {
+      const { stamp } = dragState
+      const canvas = canvasRefs.current[stamp.pageNum]
+      // Always use a fresh rect on drop so scroll during drag doesn't misplace the stamp
+      const freshRect = canvas ? canvas.getBoundingClientRect() : dragState.canvasRect
+      const rawX = (e.clientX - freshRect.left) / zoomMultiplier - stampSize / 2
+      const rawY = (e.clientY - freshRect.top) / zoomMultiplier - stampSize / 2
+      const maxX = canvas ? canvas.width / zoomMultiplier - stampSize : rawX
+      const maxY = canvas ? canvas.height / zoomMultiplier - stampSize : rawY
+      const newX = Math.max(0, Math.min(maxX, rawX))
+      const newY = Math.max(0, Math.min(maxY, rawY))
+      setDragState(null)
+      onStampMove(stamp, newX, newY)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [dragState, zoomMultiplier, stampSize, onStampMove])
+
+  // ── Drawing helpers (mirror Angular's draw functions exactly) ───────────────
+
+  function drawMarkStamp(ctx: CanvasRenderingContext2D, x: number, y: number, marks: number, zoom: number, sz: number) {
+    const W = sz * zoom
+    const H = sz * zoom
+    const r = Math.max(3, 7 * zoom * (sz / 50))
+
+    ctx.save()
+
+    // Drop shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.28)'
+    ctx.shadowBlur = 8 * zoom
+    ctx.shadowOffsetX = 0
+    ctx.shadowOffsetY = 2 * zoom
+
+    // Fill — cyan-600
+    ctx.fillStyle = '#0891b2'
+    ctx.beginPath()
+    ctx.moveTo(x + r, y)
+    ctx.lineTo(x + W - r, y)
+    ctx.arcTo(x + W, y, x + W, y + r, r)
+    ctx.lineTo(x + W, y + H - r)
+    ctx.arcTo(x + W, y + H, x + W - r, y + H, r)
+    ctx.lineTo(x + r, y + H)
+    ctx.arcTo(x, y + H, x, y + H - r, r)
+    ctx.lineTo(x, y + r)
+    ctx.arcTo(x, y, x + r, y, r)
+    ctx.closePath()
+    ctx.fill()
+
+    // Reset shadow before stroke + text
+    ctx.shadowColor = 'transparent'
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetY = 0
+
+    // Subtle top-edge highlight
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.30)'
+    ctx.lineWidth = 1.5 * zoom
+    ctx.stroke()
+
+    // Mark number
+    ctx.fillStyle = 'white'
+    ctx.font = `900 ${Math.round(28 * zoom * (sz / 50))}px Arial`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(String(marks), x + W / 2, y + H / 2)
+
+    ctx.restore()
+  }
+
+  function drawQuestionLabel(ctx: CanvasRenderingContext2D, x: number, y: number, label: string, zoom: number, sz: number) {
+    const fontSize = Math.max(8, Math.round(12 * zoom * (sz / 50)))
+    ctx.save()
+    ctx.font = `700 ${fontSize}px Arial`
+
+    const textW = ctx.measureText(label).width
+    const padX = 4 * zoom
+    const padY = 2.5 * zoom
+    const pillW = textW + padX * 2
+    const pillH = fontSize + padY * 2
+    const pillX = Math.max(0, x)
+    const pillY = y - pillH - 4 * zoom
+    const pr = Math.min(pillH / 2, 3 * zoom)
+
+    // Pill background with shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.2)'
+    ctx.shadowBlur = 4 * zoom
+    ctx.shadowOffsetY = 1 * zoom
+    ctx.fillStyle = '#dc2626'
+    ctx.beginPath()
+    ctx.moveTo(pillX + pr, pillY)
+    ctx.lineTo(pillX + pillW - pr, pillY)
+    ctx.arcTo(pillX + pillW, pillY, pillX + pillW, pillY + pr, pr)
+    ctx.lineTo(pillX + pillW, pillY + pillH - pr)
+    ctx.arcTo(pillX + pillW, pillY + pillH, pillX + pillW - pr, pillY + pillH, pr)
+    ctx.lineTo(pillX + pr, pillY + pillH)
+    ctx.arcTo(pillX, pillY + pillH, pillX, pillY + pillH - pr, pr)
+    ctx.lineTo(pillX, pillY + pr)
+    ctx.arcTo(pillX, pillY, pillX + pr, pillY, pr)
+    ctx.closePath()
+    ctx.fill()
+
+    ctx.shadowColor = 'transparent'
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetY = 0
+
+    // Label text
+    ctx.fillStyle = 'white'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(label, pillX + padX, pillY + pillH / 2)
+
+    ctx.restore()
+  }
+
+  function drawAnnotationsOnCanvas(ctx: CanvasRenderingContext2D, pageNum: number, currentStamps: Stamp[], zoom: number, sz: number) {
+    for (const s of currentStamps.filter((st) => st.pageNum === pageNum)) {
+      const dx = s.x * zoom
+      const dy = s.y * zoom
+      drawMarkStamp(ctx, dx, dy, s.marks, zoom, sz)
+      drawQuestionLabel(ctx, dx, dy, s.label, zoom, sz)
+    }
+  }
+
+  // ── Page rendering ──────────────────────────────────────────────────────────
+
+  const renderPage = useCallback(async (pageNum: number, stampsSnapshot: Stamp[], zoom: number, sz: number) => {
+    const doc = pdfDocRef.current
+    if (!doc) return
+    const canvas = canvasRefs.current[pageNum]
+    if (!canvas) return
+
+    const myGen = (genRef.current[pageNum] = (genRef.current[pageNum] ?? 0) + 1)
+
+    let page: any
+    try {
+      page = await doc.getPage(pageNum)
+    } catch {
+      return
+    }
+    if (genRef.current[pageNum] !== myGen) return
+
+    const viewport = page.getViewport({ scale: PDF_BASE_SCALE * zoom })
+    const newW = Math.floor(viewport.width)
+    const newH = Math.floor(viewport.height)
+
+    // Render into a throw-away canvas so PDF.js has full ownership of that 2D context.
+    // PDF.js does not guarantee it restores the context transform after rendering —
+    // accumulated transforms on a reused canvas cause H+V flips on pages 2+.
+    const tmp = document.createElement('canvas')
+    tmp.width = newW
+    tmp.height = newH
+    const tmpCtx = tmp.getContext('2d')!
+
+    try {
+      await page.render({ canvasContext: tmpCtx, viewport }).promise
+    } catch {
+      return
+    }
+    if (genRef.current[pageNum] !== myGen) return
+
+    // Resize display canvas (resets it to blank + identity transform) then
+    // copy the rendered PDF in and draw annotations — always in identity space.
+    canvas.width = newW
+    canvas.height = newH
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(tmp, 0, 0)
+    drawAnnotationsOnCanvas(ctx, pageNum, stampsSnapshot, zoom, sz)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── Load PDF document ───────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!url) return
+    let cancelled = false
+    setPdfError(false)
+    setNumPages(0)
+    setCurrentPage(1)
+    pdfDocRef.current = null
+    canvasRefs.current = {}
+    genRef.current = {}
+
+    pdfjs.getDocument(url).promise.then((doc) => {
+      if (cancelled) return
+      pdfDocRef.current = doc
+      setNumPages(doc.numPages)
+    }).catch(() => {
+      if (!cancelled) setPdfError(true)
+    })
+
+    return () => { cancelled = true }
+  }, [url])
+
+  // ── Initial render after PDF loads ─────────────────────────────────────────
+
+  useEffect(() => {
+    if (!numPages || !pdfDocRef.current) return
+    const t = setTimeout(() => {
+      for (let p = 1; p <= numPages; p++) renderPage(p, stamps, zoomMultiplier, stampSize)
+    }, 60)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numPages, renderPage])
+
+  // ── Re-render affected pages when stamps change ─────────────────────────────
+
+  useEffect(() => {
+    const prevPages = new Set(prevStampsRef.current.map((s) => s.pageNum))
+    const newPages = new Set(stamps.map((s) => s.pageNum))
+    const dirty = new Set([...prevPages, ...newPages])
+    prevStampsRef.current = stamps
+
+    if (!pdfDocRef.current || numPages === 0) return
+    dirty.forEach((p) => {
+      if (p >= 1 && p <= numPages) renderPage(p, stamps, zoomMultiplier, stampSize)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stamps, numPages, renderPage])
+
+  // ── Re-render all pages when zoom or stamp size changes ────────────────────
+
+  useEffect(() => {
+    if (!pdfDocRef.current || numPages === 0) return
+    for (let p = 1; p <= numPages; p++) renderPage(p, stamps, zoomMultiplier, stampSize)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomMultiplier, stampSize, numPages, renderPage])
+
+
+  // ── IntersectionObserver — track which page is visible ─────────────────────
+
+  useEffect(() => {
+    if (!numPages || !scrollRef.current) return
+    const root = scrollRef.current
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let best: { page: number; ratio: number } | null = null
+        for (const e of entries) {
+          const page = Number(e.target.getAttribute('data-page'))
+          if (e.isIntersecting && (!best || e.intersectionRatio > best.ratio)) {
+            best = { page, ratio: e.intersectionRatio }
+          }
+        }
+        if (best) setCurrentPage(best.page)
+      },
+      { root, threshold: [0.1, 0.5] },
+    )
+    Object.entries(pageWrapRefs.current).forEach(([, el]) => { if (el) observer.observe(el) })
+    return () => observer.disconnect()
+  }, [numPages])
+
+  const goTo = useCallback((p: number) => {
+    const clamped = Math.max(1, Math.min(numPages || 1, p))
+    setCurrentPage(clamped)
+    pageWrapRefs.current[clamped]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [numPages])
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  if (pdfError) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-white text-slate-400 text-sm">
+        <AlertCircle className="h-7 w-7 text-slate-300" />
+        <p className="font-medium text-slate-500">PDF could not be loaded.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+
+      {/* ── Toolbar ── */}
+      <div className="shrink-0 flex items-center gap-1 bg-white border-b border-slate-200 px-3 py-1.5 text-xs select-none">
+        <button
+          onClick={() => setZoomMultiplier((z) => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
+          title="Zoom out"
+          className="p-1.5 rounded-md hover:bg-slate-100 disabled:opacity-40 transition-colors text-slate-500"
+        >
+          <ZoomOut className="h-3.5 w-3.5" />
+        </button>
+        <span className="min-w-[44px] text-center font-mono text-slate-600">{Math.round(zoomMultiplier * 100)}%</span>
+        <button
+          onClick={() => setZoomMultiplier((z) => Math.min(3, parseFloat((z + 0.25).toFixed(2))))}
+          title="Zoom in"
+          className="p-1.5 rounded-md hover:bg-slate-100 transition-colors text-slate-500"
+        >
+          <ZoomIn className="h-3.5 w-3.5" />
+        </button>
+
+        <div className="w-px h-4 bg-slate-200 mx-1" />
+
+        <button
+          onClick={() => goTo(currentPage - 1)}
+          disabled={currentPage <= 1}
+          title="Previous page"
+          className="p-1.5 rounded-md hover:bg-slate-100 disabled:opacity-40 transition-colors text-slate-500"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </button>
+        <span className="min-w-[64px] text-center font-mono text-slate-600">
+          {numPages ? `${currentPage} / ${numPages}` : '—'}
+        </span>
+        <button
+          onClick={() => goTo(currentPage + 1)}
+          disabled={!numPages || currentPage >= numPages}
+          title="Next page"
+          className="p-1.5 rounded-md hover:bg-slate-100 disabled:opacity-40 transition-colors text-slate-500"
+        >
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+
+        <div className="w-px h-4 bg-slate-200 mx-1" />
+        {[0.75, 1, 1.5, 2].map((z) => (
+          <button
+            key={z}
+            onClick={() => setZoomMultiplier(z)}
+            className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors
+              ${zoomMultiplier === z ? 'bg-primary text-white shadow-sm' : 'hover:bg-slate-100 text-slate-500'}`}
+          >
+            {Math.round(z * 100)}%
+          </button>
+        ))}
+      </div>
+
+      {/* ── Canvas scroll area ── */}
+      <div ref={scrollRef} className="flex-1 overflow-auto bg-[#ededed]">
+        {!numPages && !pdfError && (
+          <div className="flex h-32 items-center justify-center text-slate-500 text-sm">
+            Loading PDF…
+          </div>
+        )}
+        {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => {
+          const pageStamps = stamps.filter((s) => s.pageNum === pageNum)
+          const SW = stampSize * zoomMultiplier
+          const SH = stampSize * zoomMultiplier
+          return (
+            <div
+              key={pageNum}
+              data-page={pageNum}
+              ref={(el) => { pageWrapRefs.current[pageNum] = el }}
+              className="flex justify-center py-3"
+            >
+              <div className="relative inline-block shadow-xl">
+                <canvas
+                  ref={(el) => { canvasRefs.current[pageNum] = el }}
+                  className="block"
+                  style={{ cursor: selectedMark !== null && !locked ? 'crosshair' : 'default' }}
+                  onClick={(e) => {
+                    if (selectedMark === null || locked) return
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const canvasX = e.clientX - rect.left
+                    const canvasY = e.clientY - rect.top
+                    onCanvasClick(pageNum, canvasX / zoomMultiplier, canvasY / zoomMultiplier)
+                  }}
+                />
+
+                {/* Stamp hit-area overlay — pointer-events-none on wrapper, auto on each stamp */}
+                {!locked && pageStamps.length > 0 && (
+                  <div className="absolute inset-0 pointer-events-none">
+                    {pageStamps.map((stamp) => {
+                      if (dragState?.stamp.id === stamp.id) return null
+                      return (
+                        <div
+                          key={stamp.id}
+                          className="absolute pointer-events-auto"
+                          style={{
+                            left: stamp.x * zoomMultiplier,
+                            top: stamp.y * zoomMultiplier,
+                            width: SW,
+                            height: SH,
+                            cursor: 'grab',
+                          }}
+                          onMouseDown={(e) => handleStampMouseDown(e, stamp)}
+                          onMouseEnter={() => {
+                            const el = canvasRefs.current[stamp.pageNum]
+                            if (!el) return
+                            const r = el.getBoundingClientRect()
+                            clearPopupTimer()
+                            setStampPopup({
+                              stamp,
+                              x: r.left + stamp.x * zoomMultiplier,
+                              y: r.top + stamp.y * zoomMultiplier,
+                            })
+                          }}
+                          onMouseLeave={schedulePopupClose}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Drag preview — absolute within this canvas wrapper (same coord space, no fixed-positioning transform issues) */}
+                {!locked && dragState?.stamp.pageNum === pageNum && (
+                  <div
+                    className="absolute pointer-events-none select-none z-50"
+                    style={{
+                      left: dragState.screenX - dragState.canvasRect.left - SW / 2,
+                      top: dragState.screenY - dragState.canvasRect.top - SH / 2,
+                      width: SW,
+                      height: SH,
+                    }}
+                  >
+                    <div className="w-full h-full rounded-xl bg-cyan-600/75 shadow-2xl flex items-center justify-center">
+                      <span
+                        className="text-white font-black select-none"
+                        style={{ fontSize: Math.max(10, Math.round(SW * 0.42)) }}
+                      >
+                        {dragState.stamp.marks}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Icon-only stamp action popup — positioned relative to stamp top-left, not cursor */}
+      {stampPopup && !locked && !dragState && (
+        <div
+          className="fixed z-[500] flex items-center bg-white border border-slate-200 rounded-lg shadow-lg p-0.5 gap-px"
+          style={{
+            left: stampPopup.x + (stampSize * zoomMultiplier) / 2 - 36,
+            top: stampPopup.y - 40,
+            pointerEvents: 'auto',
+          }}
+          onMouseEnter={clearPopupTimer}
+          onMouseLeave={schedulePopupClose}
+        >
+          <div className="p-1.5 rounded text-slate-400" title="Drag to reposition">
+            <Move className="h-3.5 w-3.5" />
+          </div>
+          <div className="w-px h-4 bg-slate-100 mx-0.5" />
+          <button
+            onClick={() => { setStampPopup(null); onStampDelete(stampPopup.stamp) }}
+            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
+            title="Delete stamp"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* ── Thumbnail overlay ── */}
+      {showThumbnails && numPages > 0 && (
+        <div
+          className="fixed inset-0 z-[200] flex items-start justify-center bg-black/50 overflow-y-auto py-8"
+          onClick={(e) => { if (e.target === e.currentTarget) onCloseThumbnails() }}
+        >
+          <div className="bg-white rounded-lg shadow-2xl w-[95%] max-w-7xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <h2 className="text-lg font-semibold text-slate-800">View Pages ({numPages})</h2>
+              <button onClick={onCloseThumbnails} className="text-slate-400 hover:text-slate-700 text-xl leading-none">✕</button>
+            </div>
+            <div className="overflow-y-auto p-6">
+              <Document file={url}>
+                <div className="flex flex-wrap justify-center gap-4">
+                  {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      onClick={() => { goTo(pageNum); onCloseThumbnails() }}
+                      title={`Go to page ${pageNum}`}
+                      className={`flex flex-col border rounded overflow-hidden shadow-sm transition-transform duration-200 hover:scale-105
+                        ${pageNum === currentPage ? 'border-primary border-2' : 'border-slate-300'}`}
+                      style={{ width: 150 }}
+                    >
+                      <Page
+                        pageNumber={pageNum}
+                        width={150}
+                        renderAnnotationLayer={false}
+                        renderTextLayer={false}
+                      />
+                      <div className="bg-slate-50 text-center text-[11px] text-slate-500 py-1 border-t border-slate-200">
+                        Page {pageNum}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </Document>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── MarkingRightPanel — adapted from script-grader MarkingPanel ──────────────
+
+interface MarkingRightPanelProps {
+  questions: QuestionMark[]
+  totalAwarded: number
+  totalMax: number
+  activeQId: number | null
+  onSelectQuestion: (q: QuestionMark) => void
+  locked: boolean
+  saving: boolean
+  pendingCount: number
+  onSaveAndExit: () => void
+  onFinish: () => void
+  onReject: () => void
+  onUFM: () => void
+}
+
+function MarkingRightPanel({
+  questions, totalAwarded, totalMax, activeQId, onSelectQuestion,
+  locked, saving, pendingCount,
+  onSaveAndExit, onFinish, onReject, onUFM,
+}: MarkingRightPanelProps) {
+  const parts = useMemo(() => {
+    const map = new Map<number, QuestionMark[]>()
+    for (const q of questions) {
+      const lv = q.level1No ?? 1
+      if (!map.has(lv)) map.set(lv, [])
+      map.get(lv)!.push(q)
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a - b)
+  }, [questions])
+
+  const totalVisited = questions.filter((q) => q.no_action_yet === 0).length
+  const totalNotVisited = questions.length - totalVisited
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Score card */}
+      <div className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg mx-3 mt-3 shrink-0">
+        <div className="text-xs font-semibold mb-1 text-center opacity-80">Calculate Total Score:</div>
+        <div className="text-3xl font-black text-center">
+          {totalAwarded}
+          <span className="text-base font-normal opacity-75">/{totalMax}</span>
+        </div>
+      </div>
+
+      {/* Action buttons — always visible in right panel */}
+      {!locked && (
+        <div className="mx-3 mt-3 shrink-0 grid grid-cols-2 gap-2">
+          {/* Save & Exit — amber */}
+          <button
+            disabled={saving}
+            onClick={onSaveAndExit}
+            className="h-9 rounded bg-amber-500 text-white hover:bg-amber-600 text-[11px] font-bold disabled:opacity-50 transition-colors"
+          >
+            {saving ? '…' : 'Save & Exit'}
+          </button>
+          {/* Finish — green */}
+          <button
+            disabled={saving}
+            onClick={onFinish}
+            className="h-9 rounded bg-emerald-600 text-white hover:bg-emerald-700 text-[11px] font-bold disabled:opacity-50 transition-colors"
+          >
+            {saving ? '…' : 'Finish'}
+          </button>
+          {/* Reject — red */}
+          <button
+            disabled={saving}
+            onClick={onReject}
+            className="h-9 rounded bg-red-500 text-white hover:bg-red-600 text-[11px] font-semibold disabled:opacity-50 transition-colors"
+          >
+            <XCircle className="h-3 w-3 inline mr-1 -mt-0.5" />
+            Reject
+          </button>
+          {/* UFM — indigo */}
+          <button
+            disabled={saving}
+            onClick={onUFM}
+            className="h-9 rounded bg-indigo-600 text-white hover:bg-indigo-700 text-[11px] font-semibold disabled:opacity-50 transition-colors"
+          >
+            <Flag className="h-3 w-3 inline mr-1 -mt-0.5" />
+            UFM
+          </button>
+        </div>
+      )}
+
+      {pendingCount > 0 && !locked && (
+        <div className="mx-3 mt-2 shrink-0 flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+          {pendingCount} pending
+        </div>
+      )}
+
+      {/* Questions table */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-card z-10 border-b border-slate-200">
+            <tr>
+              <th className="px-3 py-2 text-left font-bold text-primary">Questions</th>
+              <th className="px-3 py-2 text-center font-bold text-primary">Marks</th>
+              <th className="px-3 py-2 text-center font-bold text-primary">Max</th>
+            </tr>
+          </thead>
+          <tbody>
+            {parts.map(([level, qs]) => (
+              <React.Fragment key={`part-${level}`}>
+                <tr>
+                  <td colSpan={3} className="px-3 pt-3 pb-1 font-black text-[10px] text-foreground uppercase tracking-wider">
+                    {partLabel(level)}
+                  </td>
+                </tr>
+                {qs.map((q) => {
+                  const isActive = q.questionPaperMarksId === activeQId
+                  const isNA = q.isNotAnswered
+                  const hasMarks = q.answeredMarks !== null && !q.isNotAnswered
+                  return (
+                    <tr
+                      key={q.questionPaperMarksId}
+                      onClick={() => onSelectQuestion(q)}
+                      className={cn(
+                        'border-t border-slate-100 transition-colors cursor-pointer',
+                        isActive && 'bg-primary/10',
+                        isNA && !isActive && 'opacity-50',
+                        !isActive && 'hover:bg-muted/40',
+                      )}
+                    >
+                      <td className={cn('px-3 py-1.5 font-medium', isNA && 'line-through')}>
+                        {q.qvalue}
+                        {isNA && <span className="ml-1 text-[9px] text-muted-foreground font-normal">(NA)</span>}
+                      </td>
+                      <td className={cn(
+                        'px-3 py-1.5 text-center font-semibold',
+                        isNA ? 'text-muted-foreground' : hasMarks ? 'text-foreground' : 'text-slate-400',
+                      )}>
+                        {isNA ? 'NA' : (q.answeredMarks ?? '—')}
+                      </td>
+                      <td className="px-3 py-1.5 text-center text-muted-foreground">{q.questionMarks}</td>
+                    </tr>
+                  )
+                })}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Footer stats */}
+      <div className="p-3 border-t border-slate-200 bg-muted/30 shrink-0">
+        <div className="flex justify-between text-[11px]">
+          <div>
+            <span className="text-muted-foreground font-medium">Total Pages: </span>
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-primary text-primary-foreground font-bold text-[10px] ml-1">
+              {questions.length}
+            </span>
+          </div>
+          <div>
+            <span className="text-muted-foreground font-medium">Visited: </span>
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-green-500 text-white font-bold text-[10px] ml-1">
+              {totalVisited}
+            </span>
+          </div>
+        </div>
+        <div className="mt-1.5 text-[11px]">
+          <span className="text-muted-foreground font-medium">Not Visited: </span>
+          <span className="inline-flex h-5 min-w-[1.25rem] px-1 items-center justify-center rounded bg-red-500 text-white font-bold text-[10px] ml-1">
+            {totalNotVisited}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── NotAnsweredDialog — adapted from script-grader NotViewedDialog ───────────
+
+interface NotAnsweredDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  questions: QuestionMark[]
+  onMarkNotAnswered: (ids: number[]) => void
+}
+
+function NotAnsweredDialog({ open, onOpenChange, questions, onMarkNotAnswered }: NotAnsweredDialogProps) {
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [confirmStep, setConfirmStep] = useState(false)
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) { setSelected(new Set()); setConfirmStep(false) }
+    onOpenChange(nextOpen)
+  }
+
+  const toggleQuestion = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const allSelected = questions.length > 0 && selected.size === questions.length
+  const toggleAll = () => {
+    setSelected((prev) =>
+      prev.size === questions.length ? new Set() : new Set(questions.map((q) => q.questionPaperMarksId)),
+    )
+  }
+
+  // Questions that already have marks and are about to be reset
+  const markedSelected = questions.filter(
+    (q) => selected.has(q.questionPaperMarksId) && q.answeredMarks !== null && !q.isNotAnswered,
+  )
+
+  const handleSubmitClick = () => {
+    if (selected.size === 0) return
+    if (markedSelected.length > 0) {
+      setConfirmStep(true)
+    } else {
+      doSubmit()
+    }
+  }
+
+  const doSubmit = () => {
+    onMarkNotAnswered(Array.from(selected))
+    setSelected(new Set())
+    setConfirmStep(false)
+    onOpenChange(false)
+  }
+
+  const unevaluatedCount = questions.filter((q) => q.no_action_yet === 1 && !q.isNotAnswered).length
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-lg">
+        {confirmStep ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+                Reset existing marks?
+              </DialogTitle>
+              <DialogDescription>
+                <span className="font-semibold">{markedSelected.length}</span> selected question(s) already have marks assigned. Marking as Not Answered will reset their marks to 0 and remove any stamps.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 mt-4">
+              <button
+                onClick={() => setConfirmStep(false)}
+                className="px-4 py-2 rounded border border-slate-200 text-sm font-medium hover:bg-muted transition-colors"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={doSubmit}
+                className="px-4 py-2 rounded bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                Reset & Mark Not Answered
+              </button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold">Mark as Not Answered</DialogTitle>
+              <DialogDescription>
+                Select questions to assign <span className="font-semibold">0</span> marks. Questions with existing marks will require confirmation.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/20 px-3 py-2">
+              <button
+                type="button"
+                className="flex items-center gap-2 text-sm"
+                onClick={toggleAll}
+                disabled={questions.length === 0}
+              >
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={toggleAll}
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="Select all"
+                />
+                <span className="font-medium">Select all</span>
+              </button>
+              <div className="text-xs text-muted-foreground">
+                Unevaluated: <span className="font-medium text-foreground">{unevaluatedCount}</span>
+                {' · '}
+                Selected: <span className="font-medium text-foreground">{selected.size}</span>
+              </div>
+            </div>
+
+            <div className="max-h-[50vh] overflow-y-auto rounded-md border divide-y">
+              {questions.map((q) => {
+                const hasMarks = q.answeredMarks !== null && !q.isNotAnswered
+                return (
+                  <button
+                    key={q.questionPaperMarksId}
+                    type="button"
+                    onClick={() => toggleQuestion(q.questionPaperMarksId)}
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/40"
+                  >
+                    <Checkbox
+                      checked={selected.has(q.questionPaperMarksId)}
+                      onCheckedChange={() => toggleQuestion(q.questionPaperMarksId)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold">{q.qvalue}</div>
+                        <div className="truncate text-xs text-muted-foreground">{partLabel(q.level1No)}</div>
+                      </div>
+                      <div className="shrink-0">
+                        {hasMarks ? (
+                          <Badge variant="secondary" className="text-xs">
+                            {q.answeredMarks}/{q.questionMarks}
+                          </Badge>
+                        ) : q.isNotAnswered ? (
+                          <Badge variant="outline" className="text-xs text-amber-700 border-amber-300">NA</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Max {q.questionMarks}</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+
+              {questions.length === 0 && (
+                <div className="px-4 py-10 text-center text-sm text-muted-foreground">No questions available.</div>
+              )}
+            </div>
+
+            <DialogFooter className="gap-2">
+              <button
+                onClick={() => handleOpenChange(false)}
+                className="px-4 py-2 rounded border border-slate-200 text-sm font-medium hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitClick}
+                disabled={selected.size === 0}
+                className="px-4 py-2 rounded bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                Mark Not Answered
+              </button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function MarkingPage() {
+  const router = useRouter()
+  const { user } = useSessionContext()
+  const searchParams = useSearchParams()
+
+  const examEvaluationAssignmentId = Number(searchParams.get('examEvaluationAssignmentId') ?? 0)
+  const studentAnswerPaperId = Number(searchParams.get('studentAnswerPaperId') ?? 0)
+  const examEvaluatorProfileId = Number(searchParams.get('examEvaluatorProfileId') ?? 0)
+  const examEvaluatorProfileDetId = Number(searchParams.get('examEvaluatorProfileDetId') ?? 0)
+  const subjectName = searchParams.get('subjectName') ?? 'Answer Paper'
+  const subjectCode = searchParams.get('subjectCode') ?? ''
+
+  // ── State ──────────────────────────────────────────────────────────────────
+
+  const [questions, setQuestions] = useState<QuestionMark[]>([])
+  const [assignmentDetail, setAssignmentDetail] = useState<EvalAssignmentDetail | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [pdfError, setPdfError] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [activeQId, setActiveQId] = useState<number | null>(null)
+  const [marksInterval, setMarksInterval] = useState(0.5)
+  const [iconAnnotations, setIconAnnotations] = useState<Record<number, 'right' | 'wrong'>>({})
+  const [deletingMark, setDeletingMark] = useState(false)
+  const [showThumbnails, setShowThumbnails] = useState(false)
+  const [stampSize, setStampSize] = useState(50)
+  const [undoStack, setUndoStack] = useState<QuestionMark[][]>([])
+  const [stamps, setStamps] = useState<Stamp[]>([])
+  const [selectedMark, setSelectedMark] = useState<number | null>(null)
+  const [notViewedOpen, setNotViewedOpen] = useState(false)
+
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const blobUrlRef = useRef<string | null>(null)
+
+  // ── Derived ────────────────────────────────────────────────────────────────
+
+  const locked = isEvalLocked(assignmentDetail?.evaluationStatusCatDetId ?? 0)
+  const omrSerialNo = assignmentDetail?.omrSerialNo ?? ''
+  const totalAwarded = calcTotal(questions)
+  const totalMax = assignmentDetail?.qpTotalMarks ?? questions.reduce((s, q) => s + (q.questionMarks ?? 0), 0)
+  const pendingQuestions = questions.filter((q) => q.no_action_yet === 1 && !q.isNotAnswered)
+
+  const activeQuestion = useMemo(
+    () => questions.find((q) => q.questionPaperMarksId === activeQId) ?? null,
+    [questions, activeQId],
+  )
+
+  // ── Navigate back ──────────────────────────────────────────────────────────
+
+  const navigateBack = useCallback(() => {
+    router.push(
+      `${ANSWER_SHEETS_PATH}` +
+      `?examEvaluatorProfileId=${examEvaluatorProfileId}` +
+      `&examEvaluatorProfileDetId=${examEvaluatorProfileDetId}`,
+    )
+  }, [router, examEvaluatorProfileId, examEvaluatorProfileDetId])
+
+  // ── Load data on mount ─────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!examEvaluationAssignmentId || !studentAnswerPaperId) return
+    let cancelled = false
+
+    async function load() {
+      setLoading(true)
+      setLoadError(null)
+
+      try {
+        const [qpResult, base64Result, intervalResult] = await Promise.allSettled([
+          getExamQpDraftMarks({ examEvaluationAssignmentId, orgId: user?.organizationId ?? user?.collegeId }),
+          getAnswerPaperBase64(studentAnswerPaperId),
+          getEvalSetting('MarksIntervals'),
+        ])
+
+        if (cancelled) return
+
+        if (intervalResult.status === 'fulfilled' && intervalResult.value) {
+          const iv = parseFloat(intervalResult.value)
+          if (!isNaN(iv) && iv > 0) setMarksInterval(iv)
+        }
+
+        if (qpResult.status === 'fulfilled') {
+          const [qs, details] = qpResult.value
+          setQuestions(qs)
+          if (qs.length > 0) setActiveQId(qs[0].questionPaperMarksId)
+          const detail = details[0] ?? null
+          setAssignmentDetail(detail)
+          if (detail && !isEvalLocked(detail.evaluationStatusCatDetId ?? 0)) {
+            updateEvalAssignmentStartDate(examEvaluationAssignmentId, new Date().toISOString()).catch(() => {})
+          }
+          if (detail?.evaluationTime) setElapsedSeconds(detail.evaluationTime)
+
+          // Restore saved stamp positions (Angular: buildAnnotations + renderAnnotations)
+          const restoredStamps: Stamp[] = qs
+            .filter((q) => q.mbtn_x != null && q.mbtn_y != null && q.mbtn_pageNum != null && q.answeredMarks != null)
+            .map((q) => ({
+              id: String(q.studentEvaluationPageId || q.questionPaperMarksId),
+              pageNum: q.mbtn_pageNum!,
+              x: q.mbtn_x!,
+              y: q.mbtn_y!,
+              questionId: q.questionPaperMarksId,
+              label: q.qvalue ?? String(q.questionPaperMarksId),
+              marks: q.answeredMarks!,
+            }))
+          setStamps(restoredStamps)
+        } else {
+          setLoadError(
+            qpResult.reason instanceof Error ? qpResult.reason.message : 'Failed to load question paper.',
+          )
+        }
+
+        if (base64Result.status === 'fulfilled' && base64Result.value) {
+          try {
+            const binary = atob(base64Result.value)
+            const bytes = new Uint8Array(binary.length)
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+            const blob = new Blob([bytes], { type: 'application/pdf' })
+            const url = URL.createObjectURL(blob)
+            blobUrlRef.current = url
+            setPdfUrl(url)
+          } catch {
+            setPdfError(true)
+          }
+        } else {
+          setPdfError(true)
+        }
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load evaluation data.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examEvaluationAssignmentId, studentAnswerPaperId])
+
+  // ── Timer ──────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (loading || locked) return
+    timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000)
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [loading, locked])
+
+  useEffect(() => () => { if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current) }, [])
+
+  useEffect(() => {
+    if (locked || loading) return
+    window.history.pushState(null, '', window.location.href)
+    window.onpopstate = () => window.history.go(1)
+    return () => { window.onpopstate = null }
+  }, [locked, loading])
+
+  // ── Undo ───────────────────────────────────────────────────────────────────
+
+  const pushUndo = useCallback((snapshot: QuestionMark[]) => {
+    setUndoStack((prev) => [...prev.slice(-49), snapshot])
+  }, [])
+
+  const handleUndo = useCallback(() => {
+    setUndoStack((prev) => {
+      if (prev.length === 0) return prev
+      const next = [...prev]
+      const last = next.pop()!
+      setQuestions(last)
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    if (locked) return
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        handleUndo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [locked, handleUndo])
+
+  // ── Keyboard shortcuts ─────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (locked) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.key === 'Escape') { setSelectedMark(null); return }
+      if (/^[0-9]$/.test(e.key) && activeQuestion) {
+        const num = parseInt(e.key, 10)
+        if (num <= activeQuestion.questionMarks) {
+          e.preventDefault()
+          setSelectedMark((prev) => (prev === num ? null : num))
+        }
+        return
+      }
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && questions.length > 0) {
+        e.preventDefault()
+        const idx = questions.findIndex((q) => q.questionPaperMarksId === activeQId)
+        if (idx > 0) { setActiveQId(questions[idx - 1].questionPaperMarksId); setSelectedMark(null) }
+        return
+      }
+      if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && questions.length > 0) {
+        e.preventDefault()
+        const idx = questions.findIndex((q) => q.questionPaperMarksId === activeQId)
+        if (idx < questions.length - 1) { setActiveQId(questions[idx + 1].questionPaperMarksId); setSelectedMark(null) }
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [locked, activeQId, activeQuestion, questions])
+
+  // ── Marks handlers ─────────────────────────────────────────────────────────
+
+  const handleMarksChange = useCallback((questionPaperMarksId: number, marks: number | null) => {
+    setQuestions((prev) => {
+      pushUndo(prev)
+      return prev.map((q) =>
+        q.questionPaperMarksId === questionPaperMarksId
+          ? { ...q, answeredMarks: marks, no_action_yet: marks !== null ? 0 : 1, color: '#96b9b5' }
+          : q,
+      )
+    })
+  }, [pushUndo])
+
+  /** Place a stamp on the PDF and assign the mark — mirrors Angular's addAnnotation() */
+  const handleAddStamp = useCallback(
+    (pageNum: number, x: number, y: number) => {
+      if (!activeQId || selectedMark === null || !activeQuestion) return
+      const stamp: Stamp = {
+        id: `${Date.now()}`,
+        pageNum,
+        x,
+        y,
+        questionId: activeQId,
+        label: activeQuestion.qvalue ?? String(activeQId),
+        marks: selectedMark,
+      }
+      setStamps((prev) => [...prev.filter((s) => s.questionId !== activeQId), stamp])
+      handleMarksChange(activeQId, selectedMark)
+      setSelectedMark(null)
+
+      // Immediate save (Angular: addAnnotation saves each stamp as it's placed)
+      const payload: EvalPagePayload = {
+        examEvaluationAssignmentId,
+        pageNumber: pageNum,
+        marks: selectedMark,
+        iconType: 'stamp',
+        questionPaperMarksId: activeQId,
+        isNotAnswered: false,
+        comments: '',
+        x_Axis: Math.round(x),
+        y_Axis: Math.round(y),
+      }
+      saveStudentEvalPages([payload]).catch(() => {})
+    },
+    [activeQId, selectedMark, activeQuestion, handleMarksChange, examEvaluationAssignmentId],
+  )
+
+  /** Mark multiple questions as Not Answered — mirrors Angular's notAnswered() */
+  const handleMarkNotAnswered = useCallback((ids: number[]) => {
+    if (ids.length === 0) return
+    const idSet = new Set(ids)
+
+    setQuestions((prev) => {
+      pushUndo(prev)
+      return prev.map((q) =>
+        idSet.has(q.questionPaperMarksId)
+          ? { ...q, isNotAnswered: true, answeredMarks: 0, no_action_yet: 0, color: '#96b9b5' }
+          : q,
+      )
+    })
+    setStamps((prev) => prev.filter((s) => !idSet.has(s.questionId)))
+    setSelectedMark(null)
+
+    // Immediate save — NA: no stamp position needed
+    const payloads: EvalPagePayload[] = ids.map((id) => ({
+      examEvaluationAssignmentId,
+      pageNumber: 1,
+      marks: 0,
+      iconType: null,
+      questionPaperMarksId: id,
+      isNotAnswered: true,
+      comments: '',
+      x_Axis: 0,
+      y_Axis: 0,
+    }))
+    saveStudentEvalPages(payloads).catch(() => {})
+  }, [pushUndo, examEvaluationAssignmentId])
+
+  /** ✓ / ✗ icon annotation */
+  const handleIconAnnotation = useCallback((iconValue: 'right' | 'wrong') => {
+    if (!activeQId) return
+    setIconAnnotations((prev) => ({ ...prev, [activeQId]: iconValue }))
+  }, [activeQId])
+
+  /** Delete saved mark for active question */
+  const handleDeleteMark = useCallback(async () => {
+    if (!activeQId || locked) return
+    setDeletingMark(true)
+    try {
+      await deleteEvalMark(examEvaluationAssignmentId, activeQId)
+      setQuestions((prev) =>
+        prev.map((q) =>
+          q.questionPaperMarksId === activeQId
+            ? { ...q, answeredMarks: null, isNotAnswered: false, no_action_yet: 1, color: '#009688', studentEvaluationPageId: 0 }
+            : q,
+        ),
+      )
+      setStamps((prev) => prev.filter((s) => s.questionId !== activeQId))
+      setSelectedMark(null)
+      setIconAnnotations((prev) => { const next = { ...prev }; delete next[activeQId]; return next })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete mark.')
+    } finally { setDeletingMark(false) }
+  }, [activeQId, locked, examEvaluationAssignmentId])
+
+  /** Delete a specific stamp from the PDF overlay — called from canvas popup */
+  const handleStampDelete = useCallback(async (stamp: Stamp) => {
+    if (locked) return
+    const qId = stamp.questionId
+    setDeletingMark(true)
+    try {
+      await deleteEvalMark(examEvaluationAssignmentId, qId)
+      setQuestions((prev) =>
+        prev.map((q) =>
+          q.questionPaperMarksId === qId
+            ? { ...q, answeredMarks: null, isNotAnswered: false, no_action_yet: 1, color: '#009688', studentEvaluationPageId: 0 }
+            : q,
+        ),
+      )
+      setStamps((prev) => prev.filter((s) => s.questionId !== qId))
+      setSelectedMark(null)
+      setIconAnnotations((prev) => { const next = { ...prev }; delete next[qId]; return next })
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete mark.')
+    } finally { setDeletingMark(false) }
+  }, [locked, examEvaluationAssignmentId])
+
+  /** Reposition a stamp after drag — mirrors Angular's updateAnnotation() */
+  const handleStampMove = useCallback(async (stamp: Stamp, newX: number, newY: number) => {
+    if (locked) return
+    setStamps((prev) => prev.map((s) => s.id === stamp.id ? { ...s, x: newX, y: newY } : s))
+    const payload: EvalPagePayload = {
+      examEvaluationAssignmentId,
+      pageNumber: stamp.pageNum,
+      marks: stamp.marks,
+      iconType: 'stamp',
+      questionPaperMarksId: stamp.questionId,
+      isNotAnswered: false,
+      comments: '',
+      x_Axis: Math.round(newX),
+      y_Axis: Math.round(newY),
+    }
+    saveStudentEvalPages([payload]).catch(() => {})
+  }, [locked, examEvaluationAssignmentId])
+
+  const handleSelectQuestion = useCallback((q: QuestionMark) => {
+    setActiveQId(q.questionPaperMarksId)
+    setSelectedMark(null)
+  }, [])
+
+  // ── Payload builder ────────────────────────────────────────────────────────
+
+  const buildPages = useCallback(
+    (qs: QuestionMark[]): EvalPagePayload[] =>
+      qs.map((q) => {
+        const icon = iconAnnotations[q.questionPaperMarksId]
+        const stamp = stamps.find((s) => s.questionId === q.questionPaperMarksId)
+        return {
+          examEvaluationAssignmentId,
+          pageNumber: stamp?.pageNum ?? 1,
+          marks: q.answeredMarks ?? 0,
+          iconType: icon ? 'iconBtn' : stamp ? 'stamp' : null,
+          iconId: icon === 'right' ? 3 : icon === 'wrong' ? 7 : undefined,
+          iconValue: icon ? 1 : undefined,
+          questionPaperMarksId: q.questionPaperMarksId,
+          isNotAnswered: q.isNotAnswered,
+          comments: '',
+          x_Axis: stamp ? Math.round(stamp.x) : 0,
+          y_Axis: stamp ? Math.round(stamp.y) : 0,
+        }
+      }),
+    [examEvaluationAssignmentId, iconAnnotations, stamps],
+  )
+
+  // ── Save & Exit ────────────────────────────────────────────────────────────
+
+  const handleSaveExit = useCallback(async () => {
+    if (!window.confirm('Are you sure you want to exit the evaluation?')) return
+    if (locked) { navigateBack(); return }
+
+    setSaving(true)
+    try {
+      const acted = questions.filter((q) => q.no_action_yet === 0)
+      if (acted.length > 0) await saveStudentEvalPages(buildPages(acted))
+      await updateEvalAssignment(examEvaluationAssignmentId, {
+        evaluationStatusCatDetId: EVAL_STATUS.IN_PROGRESS,
+        evaluationTime: elapsedSeconds,
+      })
+      navigateBack()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save.')
+    } finally { setSaving(false) }
+  }, [locked, questions, examEvaluationAssignmentId, elapsedSeconds, navigateBack, buildPages])
+
+  // ── Submit (Finish) ────────────────────────────────────────────────────────
+
+  const handleSubmit = useCallback(async () => {
+    if (pendingQuestions.length > 0) {
+      alert(`Please evaluate the following question(s): ${pendingQuestions.map((q) => q.qvalue).join(', ')}`)
+      return
+    }
+    if (!window.confirm('Are you sure you want to complete the evaluation? This cannot be undone.')) return
+
+    setSaving(true)
+    try {
+      await saveStudentEvalPages(buildPages(questions))
+      await finalizeEvalMarks(examEvaluationAssignmentId)
+      navigateBack()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to submit.')
+    } finally { setSaving(false) }
+  }, [pendingQuestions, questions, examEvaluationAssignmentId, navigateBack, buildPages])
+
+  // ── Reject ─────────────────────────────────────────────────────────────────
+
+  const handleReject = useCallback(async () => {
+    const reason = window.prompt('Enter rejection reason:')
+    if (reason === null) return
+    setSaving(true)
+    try {
+      const today = todayISO()
+      await rejectEvalAssignment(examEvaluationAssignmentId, {
+        evaluationStatusCatDetId: EVAL_STATUS.REJECTED,
+        omrSerialNo,
+        evaluationTime: elapsedSeconds,
+        evaluatedTotalMarks: null,
+        answerSheetCheckDate: today,
+        evaluationStartDate: assignmentDetail?.evaluationStartDate ?? null,
+        evaluationEndDate: today,
+        isUfm: false,
+        ufmReason: '',
+        evaluatedAnswerPaperPath: null,
+        isActive: true,
+        reason,
+      })
+      navigateBack()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to reject.')
+    } finally { setSaving(false) }
+  }, [examEvaluationAssignmentId, omrSerialNo, elapsedSeconds, assignmentDetail, navigateBack])
+
+  // ── UFM ────────────────────────────────────────────────────────────────────
+
+  const handleUFM = useCallback(async () => {
+    const ufmReason = window.prompt('Enter UFM reason:')
+    if (ufmReason === null) return
+    setSaving(true)
+    try {
+      const today = todayISO()
+      await ufmEvalAssignment(examEvaluationAssignmentId, {
+        evaluationStatusCatDetId: EVAL_STATUS.REJECTED,
+        omrSerialNo,
+        evaluationTime: elapsedSeconds,
+        evaluatedTotalMarks: null,
+        answerSheetCheckDate: today,
+        evaluationStartDate: assignmentDetail?.evaluationStartDate ?? null,
+        evaluationEndDate: today,
+        isUfm: true,
+        ufmReason,
+        evaluatedAnswerPaperPath: null,
+        isActive: true,
+        reason: ufmReason,
+      })
+      navigateBack()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to mark UFM.')
+    } finally { setSaving(false) }
+  }, [examEvaluationAssignmentId, omrSerialNo, elapsedSeconds, assignmentDetail, navigateBack])
+
+  // ── Loading / Error states ─────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center bg-slate-50">
+        <div className="text-center space-y-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary mx-auto" />
+          <p className="text-sm text-slate-500 font-medium">Loading evaluation…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex h-full items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md text-center space-y-4 bg-white rounded-xl shadow-sm border border-red-100 p-8">
+          <AlertCircle className="h-6 w-6 text-red-500 mx-auto" />
+          <p className="text-sm font-medium text-slate-800">{loadError}</p>
+          <button onClick={navigateBack} className="text-sm text-primary hover:underline font-medium">
+            Go Back
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Main render ────────────────────────────────────────────────────────────
+
+  return (
+    <div className="h-full flex flex-col bg-background">
+
+      {/* ── Top header bar — matches script-grader bg-nav style ── */}
+      <div className="h-10 bg-slate-800 flex items-center justify-between px-5 shrink-0">
+        <div className="flex items-center gap-4 text-slate-200 text-sm">
+          <button
+            onClick={navigateBack}
+            className="flex items-center justify-center w-7 h-7 rounded-md hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+            title="Go back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          {omrSerialNo && (
+            <span className="font-semibold opacity-90">ID : {omrSerialNo}</span>
+          )}
+          <span className="opacity-60 hidden sm:inline">Subject :</span>
+          <span className="truncate max-w-[220px]">{subjectName}</span>
+          {subjectCode && (
+            <span className="text-slate-400 text-xs hidden md:inline">({subjectCode})</span>
+          )}
+        </div>
+        <div className="flex items-center gap-4 text-slate-200 text-sm shrink-0">
+          {locked && (
+            <span className="text-[11px] font-semibold bg-red-500/20 text-red-300 border border-red-500/30 rounded-full px-2.5 py-0.5">
+              Locked
+            </span>
+          )}
+          <span className="flex items-center gap-1.5 opacity-80">
+            <Clock className="h-3.5 w-3.5" />
+            {formatTime(elapsedSeconds)}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Three-pane workspace ── */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* ── Left pane: Questions + Marks ── */}
+        <div className="flex shrink-0 border-r border-slate-200 bg-card">
+
+          {/* Questions column */}
+          <div className="w-28 border-r border-slate-200 flex flex-col">
+            <div className="px-2 py-2 border-b border-slate-200 bg-muted/50">
+              <h3 className="text-[10px] font-bold text-center text-muted-foreground uppercase tracking-wider">Questions</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              <QuestionNavPanel
+                questions={questions}
+                activeQId={activeQId}
+                onSelect={(id) => { setActiveQId(id); setSelectedMark(null) }}
+              />
+            </div>
+          </div>
+
+          {/* Marks column */}
+          <div className="w-28 flex flex-col">
+            <div className="px-2 py-2 border-b border-slate-200 bg-primary/10">
+              <h3 className="text-[10px] font-bold text-center text-primary uppercase tracking-wider">Marks</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 min-h-0">
+              {!locked && activeQuestion ? (
+                <MarkSelectorPanel
+                  maxMarks={activeQuestion.questionMarks}
+                  marksInterval={marksInterval}
+                  selectedMark={selectedMark}
+                  answeredMarks={activeQuestion.answeredMarks}
+                  isNotAnswered={activeQuestion.isNotAnswered}
+                  activeQId={activeQId}
+                  stamps={stamps}
+                  onSelect={(mark) => setSelectedMark((prev) => (prev === mark ? null : mark))}
+                  onNAClick={() => setNotViewedOpen(true)}
+                />
+              ) : !locked ? (
+                <div className="text-[10px] text-muted-foreground text-center py-4">Select a question</div>
+              ) : null}
+            </div>
+
+            {/* Annotation tools — fixed at bottom of marks column */}
+            {!locked && (
+              <div className="shrink-0 border-t border-slate-200 p-2 bg-muted/20">
+                <div className="grid grid-cols-2 gap-1.5 place-items-center">
+                  {/* ✓ correct */}
+                  <button
+                    disabled={!activeQuestion}
+                    onClick={() => handleIconAnnotation('right')}
+                    title="Mark correct"
+                    className={cn(
+                      'flex items-center justify-center w-9 h-9 rounded-full border-2 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95',
+                      activeQId && iconAnnotations[activeQId] === 'right'
+                        ? 'bg-green-500 border-green-500 text-white shadow-md'
+                        : 'bg-white border-green-400 text-green-600 hover:bg-green-50 hover:border-green-500',
+                    )}
+                  >
+                    <Check className="h-4 w-4" strokeWidth={3} />
+                  </button>
+                  {/* ✗ wrong */}
+                  <button
+                    disabled={!activeQuestion}
+                    onClick={() => handleIconAnnotation('wrong')}
+                    title="Mark wrong"
+                    className={cn(
+                      'flex items-center justify-center w-9 h-9 rounded-full border-2 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95',
+                      activeQId && iconAnnotations[activeQId] === 'wrong'
+                        ? 'bg-red-500 border-red-500 text-white shadow-md'
+                        : 'bg-white border-red-400 text-red-500 hover:bg-red-50 hover:border-red-500',
+                    )}
+                  >
+                    <X className="h-4 w-4" strokeWidth={3} />
+                  </button>
+                  {/* 👁 view pages */}
+                  <button
+                    disabled={!pdfUrl}
+                    onClick={() => setShowThumbnails(true)}
+                    title="View all pages"
+                    className="flex items-center justify-center w-9 h-9 rounded-full border-2 bg-white border-slate-300 text-slate-600 hover:bg-slate-50 hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                  {/* 🗑 delete mark */}
+                  <button
+                    disabled={!activeQuestion || deletingMark || activeQuestion.no_action_yet === 1}
+                    onClick={handleDeleteMark}
+                    title="Delete mark"
+                    className="flex items-center justify-center w-9 h-9 rounded-full border-2 bg-white border-slate-300 text-slate-500 hover:bg-red-50 hover:border-red-400 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  {/* ↩ undo */}
+                  <button
+                    disabled={undoStack.length === 0}
+                    onClick={handleUndo}
+                    title="Undo last mark (Ctrl+Z)"
+                    className="col-span-2 flex items-center justify-center gap-1 w-full h-8 rounded-lg border-2 bg-white border-slate-300 text-slate-500 text-[10px] font-medium hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
+                  >
+                    <Undo2 className="h-3 w-3" />
+                    Undo
+                  </button>
+
+                  {/* Stamp size control */}
+                  <div className="col-span-2 flex items-center justify-between w-full mt-0.5 gap-1">
+                    <span className="text-[9px] text-muted-foreground font-medium shrink-0">Size</span>
+                    <button
+                      onClick={() => setStampSize((s) => Math.max(20, s - 10))}
+                      title="Decrease stamp size"
+                      className="flex items-center justify-center w-6 h-6 rounded border bg-white border-slate-300 text-slate-500 hover:bg-slate-50 text-sm font-bold leading-none transition-colors"
+                    >
+                      −
+                    </button>
+                    <span className="text-[10px] font-mono text-slate-600 min-w-[24px] text-center">{stampSize}</span>
+                    <button
+                      onClick={() => setStampSize((s) => Math.min(120, s + 10))}
+                      title="Increase stamp size"
+                      className="flex items-center justify-center w-6 h-6 rounded border bg-white border-slate-300 text-slate-500 hover:bg-slate-50 text-sm font-bold leading-none transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Center pane: Question header + PDF ── */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+
+          {/* Question header — mirrors script-grader AnswerScriptViewer header */}
+          {activeQuestion && (
+            <div className="px-5 py-3 border-b border-slate-200 bg-card flex items-start gap-3 shrink-0">
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] font-bold tracking-wider text-muted-foreground mb-0.5 uppercase">
+                  {partLabel(activeQuestion.level1No)}
+                </div>
+                <div className="text-sm font-medium text-foreground leading-snug">
+                  <span className="font-bold mr-1">{activeQuestion.qvalue})</span>
+                  {htmlToPlaintext(activeQuestion.question || '')}
+                </div>
+                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                    Q.No: {activeQuestion.qvalue}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
+                    Max Marks: {activeQuestion.questionMarks}
+                  </span>
+                  {activeQuestion.isNotAnswered && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      Not Answered
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Selected mark banner */}
+          {selectedMark !== null && !locked && (
+            <div className="shrink-0 px-4 py-1.5 bg-amber-500 text-white text-xs font-bold flex items-center justify-between">
+              <span>{selectedMark} selected — click on PDF to place stamp</span>
+              <button
+                onClick={() => setSelectedMark(null)}
+                className="text-white/80 hover:text-white text-[10px] underline ml-4"
+              >
+                Esc — cancel
+              </button>
+            </div>
+          )}
+
+          {/* PDF viewer */}
+          <div className="flex-1 min-h-0">
+            {pdfError ? (
+              <div className="flex h-full flex-col items-center justify-center gap-3 bg-white text-slate-400 text-sm">
+                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="h-6 w-6 text-slate-300" />
+                </div>
+                <p className="font-medium text-slate-500">PDF could not be loaded.</p>
+                <p className="text-xs text-slate-400">Please evaluate using the sidebar.</p>
+              </div>
+            ) : pdfUrl ? (
+              <PdfCanvasViewer
+                url={pdfUrl}
+                stamps={stamps}
+                selectedMark={selectedMark}
+                locked={locked}
+                stampSize={stampSize}
+                showThumbnails={showThumbnails}
+                onCloseThumbnails={() => setShowThumbnails(false)}
+                onCanvasClick={handleAddStamp}
+                onStampDelete={handleStampDelete}
+                onStampMove={handleStampMove}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center bg-white text-slate-400 text-sm">
+                Loading PDF…
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Right pane: Marking panel ── */}
+        <div className="w-64 border-l border-slate-200 bg-card shrink-0 flex flex-col overflow-hidden">
+          <MarkingRightPanel
+            questions={questions}
+            totalAwarded={totalAwarded}
+            totalMax={totalMax}
+            activeQId={activeQId}
+            onSelectQuestion={handleSelectQuestion}
+            locked={locked}
+            saving={saving}
+            pendingCount={pendingQuestions.length}
+            onSaveAndExit={handleSaveExit}
+            onFinish={handleSubmit}
+            onReject={handleReject}
+            onUFM={handleUFM}
+          />
+        </div>
+      </div>
+
+      {/* ── Not Answered Dialog ── */}
+      <NotAnsweredDialog
+        open={notViewedOpen}
+        onOpenChange={setNotViewedOpen}
+        questions={questions}
+        onMarkNotAnswered={handleMarkNotAnswered}
+      />
+    </div>
+  )
+}

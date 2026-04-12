@@ -102,6 +102,21 @@ export const QK = {
     list: () => ['Campus', 'list'] as const,
   },
 
+  // ── Question Banks ─────────────────────────────────────────────────────
+  questionBanks: {
+    all: ['Assessment'] as const,
+    /** Pass userId to filter by owner (non-ADMIN); omit for all (ADMIN) */
+    list: (userId?: number) =>
+      userId !== undefined
+        ? (['Assessment', 'list', userId] as const)
+        : (['Assessment', 'list'] as const),
+    /** Questions inside a specific bank */
+    questions: (assessmentId: number) =>
+      ['Assessment', assessmentId, 'questions'] as const,
+    /** Question types from GeneralDetail lookup */
+    questionTypes: () => ['Assessment', 'questionTypes'] as const,
+  },
+
   // ── College Filters ────────────────────────────────────────────────────
   collegeFilters: {
     all: ['collegeFilters'] as const,

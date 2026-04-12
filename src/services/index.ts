@@ -2,6 +2,8 @@ export * from './query'
 export * from './crud'
 export * from './admin/organization'
 export * from './admin/campus'
+export * from './admin/question-bank'
+export * from './evaluation'
 // EXAMINATION MODULE EXPORTS REMOVED — restore from todo/examination-module/services/
 // export * from './examination/exam-master'
 // export * from './examination/exam-session'
