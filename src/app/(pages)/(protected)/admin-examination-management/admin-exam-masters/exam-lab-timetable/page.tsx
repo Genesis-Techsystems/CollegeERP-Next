@@ -16,6 +16,7 @@ import {
   getExamLabTimetableRestFilters,
 } from '@/services/exam-lab-timetable'
 import { useRouter } from 'next/navigation'
+import { ChevronDown, Filter } from 'lucide-react'
 
 type AnyRow = Record<string, any>
 
@@ -28,6 +29,7 @@ export default function ExamLabTimetablePage() {
   const [rest, setRest] = useState<AnyRow[]>([])
   const [gridRows, setGridRows] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [filterOpen, setFilterOpen] = useState(true)
 
   const [courseId, setCourseId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
@@ -107,10 +109,6 @@ export default function ExamLabTimetablePage() {
   )
 
   useEffect(() => {
-    if (courseYears[0]?.fk_course_year_id) setCourseYearId(Number(courseYears[0].fk_course_year_id))
-  }, [courseYears])
-
-  useEffect(() => {
     async function loadGrid() {
       setGridRows([])
       if (!collegeId || !courseId || !courseYearId || !examId) return
@@ -171,48 +169,60 @@ export default function ExamLabTimetablePage() {
   }, [gridRows, courseGroups, dateColumns])
 
   return (
-    <div className="p-6 space-y-3">
+    <div className="px-6 pb-6 pt-2 space-y-2">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam College Timetable</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2.5 text-[12px]"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
-        <div className="px-3 py-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        {filterOpen && (
+        <div className="px-3 py-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="space-y-1 md:col-span-2"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loading}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((c) => <SelectItem key={c.fk_course_id} value={String(c.fk_course_id)}>{c.course_code}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger><SelectContent>{years.map((y) => <SelectItem key={y.fk_academic_year_id} value={String(y.fk_academic_year_id)}>{y.academic_year}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-5"><Label>Exam Master</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Master" /></SelectTrigger><SelectContent>{exams.map((e) => <SelectItem key={e.fk_exam_id} value={String(e.fk_exam_id)}>{e.exam_name}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-2"><Label>College</Label><Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger><SelectContent>{colleges.map((c) => <SelectItem key={c.fk_college_id} value={String(c.fk_college_id)}>{c.college_code}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-1"><Label>Course Year</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Year" /></SelectTrigger><SelectContent>{courseYears.map((y) => <SelectItem key={y.fk_course_year_id} value={String(y.fk_course_year_id)}>{y.course_year_code}</SelectItem>)}</SelectContent></Select></div>
         </div>
+        )}
       </div>
 
       {courseYearId && (
         <>
-          <div className="app-card p-3 flex items-center justify-between">
-            <div className="text-[12px]">
-              {(colleges.find((c) => Number(c.fk_college_id) === Number(collegeId))?.college_code ?? '')} /{' '}
-              {(courses.find((c) => Number(c.fk_course_id) === Number(courseId))?.course_code ?? '')} /{' '}
-              {(years.find((y) => Number(y.fk_academic_year_id) === Number(academicYearId))?.academic_year ?? '')} /{' '}
-              {(courseYears.find((y) => Number(y.fk_course_year_id) === Number(courseYearId))?.course_year_code ?? '')}
-            </div>
-            <Button
-              className="h-8 text-[12px]"
-              onClick={() =>
-                router.push(
-                  `/admin-examination-management/admin-exam-masters/exam-lab-timetable/add-exam-timetables?collegeId=${collegeId}&courseId=${courseId}&courseYearId=${courseYearId}&academicYearId=${academicYearId}&examId=${examId}&courseYearName=${encodeURIComponent(
-                    courseYears.find((y) => Number(y.fk_course_year_id) === Number(courseYearId))?.course_year_code ?? '',
-                  )}`,
-                )
-              }
-            >
-              + Create Shedule
-            </Button>
-          </div>
-
           <div className="app-card p-4">
-            <div className="text-[12px] mb-2">
-              <span className="font-medium">{examDetails?.exam_name ?? ''}</span>{' '}
-              {examDetails?.from_date ? `(${String(examDetails.from_date).slice(0, 10)} - ${String(examDetails?.to_date ?? '').slice(0, 10)})` : ''}{' '}
-              <span className="text-blue-700">{examTypeLabel}</span>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="text-[12px] text-slate-700 whitespace-nowrap overflow-hidden text-ellipsis">
+                {(colleges.find((c) => Number(c.fk_college_id) === Number(collegeId))?.college_code ?? '')} /{' '}
+                {(courses.find((c) => Number(c.fk_course_id) === Number(courseId))?.course_code ?? '')} /{' '}
+                {(years.find((y) => Number(y.fk_academic_year_id) === Number(academicYearId))?.academic_year ?? '')} /{' '}
+                {(courseYears.find((y) => Number(y.fk_course_year_id) === Number(courseYearId))?.course_year_code ?? '')}
+                {' | '}
+                <span className="font-medium text-slate-900">{examDetails?.exam_name ?? ''}</span>{' '}
+                {examDetails?.from_date ? `(${String(examDetails.from_date).slice(0, 10)} - ${String(examDetails?.to_date ?? '').slice(0, 10)})` : ''}{' '}
+                <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] bg-[hsl(var(--primary))] text-white">{examTypeLabel}</span>
+              </div>
+              <Button
+                className="h-8 text-[12px]"
+                onClick={() =>
+                  router.push(
+                    `/admin-examination-management/admin-exam-masters/exam-lab-timetable/add-exam-timetables?collegeId=${collegeId}&courseId=${courseId}&courseYearId=${courseYearId}&academicYearId=${academicYearId}&examId=${examId}&courseYearName=${encodeURIComponent(
+                      courseYears.find((y) => Number(y.fk_course_year_id) === Number(courseYearId))?.course_year_code ?? '',
+                    )}`,
+                  )
+                }
+              >
+                + Create Shedule
+              </Button>
             </div>
             <p className="text-right text-[12px] mb-2"><span className="px-1 border bg-sky-200">M</span> MORNING <span className="px-1 border bg-yellow-200 ml-2">A</span> AFTERNOON</p>
             <div className="overflow-auto">

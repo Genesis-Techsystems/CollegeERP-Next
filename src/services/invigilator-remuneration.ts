@@ -12,7 +12,22 @@ export async function createInvigilatorRemuneration(payload: AnyRow): Promise<An
 }
 
 export async function updateInvigilatorRemuneration(id: number, payload: AnyRow): Promise<AnyRow> {
-  return domainUpdate<AnyRow>(INVIG_REMUNERATION_API.ENTITY, INVIG_REMUNERATION_API.PK, id, payload)
+  const entity = INVIG_REMUNERATION_API.ENTITY
+  const pks = [
+    INVIG_REMUNERATION_API.PK,
+    'examInvigilationRemunerationId',
+    'invigilatorRemunerationId',
+    'id',
+  ]
+  let lastError: unknown = null
+  for (const pk of pks) {
+    try {
+      return await domainUpdate<AnyRow>(entity, pk, id, payload)
+    } catch (e) {
+      lastError = e
+    }
+  }
+  throw lastError ?? new Error('Unable to update invigilator remuneration')
 }
 
 export async function listActiveColleges(): Promise<AnyRow[]> {

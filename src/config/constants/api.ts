@@ -130,6 +130,8 @@ export const EXAM_EVAL_API = {
   ADD_EVALUATOR_PROFILES: 'addExamEvaluatorProfiles',
   /** PUT: update evaluator profiles */
   UPDATE_EVALUATOR_PROFILES: 'updateExamEvaluatorProfiles',
+  /** POST/PUT: bulk update evaluator preferences — Angular `updateexamevaluatorereferencesUrl` (not `updateExamEvaluatorReferences`). */
+  UPDATE_EVALUATOR_PREFERENCES: 'updateexamevaluatorereferences',
   /** GET: evaluator details */
   GET_EVALUATOR_DETAILS: 'getevaluatordetails',
   /** CRUD: ExamEvaluators */

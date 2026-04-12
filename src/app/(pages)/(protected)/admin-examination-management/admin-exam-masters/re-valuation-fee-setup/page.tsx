@@ -461,7 +461,20 @@ export default function RevaluationFeeSetupPage() {
 						className="h-8 text-[12px]"
 						onClick={() => {
 							if (!selectedExamId) return
-							router.push('/admin-examination-management/admin-exam-masters/re-valuation-fee-setup/create')
+							const selectedExam = examMasters.find((e: any) => Number(e.examId ?? e.id) === Number(selectedExamId))
+							const selectedCourse = courses.find((c: any) => Number(c.fk_course_id) === Number(selectedCourseId))
+							const selectedYear = academicYears.find((a: any) => Number(a.fk_academic_year_id) === Number(selectedAcademicYearId))
+							const params = new URLSearchParams({
+								courseId: String(selectedCourseId ?? ''),
+								academicYearId: String(selectedAcademicYearId ?? ''),
+								examId: String(selectedExamId ?? ''),
+								courseName: String(selectedCourse?.course_name ?? selectedCourse?.course_code ?? ''),
+								academicYear: String(selectedYear?.academic_year ?? ''),
+								examName: String(selectedExam?.examName ?? ''),
+								fromDate: String(selectedExam?.fromDate ?? selectedExam?.examFromDate ?? ''),
+								toDate: String(selectedExam?.toDate ?? selectedExam?.examToDate ?? ''),
+							})
+							router.push(`/admin-examination-management/admin-exam-masters/re-valuation-fee-setup/create?${params.toString()}`)
 						}}
 						disabled={!selectedExamId}
 					>

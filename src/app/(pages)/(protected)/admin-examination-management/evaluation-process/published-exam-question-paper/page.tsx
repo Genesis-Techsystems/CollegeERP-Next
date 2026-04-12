@@ -12,13 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ChevronDown, Filter } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
+  generateSecretCodeForPublishedQp,
   getFinalizeQuestionPaperFilters,
-  getQuestionPaperPublishDetails,
-  listViewFinalQuestionPapers,
-  publishQuestionPaperColleges,
+  listPublishedExamQuestionPapers,
+  validateSecretCodeForPublishedQp,
 } from '@/services/evaluation-process'
 
 type AnyRow = Record<string, any>
+
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
   if (!row) return 0
   for (const k of keys) {
@@ -44,67 +45,69 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
     return true
   })
 }
-const isPublishedValue = (row: AnyRow | null | undefined) => {
-  const raw = row?.is_published ?? row?.isPublished ?? row?.ispublished
-  if (raw === true || raw === 1) return true
-  const text = String(raw ?? '').trim().toLowerCase()
-  return text === 'true' || text === '1' || text === 'yes'
-}
 
 function subjectNameRenderer(p: { data?: AnyRow }) {
   return (
     <span>
       {pickText(p.data, ['subject_name', 'subjectName'])}{' '}
-      <span className="text-blue-700">({pickText(p.data, ['subject_code', 'subjectCode'])})</span>
+      <span className="text-blue-700">({pickText(p.data, ['subjectcode', 'subject_code', 'subjectCode'])})</span>
     </span>
   )
 }
 
-function makeQuestionPaperPathRenderer(minio: string) {
+function makeActionsRenderer(
+  minio: string,
+  loading: boolean,
+  onGeneratePassCode: (row: AnyRow) => Promise<void>,
+  onEnterPassCode: (row: AnyRow) => void,
+) {
   return (p: { data?: AnyRow }) => {
-    const path = pickText(p.data, ['questionpaper_path', 'questionPaperPath'])
-    if (!path) return <span>-</span>
+    const row = p.data ?? {}
+    const hasPath = Boolean(pickText(row, ['questionpaper_path']))
+    const validSecret = String(row?.isvalidsecretcode ?? '0') === '1'
     return (
-      <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => window.open(`${minio}${path}`, '_blank')}>
-        View
-      </button>
+      <div className="flex items-center gap-2">
+        {hasPath && (
+          <button
+            type="button"
+            className="text-[12px] text-blue-700 hover:underline"
+            onClick={() => window.open(`${minio}${pickText(row, ['questionpaper_path'])}`, '_blank')}
+          >
+            View
+          </button>
+        )}
+        {!validSecret && (
+          <Button size="sm" className="h-7 px-2.5 text-[12px]" disabled={loading} onClick={() => void onGeneratePassCode(row)}>
+            Get PassCode
+          </Button>
+        )}
+        {validSecret && !hasPath && (
+          <Button size="sm" variant="outline" className="h-7 px-2.5 text-[12px]" disabled={loading} onClick={() => onEnterPassCode(row)}>
+            Enter PassCode
+          </Button>
+        )}
+      </div>
     )
   }
 }
 
-function makeActionsRenderer(
-  loading: boolean,
-  onSecurePublish: (row: AnyRow) => Promise<void>,
-  openPublishModal: (row: AnyRow) => void,
-) {
-  return (p: { data?: AnyRow }) =>
-    isPublishedValue(p.data) ? (
-      <Button size="sm" variant="outline" className="h-7" disabled={loading} onClick={() => void onSecurePublish(p.data ?? {})}>
-        Secure Publish
-      </Button>
-    ) : (
-      <Button size="sm" className="h-7" disabled={loading} onClick={() => openPublishModal(p.data ?? {})}>
-        Publish
-      </Button>
-    )
-}
-
-export default function ViewFinalExamQuestionPaperPage() {
+export default function PublishedExamQuestionPaperPage() {
   const [filterOpen, setFilterOpen] = useState(true)
-  const [search, setSearch] = useState('')
-  const [hasFetched, setHasFetched] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [hasFetched, setHasFetched] = useState(false)
+  const [search, setSearch] = useState('')
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnyRow[]>([])
   const [courseId, setCourseId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
   const [examId, setExamId] = useState<number | null>(null)
+  const [passcodeOpen, setPasscodeOpen] = useState(false)
+  const [passcodeValue, setPasscodeValue] = useState('')
+  const [passcodeRow, setPasscodeRow] = useState<AnyRow | null>(null)
+
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const orgId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
   const minio = String(globalThis?.localStorage?.getItem('MINIO') ?? '')
-  const [publishModalOpen, setPublishModalOpen] = useState(false)
-  const [publishRow, setPublishRow] = useState<AnyRow | null>(null)
-  const [publishDate, setPublishDate] = useState('')
-  const [publishTime, setPublishTime] = useState('')
 
   const courses = useMemo(() => dedupeBy(baseRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])), [baseRows])
   const academicYears = useMemo(
@@ -155,17 +158,16 @@ export default function ViewFinalExamQuestionPaperPage() {
   }, [courseId, academicYearId, examId])
 
   async function getList() {
-    if (!courseId || !examId) {
-      toastError('Please select Course and Exam.')
+    if (!examId) {
+      toastError('Please select Exam.')
       return
     }
     setLoading(true)
     try {
-      const list = await listViewFinalQuestionPapers({
+      const list = await listPublishedExamQuestionPapers({
         employeeId,
-        courseId,
         examId,
-        academicYearId: academicYearId ?? undefined,
+        orgId,
       }).catch(() => [])
       setRows(Array.isArray(list) ? list : [])
       setHasFetched(true)
@@ -174,67 +176,61 @@ export default function ViewFinalExamQuestionPaperPage() {
     }
   }
 
-  async function publishNow(row: AnyRow) {
-    const qId = pickNum(row, ['pk_exam_questionpaper_id', 'questionPaperId', 'examQuestionPaperId'])
-    const subjectId = pickNum(row, ['fk_subject_id', 'subjectId'])
-    const ids = String(row?.fk_exam_timetable_ids ?? row?.fk_exam_timetable_id ?? row?.exam_timetable_id ?? '')
-      .split(',')
-      .map((s) => Number(s.trim()))
-      .filter((n) => n > 0)
-
-    if (qId <= 0 || ids.length === 0) {
-      toastError('Unable to publish: missing timetable linkage.')
-      return
-    }
+  async function onGeneratePassCode(row: AnyRow) {
     setLoading(true)
     try {
-      const publishedDateTime = publishDate && publishTime
-        ? new Date(`${publishDate}T${publishTime}`)
-        : new Date()
-      const payload = ids.map((id) => ({
-        examQuestionPaperId: qId,
-        subjectId,
-        isPublished: true,
-        publishedDate: publishedDateTime.toISOString(),
-        questionPaperPath: pickText(row, ['questionpaper_path', 'questionPaperPath']),
-        isActive: row?.is_active ?? true,
-        examTimeTableId: id,
-        publishedByEmpId: employeeId,
-        downloadedByEmpId: employeeId,
-      }))
-      await publishQuestionPaperColleges(payload)
-      toastSuccess('Question paper published successfully.')
-      setPublishModalOpen(false)
-      setPublishRow(null)
+      await generateSecretCodeForPublishedQp({
+        examQuestionPaperCollegeId: pickNum(row, ['pk_examquestionpaper_college_id']),
+        empId: pickNum(row, ['fk_publishedby_emp_id']) || employeeId,
+        examName: pickText(row, ['exam_name', 'examName']),
+        subjectName: pickText(row, ['subject_name', 'subjectName']),
+        subjectCode: pickText(row, ['subjectcode', 'subject_code', 'subjectCode']),
+        examDate: pickText(row, ['exam_date', 'examDate']),
+      })
+      toastSuccess('PassCode generated successfully.')
       await getList()
     } catch (error: any) {
-      toastError(error?.message ?? 'Failed to publish question paper.')
+      toastError(error?.message ?? 'Failed to generate PassCode.')
     } finally {
       setLoading(false)
     }
   }
 
-  function openPublishModal(row: AnyRow) {
-    const dateVal = String(row?.published_date ?? row?.publishedDate ?? '').slice(0, 10)
-    const timeVal = String(row?.published_time ?? row?.publishedTime ?? '').slice(0, 8)
-    const now = new Date()
-    const fallbackDate = now.toISOString().slice(0, 10)
-    const fallbackTime = now.toTimeString().slice(0, 8)
-    setPublishRow(row)
-    setPublishDate(dateVal || fallbackDate)
-    setPublishTime(timeVal || fallbackTime)
-    setPublishModalOpen(true)
+  function onEnterPassCode(row: AnyRow) {
+    setPasscodeRow(row)
+    setPasscodeValue('')
+    setPasscodeOpen(true)
   }
 
-  async function onSecurePublish(row: AnyRow) {
-    const qId = pickNum(row, ['pk_exam_questionpaper_id', 'questionPaperId', 'examQuestionPaperId'])
-    if (qId <= 0) return
+  async function onValidatePassCode() {
+    if (!passcodeRow || !passcodeValue.trim()) {
+      toastError('Enter passcode.')
+      return
+    }
     setLoading(true)
     try {
-      const details = await getQuestionPaperPublishDetails(qId)
-      toastSuccess(`Published entries: ${details.publishedList.length}`)
+      const result = await validateSecretCodeForPublishedQp({
+        code: btoa(passcodeValue.trim()),
+        examQuestionPaperCollegeId: pickNum(passcodeRow, ['pk_examquestionpaper_college_id']),
+        empId: pickNum(passcodeRow, ['fk_publishedby_emp_id']) || employeeId,
+      })
+      const returnedPath = typeof result === 'string' ? result : String(result ?? '')
+      if (returnedPath && returnedPath !== 'Secret Code is Expired') {
+        setRows((prev) =>
+          prev.map((r) =>
+            pickNum(r, ['pk_examquestionpaper_college_id']) === pickNum(passcodeRow, ['pk_examquestionpaper_college_id'])
+              ? { ...r, questionpaper_path: returnedPath }
+              : r,
+          ),
+        )
+        toastSuccess('PassCode validated successfully.')
+      } else {
+        toastError(returnedPath || 'Secret Code is expired.')
+      }
+      setPasscodeOpen(false)
+      setPasscodeRow(null)
     } catch (error: any) {
-      toastError(error?.message ?? 'Unable to fetch published details.')
+      toastError(error?.message ?? 'Failed to validate PassCode.')
     } finally {
       setLoading(false)
     }
@@ -248,30 +244,22 @@ export default function ViewFinalExamQuestionPaperPage() {
 
   const cols = useMemo<ColDef[]>(
     () => [
-      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70, minWidth: 70, maxWidth: 80, flex: 0 },
+      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 68, minWidth: 68, maxWidth: 74, flex: 0 },
+      { field: 'coursegroupcodes', headerName: 'Course Group', minWidth: 110, maxWidth: 130, flex: 1, valueGetter: (p) => p.data?.group_code ?? p.data?.coursegroupcodes ?? '-' },
+      { field: 'courseyearcode', headerName: 'Course Year', minWidth: 108, maxWidth: 126, flex: 1, valueGetter: (p) => p.data?.course_year_code ?? p.data?.courseyearcode ?? '-' },
       {
         headerName: 'Subject Name',
-        minWidth: 240,
-        flex: 2,
+        minWidth: 260,
+        flex: 2.4,
         cellRenderer: subjectNameRenderer,
       },
-      { field: 'questionPaper', headerName: 'Question Paper', minWidth: 200, flex: 2, valueGetter: (p) => p.data?.questionpaper_title ?? p.data?.questionPaper ?? '-' },
-      { field: 'publishedDate', headerName: 'Published Date', minWidth: 120, maxWidth: 130, flex: 1, valueGetter: (p) => String(p.data?.published_date ?? p.data?.publishedDate ?? p.data?.published_datetime ?? '').slice(0, 10) || '-' },
-      { field: 'publishedTime', headerName: 'Published Time', minWidth: 110, maxWidth: 120, flex: 1, valueGetter: (p) => String(p.data?.published_time ?? p.data?.publishedTime ?? p.data?.published_datetime ?? '').slice(11, 19) || '-' },
-      {
-        field: 'questionPaperPath',
-        headerName: 'QuestionPaper Path',
-        minWidth: 130,
-        maxWidth: 150,
-        flex: 1,
-        cellRenderer: makeQuestionPaperPathRenderer(minio),
-      },
+      { field: 'questionPaper', headerName: 'Question Paper', minWidth: 230, flex: 2.2, valueGetter: (p) => p.data?.questionpaper_title ?? '-' },
       {
         headerName: 'Actions',
-        minWidth: 120,
-        maxWidth: 140,
-        flex: 1,
-        cellRenderer: makeActionsRenderer(loading, onSecurePublish, openPublishModal),
+        minWidth: 230,
+        maxWidth: 270,
+        flex: 1.7,
+        cellRenderer: makeActionsRenderer(minio, loading, onGeneratePassCode, onEnterPassCode),
       },
     ],
     [loading, minio],
@@ -281,7 +269,7 @@ export default function ViewFinalExamQuestionPaperPage() {
     <div className="px-6 pb-6 pt-2 space-y-2">
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Publish Exam Question Paper</h2>
+          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Published Exam Question Paper</h2>
           <Button type="button" variant="outline" size="sm" className="h-6 px-2.5 text-[12px]" onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen}>
             <Filter className="mr-1.5 h-3.5 w-3.5" />
             Filter
@@ -344,12 +332,7 @@ export default function ViewFinalExamQuestionPaperPage() {
         <div className="app-card overflow-hidden">
           <div className="p-4 border-b border-slate-200 bg-white">
             <div className="w-full max-w-sm">
-              <SearchInput
-                className="w-full"
-                placeholder="Search"
-                value={search}
-                onChange={setSearch}
-              />
+              <SearchInput className="w-full" placeholder="Search" value={search} onChange={setSearch} />
             </div>
           </div>
           <div className="p-4">
@@ -358,21 +341,24 @@ export default function ViewFinalExamQuestionPaperPage() {
         </div>
       )}
 
-      <Dialog open={publishModalOpen} onOpenChange={setPublishModalOpen}>
+      <Dialog open={passcodeOpen} onOpenChange={setPasscodeOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[16px] font-semibold text-[hsl(var(--primary))]">Publish Question Paper On</DialogTitle>
+            <DialogTitle className="text-[16px] font-semibold text-[hsl(var(--primary))]">Enter PassCode</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 py-1">
-            <Input value={publishDate} onChange={(e) => setPublishDate(e.target.value)} className="h-9 text-[12px]" />
-            <Input value={publishTime} onChange={(e) => setPublishTime(e.target.value)} className="h-9 text-[12px]" />
-          </div>
+          <Input
+            value={passcodeValue}
+            onChange={(e) => setPasscodeValue(e.target.value)}
+            placeholder="Enter passcode"
+            className="h-9 text-[12px]"
+          />
           <DialogFooter>
-            <Button onClick={() => publishRow && void publishNow(publishRow)} disabled={loading}>Ok</Button>
-            <Button variant="outline" onClick={() => setPublishModalOpen(false)} disabled={loading}>Cancel</Button>
+            <Button onClick={() => void onValidatePassCode()} disabled={loading}>Ok</Button>
+            <Button variant="outline" onClick={() => setPasscodeOpen(false)} disabled={loading}>Cancel</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
+

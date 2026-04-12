@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { distinct } from '@/lib/utils'
 import { buildQuery } from '@/services/crud'
+import { useSearchParams } from 'next/navigation'
+import { Trash2 } from 'lucide-react'
 import {
 	getCollegeFilters,
 	listCourseYears,
@@ -31,6 +33,7 @@ type Slot = {
 }
 
 export default function CreateExamTimetablePage() {
+	const searchParams = useSearchParams()
 	// Filters
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [filtersData, setFiltersData] = useState<any[]>([])
@@ -44,6 +47,15 @@ export default function CreateExamTimetablePage() {
 	const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
 	const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<number | null>(null)
 	const [selectedExamId, setSelectedExamId] = useState<number | null>(null)
+	const [paramCourseId, setParamCourseId] = useState<number | null>(null)
+	const [paramAcademicYearId, setParamAcademicYearId] = useState<number | null>(null)
+	const [paramExamId, setParamExamId] = useState<number | null>(null)
+	const [paramCourseYearId, setParamCourseYearId] = useState<number | null>(null)
+	const [paramCourseName, setParamCourseName] = useState('')
+	const [paramAcademicYear, setParamAcademicYear] = useState('')
+	const [paramExamName, setParamExamName] = useState('')
+	const [paramFromDate, setParamFromDate] = useState('')
+	const [paramToDate, setParamToDate] = useState('')
 
 	// Course years
 	const [q, setQ] = useState('')
@@ -105,8 +117,17 @@ export default function CreateExamTimetablePage() {
 	}, [])
 
 	useEffect(() => {
+		setParamCourseId(searchParams?.get('courseId') ? Number(searchParams?.get('courseId')) : null)
+		setParamAcademicYearId(searchParams?.get('academicYearId') ? Number(searchParams?.get('academicYearId')) : null)
+		setParamExamId(searchParams?.get('examId') ? Number(searchParams?.get('examId')) : null)
+		setParamCourseYearId(searchParams?.get('courseYearId') ? Number(searchParams?.get('courseYearId')) : null)
+		setParamCourseName(searchParams?.get('courseName') ?? '')
+		setParamAcademicYear(searchParams?.get('academicYear') ?? '')
+		setParamExamName(searchParams?.get('examName') ?? '')
+		setParamFromDate(searchParams?.get('fromDate') ?? '')
+		setParamToDate(searchParams?.get('toDate') ?? '')
 		fetchFilters()
-	}, [fetchFilters])
+	}, [fetchFilters, searchParams])
 
 	async function handleCourseChange(courseId: number, fRef = filtersData, ayRef = academicData) {
 		setSelectedCourseId(courseId)
@@ -149,6 +170,33 @@ export default function CreateExamTimetablePage() {
 		loadExamMasters()
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [selectedCourseId, selectedAcademicYearId])
+
+	useEffect(() => {
+		if (!loadingFilters && courses.length > 0) {
+			if (paramCourseId && courses.some((c: any) => c.fk_course_id === paramCourseId)) {
+				handleCourseChange(paramCourseId, filtersData, academicData)
+			}
+		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [loadingFilters])
+
+	useEffect(() => {
+		if (paramAcademicYearId && academicYears.some((a: any) => a.fk_academic_year_id === paramAcademicYearId)) {
+			setSelectedAcademicYearId(paramAcademicYearId)
+		}
+	}, [paramAcademicYearId, academicYears])
+
+	useEffect(() => {
+		if (paramExamId && examMasters.some((e: any) => (e.examId ?? e.id) === paramExamId)) {
+			setSelectedExamId(paramExamId)
+		}
+	}, [paramExamId, examMasters])
+
+	useEffect(() => {
+		if (paramCourseYearId && courseYears.some((y: any) => (y.courseYearId ?? y.id) === paramCourseYearId)) {
+			setSelectedCourseYearId(paramCourseYearId)
+		}
+	}, [paramCourseYearId, courseYears])
 
 	// Load subjects when ids ready (uses legacy endpoints with fallback)
 	useEffect(() => {
@@ -237,140 +285,86 @@ export default function CreateExamTimetablePage() {
 		return hasDate && hasSession && hasSubject && hasGroups
 	}, [slotDraft.date, slotDraft.startTime, selectedSubjectCode, selectedGroups])
 
+	const summaryLine = useMemo(() => {
+		const course = paramCourseName || courses.find((c) => c.fk_course_id === selectedCourseId)?.course_code || courses.find((c) => c.fk_course_id === selectedCourseId)?.course_name || ''
+		const ay = paramAcademicYear || academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)?.academic_year || ''
+		const cy = searchParams?.get('courseYearName') || courseYears.find((y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId)?.courseYearName || courseYears.find((y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId)?.yearName || ''
+		const ex = paramExamName || examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)?.examName || ''
+		return [course, ay, cy, ex].filter(Boolean).join(' / ')
+	}, [paramCourseName, courses, selectedCourseId, paramAcademicYear, academicYears, selectedAcademicYearId, searchParams, courseYears, selectedCourseYearId, paramExamName, examMasters, selectedExamId])
+
 	return (
-		<div className="p-6 space-y-3">
+		<div className="px-6 pb-6 pt-2 space-y-2">
 			{/* Header card */}
 			<div className="app-card overflow-hidden">
 				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
 					<h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Create Exam Timetable</h2>
-					<p className="mt-0.5 text-[12px] text-muted-foreground">Select exam and configure session slots</p>
 				</div>
 
 				<div className="px-3 py-3">
-					<div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-						<div className="space-y-1">
-							<Label>Course</Label>
+					<div className="mb-3 rounded-md border bg-slate-50/50 px-3 py-2 text-[13px] font-medium text-[hsl(var(--primary))]">
+						{summaryLine || '—'}
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+						<div className="space-y-1 md:col-span-3">
+							<Label>Exam Date *</Label>
+							<input
+								type="date"
+								className="h-8 text-[12px] w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+								value={slotDraft.date}
+								onChange={(e) => setSlotDraft((s) => ({ ...s, date: e.target.value }))}
+							/>
+						</div>
+						<div className="space-y-1 md:col-span-3">
+							<Label>Exam Session *</Label>
 							<Select
-								value={selectedCourseId != null ? String(selectedCourseId) : undefined}
-								onValueChange={(v) => handleCourseChange(Number(v))}
-								disabled={loadingFilters}
+								value={slotDraft.startTime ? (slotDraft.startTime < '12:00' ? 'M' : 'A') : undefined}
+								onValueChange={(v) => {
+									// map session to indicative times
+									if (v === 'M') setSlotDraft((s) => ({ ...s, startTime: '09:45', endTime: '16:00' }))
+									else setSlotDraft((s) => ({ ...s, startTime: '13:00', endTime: '16:00' }))
+								}}
 							>
 								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder={loadingFilters ? 'Loading…' : 'Select Course'} />
+									<SelectValue placeholder="Select Session" />
 								</SelectTrigger>
 								<SelectContent>
-									{courses.map((c) => (
-										<SelectItem key={c.fk_course_id} value={String(c.fk_course_id)}>
-											{c.course_code ?? c.course_name}
+									<SelectItem value="M">MORNING (09:45AM - 04:00PM)</SelectItem>
+									<SelectItem value="A">AFTERNOON (01:00PM - 04:00PM)</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="space-y-1 md:col-span-3">
+							<Label>Regulation *</Label>
+							<Select value={selectedRegulation ?? undefined} onValueChange={(v) => setSelectedRegulation(v)}>
+								<SelectTrigger className="h-8 text-[12px]">
+									<SelectValue placeholder="Select Regulation" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="R25">R25</SelectItem>
+									<SelectItem value="R20">R20</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="space-y-1 md:col-span-3">
+							<Label>Subject</Label>
+							<Select
+								value={selectedSubjectCode ?? undefined}
+								onValueChange={(v) => setSelectedSubjectCode(v)}
+								disabled={!selectedCourseId || !selectedAcademicYearId || !selectedExamId || !selectedCourseYearId}
+							>
+								<SelectTrigger className="h-8 text-[12px]">
+									<SelectValue placeholder={subjects.length === 0 ? 'No subjects' : 'Select Subject'} />
+								</SelectTrigger>
+								<SelectContent>
+									{subjects.map((s) => (
+										<SelectItem key={s.code} value={s.code}>
+											{s.code} {s.name ? `— ${s.name}` : ''}
 										</SelectItem>
 									))}
 								</SelectContent>
 							</Select>
 						</div>
-						<div className="space-y-1">
-							<Label>Exam Year</Label>
-							<Select
-								value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : undefined}
-								onValueChange={(v) => setSelectedAcademicYearId(Number(v))}
-								disabled={academicYears.length === 0}
-							>
-								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder="Select Exam Year" />
-								</SelectTrigger>
-								<SelectContent>
-									{academicYears.map((a) => (
-										<SelectItem key={a.fk_academic_year_id} value={String(a.fk_academic_year_id)}>
-											{a.academic_year}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1 md:col-span-2">
-							<Label>Exam Master</Label>
-							<Select
-								value={selectedExamId != null ? String(selectedExamId) : undefined}
-								onValueChange={(v) => setSelectedExamId(Number(v))}
-								disabled={examMasters.length === 0}
-							>
-								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder="Select Exam Master" />
-								</SelectTrigger>
-								<SelectContent>
-									{examMasters.map((e) => (
-										<SelectItem key={e.examId ?? e.id} value={String(e.examId ?? e.id)}>
-											{e.examName ?? '—'}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			{/* Create timetable form (mirrored UI) */}
-			<div className="app-card p-4 space-y-4">
-				{/* Filters row: Date, Session, Regulation, Subject */}
-				<div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-					<div className="space-y-1">
-						<Label>Exam Date *</Label>
-						<input
-							type="date"
-							className="h-8 text-[12px] w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-							value={slotDraft.date}
-							onChange={(e) => setSlotDraft((s) => ({ ...s, date: e.target.value }))}
-						/>
-					</div>
-					<div className="space-y-1">
-						<Label>Exam Session *</Label>
-						<Select
-							value={slotDraft.startTime ? (slotDraft.startTime < '12:00' ? 'M' : 'A') : undefined}
-							onValueChange={(v) => {
-								// map session to indicative times
-								if (v === 'M') setSlotDraft((s) => ({ ...s, startTime: '09:45', endTime: '16:00' }))
-								else setSlotDraft((s) => ({ ...s, startTime: '13:00', endTime: '16:00' }))
-							}}
-						>
-							<SelectTrigger className="h-8 text-[12px]">
-								<SelectValue placeholder="Select Session" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="M">MORNING (09:45AM - 04:00PM)</SelectItem>
-								<SelectItem value="A">AFTERNOON (01:00PM - 04:00PM)</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
-					<div className="space-y-1">
-						<Label>Regulation *</Label>
-						<Select value={selectedRegulation ?? undefined} onValueChange={(v) => setSelectedRegulation(v)}>
-							<SelectTrigger className="h-8 text-[12px]">
-								<SelectValue placeholder="Select Regulation" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="R25">R25</SelectItem>
-								<SelectItem value="R20">R20</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
-					<div className="space-y-1">
-						<Label>Subject</Label>
-						<Select
-							value={selectedSubjectCode ?? undefined}
-							onValueChange={(v) => setSelectedSubjectCode(v)}
-							disabled={!selectedCourseId || !selectedAcademicYearId || !selectedExamId || !selectedCourseYearId}
-						>
-							<SelectTrigger className="h-8 text-[12px]">
-								<SelectValue placeholder={subjects.length === 0 ? 'No subjects' : 'Select Subject'} />
-							</SelectTrigger>
-							<SelectContent>
-								{subjects.map((s) => (
-									<SelectItem key={s.code} value={s.code}>
-										{s.code} {s.name ? `— ${s.name}` : ''}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
 					</div>
 				</div>
 
@@ -402,7 +396,7 @@ export default function CreateExamTimetablePage() {
 						</div>
 						<div className="p-2 border-t flex justify-end">
 							<Button type="button" variant="outline" className="h-8 text-[12px]" onClick={addSelectedToStage} disabled={!canAdd}>
-								Add
+								Add to Table
 							</Button>
 						</div>
 					</div>
@@ -438,7 +432,7 @@ export default function CreateExamTimetablePage() {
 											</td>
 											<td className="px-2 py-1">
 												<Button type="button" variant="ghost" size="sm" onClick={() => removeStagedRow(i)}>
-													Remove
+													<Trash2 className="h-4 w-4" />
 												</Button>
 											</td>
 										</tr>
@@ -451,7 +445,7 @@ export default function CreateExamTimetablePage() {
 				)}
 
 				{stagedRows.length > 0 && (
-					<div className="flex items-center justify-end">
+					<div className="flex items-center justify-end pt-3 pr-2 pb-1">
 						<Button type="button" className="h-8 text-[12px]" onClick={() => alert('Saved (stub)')}>
 							Save
 						</Button>

@@ -140,3 +140,67 @@ export async function listExamInvigilationAllotments(examTimetableId: number): P
 	return Array.isArray(rows) ? rows : []
 }
 
+function flattenResult(body: any): any[] {
+	const result = (body?.result ?? body?.data?.result ?? body?.data ?? body ?? []) as any[]
+	if (Array.isArray(result)) {
+		const out: any[] = []
+		for (const arr of result) {
+			if (Array.isArray(arr)) out.push(...arr)
+			else if (arr && typeof arr === 'object') out.push(arr)
+		}
+		return out
+	}
+	return []
+}
+
+export async function listRoomwiseOmrStudents(params: {
+	examId: number
+	courseId: number
+	examDate?: string
+	sessionId?: number
+}): Promise<any[]> {
+	const search = new URLSearchParams({
+		in_flag: 'roomwise_OMR_students',
+		in_exam_id: String(params.examId),
+		in_college_id: '0',
+		in_course_id: String(params.courseId),
+		in_course_group_id: '0',
+		in_course_year_id: '0',
+		in_room_id: '0',
+		in_std_id: '0',
+		in_invgilator_emp_id: '0',
+		in_regulation_id: '0',
+		from_exam_date: String(params.examDate ?? ''),
+		to_exam_date: String(params.examDate ?? ''),
+		in_subject_id: '0',
+		in_session_id: String(params.sessionId ?? 0),
+	})
+	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_get_exam_allotment_details?${search.toString()}`))
+	const body = await res.json().catch(() => null)
+	return flattenResult(body)
+}
+
+export async function listExamStdAttDetails(params: {
+	examId: number
+	courseId: number
+	examTimetableId: number
+}): Promise<any[]> {
+	const search = new URLSearchParams({
+		in_flag: 'exam_std_att_details',
+		in_exam_id: String(params.examId),
+		in_clg_id: '0',
+		in_course_id: String(params.courseId),
+		in_course_group_id: '0',
+		in_course_year_id: '0',
+		in_regulation_id: '0',
+		in_subject_id: '0',
+		in_examtype_catdet_id: '0',
+		in_std_id: '0',
+		in_exam_timetable_id: String(params.examTimetableId),
+		in_room_id: '0',
+		in_exam_labbatch_id: '0',
+	})
+	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_get_exam_std_reg_tt_details?${search.toString()}`))
+	const body = await res.json().catch(() => null)
+	return flattenResult(body)
+}

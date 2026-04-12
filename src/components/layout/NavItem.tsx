@@ -640,6 +640,7 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
     }
     if (labelLower.includes('student exam lab bat')) return `${preExamBase}/student-exam-lab-batches`
     if (labelLower.includes('exam registration ma')) return `${preExamBase}/exam-registration-manual-feeless`
+    if (labelLower.includes('college exam timetable view')) return `${preExamBase}/college-exam-timetable-view`
     return null
   })()
 

@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useRouter } from 'next/navigation'
+import { ChevronDown, Filter } from 'lucide-react'
 
 export default function ExamTimetablePage() {
 	const router = useRouter()
@@ -29,6 +30,7 @@ export default function ExamTimetablePage() {
 	const [academicYears, setAcademicYears] = useState<any[]>([])
 	const [courseYears, setCourseYears] = useState<any[]>([])
 	const [examMasters, setExamMasters] = useState<any[]>([])
+	const [filterOpen, setFilterOpen] = useState(true)
 
 	const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
 	const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<number | null>(null)
@@ -327,8 +329,27 @@ export default function ExamTimetablePage() {
 	}, [academicYears, courseYears, courses, examMasters, selectedAcademicYearId, selectedCourseId, selectedCourseYearId, selectedExamId])
 
 	function openCreateSchedule() {
-		// navigate to create schedule page
-		router.push('/admin-examination-management/admin-exam-masters/exam-timetable/create')
+		if (!selectedCourseId || !selectedAcademicYearId || !selectedExamId || !selectedCourseYearId) {
+			router.push('/admin-examination-management/admin-exam-masters/exam-timetable/create')
+			return
+		}
+		const course = courses.find((c) => c.fk_course_id === selectedCourseId)
+		const ay = academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)
+		const cy = courseYears.find((y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId)
+		const exam = examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)
+		const params = new URLSearchParams({
+			courseId: String(selectedCourseId),
+			academicYearId: String(selectedAcademicYearId),
+			examId: String(selectedExamId),
+			courseYearId: String(selectedCourseYearId),
+			courseName: String(course?.course_code ?? course?.course_name ?? ''),
+			academicYear: String(ay?.academic_year ?? ''),
+			courseYearName: String(cy?.courseYearName ?? cy?.yearName ?? ''),
+			examName: String(exam?.examName ?? ''),
+			fromDate: String(exam?.examFromDate ?? exam?.fromDate ?? ''),
+			toDate: String(exam?.examToDate ?? exam?.toDate ?? ''),
+		})
+		router.push(`/admin-examination-management/admin-exam-masters/exam-timetable/create?${params.toString()}`)
 	}
 
 	function saveSchedule(e: any) {
@@ -382,14 +403,26 @@ export default function ExamTimetablePage() {
 	}
 
 	return (
-		<div className="p-6 space-y-3">
+		<div className="px-6 pb-6 pt-2 space-y-2">
 			<div className="app-card overflow-hidden">
-				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
 					<h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Exam University Timetable</h2>
-					<p className="mt-0.5 text-[12px] text-muted-foreground">Select course, exam year, exam master and course year to view and manage the timetable.</p>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="h-6 px-2.5 text-[12px]"
+						onClick={() => setFilterOpen((v) => !v)}
+						aria-expanded={filterOpen}
+					>
+						<Filter className="mr-1.5 h-3.5 w-3.5" />
+						Filter
+						<ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+					</Button>
 				</div>
+				{filterOpen && (
 				<div className="px-3 py-3">
-					<div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+					<div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
 						<div className="space-y-1">
 							<Label>Course *</Label>
 							<Select
@@ -468,12 +501,13 @@ export default function ExamTimetablePage() {
 						</div>
 					</div>
 				</div>
+				)}
 			</div>
 
 			{selectedCourseYearId != null && titleLine && (
 				<div className="app-card">
 					<div className="px-3 py-2.5 border-b border-slate-200 bg-white">
-						<p className="text-[13px] font-medium text-slate-700">{titleLine}</p>
+						<p className="text-[13px] font-medium text-[hsl(var(--primary))]">{titleLine}</p>
 					</div>
 					<div className="px-3 py-3 flex items-center justify-between">
 						<div className="flex items-center gap-3 text-[12px]">

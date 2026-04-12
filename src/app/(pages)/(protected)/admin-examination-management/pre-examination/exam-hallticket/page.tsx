@@ -1,13 +1,14 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select as SearchableSelect, type SelectOption } from '@/common/components/select/Select'
 import {
   getExamHalltickets,
+  listExamMastersByCourseAndAy,
   getUnivExamFiltersRegSup,
   getUnivExamRestNoTt,
   listStudents,
@@ -25,14 +26,83 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
   })
 }
 
+const tConvert = (time?: string) => {
+  const raw = String(time ?? '').trim()
+  const m = raw.match(/^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/)
+  if (!m) return ''
+  const hour24 = Number(m[1])
+  const mins = m[2]
+  const ampm = hour24 >= 12 ? 'PM' : 'AM'
+  const hour12 = hour24 % 12 || 12
+  return `${hour12}:${mins} ${ampm}`
+}
+
+const formatRangeDate = (value?: string) => {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+const pick = (row: AnyRow, keys: string[]) => {
+  for (const k of keys) {
+    const v = row?.[k]
+    if (v !== undefined && v !== null && v !== '') return v
+  }
+  return ''
+}
+
+const flattenRows = (input: unknown): AnyRow[] => {
+  if (!Array.isArray(input)) return []
+  const out: AnyRow[] = []
+  for (const item of input) {
+    if (Array.isArray(item)) out.push(...flattenRows(item))
+    else if (item && typeof item === 'object') out.push(item as AnyRow)
+  }
+  return out
+}
+
+const normalizeHallticketRows = (input: unknown): AnyRow[] => {
+  const flat = flattenRows(input)
+  const out: AnyRow[] = []
+  for (const row of flat) {
+    const nested =
+      row.subjectDTOList ??
+      row.subjects ??
+      row.examStudentDetailDTOs ??
+      row.examStudentDetails ??
+      row.examStudentDetailList
+    if (Array.isArray(nested) && nested.length > 0) {
+      for (const s of nested) {
+        out.push({
+          ...row,
+          ...s,
+          exam_date: s.exam_date ?? s.examDate ?? row.exam_date ?? row.examDate ?? row.fromDate,
+          session_start_time:
+            s.session_start_time ?? s.sessionStartTime ?? s.start_time ?? row.session_start_time ?? row.sessionStartTime ?? row.start_time,
+          session_end_time:
+            s.session_end_time ?? s.sessionEndTime ?? s.end_time ?? row.session_end_time ?? row.sessionEndTime ?? row.end_time,
+          subject_code: s.subject_code ?? s.subjectCode ?? row.subject_code ?? row.subjectCode,
+          subject_name: s.subject_name ?? s.subjectName ?? row.subject_name ?? row.subjectName,
+          subjecttype: s.subjecttype ?? s.subjectType ?? row.subjecttype ?? row.subjectType,
+        })
+      }
+      continue
+    }
+    out.push(row)
+  }
+  return out
+}
+
 export default function ExamHallticketPage() {
   const [mode, setMode] = useState<'student' | 'section'>('student')
   const [loading, setLoading] = useState(false)
+  const [hasFetched, setHasFetched] = useState(false)
 
-  const [studentQuery, setStudentQuery] = useState('')
   const [students, setStudents] = useState<AnyRow[]>([])
   const [studentId, setStudentId] = useState<number | null>(null)
   const [studentExamId, setStudentExamId] = useState<number | null>(null)
+  const [studentExams, setStudentExams] = useState<AnyRow[]>([])
 
   const [filterRows, setFilterRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
@@ -95,6 +165,49 @@ export default function ExamHallticketPage() {
       ).filter((r) => Number(r.fk_course_year_id) > 0),
     [restRows, collegeId, courseGroupId],
   )
+  const studentOptions = useMemo<SelectOption[]>(
+    () =>
+      students.map((s, i) => ({
+        value: String(s.studentId ?? s.id ?? i),
+        label: `${s.hallticketNumber ?? s.rollNumber ?? s.rollNo ?? '-'} - ${s.firstName ?? s.studentName ?? '-'}`,
+      })),
+    [students],
+  )
+  const studentExamOptions = useMemo(
+    () =>
+      dedupeBy(studentExams, (r) => Number(r.fk_exam_id ?? r.examId ?? r.id))
+        .filter((r) => Number(r.fk_exam_id ?? r.examId ?? r.id) > 0)
+        .map((r) => ({
+          id: Number(r.fk_exam_id ?? r.examId ?? r.id),
+          label: `${String(r.exam_name ?? r.examName ?? `Exam ${r.fk_exam_id ?? r.examId ?? r.id}`)}${
+            formatRangeDate(r.from_date ?? r.fromDate) && formatRangeDate(r.to_date ?? r.toDate)
+              ? ` (${formatRangeDate(r.from_date ?? r.fromDate)} - ${formatRangeDate(r.to_date ?? r.toDate)})`
+              : ''
+          }${
+            r.is_regular_exam || r.isRegularExam ? ' (Regular)' : ''
+          }${
+            r.is_supply_exam || r.isSupplyExam ? ' (Supple)' : ''
+          }`,
+        })),
+    [studentExams],
+  )
+  const selectedStudent = useMemo(
+    () => students.find((s) => Number(s.studentId ?? s.id ?? 0) === Number(studentId ?? 0)) ?? null,
+    [students, studentId],
+  )
+  const displayRows = useMemo(
+    () => normalizeHallticketRows(rows).filter((r) => r && Object.keys(r).length > 0),
+    [rows],
+  )
+
+  useEffect(() => {
+    async function loadExamOptions() {
+      if (filterRows.length > 0) return
+      const rows = await getUnivExamFiltersRegSup(employeeId).catch(() => [])
+      if (Array.isArray(rows) && rows.length > 0) setFilterRows(rows)
+    }
+    void loadExamOptions()
+  }, [employeeId, filterRows.length])
 
   async function initSectionFilters() {
     setLoading(true)
@@ -136,17 +249,49 @@ export default function ExamHallticketPage() {
     }
   }
 
-  async function searchStudents() {
-    const q = studentQuery.trim()
+  async function searchStudents(qRaw: string) {
+    const q = qRaw.trim()
     if (q.length < 3) return
     const data = await listStudents(q).catch(() => [])
     setStudents(Array.isArray(data) ? data : [])
   }
 
+  async function onStudentSelect(nextId: number | null) {
+    setStudentId(nextId)
+    setRows([])
+    setStudentExamId(null)
+    setStudentExams([])
+    if (!nextId) return
+    const selected = students.find((s) => Number(s.studentId ?? s.id ?? 0) === Number(nextId))
+    if (!selected) return
+    const selectedCourseId = Number(selected.courseId ?? selected.fk_course_id ?? 0)
+    const selectedAyId = Number(selected.academicYearId ?? selected.fk_academic_year_id ?? 0)
+
+    const fromFilters = dedupeBy(
+      filterRows.filter(
+        (r) =>
+          Number(r.fk_course_id ?? r.courseId ?? 0) === selectedCourseId &&
+          (!selectedAyId || Number(r.fk_academic_year_id ?? r.academicYearId ?? 0) === selectedAyId),
+      ),
+      (r) => Number(r.fk_exam_id ?? r.examId ?? r.id),
+    )
+      .filter((r) => !(r.is_internal_exam ?? r.isInternalExam))
+
+    if (fromFilters.length > 0) {
+      setStudentExams(fromFilters)
+      return
+    }
+
+    const masters = await listExamMastersByCourseAndAy(selectedCourseId, selectedAyId || 0).catch(() => [])
+    const filtered = (Array.isArray(masters) ? masters : []).filter((r) => !(r.isInternalExam ?? r.is_internal_exam))
+    setStudentExams(filtered)
+  }
+
   async function onGetList() {
     const targetExamId = mode === 'student' ? studentExamId : examId
-    if (!targetExamId) return
+    if (!targetExamId || (mode === 'student' && !studentId)) return
     setLoading(true)
+    setHasFetched(true)
     try {
       const data = await getExamHalltickets({
         examId: targetExamId,
@@ -163,20 +308,45 @@ export default function ExamHallticketPage() {
     }
   }
 
+  useEffect(() => {
+    async function autoLoadStudentHallticket() {
+      if (mode !== 'student') return
+      if (!studentId || !studentExamId) return
+      setLoading(true)
+      setHasFetched(true)
+      try {
+        const data = await getExamHalltickets({
+          examId: studentExamId,
+          studentId,
+          collegeId: 0,
+          academicYearId: 0,
+          courseId: 0,
+          courseGroupId: 0,
+          courseYearId: 0,
+        })
+        setRows(Array.isArray(data) ? data : [])
+      } finally {
+        setLoading(false)
+      }
+    }
+    void autoLoadStudentHallticket()
+  }, [mode, studentId, studentExamId])
+
   return (
-    <div className="p-6 space-y-3">
+    <div className="px-6 pb-6 pt-2 space-y-2">
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Hallticket</h2>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-3 space-y-2">
           <RadioGroup
             value={mode}
             onValueChange={(v) => {
               const next = (v as 'student' | 'section') || 'student'
               setMode(next)
               setRows([])
+              setHasFetched(false)
               if (next === 'section') initSectionFilters()
             }}
             className="flex gap-6"
@@ -192,54 +362,66 @@ export default function ExamHallticketPage() {
           </RadioGroup>
 
           {mode === 'student' && (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              <div className="md:col-span-4 space-y-1">
-                <Label>Student Search</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={studentQuery}
-                    onChange={(e) => setStudentQuery(e.target.value)}
-                    placeholder="Search by student name / hallticket"
-                    className="h-8 text-[12px]"
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+                <div className="md:col-span-4 space-y-1">
+                  <SearchableSelect
+                    label="Student"
+                    placeholder="Search by student name or rollno."
+                    value={studentId ? String(studentId) : null}
+                    options={studentOptions}
+                    searchable
+                    clearable
+                    className="[&_label]:text-[12px] [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
+                    onSearch={(term) => void searchStudents(term)}
+                    onChange={(v) => void onStudentSelect(v ? Number(v) : null)}
                   />
-                  <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={searchStudents}>
-                    Search
-                  </Button>
+                </div>
+                <div className="md:col-span-7 space-y-1">
+                  <Label>Exam</Label>
+                  <Select value={studentExamId ? String(studentExamId) : undefined} onValueChange={(v) => setStudentExamId(Number(v))}>
+                    <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger>
+                    <SelectContent>
+                      {studentExamOptions.map((e) => (
+                        <SelectItem key={`se-${e.id}`} value={String(e.id)}>
+                          {e.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div className="md:col-span-4 space-y-1">
-                <Label>Student</Label>
-                <Select value={studentId ? String(studentId) : undefined} onValueChange={(v) => setStudentId(Number(v))}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Student" /></SelectTrigger>
-                  <SelectContent>
-                    {students.map((s, i) => (
-                      <SelectItem key={`s-${s.studentId ?? i}`} value={String(s.studentId)}>
-                        {(s.hallticketNumber ?? s.rollNo ?? '-')} - {s.firstName ?? s.studentName ?? '-'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-3 space-y-1">
-                <Label>Exam Id</Label>
-                <Input
-                  type="number"
-                  value={studentExamId ?? ''}
-                  onChange={(e) => setStudentExamId(e.target.value ? Number(e.target.value) : null)}
-                  className="h-8 text-[12px]"
-                  placeholder="Enter Exam ID"
-                />
-              </div>
-              <div className="md:col-span-1">
-                <Button type="button" className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loading}>
-                  Get
-                </Button>
-              </div>
-            </div>
+              {!!selectedStudent && !!studentExamId && (
+                <div className="rounded border border-blue-200 bg-blue-50/40 p-3">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+                    <div className="md:col-span-9 text-[12px] leading-6">
+                      <div className="font-semibold">
+                        {selectedStudent.firstName ?? selectedStudent.studentName ?? '-'} (
+                        <span className="text-blue-700">{selectedStudent.isLateral ? 'LATERAL' : 'REGULAR'}</span>)
+                      </div>
+                      <div className="text-muted-foreground">{selectedStudent.hallticketNumber ?? selectedStudent.rollNumber ?? '-'}</div>
+                      <div className="text-muted-foreground">
+                        {selectedStudent.collegeCode ?? '-'} / {selectedStudent.academicYear ?? '-'} / {selectedStudent.courseCode ?? '-'} /{' '}
+                        {selectedStudent.groupCode ?? '-'} / {selectedStudent.courseYearName ?? '-'} / Section {selectedStudent.section ?? '-'}
+                      </div>
+                      <div className="text-muted-foreground">{selectedStudent.mobile ?? '-'}</div>
+                    </div>
+                    <div className="md:col-span-3 text-[12px] leading-7">
+                      <div>
+                        Quota : <span className="text-blue-700">{selectedStudent.quotaDisplayName ?? '-'}</span>
+                      </div>
+                      <div>
+                        Student Status : <span className="text-green-700 font-medium">{selectedStudent.studentStatusDisplayName ?? '-'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {mode === 'section' && (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <div className="md:col-span-2 space-y-1">
                 <Label>Program</Label>
                 <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
@@ -321,12 +503,12 @@ export default function ExamHallticketPage() {
         </div>
       </div>
 
-      {rows.length > 0 && (
-        <div className="app-card p-4 space-y-3">
+      {hasFetched && (
+        <div className="app-card p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <div className="text-[12px] text-muted-foreground">{rows.length} records</div>
+            <div className="text-[12px] text-muted-foreground">{displayRows.length} records</div>
             <Button type="button" className="h-8 text-[12px]" onClick={() => window.print()}>
-              Print
+              {mode === 'student' ? 'Print' : 'Print All'}
             </Button>
           </div>
           <div className="overflow-auto rounded border">
@@ -334,26 +516,46 @@ export default function ExamHallticketPage() {
               <thead className="bg-slate-50">
                 <tr>
                   <th className="text-left px-2 py-1">SI.No</th>
-                  <th className="text-left px-2 py-1">Hallticket</th>
-                  <th className="text-left px-2 py-1">Student</th>
+                  {mode !== 'student' && <th className="text-left px-2 py-1">Hallticket</th>}
+                  {mode !== 'student' && <th className="text-left px-2 py-1">Student</th>}
                   <th className="text-left px-2 py-1">Exam Date</th>
+                  <th className="text-left px-2 py-1">Exam Time</th>
                   <th className="text-left px-2 py-1">Subject Code</th>
                   <th className="text-left px-2 py-1">Subject Name</th>
-                  <th className="text-left px-2 py-1">Type</th>
+                  <th className="text-left px-2 py-1">Subject Type</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => (
+                {displayRows.map((r, i) => (
                   <tr key={`ht-${i}`} className="border-t">
                     <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">{r.hallticket_number ?? '-'}</td>
-                    <td className="px-2 py-1">{r.first_name ?? r.student_name ?? '-'}</td>
-                    <td className="px-2 py-1">{r.exam_date ? String(r.exam_date).slice(0, 10) : '-'}</td>
-                    <td className="px-2 py-1">{r.subject_code ?? '-'}</td>
-                    <td className="px-2 py-1">{r.subject_name ?? '-'}</td>
-                    <td className="px-2 py-1">{r.subjecttype ?? '-'}</td>
+                    {mode !== 'student' && <td className="px-2 py-1">{r.hallticket_number ?? '-'}</td>}
+                    {mode !== 'student' && <td className="px-2 py-1">{r.first_name ?? r.student_name ?? '-'}</td>}
+                    <td className="px-2 py-1">
+                      {pick(r, ['exam_date', 'examDate', 'date_of_exam', 'exam_datetime', 'examDateTime'])
+                        ? String(pick(r, ['exam_date', 'examDate', 'date_of_exam', 'exam_datetime', 'examDateTime'])).slice(0, 10)
+                        : '-'}
+                    </td>
+                    <td className="px-2 py-1">
+                      {pick(r, ['session_start_time', 'sessionStartTime', 'start_time']) &&
+                      pick(r, ['session_end_time', 'sessionEndTime', 'end_time'])
+                        ? `${tConvert(String(pick(r, ['session_start_time', 'sessionStartTime', 'start_time'])))} - ${tConvert(
+                            String(pick(r, ['session_end_time', 'sessionEndTime', 'end_time'])),
+                          )}`
+                        : '-'}
+                    </td>
+                    <td className="px-2 py-1">{pick(r, ['subject_code', 'subjectCode']) || '-'}</td>
+                    <td className="px-2 py-1">{pick(r, ['subject_name', 'subjectName']) || '-'}</td>
+                    <td className="px-2 py-1">{pick(r, ['subjecttype', 'subjectType']) || '-'}</td>
                   </tr>
                 ))}
+                {!loading && displayRows.length === 0 && (
+                  <tr className="border-t">
+                    <td colSpan={mode === 'student' ? 6 : 8} className="px-2 py-6 text-center text-muted-foreground">
+                      No records found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

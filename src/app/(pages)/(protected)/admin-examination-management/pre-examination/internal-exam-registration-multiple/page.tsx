@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { toastError, toastSuccess } from '@/lib/toast'
 import {
   getUnivExamFiltersByType,
   getUnivExamRestNoTt,
@@ -28,16 +30,34 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
 }
 
 const getStudentId = (s: AnyRow) =>
-  Number(s.studentId ?? s.fk_student_id ?? s.student_id ?? s.std_id ?? 0)
+  Number(s.studentId ?? s.fk_student_id ?? s.student_id ?? s.std_id ?? s.studentDetailId ?? s.fk_student_detail_id ?? 0)
+
+const getStudentKey = (s: AnyRow): string => {
+  const id = getStudentId(s)
+  if (id > 0) return `id:${id}`
+  const ht = String(s.hallticketNumber ?? s.hallticket_number ?? s.rollNumber ?? s.roll_number ?? '').trim().toLowerCase()
+  if (ht) return `ht:${ht}`
+  const name = String(s.firstName ?? s.studentName ?? s.stdName ?? s.student_name ?? '').trim().toLowerCase()
+  return `name:${name}`
+}
+
+const normalizeStudentRow = (s: AnyRow): AnyRow => ({
+  ...s,
+  studentId: getStudentId(s),
+  firstName: s.firstName ?? s.studentName ?? s.stdName ?? s.student_name ?? '',
+  hallticketNumber: s.hallticketNumber ?? s.rollNumber ?? s.roll_number ?? s.hallticket_number ?? '',
+})
 
 export default function InternalExamRegistrationMultiplePage() {
   const [loading, setLoading] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(true)
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
   const [subjectFilterRows, setSubjectFilterRows] = useState<AnyRow[]>([])
   const [students, setStudents] = useState<AnyRow[]>([])
   const [registeredStudents, setRegisteredStudents] = useState<AnyRow[]>([])
   const [selectedStudents, setSelectedStudents] = useState<AnyRow[]>([])
+  const lastNonEmptyRegisteredRef = useRef<AnyRow[]>([])
 
   const [courseId, setCourseId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
@@ -139,6 +159,12 @@ export default function InternalExamRegistrationMultiplePage() {
   }, [registeredStudents, searchRegistered])
 
   useEffect(() => {
+    if (registeredStudents.length > 0) {
+      lastNonEmptyRegisteredRef.current = registeredStudents
+    }
+  }, [registeredStudents])
+
+  useEffect(() => {
     async function init() {
       setLoading(true)
       try {
@@ -233,7 +259,8 @@ export default function InternalExamRegistrationMultiplePage() {
       }).catch(() => [])
       const list = Array.isArray(rows) ? rows : []
       setSubjectFilterRows(list)
-      setRegulationId(Number(dedupeBy(list, (r) => Number(r.fk_regulation_id))[0]?.fk_regulation_id ?? 0) || null)
+      // Keep regulation unselected until user picks it explicitly.
+      setRegulationId(null)
     }
     void loadSubjectsFilters()
   }, [collegeId, courseId, courseGroupId, courseYearId, examId, academicYearId, employeeId])
@@ -286,8 +313,9 @@ export default function InternalExamRegistrationMultiplePage() {
 
       const allList = Array.isArray(all) ? all : []
       const regList = Array.isArray(reg) ? reg : []
-      setRegisteredStudents(regList)
-      const regSet = new Set(regList.map((s) => getStudentId(s)).filter((x) => x > 0))
+      const stableRegList = (regList.length > 0 ? regList : lastNonEmptyRegisteredRef.current).map(normalizeStudentRow)
+      setRegisteredStudents(stableRegList)
+      const regSet = new Set(stableRegList.map((s) => getStudentKey(s)))
 
       const mapped = allList.map((s) => {
         const sid = getStudentId(s)
@@ -322,31 +350,61 @@ export default function InternalExamRegistrationMultiplePage() {
     if (!selectedStudents.length || !collegeId || !examId || !courseGroupId || !courseYearId || !regulationId || !subjectId) return
     const toRegister = selectedStudents.filter((s) => !s.already)
     if (toRegister.length === 0) {
-      alert('All selected students are already registered for this subject.')
+      toastError('All selected students are already registered for this subject.')
       return
     }
+    const selectedSubjectRow =
+      subjectFilterRows.find((r) => Number(r.fk_subject_id ?? r.subjectId ?? 0) === Number(subjectId)) ?? null
+    const resolvedExamTypeCatId = Number(
+      selectedSubjectRow?.examtypeCatId ??
+      selectedSubjectRow?.fk_examtype_catdet_id ??
+      selectedSubjectRow?.examtype_catdet_id ??
+      3,
+    ) || 3
+
     const payload = toRegister.map((s) => ({
       studentId: getStudentId(s),
+      firstName: s.firstName ?? s.studentName ?? '',
+      rollNumber: s.rollNumber ?? s.hallticketNumber ?? '',
+      hallticketNumber: s.hallticketNumber ?? s.rollNumber ?? '',
+      groupSectionId: Number(s.groupSectionId ?? s.group_section_id ?? 0) || undefined,
+      section: s.section ?? '',
+      courseId: Number(courseId),
+      courseName: s.courseName ?? s.course_name ?? '',
+      courseCode: s.courseCode ?? s.course_code ?? '',
+      courseGroupId: Number(courseGroupId),
+      groupName: s.groupName ?? s.group_name ?? '',
+      groupCode: s.groupCode ?? s.group_code ?? '',
+      courseYearId: Number(courseYearId),
+      courseYearName: s.courseYearName ?? s.course_year_name ?? '',
+      courseYearCode: s.courseYearCode ?? s.course_year_code ?? '',
+      academicYearId: Number(academicYearId),
+      academicYear: s.academicYear ?? s.academic_year ?? '',
+      regulationId: Number(regulationId),
+      regulationName: s.regulationName ?? s.regulation_name ?? '',
+      regulationCode: s.regulationCode ?? s.regulation_code ?? '',
       collegeId,
       examId,
-      courseGroupId,
-      courseYearId,
-      regulationId,
+      examtypeCatId: resolvedExamTypeCatId,
       examtypeCatCode: 'Internal',
       isInternalExam: true,
       isActive: true,
+      registrationDate: new Date().toISOString(),
       examStudentDetailDTOs: [{ collegeId, subjectId, isActive: true }],
     }))
     setLoading(true)
     try {
       await saveRegisteredExamSubjects(payload)
-      const skipped = selectedStudents.length - toRegister.length
-      if (skipped > 0) {
-        alert(`Students registered successfully. Skipped ${skipped} already-registered student(s).`)
-      } else {
-        alert('Students registered successfully')
-      }
       setSelectedStudents([])
+      setSearchRegistered('')
+
+      // Optimistic update so newly saved students appear immediately in Registered list.
+      const optimisticRegistered = dedupeBy(
+        [...registeredStudents, ...toRegister].map(normalizeStudentRow),
+        (s) => getStudentKey(s),
+      )
+      setRegisteredStudents(optimisticRegistered)
+
       // reload
       const reg = await listRegisteredStudentsForExam({
         collegeId,
@@ -358,29 +416,57 @@ export default function InternalExamRegistrationMultiplePage() {
         subjectId: Number(subjectId),
         examId: Number(examId),
       }).catch(() => [])
-      const regList = Array.isArray(reg) ? reg : []
-      setRegisteredStudents(regList)
-      const regSet = new Set(regList.map((s) => getStudentId(s)).filter((x) => x > 0))
+      const regList = Array.isArray(reg) ? reg.map(normalizeStudentRow) : []
+      const finalRegList = regList.length > 0 ? regList : optimisticRegistered
+      setRegisteredStudents(finalRegList)
+      const regSet = new Set(finalRegList.map((s) => getStudentKey(s)))
+      const savedKeys = new Set(toRegister.map((s) => getStudentKey(s)))
+      const persistedCount = Array.from(savedKeys).filter((k) => regSet.has(k)).length
+      const skipped = selectedStudents.length - toRegister.length
+
+      if (persistedCount === 0) {
+        toastError('Students are not saved in DB. Please try again.')
+      } else if (persistedCount < savedKeys.size) {
+        toastError(`Only ${persistedCount}/${savedKeys.size} student(s) are persisted.`)
+      } else if (skipped > 0) {
+        toastSuccess(`Students registered successfully. Skipped ${skipped} already-registered student(s).`)
+      } else {
+        toastSuccess('Students registered successfully')
+      }
+
       setStudents((prev) => prev.map((s) => {
-        const sid = getStudentId(s)
-        if (regSet.has(sid)) return { ...s, checked: false, c: false, already: true }
+        const key = getStudentKey(s)
+        if (regSet.has(key) || toRegister.some((x) => getStudentKey(x) === key)) return { ...s, checked: false, c: false, already: true }
         return s
       }))
     } catch (e: any) {
-      alert(e?.message ?? 'Failed to register')
+      toastError(e?.message ?? 'Failed to register')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="p-6 space-y-4 text-[12px]">
+    <div className="px-6 pb-6 pt-2 space-y-2 text-[12px]">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Internal Exam Registration Multiple Students</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2.5 text-[12px]"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
-        <div className="p-4 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        {filterOpen && (
+        <div className="p-3 space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-2 space-y-1">
               <Label>Course</Label>
               <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
@@ -432,9 +518,11 @@ export default function InternalExamRegistrationMultiplePage() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
-      <div className="app-card p-4 space-y-3">
+      {!!regulationId && (
+      <div className="app-card p-3 space-y-2">
         <div className="text-[14px] font-medium rounded bg-blue-100 border px-3 py-2">Select Exam Subjects</div>
 
         <div className="border rounded overflow-hidden">
@@ -515,6 +603,7 @@ export default function InternalExamRegistrationMultiplePage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

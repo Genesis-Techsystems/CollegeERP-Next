@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { ChevronDown, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -48,6 +49,7 @@ export default function ExamFormsPage() {
   const [isMounted, setIsMounted] = useState(false)
   const [employeeId, setEmployeeId] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(true)
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
   const [regRows, setRegRows] = useState<AnyRow[]>([])
@@ -275,14 +277,27 @@ export default function ExamFormsPage() {
   }
 
   return (
-    <div className="p-6 space-y-3">
+    <div className="px-6 pb-6 pt-2 space-y-2">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Forms</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2.5 text-[12px]"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
 
-        <div className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        {filterOpen && (
+        <div className="p-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-2 space-y-1">
               <Label>Course</Label>
               <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
@@ -417,6 +432,7 @@ export default function ExamFormsPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {selectedData && (
@@ -426,7 +442,7 @@ export default function ExamFormsPage() {
       )}
 
       {students.length > 0 && (
-        <div className="app-card p-4">
+        <div className="app-card p-3">
           <div className="flex flex-wrap gap-2">
             <Button type="button" className="h-8 text-[12px]" onClick={() => alert('Print Form-A ready for wiring')}>
               Print Form-A

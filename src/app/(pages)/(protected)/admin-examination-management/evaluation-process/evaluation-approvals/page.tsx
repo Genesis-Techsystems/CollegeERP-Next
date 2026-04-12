@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
 import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -13,50 +14,126 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ChevronDown, Filter } from 'lucide-react'
+import { toastError, toastSuccess } from '@/lib/toast'
+import {
+  approveEvaluationAssignments,
+  getEvaluationApprovalsFilters,
+  listEvaluationApprovals,
+} from '@/services/evaluation-process'
+
+type AnyRow = Record<string, any>
+const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
+  if (!row) return 0
+  for (const k of keys) {
+    const n = Number(row[k])
+    if (n > 0) return n
+  }
+  return 0
+}
+const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
+  if (!row) return ''
+  for (const k of keys) {
+    const v = row[k]
+    if (v != null && String(v).trim() !== '') return String(v)
+  }
+  return ''
+}
+const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
+  const seen = new Set<string | number>()
+  return rows.filter((r) => {
+    const key = keyFn(r)
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function makeSelectionRenderer(selectedIds: number[], toggleOne: (id: number, checked: boolean) => void) {
+  return (p: { data?: AnyRow }) => {
+    const row = p.data
+    if (!row || pickText(row, ['evaluationstatus', 'evaluationStatus']) !== 'Evaluated') return null
+    const rowId = pickNum(row, ['pk_exam_evaluationassignment_id', 'examEvaluationAssignmentId', 'id'])
+    return (
+      <input
+        type="checkbox"
+        className="h-3 w-3 accent-[hsl(var(--primary))]"
+        checked={selectedIds.includes(rowId)}
+        onChange={(e) => toggleOne(rowId, e.target.checked)}
+      />
+    )
+  }
+}
+
+function evaluationStatusRenderer(p: { value?: string }) {
+  const value = p.value ?? ''
+  if (value === 'Finalised') {
+    return <Badge className="bg-slate-100 text-slate-700 border border-slate-200">Finalised</Badge>
+  }
+  return <Badge className="bg-amber-50 text-amber-700 border border-amber-200">Evaluated</Badge>
+}
+
+function makeActionsRenderer(loading: boolean, approveOne: (row: AnyRow) => Promise<void>) {
+  return (p: { data?: AnyRow }) =>
+    pickText(p.data, ['evaluationstatus', 'evaluationStatus']) === 'Finalised' ? (
+      <span className="text-[12px] text-slate-600">Finalised</span>
+    ) : (
+      <button
+        type="button"
+        className="text-[12px] text-blue-700 hover:underline disabled:text-slate-400 disabled:no-underline"
+        disabled={loading}
+        onClick={() => void approveOne(p.data ?? {})}
+      >
+        Approve
+      </button>
+    )
+}
 
 export default function EvaluationApprovalsPage() {
+  const [filterOpen, setFilterOpen] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [hasFetched, setHasFetched] = useState(false)
-  const [courseId, setCourseId] = useState('be')
-  const [examId, setExamId] = useState('sem-u23-feb-2024')
-  const [evaluatorId, setEvaluatorId] = useState('eval-1')
+  const [filters, setFilters] = useState<AnyRow[]>([])
+  const [rows, setRows] = useState<AnyRow[]>([])
+  const [courseId, setCourseId] = useState<number | null>(null)
+  const [examId, setExamId] = useState<number | null>(null)
+  const [evaluatorProfileId, setEvaluatorProfileId] = useState<number | null>(null)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const profileId = Number(globalThis?.localStorage?.getItem('examEvaluatorProfileId') ?? 0)
+  const finalizedCatDetId = Number(globalThis?.localStorage?.getItem('Finalized') ?? 0)
 
-  const rows = useMemo(
-    () => [
-      {
-        id: 1,
-        omrSerialNo: 'OMR-000912',
-        evaluatedTotalMarks: 68,
-        answerSheetCheckDate: '2026-04-05',
-        evaluationTimeSec: 4280,
-        evaluationStatus: 'Evaluated',
-        evaluatedAnswerPaperPath: 'Uploaded',
-      },
-      {
-        id: 2,
-        omrSerialNo: 'OMR-000913',
-        evaluatedTotalMarks: 59,
-        answerSheetCheckDate: '2026-04-05',
-        evaluationTimeSec: 3820,
-        evaluationStatus: 'Finalised',
-        evaluatedAnswerPaperPath: 'Uploaded',
-      },
-      {
-        id: 3,
-        omrSerialNo: 'OMR-000914',
-        evaluatedTotalMarks: 72,
-        answerSheetCheckDate: '2026-04-06',
-        evaluationTimeSec: 4510,
-        evaluationStatus: 'Evaluated',
-        evaluatedAnswerPaperPath: 'Uploaded',
-      },
-    ],
-    [],
+  const courses = useMemo(
+    () => dedupeBy(filters, (r) => pickNum(r, ['fk_course_id', 'courseId'])),
+    [filters],
+  )
+  const exams = useMemo(
+    () =>
+      dedupeBy(
+        filters.filter((r) => pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId)),
+        (r) => pickNum(r, ['fk_exam_id', 'examId']),
+      ),
+    [filters, courseId],
+  )
+  const evaluators = useMemo(
+    () =>
+      dedupeBy(
+        filters.filter(
+          (r) =>
+            pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId) &&
+            pickNum(r, ['fk_exam_id', 'examId']) === Number(examId),
+        ),
+        (r) => pickNum(r, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId']),
+      ),
+    [filters, courseId, examId],
   )
 
   const evaluatableRows = useMemo(
-    () => rows.filter((r) => r.evaluationStatus === 'Evaluated').map((r) => r.id),
+    () =>
+      rows
+        .filter((r) => pickText(r, ['evaluationstatus', 'evaluationStatus']) === 'Evaluated')
+        .map((r) => pickNum(r, ['pk_exam_evaluationassignment_id', 'examEvaluationAssignmentId', 'id'])),
     [rows],
   )
 
@@ -84,118 +161,226 @@ export default function EvaluationApprovalsPage() {
     return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
   }, [rows, search])
 
+  useEffect(() => {
+    async function init() {
+      setLoading(true)
+      try {
+        const list = await getEvaluationApprovalsFilters(employeeId).catch(() => [])
+        const rows = Array.isArray(list) ? list : []
+        setFilters(rows)
+        if (rows[0]) setCourseId(pickNum(rows[0], ['fk_course_id', 'courseId']))
+      } finally {
+        setLoading(false)
+      }
+    }
+    void init()
+  }, [employeeId])
+
+  useEffect(() => {
+    if (exams[0]) setExamId(pickNum(exams[0], ['fk_exam_id', 'examId']))
+  }, [exams])
+  useEffect(() => {
+    if (evaluators[0]) {
+      setEvaluatorProfileId(pickNum(evaluators[0], ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId']))
+    }
+  }, [evaluators])
+
+  useEffect(() => {
+    setRows([])
+    setHasFetched(false)
+    setSelectedIds([])
+  }, [courseId, examId, evaluatorProfileId])
+
+  async function getList() {
+    if (!courseId || !examId || !evaluatorProfileId) {
+      toastError('Please select Course, Exam and Evaluator.')
+      return
+    }
+    setLoading(true)
+    try {
+      const list = await listEvaluationApprovals({
+        employeeId,
+        courseId,
+        examId,
+        evaluatorProfileId,
+      }).catch(() => [])
+      setRows(Array.isArray(list) ? list : [])
+      setHasFetched(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function approveSelected() {
+    if (selectedIds.length === 0) return
+    const payload = rows
+      .filter((r) =>
+        selectedIds.includes(pickNum(r, ['pk_exam_evaluationassignment_id', 'examEvaluationAssignmentId', 'id'])),
+      )
+      .map((r) => ({
+        evaluationStatusCatDetId: finalizedCatDetId || 0,
+        examEvaluationAssignmentId: pickNum(r, ['pk_exam_evaluationassignment_id', 'examEvaluationAssignmentId', 'id']),
+        isActive: true,
+        evaluationStatusByProfileId: profileId || evaluatorProfileId || 0,
+      }))
+      .filter((r) => r.examEvaluationAssignmentId > 0)
+
+    if (payload.length === 0) {
+      toastError('No valid records selected for approval.')
+      return
+    }
+    setLoading(true)
+    try {
+      await approveEvaluationAssignments(payload)
+      toastSuccess('Approvals updated successfully.')
+      setSelectedIds([])
+      await getList()
+    } catch (error: any) {
+      toastError(error?.message ?? 'Failed to approve selected rows.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function approveOne(row: AnyRow) {
+    const rowId = pickNum(row, ['pk_exam_evaluationassignment_id', 'examEvaluationAssignmentId', 'id'])
+    if (rowId <= 0) {
+      toastError('Unable to approve this row.')
+      return
+    }
+    setLoading(true)
+    try {
+      await approveEvaluationAssignments([
+        {
+          evaluationStatusCatDetId: finalizedCatDetId || 0,
+          examEvaluationAssignmentId: rowId,
+          isActive: true,
+          evaluationStatusByProfileId: profileId || evaluatorProfileId || 0,
+        },
+      ])
+      toastSuccess('Row approved successfully.')
+      setSelectedIds((prev) => prev.filter((id) => id !== rowId))
+      await getList()
+    } catch (error: any) {
+      toastError(error?.message ?? 'Failed to approve row.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const cols = useMemo<ColDef[]>(
     () => [
       {
         headerName: '',
         width: 70,
-        cellRenderer: (p: { data?: any }) => {
-          const row = p.data
-          if (!row || row.evaluationStatus !== 'Evaluated') return null
-          return (
-            <input
-              type="checkbox"
-              className="h-3 w-3 accent-[hsl(var(--primary))]"
-              checked={selectedIds.includes(row.id)}
-              onChange={(e) => toggleOne(row.id, e.target.checked)}
-            />
-          )
-        },
+        cellRenderer: makeSelectionRenderer(selectedIds, toggleOne),
       },
       { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
-      { field: 'omrSerialNo', headerName: 'Omr Serial No', minWidth: 130 },
-      { field: 'evaluatedTotalMarks', headerName: 'Evaluated Total Marks', minWidth: 150 },
-      { field: 'answerSheetCheckDate', headerName: 'Answer Sheet Check Date', minWidth: 160 },
+      { field: 'omrSerialNo', headerName: 'Omr Serial No', minWidth: 130, valueGetter: (p) => p.data?.omr_serial_no ?? p.data?.omrSerialNo ?? '-' },
+      { field: 'evaluatedTotalMarks', headerName: 'Evaluated Total Marks', minWidth: 150, valueGetter: (p) => p.data?.evaluated_totalmarks ?? p.data?.evaluatedTotalMarks ?? '-' },
+      { field: 'answerSheetCheckDate', headerName: 'Answer Sheet Check Date', minWidth: 160, valueGetter: (p) => p.data?.answersheetcheckdate ?? p.data?.answerSheetCheckDate ?? '-' },
       {
         field: 'evaluationTimeSec',
         headerName: 'Evaluation Time',
         minWidth: 130,
+        valueGetter: (p) => p.data?.evaluationtime_sec ?? p.data?.evaluationTimeSec ?? 0,
         valueFormatter: (p) => secondsToTime(Number(p.value ?? 0)),
       },
       {
         field: 'evaluationStatus',
         headerName: 'Evaluation Status',
         minWidth: 130,
-        cellRenderer: (p: { value?: string }) => {
-          if (p.value === 'Finalised') {
-            return <Badge className="bg-slate-100 text-slate-700 border border-slate-200">Finalised</Badge>
-          }
-          return <Badge className="bg-amber-50 text-amber-700 border border-amber-200">Evaluated</Badge>
-        },
+        cellRenderer: evaluationStatusRenderer,
+        valueGetter: (p) => p.data?.evaluationstatus ?? p.data?.evaluationStatus ?? '',
       },
-      { field: 'evaluatedAnswerPaperPath', headerName: 'Evaluated Answer Sheets', minWidth: 160 },
+      { field: 'evaluatedAnswerPaperPath', headerName: 'Evaluated Answer Sheets', minWidth: 160, valueGetter: (p) => p.data?.evaluated_answerpaper_path ?? p.data?.evaluatedAnswerPaperPath ?? '-' },
       {
         headerName: 'Actions',
         minWidth: 120,
-        cellRenderer: (p: { data?: any }) =>
-          p.data?.evaluationStatus === 'Finalised' ? (
-            <span className="text-[12px] text-slate-600">Finalised</span>
-          ) : (
-            <button type="button" className="text-[12px] text-blue-700 hover:underline">
-              Approve
-            </button>
-          ),
+        cellRenderer: makeActionsRenderer(loading, approveOne),
       },
     ],
-    [selectedIds],
+    [selectedIds, loading],
   )
 
   return (
-    <div className="p-6">
+    <div className="px-6 pb-6 pt-2 space-y-2">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Moderator Approvals</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2.5 text-[12px]"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
-        <div className="p-4 space-y-3 text-[13px]">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        {filterOpen && (
+          <div className="p-3 space-y-2 text-[13px]">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-3">
-              <label className="text-[12px] text-muted-foreground">Course</label>
-              <Select value={courseId} onValueChange={setCourseId}>
-                <SelectTrigger className="h-9 text-[12px]">
+              <Label className="text-[12px] text-muted-foreground">Course</Label>
+              <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
+                <SelectTrigger className="h-8 text-[12px]">
                   <SelectValue placeholder="Course" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="be">B.E</SelectItem>
-                  <SelectItem value="btech">B.Tech</SelectItem>
+                  {courses.map((c) => (
+                    <SelectItem key={`c-${pickNum(c, ['fk_course_id', 'courseId'])}`} value={String(pickNum(c, ['fk_course_id', 'courseId']))}>
+                      {pickText(c, ['course_code', 'courseCode', 'course_name', 'courseName'])}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="md:col-span-5">
-              <label className="text-[12px] text-muted-foreground">Exam</label>
-              <Select value={examId} onValueChange={setExamId}>
-                <SelectTrigger className="h-9 text-[12px]">
+              <Label className="text-[12px] text-muted-foreground">Exam</Label>
+              <Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}>
+                <SelectTrigger className="h-8 text-[12px]">
                   <SelectValue placeholder="Exam" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="sem-u23-feb-2024">I SEMESTER (U23) Regular Examinations, February 2024</SelectItem>
-                  <SelectItem value="sem-u24-jun-2024">I SEMESTER (U24) Regular Examinations, June 2024</SelectItem>
+                  {exams.map((e) => (
+                    <SelectItem key={`e-${pickNum(e, ['fk_exam_id', 'examId'])}`} value={String(pickNum(e, ['fk_exam_id', 'examId']))}>
+                      {pickText(e, ['exam_name', 'examName'])}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="md:col-span-3">
-              <label className="text-[12px] text-muted-foreground">Evaluators</label>
-              <Select value={evaluatorId} onValueChange={setEvaluatorId}>
-                <SelectTrigger className="h-9 text-[12px]">
+              <Label className="text-[12px] text-muted-foreground">Evaluators</Label>
+              <Select value={evaluatorProfileId ? String(evaluatorProfileId) : undefined} onValueChange={(v) => setEvaluatorProfileId(Number(v))}>
+                <SelectTrigger className="h-8 text-[12px]">
                   <SelectValue placeholder="Evaluator" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="eval-1">Dr. S. Reddy</SelectItem>
-                  <SelectItem value="eval-2">Prof. K. Devi</SelectItem>
-                  <SelectItem value="eval-3">Dr. A. Kumar</SelectItem>
+                  {evaluators.map((e) => (
+                    <SelectItem key={`ev-${pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])}`} value={String(pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId']))}>
+                      {pickText(e, ['evaluator_name', 'evaluatorName']) || `Evaluator ${pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])}`}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="md:col-span-1">
-              <Button className="h-8 px-3 text-[12px] w-full" onClick={() => setHasFetched(true)}>
+              <Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>
                 Get List
               </Button>
             </div>
           </div>
-        </div>
+          </div>
+        )}
       </div>
 
       {hasFetched && (
-        <div className="app-card overflow-hidden mt-4">
+        <div className="app-card overflow-hidden">
           <div className="p-4 border-b border-slate-200 bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="w-full max-w-sm">
@@ -216,18 +401,19 @@ export default function EvaluationApprovalsPage() {
                     type="checkbox"
                     className="h-3 w-3 accent-[hsl(var(--primary))]"
                     checked={allEvaluatedSelected}
+                    disabled={evaluatableRows.length === 0}
                     onChange={(e) => toggleAll(e.target.checked)}
                   />
-                  All
+                  <span>All</span>
                 </label>
-                <Button size="sm" disabled={selectedIds.length === 0}>
+                <Button size="sm" disabled={selectedIds.length === 0 || loading} onClick={() => void approveSelected()}>
                   Approve
                 </Button>
               </div>
             </div>
           </div>
           <div className="p-4">
-            <DataTable rowData={filteredRows} columnDefs={cols} pagination />
+            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
           </div>
         </div>
       )}

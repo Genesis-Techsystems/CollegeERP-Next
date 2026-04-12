@@ -17,6 +17,7 @@ export default function PreExaminationIndexPage() {
     'exam-attendancewise-subject-barcode',
     'student-exam-lab-batches',
     'exam-registration-manual-feeless',
+    'college-exam-timetable-view',
   ]
 
   return (

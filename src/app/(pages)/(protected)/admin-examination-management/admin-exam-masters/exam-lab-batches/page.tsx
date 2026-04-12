@@ -26,6 +26,7 @@ import {
   createExamLabBatch,
   updateExamLabBatch,
 } from '@/services/exam-lab-batches'
+import { ChevronDown, Filter } from 'lucide-react'
 
 type Row = Record<string, any>
 
@@ -38,6 +39,8 @@ export default function ExamLabBatchesPage() {
   const [rows, setRows] = useState<Row[]>([])
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(true)
+  const [filterOpen, setFilterOpen] = useState(true)
+  const [hasFetched, setHasFetched] = useState(false)
 
   const [courseId, setCourseId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
@@ -128,6 +131,7 @@ export default function ExamLabBatchesPage() {
   }, [collegeId, courseId, courseGroupId, courseYearId, examId, academicYearId, regulationId])
 
   async function getList() {
+    setHasFetched(true)
     if (!collegeId || !examId || !courseYearId || !courseGroupId || !regulationId || !subjectId) return
     const data = await listExamLabBatches({ collegeId, examId, courseYearId, courseGroupId, regulationId, subjectId }).catch(() => [])
     setRows(Array.isArray(data) ? data : [])
@@ -187,12 +191,25 @@ export default function ExamLabBatchesPage() {
   }, [rows, q])
 
   return (
-    <div className="p-6 space-y-3">
+    <div className="px-6 pb-6 pt-2 space-y-3">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Lab Batches</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2.5 text-[12px]"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
-        <div className="px-3 py-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        {filterOpen && (
+        <div className="px-3 py-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="space-y-1 md:col-span-2"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loading}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((c) => <SelectItem key={c.fk_course_id} value={String(c.fk_course_id)}>{c.course_code}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger><SelectContent>{academicYears.map((a) => <SelectItem key={a.fk_academic_year_id} value={String(a.fk_academic_year_id)}>{a.academic_year}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-4"><Label>Exam Master</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Master" /></SelectTrigger><SelectContent>{exams.map((e) => <SelectItem key={e.fk_exam_id} value={String(e.fk_exam_id)}>{e.exam_name}</SelectItem>)}</SelectContent></Select></div>
@@ -203,9 +220,11 @@ export default function ExamLabBatchesPage() {
           <div className="space-y-1 md:col-span-3"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.map((s) => <SelectItem key={s.fk_subject_id} value={String(s.fk_subject_id)}>{s.subject_name} ({s.subject_code})</SelectItem>)}</SelectContent></Select></div>
           <div className="md:col-span-1"><Button onClick={getList} className="h-8 px-3 text-[12px] w-full">Get List</Button></div>
         </div>
+        )}
       </div>
 
-      <div className="app-card p-4 space-y-3">
+      {hasFetched && (
+      <div className="app-card p-3 space-y-2">
         <div className="flex items-center gap-3">
           <Input className="h-8 text-[12px] max-w-sm" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
           <div className="ml-auto"><Button className="h-8 text-[12px]" onClick={openAdd}>+ Add Exam Batch</Button></div>
@@ -242,23 +261,23 @@ export default function ExamLabBatchesPage() {
           </table>
         </div>
       </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle className="text-[hsl(var(--primary))]">
+        <DialogContent className="max-w-xl p-0 overflow-hidden" hideClose>
+          <DialogHeader className="px-4 py-3 border-b border-slate-200 bg-slate-50/60">
+            <DialogTitle className="text-[15px] text-[hsl(var(--primary))]">
               {editing ? 'Edit Exam Lab Batch' : 'Add Exam Lab Batch'}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1"><Label>Exam Type</Label><Select value={examTypeCode || undefined} onValueChange={setExamTypeCode}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Type" /></SelectTrigger><SelectContent><SelectItem value="Regular">Regular</SelectItem><SelectItem value="Supple">Supple</SelectItem><SelectItem value="Internal">Internal</SelectItem></SelectContent></Select></div>
             <div className="space-y-1"><Label>Batch Name</Label><Input className="h-8 text-[12px]" value={batchName} onChange={(e) => setBatchName(e.target.value)} /></div>
             <div className="space-y-1"><Label>Capacity</Label><Input className="h-8 text-[12px]" type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} /></div>
             <div className="space-y-1"><Label>Sort Order</Label><Input className="h-8 text-[12px]" type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} /></div>
-            <div className="space-y-1"><Label>Status</Label><Select value={isActive ? '1' : '0'} onValueChange={(v) => setIsActive(v === '1')}><SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="1">Active</SelectItem><SelectItem value="0">InActive</SelectItem></SelectContent></Select></div>
-            {!isActive && <div className="space-y-1"><Label>Reason</Label><Input className="h-8 text-[12px]" value={reason} onChange={(e) => setReason(e.target.value)} /></div>}
+            {/* Status/Reason removed per latest UX requirement */}
           </div>
-          <DialogFooter>
+          <DialogFooter className="px-4 pb-4">
             <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
             <Button onClick={saveBatch}>Save</Button>
           </DialogFooter>

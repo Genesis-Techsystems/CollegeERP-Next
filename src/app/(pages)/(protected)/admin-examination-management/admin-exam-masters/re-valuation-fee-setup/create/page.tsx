@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/common/components/date-picker'
 import {
 	Select,
 	SelectContent,
@@ -16,6 +17,7 @@ import { distinct } from '@/lib/utils'
 import { buildQuery } from '@/services/crud'
 import {
 	getCollegeFilters,
+	listCourseGroups,
 	listCourseYears,
 	listExamMasters,
 	createExamFeeStructure,
@@ -25,6 +27,24 @@ import { ChevronDown, Filter } from 'lucide-react'
 
 type LateFeeFine = { name: string; startDate: string; endDate: string; regFeeFine?: string; suppleFeeFine?: string }
 type AdditionalFee = { name: string; type: 'regular' | 'supple'; amount: string }
+
+function formatDisplayDate(value?: string) {
+	if (!value) return ''
+	const d = new Date(value)
+	if (Number.isNaN(d.getTime())) return ''
+	return d.toLocaleDateString('en-GB')
+}
+
+function parseDateValue(value?: string) {
+	if (!value) return null
+	const d = new Date(value)
+	return Number.isNaN(d.getTime()) ? null : d
+}
+
+function toDateString(value: Date | null) {
+	if (!value) return ''
+	return value.toISOString().slice(0, 10)
+}
 
 export default function CreateRevaluationFeeStructurePage() {
 	const router = useRouter()
@@ -39,12 +59,19 @@ export default function CreateRevaluationFeeStructurePage() {
 	const [courses, setCourses] = useState<any[]>([])
 	const [academicYears, setAcademicYears] = useState<any[]>([])
 	const [courseYears, setCourseYears] = useState<any[]>([])
+	const [courseGroups, setCourseGroups] = useState<any[]>([])
+	const [courseGroupCodeById, setCourseGroupCodeById] = useState<Record<number, string>>({})
 	const [examMasters, setExamMasters] = useState<any[]>([])
 
 	// Params from previous page (if present)
 	const [paramCourseId, setParamCourseId] = useState<number | null>(null)
 	const [paramYearId, setParamYearId] = useState<number | null>(null)
 	const [paramExamId, setParamExamId] = useState<number | null>(null)
+	const [paramCourseName, setParamCourseName] = useState('')
+	const [paramAcademicYear, setParamAcademicYear] = useState('')
+	const [paramExamName, setParamExamName] = useState('')
+	const [paramExamFromDate, setParamExamFromDate] = useState('')
+	const [paramExamToDate, setParamExamToDate] = useState('')
 
 	const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
 	const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<number | null>(null)
@@ -52,7 +79,7 @@ export default function CreateRevaluationFeeStructurePage() {
 
 	// Course years
 	const [q, setQ] = useState('')
-	const [selectedCourseYearIds, setSelectedCourseYearIds] = useState<Set<number>>(new Set())
+	const [selectedCourseYearKeys, setSelectedCourseYearKeys] = useState<Set<string>>(new Set())
 
 	// Form
 	const [form, setForm] = useState({
@@ -87,15 +114,66 @@ export default function CreateRevaluationFeeStructurePage() {
 	const [addFeeAmount, setAddFeeAmount] = useState('')
 	const [additionalFees, setAdditionalFees] = useState<AdditionalFee[]>([])
 
+	const groupCodes = useMemo(
+		() =>
+			Array.from(
+				new Set(
+					(courseGroups ?? [])
+						.map((g: any) => String(g.group_code ?? g.groupCode ?? g.courseGroupCode ?? g.course_group_code ?? '').trim())
+						.filter(Boolean)
+				)
+			),
+		[courseGroups]
+	)
+
+	const displayCourseYears = useMemo(() => {
+		if (!Array.isArray(courseYears) || courseYears.length === 0) return []
+
+		const hasRowLevelGroup = courseYears.some((y: any) =>
+			Boolean(
+				y.__groupCodeFromApi ||
+				y.groupCode ||
+				y.group_code ||
+				y.courseGroupCode ||
+				y.course_group_code ||
+				y.branchCode ||
+				y.branch_code ||
+				(String(y.courseYearCode ?? y.course_year_code ?? '').includes('-'))
+			)
+		)
+
+		if (hasRowLevelGroup || groupCodes.length === 0) return courseYears
+
+		return courseYears.flatMap((y: any) =>
+			groupCodes.map((gc) => ({
+				...y,
+				__displayGroupCode: gc,
+				__rowKey: `${y.courseYearId ?? y.id ?? y.course_year_id ?? y.fk_course_year_id ?? 'row'}-${gc}`,
+			}))
+		)
+	}, [courseYears, groupCodes])
+
 	const filteredCourseYears = useMemo(() => {
-		const list = courseYears
+		const list = displayCourseYears
 		if (!q.trim()) return list
 		const lower = q.toLowerCase()
 		return list.filter((y: any) => {
-			const label = (y.courseYearName ?? y.yearName ?? '').toString().toLowerCase()
+			const yearCode = String(y.courseYearCode ?? y.course_year_code ?? '')
+			const branchFromYear = yearCode.includes('-') ? yearCode.split('-')[0].trim() : ''
+			const groupCode =
+				y.__groupCodeFromApi ??
+				y.__displayGroupCode ??
+				y.groupCode ??
+				y.group_code ??
+				y.courseGroupCode ??
+				y.course_group_code ??
+				y.branchCode ??
+				y.branch_code ??
+				branchFromYear
+			const label = `${groupCode ?? ''} ${y.courseYearName ?? y.yearName ?? yearCode ?? ''}`.toLowerCase()
 			return label.includes(lower)
 		})
-	}, [q, courseYears])
+	}, [q, displayCourseYears])
 
 	const fetchFilters = useCallback(async () => {
 		setLoadingFilters(true)
@@ -118,9 +196,19 @@ export default function CreateRevaluationFeeStructurePage() {
 		const c = searchParams?.get('courseId')
 		const y = searchParams?.get('ayId') || searchParams?.get('academicYearId')
 		const e = searchParams?.get('examId')
+		const courseName = searchParams?.get('courseName') ?? ''
+		const academicYear = searchParams?.get('academicYear') ?? ''
+		const examName = searchParams?.get('examName') ?? ''
+		const fromDate = searchParams?.get('fromDate') ?? ''
+		const toDate = searchParams?.get('toDate') ?? ''
 		setParamCourseId(c ? Number(c) : null)
 		setParamYearId(y ? Number(y) : null)
 		setParamExamId(e ? Number(e) : null)
+		setParamCourseName(courseName)
+		setParamAcademicYear(academicYear)
+		setParamExamName(examName)
+		setParamExamFromDate(fromDate)
+		setParamExamToDate(toDate)
 
 		fetchFilters()
 	}, [fetchFilters])
@@ -130,8 +218,9 @@ export default function CreateRevaluationFeeStructurePage() {
 		setSelectedAcademicYearId(null)
 		setSelectedExamId(null)
 		setExamMasters([])
+		setCourseGroups([])
 		setCourseYears([])
-		setSelectedCourseYearIds(new Set())
+		setSelectedCourseYearKeys(new Set())
 
 		const years = distinct(ayRef ?? [], (a: any) => a.fk_academic_year_id)
 		setAcademicYears(years)
@@ -142,7 +231,44 @@ export default function CreateRevaluationFeeStructurePage() {
 		}
 
 		const yrs = await listCourseYears(courseId).catch(() => [])
-		setCourseYears(Array.isArray(yrs) ? yrs : [])
+		const groups = await listCourseGroups(courseId).catch(() => [])
+		const groupList = Array.isArray(groups) ? groups : []
+		setCourseGroups(groupList)
+		const query = encodeURIComponent(`Course.courseId==${courseId}.and.isActive==true`)
+		const cgRows = await fetch(`/api/proxy/domain/list/CourseGroup?size=99999&query=${query}`)
+			.then((r) => r.json())
+			.then((data) => (Array.isArray(data) ? data : Array.isArray(data?.content) ? data.content : []))
+			.catch(() => groupList)
+		const groupMap: Record<number, string> = {}
+		for (const g of cgRows as any[]) {
+			const gid = Number(
+				g.fk_course_group_id ??
+				g.courseGroupId ??
+				g.course_group_id ??
+				g.fk_coursegroup_id ??
+				g.id ??
+				0
+			)
+			const code = String(g.groupCode ?? g.group_code ?? g.courseGroupCode ?? g.course_group_code ?? '').trim()
+			if (gid && code) groupMap[gid] = code
+		}
+		setCourseGroupCodeById(groupMap)
+		setCourseYears(
+			Array.isArray(yrs)
+				? yrs.map((y: any) => {
+					const gid = Number(
+						y.fk_course_group_id ??
+						y.courseGroupId ??
+						y.course_group_id ??
+						0
+					)
+					return {
+						...y,
+						__groupCodeFromApi: gid ? groupMap[gid] : undefined,
+					}
+				})
+				: []
+		)
 	}
 
 	useEffect(() => {
@@ -180,11 +306,11 @@ export default function CreateRevaluationFeeStructurePage() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [loadingFilters])
 
-	function toggleCourseYear(id: number) {
-		setSelectedCourseYearIds((s) => {
+	function toggleCourseYear(key: string) {
+		setSelectedCourseYearKeys((s) => {
 			const next = new Set(s)
-			if (next.has(id)) next.delete(id)
-			else next.add(id)
+			if (next.has(key)) next.delete(key)
+			else next.add(key)
 			return next
 		})
 	}
@@ -219,12 +345,21 @@ export default function CreateRevaluationFeeStructurePage() {
 			!!selectedAcademicYearId &&
 			!!selectedExamId &&
 			form.examFeeStructureName.trim().length > 0 &&
-			selectedCourseYearIds.size > 0
+			selectedCourseYearKeys.size > 0
 		)
-	}, [form.examFeeStructureName, selectedAcademicYearId, selectedCourseId, selectedCourseYearIds.size, selectedExamId])
+	}, [form.examFeeStructureName, selectedAcademicYearId, selectedCourseId, selectedCourseYearKeys.size, selectedExamId])
 
 	async function save() {
 		if (!canSave) return
+		const selectedCourseYearIds = Array.from(
+			new Set(
+				filteredCourseYears
+					.filter((y: any) => selectedCourseYearKeys.has(String(y.__rowKey ?? y.courseYearId ?? y.id)))
+					.map((y: any) => Number(y.courseYearId ?? y.id))
+					.filter((v) => Number.isFinite(v))
+			)
+		)
+
 		const payload: Record<string, unknown> = {
 			examFeeStructureName: form.examFeeStructureName,
 			collectionStartDate: form.collectionStartDate || null,
@@ -244,7 +379,7 @@ export default function CreateRevaluationFeeStructurePage() {
 				five: parseNumberOrNull(revalSubjectFees.five ?? ''),
 			},
 			// nested: course years
-			examFeeStructureCourseyr: Array.from(selectedCourseYearIds).map((cyId) => ({
+			examFeeStructureCourseyr: selectedCourseYearIds.map((cyId) => ({
 				courseId: selectedCourseId ?? undefined,
 				courseYearId: cyId,
 				isActive: true,
@@ -277,7 +412,7 @@ export default function CreateRevaluationFeeStructurePage() {
 
 			<div className="app-card overflow-hidden">
 				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-					<h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Add Re-Evaluation Fee Structure</h2>
+					<h2 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">Add Re-Evaluation Fee Structure</h2>
 					<Button
 						type="button"
 						variant="outline"
@@ -294,32 +429,39 @@ export default function CreateRevaluationFeeStructurePage() {
 
 				{filterOpen && (
 				<div className="px-3 py-3 space-y-3">
-					{/* Summary strip like reference UI */}
-					<div className="rounded-xl border border-cyan-200 bg-cyan-50 p-3">
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[13px]">
-							<div className="flex items-center gap-2">
-								<span className="text-slate-700 font-semibold min-w-[72px]">Program :</span>
-								<div className="flex-1 rounded-md border border-cyan-200 bg-white px-3 py-1.5">
-									{(courses.find((c) => c.fk_course_id === selectedCourseId)?.course_code ??
+					<div className="rounded-md border bg-slate-50/50 px-4 py-3 text-[12px]">
+						<div className="grid grid-cols-1 md:grid-cols-[0.9fr_1.1fr] gap-2">
+							<div className="min-w-0 flex items-center gap-1">
+								<span className="font-semibold text-slate-900 whitespace-nowrap">Program :</span>
+								<span className="text-[hsl(var(--primary))] whitespace-nowrap overflow-hidden text-ellipsis">
+									{courses.find((c) => c.fk_course_id === selectedCourseId)?.course_code ??
 										courses.find((c) => c.fk_course_id === selectedCourseId)?.course_name ??
-										'—')}
-									{selectedAcademicYearId ? (
-										<span className="text-blue-600"> {` / ${academicYears.find((a)=>a.fk_academic_year_id===selectedAcademicYearId)?.academic_year ?? ''}`}</span>
-									) : null}
-								</div>
+										paramCourseName ??
+										'—'}
+									{(selectedAcademicYearId
+										? academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)?.academic_year
+										: paramAcademicYear)
+										? ` / (${(selectedAcademicYearId
+											? academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)?.academic_year
+											: paramAcademicYear) ?? ''})`
+										: ''}
+								</span>
 							</div>
-							<div className="flex items-center gap-2">
-								<span className="text-slate-700 font-semibold min-w-[48px]">Exam :</span>
-								<div className="flex-1 rounded-md border border-cyan-200 bg-white px-3 py-1.5">
-									<span className="text-blue-600">
-										{examMasters.find((e)=> (e.examId ?? e.id) === selectedExamId)?.examName ?? '—'}
-									</span>
-								</div>
+							<div className="min-w-0 flex items-center gap-1 md:-ml-2">
+								<span className="font-semibold text-slate-900 whitespace-nowrap">Exam :</span>
+								<span className="text-[hsl(var(--primary))]">
+									{examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)?.examName ?? paramExamName ?? '—'}
+									{(() => {
+										const selectedExam = examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)
+										const from = formatDisplayDate(selectedExam?.fromDate ?? selectedExam?.examFromDate ?? paramExamFromDate)
+										const to = formatDisplayDate(selectedExam?.toDate ?? selectedExam?.examToDate ?? paramExamToDate)
+										return from || to ? ` (${from || '—'} - ${to || '—'})` : ''
+									})()}
+								</span>
 							</div>
 						</div>
 					</div>
 
-					{/* Structure name and collection dates inside same card */}
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 						<div className="space-y-1.5 md:col-span-1">
 							<Label>Re-Evaluation Fee Structure <span className="text-red-500">*</span></Label>
@@ -327,11 +469,21 @@ export default function CreateRevaluationFeeStructurePage() {
 						</div>
 						<div className="space-y-1.5">
 							<Label>Collection Start Date</Label>
-							<Input type="date" value={form.collectionStartDate} onChange={(e) => setForm((s) => ({ ...s, collectionStartDate: e.target.value }))} />
+							<DatePicker
+								value={parseDateValue(form.collectionStartDate)}
+								onChange={(date) => setForm((s) => ({ ...s, collectionStartDate: toDateString(date) }))}
+								placeholder="dd-mm-yyyy"
+								className="text-[12px]"
+							/>
 						</div>
 						<div className="space-y-1.5">
 							<Label>Collection End Date</Label>
-							<Input type="date" value={form.collectionEndDate} onChange={(e) => setForm((s) => ({ ...s, collectionEndDate: e.target.value }))} />
+							<DatePicker
+								value={parseDateValue(form.collectionEndDate)}
+								onChange={(date) => setForm((s) => ({ ...s, collectionEndDate: toDateString(date) }))}
+								placeholder="dd-mm-yyyy"
+								className="text-[12px]"
+							/>
 						</div>
 					</div>
 				</div>
@@ -340,8 +492,8 @@ export default function CreateRevaluationFeeStructurePage() {
 
 			{/* Removed separate card — fields moved to top card */}
 
-			{/* Three-column layout: Course Years | Exam Re-Valuation Fee | Late Fee Fines */}
-			<div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+			{/* Layout: Course Years (left) | Re-Valuation + Late Fee + Additional Fees (right) */}
+			<div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
 				{/* Left: Course Years */}
 				<div className="lg:col-span-2 app-card p-0 overflow-hidden">
 					<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
@@ -353,11 +505,27 @@ export default function CreateRevaluationFeeStructurePage() {
 							{filteredCourseYears.map((y: any) => {
 								const id = y.courseYearId ?? y.id
 								if (id == null) return null
-								const checked = selectedCourseYearIds.has(Number(id))
+								const rowKey = String(y.__rowKey ?? id)
+								const checked = selectedCourseYearKeys.has(rowKey)
+								const yearCode = String(y.courseYearCode ?? y.course_year_code ?? '')
+								const branchFromYear = yearCode.includes('-') ? yearCode.split('-')[0].trim() : ''
+								const groupCode =
+									y.__groupCodeFromApi ??
+									y.__displayGroupCode ??
+									y.groupCode ??
+									y.group_code ??
+									y.courseGroupCode ??
+									y.course_group_code ??
+									(y.fk_course_group_id ? courseGroupCodeById[Number(y.fk_course_group_id)] : undefined) ??
+									(y.courseGroupId ? courseGroupCodeById[Number(y.courseGroupId)] : undefined) ??
+									y.branchCode ??
+									y.branch_code ??
+									branchFromYear
+								const yearLabel = y.courseYearName ?? y.yearName ?? yearCode ?? `Year ${id}`
 								return (
-									<label key={id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-50 text-[12px]">
-										<Checkbox checked={checked} onCheckedChange={() => toggleCourseYear(Number(id))} />
-										<span>{y.courseYearName ?? y.yearName ?? `Year ${id}`}</span>
+									<label key={String(y.__rowKey ?? id)} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-50 text-[12px]">
+										<Checkbox checked={checked} onCheckedChange={() => toggleCourseYear(rowKey)} />
+										<span>{groupCode ? `${groupCode} - ${yearLabel}` : yearLabel}</span>
 									</label>
 								)
 							})}
@@ -366,52 +534,57 @@ export default function CreateRevaluationFeeStructurePage() {
 					</div>
 				</div>
 
-				{/* Middle: Exam Re-Valuation Fee */}
-				<div className="lg:col-span-3 app-card p-0 overflow-hidden">
-					<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
-						<h3 className="text-[14px] font-semibold">Exam Re-Valuation Fee</h3>
-					</div>
-					<div className="p-3">
-						<div className="space-y-1">
-							<div className="text-[13px] font-semibold text-blue-600">Regular Fee</div>
-							<div className="grid grid-cols-2 items-center gap-3 max-w-md">
-								<Label className="text-[12px] text-slate-600">Fee Amount</Label>
-								<Input inputMode="numeric" value={form.regularFee} onChange={(e) => setForm((s) => ({ ...s, regularFee: e.target.value }))} />
+				<div className="lg:col-span-10 space-y-2">
+					<div className="grid grid-cols-1 lg:grid-cols-10 gap-2 items-start">
+						{/* Middle: Exam Re-Valuation Fee */}
+						<div className="lg:col-span-3 app-card p-0 overflow-hidden">
+							<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+								<h3 className="text-[14px] font-semibold">Exam Re-Valuation Fee</h3>
+							</div>
+							<div className="p-2.5">
+								<div className="space-y-0.5">
+									<div className="text-[13px] font-semibold text-blue-600">Regular Fee</div>
+									<div className="grid grid-cols-2 items-center gap-x-2 gap-y-1.5 max-w-md">
+										<Label className="text-[12px] text-slate-600">Fee Amount</Label>
+										<Input inputMode="numeric" value={form.regularFee} onChange={(e) => setForm((s) => ({ ...s, regularFee: e.target.value }))} />
+									</div>
+								</div>
+
+								<div className="mt-2.5 space-y-1.5 max-w-xl">
+									<div className="text-[13px] font-semibold text-blue-600">Re-Valuation Fee</div>
+									<div className="grid grid-cols-2 gap-x-2 gap-y-1.5 items-center">
+										<Label className="text-[12px] text-slate-600">1 Subject Fee</Label>
+										<Input inputMode="numeric" value={revalSubjectFees.one ?? ''} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, one: e.target.value }))} />
+
+										<Label className="text-[12px] text-slate-600">2 Subjects Fee</Label>
+										<Input inputMode="numeric" value={revalSubjectFees.two ?? ''} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, two: e.target.value }))} />
+
+										<Label className="text-[12px] text-slate-600">3 Subjects Fee</Label>
+										<Input inputMode="numeric" value={revalSubjectFees.three ?? ''} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, three: e.target.value }))} />
+
+										<Label className="text-[12px] text-slate-600">4 Subjects Fee</Label>
+										<Input inputMode="numeric" value={revalSubjectFees.four ?? ''} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, four: e.target.value }))} />
+
+										<Label className="text-[12px] text-slate-600">5 Subjects Fee</Label>
+										<Input inputMode="numeric" value={revalSubjectFees.five ?? ''} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, five: e.target.value }))} />
+									</div>
+								</div>
 							</div>
 						</div>
 
-						<div className="mt-4 space-y-2 max-w-xl">
-							<div className="text-[13px] font-semibold text-blue-600">Re-Valuation Fee</div>
-							<div className="grid grid-cols-2 gap-3 items-center">
-								<Label className="text-[12px] text-slate-600">1 Subject Fee</Label>
-								<Input inputMode="numeric" value={revalSubjectFees.one ?? ''} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, one: e.target.value }))} />
-
-								<Label className="text-[12px] text-slate-600">2 Subjects Fee</Label>
-								<Input inputMode="numeric" value={revalSubjectFees.two ?? ''} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, two: e.target.value }))} />
-
-								<Label className="text-[12px] text-slate-600">3 Subjects Fee</Label>
-								<Input inputMode="numeric" value={revalSubjectFees.three ?? ''} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, three: e.target.value }))} />
-
-								<Label className="text-[12px] text-slate-600">4 Subjects Fee</Label>
-								<Input inputMode="numeric" value={revalSubjectFees.four ?? ''} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, four: e.target.value }))} />
-
-								<Label className="text-[12px] text-slate-600">5 Subjects Fee</Label>
-								<Input inputMode="numeric" value={revalSubjectFees.five ?? ''} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, five: e.target.value }))} />
-							</div>
+						{/* Right: Late Fee Fines */}
+						<div className="lg:col-span-7 app-card p-0 overflow-hidden">
+						<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+							<h3 className="text-[14px] font-semibold">Late Fee Fines</h3>
 						</div>
-					</div>
-				</div>
-
-				{/* Right: Late Fee Fines */}
-				<div className="lg:col-span-7 app-card p-4 space-y-3">
-						<h3 className="text-[14px] font-semibold">Late Fee Fines</h3>
-						<div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-							<div className="md:col-span-2 space-y-1.5">
+						<div className="p-3 space-y-3">
+						<div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+							<div className="md:col-span-3 space-y-1.5">
 								<Label>Late Fee Fine Name</Label>
 								<Input className="h-8 text-[12px]" value={lateFeeName} onChange={(e) => setLateFeeName(e.target.value)} />
 							</div>
-							<div className="space-y-1.5">
-								<Label>Fine Start Date</Label>
+							<div className="md:col-span-2 space-y-1.5">
+								<Label className="whitespace-nowrap">Start Date</Label>
 							<input
 								type="date"
 								className="h-8 text-[12px] w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
@@ -419,8 +592,8 @@ export default function CreateRevaluationFeeStructurePage() {
 								onChange={(e) => setLateFeeStart(e.target.value)}
 							/>
 							</div>
-							<div className="space-y-1.5">
-								<Label>Fine End Date</Label>
+							<div className="md:col-span-2 space-y-1.5">
+								<Label className="whitespace-nowrap">End Date</Label>
 							<input
 								type="date"
 								className="h-8 text-[12px] w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
@@ -428,19 +601,17 @@ export default function CreateRevaluationFeeStructurePage() {
 								onChange={(e) => setLateFeeEnd(e.target.value)}
 							/>
 							</div>
-							<div className="space-y-1.5 md:col-span-1">
-								<Label className="invisible">Add</Label>
-								<Button type="button" className="w-full h-8 text-[12px]" onClick={saveLateFeeRow}>Add</Button>
-							</div>
-						</div>
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-							<div className="space-y-1.5">
+							<div className="md:col-span-2 space-y-1.5">
 								<Label>Reg</Label>
 								<Input inputMode="numeric" className="h-8 text-[12px]" value={lateFeeReg} onChange={(e) => setLateFeeReg(e.target.value)} />
 							</div>
-							<div className="space-y-1.5">
+							<div className="md:col-span-2 space-y-1.5">
 								<Label>Supple</Label>
 								<Input inputMode="numeric" className="h-8 text-[12px]" value={lateFeeSupple} onChange={(e) => setLateFeeSupple(e.target.value)} />
+							</div>
+							<div className="space-y-1.5 md:col-span-1">
+								<Label className="invisible">Add</Label>
+								<Button type="button" className="w-full h-8 text-[12px]" onClick={saveLateFeeRow}>Add</Button>
 							</div>
 						</div>
 
@@ -449,10 +620,10 @@ export default function CreateRevaluationFeeStructurePage() {
 								<thead className="bg-slate-50">
 									<tr>
 										<th className="px-2 py-1 w-14 text-left">Sl.No</th>
-										<th className="px-2 py-1 text-left">Fine Name</th>
+										<th className="px-2 py-1 text-left">Name</th>
 										<th className="px-2 py-1 text-left">Fine Date</th>
-										<th className="px-2 py-1 text-left">Reg Fee Fine</th>
-										<th className="px-2 py-1 text-left">Supple Fee Fine</th>
+										<th className="px-2 py-1 text-left">Reg</th>
+										<th className="px-2 py-1 text-left">Supple</th>
 										<th className="px-2 py-1 w-16 text-left">Actions</th>
 									</tr>
 								</thead>
@@ -466,7 +637,13 @@ export default function CreateRevaluationFeeStructurePage() {
 										<tr key={`${r.name}-${r.startDate}-${i}`} className="border-t">
 											<td className="px-2 py-1">{i + 1}</td>
 											<td className="px-2 py-1">{r.name}</td>
-											<td className="px-2 py-1">{[r.startDate, r.endDate].filter(Boolean).join(' to ') || '—'}</td>
+											<td className="px-2 py-1">
+												{(() => {
+													const from = formatDisplayDate(r.startDate)
+													const to = formatDisplayDate(r.endDate)
+													return from || to ? `${from || '—'} to ${to || '—'}` : '—'
+												})()}
+											</td>
 											<td className="px-2 py-1">{r.regFeeFine || '—'}</td>
 											<td className="px-2 py-1">{r.suppleFeeFine || '—'}</td>
 											<td className="px-2 py-1">
@@ -477,71 +654,78 @@ export default function CreateRevaluationFeeStructurePage() {
 								</tbody>
 							</table>
 						</div>
-				</div>
-			</div>
+						</div>
+						</div>
+					</div>
 
-			{/* Additional fees applicable (full width) */}
-			<div className="app-card p-4 space-y-3">
-						<h3 className="text-[14px] font-semibold">List of Additional Fees Applicable</h3>
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-							<div className="space-y-1.5">
-								<Label>Additional Fees *</Label>
-								<Input className="h-8 text-[12px]" value={addFeeName} onChange={(e) => setAddFeeName(e.target.value)} placeholder="Fee name" />
-							</div>
-							<div className="space-y-1.5">
-								<Label>Type</Label>
-								<div className="flex items-center gap-6 h-8">
-									<label className="inline-flex items-center gap-2 text-[12px]">
-										<input type="radio" checked={addFeeType === 'regular'} onChange={() => setAddFeeType('regular')} />
-										Regular
-									</label>
-									<label className="inline-flex items-center gap-2 text-[12px]">
-										<input type="radio" checked={addFeeType === 'supple'} onChange={() => setAddFeeType('supple')} />
-										Supple
-									</label>
+					{/* Additional fees applicable below the two cards */}
+			<div className="app-card p-0 overflow-hidden">
+						<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+							<h3 className="text-[14px] font-semibold">List of Additional Fees Applicable</h3>
+						</div>
+						<div className="p-3 space-y-3">
+							<div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+								<div className="md:col-span-4 space-y-1.5">
+									<Label>Additional Fees *</Label>
+									<Input className="h-8 text-[12px]" value={addFeeName} onChange={(e) => setAddFeeName(e.target.value)} placeholder="Fee name" />
+								</div>
+								<div className="md:col-span-3 space-y-1.5">
+									<Label>Type</Label>
+									<div className="flex items-center gap-6 h-8">
+										<label className="inline-flex items-center gap-2 text-[12px]">
+											<input type="radio" checked={addFeeType === 'regular'} onChange={() => setAddFeeType('regular')} />
+											Regular
+										</label>
+										<label className="inline-flex items-center gap-2 text-[12px]">
+											<input type="radio" checked={addFeeType === 'supple'} onChange={() => setAddFeeType('supple')} />
+											Supple
+										</label>
+									</div>
+								</div>
+								<div className="md:col-span-4 space-y-1.5">
+									<Label>Amount</Label>
+									<Input inputMode="numeric" className="h-8 text-[12px]" value={addFeeAmount} onChange={(e) => setAddFeeAmount(e.target.value)} />
+								</div>
+								<div className="md:col-span-1 space-y-1.5">
+									<Label className="invisible">Add</Label>
+									<Button type="button" className="w-full h-8 text-[12px]" onClick={addAdditionalRow}>Add</Button>
 								</div>
 							</div>
-							<div className="space-y-1.5">
-								<Label>Amount</Label>
-								<Input inputMode="numeric" className="h-8 text-[12px]" value={addFeeAmount} onChange={(e) => setAddFeeAmount(e.target.value)} />
-							</div>
-							<div className="space-y-1.5 md:col-span-1">
-								<Label className="invisible">Add</Label>
-								<Button type="button" className="w-full h-8 text-[12px]" onClick={addAdditionalRow}>Add</Button>
-							</div>
-						</div>
 
-						<div className="rounded-md border overflow-auto">
-							<table className="w-full text-[12px]">
-								<thead className="bg-slate-50">
-									<tr>
-										<th className="px-2 py-1 w-14 text-left">Sl.No</th>
-										<th className="px-2 py-1 text-left">Type</th>
-										<th className="px-2 py-1 text-left">Exam Type</th>
-										<th className="px-2 py-1 text-left">Amount</th>
-										<th className="px-2 py-1 w-16 text-left">Actions</th>
-									</tr>
-								</thead>
-								<tbody>
-									{additionalFees.length === 0 && (
+							<div className="rounded-md border overflow-auto">
+								<table className="w-full text-[12px]">
+									<thead className="bg-slate-50">
 										<tr>
-											<td className="px-2 py-2 text-muted-foreground" colSpan={5}>No rows</td>
+											<th className="px-2 py-1 w-14 text-left">Sl.No</th>
+											<th className="px-2 py-1 text-left">Type</th>
+											<th className="px-2 py-1 text-left">Exam Type</th>
+											<th className="px-2 py-1 text-left">Amount</th>
+											<th className="px-2 py-1 w-16 text-left">Actions</th>
 										</tr>
-									)}
-									{additionalFees.map((r, i) => (
-										<tr key={`${r.name}-${i}`} className="border-t">
-											<td className="px-2 py-1">{i + 1}</td>
-											<td className="px-2 py-1">{r.name}</td>
-											<td className="px-2 py-1" style={{ textTransform: 'capitalize' }}>{r.type}</td>
-											<td className="px-2 py-1">{r.amount || '—'}</td>
-											<td className="px-2 py-1">
-												<Button type="button" variant="ghost" size="sm" onClick={() => removeAdditionalRow(i)}>✕</Button>
-											</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
+									</thead>
+									<tbody>
+										{additionalFees.length === 0 && (
+											<tr>
+												<td className="px-2 py-2 text-muted-foreground" colSpan={5}>No rows</td>
+											</tr>
+										)}
+										{additionalFees.map((r, i) => (
+											<tr key={`${r.name}-${i}`} className="border-t">
+												<td className="px-2 py-1">{i + 1}</td>
+												<td className="px-2 py-1">{r.name}</td>
+												<td className="px-2 py-1" style={{ textTransform: 'capitalize' }}>{r.type}</td>
+												<td className="px-2 py-1">{r.amount || '—'}</td>
+												<td className="px-2 py-1">
+													<Button type="button" variant="ghost" size="sm" onClick={() => removeAdditionalRow(i)}>✕</Button>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
 						</div>
+					</div>
+				</div>
 			</div>
 
 					<div className="flex items-center justify-end gap-2">

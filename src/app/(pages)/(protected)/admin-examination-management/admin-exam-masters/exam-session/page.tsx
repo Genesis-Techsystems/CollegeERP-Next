@@ -6,11 +6,20 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table/TableCard'
 import type { ColDef } from 'ag-grid-community'
 import { Badge } from '@/components/ui/badge'
-import { listExamSessions, createExamSession, updateExamSession } from '@/services/examination'
+import { listExamSessions, createExamSession, updateExamSession, getCollegeFilters } from '@/services/examination'
+import { ChevronDown, Filter, Pencil } from 'lucide-react'
+import { distinct } from '@/lib/utils'
 
 export default function ExamSessionPage() {
   const [rows, setRows] = useState<any[]>([])
@@ -18,7 +27,8 @@ export default function ExamSessionPage() {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [filterOpen, setFilterOpen] = useState(true)
+  const [universityOptions, setUniversityOptions] = useState<{ code: string; name?: string }[]>([])
 
   const [form, setForm] = useState({
     examSessionName: '',
@@ -44,17 +54,38 @@ export default function ExamSessionPage() {
     refresh()
   }, [])
 
+  useEffect(() => {
+    async function loadUniversities() {
+      const { filtersData } = await getCollegeFilters(0, 0).catch(() => ({ filtersData: [] as any[] }))
+      const uniRows = distinct(filtersData ?? [], (r: any) => r.fk_university_id)
+      const options = uniRows
+        .map((u: any) => ({
+          code: String(u.university_code ?? '').trim(),
+          name: String(u.university_name ?? '').trim(),
+        }))
+        .filter((u: any) => u.code)
+      setUniversityOptions(options)
+    }
+    loadUniversities()
+  }, [])
+
   const filtered = useMemo(() => {
     if (!q.trim()) return rows
     const lower = q.toLowerCase()
     return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(lower))
   }, [q, rows])
-
-  const filteredByStatus = useMemo(() => {
-    if (statusFilter === 'all') return filtered
-    if (statusFilter === 'active') return filtered.filter((r) => !!r.isActive)
-    return filtered.filter((r) => !r.isActive)
-  }, [filtered, statusFilter])
+  function formatTime12h(value?: string) {
+    if (!value) return ''
+    const raw = String(value).trim()
+    const m = raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
+    if (!m) return raw
+    const hh = Number(m[1])
+    const mm = m[2]
+    if (!Number.isFinite(hh)) return raw
+    const ampm = hh >= 12 ? 'PM' : 'AM'
+    const hour12 = hh % 12 === 0 ? 12 : hh % 12
+    return `${hour12}:${mm} ${ampm}`
+  }
 
   const cols = useMemo<ColDef[]>(() => [
     { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
@@ -66,7 +97,7 @@ export default function ExamSessionPage() {
       minWidth: 180,
       valueGetter: (p) =>
         p.data?.sessionStartTime && p.data?.sessionEndTime
-          ? `${p.data.sessionStartTime} - ${p.data.sessionEndTime}`
+          ? `${formatTime12h(p.data.sessionStartTime)} - ${formatTime12h(p.data.sessionEndTime)}`
           : '—',
     },
     {
@@ -91,6 +122,7 @@ export default function ExamSessionPage() {
         <Button
           size="sm"
           variant="ghost"
+          className="h-8 w-8 p-0"
           onClick={() => {
             setEditing(p.data)
             setForm({
@@ -105,7 +137,7 @@ export default function ExamSessionPage() {
             setOpen(true)
           }}
         >
-          Edit
+          <Pencil className="h-4 w-4" />
         </Button>
       ),
     },
@@ -124,36 +156,22 @@ export default function ExamSessionPage() {
   }
 
   return (
-    <div className="p-6 space-y-3">
+    <div className="px-6 pb-6 pt-2 space-y-3">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Exam Sessions</h2>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">Create and manage exam time slots</p>
-        </div>
-        <div className="px-3 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className={`h-5 rounded-md border px-2 text-[11px] font-medium ${statusFilter === 'all' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600'}`}
-              onClick={() => setStatusFilter('all')}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className={`h-5 rounded-md border px-2 text-[11px] font-medium ${statusFilter === 'active' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-600'}`}
-              onClick={() => setStatusFilter('active')}
-            >
-              Active
-            </button>
-            <button
-              type="button"
-              className={`h-5 rounded-md border px-2 text-[11px] font-medium ${statusFilter === 'inactive' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-slate-200 text-slate-600'}`}
-              onClick={() => setStatusFilter('inactive')}
-            >
-              InActive
-            </button>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2.5 text-[12px]"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
       </div>
 
@@ -187,18 +205,18 @@ export default function ExamSessionPage() {
           </Button>
         }
       >
-        <DataTable rowData={filteredByStatus} columnDefs={cols} loading={loading} pagination />
+        <DataTable rowData={filtered} columnDefs={cols} loading={loading} pagination />
       </TableCard>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) { setOpen(false); setEditing(null) } }}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent hideClose className="max-w-2xl p-0 overflow-hidden">
+          <DialogHeader className="px-4 py-3 border-b border-slate-200 bg-slate-50/60">
             <DialogTitle className="text-[16px] font-semibold text-[hsl(var(--primary))]">
               {editing ? 'Edit Exam Session' : 'Add Exam Session'}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-[12px]">Exam Session Name</Label>
               <Input className="h-9 text-[12px]" value={form.examSessionName} onChange={(e) => setForm((s) => ({ ...s, examSessionName: e.target.value }))} />
@@ -209,15 +227,29 @@ export default function ExamSessionPage() {
             </div>
             <div className="space-y-1">
               <Label className="text-[12px]">University Code</Label>
-              <Input className="h-9 text-[12px]" value={form.universityCode} onChange={(e) => setForm((s) => ({ ...s, universityCode: e.target.value }))} />
+              <Select
+                value={form.universityCode || undefined}
+                onValueChange={(v) => setForm((s) => ({ ...s, universityCode: v }))}
+              >
+                <SelectTrigger className="h-9 text-[12px]">
+                  <SelectValue placeholder="Select University" />
+                </SelectTrigger>
+                <SelectContent>
+                  {universityOptions.map((u) => (
+                    <SelectItem key={u.code} value={u.code}>
+                      {u.code}{u.name ? ` - ${u.name}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px]">Start Time (HH:mm:ss)</Label>
-              <Input className="h-9 text-[12px]" value={form.sessionStartTime} onChange={(e) => setForm((s) => ({ ...s, sessionStartTime: e.target.value }))} />
+              <Label className="text-[12px]">Start Time</Label>
+              <Input type="time" step="1" className="h-9 text-[12px]" value={form.sessionStartTime} onChange={(e) => setForm((s) => ({ ...s, sessionStartTime: e.target.value }))} />
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px]">End Time (HH:mm:ss)</Label>
-              <Input className="h-9 text-[12px]" value={form.sessionEndTime} onChange={(e) => setForm((s) => ({ ...s, sessionEndTime: e.target.value }))} />
+              <Label className="text-[12px]">End Time</Label>
+              <Input type="time" step="1" className="h-9 text-[12px]" value={form.sessionEndTime} onChange={(e) => setForm((s) => ({ ...s, sessionEndTime: e.target.value }))} />
             </div>
             <div className="space-y-1">
               <Label className="text-[12px]">&nbsp;</Label>
@@ -234,7 +266,7 @@ export default function ExamSessionPage() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="px-4 pb-4">
             <Button variant="outline" onClick={() => { setOpen(false); setEditing(null) }}>Close</Button>
             <Button onClick={save}>Save</Button>
           </DialogFooter>

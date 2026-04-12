@@ -74,7 +74,7 @@ export function CollegeFilterPanel({
   title,
   description,
   titleColorClassName,
-  collapsible = false,
+  collapsible = true,
   defaultCollapsed = false,
   universities,
   selectedUniversityId,

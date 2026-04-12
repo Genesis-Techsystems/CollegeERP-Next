@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { User } from 'lucide-react'
+import { ChevronDown, Filter, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,6 +13,7 @@ import {
   getUnivExamFiltersRegSup,
   getUnivExamRestNoTt,
   getUnivExamSubjectUc,
+  listStudentSubjects,
   listRegisteredExamSubjects,
   listStudents,
   saveRegisteredExamSubjects,
@@ -33,6 +34,7 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
 
 export default function ExamRegisterSubjectsPage() {
   const [loading, setLoading] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(true)
   const [filterRows, setFilterRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
   const [students, setStudents] = useState<AnyRow[]>([])
@@ -153,10 +155,71 @@ export default function ExamRegisterSubjectsPage() {
     }
   }
 
+  async function onCourseYearSelect(nextCourseYearId: number) {
+    setCourseYearId(nextCourseYearId)
+    setSubjects([])
+    setCheckedSubjects(new Set())
+    if (!selectedStudent || !examId || !nextCourseYearId) return
+    setTimeout(() => {
+      void onGetSubjects()
+    }, 0)
+  }
+
   async function onGetSubjects() {
     if (!selectedStudent || !examId || !courseYearId) return
     setLoading(true)
     try {
+      const selectedExamRow =
+        exams.find((e) => Number(e.fk_exam_id ?? e.examId ?? 0) === Number(examId)) ?? null
+      const studentCollegeId = Number(
+        selectedStudent.collegeId ??
+          selectedStudent.fk_college_id ??
+          restRows[0]?.fk_college_id ??
+          selectedExamRow?.fk_college_id ??
+          0,
+      )
+      const studentAcademicYearId = Number(
+        selectedStudent.academicYearId ??
+          selectedStudent.fk_academic_year_id ??
+          selectedExamRow?.fk_academic_year_id ??
+          restRows[0]?.fk_academic_year_id ??
+          0,
+      )
+      const studentDetailId = Number(
+        selectedStudent.studentId ??
+          selectedStudent.id ??
+          selectedStudent.fk_student_id ??
+          selectedStudent.student_detail_id ??
+          0,
+      )
+
+      // Primary source: StudentSubject domain list (legacy page parity)
+      const studentSubjectRows =
+        studentCollegeId > 0 && studentAcademicYearId > 0 && studentDetailId > 0
+          ? await listStudentSubjects({
+              collegeId: studentCollegeId,
+              academicYearId: studentAcademicYearId,
+              studentId: studentDetailId,
+              courseYearId: Number(courseYearId),
+            }).catch(() => [])
+          : []
+
+      if (Array.isArray(studentSubjectRows) && studentSubjectRows.length > 0) {
+        setSubjects(studentSubjectRows)
+        const already = new Set(
+          registeredSubjects.map((r) => Number(r.fk_subject_id ?? r.subjectId ?? r.subject_id ?? 0)).filter((x) => x > 0),
+        )
+        setCheckedSubjects(
+          new Set(
+            studentSubjectRows
+              .map((r) => Number(r.fk_subject_id ?? r.subjectId ?? r.subject_id ?? 0))
+              .filter((x) => x > 0 && !already.has(x)),
+          ),
+        )
+        return
+      }
+
+      // Fallback source kept for safety.
       const studentCourseGroupId = Number(selectedStudent.courseGroupId ?? selectedStudent.fk_course_group_id ?? 0)
       const studentRegulationId = Number(selectedStudent.regulationId ?? selectedStudent.fk_regulation_id ?? 0)
       const fallbackGroupId = Number(restRows[0]?.fk_course_group_id ?? 0)
@@ -285,13 +348,26 @@ export default function ExamRegisterSubjectsPage() {
   }
 
   return (
-    <div className="p-6 space-y-4 text-[12px]">
+    <div className="px-6 pb-6 pt-2 space-y-2 text-[12px]">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Exam Register Subjects Update</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2.5 text-[12px]"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
-        <div className="p-4 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        {filterOpen && (
+        <div className="p-3 space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-5 space-y-1">
               <SearchableSelect
                 label="Student"
@@ -320,10 +396,11 @@ export default function ExamRegisterSubjectsPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {!!selectedStudent && !!examId && (
-        <div className="app-card p-4 space-y-3">
+        <div className="app-card p-3 space-y-2">
           <div className="rounded border border-blue-200 bg-blue-50/40 p-3">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
               <div className="md:col-span-2">
@@ -372,7 +449,7 @@ export default function ExamRegisterSubjectsPage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
               <div className="md:col-span-3 rounded border p-3">
                 <Label>Course Year</Label>
-                <Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}>
+                <Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => void onCourseYearSelect(Number(v))}>
                   <SelectTrigger className="h-9 text-[13px] mt-1"><SelectValue placeholder="Course Year" /></SelectTrigger>
                   <SelectContent>
                     {courseYears.map((y, i) => (

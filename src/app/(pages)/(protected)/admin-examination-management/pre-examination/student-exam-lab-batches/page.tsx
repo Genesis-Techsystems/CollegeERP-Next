@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ChevronDown, Filter } from 'lucide-react'
 import {
   getUnivExamFiltersRegSup,
   getUnivExamRestNoTtBundle,
@@ -79,6 +80,7 @@ export default function StudentExamLabBatchesPage() {
   const [updateBatchByStdDetId, setUpdateBatchByStdDetId] = useState<Record<number, number>>({})
   const [notice, setNotice] = useState<string | null>(null)
   const [isPrintMode, setIsPrintMode] = useState(false)
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false)
 
   const courses = useMemo(
     () => dedupeBy(baseRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])),
@@ -460,27 +462,46 @@ export default function StudentExamLabBatchesPage() {
   }
 
   return (
-    <div className="p-6 space-y-3">
+    <div className="px-6 pb-6 pt-2 space-y-2">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Lab Batches Students</h2>
+          <Button
+            type="button"
+            onClick={() => setFiltersCollapsed((v) => !v)}
+            variant="outline"
+            size="sm"
+            className="h-6 px-2.5 text-[12px]"
+            aria-expanded={!filtersCollapsed}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown
+              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${!filtersCollapsed ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
+          </Button>
         </div>
-        <div className="p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-          <div className="md:col-span-2 space-y-1"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}><SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{courses.map((x, i) => <SelectItem key={`c-${i}`} value={String(pickNum(x, ['fk_course_id', 'courseId']))}>{pickText(x, ['course_code', 'courseCode'])}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-2 space-y-1"><Label>Exam Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{academicYears.map((x, i) => <SelectItem key={`ay-${i}`} value={String(pickNum(x, ['fk_academic_year_id', 'academicYearId']))}>{pickText(x, ['academic_year', 'academicYear'])}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-4 space-y-1"><Label>Exam Master</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => { const eid = Number(v); setExamId(eid); void selectedExam(eid) }}><SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{examsList.map((x, i) => <SelectItem key={`ex-${i}`} value={String(pickNum(x, ['fk_exam_id', 'examId']))}>{pickText(x, ['exam_name', 'examName'])}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-2 space-y-1"><Label>Exam Type</Label><Select value={examTypeId ? String(examTypeId) : undefined} onValueChange={(v) => setExamTypeId(Number(v))}><SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{examFeeTypes.map((x, i) => <SelectItem key={`et-${i}`} value={String(pickNum(x, ['generalDetailId']))}>{pickText(x, ['generalDetailCode'])}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-2 space-y-1"><Label>College</Label><Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}><SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{colleges.map((x, i) => <SelectItem key={`cl-${i}`} value={String(pickNum(x, ['fk_college_id', 'collegeId']))}>{pickText(x, ['college_code', 'collegeCode'])}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-2 space-y-1"><Label>Course Group</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{courseGroups.map((x, i) => <SelectItem key={`cg-${i}`} value={String(pickNum(x, ['fk_course_group_id', 'courseGroupId']))}>{pickText(x, ['group_code', 'groupCode'])}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-2 space-y-1"><Label>Course Years</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{courseYears.map((x, i) => <SelectItem key={`cy-${i}`} value={String(pickNum(x, ['fk_course_year_id', 'courseYearId']))}>{pickText(x, ['course_year_code', 'courseYearCode'])}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-2 space-y-1"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}><SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{regulationList.map((x, i) => <SelectItem key={`rg-${i}`} value={String(pickNum(x, ['fk_regulation_id', 'regulationId']))}>{pickText(x, ['regulation_code', 'regulationCode'])}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-3 space-y-1"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-9 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{subjectData.map((x, i) => <SelectItem key={`sub-${i}`} value={String(pickNum(x, ['fk_subject_id', 'subjectId']))}>{pickText(x, ['subject_name', 'subjectName'])} ({pickText(x, ['subject_code', 'subjectCode'])})</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-1"><Button onClick={getLabBatches} disabled={loading} className="h-8 px-3 text-[12px] w-full">Get List</Button></div>
-        </div>
+        {!filtersCollapsed && (
+          <div className="p-3 space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+              <div className="md:col-span-2 space-y-1"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{courses.map((x, i) => <SelectItem key={`c-${i}`} value={String(pickNum(x, ['fk_course_id', 'courseId']))}>{pickText(x, ['course_code', 'courseCode'])}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-2 space-y-1"><Label>Exam Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{academicYears.map((x, i) => <SelectItem key={`ay-${i}`} value={String(pickNum(x, ['fk_academic_year_id', 'academicYearId']))}>{pickText(x, ['academic_year', 'academicYear'])}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-4 space-y-1"><Label>Exam Master</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => { const eid = Number(v); setExamId(eid); void selectedExam(eid) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{examsList.map((x, i) => <SelectItem key={`ex-${i}`} value={String(pickNum(x, ['fk_exam_id', 'examId']))}>{pickText(x, ['exam_name', 'examName'])}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-2 space-y-1"><Label>Exam Type</Label><Select value={examTypeId ? String(examTypeId) : undefined} onValueChange={(v) => setExamTypeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{examFeeTypes.map((x, i) => <SelectItem key={`et-${i}`} value={String(pickNum(x, ['generalDetailId']))}>{pickText(x, ['generalDetailCode'])}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-2 space-y-1"><Label>College</Label><Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{colleges.map((x, i) => <SelectItem key={`cl-${i}`} value={String(pickNum(x, ['fk_college_id', 'collegeId']))}>{pickText(x, ['college_code', 'collegeCode'])}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-2 space-y-1"><Label>Course Group</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{courseGroups.map((x, i) => <SelectItem key={`cg-${i}`} value={String(pickNum(x, ['fk_course_group_id', 'courseGroupId']))}>{pickText(x, ['group_code', 'groupCode'])}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-2 space-y-1"><Label>Course Years</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{courseYears.map((x, i) => <SelectItem key={`cy-${i}`} value={String(pickNum(x, ['fk_course_year_id', 'courseYearId']))}>{pickText(x, ['course_year_code', 'courseYearCode'])}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-2 space-y-1"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{regulationList.map((x, i) => <SelectItem key={`rg-${i}`} value={String(pickNum(x, ['fk_regulation_id', 'regulationId']))}>{pickText(x, ['regulation_code', 'regulationCode'])}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-3 space-y-1"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger><SelectContent>{subjectData.map((x, i) => <SelectItem key={`sub-${i}`} value={String(pickNum(x, ['fk_subject_id', 'subjectId']))}>{pickText(x, ['subject_name', 'subjectName'])} ({pickText(x, ['subject_code', 'subjectCode'])})</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-2"><Button onClick={getLabBatches} disabled={loading} className="h-8 px-3 text-[12px] w-full">Get List</Button></div>
+            </div>
+          </div>
+        )}
       </div>
 
       {flag && (
-        <div className="app-card p-3 space-y-3">
+        <div className="app-card p-3 space-y-2">
           <div className="text-[13px] font-semibold text-[hsl(var(--primary))]">Students - {headerText}</div>
           {notice && <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">{notice}</div>}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">

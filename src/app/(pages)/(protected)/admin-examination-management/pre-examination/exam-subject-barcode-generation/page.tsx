@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { ChevronDown, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -102,6 +103,8 @@ const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
 export default function ExamSubjectBarcodeGenerationPage() {
   const [isMounted, setIsMounted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(true)
+  const [hasFetched, setHasFetched] = useState(false)
   const [rows, setRows] = useState<AnyRow[]>([])
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
 
@@ -216,6 +219,22 @@ export default function ExamSubjectBarcodeGenerationPage() {
         : subjectRows
     return dedupeBy(scoped, (r) => pickNum(r, SUBJECT_ID_KEYS))
   }, [subjectRows, regulationId])
+  const tableSummaryText = useMemo(() => {
+    const college = colleges.find((c) => pickNum(c, ['fk_college_id', 'collegeId', 'fk_collegeId']) === Number(collegeId))
+    const ay = academicYears.find((a) => pickNum(a, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']) === Number(academicYearId))
+    const course = courses.find((c) => pickNum(c, ['fk_course_id', 'courseId', 'fk_courseId']) === Number(courseId))
+    const group = groups.find((g) => pickNum(g, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']) === Number(courseGroupId))
+    const year = years.find((y) => pickNum(y, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']) === Number(courseYearId))
+    const subject = subjects.find((s) => pickNum(s, SUBJECT_ID_KEYS) === Number(subjectId))
+    return [
+      pickText(college, ['college_code', 'collegeCode', 'college_name', 'collegeName']) || '-',
+      pickText(ay, ['academic_year', 'academicYear']) || '-',
+      pickText(course, ['course_code', 'courseCode', 'course_name', 'courseName']) || '-',
+      pickText(group, ['group_code', 'groupCode']) || '-',
+      pickText(year, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) || '-',
+      pickText(subject, ['subject_name', 'subjectName']) || '-',
+    ].join(' / ')
+  }, [colleges, academicYears, courses, groups, years, subjects, collegeId, academicYearId, courseId, courseGroupId, courseYearId, subjectId])
 
   async function init() {
     setLoading(true)
@@ -381,6 +400,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
     const selectedRegRow = regulations.find((r) => pickRegValue(r) === Number(regulationId ?? 0)) ?? null
     const backendRegulationId = selectedBackendRegulationId || pickBackendRegId(selectedRegRow)
     setLoading(true)
+    setHasFetched(true)
     try {
       const res = await getExamOmrStudents({
         examId,
@@ -404,14 +424,27 @@ export default function ExamSubjectBarcodeGenerationPage() {
   }
 
   return (
-    <div className="p-6 space-y-3">
+    <div className="px-6 pb-6 pt-2 space-y-2">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Subject Barcode</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2.5 text-[12px]"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
 
-        <div className="p-4 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        {filterOpen && (
+        <div className="p-3 space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-2 space-y-1">
               <Label>Course</Label>
               <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
@@ -551,18 +584,19 @@ export default function ExamSubjectBarcodeGenerationPage() {
               </Select>
             </div>
             <div className="md:col-span-2">
-              <Button type="button" variant="outline" className="h-8 text-[12px] w-full" onClick={loadSubjects}>Load Subject List</Button>
-            </div>
-            <div className="md:col-span-2">
               <Button type="button" onClick={getList} disabled={loading} className="h-8 px-3 text-[12px] w-full">Get List</Button>
             </div>
           </div>
         </div>
+        )}
       </div>
 
-      {rows.length > 0 && (
-        <div className="app-card p-4 space-y-3">
-          <div className="flex justify-end">
+      {hasFetched && (
+        <div className="app-card p-3 space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[12px] text-[hsl(var(--primary))] whitespace-nowrap overflow-hidden text-ellipsis">
+              {tableSummaryText}
+            </div>
             <Button type="button" className="h-8 text-[12px]" onClick={generateBarcode}>
               Generate Barcode
             </Button>
@@ -586,6 +620,11 @@ export default function ExamSubjectBarcodeGenerationPage() {
                     <td className="px-2 py-1">{r.subject_name ?? '-'} ({r.subject_code ?? '-'})</td>
                   </tr>
                 ))}
+                {!loading && rows.length === 0 && (
+                  <tr className="border-t">
+                    <td colSpan={4} className="px-2 py-6 text-center text-muted-foreground">No records found.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

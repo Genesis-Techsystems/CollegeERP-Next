@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ChevronDown, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,6 +30,7 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
 export default function OnlineExamFeeRegistrationPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(true)
   const [filterRows, setFilterRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
   const [fallbackColleges, setFallbackColleges] = useState<AnyRow[]>([])
@@ -210,14 +212,27 @@ export default function OnlineExamFeeRegistrationPage() {
   }, [colleges, collegeId])
 
   return (
-    <div className="p-6 space-y-4 text-[12px]">
+    <div className="px-6 pb-6 pt-2 space-y-2 text-[12px]">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Exam Fee Registrations</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2.5 text-[12px]"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
 
-        <div className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        {filterOpen && (
+        <div className="p-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-2 space-y-1">
               <Label>Course *</Label>
               <Select value={courseId ? String(courseId) : undefined} onValueChange={onCourseChange}>
@@ -279,6 +294,7 @@ export default function OnlineExamFeeRegistrationPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {hasFetched && (
@@ -292,9 +308,6 @@ export default function OnlineExamFeeRegistrationPage() {
                 onChange={(e) => setSearchText(e.target.value)}
               />
             </div>
-            <Button type="button" className="h-8 text-[12px]" onClick={onRegister}>
-              Register
-            </Button>
           </div>
 
           <div className="overflow-auto">

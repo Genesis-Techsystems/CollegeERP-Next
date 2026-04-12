@@ -237,9 +237,12 @@ export default function AddExamLabTimetablesPage() {
   }, [existingRows, groupCodes, dateColumns])
 
   return (
-    <div className="p-6 space-y-3">
-      <div className="app-card p-4 space-y-4">
-        <div className="text-[16px] font-semibold text-[hsl(var(--primary))]">Create College Timetable</div>
+    <div className="px-6 pb-6 pt-2 space-y-2">
+      <div className="app-card overflow-hidden">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Create College Timetable</h2>
+        </div>
+        <div className="p-3 space-y-3">
         {details[0] && (
           <div className="rounded-md border bg-slate-50/50 px-3 py-2 text-[12px]">
             <span className="font-medium">
@@ -255,7 +258,7 @@ export default function AddExamLabTimetablesPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
           <div className="space-y-1">
             <Label>Exam Date</Label>
             <Input type="date" className="h-8 text-[12px]" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
@@ -290,7 +293,7 @@ export default function AddExamLabTimetablesPage() {
         </div>
 
         {(courseGroupYears.length > 0 || staged.length > 0) && (
-          <div className="grid grid-cols-12 gap-3 items-start">
+          <div className="grid grid-cols-12 gap-2 items-start">
             <div className="col-span-3 rounded-md border">
               <div className="px-3 py-2 bg-slate-50 border-b text-[12px] font-medium">Select Course Group</div>
               <div className="p-2 space-y-1 max-h-72 overflow-auto text-[12px]">
@@ -350,11 +353,15 @@ export default function AddExamLabTimetablesPage() {
         <div className="flex justify-end">
           <Button className="h-8 text-[12px]" onClick={save} disabled={staged.length === 0}>Save</Button>
         </div>
+        </div>
       </div>
 
       {existingRows.length > 0 && (
-        <div className="app-card p-4">
-          <div className="text-[14px] font-semibold mb-2">View Exam Lab Timetable</div>
+        <div className="app-card overflow-hidden">
+          <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+            <h3 className="text-[14px] font-semibold text-[hsl(var(--primary))]">View Exam Lab Timetable</h3>
+          </div>
+          <div className="p-3">
           <div className="overflow-auto">
             <table className="w-full text-[12px] border">
               <thead className="bg-slate-50">
@@ -394,6 +401,7 @@ export default function AddExamLabTimetablesPage() {
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
         </div>
       )}
