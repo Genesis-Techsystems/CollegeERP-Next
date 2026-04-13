@@ -1,0 +1,228 @@
+.layout {
+    width: inherit;
+
+}
+
+.bg-wmark {
+    // opacity: 0.1;
+    position: absolute;
+}
+
+h3 {
+    text-align: center;
+    font-weight: bold;
+}
+
+.printbtn {
+    display: flex;
+    justify-content: end;
+    margin: 10px;
+}
+
+table {
+    //  margin-top:2%;
+    // margin-left:4%;
+    font-family: arial, sans-serif;
+    font-size: 13px !important;
+    border: none !important;
+
+    th {
+        font-family: arial, sans-serif;
+        font-size: 12px !important;
+        border: none !important;
+        width: 30% !important;
+        text-align: left !important;
+        font-weight: 500;
+
+    }
+
+    td {
+        font-family: arial, sans-serif;
+        font-size: 12px !important;
+        text-align: left !important;
+        border: none !important;
+        // width: 30%;
+        font-weight: 600;
+    }
+
+    .dots {
+        width: 5% !important;
+        font-weight: 600 !important;
+    }
+}
+
+.printbtn {
+    display: flex;
+    justify-content: end;
+    margin: 10px;
+}
+@media print {
+    .printable-dialog {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    
+      .mat-dialog-container {
+        max-width: 100%;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    
+      body {
+        margin: 0;
+        padding: 0;
+      }
+    
+     
+    #printNone {
+        display: none;
+    }
+
+    header nav,
+    footer {
+        display: none;
+    }
+}
+
+.First-Border {
+    width: 60% !important;
+    border: 2px solid !important;
+    border-radius: 10px !important;
+    margin-top: 10px !important;
+}
+
+.img-3 {
+    width: 26%;
+    height: 54%;
+    opacity: 0.2;
+    position: absolute;
+    margin-top: -5%;
+    margin-left: 14%;
+}
+
+.img-2 {
+    width: 40%;
+    height: 25%;
+    opacity: 0.2;
+    position: absolute;
+    margin-top: -4%;
+    margin-left: 27%;
+}
+
+.img-1{
+    padding: 5px !important;
+}
+
+#table2 {
+    border: 1px solid black !important;
+    border-spacing: 0px;
+    border-collapse: collapse;
+
+    th {
+        text-align: left !important;
+        //  border:2px solid black !important;
+        border: 1px solid black !important;
+        padding: 0px 3px  !important;
+
+    }
+
+    td {
+        text-align: right !important;
+        border: 1px solid black !important;
+        font-weight: 550;
+        padding: 0px 3px  !important;
+    }
+}
+
+.line {
+    background-color: black;
+    height: 2%;
+    width: 90%;
+    margin-top: -1% !important;
+    margin: auto;
+}
+
+#table3 {
+    margin-top: 0.5%;
+}
+
+.alright {
+    text-align: right !important;
+}
+
+.sign {
+    margin-top: 9% !important;
+}
+
+.border {
+    border: 1px solid black;
+    width: 90%;
+    margin: auto;
+
+    p {
+        margin-left: 10px !important;
+        font-size: smaller;
+        font-weight: 600;
+    }
+}
+
+.mt {
+    margin-top: -3%;
+    margin-bottom: 2%;
+}
+
+.main-card {
+    padding: 15px !important;
+}
+.p{
+    text-align: left !important;
+}
+  /* Ensure non-print div is hidden during print */
+  .non-print-div {
+    display: block;
+    height: 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Print-specific styles */
+  .print-div {
+    display: none;
+  }
+  
+  .print-content .non-print-div {
+    display: none !important;
+  }
+  
+  .print-content .print-div {
+    display: block !important;
+  }
+  .h-logo{
+    height: 100px !important;
+    width: 110px !important;
+    padding: 10px !important;
+}
+h3 {
+    text-align: center;
+    font-weight: bold;
+
+}
+h4 {
+    text-align: center;
+    font-weight: bold;
+    margin: 5px !important;
+
+}
+h2 {
+    text-align: center;
+    font-weight: bold;
+    font-style: none;
+    font-size: 26px;
+    font-family: none;
+    margin: 5px !important;
+    text-transform: uppercase;
+}

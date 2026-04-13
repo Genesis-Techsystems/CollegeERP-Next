@@ -1,0 +1,327 @@
+<div id="dashboard" class="page-layout simple" id="printNone">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" routerLink="{{dashboard}}">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Reports</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Internal Marks Report</span>
+                </div>
+            </div>
+
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                                fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads">Internal Marks Report</strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="staffForm" [formGroup]="staffForm" novalidate>
+                        <div fxLayout="row">
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                    (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                    <mat-option *ngFor="let course of courses"
+                                        [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Exam Year" name="academicYearId"
+                                    formControlName="academicYearId"
+                                    (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)" required>
+                                    <mat-option *ngFor="let academicYear of academicYears"
+                                        [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                                fxFlex.gt-md="60">
+                                <mat-select placeholder="Exam Master" name="examId" formControlName="examId"
+                                    (selectionChange)="selectedExam(staffForm.value.examId)" required>
+                                    <ngx-mat-select-search [placeholderLabel]="'Search...'"
+                                        [noEntriesFoundLabel]="'no matching data found'"
+                                        (keyup)="searchexam($event.target.value)"></ngx-mat-select-search>
+                                    <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                        matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})">
+
+                                        {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date |
+                                        date:dateFormate}})
+                                        <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;"
+                                            matTooltip='Internal'>(Internal)</span>
+                                        <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;"
+                                            matTooltip="Regular">(Regular)</span>
+                                        <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;"
+                                            matTooltip="Supple">(Supple)</span>
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+                        <div class="row-wrap">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="College" name="collegeId" formControlName="collegeId"
+                                    (selectionChange)="selectedCollege(staffForm.value.collegeId)" required>
+                                    <mat-option *ngFor="let college of colleges"
+                                        [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Course Group " name="courseGroupId"
+                                    formControlName="courseGroupId"
+                                    (selectionChange)="selectedGroup(staffForm.value.courseGroupId)" required>
+                                    <mat-option [value]="0">All</mat-option>
+                                    <mat-option *ngFor="let courseGroup of courseGroups"
+                                        [value]="courseGroup.fk_course_group_id">{{courseGroup.group_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Course Years" name="courseYearId"
+                                    formControlName="courseYearId" required>
+                                    <mat-option [value]="0">All</mat-option>
+                                    <mat-option *ngFor="let courseYear of courseYears"
+                                        [value]="courseYear.fk_course_year_id">{{courseYear.course_year_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15"
+                                fxFlex.gt-md="15">
+                                <button mat-raised-button class="add-btn" color="accent" (click)="getDetails()">Get
+                                    Report</button>
+                            </div>
+                            <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="5"
+                                fxFlex.gt-md="5">
+                                <span class="material-icons" (click)="reset()" style="cursor: pointer;margin-top: 17px;"
+                                    matTooltip="Reset">
+                                    cached
+                                </span>
+                            </div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                </mat-expansion-panel>
+            </mat-accordion>
+            <div class="header  pd-page " fxLayout="column" fxLayoutAlign="space-between"
+                *ngIf="examRegisteredStudents.length > 0">
+                <div fxLayout="row wrap " class="page-table-head" fxFlex="100" fxLayoutAlign="space-between center">
+                    <div fxLayoutAlign="start center" class="mod-head">
+                        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                            <i class="material-icons icon-align ">
+                                ballot
+                            </i>
+                            <strong class="table-heads">Internal Marks Report</strong>
+                        </div>
+                    </div>
+                    <div fxLayoutAlign="start end" class="mod-head">
+                        <span style="color: blue;
+                        font-weight: 500;">
+                            <span *ngIf="dataDetails != null && dataDetails != ''">{{dataDetails}}</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <mat-card class="pd-card table-align" *ngIf="examRegisteredStudents.length > 0">
+                <mat-card-content>
+                    <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between"
+                        fxLayoutGap="5">
+                        <div fxFlex.gt-xs="28" fxFlex.gt-md="28" fxLayout="row" fxLayoutAlign="start center"
+                            class="align-items">
+                            <button mat-raised-button class="add-btn" color="accent" (click)="exportAsExcel()">
+                                <i class="fa fa-file-excel-o icon" aria-hidden="true"></i>Export Excel</button>
+                            <button mat-raised-button class="add-btn ptnbtn" color="accent" (click)="Print()">
+                                <i class="fa fa-print icon" aria-hidden="true"></i>Print Report</button>
+
+                        </div>
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="25" fxFlex.gt-md="25"
+                            fxLayout="row" fxLayoutAlign="start end">
+                            <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                                <input matInput [(ngModel)]="searchText" name="search" placeholder="Search">
+                            </mat-form-field>
+                        </div>
+                    </div>
+                </mat-card-content>
+                <div class="mat-elevation-z8" #TABLE>
+                    <div class="example-container" #excelTable>
+                        <span style="display:none !important"> Internal Marks Report &nbsp;
+                            ({{dataDetails}}) </span>
+                                <table id="table" class="mar" >
+                            <thead>
+                                <tr>
+                                    <th class="table-th" > S.No </th>
+                                    <th class="table-th" > Hall Ticket No. </th>
+                                  <ng-container *ngFor="let data of subjectCodes">
+                                    <th class="table-th subject-header">
+                                        <div>{{ data?.subject_code }}</div>
+                                        <div class="sub-code">({{ data?.subject_name }})</div>
+                                        <div class="sub-max">Max Marks({{ findMarks(examRegisteredStudents, data.subject_code, 'max_marks') }})</div>
+                                    </th>
+                                    </ng-container>
+
+
+                                    <th class="table-th"> Total Marks Scored</th>
+                                    <th class="table-th"> Total Maximum Marks</th>
+                                    <th class="table-th"> Percentage (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let list of mainList index as i">
+                                    <td class="table-td"> {{i + 1}} </td>
+                                    <td class="table-td"> {{list[0]?.roll_number}} </td>
+                                   <ng-container *ngFor="let subject of subjectCodes">
+                                        <td class="table-td">
+                                            {{ findMarks(list, subject.subject_code, 'marks') }}
+                                        </td>
+                                        <!-- <td class="table-td">
+                                            {{ findMarks(list, subject.subject_code, 'max_marks') }}
+                                        </td> -->
+                                        </ng-container>
+
+                                    <td class="table-td">
+                                        {{ getRowTotal(list) }}
+                                    </td>
+                                    <td class="table-td"> {{list[0]?.total_max_marks}} </td>
+                                    <td class="table-td"> {{list[0]?.total_percentage}} </td>
+                                 </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </mat-card>
+        </div>
+    </div>
+</div>
+
+
+<div style="width: 98% !important;">
+    <div fxLayout="row" *ngIf="orgCode != 'SUK'">
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo != null">
+                <img [src]="Logo">
+            </div>
+            <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo == null">
+                <img src="assets/images/avatars/default_logo.png" class="portraitLogo">
+            </div>
+            <div fxLayout="column" fxFlex="85" fxFlex.gt-xs="85" fxFlex.gt-md="85">
+                <p class="collegeName">{{collegeName}} </p>
+                <p class="title">Internal Marks Report</p>
+                <p class="details">{{dataDetails}}</p>
+            </div>
+        </div>
+    </div>
+    <div fxLayout="row" *ngIf="orgCode == 'SUK'">
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="clglogo"
+                *ngIf="Logo != null">
+                <img [src]="Logo" style="height:auto !important;width:1200px !important;">
+            </div>
+
+            <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100" *ngIf="Logo == null">
+                <img src="assets/images/avatars/default_logo.png" style="height:100px;width:500px !important">
+            </div>
+
+        </div>
+
+    </div>
+    <div class="header" *ngIf="orgCode == 'SUK'">
+        <p class="collegeName">{{collegeName}} </p>
+        <p class="title">Internal Marks Report </p>
+        <p class="details">{{dataDetails}}</p>
+    </div>
+                <table id="table" class="mar" style="margin-top:1% !important">
+                            <thead>
+                                <tr>
+                                    <th class="table-th" > S.No </th>
+                                    <th class="table-th" > Hall Ticket No. </th>
+                                  <ng-container *ngFor="let data of subjectCodes">
+                                    <th class="table-th subject-header">
+                                        <div>{{ data?.subject_code }}</div>
+                                        <div class="sub-code">({{ data?.subject_name }})</div>
+                                        <div class="sub-max">Max Marks({{ findMarks(examRegisteredStudents, data.subject_code, 'max_marks') }})</div>
+                                    </th>
+                                    </ng-container>
+
+
+                                    <th class="table-th"> Total Marks Scored</th>
+                                    <th class="table-th"> Total Maximum Marks</th>
+                                    <th class="table-th"> Percentage (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let list of mainList index as i">
+                                    <td class="table-td"> {{i + 1}} </td>
+                                    <td class="table-td"> {{list[0]?.roll_number}} </td>
+                                   <ng-container *ngFor="let subject of subjectCodes">
+                                        <td class="table-td">
+                                            {{ findMarks(list, subject.subject_code, 'marks') }}
+                                        </td>
+                                        <!-- <td class="table-td">
+                                            {{ findMarks(list, subject.subject_code, 'max_marks') }}
+                                        </td> -->
+                                        </ng-container>
+
+                                    <td class="table-td">
+                                        {{ getRowTotal(list) }}
+                                    </td>
+                                    <td class="table-td"> {{list[0]?.total_max_marks}} </td>
+                                    <td class="table-td"> {{list[0]?.total_percentage}} </td>
+                                 </tr>
+                            </tbody>
+                        </table>
+                        <div style="
+                display: flex; 
+                justify-content: space-between; 
+                margin-top: 10%;
+                padding: 0 40px;
+            ">
+
+                <!-- Left side (HOD) -->
+                <div style="
+                    width: 200px;
+                    text-align: left;
+                    font-weight: 600;
+                ">
+                    HOD
+                </div>
+                <!-- Right side (Principal & Chief Superintendent) -->
+                <div style="text-align: right; font-weight: 600; line-height: 20px;">
+
+                <div style="display: inline-block; text-align: right;">
+
+                    <div style="margin-right: 28% !important;">Principal</div>
+
+                    <!-- <div style="text-align: center;">&</div>
+
+                    <div>Chief Superintendent</div> -->
+
+                </div>
+
+                </div>
+
+            </div>
+</div>

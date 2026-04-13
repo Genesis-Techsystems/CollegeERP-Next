@@ -81,7 +81,7 @@ const roleBadge: Record<string, string> = {
 
 function DashboardSkeleton() {
   return (
-    <PageContainer className="space-y-6">
+    <PageContainer className="space-y-4">
       <div className="space-y-2">
         <Skeleton className="h-8 w-52" />
         <Skeleton className="h-5 w-80" />
@@ -114,7 +114,7 @@ export default function DashboardPage() {
   const badgeClass = roleBadge[user.userRole] ?? 'bg-slate-50 text-slate-700 ring-1 ring-slate-200'
 
   return (
-    <PageContainer className="space-y-6">
+    <PageContainer className="space-y-4">
       {/* ── Breadcrumb ─────────────────────────────────────────────────── */}
       <Breadcrumb items={breadcrumbs} maxItems={5} />
 

@@ -1,0 +1,927 @@
+<div id="admission-dashboard" class="page-layout simple" id="printNone">
+
+  <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+      <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+          <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+              <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+              <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+              <span>Examination Management</span>
+              <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+              <span>Pre Examination</span>
+              <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+              <span>Exam Hallticket</span>
+          </div>
+      </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content pd-card mt-15">
+    <div fxLayout="column" class="radio-btn" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+        <mat-radio-group [(ngModel)]="check" [ngModelOptions]="{standalone: true}">
+            <mat-radio-button [value]="1" (change)="clear($event)">Hallticket By Student</mat-radio-button>
+            <mat-radio-button [value]="2" (change)="clear($event)" class="r-btn">Hallticket By Section</mat-radio-button>
+        </mat-radio-group>
+    </div>
+      <div class="mat-elevation-z8 bkgrd" *ngIf="check == 1">
+          <form name="examFeeCollectionForm" [formGroup]="examFeeCollectionForm" style="padding-bottom: 1px;" class="form-pad" novalidate>
+              <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                  <i class="material-icons sub-header-icon">money</i>
+                  <span class="sub-header-text"> Exam Hallticket</span>
+              </div>
+              <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd" >
+                  <div fxLayout="row wrap " fxFlex="100">
+                      <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="35" fxFlex.gt-md="35">
+                          <mat-select placeholder="Student" name="studentId" formControlName="studentId" #singleSelect (selectionChange)="selectedStudent(examFeeCollectionForm.value.studentId)">
+                              <mat-select-trigger> {{studentFirstName}}</mat-select-trigger>
+                              <ngx-mat-select-search [formControl]="studentFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" (keyup)="enteredStudent($event)"></ngx-mat-select-search>
+                              <mat-option *ngFor="let student of filteredStudents | async" [value]="student.studentId" style="line-height: 1.5em;height: unset;border-bottom: 1px solid #9e9e9e52;">
+                                  <div style="width: 10%;">
+                                      <img *ngIf="!student.isActive  && student.isActive !== ''" class="student-img-inactive" [src]='student.studentPhotoPath' onerror="this.src='assets/images/avatars/default_Student.png'">
+                                      <img *ngIf="student.isActive  && student.isActive !== ''" class="student-img-active" [src]='student.studentPhotoPath' onerror="this.src='assets/images/avatars/default_Student.png'">
+                                  </div>
+                                  <div style="width: 80%;
+                                  position: absolute;
+                                  top: 5px;
+                                  margin: 0px 70px;">
+                                      <span class="book-title">{{student.hallticketNumber}}</span><br>
+                                      <span class="rol-no" *ngIf="student.firstName != null">
+                                      <small> {{student.firstName}}</small>
+                                  </span>&nbsp;
+                                      <span class="rol-no" *ngIf="student.studentStatusCode !== null" [ngClass]="{'dtnd': student.studentStatusCode === 'DTND',
+                                  'incollege': student.studentStatusCode === 'INCOLLEGE',
+                                  'passedout': student.studentStatusCode === 'PASSEDOUT',
+                                  'detainRecmnd': student.studentStatusCode === 'DETAINRECOMMENDED',
+                                  'discontinued': student.studentStatusCode === 'DISCONTINUED'}">
+                                  <small> {{student.studentStatusDisplayName}}</small></span>
+                                  </div>
+                              </mat-option>
+                          </mat-select>
+                      </mat-form-field>
+                      <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60" fxFlex.gt-md="60">
+                          <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExternalExam(examFeeCollectionForm.value.examId)" required>
+                            <ngx-mat-select-search (keyup)="searchExam($event.target.value)" [placeholderLabel]="'Search Exam...'" [noEntriesFoundLabel]="'no matching data found'">
+                            </ngx-mat-select-search>
+                            <mat-option *ngFor="let exam of examDuplicateList" [value]="exam.examId" matTooltip="{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})"
+                              >{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})
+                                      <span *ngIf="exam.isInternalExam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                      <span *ngIf="exam.isRegularExam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                      <span *ngIf="exam.isSupplyExam" style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                              </mat-option>
+                          </mat-select>
+                      </mat-form-field>
+                   
+                  </div>
+              </div>
+              <div fxLayout="column" class="inner-bkgrd std-his" *ngIf="!isEmptyObject(student) && flag">
+                  <div fxLayout="row" class="mar-8">
+                      <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                          <img class="pic" *ngIf="selectedStd.length > 0" [src]='student.studentPhotoPath' onerror="this.src='assets/images/avatars/default_Student.png'">
+                          <img class="pic" *ngIf="selectedStd.length == 0" [src]='student.studentPhotoPath' onerror="this.src='assets/images/avatars/default_Student.png'">
+                      </div>
+                      <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="60" fxFlex.gt-md="60" style="padding: 10px 0px;line-height: 0.8em;">
+                          <p *ngIf="student.isLateral">{{student.firstName}} (<span style="color: blue;">LATERAL</span>) </p>
+                          <p *ngIf="!student.isLateral">{{student.firstName}} (<span style="color: blue;">REGULAR</span>) </p>
+                          <p style="color: #8c8c8c !important;">{{student.hallticketNumber}}</p>
+                          <p style="color: #8c8c8c !important;">{{student.collegeCode}} / {{student.academicYear}} / {{student.courseCode}} / {{student.groupCode}} / {{student.courseYearName}} / Section {{student.section}}</p>
+                          <p style="color: #8c8c8c !important;">{{student.mobile}}</p>
+                      </div>
+                      <div class="user-info" fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-sm="row" fxLayoutAlign.gt-sm="start center">
+                          <div class="name" [@animate]="{value:'*',params:{delay:'100ms',x:'-25px'}}">
+
+                              <div style="color: black; font-size: 15px;padding: 5px 0px;">
+                                  <span>Quota : </span><span style="color: blue;" *ngIf="student.quotaDisplayName !== null"> {{student.quotaDisplayName}} </span>
+                              </div>
+                              <div style="color: black; font-size: 15px;padding: 5px 0px;">
+                                  <span>Student Status : </span><span *ngIf="student.studentStatusCode !== null" [ngClass]="{'dtnd': student.studentStatusCode === 'DTND',
+                                      'incollege': student.studentStatusCode === 'INCOLLEGE',
+                                      'passedout': student.studentStatusCode === 'PASSEDOUT',
+                                      'detainRecmnd': student.studentStatusCode === 'DETAINRECOMMENDED',
+                                      'discontinued': student.studentStatusCode === 'DISCONTINUED'}"> {{student.studentStatusDisplayName}}  </span>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="mat-elevation-z8" *ngIf="flag">
+                <div class="example-container" style="overflow:hidden;padding:20px;">
+                    <table mat-table [dataSource]="dataSource" matSort>
+                        <!-- ID Column -->
+                        <ng-container matColumnDef="id">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                            <td mat-cell *matCellDef="let row; let i=index"> {{bulkHallticketDetails.indexOf(row)+1}} </td>
+                        </ng-container>
+
+                        <!-- Exam Name Column -->
+                        <ng-container matColumnDef="examDate">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Exam Date</th>
+                            <td mat-cell *matCellDef="let row"> {{row.exam_date | date:'dd/MM/yyyy'}} </td>
+                        </ng-container>
+
+                        <ng-container matColumnDef="sessionStartTime">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Exam Time</th>
+                            <td mat-cell *matCellDef="let row">
+                              <span *ngIf="row?.session_start_time != null && row?.session_start_time != '' && row?.session_end_time != null && row?.session_end_time != ''"
+                              > {{tConvert(row.session_start_time)}} - {{tConvert(row.session_end_time)}} </span>
+                              <span *ngIf="row?.session_start_time == null && row?.session_start_time == '' && row?.session_end_time == null && row?.session_end_time == ''">-</span>
+                             </td>
+                        </ng-container>
+
+                        <ng-container matColumnDef="subjectCode">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject Code</th>
+                            <td mat-cell *matCellDef="let row"> {{row.subject_code}} </td>
+                        </ng-container>
+
+                        <ng-container matColumnDef="subjectName">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject Name</th>
+                            <td mat-cell *matCellDef="let row"> {{row.subject_name}} </td>
+                        </ng-container>
+                        <ng-container matColumnDef="subjectType">
+                          <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject Type</th>
+                          <td mat-cell *matCellDef="let row"> {{row.subjecttype}} </td>
+                      </ng-container>
+                      <!-- <ng-container matColumnDef="examType">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Exam Type</th>
+                        <td mat-cell *matCellDef="let row">
+                          <span style="padding: 0px !important;" *ngFor="let obj of SemisterDuplicateList " >
+                            <span style="padding: 0px !important;" *ngIf="obj.id == row?.course_year_code && row?.exam_type == 'Regular'" > {{obj.value}} (R) </span>
+                            <span style="padding: 0px !important;" *ngIf="obj.id == row?.course_year_code && row?.exam_type == 'Supple'" > {{obj.value}} (S) </span>
+                           </span>
+                         </td>
+                      </ng-container> -->
+                        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                          <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                          </tr>
+                    </table>
+                </div>
+            </div>
+
+              <div fxLayout="column" style="margin-top: 5px;float: right;" class="mlr-15" *ngIf="!isEmptyObject(student) && flag">
+                <div class="savebtn-align">
+                    <!-- <button mat-raised-button class="add-btn" color="accent" (click)="print(studentsListForm.value)">Print</button> -->
+                    <button mat-raised-button class="add-btn" color="accent" (click)="Print(student)">Print</button>
+                </div>
+            </div>
+          </form>
+      </div>
+      
+      <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;" *ngIf="check == 2">
+        <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 24px;">
+            <mat-expansion-panel-header>
+                <mat-panel-title>
+                    <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                            <mat-icon class="fs icon-align">list_alt</mat-icon>
+                            <strong class="table-heads">Exam Halltickets</strong>
+                        </div>
+                    </div>
+                </mat-panel-title>
+                <label class="filter-align">Filter</label>
+                <mat-icon>filter_list</mat-icon>
+            </mat-expansion-panel-header>
+            <form name="studentsListForm" [formGroup]="studentsListForm" novalidate>
+              <div fxLayout="row">
+                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                    fxFlex.gt-md="20">
+                    <mat-select placeholder="Program" name="courseId" formControlName="courseId"
+                        (selectionChange)="selectedCourse(studentsListForm.value.courseId)" required>
+                        <mat-option *ngFor="let course of courses"
+                            [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                    fxFlex.gt-md="20">
+                    <mat-select placeholder="Exam Year" name="academicYearId"
+                        formControlName="academicYearId"
+                        (selectionChange)="selectedAcademicYear(studentsListForm.value.academicYearId)"
+                        required>
+                        <mat-option *ngFor="let academicYear of academicYears"
+                            [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                    fxFlex.gt-md="60">
+                    <mat-select placeholder="Exam Master" name="examId" formControlName="examId"
+                        (selectionChange)="selectedExam(studentsListForm.value.examId)" required>
+                        <ngx-mat-select-search [formControl]="ExamMasterFilterCtrl"
+                            [placeholderLabel]="'Search...'"
+                            [noEntriesFoundLabel]="'no matching data found'"
+                            (keyup)="searchexam($event.target.value)"></ngx-mat-select-search>
+                        <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                            matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})">
+                            {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date |
+                            date:dateFormate}})
+                            <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;"
+                                matTooltip='Internal'>(Internal)</span>
+                            <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;"
+                                matTooltip="Regular">(Regular)</span>
+                            <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;"
+                                matTooltip="Supple">(Supple)</span>
+                        </mat-option>
+                    </mat-select>
+                </mat-form-field>
+                </div>
+                <div fxLayout="row">
+                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                    fxFlex.gt-md="20">
+                    <mat-select placeholder="College" name="collegeId" formControlName="collegeId"
+                        (selectionChange)="selectedCollege(studentsListForm.value.collegeId)" required>
+                        <mat-option *ngFor="let college of colleges"
+                            [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                    fxFlex.gt-md="20">
+                    <mat-select placeholder="Course Group" name="courseGroupId"
+                        formControlName="courseGroupId"
+                        (selectionChange)="selectedGroup(studentsListForm.value.courseGroupId)" required>
+                        <mat-option *ngFor="let courseGroup of courseGroups"
+                            [value]="courseGroup.fk_course_group_id">{{courseGroup.group_code}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                    fxFlex.gt-md="20">
+                    <mat-select placeholder="Course Year" name="courseYearId"
+                        formControlName="courseYearId"
+                        (selectionChange)="selectedYear(studentsListForm.value.courseYearId)" required>
+                        <mat-option *ngFor="let courseYear of courseYears"
+                            [value]="courseYear.fk_course_year_id">{{courseYear.course_year_code}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+                <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                fxFlex.gt-md="20">
+                <mat-select placeholder="Regulation" name="regulationId"
+                    formControlName="regulationId"
+                    (selectionChange)="selectedRegulation(studentsListForm.value.regulatonId)" required>
+                    <mat-option *ngFor="let obj of regulationList"
+                        [value]="obj.fk_regulation_id">{{obj.regulation_code}}</mat-option>
+                </mat-select>
+            </mat-form-field> -->
+                <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
+                    fxFlex.gt-md="30">
+                    <mat-select placeholder="Course" name="subjectId" formControlName="subjectId" required
+                       >
+                        <ngx-mat-select-search (keyup)="searchSubject($event.target.value)"
+                            [placeholderLabel]="'Search Subject...'"
+                            [noEntriesFoundLabel]="'no matching data found'">
+                        </ngx-mat-select-search>
+                        <mat-option *ngFor="let subject of subjectData" [value]="subject.fk_subject_id"
+                            matTooltip="{{subject.subject_name}} ({{subject.subject_code}})">{{subject.subject_name}}
+                            ({{subject.subject_code}})
+                        </mat-option>
+                    </mat-select>
+                </mat-form-field> -->
+                <!-- <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                    <button mat-raised-button class="add-btn" color="accent" (click)="getDetails()">Get
+                        List</button>
+                </div> -->
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                  <button mat-raised-button class="add-btn" color="accent" (click)="getHallTickets()">Get List</button>
+              </div>
+            </div>
+                <!-- (click)='step=step?false:true' -->
+            </form>
+             <div class="mat-elevation-z8" *ngIf="bulkTable">
+                <div class="example-container" style="overflow:hidden;padding:20px;">
+                  <div class="save-btn-align" style="margin: 0px !important;">
+                    <button mat-raised-button class="add-btn" color="accent" (click)="printBulk(student)">Print All</button>
+                </div>
+                    <table mat-table [dataSource]="dataSourceDuplicateList" matSort>
+                        <ng-container matColumnDef="id">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                            <td mat-cell *matCellDef="let row; let i=index"> {{mainList.indexOf(row)+1}} </td>
+                        </ng-container>
+
+                        <ng-container matColumnDef="studentId">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Hallticket No</th>
+                            <td mat-cell *matCellDef="let row"> {{row[0].hallticket_number}} </td>
+                        </ng-container>
+
+                        <ng-container matColumnDef="studentName">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Student Name</th>
+                            <td mat-cell *matCellDef="let row"> {{row[0].first_name}} </td>
+                        </ng-container>
+
+                        <ng-container matColumnDef="Action">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Actions</th>
+                            <td mat-cell *matCellDef="let row"> <mat-icon >print</mat-icon></td>
+                        </ng-container>
+
+                        <tr mat-header-row *matHeaderRowDef="displayedColumnsDuplicate"></tr>
+                          <tr mat-row *matRowDef="let row; columns: displayedColumnsDuplicate;">
+                          </tr>
+
+                    </table>
+                </div>
+            </div>
+        </mat-expansion-panel> 
+        <mat-expansion-panel (opened)="panelOpenState= true" (closed)="panelOpenState= false">           
+        </mat-expansion-panel>
+    </mat-accordion>
+
+  </div>
+  <!-- / CONTENT -->
+
+</div>
+
+<!-- print Section -->
+
+<div class="layout" *ngIf = "universityCode === 'SUK'">
+    <div>
+      <div id="dashboard" class="page-layout simple Hallticket" *ngFor="let group of groupedHallTickets | keyvalue">
+        <div fxLayout="row">
+          <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <img src="assets/images/avatars/SUK_BANNER_NEW.jpg">
+          </div>
+        </div>
+        <div fxLayout="row">
+          <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <p class="p-tag">KALABURAGI-585103, KARNATAKA, INDIA</p>
+          </div>
+        </div>
+        <div fxLayout="row">
+          <div class="admit-card">
+            <h2>Admit Card: {{ group.value[0]?.exam_label_name }}</h2>
+      
+            <div class="student-info">
+              <table class="details-table">
+                <tr>
+                  <td>Name</td>
+                  <td>{{ group.value[0]?.first_name }}</td>
+                  <td rowspan="5" style="text-align: center !important;">
+                    <div fxLayout="column" style="align-items: center !important;" *ngIf="group.value[0]?.student_photo_path != null">
+                      <img [src]="MINIO + group.value[0]?.student_photo_path" style="height:100px;width: 100px;">
+                    </div>
+                    <div fxLayout="column" style="text-align: center;" *ngIf="group.value[0]?.student_photo_path == null">
+                      <img src="assets/images/avatars/default_Student.png" style="height:100px;width: 100px;">
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Father's Name</td>
+                  <td>{{ group.value[0]?.father_name }}</td>
+                </tr>
+                <tr>
+                  <td>USN</td>
+                  <td>{{ group.value[0]?.hallticket_number }}</td>
+                </tr>
+                <tr>
+                  <td>Programme</td>
+                  <td>{{ group.value[0]?.course_code }} - {{ group.value[0]?.group_code }}</td>
+                </tr>
+                <tr>
+                  <td *ngIf=" group.value[0]?.course_code != 'DPHARM' ">Semester</td>
+                  <td *ngIf=" group.value[0]?.course_code == 'DPHARM' ">year</td>
+
+                  <td>
+                    <span *ngFor="let obj of SemisterList">
+                      <span *ngIf="obj.id == group.value[0]?.course_year_code" style="text-align: left !important;margin-left: -15px !important;"> 
+                        {{ obj.value }}
+                      </span>
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </div>
+            <div class="courses-details">
+              <table class="course-table">
+                <thead>
+                  <tr>
+                    <th>Sl No.</th>
+                    <th>Course Code</th>
+                    <th>Course Title</th>
+                    <th>Course Type</th>
+                    <th>Date</th>
+                    <th>Signature of the Invigilator</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let d of group.value; let i = index">
+                    <td>{{ i + 1 }}</td>
+                    <td>{{ d?.subject_code }}</td>
+                    <td>{{ d?.subject_name }}</td>
+                    <td>{{ d?.subjecttype }}</td>
+                    <td>
+                      <span>
+                        {{ d?.exam_date | date: 'dd/MM/yyyy' }}
+                      </span>
+                      <br>
+                      <span>
+                        <span *ngIf="d?.session_start_time && d?.session_end_time">
+                          ({{ tConvert(d?.session_start_time) }} - {{ tConvert(d?.session_end_time) }})
+                        </span>
+                      </span>
+                    </td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="signatures-2">
+              <div class="signature-1" style="text-align: left !important;"> 
+                <label>Signature of the Candidate</label>
+              </div>
+              <div class="signature-1">
+                <label>Signature of Chairperson with Seal</label>
+              </div>
+              <div class="signature-1">
+                <label>Registrar (Evaluation)</label>
+              </div>
+            </div>
+            <div class="issue-date">
+              <label>Date of Issue:</label>
+              <span>{{ myDate | date: 'd, MMM, y' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+<div id="printsection" class="hall-ticket-wrapper" *ngIf="universityCode === 'MECS'">
+  <!-- OUTER BORDER BOX -->
+  <div class="page-align" *ngFor="let group of groupedHallTickets | keyvalue">
+    
+    <!-- Header Banner -->
+    <div class="college-header">
+      <img src="assets/images/avatars/MECS_BANNER.png" class="college-banner" />
+    </div>
+
+     <div class="exam-header">
+        <h4 style="text-align:center !important"> 
+        {{ group.value[0]?.exam_label_name }}
+      </h4>
+       <div class="regulation-box" *ngIf="group.value[0]?.regulation_code">
+        {{ group.value[0]?.regulation_code }}
+      </div>
+    </div>
+
+    <!-- Hall Ticket Title -->
+    <div class="hall-title-bar">
+      <div class="hall-left">HALL TICKET</div>
+      <div class="hall-right"> {{group.value[0]?.course_code}}. ({{ group.value[0]?.group_name?.toUpperCase() }})</div>
+    </div>
+
+    <!-- Student Info -->
+    <table class="info-table">
+      <tr>
+        <td style="font-weight:550 !important">Hall Ticket No &nbsp; :</td>
+        <td style="font-weight:550 !important">{{ group.value[0]?.hallticket_number }}</td>           
+          <td rowspan="5" class="photo-cell">
+  <div class="photo-layout">
+
+    <!-- Photo Row -->
+    <div class="photo-row">
+      <div class="photo-container">
+        <img
+          [src]="MINIO + group.value[0]?.student_photo_path"
+          onerror="this.src='assets/images/avatars/default_Student.png'"
+          class="student-photo"
+          alt="Student Photo"
+        />
+      </div>
+
+      <div class="attach-photo-box">
+        Affix latest photo of the candidate <br />
+        duly attested by the HOD
+      </div>
+    </div>
+
+    <!-- Two signature boxes -->
+    <div class="signature-row">
+      <div class="signature-box"></div>
+      <div class="signature-box"></div>
+    </div>
+
+  </div>
+</td>
+      </tr>
+      <tr>
+        <td style="font-weight:550 !important"> Student Name &nbsp; : </td>
+        <td style="font-weight:550 !important">{{ group.value[0]?.first_name }}</td>
+      </tr>
+      <tr>
+        <td style="font-weight:550 !important"> Father Name &nbsp; : </td>
+        <td style="font-weight:550 !important">{{ group.value[0]?.father_name }}</td>
+      </tr>
+      <tr>
+        <td style="font-weight:550 !important"> Center Name  &nbsp; : <br> &  Address </td>
+        <td style="font-weight:550 !important">
+         {{ group[0]?.examcenter_name}}
+        </td>
+      </tr>
+    </table>
+
+    <!-- Subject Table -->
+     <table class="subject-table-refined">
+  <thead>
+    <tr>
+      <th>Subject Code</th>
+      <th>Registered Subjects</th>
+      <th>Date of Exam</th>
+      <th>Time</th>
+      <th>Invigilator Sign</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let d of group.value">
+      <td>{{ d?.subject_code }}</td>
+      <td>{{ d?.subject_name }}</td>
+      <td>
+         {{ d?.exam_date | date: 'dd/MM/yyyy' }}
+      </td>
+      <td>
+        <span *ngIf="d?.session_start_time && d?.session_end_time">
+          {{ tConvert(d?.session_start_time) }} - {{ tConvert(d?.session_end_time) }}
+        </span>
+      </td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+    <!-- Signature Lines -->
+    <!-- <div class="signatures">
+      <div>Signature of the Student</div>
+      <div>Controller of Examinations</div>
+      <div>Principal</div>
+    </div> -->
+
+  <!-- <div class="signatures-3">
+    <div class="sig-block">
+      <div class="sig-label">Signature of the Student</div>
+    </div>
+
+    <div class="sig-block">
+        <img src="assets/images/avatars/MECS_PRINCIPAL_SIGN.jpg" class="sig-image" />
+        <div class="sig-label">Principal</div>
+      </div>
+  </div> -->
+
+  <div class="signatures-new">
+    <!-- Student -->
+    <div class="sig-block">
+      <div class="sig-label">Signature of HOD</div>
+    </div>
+
+    <!-- Principal -->
+    <div class="sig-block">
+        <img src="assets/images/avatars/MECS_EXAMINATION_SIGN.png" class="sig-image" />
+        <div class="sig-label">Controller of Examinations</div>
+      </div>
+  </div>
+
+    <div class="cut-line-container">
+  <div class="left-line"></div>
+  <div class="dashed-line"></div>
+</div>
+
+    <!-- Instructions -->
+    <div class="instructions">
+      <h4>Hall ticket should be preserved till the end of the examinations</h4>
+      <ol style="list-style-type: none; padding-left: 0;"> 
+        <li> INSTRUCTIONS TO THE CANDIDATES </li>
+        <li> NOTE  :  CANDIDATES ARE NOT ALLOWED AFTER COMMENCEMENT OF EXAM </li>
+      </ol>
+      <ol>
+        <li>Hall ticket should be preserved till the declaration of results.</li>
+        <li>
+          The candidates are held responsible for obtaining correct question paper from the Invigilator as per the Paper Title and Question Paper Code given against in the Hall Ticket. Answering a wrong Question Paper may lead to cancellation of examination of that paper.
+        </li>
+        <li>
+          University reserves the right to cancel the admission of the candidates at any stage, when it is detected that his/her admission to the examination or the college is against the rules.
+        </li>
+        <li>Candidates should occupy their seats at least 15 minutes before the commencement of the examination.</li>
+        <li>Candidates are prohibited from bringing and using printed/written material of any kind into the Exam Hall.</li>
+        <li>
+          Candidates are prohibited from bringing Mathematical Tables, however, if required will be supplied by the Controller of Examiner. Students of Mathematics, Science and Engineering are allowed to bring their own non programmable calculator.
+        </li>
+        <li>No Electronic gadgets/Mobiles are permitted in the exam Hall. If found in the exam hall booked under malpractice.</li>
+        <li>
+          Candidates if found in copying/communicating with others or indulging in any malpractice will be expelled from the examination Hall and will not be allowed to appear for the remaining papers/subjects.
+        </li>
+        <li>Candidates are required to bring their Hall Ticket and ID cards every day.</li>
+        <li>Candidate should not write anything except his / her hall ticket number on Question Paper.
+        </li>
+        <li> Student will not be allowed to leave the examination hall during the first two hours of the examination. </li>
+      </ol>
+      <!-- <ol>
+        <li>Hall ticket should be preserved till the declaration of results.</li>
+        <li>
+          The candidates are held responsible for obtaining correct question paper from the Invigilator as per the Paper Title and Question Paper Code given against in the Hall Ticket. Answering a wrong Question Paper may lead to cancellation of examination of that paper.
+        </li>
+        <li>
+          University reserves the right to cancel the admission of the candidates at any stage, when it is detected that his/her admission to the examination or the college is against the rules.
+        </li>
+        <li>Candidates should occupy their seats at least 15 minutes before the commencement of the examination.</li>
+        <li>Candidates are prohibited from bringing and using printed/written material of any kind into the Exam Hall.</li>
+        <li>
+          Candidates are prohibited from bringing Mathematical Tables, however, if required will be supplied by the Controller of Examiner. Students of Mathematics, Science and Engineering are allowed to bring their own non programmable calculator.
+        </li>
+        <li>No Electronic gadgets/Mobiles are permitted in the exam Hall. If found in the exam hall booked under malpractice.</li>
+        <li>
+          Candidates if found in copying/communicating with others or indulging in any malpractice will be expelled from the examination Hall and will not be allowed to appear for the remaining papers/subjects.
+        </li>
+        <li>Candidates are required to bring their Hall Ticket and ID cards every day.</li>
+        <li>Candidate should not write anything except his / her hall ticket number on Question Paper.
+        </li>
+        <li> Student will not be allowed to leave the examination hall during the first two hours of the examination. </li>
+      </ol> -->
+    </div>
+  </div>
+ </div>
+ <div id="printsection" class="hall-ticket-wrapper" *ngIf="universityCode === 'MVSR'">
+  <!-- OUTER BORDER BOX -->
+  <div class="page-align" *ngFor="let group of groupedHallTickets | keyvalue">
+    
+    <!-- Header Banner -->
+    <div class="college-header">
+      <img src="assets/images/avatars/MVSR-NEW-BANNER.png" class="college-banner-2" />
+    </div>
+    <div class="exam-header">
+        <h4 style="text-align:center !important"> 
+        {{ group.value[0]?.exam_label_name }}
+      </h4>
+       <div class="regulation-box" *ngIf="group.value[0]?.regulation_code">
+        {{ group.value[0]?.regulation_code }}
+      </div>
+    </div>
+    
+
+    <!-- Hall Ticket Title -->
+    <div class="hall-title-bar">
+      <div class="hall-left">HALL TICKET</div>
+      <div class="hall-right"> {{group.value[0]?.course_code}}. ({{ group.value[0]?.group_name?.toUpperCase() }})</div>
+    </div>
+
+    <!-- Student Info -->
+     <table class="info-table">
+  <tr>
+    <td style="font-weight:550 !important">Hall Ticket No &nbsp; :</td>
+    <td style="font-weight:550 !important">{{ group.value[0]?.hallticket_number }}</td>
+     <td rowspan="5" class="photo-cell">
+  <div class="photo-layout">
+
+    <!-- Photo Row -->
+    <div class="photo-row">
+      <div class="photo-container">
+        <img
+          [src]="MINIO + group.value[0]?.student_photo_path"
+          onerror="this.src='assets/images/avatars/default_Student.png'"
+          class="student-photo"
+          alt="Student Photo"
+        />
+      </div>
+
+      <div class="attach-photo-box">
+        Affix latest photo of the candidate <br />
+        duly attested by the HOD
+      </div>
+    </div>
+
+    <!-- Two signature boxes -->
+    <div class="signature-row">
+      <div class="signature-box"></div>
+      <div class="signature-box"></div>
+    </div>
+
+  </div>
+</td>
+  </tr>
+  <tr>
+    <td style="font-weight:550 !important">Student Name &nbsp; : </td>
+    <td style="font-weight:550 !important">{{ group.value[0]?.first_name }}</td>
+  </tr>
+  <tr>
+    <td style="font-weight:550 !important">Father Name &nbsp; : </td>
+    <td style="font-weight:550 !important">{{ group.value[0]?.father_name }}</td>
+  </tr>
+  <tr>
+    <td style="font-weight:550 !important">Center Name &nbsp; : <br />& Address</td>
+    <td style="font-weight:550 !important">
+     {{ group[0]?.examcenter_name}}
+    </td>
+  </tr>
+</table>
+    <!-- <table class="info-table">
+      <tr>
+        <td>Hall Ticket No &nbsp; :</td>
+        <td>{{ group.value[0]?.hallticket_number }}</td>           
+        <td rowspan="4" class="photo-cell" >
+             <img [src]="MINIO + group.value[0]?.student_photo_path" onerror="this.src='assets/images/avatars/default_Student.png'"
+              class="student-photo" alt="Student Photo" />
+        </td>
+      </tr>
+      <tr>
+        <td> Student Name &nbsp; : </td>
+        <td>{{ group.value[0]?.first_name }}</td>
+      </tr>
+      <tr>
+        <td> Father Name &nbsp; : </td>
+        <td>{{ group.value[0]?.father_name }}</td>
+      </tr>
+      <tr>
+        <td> Center Name  &nbsp; : <br> &  Address </td>
+        <td>
+          1608, MATRUSRI ENGINEERING COLLEGE<br />
+          SAIDABAD, HYDERABAD - 500059
+        </td>
+      </tr>
+    </table> -->
+    <!-- Subject Table -->
+     <table class="subject-table-refined">
+  <thead>
+    <tr>
+      <th>Subject Code</th>
+      <th>Registered Subjects</th>
+      <th>Date of Exam</th>
+      <th>Time</th>
+      <th>Invigilator Sign</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let d of group.value">
+      <td>{{ d?.subject_code }}</td>
+      <td>{{ d?.subject_name }}</td>
+      <td>
+        {{ d?.exam_date | date: 'dd/MM/yyyy' }}
+      </td>
+      <td>
+        <span *ngIf="d?.subjecttype === 'LAB'">-</span>
+        <span *ngIf="d?.subjecttype !== 'LAB' && d?.session_start_time && d?.session_end_time">
+          {{ tConvert(d?.session_start_time) }} - {{ tConvert(d?.session_end_time) }}
+        </span>
+      </td>
+       <td></td>
+    </tr>
+  </tbody>
+</table>
+    <!-- Signature Lines -->
+    <!-- <div class="signatures">
+      <div>Signature of HOD</div>
+      <div>Controller of Examinations</div>
+    </div> -->
+
+    <div class="signatures-new">
+    <!-- Student -->
+    <div class="sig-block">
+      <div class="sig-label">Signature of HOD</div>
+    </div>
+
+    <!-- Principal -->
+    <div class="sig-block">
+        <img src="assets/images/avatars/MVSR_COE-SIGN.jpg" class="sig-image" />
+        <div class="sig-label">Controller of Examinations</div>
+      </div>
+  </div>
+
+    <div class="cut-line-container">
+  <div class="left-line"></div>
+  <div class="dashed-line"></div>
+</div>
+    <!-- Instructions -->
+    <div class="instructions">
+      <h4>Hall ticket should be preserved till the end of the examinations</h4>
+      <ol style="list-style-type: none; padding-left: 0;"> 
+        <li> INSTRUCTIONS TO THE CANDIDATES </li>
+        <li> NOTE  :  CANDIDATES ARE NOT ALLOWED AFTER COMMENCEMENT OF EXAM </li>
+      </ol>
+      <!-- <h5> INSTRUCTIONS TO THE CANDIDATES </h5>
+      <h5> NOTE  :  CANDIDATES ARE NOT ALLOWED AFTER COMMENCEMENT OF EXAM </h5> -->
+      <ol>
+        <li>Hall ticket should be preserved till the declaration of results.</li>
+        <li>
+          The candidates are held responsible for obtaining correct question paper from the Invigilator as per the Paper Title and Question Paper Code given against in the Hall Ticket. Answering a wrong Question Paper may lead to cancellation of examination of that paper.
+        </li>
+        <li>
+          University reserves the right to cancel the admission of the candidates at any stage, when it is detected that his/her admission to the examination or the college is against the rules.
+        </li>
+        <li>Candidates should occupy their seats at least 15 minutes before the commencement of the examination.</li>
+        <li>Candidates are prohibited from bringing and using printed/written material of any kind into the Exam Hall.</li>
+        <li>
+          Candidates are prohibited from bringing Mathematical Tables, however, if required will be supplied by the Controller of Examiner. Students of Mathematics, Science and Engineering are allowed to bring their own non programmable calculator.
+        </li>
+        <li>No Electronic gadgets/Mobiles are permitted in the exam Hall. If found in the exam hall booked under malpractice.</li>
+        <li>
+          Candidates if found in copying/communicating with others or indulging in any malpractice will be expelled from the examination Hall and will not be allowed to appear for the remaining papers/subjects.
+        </li>
+        <li>Candidates are required to bring their Hall Ticket and ID cards every day.</li>
+        <li>Candidate should not write anything except his / her hall ticket number on Question Paper.
+        </li>
+      </ol>
+    </div>
+  </div>
+ </div>
+ <div id="printsection" class="hall-ticket-wrapper"
+  *ngIf="universityCode !== 'SUK' && universityCode !== 'MECS' && universityCode !== 'MVSR'">
+  <!-- OUTER BORDER BOX -->
+  <div class="page-align" *ngFor="let group of groupedHallTickets | keyvalue">
+    
+    <!-- Header Banner -->
+    <div class="college-header">
+      <!-- <img src="assets/images/avatars/GULogo.png" class="college-banner" /> -->
+    </div>
+
+    <div>
+      <h4 style="text-align:center !important"> 
+        {{ group.value[0]?.exam_label_name }}
+      </h4>
+    </div>
+
+    <!-- Hall Ticket Title -->
+    <div class="hall-title-bar">
+      <div class="hall-left">HALL TICKET</div>
+      <div class="hall-right"> {{group.value[0]?.course_code}}. ({{ group.value[0]?.group_name?.toUpperCase() }})</div>
+    </div>
+
+    <!-- Student Info -->
+    <table class="info-table">
+      <tr>
+        <td>Hall Ticket No &nbsp; :</td>
+        <td>{{ group.value[0]?.hallticket_number }}</td>           
+        <td rowspan="4" class="photo-cell" >
+             <img [src]="MINIO + group.value[0]?.student_photo_path" onerror="this.src='assets/images/avatars/default_Student.png'"
+              class="student-photo" alt="Student Photo" />
+        </td>
+      </tr>
+      <tr>
+        <td> Student Name &nbsp; : </td>
+        <td>{{ group.value[0]?.first_name }}</td>
+      </tr>
+      <tr>
+        <td> Father Name &nbsp; : </td>
+        <td>{{ group.value[0]?.father_name }}</td>
+      </tr>
+      <tr>
+        <td> Center Name  &nbsp; : <br> &  Address </td>
+        <td>
+         {{ group[0]?.examcenter_name}}
+        </td>
+      </tr>
+    </table>
+
+    <!-- Subject Table -->
+     <table class="subject-table-refined">
+  <thead>
+    <tr>
+      <th>Subject Code</th>
+      <th>Registered Subjects</th>
+      <th>Date of Exam</th>
+      <th>Time</th>
+      <th>Invigilator Sign</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let d of group.value">
+      <td>{{ d?.subject_code }}</td>
+      <td>{{ d?.subject_name }}</td>
+      <td>
+        {{ d?.exam_date | date: 'dd/MM/yyyy' }}
+      </td>
+      <td>
+        <span *ngIf="d?.session_start_time && d?.session_end_time">
+          {{ tConvert(d?.session_start_time) }} - {{ tConvert(d?.session_end_time) }}
+        </span>
+      </td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+    <!-- Signature Lines -->
+    <div class="signatures">
+      <div>Signature of the Student</div>
+      <div>Controller of Examinations</div>
+      <div>Principal</div>
+    </div>
+
+    <div class="cut-line-container">
+  <div class="left-line"></div>
+  <div class="dashed-line"></div>
+</div>
+
+    <!-- Instructions -->
+    <div class="instructions">
+      <h4>INSTRUCTIONS TO THE CANDIDATES</h4>
+      <ol>
+        <li>Hall ticket should be preserved till the declaration of results.</li>
+        <li>
+          The candidates are held responsible for obtaining correct question paper from the Invigilator as per the Paper Title and Question Paper Code given against in the Hall Ticket. Answering a wrong Question Paper may lead to cancellation of examination of that paper.
+        </li>
+        <li>
+          University reserves the right to cancel the admission of the candidates at any stage, when it is detected that his/her admission to the examination or the college is against the rules.
+        </li>
+        <li>Candidates should occupy their seats at least 15 minutes before the commencement of the examination.</li>
+        <li>Candidates are prohibited from bringing and using printed/written material of any kind into the Exam Hall.</li>
+        <li>
+          Candidates are prohibited from bringing Mathematical Tables, however, if required will be supplied by the Controller of Examiner. Students of Mathematics, Science and Engineering are allowed to bring their own non programmable calculator.
+        </li>
+        <li>No Electronic gadgets/Mobiles are permitted in the exam Hall. If found in the exam hall booked under malpractice.</li>
+        <li>
+          Candidates if found in copying/communicating with others or indulging in any malpractice will be expelled from the examination Hall and will not be allowed to appear for the remaining papers/subjects.
+        </li>
+        <li>Candidates are required to bring their Hall Ticket and ID cards every day.</li>
+        <li>Candidate should not write anything except his / her hall ticket number on Question Paper.
+        </li>
+      </ol>
+    </div>
+  </div>
+ </div>

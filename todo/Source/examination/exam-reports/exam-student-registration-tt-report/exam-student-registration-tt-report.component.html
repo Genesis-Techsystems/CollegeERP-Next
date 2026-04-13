@@ -1,0 +1,307 @@
+<div id="dashboard" class="page-layout simple" id="printNone">
+    <div class="center" fusePerfectScrollbar>
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Reports</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Registered Students Count</span>
+                </div>
+            </div>
+        </div>
+        <!-- / HEADER -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 24px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align">book</mat-icon>
+                                    <strong class="table-heads">Exam Registered Students Count</strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="examRegStdForm" [formGroup]="examRegStdForm" novalidate>
+                        <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                            <div fxLayout="row wrap " fxFlex="100">
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                        (selectionChange)="selectedCourse(examRegStdForm.value.courseId)">
+                                        <mat-option *ngFor="let course of courses" matTooltip="{{course.course_code}}"
+                                            [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Academic Year" name="academicYearId"
+                                        formControlName="academicYearId"
+                                        (selectionChange)="selectedAcademicYear(examRegStdForm.value.academicYearId)"
+                                        required>
+                                        <mat-option *ngFor="let obcjt of academicYears"
+                                            matTooltip="{{obcjt.academic_year}}"
+                                            [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                                    fxFlex.gt-md="60">
+                                    <mat-select placeholder="Exam " name="examId" formControlName="examId"
+                                        (selectionChange)="selectedExam(examRegStdForm.value.examId)">
+                                        <ngx-mat-select-search [placeholderLabel]="'Search...'"
+                                            [noEntriesFoundLabel]="'no matching data found'"
+                                            (keyup)="searchexam($event.target.value)"></ngx-mat-select-search>
+                                        <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                            matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})">
+                                            {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date |
+                                            date:dateFormate}})
+                                            <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;"
+                                                matTooltip='Internal'>(Internal)</span>
+                                            <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;"
+                                                matTooltip="Regular">(Regular)</span>
+                                            <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;"
+                                                matTooltip="Supple">(Supple)</span>
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                fxFlex.gt-md="25">
+                                <mat-select placeholder="Exam Type" name="examtypeCatdetId" (selectionChange)="selectedExamType()"
+                                    formControlName="examtypeCatdetId" required>
+                                    <mat-option [value]="0"> All </mat-option>
+                                    <mat-option *ngFor="let examFeeTypes of examFeeTypes"
+                                        [value]="examFeeTypes.generalDetailId">{{examFeeTypes.generalDetailCode}}</mat-option>
+                                </mat-select>
+                               </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="32" fxFlex.gt-md="32">
+                                <mat-select placeholder="Exam Timetable" name="examTimetableId" formControlName="examTimetableId" (selectionChange)="selectedExamTimetable()" required>
+                                    <mat-option [value]="0"> All </mat-option>
+                                    <mat-option *ngFor="let objct of examTimetables" [value]="objct.examTimetableId">
+                                        {{objct.examDate}}&nbsp;
+                                        <span *ngIf="objct.examDate != null" class="rol-no">({{objct.examSessionName}})</span>
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Course Group " name="courseGroupId"
+                                    formControlName="courseGroupId"
+                                    (selectionChange)="selectedCourseGroup(examRegStdForm.value.courseGroupId)" required>
+                                    <mat-option [value]="0"> All </mat-option>
+                                    <mat-option *ngFor="let courseGroup of courseGroups"
+                                        [value]="courseGroup.fk_course_group_id">{{courseGroup.group_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+        
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Course Years" name="courseYearId"
+                                    formControlName="courseYearId"
+                                    (selectionChange)="selectedYear(examRegStdForm.value.courseYearId)" required>
+                                    <mat-option [value]="0"> All </mat-option>
+                                    <mat-option *ngFor="let courseYear of courseYears"
+                                        [value]="courseYear.fk_course_year_id">{{courseYear.course_year_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Regulation" name="regulationId"
+                                        formControlName="regulationId"
+                                        (selectionChange)="selectedRegulation(examRegStdForm.value.regulationId)">
+                                        <mat-option [value]="0"> All </mat-option>
+                                        <mat-option *ngFor="let reg of regulations" matTooltip="{{reg.regulation_code}}"
+                                            [value]="reg.fk_regulation_id">{{reg.regulation_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
+                                    fxFlex.gt-md="30">
+                                    <mat-select placeholder="Subjects" formControlName="subjectId" (selectionChange)="selectedSubject()">
+                                        <ngx-mat-select-search (keyup)="searchdata($event.target.value)"
+                                            [placeholderLabel]="'Search...'"
+                                            [noEntriesFoundLabel]="'no matching data found'"></ngx-mat-select-search>
+                                        <mat-option [value]="0"> All </mat-option>
+                                        <mat-option *ngFor="let subject of subjectsData" [value]="subject.fk_subject_id"
+                                            matTooltip="{{subject.subject_name}}({{subject.subject_code}})">
+                                            {{ subject.subject_name }}
+                                            <span style="color:blue"> ({{subject.subject_code}}) </span>
+                                        </mat-option>
+                                    </mat-select>
+                                 </mat-form-field>
+                                 <section fxLayout="column" class="ml-2 mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                    <mat-checkbox name="isReevaluation" (click)="dateChange()" formControlName="isReevaluation">Is Re-Evaluation</mat-checkbox>
+                                 </section>
+                                 <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="getStudentsList()">Get List</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState= true" (closed)="panelOpenState= false">
+                </mat-expansion-panel>
+            </mat-accordion>
+
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" *ngIf="flag">
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                    fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <i class="material-icons icon-align ">
+                            ballot
+                        </i>
+                        <strong class="table-heads" >Exam Registered Students Count - {{dataDetails}} </strong>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- CONTENT -->
+            <mat-card class="pd-card table-align" *ngIf="flag">
+
+                <mat-card-content>
+                    <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between"
+                        fxLayoutGap="5">
+                        <div fxFlex.gt-xs="28" fxFlex.gt-md="28" fxLayout="row" fxLayoutAlign="start center"
+                            class="align-items">
+                            <button mat-raised-button class="add-btn" color="accent" (click)="exportAsExcel()">
+                                <i class="fa fa-file-excel-o icon" aria-hidden="true"></i>Export Excel</button>
+                            <button mat-raised-button class="add-btn ptnbtn" color="accent" (click)="printPage()">
+                                <i class="fa fa-print icon" aria-hidden="true"></i>Print Report</button>
+
+                        </div>
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="25" fxFlex.gt-md="25"
+                            fxLayout="row" fxLayoutAlign="start end">
+                            <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                                <input matInput [(ngModel)]="searchText" name="search" placeholder="Search">
+                            </mat-form-field>
+                        </div>
+                    </div>
+                </mat-card-content>           
+                            <div class="mat-elevation-z8" #TABLE>
+                                <div class="example-container" #excelTable>
+                                    <strong style="display: none !important;">Exam Registered Students Count - {{dataDetails}} </strong>
+                                    <table id="table" class="mar" >
+                                        <thead>
+                                            <tr>
+                                            <th class="table-th">S.No</th>
+                                            <th class="table-th">Subject</th>
+                                            <th class="table-th">College</th>
+                                            <th class="table-th">Course</th>
+                                            <th class="table-th">Course Group</th>
+                                            <th class="table-th">Exam Type</th>
+                                            <th class="table-th">No Registered Students</th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+                                            <tr *ngFor="let studentAtt of studentsList | filter:searchText; let i=index">
+                                            <td class="table-td" style="text-align: left !important;"> {{i + 1}}</td>
+                                            <td class="table-td" style="text-align: left !important;">{{studentAtt.subject}}</td>
+                                            <td class="table-td" style="text-align: left !important;">{{studentAtt.college_code}}</td>
+                                            <td class="table-td" style="text-align: left !important;">{{studentAtt.course_name}}</td>
+                                            <td class="table-td" style="text-align: left !important;">{{studentAtt.course_group}}</td>
+                                            <td class="table-td" style="text-align: left !important;">{{studentAtt.exam_type}} </td>
+                                            <td class="table-td" style="text-align: left !important;">{{studentAtt.students_registered_for_exam}} </td>
+                                            </tr>
+                                        </tbody>
+                                        <tfoot>
+                                            <tr>
+                                            <td class="table-td" colspan="6" style="text-align: right; font-weight: bold;">
+                                                Grand Total
+                                            </td>
+                                            <td class="table-td" style="font-weight: bold;">
+                                                {{ getGrandTotal() }}
+                                            </td>
+                                            </tr>
+                                        </tfoot>
+                                        </table>
+                                </div>
+                            </div>
+    </mat-card>
+        </div>
+        <!-- / CONTENT -->
+    </div>
+</div>
+<div style="width: 100% !important;">
+    <div fxLayout="row" *ngIf="orgCode != 'SUK'">
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo != null">
+                <img [src]="MINIO + Logo">
+            </div>
+            <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo == null">
+                <!-- <img src="assets/images/avatars/default_logo.png" class="portraitLogo"> -->
+            </div>
+            <div fxLayout="column" fxFlex="85" fxFlex.gt-xs="85" fxFlex.gt-md="85" class="algn">
+                <p class="collegeName">Exam Registered Students Count </p>
+                <p class="title"> {{dataDetails}}  </p>
+            </div>
+        </div>
+    </div>
+    <div fxLayout="row" *ngIf="orgCode == 'SUK'">
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="clglogo"
+                *ngIf="Logo != null">
+                <img [src]="MINIO + Logo">
+            </div>
+
+            <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100" *ngIf="Logo == null">
+                <img src="assets/images/avatars/default_logo.png" style="height:100px;width:500px !important">
+            </div>
+
+        </div>
+
+    </div>
+
+    <div fxLayout="row" *ngIf="orgCode == 'SUK'">
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                <p class="collegeName">Exam Registered Students Count </p>
+                <p class="title">  {{dataDetails}} </p>
+            </div>
+        </div>
+    </div>
+    <div fxLayout="row" style="margin-top:1% !important">
+        <table id="table" class="mar" #excelTable>
+                                        <thead>
+                                            <tr>
+                                            <th class="table-th">S.No</th>
+                                            <th class="table-th">Subject</th>
+                                            <th class="table-th">College</th>
+                                            <th class="table-th">Course</th>
+                                            <th class="table-th">Course Group</th>
+                                            <th class="table-th">Exam Type</th>
+                                            <th class="table-th">No Registered Students</th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+                                            <tr *ngFor="let studentAtt of studentsList | filter:searchText; let i=index">
+                                            <td class="table-td" style="text-align: left !important;"> {{i + 1}}</td>
+                                            <td class="table-td" style="text-align: left !important;">{{studentAtt.subject}}</td>
+                                            <td class="table-td" style="text-align: left !important;">{{studentAtt.college_code}}</td>
+                                            <td class="table-td" style="text-align: left !important;">{{studentAtt.course_name}}</td>
+                                            <td class="table-td" style="text-align: left !important;">{{studentAtt.course_group}}</td>
+                                            <td class="table-td" style="text-align: left !important;">{{studentAtt.exam_type}} </td>
+                                            <td class="table-td" style="text-align: left !important;">{{studentAtt.students_registered_for_exam}} </td>
+                                            </tr>
+                                        </tbody>
+                                        <tfoot>
+                                            <tr>
+                                            <td class="table-td" colspan="6" style="text-align: right; font-weight: bold;">
+                                                Grand Total
+                                            </td>
+                                            <td class="table-td" style="font-weight: bold;">
+                                                {{ getGrandTotal() }}
+                                            </td>
+                                            </tr>
+                                        </tfoot>
+                                        </table>
+    </div>
+</div>

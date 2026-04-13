@@ -1,0 +1,115 @@
+<div class="layout">
+    <div id="dashboard" class="page-layout simple " id="printsection">
+        <div fxLayout="row" *ngIf="orgCode != 'SUK'">
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content:center !important">
+                <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo != null">
+                    <img [src]="Logo" class="portraitLogo">
+                </div>
+                <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo == null">
+                    <img src="assets/images/avatars/default_logo.png" class="portraitLogo">
+                </div>
+                <div fxLayout="column" fxFlex="85" fxFlex.gt-xs="85" fxFlex.gt-md="85" class="algn">
+                    <p class="collegeName" style="text-align:center !important;margin-top:2% !important">{{details[0]?.college_name}}</p>
+                    <p  class="collegeName"  style="text-align:center !important;margin-top:5px !important">EXAM FORM</p>
+                </div>
+            </div>
+        </div>
+
+   
+        
+
+        <div fxLayout="row">
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                <div class="table-container">
+                    <div class="exam-details">
+                        <table class="custom-table">
+                            <tr>
+                                <th>COURSE:</th>
+                                <td>{{groupName[0]?.group_code}}</td>
+                                <th>SEMESTER:</th>
+                                <td>{{data[0]?.courseYear}}</td>
+                            </tr>
+                            <tr>
+                                <th>SUBJECT:</th>
+                                <td>{{details[0]?.subject_name}}&nbsp;({{details[0]?.subject_code}})</td>
+                                <th>PAPER CODE:</th>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <th>EXAM DATE & TIME:</th>
+                                <td>{{details[0]?.exam_date | date:'dd/MM/yyyy'}}</td>
+                                <th>SCHEME:</th>
+                                <td></td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>S.No</th>
+                                <th>Hall Ticket Number</th>
+                                <th>Student Name</th>
+                                <th>Answer Book Serial Number</th>
+                                <th>Signature</th>
+                                <th colspan="2">Record Attendence for Absent and Malpractice Only</th>
+                                
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let d of details; let i =index">
+                                <td>{{i+1}}</td>
+                                <td>{{d.hallticket_number}}</td>
+                                <td>{{d.StudentName}}</td>
+                                <td>{{d.omr_serial_no}}</td>
+                                <td></td>
+                                <td>&nbsp;<input type="radio" name="status1"/>&nbsp;Absent</td>
+                                <td>&nbsp;<input type="radio" name="status1"/>&nbsp;Malpractice</td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+
+                     <div><p>Please darken the circle Absent or Malpractice again Hall ticket number, if any.</p></div>
+                    <div class="footer-info">
+                        <table id="table" class="mar" style="border: none !important">
+                            <tr>
+                                <td>Total no. of students in this sheet: </td>
+                                <td>Total no. of Malpractice cases in this sheet:</td>
+                            </tr>
+                            <tr>
+                                <td>Total no. of Absent students in this sheet:</td>
+                                <td>Total no. of Malpractice cases in this sheet:</td>
+                            </tr>
+                            </table>
+                       
+                      
+                    </div>
+                    <div class="footer-info">
+                        <table id="table" class="mar" style="margin-top:10px !important; border: none !important">
+                            <tr>
+                                <td >Signature of Invigilator</td>
+                                <td style="text-align:end !important; ">Signature of Exam Superintendent with seal</td>
+                            </tr>
+                          
+                            </table>
+                       
+                       
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+       
+
+       
+        <div class="printbtn">
+            <button id="printPageButton" mat-raised-button class="back-btn" (click)="goBack()">
+                Back</button>
+            <button id="printPageButton" mat-raised-button color="add-btn" color="accent"
+                (click)="printPage('printsection')">
+                Print</button>
+        </div>
+    </div>
+</div>

@@ -1,427 +1,638 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { BookOpenCheck, PencilIcon } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { useEffect, useMemo, useState } from 'react'
+import type { ColDef } from 'ag-grid-community'
 import { SearchInput } from '@/common/components/search'
-import { StatusBadge } from '@/common/components/data-display'
+import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
-import { Select } from '@/common/components/select'
-import type { SelectOption } from '@/common/components/select'
-import { useSessionContext } from '@/context/SessionContext'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
-  getExamFiltersForQp,
-  getQuestionPaperList,
-  type ExamQuestionPaper,
-} from '@/services/evaluation'
-import { rowIndexGetter } from '@/lib/utils'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { ChevronDown, Filter } from 'lucide-react'
+import { toastError, toastSuccess } from '@/lib/toast'
+import {
+  createExamQuestionPaper,
+  getEvaluationExamFilters,
+  getEvaluationExamRestBundle,
+  listEvaluationSubjects,
+  listExamQuestionPapers,
+} from '@/services/evaluation-process'
+import { PageContainer, PageHeader } from '@/components/layout'
+import { StatusBadge } from '@/common/components/data-display'
+import { toDateOnlyISO } from '@/common/generic-functions'
 
-// ─── Filter row shapes returned by getExamFiltersForQp ────────────────────────
-// The stored proc returns multiple result sets. We inspect each row for known
-// fields and group them into courses / exams / subjects.
-
-interface FilterCourse {
-  course_id?: number
-  fk_course_id?: number
-  course_name?: string
-  course_code?: string
-}
-
-interface FilterExam {
-  exam_id?: number
-  fk_exam_id?: number
-  exam_name?: string
-}
-
-interface FilterSubject {
-  subject_id?: number
-  fk_subject_id?: number
-  subject_name?: string
-  subject_code?: string
-}
-
-interface FilterRegulation {
-  regulation_id?: number
-  fk_regulation_id?: number
-  regulation_code?: string
-}
-
-// ─── Column shape (pure data — no renderers) ──────────────────────────────────
-
-const COL_DEFS = {
-  siNo:        { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<ExamQuestionPaper>,
-  title:       { field: 'questionpaper_title', headerName: 'Title', minWidth: 200 } as ColDef<ExamQuestionPaper>,
-  code:        { field: 'questionpaper_code', headerName: 'Code', minWidth: 140 } as ColDef<ExamQuestionPaper>,
-  setNo:       { field: 'setnumber', headerName: 'Set No.', minWidth: 90, width: 90, flex: 0 } as ColDef<ExamQuestionPaper>,
-  totalQs:     { field: 'totalquestions', headerName: 'Total Questions', minWidth: 130 } as ColDef<ExamQuestionPaper>,
-  totalMarks:  { field: 'totalmarks', headerName: 'Total Marks', minWidth: 120 } as ColDef<ExamQuestionPaper>,
-  passMarks:   { field: 'passmarks', headerName: 'Pass Marks', minWidth: 110 } as ColDef<ExamQuestionPaper>,
-  subject:     { field: 'subject_name', headerName: 'Subject', minWidth: 160 } as ColDef<ExamQuestionPaper>,
-  exam:        { field: 'exam_name', headerName: 'Exam', minWidth: 150 } as ColDef<ExamQuestionPaper>,
-  isActive:    { field: 'isActive', headerName: 'Status', minWidth: 110 } as ColDef<ExamQuestionPaper>,
-  actions:     { headerName: 'Actions', minWidth: 100, flex: 0, width: 100 } as ColDef<ExamQuestionPaper>,
-}
-
-// ─── Pure renderers ───────────────────────────────────────────────────────────
-
-function statusRenderer(p: ICellRendererParams<ExamQuestionPaper>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
-}
-
-function makeActionsRenderer(
-  setEditing: (row: ExamQuestionPaper | null) => void,
-  setModalOpen: (open: boolean) => void,
-) {
-  return (p: ICellRendererParams<ExamQuestionPaper>) => (
-    <Button
-      size="sm"
-      variant="ghost"
-      onClick={() => { setEditing(p.data ?? null); setModalOpen(true) }}
-    >
-      <PencilIcon className="h-3.5 w-3.5 mr-1" /> Edit
-    </Button>
-  )
-}
-
-// ─── Helpers: parse filter result sets ────────────────────────────────────────
-
-function toSelectOptions(
-  items: unknown[],
-  idKey: string,
-  fallbackIdKey: string,
-  labelKey: string,
-  fallbackLabelKey?: string,
-): SelectOption[] {
-  const seen = new Set<string>()
-  const opts: SelectOption[] = []
-  for (const item of items) {
-    const row = item as Record<string, unknown>
-    const id = row[idKey] ?? row[fallbackIdKey]
-    const label = row[labelKey] ?? (fallbackLabelKey ? row[fallbackLabelKey] : undefined)
-    if (id == null || label == null) continue
-    const val = String(id)
-    if (seen.has(val)) continue
-    seen.add(val)
-    opts.push({ value: val, label: String(label) })
+type AnyRow = Record<string, any>
+const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
+  if (!row) return 0
+  for (const k of keys) {
+    const n = Number(row[k])
+    if (n > 0) return n
   }
-  return opts.sort((a, b) => a.label.localeCompare(b.label))
+  return 0
 }
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
+const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
+  if (!row) return ''
+  for (const k of keys) {
+    const v = row[k]
+    if (v != null && String(v).trim() !== '') return String(v)
+  }
+  return ''
+}
+const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
+  const seen = new Set<string | number>()
+  return rows.filter((r) => {
+    const key = keyFn(r)
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
 
 export default function ExamQuestionPaperMarksPage() {
-  const { user } = useSessionContext()
-
-  // Filter data
-  const [filterLoading, setFilterLoading] = useState(true)
-  const [allFilterRows, setAllFilterRows] = useState<unknown[]>([])
-  const [courseOptions, setCourseOptions] = useState<SelectOption[]>([])
-  const [examOptions, setExamOptions] = useState<SelectOption[]>([])
-  const [subjectOptions, setSubjectOptions] = useState<SelectOption[]>([])
-
-  // Selections
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
-  const [selectedExamId, setSelectedExamId] = useState<string | null>(null)
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null)
-
-  // Table
-  const [records, setRecords] = useState<ExamQuestionPaper[]>([])
-  const [tableLoading, setTableLoading] = useState(false)
-  const [tableVisible, setTableVisible] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
+  const [hasFetched, setHasFetched] = useState(false)
+  const [openAddModal, setOpenAddModal] = useState(false)
+  const [rows, setRows] = useState<AnyRow[]>([])
+  const [baseRows, setBaseRows] = useState<AnyRow[]>([])
+  const [restRows, setRestRows] = useState<AnyRow[]>([])
+  const [regulationRows, setRegulationRows] = useState<AnyRow[]>([])
+  const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
+  const [courseId, setCourseId] = useState<number | null>(null)
+  const [academicYearId, setAcademicYearId] = useState<number | null>(null)
+  const [examId, setExamId] = useState<number | null>(null)
+  const [regulationId, setRegulationId] = useState<number | null>(null)
+  const [courseYearId, setCourseYearId] = useState<number | null>(null)
+  const [subjectId, setSubjectId] = useState<number | null>(null)
+  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const [form, setForm] = useState({
+    questionPaperTitle: '',
+    questionPaperCode: '',
+    setNumber: '',
+    totalQuestions: '',
+    totalMarks: '',
+    passMarks: '',
+    preparedByEmp: 'Praveen Reddy',
+    preparedDate: toDateOnlyISO(new Date()),
+    questionPaperStatus: 'Prepared',
+    statusComments: '',
+    isActive: true,
+    reason: 'active',
+  })
 
-  // Edit modal state (wired to column renderer)
-  const [editingRow, setEditingRow] = useState<ExamQuestionPaper | null>(null)
-  const [modalOpen, setModalOpen] = useState(false)
+  function resetForm() {
+    setForm({
+      questionPaperTitle: '',
+      questionPaperCode: '',
+      setNumber: '',
+      totalQuestions: '',
+      totalMarks: '',
+      passMarks: '',
+      preparedByEmp: 'Praveen Reddy',
+      preparedDate: toDateOnlyISO(new Date()),
+      questionPaperStatus: 'Prepared',
+      statusComments: '',
+      isActive: true,
+      reason: 'active',
+    })
+  }
 
-  // ── Load filter data on mount ─────────────────────────────────────────────
+  async function saveQuestionPaper() {
+    if (!form.questionPaperTitle || !form.questionPaperCode) {
+      toastError('Question Paper Title and Code are required.')
+      return
+    }
+    if (!examId || !courseYearId || !subjectId) {
+      toastError('Please select Exam, Course Year and Subject before saving.')
+      return
+    }
+    setLoading(true)
+    try {
+      await createExamQuestionPaper({
+        questionPaperTitle: form.questionPaperTitle,
+        questionPaperCode: form.questionPaperCode,
+        setNumber: form.setNumber || null,
+        totalQuestions: Number(form.totalQuestions || 0),
+        totalMarks: Number(form.totalMarks || 0),
+        passMarks: Number(form.passMarks || 0),
+        preparedByEmp: form.preparedByEmp || null,
+        preparedDate: form.preparedDate || null,
+        questionPaperStatus: form.questionPaperStatus || null,
+        statusComments: form.statusComments || null,
+        isActive: form.isActive,
+        reason: form.isActive ? 'active' : form.reason || null,
+        examId,
+        courseYearId,
+        subjectId,
+        regulationId: regulationId ?? undefined,
+        academicYearId: academicYearId ?? undefined,
+        courseId: courseId ?? undefined,
+      })
+      toastSuccess('Question paper saved successfully.')
+      setOpenAddModal(false)
+      resetForm()
+      await getList()
+    } catch (error: any) {
+      toastError(error?.message ?? 'Failed to save question paper.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredRows = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    if (!term) return rows
+    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
+  }, [rows, search])
+
+  const courses = useMemo(() => dedupeBy(baseRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])), [baseRows])
+  const academicYears = useMemo(
+    () =>
+      dedupeBy(
+        baseRows.filter((r) => pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId)),
+        (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId']),
+      ),
+    [baseRows, courseId],
+  )
+  const exams = useMemo(
+    () =>
+      dedupeBy(
+        baseRows.filter(
+          (r) =>
+            pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId) &&
+            pickNum(r, ['fk_academic_year_id', 'academicYearId']) === Number(academicYearId),
+        ),
+        (r) => pickNum(r, ['fk_exam_id', 'examId']),
+      ),
+    [baseRows, courseId, academicYearId],
+  )
+  const regulations = useMemo(() => dedupeBy(regulationRows, (r) => pickNum(r, ['regulationId', 'fk_regulation_id'])), [regulationRows])
+  const courseYears = useMemo(
+    () =>
+      dedupeBy(
+        restRows,
+        (r) => pickNum(r, ['fk_course_year_id', 'courseYearId', 'course_year_id']),
+      ),
+    [restRows],
+  )
+  const subjects = useMemo(() => dedupeBy(subjectRows, (r) => pickNum(r, ['subjectId', 'fk_subject_id'])), [subjectRows])
+  const selectedCollegeId = useMemo(() => pickNum(restRows[0], ['fk_college_id', 'collegeId']), [restRows])
+  const selectedCourseGroupId = useMemo(() => pickNum(restRows[0], ['fk_course_group_id', 'courseGroupId']), [restRows])
+  const selectedCourse = useMemo(
+    () => courses.find((r) => pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId)) ?? null,
+    [courses, courseId],
+  )
+  const selectedAcademicYear = useMemo(
+    () => academicYears.find((r) => pickNum(r, ['fk_academic_year_id', 'academicYearId']) === Number(academicYearId)) ?? null,
+    [academicYears, academicYearId],
+  )
+  const selectedExam = useMemo(
+    () => exams.find((r) => pickNum(r, ['fk_exam_id', 'examId']) === Number(examId)) ?? null,
+    [exams, examId],
+  )
+  const selectedCourseYear = useMemo(
+    () => courseYears.find((r) => pickNum(r, ['fk_course_year_id', 'courseYearId']) === Number(courseYearId)) ?? null,
+    [courseYears, courseYearId],
+  )
+  const selectedSubject = useMemo(
+    () => subjects.find((r) => pickNum(r, ['fk_subject_id', 'subjectId']) === Number(subjectId)) ?? null,
+    [subjects, subjectId],
+  )
+
   useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setFilterLoading(true)
+    async function init() {
+      setLoading(true)
       try {
-        const resultSets = await getExamFiltersForQp({
-          employeeId: user?.employeeId,
-        })
-        if (cancelled) return
-
-        // resultSets is unknown[][]. Flatten all rows and inspect their keys.
-        const flat: unknown[] = resultSets.flat()
-        setAllFilterRows(flat)
-
-        // Courses — rows that have course_id / fk_course_id
-        const courses = flat.filter((r) => {
-          const row = r as Record<string, unknown>
-          return (row['course_id'] != null || row['fk_course_id'] != null) && row['course_name'] != null
-        }) as FilterCourse[]
-        setCourseOptions(toSelectOptions(courses, 'course_id', 'fk_course_id', 'course_name'))
-
-        // Exams — rows that have exam_id / fk_exam_id
-        const exams = flat.filter((r) => {
-          const row = r as Record<string, unknown>
-          return (row['exam_id'] != null || row['fk_exam_id'] != null) && row['exam_name'] != null
-        }) as FilterExam[]
-        setExamOptions(toSelectOptions(exams, 'exam_id', 'fk_exam_id', 'exam_name'))
-
-        // Subjects — rows that have subject_id / fk_subject_id
-        const subjects = flat.filter((r) => {
-          const row = r as Record<string, unknown>
-          return (row['subject_id'] != null || row['fk_subject_id'] != null) && (row['subject_name'] != null || row['subject_code'] != null)
-        }) as FilterSubject[]
-        setSubjectOptions(toSelectOptions(subjects, 'subject_id', 'fk_subject_id', 'subject_name', 'subject_code'))
-      } catch {
-        // Filters unavailable — user can still manually enter via fallback (see below)
+        const list = await getEvaluationExamFilters(employeeId).catch(() => [])
+        const rows = Array.isArray(list) ? list : []
+        setBaseRows(rows)
+        if (rows[0]) setCourseId(pickNum(rows[0], ['fk_course_id', 'courseId']))
       } finally {
-        if (!cancelled) setFilterLoading(false)
+        setLoading(false)
       }
     }
-    load()
-    return () => { cancelled = true }
-  }, [user?.employeeId])
+    void init()
+  }, [employeeId])
 
-  // ── Cascade: filter exams/subjects when course changes ────────────────────
   useEffect(() => {
-    if (!selectedCourseId) return
-    const courseRows = allFilterRows.filter((r) => {
-      const row = r as Record<string, unknown>
-      const id = String(row['course_id'] ?? row['fk_course_id'] ?? '')
-      return id === selectedCourseId
-    })
-
-    const exams = courseRows.filter((r) => {
-      const row = r as Record<string, unknown>
-      return (row['exam_id'] != null || row['fk_exam_id'] != null) && row['exam_name'] != null
-    })
-    if (exams.length > 0) {
-      setExamOptions(toSelectOptions(exams, 'exam_id', 'fk_exam_id', 'exam_name'))
+    if (academicYears[0]) setAcademicYearId(pickNum(academicYears[0], ['fk_academic_year_id', 'academicYearId']))
+  }, [academicYears])
+  useEffect(() => {
+    if (exams[0]) setExamId(pickNum(exams[0], ['fk_exam_id', 'examId']))
+  }, [exams])
+  useEffect(() => {
+    async function loadRest() {
+      if (!courseId || !examId || !academicYearId) return
+      const bundle = await getEvaluationExamRestBundle({ courseId, examId, academicYearId, employeeId }).catch(() => ({ restFilters: [], regulations: [] }))
+      const rows = Array.isArray(bundle.restFilters) ? bundle.restFilters : []
+      setRestRows(rows)
+      setRegulationRows(Array.isArray(bundle.regulations) ? bundle.regulations : [])
+      if (rows[0]) {
+        const defaultReg = pickNum((Array.isArray(bundle.regulations) ? bundle.regulations : [])[0], ['regulationId', 'fk_regulation_id'])
+        setRegulationId(defaultReg || pickNum(rows[0], ['fk_regulation_id', 'regulationId']) || null)
+        setCourseYearId(pickNum(rows[0], ['fk_course_year_id', 'courseYearId']) || null)
+      }
     }
-
-    const subjects = courseRows.filter((r) => {
-      const row = r as Record<string, unknown>
-      return (row['subject_id'] != null || row['fk_subject_id'] != null) && row['subject_name'] != null
-    })
-    if (subjects.length > 0) {
-      setSubjectOptions(toSelectOptions(subjects, 'subject_id', 'fk_subject_id', 'subject_name', 'subject_code'))
-    }
-
-    // Reset downstream selections
-    setSelectedExamId(null)
-    setSelectedSubjectId(null)
-    setTableVisible(false)
-  }, [selectedCourseId, allFilterRows])
-
-  // ── Fetch question papers ─────────────────────────────────────────────────
-  const fetchRecords = useCallback(async () => {
-    if (!selectedExamId || !selectedSubjectId) return
-    setTableLoading(true)
-    setTableVisible(true)
-    setRecords([])
-    try {
-      // Derive regulation from allFilterRows if possible
-      const regulationRow = allFilterRows.find((r) => {
-        const row = r as Record<string, unknown>
-        return row['regulation_id'] != null || row['fk_regulation_id'] != null
-      }) as FilterRegulation | undefined
-      const regulationId = regulationRow
-        ? Number(regulationRow.regulation_id ?? regulationRow.fk_regulation_id)
-        : undefined
-
-      const result = await getQuestionPaperList({
-        examId: Number(selectedExamId),
-        subjectId: Number(selectedSubjectId),
+    void loadRest()
+  }, [courseId, examId, academicYearId, employeeId])
+  useEffect(() => {
+    async function loadSubjects() {
+      if (!courseId || !examId || !academicYearId || !courseYearId || !regulationId || !selectedCollegeId || !selectedCourseGroupId) {
+        setSubjectRows([])
+        return
+      }
+      const list = await listEvaluationSubjects({
+        collegeId: selectedCollegeId,
+        courseId,
+        courseGroupId: selectedCourseGroupId,
+        courseYearId,
+        examId,
+        academicYearId,
         regulationId,
-        courseId: selectedCourseId ? Number(selectedCourseId) : undefined,
-      })
-      setRecords(result)
-    } catch {
-      setRecords([])
-    } finally {
-      setTableLoading(false)
+        employeeId,
+      }).catch(() => [])
+      setSubjectRows(Array.isArray(list) ? list : [])
     }
-  }, [selectedExamId, selectedSubjectId, selectedCourseId, allFilterRows])
+    void loadSubjects()
+  }, [selectedCollegeId, selectedCourseGroupId, courseId, examId, academicYearId, courseYearId, regulationId, employeeId])
+  useEffect(() => {
+    if (!subjectId && subjects[0]) setSubjectId(pickNum(subjects[0], ['fk_subject_id', 'subjectId']))
+  }, [subjects, subjectId])
+  useEffect(() => {
+    setRows([])
+    setHasFetched(false)
+  }, [courseId, academicYearId, examId, regulationId, courseYearId, subjectId])
 
-  // ── Client-side search filter ─────────────────────────────────────────────
-  const filteredRecords = useMemo(() => {
-    if (!search) return records
-    const q = search.toLowerCase()
-    return records.filter(
-      (r) =>
-        r.questionpaper_title?.toLowerCase().includes(q) ||
-        r.questionpaper_code?.toLowerCase().includes(q) ||
-        r.subject_name?.toLowerCase().includes(q) ||
-        r.exam_name?.toLowerCase().includes(q),
-    )
-  }, [records, search])
+  async function getList() {
+    setLoading(true)
+    try {
+      const list = await listExamQuestionPapers({
+        examId: examId ?? undefined,
+        courseYearId: courseYearId ?? undefined,
+        subjectId: subjectId ?? undefined,
+      }).catch(() => [])
+      setRows(Array.isArray(list) ? list : [])
+      setHasFetched(true)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  // ── Column definitions ────────────────────────────────────────────────────
-  const columnDefs = useMemo<ColDef<ExamQuestionPaper>[]>(
+  const cols = useMemo<ColDef[]>(
     () => [
-      COL_DEFS.siNo,
-      COL_DEFS.title,
-      COL_DEFS.code,
-      COL_DEFS.setNo,
-      COL_DEFS.subject,
-      COL_DEFS.exam,
-      COL_DEFS.totalQs,
-      COL_DEFS.totalMarks,
-      COL_DEFS.passMarks,
-      { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
-      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditingRow, setModalOpen) },
+      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 82, pinned: 'left' },
+      {
+        field: 'questionPaperTitle',
+        headerName: 'Question Paper Title',
+        minWidth: 240,
+        cellRenderer: (p: { data?: any }) => (
+          <div className="py-1">
+            <p className="font-medium text-[12px]">{p.data?.questionPaperTitle}</p>
+            <p className="text-[11px] text-blue-700">
+              View Questions | Print QP | Print QA | Edit
+            </p>
+          </div>
+        ),
+      },
+      { field: 'paperCode', headerName: 'QP Code', minWidth: 110, valueGetter: (p) => p.data?.paperCode ?? p.data?.questionPaperCode ?? '-' },
+      { field: 'courseYearCode', headerName: 'Course Year', minWidth: 120, valueGetter: (p) => p.data?.courseYearCode ?? p.data?.courseYearName ?? '-' },
+      { field: 'setNo', headerName: 'Set No.', minWidth: 95, valueGetter: (p) => p.data?.setNo ?? p.data?.setNumber ?? '-' },
+      { field: 'totalQuestions', headerName: 'Total Questions', minWidth: 130 },
+      { field: 'totalMarks', headerName: 'Total Marks', minWidth: 120 },
+      { field: 'passMarks', headerName: 'Pass Marks', minWidth: 110 },
+      { field: 'preparedBy', headerName: 'Prepared By', minWidth: 130, valueGetter: (p) => p.data?.preparedBy ?? p.data?.preparedByEmp ?? '-' },
+      { field: 'questionPaper', headerName: 'Question Paper', minWidth: 130 },
+      { field: 'answerSheet', headerName: 'Answer Sheet', minWidth: 120 },
+      { field: 'viewTemplate', headerName: 'View Template', minWidth: 125 },
+      {
+        field: 'isActive',
+        headerName: 'Status',
+        minWidth: 105,
+        cellRenderer: (p: { data?: AnyRow }) => (
+          <StatusBadge status={p.data?.isActive === true || p.data?.isActive === 'Active'} />
+        ),
+      },
+      {
+        headerName: 'Actions',
+        minWidth: 190,
+        cellRenderer: () => (
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="h-7">Manage Question</Button>
+            <Button size="sm" className="h-7">Upload QP & AS</Button>
+          </div>
+        ),
+      },
     ],
     [],
   )
 
-  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <PageContainer className="space-y-5">
-      <PageHeader
-        title="Exam Question Paper Marks"
-        subtitle="View and manage marks allocation for exam question papers"
-      />
-
-      {/* Filter panel */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-[200px] flex-1">
-            <Select
-              label="Course"
-              options={courseOptions}
-              value={selectedCourseId}
-              onChange={(v) => { setSelectedCourseId(v); setTableVisible(false) }}
-              placeholder="Select Course"
-              isLoading={filterLoading}
-              searchable={courseOptions.length > 8}
-              clearable
-            />
-          </div>
-
-          <div className="min-w-[200px] flex-1">
-            <Select
-              label="Exam"
-              options={examOptions}
-              value={selectedExamId}
-              onChange={(v) => { setSelectedExamId(v); setTableVisible(false) }}
-              placeholder="Select Exam"
-              isLoading={filterLoading}
-              disabled={examOptions.length === 0}
-              searchable={examOptions.length > 8}
-              clearable
-            />
-          </div>
-
-          <div className="min-w-[200px] flex-1">
-            <Select
-              label="Subject"
-              options={subjectOptions}
-              value={selectedSubjectId}
-              onChange={(v) => setSelectedSubjectId(v)}
-              placeholder="Select Subject"
-              isLoading={filterLoading}
-              disabled={subjectOptions.length === 0}
-              searchable={subjectOptions.length > 8}
-              clearable
-            />
-          </div>
-
+      <PageHeader title="Exam Question Paper" subtitle="Manage question paper marks setup" />
+      <div className="app-card overflow-hidden">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
+          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Question Paper</h2>
           <Button
-            onClick={fetchRecords}
-            disabled={!selectedExamId || !selectedSubjectId || tableLoading}
-            className="shrink-0"
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2.5 text-[12px]"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
           >
-            {tableLoading ? 'Loading…' : 'Get List'}
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
           </Button>
         </div>
+        {filterOpen && (
+          <div className="p-3 space-y-2 text-[13px]">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+            <div className="md:col-span-3">
+              <label className="text-[12px] text-muted-foreground">Course</label>
+              <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
+                <SelectTrigger className="h-8 text-[12px]">
+                  <SelectValue placeholder="Course" />
+                </SelectTrigger>
+                <SelectContent>
+                  {courses.map((c) => (
+                    <SelectItem key={`c-${pickNum(c, ['fk_course_id', 'courseId'])}`} value={String(pickNum(c, ['fk_course_id', 'courseId']))}>
+                      {pickText(c, ['course_code', 'courseCode', 'course_name', 'courseName'])}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-3">
+              <label className="text-[12px] text-muted-foreground">Academic Year</label>
+              <Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}>
+                <SelectTrigger className="h-8 text-[12px]">
+                  <SelectValue placeholder="Academic Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {academicYears.map((a) => (
+                    <SelectItem key={`ay-${pickNum(a, ['fk_academic_year_id', 'academicYearId'])}`} value={String(pickNum(a, ['fk_academic_year_id', 'academicYearId']))}>
+                      {pickText(a, ['academic_year', 'academicYear'])}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-6">
+              <label className="text-[12px] text-muted-foreground">Exam</label>
+              <Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}>
+                <SelectTrigger className="h-8 text-[12px]">
+                  <SelectValue placeholder="Exam" />
+                </SelectTrigger>
+                <SelectContent>
+                  {exams.map((e) => (
+                    <SelectItem key={`e-${pickNum(e, ['fk_exam_id', 'examId'])}`} value={String(pickNum(e, ['fk_exam_id', 'examId']))}>
+                      {pickText(e, ['exam_name', 'examName'])}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-[12px] text-muted-foreground">Regulation Id</label>
+              <Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}>
+                <SelectTrigger className="h-8 text-[12px]">
+                  <SelectValue placeholder="Regulation" />
+                </SelectTrigger>
+                <SelectContent>
+                  {regulations.map((r) => (
+                    <SelectItem key={`r-${pickNum(r, ['fk_regulation_id', 'regulationId'])}`} value={String(pickNum(r, ['fk_regulation_id', 'regulationId']))}>
+                      {pickText(r, ['regulationCode', 'regulation_code']) || `R${pickNum(r, ['regulationId', 'fk_regulation_id'])}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-3">
+              <label className="text-[12px] text-muted-foreground">Course Years *</label>
+              <Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}>
+                <SelectTrigger className="h-8 text-[12px]">
+                  <SelectValue placeholder="Course Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {courseYears.map((y) => (
+                    <SelectItem key={`cy-${pickNum(y, ['fk_course_year_id', 'courseYearId'])}`} value={String(pickNum(y, ['fk_course_year_id', 'courseYearId']))}>
+                      {pickText(y, ['course_year_name', 'courseYearName', 'course_year_code', 'courseYearCode'])}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-5">
+              <label className="text-[12px] text-muted-foreground">Subject</label>
+              <Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}>
+                <SelectTrigger className="h-8 text-[12px]">
+                  <SelectValue placeholder="Subject" />
+                </SelectTrigger>
+                <SelectContent>
+                  {subjects.map((s) => (
+                    <SelectItem key={`s-${pickNum(s, ['fk_subject_id', 'subjectId'])}`} value={String(pickNum(s, ['fk_subject_id', 'subjectId']))}>
+                      {pickText(s, ['subjectCode', 'subject_code', 'subjectName', 'subject_name'])}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>
+                Get List
+              </Button>
+            </div>
+          </div>
+          </div>
+        )}
       </div>
 
-      {/* Table section */}
-      {tableVisible && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500">
-              {filteredRecords.length} record{filteredRecords.length !== 1 ? 's' : ''} found
-            </p>
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              placeholder="Search title, code, subject…"
-            />
-          </div>
-
-          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
-            {!tableLoading && filteredRecords.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                <BookOpenCheck className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm font-medium">No question papers found</p>
-                <p className="text-xs mt-1">Try adjusting the filters above</p>
+      {hasFetched && (
+        <div className="app-card overflow-hidden">
+          <div className="p-4 border-b border-slate-200 bg-white">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="w-full max-w-sm">
+                <SearchInput
+                  className="w-full"
+                  placeholder="Search"
+                  value={search}
+                  onChange={setSearch}
+                />
               </div>
-            ) : (
-              <DataTable
-                rowData={filteredRecords}
-                columnDefs={columnDefs}
-                loading={tableLoading}
-                pagination
+              <Button size="sm" onClick={() => setOpenAddModal(true)}>+ Exam Question Paper</Button>
+            </div>
+          </div>
+          <div className="p-4">
+            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
+          </div>
+        </div>
+      )}
+
+      <Dialog open={openAddModal} onOpenChange={setOpenAddModal}>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[18px] text-[hsl(var(--primary))]">Create Question Paper</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 text-[13px]">
+            <div className="md:col-span-3 space-y-1">
+              <Label>Course</Label>
+              <Input value={pickText(selectedCourse, ['course_code', 'courseCode', 'course_name', 'courseName']) || '-'} disabled className="h-9 text-[12px]" />
+            </div>
+            <div className="md:col-span-3 space-y-1">
+              <Label>Academic Year</Label>
+              <Input value={pickText(selectedAcademicYear, ['academic_year', 'academicYear']) || '-'} disabled className="h-9 text-[12px]" />
+            </div>
+            <div className="md:col-span-6 space-y-1">
+              <Label>Exam</Label>
+              <Input value={pickText(selectedExam, ['exam_name', 'examName']) || '-'} disabled className="h-9 text-[12px]" />
+            </div>
+            <div className="md:col-span-2 space-y-1">
+              <Label>Regulation Id</Label>
+              <Input value={pickText(regulations.find((r) => pickNum(r, ['regulationId', 'fk_regulation_id']) === Number(regulationId)), ['regulationCode', 'regulation_code']) || '-'} disabled className="h-9 text-[12px]" />
+            </div>
+            <div className="md:col-span-3 space-y-1">
+              <Label>Course Years</Label>
+              <Input value={pickText(selectedCourseYear, ['course_year_name', 'courseYearName', 'course_year_code', 'courseYearCode']) || '-'} disabled className="h-9 text-[12px]" />
+            </div>
+            <div className="md:col-span-4 space-y-1">
+              <Label>Subject</Label>
+              <Input value={pickText(selectedSubject, ['subject_code', 'subjectCode', 'subject_name', 'subjectName']) || '-'} disabled className="h-9 text-[12px]" />
+            </div>
+            <div className="md:col-span-3 space-y-1">
+              <Label>Template</Label>
+              <Input value="B.Tech DS Template A" disabled className="h-9 text-[12px]" />
+            </div>
+
+            <div className="md:col-span-12 border-t pt-3 mt-1" />
+
+            <div className="md:col-span-6 space-y-1">
+              <Label>Question Paper Title *</Label>
+              <Input
+                className="h-9 text-[12px]"
+                value={form.questionPaperTitle}
+                onChange={(e) => setForm((s) => ({ ...s, questionPaperTitle: e.target.value }))}
               />
+            </div>
+            <div className="md:col-span-3 space-y-1">
+              <Label>Question Paper Code *</Label>
+              <Input
+                className="h-9 text-[12px]"
+                value={form.questionPaperCode}
+                onChange={(e) => setForm((s) => ({ ...s, questionPaperCode: e.target.value }))}
+              />
+            </div>
+            <div className="md:col-span-3 space-y-1">
+              <Label>Set Number</Label>
+              <Input
+                className="h-9 text-[12px]"
+                value={form.setNumber}
+                onChange={(e) => setForm((s) => ({ ...s, setNumber: e.target.value }))}
+              />
+            </div>
+            <div className="md:col-span-4 space-y-1">
+              <Label>Total Questions</Label>
+              <Input
+                className="h-9 text-[12px]"
+                value={form.totalQuestions}
+                onChange={(e) => setForm((s) => ({ ...s, totalQuestions: e.target.value }))}
+              />
+            </div>
+            <div className="md:col-span-4 space-y-1">
+              <Label>Total Marks</Label>
+              <Input
+                className="h-9 text-[12px]"
+                value={form.totalMarks}
+                onChange={(e) => setForm((s) => ({ ...s, totalMarks: e.target.value }))}
+              />
+            </div>
+            <div className="md:col-span-4 space-y-1">
+              <Label>Pass Marks</Label>
+              <Input
+                className="h-9 text-[12px]"
+                value={form.passMarks}
+                onChange={(e) => setForm((s) => ({ ...s, passMarks: e.target.value }))}
+              />
+            </div>
+            <div className="md:col-span-4 space-y-1">
+              <Label>Prepared Employee</Label>
+              <Input
+                className="h-9 text-[12px]"
+                value={form.preparedByEmp}
+                onChange={(e) => setForm((s) => ({ ...s, preparedByEmp: e.target.value }))}
+              />
+            </div>
+            <div className="md:col-span-4 space-y-1">
+              <Label>Prepared Date</Label>
+              <Input
+                type="date"
+                className="h-9 text-[12px]"
+                value={form.preparedDate}
+                onChange={(e) => setForm((s) => ({ ...s, preparedDate: e.target.value }))}
+              />
+            </div>
+            <div className="md:col-span-4 space-y-1">
+              <Label>Question Paper Status</Label>
+              <Select
+                value={form.questionPaperStatus}
+                onValueChange={(v) => setForm((s) => ({ ...s, questionPaperStatus: v }))}
+              >
+                <SelectTrigger className="h-9 text-[12px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Prepared">Prepared</SelectItem>
+                  <SelectItem value="In Review">In Review</SelectItem>
+                  <SelectItem value="Approved">Approved</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-12 space-y-1">
+              <Label>Status Comments</Label>
+              <textarea
+                className="min-h-[90px] w-full rounded-md border border-input bg-background px-3 py-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-ring"
+                value={form.statusComments}
+                onChange={(e) => setForm((s) => ({ ...s, statusComments: e.target.value }))}
+              />
+            </div>
+            <div className="md:col-span-4 flex items-center gap-2">
+              <Checkbox
+                checked={form.isActive}
+                onCheckedChange={(v) =>
+                  setForm((s) => ({ ...s, isActive: v === true, reason: v === true ? 'active' : s.reason }))
+                }
+              />
+              <Label>Active</Label>
+            </div>
+            {!form.isActive && (
+              <div className="md:col-span-8 space-y-1">
+                <Label>Reason</Label>
+                <Input
+                  className="h-9 text-[12px]"
+                  value={form.reason}
+                  onChange={(e) => setForm((s) => ({ ...s, reason: e.target.value }))}
+                />
+              </div>
             )}
           </div>
-        </div>
-      )}
 
-      {/* Edit slide-in panel */}
-      {modalOpen && editingRow && (
-        <div className="fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setModalOpen(false)}
-          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenAddModal(false)}>Close</Button>
+            <Button onClick={() => void saveQuestionPaper()} disabled={loading}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-          {/* Panel */}
-          <aside className="relative ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-base font-semibold">Edit Question Paper</h2>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setModalOpen(false)}
-              >
-                Close
-              </Button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 text-sm">
-              <dl className="space-y-3">
-                {[
-                  ['Title', editingRow.questionpaper_title],
-                  ['Code', editingRow.questionpaper_code],
-                  ['Set No.', editingRow.setnumber],
-                  ['Total Questions', editingRow.totalquestions],
-                  ['Total Marks', editingRow.totalmarks],
-                  ['Pass Marks', editingRow.passmarks],
-                  ['Subject', editingRow.subject_name],
-                  ['Exam', editingRow.exam_name],
-                ].map(([label, val]) => (
-                  <div key={String(label)} className="grid grid-cols-2 gap-2">
-                    <dt className="font-medium text-slate-500">{label}</dt>
-                    <dd className="text-slate-900">{val ?? '—'}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                Full edit functionality requires the question paper management form. This panel shows a read-only summary.
-              </p>
-            </div>
-
-            <div className="border-t px-6 py-4">
-              <Button variant="outline" className="w-full" onClick={() => setModalOpen(false)}>
-                Close
-              </Button>
-            </div>
-          </aside>
-        </div>
-      )}
     </PageContainer>
   )
 }

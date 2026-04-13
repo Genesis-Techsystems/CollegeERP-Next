@@ -1,0 +1,367 @@
+<div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Papers Delivery Process</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Center Courses/Groups/Years/Subjects</span>
+                </div>
+            </div>
+
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <form name="staffForm" [formGroup]="staffForm" novalidate>
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                                fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">money</mat-icon>
+                                    <strong class="table-heads">Exam Center Courses/Groups/Years/Subjects</strong>
+
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                   
+                        <div fxLayout="row">
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Program" name="courseId" formControlName="courseId"
+                                    (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                    <mat-option *ngFor="let course of courses"
+                                        [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="18"
+                                fxFlex.gt-md="18">
+                                <mat-select placeholder="Academic Year" name="academicYearId"
+                                    formControlName="academicYearId"
+                                    (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)" required>
+                                    <mat-option *ngFor="let obcjt of academicYears"
+                                        [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                                fxFlex.gt-md="60">
+                                <mat-select placeholder="Exam" name="examId" formControlName="examId"
+                                    (selectionChange)="selectedExam(staffForm.value.examId)">
+                                    <ngx-mat-select-search [placeholderLabel]="'Search Exam...'"
+                                        [noEntriesFoundLabel]="'no matching data found'"
+                                        (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>
+                                    <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                        matTooltip="{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})">{{exam.exam_name}}
+                                        ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})
+                                        <span *ngIf="exam.is_internal_exam"
+                                            style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                        <span *ngIf="exam.is_regular_exam"
+                                            style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                        <span *ngIf="exam.is_supply_exam"
+                                            style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
+                                fxFlex.gt-md="30">
+                                <mat-select placeholder="Exam Center" name="univExamcenterId"
+                                    formControlName="univExamcenterId" (selectionChange)="selectedExamCenter(staffForm.value.univExamcenterId)" required>
+                                    <mat-option *ngFor="let obj of examsCentersList"
+                                        [value]="obj.fk_univ_examcenter_id">{{obj.examcenter_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
+                                fxFlex.gt-md="30">
+                                <mat-select placeholder="Exam Center Colleges" name="univEcCollegeId"
+                                    formControlName="univEcCollegeId" (selectionChange)="selectedExamCentersColleges(staffForm.value.univEcCollegeId)" required>
+                                    <mat-option *ngFor="let obj of ExamCentersCollegesList"
+                                        [value]="obj.fk_college_id">{{obj.college_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
+                            fxFlex.gt-md="30">
+                            <!-- (selectionChange)="selectedRegulation(staffForm.value.regulationId)" -->
+                            <mat-select placeholder="Regulation" name="regulationId"
+                                formControlName="regulationId"   required>
+                                <mat-option *ngFor="let obj of regulations"
+                                    [value]="obj.fk_regulation_id">{{obj.regulation_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                            <div class="savebtn-align" fxLayout="column" class="p-8 padding" fxFlex="100"
+                                fxFlex.gt-xs="13" fxFlex.gt-md="13">
+                                <button mat-raised-button class="action-btn addBtn" color="accent"
+                                    (click)="selectedRegulation(staffForm.value.regulationId)">Get List</button>
+                            </div>
+                        </div>
+                   
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                </mat-expansion-panel>
+            </mat-accordion>
+        </form>
+
+
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" *ngIf="flag == true">
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                    fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <!-- <mat-icon class="secondary-text icon-align ">table_chart</mat-icon> -->
+                        <i class="material-icons icon-align ">
+                            ballot
+                        </i>
+                        <!-- <h1 class="secondary-text table-head fs-20">Campus</h1> -->
+                        <strong class="table-heads">Exam Center Colleges - {{courseName}} / {{academicYearName}} /
+                            {{examsName}} / {{examCenterName}} / {{examCollegeName}} / {{regulationCode}}</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="content pd-card" *ngIf="flag == true">
+               
+
+                <div class="mat-elevation-z8 bkgrd">
+                    <div fxLayout="row">
+                        <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+
+                            <div fxLayout="column" style="margin-top: 10px !important;" class="inner-bkgrd yar-bordr">
+                                <div fxLayout="row wrap " fxFlex="100">
+                                    <div fxLayout="column" class="bordr" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25" style="background: white;">
+                                        <div fxLayout="row" fxLayoutAlign="space-between center">
+                                            <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="50" fxFlex.gt-md="50" fxLayout="row"
+                                                fxLayoutAlign="start center">
+                                                <div class="search-box">
+                                                    <i class="fa fa-search" aria-hidden="true"></i>
+                                                    <input placeholder="Search..." (keyup)="searchOmrNo($event.target.value)"
+                                                        [ngModelOptions]="{standalone: true}">
+                                                </div>
+                                            </div>
+                                            <!-- <span class="roll-no" style="color: blue;font-weight:bold;">
+                                                Select Course Group
+                                            </span> -->
+                                        </div>
+                                    
+                                        <!-- Course Groups (With Radio Buttons) -->
+                                        <!-- Course Groups (With Radio Buttons) -->
+                                        <form name="staffForm" [formGroup]="staffForm" novalidate>
+
+                                        <table class="mar firstTable">
+                                            <thead>
+                                                <tr>
+                                                    <th class="table-th">Select</th>
+                                                    <th class="table-th">Course Group</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr *ngFor="let obj of courseGroups">
+                                                    <td class="table-td" style="width:10px !important">
+
+                                                        <mat-radio-group formControlName="courseGroupId">
+                                                            <mat-radio-button  (change)="onCourseGroupSelect(obj)" [value]="obj.fk_course_group_id"></mat-radio-button>
+                                                        </mat-radio-group>
+                                                        <!-- <mat-radio-button formControlName="courseGroupId" [value]="obj.fk_course_group_id"
+                                                            (change)="onCourseGroupSelect(obj)">
+                                                        </mat-radio-button> -->
+                                                    </td>
+                                                    <td class="table-td">{{ obj?.group_code }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                        </form>
+
+                                    </div>
+                                    
+                                    <!-- Course Years (With Checkboxes) -->
+                                    <div  fxLayout="column" class="bordr" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25"
+                                        style="background: white;">
+                                        <div fxLayout="row" fxLayoutAlign="space-between center">
+                                            <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="50" fxFlex.gt-md="50" fxLayout="row"
+                                                fxLayoutAlign="start center">
+                                                <div class="search-box">
+                                                    <i class="fa fa-search" aria-hidden="true"></i>
+                                                    <input placeholder="Search..." (keyup)="searchOmrNo($event.target.value)"
+                                                        [ngModelOptions]="{standalone: true}">
+                                                </div>
+                                            </div>
+                                            <!-- <span class="roll-no" style="color: blue;font-weight:bold;">
+                                                Select Course Years</span> -->
+                                        </div>
+                                        <form [formGroup]="staffForm" novalidate>
+                                            <table class="mar firstTable">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="table-th">Select</th>
+                                                        <th class="table-th">Course Year</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr *ngFor="let obj of courseYears">
+                                                        <td class="table-td" style="width:10px !important">
+                                                            <mat-radio-group formControlName="courseYearId">
+                                                                <mat-radio-button (change)="onCourseYearSelect(obj)" [value]="obj.fk_course_year_id"></mat-radio-button>
+                                                            </mat-radio-group>
+                                                        </td>
+                                                        <td class="table-td">{{ obj?.course_year_code }}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </form>
+                                        
+                                    </div>
+                                    
+                                    <!-- Subjects (With Checkboxes) -->
+                                    <div  fxLayout="column" class="bordr" fxFlex="100" fxFlex.gt-xs="38"
+                                        fxFlex.gt-md="38" style="background: white;">
+                                        <div fxLayout="row" fxLayoutAlign="space-between center">
+                                            <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="50" fxFlex.gt-md="50" fxLayout="row"
+                                                fxLayoutAlign="start center">
+                                                <div class="search-box">
+                                                    <i class="fa fa-search" aria-hidden="true"></i>
+                                                    <input placeholder="Search..." (keyup)="searchOmrNo($event.target.value)"
+                                                        [ngModelOptions]="{standalone: true}">
+                                                </div>
+                                            </div>
+                                            <!-- <span class="roll-no" style="color: blue;font-weight:bold;">
+                                                Select Subjects</span> -->
+                                        </div>
+                                        <table class="mar firstTable">
+                                            <thead>
+                                                <tr>
+                                                    <th class="table-th">Select</th>
+                                                    <th class="table-th">Subject</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr *ngFor="let subject of subjectListDetails">
+                                                    <td class="table-td" style="width:10px !important" [ngClass]="{'custom-background': subject.row_exists!=0}">
+                                                        <mat-checkbox (click)="subject.row_exists==0 && onSubjectSelect(subject)" [disabled]="subject.row_exists!=0" [(ngModel)]="subject.checked"
+                                                            [ngModelOptions]="{standalone: true}"></mat-checkbox>
+                                                    </td>
+                                                    <td [ngClass]="{'custom-background': subject.row_exists!=0}" class="table-td">{{ subject?.subject_code }} - {{subject?.subject_name}}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="11" fxFlex.gt-md="11"
+                                        style="position: relative;">
+                                        <button mat-raised-button class="add-btn" style="position: absolute;
+                                bottom: -12px;" color="accent" (click)="Assign()" *ngIf="flag == true">
+                                            Assign
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                    
+                </div>
+           
+            </div>
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" *ngIf="flag == true">
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                    fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <i class="material-icons icon-align ">
+                            ballot
+                        </i>
+                        <strong class="table-heads">Exam Center Colleges - {{courseName}} / {{academicYearName}} /
+                            {{examsName}} / {{examCenterName}} / {{examCollegeName}} / {{regulationCode}}</strong>
+                    </div>
+                </div>
+            </div>
+            <mat-card class=" table-align " *ngIf="flag == true">
+                <mat-card-content>
+                    <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between"
+                        fxLayoutGap="5">
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35"
+                            fxLayout="row" fxLayoutAlign="start center">
+                            <label for="search" class="mr-8">
+                                <mat-icon class="secondary-text">search</mat-icon>
+                            </label>
+                            <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                                <input matInput (keyup)="applyFilter($event.target.value)" name="search"
+                                    placeholder="Search">
+                            </mat-form-field>
+                        </div>
+                    </div>
+                </mat-card-content>
+
+                <div class="mat-elevation-z8">
+                    <div class="example-container" style="overflow: hidden !important;">
+                        <table mat-table [dataSource]="dataSource" matSort>
+
+                            <!-- S.NO Column -->
+                            <ng-container matColumnDef="id">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                <td mat-cell *matCellDef="let row index as i"> {{i+1}} </td>
+                            </ng-container>
+
+                            <!-- examcenter Column -->
+                            <ng-container matColumnDef="group">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Course Group</th>
+                                <td mat-cell *matCellDef="let row"> {{row.group_code}} </td>
+                            </ng-container>
+
+                            <!-- exam Column -->
+                            <ng-container matColumnDef="courseYear">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Course Year</th>
+                                <td mat-cell *matCellDef="let row"> {{row.course_year_code}} </td>
+                            </ng-container>
+
+                            <!-- college Column -->
+                            <ng-container matColumnDef="subject">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Subject</th>
+                                <td mat-cell *matCellDef="let row">{{row.subject_code}}</td>
+                            </ng-container>
+
+                            <!-- Isactive Column -->
+                            <!-- <ng-container matColumnDef="isActive">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
+                                <td mat-cell *matCellDef="let row">
+                                    <span *ngIf="row.isActive==true" class="active">Active</span>
+                                    <span *ngIf="row.isActive==false" class="in-active">InActive</span>
+                                </td>
+                            </ng-container> -->
+
+                            <!-- Actions Column -->
+                            <ng-container matColumnDef="Actions">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Actions</th>
+                                <td mat-cell *matCellDef="let row">
+                                    <i class="material-icons edit" matTooltip="View" (click)="editDialog(row)">
+                                        border_color</i>
+                                </td>
+                            </ng-container>
+
+                            <!-- Actions Column -->
+                            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                            <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                            </tr>
+                        </table>
+                    </div>
+                    <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+                </div>
+
+            </mat-card>
+            <!-- / CONTENT -->
+        </div>
+    </div>
+</div>

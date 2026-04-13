@@ -1,0 +1,653 @@
+<div [ngClass]="{ 'print-content': isPrintMode }" id="main">
+    <div class="main-div" id="printNone" *ngIf="!isPrintMode">
+        <div id="dashboard" class="page-layout simple" id="printNone">
+
+            <div class="center" fusePerfectScrollbar>
+
+                <!-- HEADER -->
+                <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+                    <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                        fxLayoutAlign.gt-xs="center start">
+                        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                            <mat-icon class="secondary-text s-18 cursr" routerLink="{{dashboard}}">home</mat-icon>
+                            <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                            <span>Examination Management</span>
+                            <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                            <span>Exam Reports</span>
+                            <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                            <span>Student Wise Grade Point Report</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- / HEADER -->
+
+                <!-- CONTENT -->
+
+                <div class="content">
+                    <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                        <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                            <mat-expansion-panel-header>
+                                <mat-panel-title>
+                                    <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                                        fxLayoutAlign.gt-xs="center start">
+                                        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                            <mat-icon class="fs icon-align ">book</mat-icon>
+                                            <strong class="table-heads">Student Wise Grade Point Report</strong>
+                                        </div>
+                                    </div>
+                                </mat-panel-title>
+                                <label class="filter-align">Filter</label>
+                                <mat-icon>filter_list</mat-icon>
+                            </mat-expansion-panel-header>
+                            <form name="staffForm" [formGroup]="staffForm" novalidate>
+                                <div fxLayout="row">
+                                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                        fxFlex.gt-md="20">
+                                        <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                            (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                            <mat-option *ngFor="let course of courses"
+                                                [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                        fxFlex.gt-md="20">
+                                        <mat-select placeholder="Exam Year" name="academicYearId"
+                                            formControlName="academicYearId"
+                                            (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)"
+                                            required>
+                                            <mat-option *ngFor="let academicYear of academicYears"
+                                                [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                                        fxFlex.gt-md="60">
+                                        <mat-select placeholder="Exam Master" name="examId" formControlName="examId"
+                                            (selectionChange)="selectedExam(staffForm.value.examId)" required>
+                                            <ngx-mat-select-search [formControl]="ExamMasterFilterCtrl"
+                                                [placeholderLabel]="'Search...'"
+                                                [noEntriesFoundLabel]="'no matching data found'"
+                                                (keyup)="searchexam($event.target.value)"></ngx-mat-select-search>
+                                            <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                                matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})">
+
+                                                {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} -
+                                                {{exam.to_date |
+                                                date:dateFormate}})
+                                                <span *ngIf="exam.is_internal_exam"
+                                                    style="color: #0014ff;font-weight: 500;"
+                                                    matTooltip='Internal'>(Internal)</span>
+                                                <span *ngIf="exam.is_regular_exam"
+                                                    style="color: #0014ff;font-weight: 500;"
+                                                    matTooltip="Regular">(Regular)</span>
+                                                <span *ngIf="exam.is_supply_exam"
+                                                    style="color: #0014ff;font-weight: 500;"
+                                                    matTooltip="Supple">(Supple)</span>
+                                            </mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                </div>
+                                <div class="row-wrap">
+                                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                        fxFlex.gt-md="20">
+                                        <mat-select placeholder="College" name="collegeId" formControlName="collegeId"
+                                            (selectionChange)="selectedCollege(staffForm.value.collegeId)" required>
+                                            <mat-option *ngFor="let college of colleges"
+                                                [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+
+
+                                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                        fxFlex.gt-md="20">
+                                        <mat-select placeholder="Course Group " name="courseGroupId"
+                                            formControlName="courseGroupId"
+                                            (selectionChange)="selectedGroup(staffForm.value.courseGroupId)" required>
+                                            <mat-option *ngFor="let courseGroup of courseGroups"
+                                                [value]="courseGroup.fk_course_group_id">{{courseGroup.group_code}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+
+                                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                        fxFlex.gt-md="20">
+                                        <mat-select placeholder="Course Years" name="courseYearId"
+                                            formControlName="courseYearId"
+                                            (selectionChange)="selectedYear(staffForm.value.courseYearId)" required>
+                                            <mat-option *ngFor="let courseYear of courseYears"
+                                                [value]="courseYear.fk_course_year_id">{{courseYear.course_year_code}}</mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40"
+                                        fxFlex.gt-md="40">
+                                        <mat-select placeholder="Student" name="studentId" formControlName="studentId"
+                                            #singleSelect (selectionChange)="selectedStd(staffForm.value.studentId)">
+                                            <ngx-mat-select-search [formControl]="studentFilterCtrl"
+                                                [placeholderLabel]="'Search...'"
+                                                [noEntriesFoundLabel]="'no matching data found'"
+                                                (keyup)="enteredStudent($event)"></ngx-mat-select-search>
+                                            <mat-option [value]="0">All</mat-option>
+                                            <mat-option *ngFor="let std of filteredStudents | async"
+                                                [value]="std.hallticketNumber">{{std.hallticketNumber}}<span
+                                                    class="rol-no"
+                                                    *ngIf="std.firstName != null">({{std.firstName}})</span></mat-option>
+                                        </mat-select>
+                                    </mat-form-field>
+                                    <!-- <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="14" fxFlex.gt-md="14">
+                                        <mat-checkbox name="isActive" (click)="selectedFlag()"  formControlName="isReevaluation">Is Re-Evaluation</mat-checkbox>
+                                    </section> -->
+                                    <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100"
+                                        fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                        <button mat-raised-button class="add-btn" color="accent"
+                                            (click)="getDetails()">Get
+                                            Report</button>
+                                    </div>
+                                    <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100"
+                                        fxFlex.gt-xs="5" fxFlex.gt-md="5">
+                                        <span class="material-icons" (click)="reset()"
+                                            style="cursor: pointer;margin-top: 17px;" matTooltip="Reset">
+                                            cached
+                                        </span>
+                                    </div>
+                                </div>
+                            </form>
+                        </mat-expansion-panel>
+                        <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                        </mat-expansion-panel>
+                    </mat-accordion>
+                    <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between"
+                        *ngIf="this.tabulationRegisterList.length>0">
+                        <div fxLayout="row wrap " class="page-table-head" fxFlex="100"
+                            fxLayoutAlign="space-between center">
+                            <div fxLayoutAlign="start center" class="mod-head">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <i class="material-icons icon-align ">
+                                        ballot
+                                    </i>
+                                    <strong class="table-heads">Student Wise Grade Point Report</strong>
+                                </div>
+                            </div>
+                            <div fxLayoutAlign="end center" class="mod-head">
+                                <span style="color: blue;
+                           font-weight: 500;">
+                                    <span *ngIf="dataDetails != null && dataDetails != ''">{{dataDetails}}</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <mat-card class="pd-card table-align"
+                        *ngIf="this.tabulationRegisterList.length > 0 || this.examRegisteredStudents.length > 0">
+                        <mat-card-content>
+                            <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between"
+                                fxLayoutGap="5">
+                                <div fxFlex.gt-xs="28" fxFlex.gt-md="28" fxLayout="row" fxLayoutAlign="start center"
+                                    class="align-items">
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="exportAsExcel()">
+                                        <i class="fa fa-file-excel-o icon" aria-hidden="true"></i>Export Excel</button>
+                                    <button mat-raised-button class="add-btn ptnbtn" color="accent" (click)="Print()">
+                                        <i class="fa fa-print icon" aria-hidden="true"></i>Print Report</button>
+
+                                </div>
+
+                            </div>
+                        </mat-card-content>
+                        <div class="mat-elevation-z8" *ngIf="this.universityCode === 'SUK'">
+                            <div class="example-container ">
+                                <div *ngIf="staffForm.value.studentId != ''">
+                                    <table #excelTable>
+                                        <div fxLayout="row" id="border">
+                                            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                                <table id="table" class="mar">
+
+                                                    <tbody>
+                                                        <tr class="font-B">{{singleStudent[0]?.Slno}}
+                                                            {{singleStudent[0]?.hallticket_number}}</tr>
+                                                        <tr class="font-B">{{singleStudent[0]?.student_name}}</tr>
+                                                        <tr class="font-B">&nbsp;</tr>
+                                                        <tr class="font-B">&nbsp;</tr>
+                                                        <tr class="font-B">&nbsp;</tr>
+                                                        <tr class="font-B">&nbsp;</tr>
+                                                        <tr class="font-B">&nbsp;</tr>
+                                                        <tr class="font-B">Result : <span
+                                                                *ngIf="singleStudent[0]?.total_fail_subjects == 0">Pass</span><span
+                                                                *ngIf="singleStudent[0]?.total_fail_subjects != 0">Fail</span>
+                                                        </tr>
+                                                        <tr class="font-B">M. C. No. : {{singleStudent[0]?.m_c_number}}
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div fxLayout="column" fxFlex="10" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                                <table id="table" class="mar">
+
+                                                    <tbody>
+                                                        <tr class="font-B">
+                                                            Sub
+                                                        </tr>
+                                                        <tr class="font-B">
+                                                            Th.
+                                                        </tr>
+                                                        <!-- <tr class="font-B">
+                                                    Pr.
+                                                </tr> -->
+                                                        <tr *ngIf="singleStudent[0]?.course_code != 'DPHARM'"
+                                                            class="font-B">
+                                                            Cr.
+                                                        </tr>
+                                                        <tr *ngIf="singleStudent[0]?.course_code != 'DPHARM'"
+                                                            class="font-B">
+                                                            G . P
+                                                        </tr>
+                                                        <tr *ngIf="singleStudent[0]?.course_code != 'DPHARM'"
+                                                            class="font-B">
+                                                            C . P
+                                                        </tr>
+                                                        <tr *ngIf="singleStudent[0]?.course_code != 'DPHARM'"
+                                                            class="font-B">
+                                                            Grade
+                                                        </tr>
+                                                        <tr class="font-B">
+                                                            Tot
+                                                        </tr>
+                                                        <tr class="font-B">
+                                                            Res
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div fxLayout="column" fxFlex="70" fxFlex.gt-xs="70" fxFlex.gt-md="70">
+                                                <table id="table" class="mar">
+
+                                                    <tbody>
+                                                        <span *ngFor="let obj of singleStudent"
+                                                            style="padding: 0px 20px;">
+                                                            <tr class="font-C">{{obj.subject_code}}</tr>
+                                                            <tr class="font-C">{{obj.internal_marks}} <span>+</span>
+                                                                {{obj.external_marks_secured}} </tr>
+                                                            <tr *ngIf="obj?.course_code != 'DPHARM'" class="font-C">
+                                                                {{obj.credits}}</tr>
+                                                            <tr *ngIf="obj?.course_code != 'DPHARM'" class="font-C">
+                                                                {{obj.grade_points}}</tr>
+                                                            <tr *ngIf="obj?.course_code != 'DPHARM'" class="font-C">
+                                                                {{obj.credit_points}}</tr>
+                                                            <tr *ngIf="obj?.course_code != 'DPHARM'" class="font-C">
+                                                                {{obj.grade}}</tr>
+                                                            <tr class="font-C">{{obj.subject_total}}</tr>
+                                                            <tr class="font-C">{{obj.subject_result}}</tr>
+
+                                                        </span>
+
+
+
+
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                        </div>
+                                        <div fxLayout="row">
+                                            <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                                <table id="table" class="mar">
+                                                    <tr class="font-B">Univ Regn :
+                                                        {{singleStudent[0]?.hallticket_number}}</tr>
+                                                </table>
+                                            </div>
+                                            <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                                                <table id="table" class="mar">
+                                                    <tr class="font-B" style="text-align: left !important;">
+                                                        <span
+                                                            *ngIf="singleStudent[0]?.sgpa != null && singleStudent[0]?.sgpa != 0">
+                                                            S.G.P.A : {{singleStudent[0]?.sgpa}} &nbsp;</span>
+                                                        <span
+                                                            *ngIf="singleStudent[0]?.cgpa != null && singleStudent[0]?.cgpa != 0">
+                                                            C.G.P.A : {{singleStudent[0]?.cgpa}} &nbsp;
+                                                        </span>
+                                                        <!-- <span *ngIf="list[0]?.final_sem_total_marks != null">Total Marks : <span style="text-transform: uppercase !important;">0{{list[0]?.final_sem_total_marks}} &nbsp; {{numToWords(list[0]?.final_sem_total_marks)}}</span> 
+                                         </span> -->
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </table>
+                                </div>
+
+
+                                <div *ngIf="staffForm.value.studentId == ''">
+                                    <table #excelTable>
+                                        <div *ngFor="let list of mainList">
+                                            <div class="sem-table" *ngFor="let sem of list.semList" id="border">
+                                                <table calss="table-print">
+                                                    <div fxLayout="row">
+                                                        <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20"
+                                                            fxFlex.gt-md="20">
+                                                            <table id="table" class="table-print" class="mar">
+
+                                                                <tbody>
+                                                                    <tr class="font-B">{{list[0]?.Slno}}
+                                                                        {{list[0]?.hallticket_number}}</tr>
+                                                                    <tr class="font-B">{{list[0]?.student_name}}</tr>
+                                                                    <tr class="font-B">&nbsp;</tr>
+                                                                    <!-- <tr  class="font-B"  >&nbsp;</tr> -->
+                                                                    <tr class="font-B">&nbsp;</tr>
+                                                                    <tr class="font-B">&nbsp;</tr>
+                                                                    <tr class="font-B">&nbsp;</tr>
+                                                                    <tr class="font-B">Result : <span
+                                                                            *ngIf="list[0]?.total_fail_subjects == 0">Pass</span><span
+                                                                            *ngIf="list[0]?.total_fail_subjects != 0">Fail</span>
+                                                                    </tr>
+                                                                    <tr class="font-B">M. C. No. :
+                                                                        {{list[0]?.m_c_number}}</tr>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                        <div fxLayout="column" fxFlex="10" fxFlex.gt-xs="10"
+                                                            fxFlex.gt-md="10" class="print-section">
+                                                            <table id="table" class="table-print" class="mar">
+
+                                                                <tbody>
+                                                                    <tr class="font-B">
+                                                                        Course
+                                                                    </tr>
+                                                                    <tr class="font-B">
+                                                                        Th.
+                                                                    </tr>
+                                                                    <!-- <tr class="font-B">
+                                                Pr.
+                                            </tr> -->
+                                                                    <tr class="font-B"
+                                                                        *ngIf="list[0]?.course_code != 'DPHARM'">
+                                                                        Cr.
+                                                                    </tr>
+                                                                    <tr class="font-B"
+                                                                        *ngIf="list[0]?.course_code != 'DPHARM'">
+                                                                        G . P
+                                                                    </tr>
+                                                                    <tr class="font-B"
+                                                                        *ngIf="list[0]?.course_code != 'DPHARM'">
+                                                                        C . P
+                                                                    </tr>
+                                                                    <tr class="font-B"
+                                                                        *ngIf="list[0]?.course_code != 'DPHARM'">
+                                                                        Grade
+                                                                    </tr>
+                                                                    <tr class="font-B">
+                                                                        Tot
+                                                                    </tr>
+                                                                    <tr class="font-B">
+                                                                        Res
+                                                                    </tr>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                        <div fxLayout="column" fxFlex="70" fxFlex.gt-xs="70"
+                                                            fxFlex.gt-md="70">
+                                                            <table id="table" class="table-print" class="mar">
+                                                                <tbody *ngIf="list[0]?.course_code != 'DPHARM'">
+                                                                    <span
+                                                                        *ngFor="let obj of sem | filter:searchText; let i=index"
+                                                                        style="padding: 0px 15px;">
+                                                                        <tr class="font-C">{{obj.subject_code}}</tr>
+                                                                        <tr class="font-C">{{obj.internal_marks}}
+                                                                            <span>+</span>
+                                                                            {{obj.external_marks_secured}}<span
+                                                                                *ngIf="obj.grace_marks != null && obj.grace_marks != 0">
+                                                                                +
+                                                                                {{obj.grace_marks}}<sup>*</sup></span>
+                                                                        </tr>
+                                                                        <!-- <tr class="font-C">&nbsp; </tr> -->
+                                                                        <tr class="font-C">{{obj.credits}}</tr>
+                                                                        <tr class="font-C">{{obj.grade_points}}</tr>
+                                                                        <tr class="font-C">{{obj.credit_points}}</tr>
+                                                                        <tr class="font-C">{{obj.grade}}</tr>
+                                                                        <tr class="font-C">{{obj.subject_total}}</tr>
+                                                                        <tr class="font-C">{{obj.subject_result}}</tr>
+                                                                    </span>
+                                                                </tbody>
+                                                                <tbody *ngIf="list[0]?.course_code == 'DPHARM'">
+                                                                    <span
+                                                                        *ngFor="let obj of sem | filter:searchText; let i=index"
+                                                                        style="padding: 0px 15px;">
+                                                                        <tr class="font-C">{{obj.subject_code}}</tr>
+                                                                        <tr class="font-C">{{obj.internal_marks}}
+                                                                            <span>+</span>
+                                                                            {{obj.external_marks_secured}}<span
+                                                                                *ngIf="obj.grace_marks != null && obj.grace_marks != 0">
+                                                                                +
+                                                                                {{obj.grace_marks}}<sup>*</sup></span>
+                                                                        </tr>
+                                                                        <!-- <tr class="font-C">&nbsp; </tr> -->
+                                                                        <tr class="font-C">{{obj.subject_total}}</tr>
+                                                                        <tr class="font-C">{{obj.subject_result}}</tr>
+                                                                    </span>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+
+                                                    </div>
+                                                    <div fxLayout="row" style="margin-top: -11px !important;">
+                                                        <div fxLayout="column" fxFlex="20" fxFlex.gt-xs="20"
+                                                            fxFlex.gt-md="20">
+                                                            <table id="table" class="mar">
+                                                                <tr class="font-B">USN : {{list[0].hallticket_number}}
+                                                                </tr>
+                                                            </table>
+                                                        </div>
+                                                        <div fxLayout="column" fxFlex="80" fxFlex.gt-xs="80"
+                                                            fxFlex.gt-md="80">
+                                                            <table id="table" class="mar">
+                                                                <tr class="font-B" style="text-align: left !important;">
+                                                                    <span
+                                                                        *ngIf="list[0].sgpa != null && list[0].sgpa != 0">
+                                                                        S.G.P.A : {{list[0].sgpa}} &nbsp;</span>
+                                                                    <span
+                                                                        *ngIf="list[0].cgpa != null && list[0].cgpa != 0">
+                                                                        C.G.P.A: {{list[0].cgpa}} &nbsp;</span>
+                                                                    <span
+                                                                        *ngIf="list[0].final_sem_total_marks != null">Total
+                                                                        Marks : <span
+                                                                            style="text-transform: uppercase !important;">{{list[0].final_sem_total_marks}}
+                                                                            &nbsp;
+                                                                            {{numToWords(list[0].final_sem_total_marks)}}</span>
+                                                                    </span> &nbsp; <span
+                                                                        *ngIf="list[0].final_sem_percentage != null ">
+                                                                        Percentage :
+                                                                        {{list[0].final_sem_percentage}}%</span>
+                                                                </tr>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </table>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <div class="mat-elevation-z8" *ngIf="this.universityCode !== 'SUK'" #excelTable>
+                            <div class="example-container">
+                                <strong style="display: none !important;"> Student Wise Grade Point Report
+                                    -{{dataDetails}} </strong>
+                                <table id="table" class="mar">
+                                    <thead>
+                                        <tr>
+                                            <th class="table-th" rowspan="2">ROLL NO</th>
+                                            <th class="table-th" colspan="2" *ngFor="let subj of subjectCodes">
+                                                {{ subj.subject_code }}
+                                            </th>
+                                            <th class="table-th" rowspan="2">SGPA</th>
+                                            <th class="table-th" rowspan="2">Fail Count</th>
+                                            <th class="table-th" style="width:15% important"
+                                             rowspan="2">Failed Subjects</th>
+                                        </tr>
+                                        <tr>
+                                            <ng-container *ngFor="let subj of subjectCodes">
+                                                <th class="table-th">Points</th>
+                                                <th class="table-th">Grade</th>
+                                            </ng-container>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        <tr *ngFor="let list of mainList">
+                                            <!-- Roll number -->
+                                            <td class="table-td">{{ list[0]?.hallticket_number }}</td>
+
+                                            <!-- Subject-wise points and grade -->
+                                            <ng-container *ngFor="let subj of subjectCodes">
+                                                <td class="table-td">
+                                                    {{ findMarks(list, subj.subject_code, 'grade_points') }}
+                                                </td>
+                                                <td class="table-td">
+                                                    {{ findMarks(list, subj.subject_code, 'grade') }}
+                                                </td>
+                                            </ng-container>
+
+                                            <!-- SGPA, Fail Count, Failed Subjects -->
+                                            <td class="table-td">{{ list[0]?.sgpa }}</td>
+                                            <td class="table-td">{{ list[0]?.total_fail_subjects }}</td>
+                                            <td class="table-td">{{ list[0]?.failed_subjects }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+
+                            </div>
+                            <div *ngIf="examSubjectStats && examSubjectStats.length > 0"
+                                style="display:none !important;margin-top: 30px;">
+                                <h3 style="text-align: center; margin-bottom: 10px;">Subject Wise Analysis</h3>
+
+                                <table class="subject-table-refined">
+                                    <thead>
+                                        <tr>
+                                            <th>Subject Name</th>
+                                            <th>Total<br> Failures</th>
+                                            <th>Pass %</th>
+                                            <th>Absent</th>
+                                            <th>B/w75%-100%<br>(10pts-8pts)</th>
+                                            <th>B/w60%-75%<br>(7pts-6pts)</th>
+                                            <th>B/w40%-60%<br>(5pts-4pts)</th>
+                                            <th>
+                                                &lt;40%(Less<br>than4pts)
+                                            </th>
+
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        <tr *ngFor="let list of examSubjectStats">
+                                            <td>{{ list['subject_name'] }}</td>
+                                            <td>{{ list['TotalFailures'] }}</td>
+                                            <td>{{ list['Pass%age'] }}%</td>
+                                            <td>{{ list['Absent'] }}</td>
+                                            <td>{{ list['B/w75%-100%(10pts-8pts)'] }}</td>
+                                            <td>{{ list['B/w60%-75%(7pts-6pts)'] }}</td>
+                                            <td>{{ list['B/w40%-60%(5pts-4pts)'] }}</td>
+                                            <td>{{ list['<40%(Lessthan4pts)'] }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </mat-card>
+                    <!-- / CONTENT -->
+
+                </div>
+            </div>
+        </div>
+    </div>
+  <div id="printSection" *ngIf="isPrintMode" style="width:98% !important">
+
+  <!-- HEADER -->
+  <div class="print-header-container">
+
+    <!-- LOGO SIDE -->
+    <div class="logo-container">
+      <img class="portraitLogo" 
+           [src]="Logo ? Logo : 'assets/images/avatars/default_logo.png'">
+    </div>
+
+    <!-- TEXT CENTER -->
+    <div class="text-section">
+      <p class="collegeName">{{ collegeName }}</p>
+      <p class="title">Student wise grade point report</p>
+      <p class="details">{{ exam }}</p>
+    </div>
+
+  </div>
+
+  <!-- Branch Row -->
+  <p class="branch-text">Branch : {{ courseGroupCode }}</p>
+
+  <!-- MAIN TABLE -->
+  <table class="subject-table-refined">
+    <thead>
+      <tr>
+        <th rowspan="2">Roll No</th>
+        <th colspan="2" *ngFor="let data of subjectCodes">
+          {{ data?.subject_code }}
+        </th>
+        <th rowspan="2">SGPA</th>
+        <th rowspan="2">Fail Count</th>
+        <th rowspan="2">Failed Subjects</th>
+      </tr>
+      <tr>
+        <ng-container *ngFor="let data of subjectCodes">
+          <th>Points</th>
+          <th>Grade</th>
+        </ng-container>
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr *ngFor="let list of mainList">
+        <td>{{ list[0]?.hallticket_number }}</td>
+
+        <ng-container *ngFor="let subject of subjectCodes">
+          <td>{{ findMarks(list, subject.subject_code, 'grade_points') }}</td>
+          <td>{{ findMarks(list, subject.subject_code, 'grade') }}</td>
+        </ng-container>
+
+        <td>{{ list[0]?.sgpa }}</td>
+        <td>{{ list[0]?.total_fail_subjects }}</td>
+        <td>{{ list[0]?.failed_subjects }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- SUBJECT WISE ANALYSIS TABLE -->
+ <div *ngIf="examSubjectStats?.length > 0" class="analysis-section">
+  <h3 class="analysis-title">Subject Wise Analysis</h3>
+
+  <table class="subject-table-refined">
+    <thead>
+      <tr>
+        <th>Subject Name</th>
+        <th>Total Failures</th>
+        <th>Pass %</th>
+        <th>Absent</th>
+        <th>75% - 100%</th>
+        <th>60% - 75%</th>
+        <th>40% - 60%</th>
+        <th>&lt; 40%</th> <!-- ✅ Fixed invalid HTML symbol -->
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let list of examSubjectStats">
+        <td>{{ list['subject_name'] }}</td>
+        <td>{{ list['TotalFailures'] }}</td>
+        <td>{{ list['Pass%age'] }}%</td>
+        <td>{{ list['Absent'] }}</td>
+        <td>{{ list['B/w75%-100%(10pts-8pts)'] }}</td>
+        <td>{{ list['B/w60%-75%(7pts-6pts)'] }}</td>
+        <td>{{ list['B/w40%-60%(5pts-4pts)'] }}</td>
+        <td>{{ list['<40%(Lessthan4pts)'] }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+
+</div>

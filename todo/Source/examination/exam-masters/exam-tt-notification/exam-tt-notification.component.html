@@ -1,0 +1,341 @@
+<div id="dashboard" class="page-layout simple" id="printNone">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Master</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Timetable Notification</span>
+                </div>
+            </div>
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads">Exam Timetable</strong>
+                                    <span *ngIf="dataSecStaff || dataSECPrincipal" style="font-weight: 550;
+                                                    margin-left: 7px;
+                                                    font-size: 16px;">For : {{data}}</span>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="staffForm" [formGroup]="staffForm" novalidate>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                <mat-select placeholder="Faculty" name="collegeId"  [disabled]="dataSECPrincipal" formControlName="collegeId" (selectionChange)="selectedCollege(staffForm.value.collegeId)" required>
+                                    <mat-option *ngFor="let college of colleges" [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                <mat-select placeholder="Program" name="courseId" [disabled]="dataSecStaff" formControlName="courseId" (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                    <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                <mat-select placeholder="Exam Year" name="academicYearId" [disabled]="dataSecStaff" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)" required>
+                                    <mat-option *ngFor="let academicYear of academicYears" [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="55" fxFlex.gt-md="55">
+                                <mat-select placeholder="Exam Master" name="examId" formControlName="examId" (selectionChange)="selectedExam()" required>
+                                    <ngx-mat-select-search [formControl]="ExamMasterFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" (keyup)="searchexam($event.target.value)"></ngx-mat-select-search>    
+                                    <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id" matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})"
+                                    >
+                                    <!-- {{exam.examName}} ({{exam.fromDate | date:dateFormate}} - {{exam.toDate | date:dateFormate}})
+                                        <span *ngIf="exam.isInternalExam"
+                                            style="color: #0014ff;font-weight: 500;" matTooltip='Internal'>(Internal)</span>
+                                        <span *ngIf="exam.isRegularExam"
+                                            style="color: #0014ff;font-weight: 500;" matTooltip="Regular">(Regular)</span>
+                                        <span *ngIf="exam.isSupplyExam"
+                                            style="color: #0014ff;font-weight: 500;" matTooltip="Supple">(Supple)</span> -->
+                                            {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})
+                                    <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;"  matTooltip='Internal'>(Internal)</span>
+                                    <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;" matTooltip="Regular">(Regular)</span>
+                                    <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;" matTooltip="Supple">(Supple)</span>
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                <mat-select placeholder="Program Year" name="courseYearId" formControlName="courseYearId" required (selectionChange)="selectedCourseYear()" >
+                                    <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.fk_course_year_id">{{courseYear.course_year_name}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13">
+                                <button mat-raised-button class="add-btn" color="accent" (click)="getDetails()">Get List</button>
+                            </div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                </mat-expansion-panel>
+            </mat-accordion>
+
+            
+            <div class="header pd-pag2" fxLayout="column" fxLayoutAlign="space-between" *ngIf="flag">
+
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <i class="material-icons icon-align ">
+                            ballot
+                            </i>
+                            <small class="table-heads">{{collegeCode}} / {{courseCode}} / {{academicYear}} / {{courseYear}} - (
+                                {{examDetails.exam_name}} ({{examDetails.from_date | date:dateFormate}} - {{examDetails.to_date | date:dateFormate}})
+                                            <span *ngIf="examDetails.is_internal_exam"
+                                                style="color: #0014ff;font-weight: 500;">[Internal]</span>
+                                            <span *ngIf="examDetails.is_regular_exam"
+                                                style="color: #0014ff;font-weight: 500;">[Regular]</span>
+                                            <span *ngIf="examDetails.is_supply_exam"
+                                                style="color: #0014ff;font-weight: 500;" >[Supple]</span>) </small>
+                                                <span style="margin-left: 338px;">
+                                                    <button class="btn-save" mat-raised-button color="accent" (click)="print()">
+                                                        Print </button> 
+                                                        <button style="margin-left: 10px;" class="btn-save" mat-raised-button color="accent" (click)="addNotification()">
+                                                           Send Notification </button>
+                                                </span>
+                    </div>
+                </div>
+
+            </div>
+
+
+
+
+
+
+
+            
+            <mat-card class="pd-card table-align" *ngIf="flag">
+                    
+                <!-- <mat-card-content>
+                    <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                          
+                        </div>
+                        <p style="color: #000;"><span style="background: #99deff;
+                            padding: 0 3px;border: 1px solid #bbbbbb;">M</span> MORNING
+                            <span style="background: #fff258;
+                            padding: 0 3px;border: 1px solid #bbbbbb;">A</span> AFTERNOON</p>
+                    </div>
+                </mat-card-content> -->
+
+                <div class="mat-elevation-z8">
+                    <div class="example-container ">
+                        <table  class="mar" style="width: 100% !important;">
+                            <thead>
+                                <!-- <tr>
+                                    <th class="table-th" colspan="6">
+                                    {{examDetails.exam_name}} ({{examDetails.from_date | date:dateFormate}} - {{examDetails.to_date | date:dateFormate}})
+                                    </th>
+                                </tr> -->
+                                   
+                                <tr>
+                                    <th style="width: 10%;" class="table-th" >SL.No</th>
+                                    <th style="width: 10%;" class="table-th">Date</th>
+                                        <th style="width: 10%;" class="table-th">SL.NO</th>
+                                        <th style="width: 20%;" class="table-th">Course</th>
+                                        <th style="width: 40%;" class="table-th">Subject</th>
+                                        <th style="width: 10%;" class="table-th">Subject Code</th>
+                                  
+                                     
+                        
+                                </tr>
+                        
+                            </thead>
+                            <tbody>
+                             
+                                <tr *ngFor="let dt of examDateList; let i=index">
+                                    <td style="width: 10%;" class="table-td">{{i+1}}</td>
+                                        <td style="width: 10%;" class="table-td">
+                                        {{dt.exam_date | date:'dd MMM, y'}}
+                                   
+                                         </td>
+                                         <!-- <td class="table-td">  <p style="margin: 0;
+                                            color: blue;">{{dt.groups.group_code}}</p>  </td> -->
+
+                                        <td colspan="4" style="border:none !important;">
+                                            <table id="table1" style=" margin: -1px !important;" >
+                                                <tr *ngFor="let gr of dt.groups; let i=index" style="width: 100% !important;">
+                                                    <td style="width: 10%;" class="table-td">{{i+1}}</td>
+                                    <td style="width: 20%;" class="table-td">  <p style="margin: 0;
+                                        color: blue;">{{gr.course_code}}-{{gr.group_code}}</p>  </td>
+                                          <td style="width: 40%;" class="table-td">  <p style="margin: 0;
+                                            color: blue;">{{gr.subject_name}}</p>  </td>
+                                             <td style="width: 10%;" class="table-td">  <p style="margin: 0;
+                                                color: blue;">{{gr.subject_code}}</p>  </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+<!-- 
+                                         <section >
+                                    <td style="width: 10%;" class="table-td">{{i+1}}</td>
+                                    <td style="width: 20%;" class="table-td">  <p style="margin: 0;
+                                        color: blue;">{{gr.group_code}}</p>  </td>
+                                          <td style="width: 40%;" class="table-td">  <p style="margin: 0;
+                                            color: blue;">{{gr.subject_name}}</p>  </td>
+                                             <td style="width: 10%;" class="table-td">  <p style="margin: 0;
+                                                color: blue;">{{gr.subject_code}}</p>  </td>
+                                </section> -->
+                                </tr>
+                        
+                            </tbody>
+                        </table>
+
+                          
+                    </div>
+                    <!-- <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator> -->
+                </div>
+              
+            </mat-card>
+            <!-- / CONTENT -->
+        
+    </div>
+</div>
+</div>
+
+<div style="width:100% !important; background-color: white !important;">
+ 
+    <div fxLayout="row" style="border: 1px solid ;">
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+          <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo != null" class="imgdiv">
+            <img [src]="Logo" class="img-logo">
+          </div>
+          <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo == null" class="imgdiv">
+            <img src="assets/images/avatars/default_logo.png" class="img-logo">
+          </div>
+          <div fxLayout="column" fxFlex="85" fxFlex.gt-xs="85" fxFlex.gt-md="85">
+            <p
+              style=" font-size: 26px; margin-top: 5px ; margin-bottom: -14px;font-weight: 800; font-family: none; color: rgb(0, 0, 0); text-transform: uppercase !important;">
+              {{collegeName}} </p>
+           
+            <p style="font-size: 15px;font-family: none;  margin-bottom: -14px; color: rgb(0, 0, 0);">{{collegeAddress}} </p>
+            <p style=" font-size: 20px; font-family: none; font-weight: 700;  margin-bottom: -7px;" > EXAM TIME TABLE NOTIFICATION </p>
+
+          </div>
+        </div>
+      </div>
+      <div fxLayout="row">
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content: center;">
+          <table id="sig-table" >
+           
+            <tr>
+              <th style="text-align: center; font-family: none !important;"></th>
+              <th style="text-align: center; font-family: none !important;">Email:Sukcexam@gmail.com</th>
+              <th style="text-align: center; font-family: none !important;">Registrar(Evaluation)</th>
+        
+            </tr>
+        
+          </table>
+        </div>
+        </div>
+    <table  class="mar" id="Ptable1" style="width: 100% !important;">
+        <thead>
+            <tr >
+                <th class="table-th" colspan="6" style="margin: 5px !important; background: #e8be8c !important;">
+             <span style="color: red !important;" >FINAL-TIMETABLE</span>  &nbsp; &nbsp;  {{examDetails.exam_name}}
+                </th>
+            </tr>
+               
+            <tr>
+                <th style="width: 5%; background: none !important;" class="table-th" >Sl.No.</th>
+                <th style="width: 15%; background: none !important;" class="table-th">Date</th>
+                    <th style="width: 7%; background: none !important;" class="table-th">Sl No</th>
+                    <th style="width:20%; background: none !important;" class="table-th">Course</th>
+                    <th style="width: 38%; background: none !important;" class="table-th">Subject</th>
+                    <th style="width: 15%; background: none !important;" class="table-th">Subject Code</th>
+              
+                 
+    
+            </tr>
+    
+        </thead>
+        <tbody>
+         
+            <tr *ngFor="let dt of examDateList; let i=index">
+                <td style="width: 5%;">{{i+1}}</td>
+                    <td style="width: 15%; border-right: none !important; ">
+                    {{dt.exam_date | date:'dd MMM, y'}}
+               
+                     </td>
+                   
+                    <td colspan="4" style="border:none !important;">
+
+
+
+
+                        <table id="Ptable2" style=" margin: -1px !important; width: 100% !important;">
+                            <tr *ngFor="let gr of dt.groups; let i=index" style="width: 100% !important;">
+                                <td style="width: 7%;">{{i+1}}</td>
+                <td style="width: 20%;" >  <p style="margin: 0px;
+                    color: rgb(0, 0, 0);">{{gr.course_code}} <br> {{gr.group_code}}</p>  </td>
+                      <td style="width: 38%;" >  <p style="margin: 0px;
+                        color: rgb(0, 0, 0);">{{gr.subject_name}}</p>  </td>
+                         <td style="width: 15%;" >  <p style="margin: 0px; border-right: none !important;
+                            color: rgb(0, 0, 0);">{{gr.subject_code}}</p>  </td>
+                            </tr>
+                        </table>
+
+
+
+                    </td>
+
+            </tr>
+    
+        </tbody>
+    </table>
+    <div fxLayout="row">
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" style="justify-content: center;">
+          <table id="sig-table" style="margin-top: 30px !important;">
+            <tr>
+              <th style="text-align: center;"></th>
+              <th style="text-align: center; " >
+                <!-- <img src="assets/ams/kiranmai-sign.png" style="height:50px; margin-bottom: -10px !important;"> -->
+              </th>
+              <th style="text-align: center; ">
+                <!-- <img src="assets/ams/jhansi-rani-sign.png" style="height:50px; margin-bottom: -15px !important;"> -->
+        
+              </th>
+            </tr>
+            <tr>
+              <th style="text-align: center; font-family: none !important;"></th>
+              <th style="text-align: center; font-family: none !important;"></th>
+              <th style="text-align: center; font-family: none !important;">Registrar(Evaluation)</th>
+        
+            </tr>
+        
+          </table>
+        </div>
+        </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+

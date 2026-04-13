@@ -1,0 +1,192 @@
+<div id="dashboard" class="page-layout simple">
+    <div class="center" fusePerfectScrollbar>
+  
+        <!-- HEADER -->
+        <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+  
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Pre Examination</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Create Question Paper Marks</span>
+                </div>
+            </div>
+        </div>
+         <!-- HEADER -->
+        <div class="content">
+
+        <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+            <mat-expansion-panel [expanded]="true" hideToggle style="margin: 0px 25px;">
+                <mat-expansion-panel-header>
+                    <mat-panel-title>
+                        <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                <mat-icon class="fs  icon-align ">book</mat-icon>
+                                <span class="sub-header-text" style="margin-left: 30px;"> Manage Questions 
+                                </span><span style="color: blue; font-size: 13px;"><strong>&nbsp;(Question Paper: {{params.questionpaper_title}})</strong></span>
+                            </div>
+                        </div>
+                    </mat-panel-title>
+                </mat-expansion-panel-header>
+            </mat-expansion-panel>
+        </mat-accordion>
+        <!-- CONTENT -->
+        <div fxLayout="row" >
+            <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <mat-card class="pd-card table-align" >
+              <!-- <mat-card-content >
+                <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                    <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                        <label for="search" class="mr-8">
+                            <mat-icon class="secondary-text">search</mat-icon>
+                        </label>
+                        <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                            <input matInput (keyup)="applyFilter($event.target.value)" name="search" placeholder="Search">
+                        </mat-form-field>
+                    </div>
+                    <div fxFlex.gt-xs="70" fxFlex.gt-md="65" fxLayout="row">
+                    <div class="save-btn-align">
+                        <button mat-raised-button class="add-btn back-btn" (click)="goBack()">Back</button>
+                        <button mat-raised-button class="add-btn" color="accent" *ngIf=" examQuestionpapersmarks1.length > 0" (click)="questionList(examQuestionpapersmarks1)">Print Question Paper</button>
+                    </div>
+                    </div>
+                </div>
+            </mat-card-content> -->
+            <mat-card-content >
+                <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                    <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                        <label for="search" class="mr-8">
+                            <mat-icon class="secondary-text">search</mat-icon>
+                        </label>
+                        <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                            <input matInput (keyup)="applyFilter($event.target.value)" name="search" placeholder="Search">
+                        </mat-form-field>
+                    </div>
+                    <div class="save-btn">
+                        <button mat-raised-button class="back-btn" (click)="goBack()">Back</button>
+                        <!-- <button mat-raised-button class="add-btn" color="accent" *ngIf=" examQuestionpapersmarks1.length > 0" (click)="questionList(examQuestionpapersmarks1)">Print Question Paper</button>
+                <button mat-raised-button class="add-btn"  color="accent" *ngIf=" examQuestionpapersmarks1.length > 0" (click)="printQA(examQuestionpapersmarks1)">Print QA</button> -->
+
+                    </div>
+                   
+                </div>
+            </mat-card-content>
+                <div class="mat-elevation-z8">
+                    <div class="example-container">
+    <table class="qp-table">
+  <ng-container *ngFor="let section of finalformatedList">
+    <!-- Section Row -->
+    <ng-container *ngIf="section.levelno === 1">
+      <tr class="section-row">
+        <td colspan="2" class="section-title">
+          {{ section.title }}
+        </td>
+        <td class="minq-col">
+          Min: {{ section.questionsToAnswer }}
+        </td>
+        <td class="marks-col">
+          {{ section.totalMarks }}
+        </td>
+      </tr>
+
+      <!-- Section description -->
+      <tr *ngIf="section.displaydowntext">
+        <td colspan="4" class="display-text">
+          {{ section.displaydowntext }}
+        </td>
+      </tr>
+
+      <!-- Groups inside section -->
+      <ng-container *ngFor="let group of finalformatedList">
+        <ng-container *ngIf="group.parentBlockId === section.blockId">
+          <tr class="group-row">
+            <td class="indent"></td>
+            <td class="group-title">
+              {{ group.title }}
+            </td>
+            <td class="minq-col">
+              Min: {{ group.questionsToAnswer }}
+            </td>
+            <td class="marks-col">
+              {{ group.totalMarks }}
+            </td>
+          </tr>
+
+          <!-- Group description -->
+          <tr *ngIf="group.displaydowntext">
+            <td colspan="4" class="display-text">
+              {{ group.displaydowntext }}
+            </td>
+          </tr>
+
+          <!-- Questions -->
+          <ng-container *ngFor="let q of group.questions; let i = index">
+            <tr class="question-row">
+              <td class="indent"></td>
+              <td class="question-title">
+                <strong>
+                  <span *ngIf="q.questionCode !== null"> {{q.questionCode}} </span>
+                  <span *ngIf="q.subquestionCode !== null"> {{q.subquestionCode}} </span>
+                  <!-- {{ q.questionNumber }} -->
+                </strong>
+                   : 
+                <span [innerHTML]="q.question"></span>
+
+
+                  <!-- Action Icons -->
+     
+              </td>
+              <td class="minq-col">
+                 <span class="question-actions">
+        <button mat-icon-button color="primary" (click)="editQuestion(q)">
+          <mat-icon>edit</mat-icon>
+        </button>
+        <!-- <button mat-icon-button color="warn" (click)="deleteQuestion(q)">
+          <mat-icon>delete</mat-icon>
+        </button> -->
+      </span>
+              </td>
+              <td class="marks-col">
+                {{ q.questionMarks  }}
+              </td>
+            </tr>
+          </ng-container>
+
+          <!-- Add Question Button -->
+          <tr>
+            <td class="indent"></td>
+            <td colspan="3">
+              <button mat-raised-button color="primary" (click)="questionBank(group)">
+                <i class="material-icons">add</i> QB
+              </button>
+            </td>
+          </tr>
+        </ng-container>
+      </ng-container>
+    </ng-container>
+  </ng-container>
+   <tr class="final-total-row">
+    <td colspan="3" class="final-total-label" >Final Total Marks</td>
+    <td class="final-total-value">{{ totalMarks }}</td>
+  </tr>
+</table>
+
+
+                    </div>
+                </div>
+            </mat-card>
+            <!-- <div class="save-btn-align">
+                <button mat-raised-button class="back-btn" (click)="goBack()">Back</button>
+                <button mat-raised-button class="add-btn" color="accent" *ngIf=" examQuestionpapersmarks1.length > 0" (click)="questionList(examQuestionpapersmarks1)">Print Question Paper</button>
+                <button mat-raised-button class="add-btn"  color="accent" *ngIf=" examQuestionpapersmarks1.length > 0" (click)="printQA(examQuestionpapersmarks1)">Print QA</button>
+
+            </div> -->
+        </div>
+</div>
+    </div>
+</div>
+</div>

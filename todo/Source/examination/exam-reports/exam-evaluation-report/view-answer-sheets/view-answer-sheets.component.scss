@@ -1,0 +1,254 @@
+.example-container {
+  width: 100%;
+  overflow: overlay;
+  padding-bottom: 15px !important;
+}
+
+table#PivotView_grid_content_table {
+  width: 100% !important;
+}
+table.e-table {
+  width: 100% !important;
+}
+
+.pd-page {
+  padding: 12px 24px 0px 24px !important;
+}
+.mar{
+  margin: 0px 0;
+}
+.table-td {
+  padding: 6px 6px !important;
+  text-align: left;
+  font-weight: 500;
+}
+
+p{
+  margin: 5px 0px;
+  color: #c76d2f;
+}
+.table-th{
+  padding: 5px 5px !important;
+  background: #C3D9FF;
+  font-weight: 500;
+}
+
+.txt-uppercase{
+  text-transform: uppercase;
+}
+table {
+  border-spacing: 1px !important;
+}
+
+
+@media print {
+  #printNone {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .print-section {
+    display: block;
+  }
+
+  header nav,
+  footer {
+    display: none;
+  }
+
+  #table-print {
+    // border-collapse: collapse;
+    width: 100%;
+  }
+
+  table,
+  th,
+  td {
+    padding: 8px;
+  }
+
+  th {
+    background-color: #f2f2f2;
+  }
+
+  table {
+    page-break-inside: auto;
+    // border-collapse: collapse !important;
+    border: black !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  header nav,
+  footer {
+    display: none;
+  }
+
+  .collegeName {
+    text-align: center !important;
+    font-size: 20px !important;
+    margin-top: 1% !important;
+    margin-bottom: -10px !important;
+    font-family: none !important;
+    color: rgb(0, 0, 0) !important;
+    font-weight: 550 !important;
+  }
+
+  .title {
+    text-align: center !important;
+    font-size: 16px !important;
+    font-family: none !important;
+    color: rgb(0, 0, 0) !important;
+    font-weight: 500 !important;
+
+  }
+
+  .header {
+    justify-content: center !important;
+
+    p {
+      text-align: center !important;
+    }
+  }
+
+  .table-td {
+    padding: 8px 8px !important;
+    text-align: left !important;
+    font-weight: 500;
+  }
+
+  .clglogo {
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+}
+
+.search-align {
+  margin: -0.9% !important;
+}
+
+.portraitLogo {
+  height: 80%;
+  width: 80%;
+}
+
+.firstborder {
+  border-collapse: collapse;
+  // border-style: solid !important;
+  // border-width: 4px !important;
+  // border-color: rgb(250, 19, 19) !important;
+  // height: 1060px !important;
+  // max-height: 1060px !important;
+}
+
+.faculty-details {
+  margin-top: 10px !important;
+  max-width: 99% !important;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center !important;
+
+  #details-table {
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    border: 1px solid #000 !important;
+  }
+}
+
+.courses-details {
+  margin-top: 10px !important;
+  max-width: 99% !important;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center !important;
+
+  #details-table {
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    border: 1px solid #000 !important;
+  }
+
+  .course-table {
+    margin-top: 10px !important;
+    width: 70%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    border: 1px solid #000 !important;
+  }
+
+  .course-table th,
+  .course-table td {
+    border: 1px solid #000 !important;
+    padding: 2px !important;
+    text-align: center !important;
+    font-size: 12px !important;
+  }
+}
+
+.p-tag {
+  font-size: 10px !important;
+  margin-bottom: -8px !important;
+  text-align: center !important;
+}
+
+
+
+
+.signatures-2 {
+  display: flex;
+  justify-content: space-between;
+  margin: 60px 0px;
+}
+
+.signature-1 {
+  width: 30%;
+  text-align: center;
+}
+
+.issue-date {
+  text-align: left;
+  // margin-left: 8px !important;
+
+}
+
+
+#line {
+  float: left;
+  width: 731px;
+  height: 10px;
+  margin-top: 10px !important;
+  color: #000000 !important;
+  background-color: #000000 !important;
+}
+.buttonadd{
+  justify-content: end;
+  display: flex;
+}
+.Pd-Page {
+  padding: 1px 24px 0px 24px;
+}
+.hover {
+cursor: pointer;
+text-align: center !important;
+}
+
+.icon {
+color: aliceblue !important;
+padding: 4px;
+}
+.back-btn{
+right: 23px !important;
+position: absolute !important;
+}

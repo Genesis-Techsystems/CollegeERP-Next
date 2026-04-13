@@ -1,0 +1,70 @@
+
+<div id="admission-dashboard" class="page-layout simple">
+
+  <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+
+      <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+          <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+              <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+              <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+              <span class="secondary-text">Patym Request</span>
+             
+          </div>
+      </div>
+
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content pd-card mt-15">
+
+      <div class="mat-elevation-z8 bkgrd">
+          <form name="firstFormGroup" [formGroup]="firstFormGroup" class="form-pad"  novalidate>
+              <!-- <form #form ngNoForm method="post" action="https://securegw-stage.paytm.in/order/process"> -->
+
+              <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                  <i class="material-icons sub-header-icon">computer</i>
+                  <span class="sub-header-text"> Welcome to Paytm</span>
+              </div>
+              <div fxLayout="column" style="margin-top: 10px" class="mb-15 inner-bkgrd">
+                  <div fxLayout="row wrap " fxFlex="100" >
+                      <mat-form-field fxLayout="column" class="p-8" fxFlex="100" >
+                          <input matInput placeholder="Order Id" formControlName="ORDER_ID" >
+                      </mat-form-field>
+                      <mat-form-field fxLayout="column" class="p-8" fxFlex="100" >
+                          <input matInput placeholder="Customer Id" formControlName="CUST_ID" >
+                      </mat-form-field>
+                      <mat-form-field fxLayout="column" class="p-8" fxFlex="100" >
+                          <input matInput placeholder="Industry Type Id" formControlName="INDUSTRY_TYPE_ID" >
+                      </mat-form-field>
+                      <mat-form-field fxLayout="column" class="p-8" fxFlex="100" >
+                          <input matInput placeholder="Channel Id" formControlName="CHANNEL_ID" >
+                      </mat-form-field>
+                      <mat-form-field fxLayout="column" class="p-8" fxFlex="100" >
+                          <input matInput placeholder="Tax Amount" type="number" formControlName="TXN_AMOUNT" >
+                      </mat-form-field> 
+                 
+                      <!-- <input type="text" placeholder="Order Id" name="ORDER_ID" value="chandra">
+                      <input type="text" hidden placeholder="CHECKSUMHASH" name="CHECKSUMHASH" value="hBiccSpymYNCsGsrxaaRKngWagISKpl3Fbu1WUxKgIg0FPxYEJCG5WyUJKMkdo7/yBURNeKZj+lYHeE6R31CL5aL1HP4ZVr14swZW8KDe80=">
+                      <input type="text" hidden placeholder="MID" name="MID" value="uQseCO78947802247219">
+                      <input type="text" hidden placeholder="WEBSITE" name="WEBSITE" value="WEBSTAGING">
+                      <input type="text" hidden placeholder="MOBILE_NO" name="MOBILE_NO" value="9014839982">
+                      <input type="text" hidden placeholder="EMAIL Id" name="EMAIL" value="chilupoorishyam@gmail.com">
+                      <input type="text" hidden placeholder="CALLBACK_URL " name="CALLBACK_URL" value="http://localhost:8000/#/examination-management/pre-examination/exam-dashboard">
+                      <input type="text" placeholder="Customer Id" name="CUST_ID" value="124">
+                      <input type="text" placeholder="Industry Type Id" name="INDUSTRY_TYPE_ID" value="Retail">
+                      <input type="text" placeholder="Channel Id" name="CHANNEL_ID" value="WEB">
+                      <input type="number" placeholder="Tax Amount" name="TXN_AMOUNT" value="2"> -->
+                  </div>
+              </div>
+              <div class="form-btn">
+                  <button mat-raised-button class="add-btn" color="accent" (click)="pay(firstFormGroup.value)" >
+                      Pay with Paytm
+                </button>
+              </div>
+          </form>
+      </div>
+
+  </div>
+  <!-- / CONTENT -->
+
+</div>

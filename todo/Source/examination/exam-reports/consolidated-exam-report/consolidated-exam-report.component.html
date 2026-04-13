@@ -1,0 +1,156 @@
+<div id="dashboard" class="page-layout simple" id="printNone">
+  <div class="center" fusePerfectScrollbar>
+
+    <!-- HEADER -->
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+      <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+           fxLayoutAlign.gt-xs="center start">
+        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+          <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Reports</span>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Exam Reports</span>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Consolidated Exam Report</span>
+        </div>
+      </div>
+    </div>
+<!-- RADIO STRIP -->
+<div class="radio-strip">
+  <div class="radio-inner">
+    <mat-radio-group
+      class="radio-group"
+      [(ngModel)]="check"
+      [ngModelOptions]="{ standalone: true }">
+
+      <mat-radio-button [value]="1" (change)="clear($event)">
+        By Course
+      </mat-radio-button>
+
+      <mat-radio-button [value]="2" (change)="clear($event)">
+        By Student
+      </mat-radio-button>
+
+    </mat-radio-group>
+  </div>
+</div>
+    <!-- / HEADER -->
+
+    <!-- CONTENT -->
+    <div class="content">
+      <mat-accordion style="margin: 0px 25px;">
+        <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <div fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="fs icon-align">book</mat-icon>
+                <strong class="table-heads">Consolidated Exam Report</strong>
+              </div>
+            </mat-panel-title>
+            <label class="filter-align">Filter</label>
+            <mat-icon>filter_list</mat-icon>
+          </mat-expansion-panel-header>
+
+          <form [formGroup]="feeFormGroup">
+
+<div fxLayout="row" fxLayoutWrap>
+
+  <!-- ================= BY COURSE MODE ================= -->
+  <ng-container *ngIf="check === 1">
+
+    <!-- College -->
+    <mat-form-field class="p-8" fxFlex.gt-xs="20">
+      <mat-select placeholder="College" formControlName="collegeId"
+                  (selectionChange)="selectedCollege(feeFormGroup.value.collegeId)">
+        <mat-option *ngFor="let college of colleges"
+                    [value]="college.fk_college_id">
+          {{ college.college_code }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Academic Year -->
+    <mat-form-field class="p-8" fxFlex.gt-xs="25">
+      <mat-select placeholder="Academic Year" formControlName="academicYearId"
+                  (selectionChange)="selectedAcademicYear(feeFormGroup.value.academicYearId)">
+        <mat-option *ngFor="let ay of academicYears"
+                    [value]="ay.fk_academic_year_id">
+          {{ ay.academic_year }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Course -->
+    <mat-form-field class="p-8" fxFlex.gt-xs="18">
+      <mat-select placeholder="Course" formControlName="courseId"
+                  (selectionChange)="selectedCourse(feeFormGroup.value.courseId)">
+        <mat-option *ngFor="let course of courses"
+                    [value]="course.fk_course_id">
+          {{ course.course_code }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Course Group -->
+    <mat-form-field class="p-8" fxFlex.gt-xs="25">
+      <mat-select placeholder="Course Group" formControlName="courseGroupId"
+                  (selectionChange)="selectedGroup(feeFormGroup.value.courseGroupId)">
+        <mat-option *ngFor="let group of courseGroups"
+                    [value]="group.fk_course_group_id">
+          {{ group.group_code }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Course Year -->
+    <mat-form-field class="p-8" fxFlex.gt-xs="25">
+      <mat-select placeholder="Course Year" formControlName="courseYearId">
+        <mat-option [value]="0">All</mat-option>
+        <mat-option *ngFor="let year of courseYears"
+                    [value]="year.fk_course_year_id">
+          {{ year.course_year_name }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+  </ng-container>
+
+  <!-- ================= BY STUDENT MODE ================= -->
+  <ng-container *ngIf="check === 2">
+
+   <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                fxFlex.gt-md="25" *ngIf="check==2">
+                                <mat-select placeholder="Student" name="studentId" formControlName="studentId"
+                                     #singleSelect (selectionChange)="selectedStd()">
+                                    <ngx-mat-select-search [formControl]="studentFilterCtrl"
+                                        [placeholderLabel]="'Search...'"
+                                        [noEntriesFoundLabel]="'no matching data found'"
+                                        (keyup)="enteredStudent($event)"></ngx-mat-select-search>
+                                    <mat-option *ngFor="let std of filteredStudents | async"
+                                        [value]="std.studentId">{{std.rollNumber}}<span class="rol-no"
+                                            *ngIf="std.firstName != null">({{std.firstName}})</span></mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+</ng-container>
+
+
+  <!-- Get Report (ALWAYS visible) -->
+     
+  <div class="p-8 get-report-wrap" fxFlex.gt-xs="20">
+  <button mat-raised-button color="accent" (click)="download()">
+    Get Report
+  </button>
+</div>
+
+
+</div>
+
+          </form>
+        </mat-expansion-panel>
+      </mat-accordion>
+    </div>
+  </div>
+</div>

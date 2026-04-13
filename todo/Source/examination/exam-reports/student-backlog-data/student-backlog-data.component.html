@@ -1,0 +1,242 @@
+<div id="dashboard" class="page-layout simple" id="printNone" *ngIf="!isPrintMode">
+  <div class="center" fusePerfectScrollbar>
+
+    <!-- HEADER -->
+    <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+      <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+        fxLayoutAlign.gt-xs="center start">
+        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+          <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Examination Management</span>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Exam Reports</span>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Student Backlog Data</span>
+        </div>
+      </div>
+
+    </div>
+    <!-- / HEADER -->
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+        <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                  <i class="fa fa-user-plus icon-align" aria-hidden="true"></i>
+                  <strong class="table-heads">Student Backlog Data</strong>
+                </div>
+              </div>
+            </mat-panel-title>
+            <label class="filter-align">Filter</label>
+            <mat-icon>filter_list</mat-icon>
+          </mat-expansion-panel-header>
+          <form name="staffForm" [formGroup]="staffForm" novalidate>
+            <div fxLayout="row" fxLayoutGap="10px">
+              <!-- College dropdown -->
+              <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40">
+                <mat-select placeholder="College" name="collegeId" formControlName="collegeId"
+                  (selectionChange)="selectedCollege(staffForm.value.collegeId)" required>
+                  <mat-option *ngFor="let college of colleges" [value]="college.fk_college_id">
+                    {{ college.college_code }}
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33"
+                *ngIf="check === 1">
+                <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                  (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                  <mat-option *ngFor="let course of courses" [value]="course.fk_course_id"
+                    matTooltip="{{course.course_name}}({{course.course_code}})">{{course.course_code}}</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <!-- Batch dropdown -->
+              <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40"
+                *ngIf="check === 1">
+                <mat-select placeholder="Batch" name="batchId" formControlName="batchId"
+                  (selectionChange)="selectedBatch(staffForm.value.batchId)" required>
+                  <mat-option *ngFor="let batches of batches" [value]="batches.fk_batch_id">
+                    {{ batches.batch_name }}
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <!-- Buttons -->
+              <div fxLayout="row" fxLayoutAlign="start center" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                <div class="savebtn-align" fxFlex="70">
+                  <button mat-raised-button class="add-btn" color="accent" (click)="getDetails()">
+                    Get Report
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          </form>
+
+        </mat-expansion-panel>
+        <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+        </mat-expansion-panel>
+      </mat-accordion>
+      <div class="header pd-pag2" fxLayout="column" fxLayoutAlign="space-between" *ngIf="this.mainList.length>0">
+
+        <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+          fxLayoutAlign.gt-xs="center start">
+          <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+            <!-- <mat-icon class="secondary-text fs icon-align">assessment</mat-icon> -->
+            <i class="fa fa-th-large icon-align" aria-hidden="true"></i>
+            <!-- <h1 class="secondary-text table-head fs-20">Blocks</h1> -->
+            <strong class="table-heads">Student Backlog Data</strong>
+          </div>
+        </div>
+
+
+      </div>
+
+      <mat-card class="pd-card table-align" *ngIf="mainList.length > 0">
+        <mat-card-content>
+          <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+            <div fxFlex.gt-xs="28" fxFlex.gt-md="28" fxLayout="row" fxLayoutAlign="start center" class="align-items">
+              <button mat-raised-button class="add-btn" color="accent" (click)="exportAsExcel()">
+                <i class="fa fa-file-excel-o icon" aria-hidden="true"></i>Export Excel</button>
+              <button mat-raised-button class="add-btn ptnbtn" color="accent" (click)="Print()">
+                <i class="fa fa-print icon" aria-hidden="true"></i>Print Report</button>
+
+            </div>
+
+          </div>
+        </mat-card-content>
+        <div class="mat-elevation-z8" *ngIf="mainList.length > 0">
+          <div class="example-container" #excelTable>
+            <table id="table" class="mar">
+              <thead>
+                <tr>
+                  <th class="table-th" rowspan="2">Sno</th>
+                  <th class="table-th" rowspan="2">Hall ticket number</th>
+                  <th class="table-th" rowspan="2">Group code</th>
+
+                  <!-- ✅ Dynamic Semester Headers -->
+                  <ng-container *ngFor="let cour of courseCodes">
+                    <th class="table-th" colspan="2">
+                      {{ cour.course_year_code }}
+                    </th>
+                  </ng-container>
+
+                  <th class="table-th" rowspan="2">Total Fail</th>
+                </tr>
+
+                <tr>
+                  <!-- ✅ Second row below each Semester -->
+                  <ng-container *ngFor="let cour of courseCodes">
+                    <th class="table-th">Count</th>
+                    <th class="table-th">Subjects</th>
+                  </ng-container>
+                </tr>
+              </thead>
+
+              <tbody>
+                <tr *ngFor="let list of mainList; let i = index">
+                  <td class="table-td">{{ i + 1 }}</td>
+                  <td class="table-td">{{ list[0]?.hallticket_number }}</td>
+                  <td class="table-td">{{ list[0]?.group_code }}</td>
+
+                  <ng-container *ngFor="let cour of courseCodes">
+                    <td class="table-td">
+                      {{ findMarks(list, cour.course_year_code, 'semester_failed_count') }}
+                    </td>
+                    <td class="table-td">
+                      {{ findMarks(list, cour.course_year_code, 'failed_subjects') }}
+                    </td>
+                  </ng-container>
+
+                  <td class="table-td">{{ list[0]?.total_failed_count }}</td>
+                </tr>
+              </tbody>
+
+
+            </table>
+
+          </div>
+
+          <mat-paginator [pageSize]="10" [pageSizeOptions]="[10, 25, 50]" showFirstLastButtons>
+          </mat-paginator>
+        </div>
+
+      </mat-card>
+
+    </div>
+  </div>
+</div>
+<div id="printSection" style="width: 98% !important;">
+
+  <!-- HEADER ROW FIXED -->
+  <div class="print-header-container">
+
+    <!-- LOGO Left -->
+    <div class="logo-container">
+      <img class="portraitLogo" [src]="Logo ? Logo : 'assets/images/avatars/default_logo.png'">
+    </div>
+
+    <!-- TEXT CENTER -->
+    <div class="text-section">
+      <p class="collegeName">{{ collegeName }}</p>
+      <p class="title">Student Backlog Data</p>
+    </div>
+
+  </div>
+
+  <!-- TABLE -->
+  <table class="subject-table-refined">
+    <thead>
+      <tr>
+        <th rowspan="2">S.No</th>
+        <th rowspan="2">Hall Ticket No</th>
+        <th rowspan="2">Group Code</th>
+
+        <!-- ✅ Dynamic Semester Headers -->
+        <ng-container *ngFor="let cour of courseCodes">
+          <th colspan="2">
+            {{ cour.course_year_code }}
+          </th>
+        </ng-container>
+
+        <th rowspan="2">Total Failed</th>
+      </tr>
+
+      <tr>
+        <!-- ✅ Count & Subjects under each semester -->
+        <ng-container *ngFor="let cour of courseCodes">
+          <th>Count</th>
+          <th>Subjects</th>
+        </ng-container>
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr *ngFor="let list of mainList; let i = index">
+        <td>{{ i + 1 }}</td>
+        <td>{{ list[0]?.hallticket_number }}</td>
+        <td>{{ list[0]?.group_code }}</td>
+
+        <!-- ✅ Dynamic Failed Data -->
+        <ng-container *ngFor="let cour of courseCodes">
+          <td>
+            {{ findMarks(list, cour.course_year_code, 'semester_failed_count') }}
+          </td>
+          <td class="failed-text">
+            {{ findMarks(list, cour.course_year_code, 'failed_subjects') }}
+          </td>
+        </ng-container>
+
+        <td>{{ list[0]?.total_failed_count }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

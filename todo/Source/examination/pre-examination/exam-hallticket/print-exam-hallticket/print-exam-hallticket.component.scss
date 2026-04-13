@@ -1,0 +1,733 @@
+
+.sheet{
+    text-align: center !important;
+}
+
+.main-card{
+    margin-left: 10px !important;
+    border-radius: 0px;
+    border-style: solid;
+    border-width: 1px;
+    border-color: #d87093;
+    margin-right: 2px !important;
+    margin-top: 20px;
+}
+
+  #table1{
+    font-family: arial, sans-serif;
+    font-size: 11px !important;
+        td{
+            border: none !important;
+            padding: 5px;
+            font-size: 14px;
+        }
+  }
+  .td1{
+    text-align: right !important;
+}
+    .printbtn{
+        display: flex;
+        justify-content: end;
+        margin: 10px;
+    }
+   
+@media print {
+  /* Hide buttons and layout elements */
+  #printPageButton,
+  header nav,
+  footer {
+    display: none !important;
+  }
+
+  /* Force clean page margins */
+  @page {
+    size: A4 portrait;
+    margin: 0 !important;     /* ⬅ removes large white gap at top */
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Fix page layout */
+  .page-align {
+    border: none !important;   /* ⬅ removes the long bottom line completely */
+    page-break-after: always !important; 
+    page-break-inside: avoid !important;
+    width: 100% !important;     /* ensures correct fit */
+    overflow: visible !important;
+  }
+}
+
+      
+     button{
+      margin-left: 15px;
+     }
+     .layout{
+      margin: auto !important;
+      margin-top: 0px !important;
+      width:990px !important;
+     }
+  
+.STDIMG{
+align-items: end;
+}
+p{
+text-align: center;
+font-weight: bold;
+margin-bottom: -10px;
+}
+.firstborder{
+    border-collapse:collapse ;
+    border-style: solid !important;
+    border-width: 2px !important;
+    border-color: #c5bec0 !important;
+    margin-bottom: 10px !important;
+    }
+    .lastborder{
+        border-collapse:collapse ;
+        border-style: solid !important;
+        border-width: 2px !important;
+        border-color: #c5bec0 !important;
+        margin-top: 5px !important;
+        }
+#table2{
+font-family: arial, sans-serif;
+font-size: 12px !important;
+border-collapse:collapse ;
+border-style: solid !important;
+border-width: 2px !important;
+border-color: #c5bec0 !important;
+
+th{
+    font-family: arial, sans-serif;
+    font-size: 12px !important;
+    border-style: solid;
+    border-style: solid !important;
+border-width: 2px !important;
+border-color: #c5bec0 !important;
+    padding: 8px !important;
+    justify-content: left;
+}
+td{
+    font-family: arial, sans-serif;
+    font-size: 12px !important;
+    border-style: solid !important;
+border-width: 2px !important;
+border-color: #c5bec0 !important;
+    padding: 8px !important;
+}
+}
+
+#table{
+    font-family: arial, sans-serif;
+    font-size: 12px !important;
+  border: none !important;
+  padding: 2px !important;
+    
+    th{
+        font-family: arial, sans-serif;
+        font-size: 12px !important;
+      border: none !important;
+        width: 20% !important;
+        text-align: right;
+    }
+    td{
+        font-family: arial, sans-serif;
+        font-size: 12px !important;
+        text-align: left !important;
+border: none !important;
+    }   
+}
+span{
+padding: 8px;
+}
+.Hallticket {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+
+.admit-card {
+    max-width: 800px;
+    margin: 0 auto;
+    // padding: 20px;
+    font-family: Arial, sans-serif;
+  }
+  
+  h2 {
+    text-align: center;
+    // text-transform: uppercase;
+    // margin-bottom: 40px;
+    font-weight: bold !important;
+    font-size: 20px !important;
+  }
+  
+  .student-info {
+    max-width: 100% !important;
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    justify-content: center;
+  }
+  .details-table {
+    width: 80%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    border: 1px solid #000 !important;
+
+  }
+  
+  .details-table th, .details-table td {
+    border: 1px solid #000 !important;
+    padding: 3px;
+    text-align: left;
+    font-size: 12px !important
+  }
+  
+ 
+  
+  .photo img {
+    width: 100px;
+    height: auto;
+    border: 1px solid #000;
+  }
+  .courses-details{
+    max-width: 100% !important;
+    display: flex;
+    flex-wrap: wrap;
+  .course-table {
+    width: 100% ;
+    border-collapse: collapse ;
+    margin-bottom: 20px;
+    border: 1px solid #000 !important;
+  }
+  
+  .course-table th, .course-table td {
+    border: 1px solid #000 !important;
+    // padding: 5px !important;
+    // padding: 2px !important;
+    text-align: center !important;
+    font-size: 12px !important;
+  }
+}
+  
+.p-tag{
+  font-size: 10px !important; 
+    margin-bottom: -8px !important;
+    text-align: center !important;
+}
+  
+
+  .signatures-2 {
+    display: flex;
+    justify-content: space-between;
+    margin: 35px 0px ;
+  }
+  
+  .signature-1 {
+    width: 33%;
+    text-align: center;
+  }
+  
+  .issue-date {
+    text-align: left;
+    // margin-top: 15px !important;
+    // margin-left: 8px !important;
+
+  }
+  .p-collegeName{
+          
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: -10px !important;
+    font-size: 22px; margin-top: 5px ; 
+    font-family: none; color: rgb(36, 99, 154);
+     text-transform: uppercase !important; 
+
+}
+.p-collegAdd{
+    font-size: 15px;
+    font-family: none;
+     color: rgb(36, 99, 154);
+      text-align: center !important;
+    font-weight: bold;
+    margin-bottom: -10px !important;
+}
+.ht-head{
+    text-align: center !important;
+    font-weight: bold;
+    margin-bottom: -10px !important;
+    font-size: 26px; 
+    font-family: none;
+     margin-top: 12px;
+      text-align: center !important;
+}
+.p-examName{
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: -10px;
+    font-size: 15px;  
+    margin-bottom: 7px !important;
+     margin-bottom: 10px !important;
+    font-family: none !important;
+    display: flex !important;
+    justify-content: center !important;
+}
+
+
+.std-img{
+    height:96px !important;
+    width: 100px !important;
+    align-items: center !important;
+    vertical-align: middle !important;
+    margin: 10px !important;
+
+} 
+.org-logo{
+vertical-align: middle !important;
+align-items: center !important;
+display:  flex !important;
+width: 100px !important;
+height: 100px !important;
+margin-top: 10px !important;
+}
+/////
+// .page-align {
+//     border: 1px solid black;
+//     height: 100vh !important;
+//     padding: 8px !important;
+//     font-family: 'Times New Roman', serif;
+//     box-sizing: border-box;
+// }
+.page-align {
+    border: 1px solid black !important;
+    width: 793px !important;            /* A4 width */
+
+    height: auto !important;            /* ❗ allow unlimited growth */
+    min-height: auto !important;        /* ❗ remove fixed min height */
+    max-height: none !important;        /* ❗ prevent cutting */
+    
+    padding: 10px 10px 30px 10px !important; /* bottom padding for spacing */
+    overflow: visible !important;
+
+    box-sizing: border-box;
+    page-break-inside: avoid !important;
+}
+
+
+.college-banner {
+    width: 100%;
+    height: 105px !important;
+}
+
+.college-banner-2 {
+    width: 100%;
+    height: 100px !important;
+}
+
+.hall-title-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #b6b5b5 !important;
+    border: 1px solid black;
+    padding: 3px 3px;
+    font-family: 'Times New Roman', Times, serif;
+    font-weight: bold;
+    font-size: 12px;
+    margin-top: 3px;
+    margin-bottom: 1.4% !important;
+}
+
+.hall-left,
+.hall-right {
+    text-transform: uppercase;
+}
+
+.hall-title {
+    text-align: center;
+    margin-top: 5px;
+    margin-bottom: 10px;
+}
+
+.hall-title h3 {
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.hall-title p {
+    margin: 0;
+}
+
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 10px;
+    border: none !important;
+}
+
+.info-table td {
+    padding: 8px !important;
+    border: none !important;
+    vertical-align: top;
+}
+
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.info-table td {
+  padding: 3px 6px;
+  vertical-align: top;
+}
+
+.photo-cell {
+  text-align: center;
+  vertical-align: top;
+  width: 210px;
+}
+
+.photo-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.photo-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 5px; /* minimal spacing between dotted box and image */
+}
+
+.attach-photo-box {
+  border: 1px dotted #000;
+  width: 110px;
+  height: 110px;
+  font-size: 10px;
+  color: #555;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.photo-container {
+  border: 1px solid #000;
+  width: 90px;
+  height: 110px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.student-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.signature-box {
+  border: 1px solid #000;
+  width: 210px;
+  height: 30px;
+  font-size: 10px;
+  text-align: center;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 3px;
+}
+
+.subject-table-refined {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 2% !important;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12px;
+    page-break-inside: avoid;
+}
+/* Keep Subject Code HEADER centered */
+.subject-table-refined th:nth-child(1) {
+  text-align: center !important;
+}
+
+/* Align Subject Code DATA to the left */
+.subject-table-refined td:nth-child(1) {
+  text-align: left !important;
+  padding-left: 6px !important;
+}
+
+.subject-table-refined th,
+.subject-table-refined td {
+    border: 1px solid black !important;
+    padding: 4px !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+.subject-table-refined th {
+    font-weight: bold !important;
+}
+
+.subject-table-refined td:nth-child(2),
+/* Registered Subjects */
+.subject-table-refined td:nth-child(3),
+.subject-table-refined td:nth-child(4) {
+    text-align: left !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+}
+
+.signatures {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8% !important;
+    font-weight: bold;
+    padding: 0 10px;
+}
+
+.signatures-2 {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1% !important;
+    font-weight: bold;
+    padding: 0 10px;
+}
+
+.cut-line-container {
+    display: flex;
+    align-items: flex-start;
+    margin-top: 2% !important;
+}
+
+.left-line {
+    width: 1px;
+    height: 20px;
+    /* Adjust height as per image */
+    background-color: black;
+    margin-right: 2px;
+}
+
+.dashed-line {
+    flex-grow: 1;
+    border-top: 2px dashed black;
+    height: 2px;
+}
+
+.instructions {
+    margin-top: -2.5% !important;
+    margin-bottom: 15px;
+    page-break-inside: avoid;
+}
+
+.instructions h4 {
+    text-align: center;
+    text-decoration: underline;
+    margin-bottom: 5px;
+    font-size: 13px;
+}
+
+.instructions ol {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 12px;
+}
+
+// .Hallticket-2{
+//     height: 1048px !important;
+//     max-height: 1048px !important;
+//     overflow: hidden !important;
+//     border: 1px solid black;
+//     padding: 3px !important;
+//     font-family: 'Times New Roman', serif;
+//     box-sizing: border-box;
+// }
+
+.Hallticket-2 {
+    // height: auto !important;
+    // max-height: none !important;
+    border: 1px solid black;
+    box-sizing: border-box;
+}
+
+.signatures-3 {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 8% !important;
+    padding: 0 20px;
+    font-weight: bold;
+}
+
+.sig-block {
+    text-align: center;
+    width: 30%; /* Each section takes equal width */
+}
+
+.sig-image {
+    width: 120px;
+    height: 30px !important;
+    margin-bottom: 5px; /* gap between image and text */
+}
+
+.sig-image-2 {
+    width: 120px;
+    height: 50px !important;
+    margin-bottom: 1px; /* gap between image and text */
+}
+
+.sig-label {
+    font-size: 13px;
+}
+//
+/* MVSR Photo & Signature Layout */
+.photo-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 220px;     /* same as table cell width */
+}
+
+.photo-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.photo-container {
+  width: 100px;
+  height: 120px;
+  border: 1px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.student-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attach-photo-box {
+  width: 100px;
+  height: 120px;
+  border: 2px dashed #000;
+  padding: 4px;
+  text-align: center;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: normal;
+}
+
+/* signature row below */
+.signature-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.signature-box {
+  width: 100px;
+  height: 35px;
+  border: 1px solid #000;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Wrapper for exam name + regulation box */
+.exam-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  margin-top: 5px;
+  margin-bottom: 2px;
+}
+
+/* Center exam name */
+.exam-title {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 15px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+/* Small Regulation Box on Right */
+.regulation-box {
+  position: absolute;
+  right: 0;
+
+  border: 1px solid #000;
+  padding: 2px 10px;
+
+  font-size: 13px;
+  font-weight: bold;
+  background-color: white;
+  height: 22px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  text-transform: uppercase;
+  min-width: 45px;
+}
+.left-cell {
+  text-align: left !important;
+  padding-left: 8px; 
+}
+//
+.mecs-ticket .exam-header {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 5px 0;
+  padding-right: 40px; /* pushes content left */
+}
+
+.mecs-ticket .regulation-box {
+  position: absolute;
+  right: 25px;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-top: -6px;  /* moves box up */
+  padding: 3px 10px;
+  border: 1px solid #000;
+  background: white;
+  font-weight: 600;
+  border-radius: 3px;
+}
+/* Force left alignment ONLY for the first column in MECS */
+/* Keep Subject Code HEADER centered */
+.mecs-ticket .subject-table-refined th:nth-child(1) {
+  text-align: center !important;
+}
+
+/* Align Subject Code DATA to the left */
+.mecs-ticket .subject-table-refined td:nth-child(1) {
+  text-align: left !important;
+  padding-left: 6px !important;
+}
+
+.signatures-new {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 2% !important;
+    padding: 0 20px;
+    font-weight: bold;
+}

@@ -1,0 +1,725 @@
+
+span {
+    font-weight: 400 !important;
+    color: #909090;
+}
+
+.details {
+    margin: 4px 0px;
+    font-weight: 500;
+    color: black !important;
+}
+
+.details-off {
+    font-weight: 500;
+    color: #616161;
+    font-size: 15px;
+}
+.plus-icon{
+   color: #000 !important;
+   margin-right: 5px;
+}
+p.details-off {
+   margin: 7px 0px !important;
+}
+.btn-map{
+   width: 100%;
+   background: #ffcf46 !important;
+   color: #000 !important;
+}
+.week-day{
+    margin-bottom: 5px !important;
+    margin-top: 5px !important;
+    padding: 0 8px !important;
+}
+.exp-con {
+    overflow: hidden !important;
+}
+.pd-pg {
+    padding: 22px 1px 0px 1px;
+}
+.eye-icon {
+    font-size: 20px !important;
+}
+i.fa.fa-times-circle.eye-icon {
+    color: red;
+}
+.weeday-bordr{
+    border: 1px solid #c3d9ff;
+    // height: 20px;
+}
+h2{
+    color: #000;
+    padding: 11px 11px;
+    margin: 0;
+    background: #ffd869;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.pd-page {
+    padding: 0px 24px 0px 24px !important;
+}
+.mar{
+    margin: 15px 0;
+}
+// .table-td {
+//     padding: 20px 8px !important;
+// }
+.mp-5{
+    margin-top: 5px;
+}
+.table-th{
+    padding: 5px 5px !important;
+    background: #C3D9FF;
+    font-weight: 500;
+    color: #000 !important;
+}
+.mat-checkbox {
+    font-size: 15px !important;
+}
+.mat-checkbox-layout .mat-checkbox-label {
+    line-height: 24px;
+    color: #000 !important;
+}
+.back-grnd{
+    border: 1px solid #fff;
+    margin: 1px;
+    background: #eaf2ff;
+}
+.txt-uppercase{
+    text-transform: uppercase;
+}
+.details {
+    margin: 4px 0px;
+    font-weight: 500;
+    color: black !important;
+}
+.justify-end{
+    justify-content: end !important;
+    align-items: end !important;
+}
+
+// .e-schedule .e-month-view .e-work-cells {
+//     position: relative;
+// }
+
+// .e-schedule .templatewrap {
+//     text-align: center;
+//     position: absolute;
+//     width: 100%;
+// }
+
+// .e-schedule .templatewrap img {
+//     width: 30px;
+//     height: 30px;
+// }
+
+// .e-schedule .caption {
+//     overflow: hidden;
+//     text-overflow: ellipsis;
+//     vertical-align: middle;
+// }
+.break{
+    background: #dedede;
+}
+
+.radio {
+    margin-left: 60px !important;
+
+}
+
+.mlr-15 {
+    margin-left: 15px !important;
+    margin-right: 15px !important;
+    margin-top: 10px
+}
+
+.yar-bordr {
+    border: 2px solid #89c5ff;
+    border-radius: 3px;
+
+}
+
+.bordr {
+    border: 1px solid #dedede;
+}
+
+.search-box {
+    position: relative;
+    margin-left: 7px;
+
+    input {
+        width: 100%;
+        border: 2px solid #dcdad3;
+        padding: 7px 10px 7px 32px;
+        margin: 3px 0px 3px 0px;
+        border-radius: 5px;
+    }
+
+    i {
+        position: absolute;
+        top: 11px;
+        left: 10px;
+        font-size: 15px;
+    }
+}
+
+span.roll-no {
+    font-weight: 500;
+    margin-right: 13px;
+    color: blue;
+    font-weight: bold;
+}
+
+.mar {
+    margin: 0px 0;
+}
+
+.firstTable {
+    margin: 0 0 0 10px;
+    display: contents !important;
+
+
+    table {
+        width: 100%;
+        margin: 0px 0px 4px 0px !important;
+    }
+
+    thead {
+        display: table;
+        /* to take the same width as tr */
+        width: calc(100% - 12px);
+        /* - 17px because of the scrollbar width */
+    }
+
+    tbody {
+        display: block;
+        /* to enable vertical scrolling */
+        max-height: 385px;
+        /* e.g. */
+        overflow-y: scroll;
+        /* keeps the scrollbar even if it doesn't need it; display purpose */
+    }
+
+    th,
+    td {
+        // width: 16%;
+        /* to enable "word-break: break-all" */
+        padding: 5px;
+        // word-break: break-all;
+        /* 4. */
+    }
+
+    tr {
+        display: table;
+        /* display purpose; th's border */
+        width: 100%;
+        box-sizing: border-box;
+        /* because of the border (Chrome needs this line, but not FF) */
+    }
+
+    td {
+        //  text-align: center;
+        border-bottom: none;
+        border-left: none;
+    }
+}
+
+.firstTable-sub {
+    margin: 0 0 0 10px;
+
+    table {
+        width: 100%;
+        margin: 0px 0px 4px 0px !important;
+    }
+
+    thead {
+        display: table;
+        /* to take the same width as tr */
+        width: calc(100% - 12px);
+        /* - 17px because of the scrollbar width */
+    }
+
+   
+
+    th,
+    td {
+        // width: 16%;
+        /* to enable "word-break: break-all" */
+        padding: 5px;
+        // word-break: break-all;
+        /* 4. */
+    }
+
+    tr {
+        display: table;
+        /* display purpose; th's border */
+        width: 100%;
+        box-sizing: border-box;
+        /* because of the border (Chrome needs this line, but not FF) */
+    }
+
+    td {
+        //  text-align: center;
+        border-bottom: none;
+        border-left: none;
+    }
+}
+
+.table-th {
+    padding: 5px 5px !important;
+    background: #C3D9FF;
+    font-weight: 500;
+    width: 15% !important;
+    color: #0000ff !important;
+    font-weight: bold;
+}
+
+.table-td {
+    padding: 5px 5px !important;
+    text-align: left;
+    font-weight: 500;
+    width: 15% !important;
+    color: #0000ff !important;
+}
+
+.mat-checkbox {
+    text-align: center;
+    font-size: small;
+}
+
+.save-btn {
+    display: flex;
+    justify-content: end;
+    padding: 10px !important;
+
+    .add-btn {
+        margin-top: 0px !important;
+    }
+}
+.search-field{
+    margin-left: 10px 
+}
+.mat-accordion{
+    width: 100%;
+    padding: 22px 24px 0px 24px; 
+    .mat-expansion-panel{
+        margin: 0px 25px; 
+    }
+}
+.inner-bkgrd{
+    margin-top: 10px 
+}
+.save-btn{
+    display: flex; 
+    justify-content: end;
+}
+.mat-radio-group{
+    padding: 15px;
+}
+.bg{
+    background: white;
+}
+.ev-name{
+    font-size: small !important;
+}
+.table-body {
+    display: block;
+    /* to enable vertical scrolling */
+    max-height: 385px !important;
+    /* e.g. */
+    overflow-y: scroll;
+    /* keeps the scrollbar even if it doesn't need it; display purpose */
+}
+.th-name{
+    padding: 11px !important;
+}
+.bordr2{
+    padding-top: 38px !important;
+}
+.tab-bordr{
+    border: 2px solid #ccc;
+}
+.check-box{
+    padding: 5px;
+}
+.buttons{
+    justify-content: end !important;
+    display: flex !important;
+    }
+    .rol-no {
+        color: #828282;
+        font-weight: 500;
+        position: relative;
+    }
+    .clr {
+        color: blue;
+    }
+
+    .table-border{
+        border: solid 3px #b9d3f0 !important;
+        margin-top: 10px;
+        border-radius: 6px !important;
+        // box-shadow: 0px 0px 10px 0px #9b9b9b, 0 1px 1px 0 #9b9b9b, 0 1px 3px 0 #9b9b9b !important;
+    }
+    .hover{
+        cursor: pointer;
+        text-align: center !important;
+    }
+    .pd-card1{
+        padding: 0px 11px 8px 2px !important
+    }
+    .aColor{
+        color: blue  !important;
+    }
+    .mlr-15 {
+        margin-left: 15px !important;
+        margin-right: 15px !important;
+    }
+    
+    .week-day {
+        margin-top: 5px !important;
+    }
+    
+    .exp-con {
+        overflow: hidden !important;
+    }
+    
+    .bordr {
+        border: 1px solid #dedede;
+    }
+    
+    .yar-bordr {
+        border: 2px solid #89c5ff;
+        border-radius: 3px;
+        margin: 0px 24px 16px 24px !important;
+        padding: 10px 10px;
+        background: #fbfbfb;
+    }
+    
+    p {
+        margin: 3px !important;
+        font-weight: 500;
+    }
+    
+    .accordion-align {
+        width: 100%;
+        padding: 0px 24px 0px 24px !important;
+    }
+    
+    .inpt-amt {
+        height: 26px;
+        width: 100%;
+        text-align: right;
+        border: 1px solid #cecece;
+        border-radius: 3px;
+    }
+    
+    .star {
+        position: absolute;
+        color: red;
+        top: -3px;
+        font-size: 15px;
+        right: 0px;
+    }
+    
+    .std-his {
+        margin: 10px 24px !important;
+        border: 4px solid #c3d9ff;
+        border-radius: 3px;
+    }
+    
+    .pay {
+        border: 10px solid #c3d9ff;
+        margin: 0px 24px 0px 24px !important;
+        padding: 5px 5px;
+    }
+    
+    .pic {
+        width: 80%;
+        padding: 6px;
+        background: #c3d9ff;
+        margin: 2px;
+    }
+    
+   
+  
+    
+    h2 {
+        margin: 10px 8px;
+        font-weight: 500;
+    }
+    
+    .paid {
+        // color: #00c500;
+        font-weight: 500;
+    }
+    
+    .pay-btn {
+        position: absolute;
+        right: 6px;
+        bottom: 17px;
+    }
+    
+    .position-rel {
+        position: relative;
+    }
+    
+    .amt {
+        max-width: 100% !important;
+        input {
+            text-align: right;
+        }
+        .mat-form-field-label-wrapper {
+            text-align: right !important;
+        }
+    }
+    
+   
+    
+    .pay-box {
+        border: 1px solid #cacaca;
+        height: 30px;
+        border-radius: 3px;
+        text-align: right;
+        margin-top: 20px;
+        max-width: 100% !important;
+    }
+    
+    .tick {
+        position: absolute;
+        z-index: 9999;
+        height: 20px;
+        right: 30px;
+        top: 2px;
+    }
+    
+  
+    
+    .clr-view {
+        background: #00b8ff;
+        padding: 1px 7px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-weight: 500;
+    }
+    
+    .dtnd {
+        color: red;
+        font-weight: bold;
+    }
+    
+    .incollege {
+        color: green;
+        font-weight: bold;
+    }
+    
+    .passedout {
+        color: #461eb6;
+        font-weight: bold;
+    }
+    
+    .discontinued {
+        color: red;
+        font-weight: bold;
+    }
+    
+    .detainRecmnd {
+        color: orangered;
+        font-weight: bold;
+    }
+    .pd-page{
+        padding: 0px;
+    }
+    .student-img {
+        max-width: 100%;
+        widows: 120px !important;
+        vertical-align: top;
+        border: none;
+        border-radius: 50%;
+    }
+    
+    .search-img {
+        img{
+            max-width: 100%;       
+            widows: 120px !important;
+            vertical-align: top;
+            border: none;       
+            border-radius: 50%;
+        }
+       
+    }
+    .stnt-status-active {
+        color: green;
+        font-weight: 500;
+    }
+    
+    .stnt-status-inActive {
+        color: red;
+        font-weight: 500;
+    }
+    
+    .student-img-active {
+        height: 50px;
+        width: 50px;
+        border-radius: 50%;
+        border: 2px solid #34e834;
+    }
+    
+    .student-img-inactive {
+        height: 50px;
+        width: 50px;
+        border-radius: 50%;
+        border: 2px solid #f44336;
+    }
+    .example-container1 {
+        width: 100%;
+        
+        padding-bottom: 15px !important;
+    }
+    .table-bac {
+        background: #C3D9FF;
+        margin: 0 9px;
+        padding: 5px 2px;
+        border-radius: 3px;
+    }
+    .tr-bakgrnd {
+        background: transparent !important;
+    }
+    table {
+        width: 100%;
+        border-spacing: 0px !important;
+        padding: 0px 8px 10px 8px !important;
+    }
+    
+    th {
+        padding: 5px 5px !important;
+        background: #fff !important;
+        // border-bottom: 5px solid #c3d9ff !important;
+    }
+    
+    td {
+        padding: 5px 5px !important;
+    }
+    
+    tr:nth-child(even) {
+        background: #f1f6ff
+    }
+    
+    tr:nth-child(odd) {
+        background: #FFF
+    }
+    
+    .table-bac {
+        background: #C3D9FF;
+        margin: 0 -13px;
+        padding: 12px 2px 2px 2px;
+        border-radius: 3px;
+    }
+    .buttons{
+        justify-content: end !important;
+        display: flex !important;
+        }
+        .span-3 { 
+            position: relative;
+            top: -2px;
+            float: inline-end
+            }
+
+/* Hide extra lines under the last row */
+mat-table {
+    border-bottom: none !important;
+}
+
+mat-row:last-child,
+mat-footer-row:last-child {
+    border-bottom: none !important;
+}
+
+mat-row, mat-header-row, mat-footer-row {
+    border-bottom-width: 0px !important;
+}
+
+/* Removes the outline shadow line from mat-card container */
+mat-card.mat-card {
+    box-shadow: none !important;
+}
+/* Completely hide ONLY the bottom border line of the table */
+mat-table {
+    border-bottom: none !important;
+}
+
+mat-row:last-child .mat-cell {
+    border-bottom: none !important;
+}
+
+.mat-table-sticky-border-elem-bottom {
+    display: none !important;
+}
+.history-card {
+    padding-bottom: 0 !important;
+}
+////
+/* OUTER card – exact same as the top card (blue border + shadow) */
+.outer-card {
+    margin: 20px 24px !important;
+    border: 4px solid white !important;
+    border-radius: 6px !important;
+    background: white;
+    box-shadow: 0px 0px 10px rgba(0,0,0,0.15);
+    padding: 10px 15px;
+}
+
+/* INNER card – white box inside */
+.inner-card {
+    background: white;
+    border-radius: 4px;
+    padding: 10px;
+    box-shadow: none !important;
+}
+
+/* Remove ALL bottom solid lines of mat-table */
+
+
+
+
+
+
+/* Match the header style to top table */
+.rev-table th {
+    background: #ffffff !important;
+    font-weight: 600;
+    
+}
+
+/* Match alternate row colors like top table */
+.rev-table tr:nth-child(even) {
+    background: #f1f6ff;
+}
+
+.rev-table tr:nth-child(odd) {
+    background: #ffffff;
+}
+
+
+///
+
+/* Dialog container same as Add Exam popup */
+.exam-dialog .mat-dialog-container {
+    padding: 0 !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+}
+
+/* Table header/bg */
+.popup-table th {
+    font-weight: 600;
+    background: #f5f5f5;
+}
+
+/* Eye icon styling */
+.eye-icon {
+    cursor: pointer;
+    color: #1976d2;
+}

@@ -1,0 +1,114 @@
+<div id="admission-dashboard" class="page-layout simple">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination Management</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Pre Examination</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Subject Source Outcome Mapping</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+        <div class="mat-elevation-z8 bkgrd">
+            <form name="examFeeCollectionForm" [formGroup]="examFeeCollectionForm" style="padding-bottom: 1px;" class="form-pad" novalidate>
+                <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                    <i class="material-icons sub-header-icon">money</i>
+                    <span class="sub-header-text">Subject Source Outcome Mapping</span>
+                </div>
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd" style="padding: 0px 15px;">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(examFeeCollectionForm.value.collegeId)" required>
+                                <mat-option *ngFor="let college of colleges" [value]="college.collegeId">{{college.collegeCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="18" fxFlex.gt-md="18">
+                            <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(examFeeCollectionForm.value.academicYearId)" required>
+                                <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.academicYearId">{{obcjt.academicYear}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(examFeeCollectionForm.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses" [value]="course.courseId">{{course.courseCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="52" fxFlex.gt-md="52">
+                            <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExam(examFeeCollectionForm.value.examId)" required>
+                                <ngx-mat-select-search [placeholderLabel]="'Search Exam...'" (keyup)="searchExam($event.target.value)" [noEntriesFoundLabel]="'no matching data found'" ></ngx-mat-select-search>
+                                <mat-option *ngFor="let exam of examData" [value]="exam.examId" matTooltip="{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})"
+                                >{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})
+                                    <span *ngIf="exam.isInternalExam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                    <span *ngIf="exam.isRegularExam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                    <span *ngIf="exam.isSupplyExam" style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="Course Group" name="courseGroupId" formControlName="courseGroupId" (selectionChange)="selectedCourseGroup(examFeeCollectionForm.value.courseGroupId)" required>
+                                <mat-option *ngFor="let obcjt of courseGroups" [value]="obcjt.courseGroupId">{{obcjt.groupCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                            <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId" (selectionChange)="selectedYear(examFeeCollectionForm.value.courseYearId)" required>
+                                <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.courseYearId">{{courseYear.courseYearName}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                            <mat-select placeholder="Section" name="groupSectionId" formControlName="groupSectionId" (selectionChange)="selectedSection()" required>
+                                <mat-option *ngFor="let section of sections" [value]="section.groupSectionId">{{section.section}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40">
+                            <mat-select placeholder="Subject" name="subjectId" formControlName="subjectId" (selectionChange)="selectedSub()">
+                              <ngx-mat-select-search [placeholderLabel]="'Search Subject...'" (keyup)="searchSubject($event.target.value)" [noEntriesFoundLabel]="'no matching data found'" ></ngx-mat-select-search>
+                                <mat-option *ngFor="let sub of subjectData; let i = index" [value]="sub.subjectId">{{sub.subjectName}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="Exam Setup" name="examFCARSetMasterId" formControlName="examFCARSetMasterId" (selectionChange)="selectedSubject(examFeeCollectionForm.value.subjectId)">
+                                <mat-option *ngFor="let sub of examsMarksSteups; let i = index" [value]="sub.examFCARSetMasterId">{{sub.markSetupName}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                </div>
+
+                <div fxLayout="column" style="margin: 10px 15px;
+                background: #f1f6ff;border: 5px solid #c3d9ff;" class="inner-bkgrd std-his" *ngIf="examFeeCollectionForm.value.examFCARSetMasterId">
+                    <div fxLayout="row" class="mar-8" *ngFor="let sub of examsMarksSteupList">
+                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <span style="    margin: 22px;
+                            font-weight: 600;">{{sub.question}}</span>
+                        </div>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="Course Outcome" name="courseOutcomeCatdetId" [(ngModel)]="sub.courseOutcomeCatdetId" [ngModelOptions]="{standalone: true}">
+                                <mat-option *ngFor="let rv of outcomes" [value]="rv.generalDetailId">{{rv.generalDetailDisplayName}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <mat-select placeholder="Subject Unit" name="subjectUnitsId" [(ngModel)]="sub.subjectUnitsId" [ngModelOptions]="{standalone: true}">
+                                <mat-option *ngFor="let un of units" [value]="un.subjectUnitsId">{{un.unitName}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                </div>
+
+                <div class="form-btn" *ngIf="examsMarksSteupList.length>0&&examFeeCollectionForm.value.subjectId">
+                    <button mat-raised-button class="add-btn" color="accent" (click)="save()">
+                        Save</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+    <!-- / CONTENT -->
+
+</div>

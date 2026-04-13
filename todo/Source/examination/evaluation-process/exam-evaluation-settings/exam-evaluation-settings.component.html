@@ -1,0 +1,176 @@
+<div id="dashboard" class="page-layout simple">
+    <div class="center" fusePerfectScrollbar>
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Evaluation Process</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Evaluation Settings</span>
+                </div>
+            </div>
+        </div>
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                                fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads">Exam Evaluation Settings</strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="evaluatorSettingForm" [formGroup]="evaluatorSettingForm" novalidate>
+                        <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd"
+                            style="padding: 0px 15px;">
+                            <div fxLayout="row wrap " fxFlex="100">
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                    fxFlex.gt-md="25">
+                                    <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                        (selectionChange)="selectedCourse(evaluatorSettingForm.value.courseId)">
+                                        <mat-option *ngFor="let courseCode of CourseCode"
+                                            [value]="courseCode.fk_course_id">{{courseCode.course_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                    fxFlex.gt-md="25">
+                                    <mat-select placeholder="Academic Year" name="academicYearId"
+                                        formControlName="academicYearId"
+                                        (selectionChange)="selectedAcademicYear(evaluatorSettingForm.value.academicYearId)">
+                                        <mat-option *ngFor="let academicYear of academicYearDetailList"
+                                            [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50"
+                                    fxFlex.gt-md="50">
+                                    <mat-select placeholder="Exam" name="examId" formControlName="examId"
+                                        (selectionChange)="selectedExam(evaluatorSettingForm.value.examId)">
+                                        <ngx-mat-select-search [noEntriesFoundLabel]="'no matching data found'"
+                                            (keyup)="searchExam($event.target.value)"
+                                            [placeholderLabel]="'Search...'"></ngx-mat-select-search>
+                                        <mat-option *ngFor="let exam of examDuplicateList"
+                                            [value]="exam.fk_exam_id">{{exam.exam_name}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13"
+                                    fxFlex.gt-md="13">
+                                    <button mat-raised-button class="add-btn" color="accent"
+                                        (click)="getEvaluationSettingList()">Get List</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+            </mat-accordion>
+            <div fxLayout="row">
+                <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" *ngIf="flag">
+                    <mat-card class="pd-card table-align ">
+                        <mat-card-content>
+                            <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between"
+                                fxLayoutGap="5">
+                                <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35"
+                                    fxLayout="row" fxLayoutAlign="start center">
+                                    <label for="search" class="mr-8">
+                                        <mat-icon class="secondary-text">search</mat-icon>
+                                    </label>
+                                    <mat-form-field floatLabel="never" fxFlex="1 0 auto" style="margin-left: 10px">
+                                        <input matInput (keyup)="applyFilter($event.target.value)" placeholder="Search">
+                                    </mat-form-field>
+                                </div>
+                                <button class="btn-add" mat-raised-button color="accent" (click)="openDialog()">
+                                    <i class="material-icons">add</i>
+                                    Add Evaluation Settings</button>
+                            </div>
+                        </mat-card-content>
+                        <div class="mat-elevation-z8 ">
+                            <div class="example-container ">
+                                <table mat-table [dataSource]="dataSource" matSort>
+                                    <ng-container matColumnDef="id">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                        <td mat-cell *matCellDef="let row"> {{examEvaluationSetting.indexOf(row) + 1}}
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="minevaluationtimemin">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Evaluation Time</th>
+                                        <td mat-cell *matCellDef="let row"> {{numberToTime(row.minEvaluationTIme)}}
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="maxNoOfEvaluationsAssign">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Max No of Evaluations</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.maxNoOfEvaluationsAssign}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="maxNoOfReevaluationsAssign">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Max No of Re-Evaluations</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.maxNoOfReevaluationsAssign}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="noOfChiefEvaluations">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>No of Chief Evaluations</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.noOfChiefEvaluations}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="noOfChiefReevaluations">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>No of Chief Re-Evaluations</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.noOfChiefReevaluations}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="noOfEvaluations">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>No Of Evaluations</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.noOfEvaluations}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="noOfReEvaluations">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>No Of Re-Evaluations</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.noOfReEvaluations}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="marksDiffForModEvaluatoin">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Marks Diff.For
+                                            ModEvaluation</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.marksDiffForModEvaluatoin}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="evaluationstartdate">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Evaluation Start Date</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.evaluationStartDate |date}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="evaluationenddate">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Evaluation End Date</th>
+                                        <td mat-cell *matCellDef="let row">
+                                            {{row.evaluationEndDate |date}}
+                                        </td>
+                                    </ng-container>
+                                    <!-- Isactive Column -->
+                                    <ng-container matColumnDef="Status">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
+                                        <td mat-cell *matCellDef="let row">
+                                            <span *ngIf="row.isActive==true" class="active">Active</span>
+                                            <span *ngIf="row.isActive==false" class="in-active">InActive</span>
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="Actions">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Actions</th>
+                                        <td mat-cell *matCellDef="let row">
+                                            <i class="material-icons edit " matTooltip="Edit" (click)="editDialog(row)">
+                                                border_color</i>
+                                        </td>
+                                    </ng-container>
+                                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                                    <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                                    </tr>
+                                </table>
+                            </div>
+                            <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+                        </div>
+                    </mat-card>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

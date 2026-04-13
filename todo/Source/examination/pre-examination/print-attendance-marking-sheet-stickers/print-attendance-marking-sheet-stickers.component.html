@@ -1,0 +1,412 @@
+<div id="dashboard" class="page-layout simple" id="printNone">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Pre Examination</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span> Print Attendance Marking Sheet Stickers</span>
+                </div>
+            </div>
+
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads"> Print Attendance Marking Sheet Stickers</strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="examAttendanceForm" [formGroup]="examAttendanceForm" novalidate>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                                <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(examAttendanceForm.value.collegeId)"  >
+                                    <mat-option *ngFor="let college of colleges" [value]="college.collegeId">{{college.collegeCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                                <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(examAttendanceForm.value.academicYearId)" >
+                                    <mat-option *ngFor="let academicYear of academicYears" [value]="academicYear.academicYearId">{{academicYear.academicYear}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(examAttendanceForm.value.courseId)" >
+                                    <mat-option *ngFor="let course of courses" [value]="course.courseId">{{course.courseCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="53" fxFlex.gt-md="53">
+                                    <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExam(examAttendanceForm.value.examId)"  #singleSelect >
+                                        <ngx-mat-select-search [formControl]="examFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'"></ngx-mat-select-search>
+                                        <mat-option *ngFor="let exam of filteredExam | async" [value]="exam.examId" matTooltip="{{exam.examName}} ({{exam.fromDate | date:'dd MMM, yyyy'}} - {{exam.toDate | date:'dd MMM, yyyy'}})"
+                                        >{{exam.examName}} ({{exam.fromDate | date:'dd MMM, yyyy'}} - {{exam.toDate | date:'dd MMM, yyyy'}})
+                                                <span *ngIf="exam.isInternalExam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                                <span *ngIf="exam.isRegularExam" style="color: #0014ff;font-weight: 500;">(Regular)</span> </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                            <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExam(examAttendanceForm.value.examId)" >
+                                    <mat-option *ngFor="let exam of examsList" [value]="exam.examId">{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})
+                                        <span *ngIf="exam.isInternalExam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                        <span *ngIf="exam.isRegularExam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field> -->
+                            <mat-form-field class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="examAttendanceForm.value.examId" >
+                                <input matInput [matDatepicker]="picker" [min]="minDate" [max]="maxDate" (dateChange)="calDays()" placeholder="Exam Date" name="examDate" formControlName="examDate"  >
+                                <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                                <mat-datepicker #picker></mat-datepicker>
+                            </mat-form-field>
+                        </div>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25" >
+                                <mat-select placeholder="Exam Session" name="examSessionId" formControlName="examSessionId" (selectionChange)="selectedSession(examAttendanceForm.value.examSessionId)"  >
+                                    <mat-option [value]="0">All</mat-option>
+                                    <mat-option *ngFor="let examSession of examSessions" [value]="examSession.examSessionId">{{examSession.examSessionName}}
+                                        <span *ngIf="examSession.sessionStartTime != null">({{tConvert(examSession.sessionStartTime)}} - {{tConvert(examSession.sessionEndTime)}})</span></mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40">
+                                <mat-select placeholder="Invgilator Employee" name="employeeId" formControlName="employeeId" #singleSelect (selectionChange)="selectedEmp()" >
+                                    <ngx-mat-select-search [formControl]="employeeFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" (keyup)="enteredEmployee($event, 'name')"></ngx-mat-select-search>
+                                    <mat-option [value]="0">All</mat-option>
+                                    <mat-option *ngFor="let employee of filteredEmployees | async" [value]="employee.employeeId">{{employee.empNumber}} <span class="rolno-clr" *ngIf="employee.firstName != null"> ( {{employee.firstName}} )</span> </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                       
+                            <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                                <mat-select placeholder="Room Search" name="roomId" formControlName="roomId" #singleSelect>
+                                    <ngx-mat-select-search [formControl]="roomFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" (keyup)="enteredRoom($event)"></ngx-mat-select-search>
+                                    <mat-option [value]="0">All</mat-option>
+                                     <mat-option *ngFor="let room of filteredRooms | async" [value]="room.roomId" style="height: auto;">
+                                        <div style="width: 80%;top: 5px;line-height: 30px;">
+                                            <span class="book-title">{{room.roomName}}</span>
+                                            <span class="rol-no1" *ngIf="room.roomType != null">
+                                                        <small>( {{room.roomType}})</small>
+                                                    </span><br>
+                                            <span class="rol-no">
+                                             <small> {{room.campuName}}</small>
+                                             <small *ngIf= "room.buildingName != null"> / {{room.buildingName}}</small>
+                                             <small *ngIf= "room.blockName != null"> / {{room.blockName}}</small>
+                                             <small *ngIf= "room.floorName != null"> / {{room.floorName}}</small>
+                                             </span>
+                                        </div>
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field> -->
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33"
+                            fxFlex.gt-md="33">
+                            <mat-select placeholder="Room" name="roomId" formControlName="roomId">
+                            <ngx-mat-select-search (keyup)="searchRoomName($event.target.value)" [placeholderLabel]="'Search  Rooms...'" >
+                            </ngx-mat-select-search>
+                            <!-- <mat-option [value]="0">All</mat-option> -->
+                            <mat-option *ngFor="let row of rooms1"
+                                    [value]="row.roomId">{{row.roomCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        </div>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                                <mat-select placeholder="Course Group" name="courseGroupId" formControlName="courseGroupId" (selectionChange)="selectedGroup(examAttendanceForm.value.courseGroupId)" >
+                                    <mat-option [value]="0">All</mat-option>
+                                    <mat-option *ngFor="let courseGroup of courseGroups" [value]="courseGroup.courseGroupId">{{courseGroup.groupCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                                <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId"  >
+                                    <mat-option [value]="0">All</mat-option>
+                                    <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.courseYearId">{{courseYear.courseYearName}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                                <mat-select placeholder="Subject" name="subjectId" formControlName="subjectId" (selectionChange)="selectedSubject()" >
+                                    <mat-option [value]="0">All</mat-option>
+                                    <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.courseYearId">{{courseYear.courseYearName}}</mat-option>
+                                </mat-select>
+                            </mat-form-field> -->
+                            <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13">
+                                <button mat-raised-button class="add-btn" color="accent" (click)="getStudentsList()">Get List</button>
+                            </div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                </mat-expansion-panel>
+            </mat-accordion>
+
+            <div class="header pd-pag2" fxLayout="column" fxLayoutAlign="space-between" *ngIf="flag">
+
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <i class="material-icons icon-align">
+            timelapse
+            </i>
+                        <strong class="table-heads">Mark Exam Attendance </strong>
+                    </div>
+                </div>
+                <div fxLayout="column" class="inner-bkgrd std-his" *ngIf="flag">
+                    <div fxLayout="row" class="mar-8">
+                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <img class="pic" src="assets/images/logos/exam.png">
+                        </div>
+                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="60" fxFlex.gt-md="60" style="padding: 10px 0px;line-height: 0px;">
+                            <p style="color: #8c8c8c !important;">{{examDetails.examName}}
+                                <span style="color: blue;" *ngIf="examDetails.isInternalExam == true && examDetails.isRegularExam == false && examDetails.isSupplyExam == false">(Internal)</span>
+                                <span style="color: blue;" *ngIf="examDetails.isRegularExam == true && examDetails.isInternalExam == false && examDetails.isSupplyExam == false">(Regular)</span>
+                                <span style="color: blue;" *ngIf="examDetails.isInternalExam == false && examDetails.isRegularExam == false && examDetails.isSupplyExam == true">(Supple)</span>
+                                <span style="color: blue;" *ngIf="examDetails.isInternalExam == false && examDetails.isRegularExam == true && examDetails.isSupplyExam == true">(Regular / Supple)</span> </p>
+                            <!-- <p *ngIf="!student.isLateral">{{student.firstName}} (<span style="color: blue;">REGULAR</span>) </p> -->
+                            <p style="color: #8c8c8c !important;" *ngIf="section !== null">{{collegeCode}} / {{course}}
+                                <span style="color: blue;" *ngIf="examName !== null">({{examDate}})</span></p>
+                            <p style="color: #8c8c8c !important;"  *ngIf="examSessionDetails?.examSessionName != null">{{examSessionDetails?.examSessionName}}
+                                <span class="rol-no" *ngIf="examSessionDetails?.sessionStartTime != null">({{tConvert(examSessionDetails?.sessionStartTime)}} - {{tConvert(examSessionDetails?.sessionEndTime)}})</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="save-btn-align" *ngIf="flag">
+                <button mat-raised-button class="add-btn" color="accent" (click)="printStickers()">Print Barcode Stickers</button>
+
+                <button mat-raised-button class="add-btn" color="accent" (click)="printpage()">Print Attendendence Sheet</button>
+                <button mat-raised-button class="add-btn" color="accent" (click)="printBulkPage()">Bulk Attendendence Sheet</button>
+
+            </div>
+           
+
+            <!-- / CONTENT --> 
+        </div>
+    </div>
+</div>
+
+<div class="layout"  >
+    <div id="dashboard" class="page-layout simple "    >
+    
+      <div *ngFor="let list of mainList; let i=index" class="Hallticket">
+        <div class="sheet" >
+            <h2 style="margin-bottom: -17px !important; font-size: 20px !important; text-transform: uppercase !important;"><b>{{list[0].college_name}}</b> </h2> 
+           <h3 style="margin-bottom: 0px !important;"><b>{{list[0].college_address}}</b> </h3>
+      </div>
+      <div fxLayout="row" >
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+            <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                    <table id="table1" >
+                        <tr >
+                            <td>D-FORM & PRESENTEE STATEMENT</td>
+                            <td>Course:  &nbsp; {{list[0].group_name}} </td>
+                            <td>Paper:</td>
+                            <td>Date :  &nbsp; {{list[0].exam_date}}</td>
+                        </tr>
+                        <tr >
+                            <td> Name of the Examination:  &nbsp; {{list[0].course_year_name}}</td>
+                            <td>Subject: &nbsp; </td>
+                            <td>Code: &nbsp; </td>
+                            <td>Time: &nbsp;{{tConvert(list[0].session_start_time)}} - {{tConvert(list[0].session_end_time)}}&nbsp;-&nbsp;{{list[0].exam_session_name}}</td>
+                           
+                        </tr>
+                      </table>
+                </div>
+              </div>
+        </div>
+      </div>
+      <div fxLayout="row">
+
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+  
+          <table id="table2">
+            <tr class="header">
+                <td colspan="2"> Room No : {{list[0].room_code}}</td>
+                <td></td>
+                <td></td>
+                <td colspan="6" style="text-align: center;"> Additional Answer Book Number</td>
+                <td></td>
+            </tr>
+            <tr>
+              <th>S.No</th>
+              <th style="width: 120px !important; ">Hallticket No</th>
+              <th>Student Name</th>
+              <th style="width: 80px !important;">MAB.No.</th>
+              <th class="numwidth">1</th>
+              <th class="numwidth">2</th>
+              <th class="numwidth">3</th>
+              <th class="numwidth">4</th>
+              <th class="numwidth">5</th>
+              <th class="numwidth">Total</th>
+              <th>Signature Of Candidate</th>
+  
+            </tr>
+            <tr *ngFor="let data of list let i = index">
+              <td>{{i+1}}</td>
+              <td >{{data?.hallticket_number}}</td>
+              <td>{{data?.student_name}}</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+
+            </tr>
+  
+          </table>
+        </div>
+      </div>
+      <div fxLayout="row" >
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+            <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                  <table id="table1">
+                    <tr >
+                       <td>PRESENT :</td>
+                       <!-- <td style="text-align: center;"> {{list[0]?.invitator_name}}</td> -->
+                       <td></td>
+                       <td></td>
+
+                    </tr>
+                    <tr >
+                        <td>ABSENT :</td>
+                        <td></td>
+                        <td></td>
+ 
+                     </tr>
+                     <tr >
+                        <td>TOTAL : {{list.length}}</td>
+                        <td style="width: 400px !important;">NAME AND SIGNATURE OF THE INVIGILATOR</td>
+                        <td style="width: 400px !important;">SIGNATURE OF CHIEF SUPERINTENDENT</td>
+                      
+ 
+                     </tr>
+                    
+                  </table>
+                </div>
+              </div>
+        </div>
+      </div>
+    </div>
+    </div>
+</div>
+<!-- <div class="layout"  >
+    <div id="dashboard" class="page-layout simple "  id="printsection" *ngFor="let list of mainList; let i=index" >
+        <div class="sheet" >
+            <h2 style="margin-bottom: -17px !important; font-size: 20px !important; text-transform: uppercase !important;"><b>{{mainList[0][0].college_name}}</b> </h2> 
+           <h3 style="margin-bottom: 0px !important;"><b>{{mainList[0][0].college_address}}</b> </h3>
+         </div>
+      <div fxLayout="row" >
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+            <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                    <table id="table1" >
+                        <tr *ngFor="let data of lis">
+                            <td>D-FORM & PRESENTEE STATEMENT</td>
+                            <td>Course:  &nbsp; {{data[0].group_name}} </td>
+                            <td>Paper:</td>
+                            <td>Date :  &nbsp; {{data[0].exam_date}}</td>
+                        </tr>
+                        <tr *ngFor="let data of list">
+                            <td> Name of the Examination:  &nbsp; {{data[0].course_year_code}}</td>
+                            <td>Subject: &nbsp; </td>
+                            <td>Code: &nbsp; </td>
+                            <td>Time: &nbsp;{{tConvert(data[0].sessionStartTime)}} - {{tConvert(data[0].sessionEndTime)}}</td>
+                           
+                        </tr>
+                      </table>
+                </div>
+              </div>
+        </div>
+      </div>
+    <div fxLayout="row">
+
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+  
+          <table id="table2">
+            <tr class="header">
+                <td colspan="2"> Room No :</td>
+                <td></td>
+                <td></td>
+                <td colspan="6" style="text-align: center;"> Additional Answer Book Number</td>
+                <td></td>
+            </tr>
+            <tr>
+              <th>S.No</th>
+              <th style="width: 120px !important; ">Hallticket No</th>
+              <th>Student Name</th>
+              <th style="width: 80px !important;">MAB.No.</th>
+              <th class="numwidth">1</th>
+              <th class="numwidth">2</th>
+              <th class="numwidth">3</th>
+              <th class="numwidth">4</th>
+              <th class="numwidth">5</th>
+              <th class="numwidth">Total</th>
+              <th>Signature Of Candidate</th>
+  
+            </tr>
+            <tr *ngFor="let data of list">
+              <td>{{i+1}}</td>
+              <td >{{data?.hallticket_number}}</td>
+              <td>{{data?.student_name}}</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+
+            </tr>
+  
+          </table>
+        </div>
+      </div>
+      <div fxLayout="row" >
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+            <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                  <table id="table1">
+                    <tr *ngFor="let data of list">
+                       <td>PRESENT :</td>
+                       <td style="text-align: center;"> {{data[0]?.invitator_name}}</td>
+                       <td></td>
+
+                    </tr>
+                    <tr *ngFor="let data of list">
+                        <td>ABSENT :</td>
+                        <td style="width: 400px !important;">NAME AND SIGNATURE OF THE INVIGILATOR</td>
+                        <td style="width: 400px !important;">SIGNATURE OF CHIEF SUPERINTENDENT</td>
+ 
+                     </tr>
+                     <tr *ngFor="let data of list">
+                        <td>TOTAL : {{data.length}}</td>
+                        <td></td>
+                        <td></td>
+ 
+                     </tr>
+                    
+                  </table>
+                </div>
+              </div>
+        </div>
+      </div>
+    </div>
+</div> -->

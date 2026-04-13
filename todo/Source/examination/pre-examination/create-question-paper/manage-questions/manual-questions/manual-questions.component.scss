@@ -1,0 +1,36 @@
+.bkgrd{
+    background: #fff;
+}
+.form-pad{
+    padding: 2px 15px;
+}
+
+.form-btn {
+    margin-top: 0px !important;
+    button{
+        width: 100%;
+    }
+}
+.ul_at{
+    margin: 8px 8px;
+    padding: 0;
+    cursor: pointer;
+}
+li{
+    padding: 8px;
+    text-align: center;
+    font-weight: 600;
+    border: 1px solid #ffcf46;
+}
+.active {
+    background: #ffcf46;
+}
+.r-btn {
+    margin-left: 35px;
+}
+[type=checkbox], [type=radio] {
+    box-sizing: border-box;
+    padding: 0;
+    margin-right: 5px;
+    cursor: pointer;
+}

@@ -1,0 +1,82 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                        today
+                    </i>
+                    <span>{{dialogTitle}} - {{data.examName}}</span>
+                </div>
+            </div>
+        </div>
+        <form name="budgetAllocationsForm" [formGroup]="examEvaluationSetting" novalidate>
+            <mat-dialog-content>
+                <div fxLayout="column">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput type="number" placeholder="Evaluation Time" name="Min Evaluationtime Min"
+                                formControlName="minEvaluationTIme">
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput [matDatepicker]="sanctionedDate1" placeholder="Evaluation Start Date"
+                                name="evaluationStartDate" formControlName="evaluationStartDate">
+                            <mat-datepicker-toggle matSuffix [for]="sanctionedDate1"></mat-datepicker-toggle>
+                            <mat-datepicker #sanctionedDate1></mat-datepicker>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="34" fxFlex.gt-md="34">
+                            <input matInput [matDatepicker]="sanctionedDate" placeholder="Evaluation end date"
+                                name="evaluationEndDate" formControlName="evaluationEndDate">
+                            <mat-datepicker-toggle matSuffix [for]="sanctionedDate"></mat-datepicker-toggle>
+                            <mat-datepicker #sanctionedDate></mat-datepicker>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput type="number" placeholder="Max No Of Evaluations" name="maxNoOfEvaluationsAssign"
+                                formControlName="maxNoOfEvaluationsAssign">
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput type="number" placeholder="Max No Of Re-Evaluations" name="maxNoOfReevaluationsAssign"
+                                formControlName="maxNoOfReevaluationsAssign">
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput type="number" placeholder="No Of Evaluations" name="noOfEvaluations"
+                                formControlName="noOfEvaluations" required>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput type="number" placeholder="No Of Re-Evaluations" name="noOfReEvaluations"
+                                formControlName="noOfReEvaluations" required>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput type="number" placeholder="Marks Diff.For ModEvaluatoin"
+                                name="marksDiffForModEvaluatoin" formControlName="marksDiffForModEvaluatoin" required>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput type="number" placeholder="No of Chief Evaluations" name="noOfChiefEvaluations"
+                                formControlName="noOfChiefEvaluations">
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput type="number" placeholder="No of Chief Re-Evaluations" name="noOfChiefReevaluations"
+                                formControlName="noOfChiefReevaluations">
+                        </mat-form-field>
+                        <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="20"
+                            fxFlex.gt-md="20">
+                            <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
+                        </section>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="49" fxFlex.gt-md="49"
+                            *ngIf="examEvaluationSetting.controls.isActive.value === false">
+                            <input matInput placeholder="Reason" name="reason" formControlName="reason">
+                        </mat-form-field>
+                    </div>
+                </div>
+            </mat-dialog-content>
+            <mat-dialog-actions>
+                <button mat-raised-button class="cls-btn" mat-dialog-close>
+                    Close
+                </button>
+                <button mat-raised-button class="add-btn" (click)="submit()" color="accent">
+                    Save
+                </button>
+            </mat-dialog-actions>
+        </form>
+    </div>
+</div>

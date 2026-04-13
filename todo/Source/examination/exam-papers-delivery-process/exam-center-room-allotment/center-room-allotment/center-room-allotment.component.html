@@ -1,0 +1,135 @@
+<div id="admission-dashboard" class="page-layout simple">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Centers</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Room Allotment</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+        <div class="mat-elevation-z8 bkgrd">
+            <form name="staffForm" [formGroup]="staffForm" style="padding-bottom: 1px;" class="form-pad" novalidate>
+                <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                    <i class="material-icons sub-header-icon">computer</i>
+                    <span class="sub-header-text"> Exam Room Allotment</span>
+                </div>
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd div-border">
+
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="8" fxFlex.gt-md="8" *ngIf="!isEmptyObject(pageParams)">
+                            <p class="details-off">Course  </p>
+                        </div>:
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="rol-no"> {{examsList.collegeCode}} / {{pageParams.academicYear}} / {{pageParams.courseCode}}</span></p>
+                        </div>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="8" fxFlex.gt-md="8">
+                            <p class="details-off">Exam  </p>
+                        </div>:
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="rol-no"> {{examsList.examName}} ({{examsList.fromDate | date:dateFormate}} - {{examsList.toDate | date:dateFormate}}) </span></p>
+                        </div>
+                        
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="8" fxFlex.gt-md="8">
+                            <p class="details-off">Exam Type </p>
+                        </div>:
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off">
+                                <span class="rol-no"> 
+                                    <span *ngIf="examsList.isInternalExam != false">(Internal)</span>
+                                <span *ngIf="examsList.isRegularExam != false">(Regular)</span>
+                                <span *ngIf="examsList.isSupplyExam != false">(Supple)</span>
+                            </span>
+                        </p>
+                        </div>
+                    </div>
+                        </div>
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                    <div fxLayout="row" fxFlex="100">                       
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="staffForm.value.examId">
+                            <input matInput [matDatepicker]="picker" name="examDate" [min]="minDate" [max]="maxDate" (dateChange)="calDays()" formControlName="examDate" placeholder="Choose a exam date">
+                            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                            <mat-datepicker #picker></mat-datepicker>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50"  *ngIf="staffForm.value.examId">
+                            <mat-select placeholder="Exam Timetable" name="examTimetableId" formControlName="examTimetableId" (selectionChange)="SelectedSession(staffForm.value.examTimetableId)" required>
+                                <mat-option *ngFor="let examTimetable of examTimetables" [value]="examTimetable.examTimetableId"  >
+                                    <span *ngIf="examTimetable.subjects.length > 0">{{examTimetable.examDate}} </span> / {{examTimetable.examSessionName}}
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <mat-select placeholder="Campus - Building" name="buildingId" formControlName="buildingId" (selectionChange)="SelectedBuilding(staffForm.value.buildingId)" >
+                                    <mat-option [value]="0">Select</mat-option>
+                                    <mat-option *ngFor="let objct of buildings" [value]="objct.buildingId" matTooltip="{{objct.campusName}} - {{objct.buildingCode}}"
+                                    >{{objct.campusName}} - {{objct.buildingCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="16" fxFlex.gt-md="16">
+                                <mat-select placeholder="Block" name="blockId" formControlName="blockId" (selectionChange)="SelectedBlock(staffForm.value.blockId)" >
+                                    <mat-option [value]="0">Select</mat-option>
+                                    <mat-option *ngFor="let objct of blocks" [value]="objct.blockId">{{objct.blockCode}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                                <mat-select placeholder="Floor - No" name="floorId" formControlName="floorId" (selectionChange)="SelectedFloors(staffForm.value.floorId)">
+                                    <mat-option [value]="0">Select</mat-option>
+                                    <mat-option *ngFor="let object of floors" [value]="object.floorId">{{object.floorName}} - {{object.floorNo}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                    </div>
+                </div>
+                <div fxLayout="column" style="margin-top: 10px" class="inner-bkgrd yar-bordr" *ngIf="vacancyRoomList.length > 0">
+                    <h2 style="margin: 8px 0px;color: blue;">Room Allotment</h2>
+                    <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                         <table style="width:50%">
+                            <tr>
+                                <td><input type="checkbox" [(ngModel)]="selectAll" (click)="checkAll(selectAll)" [ngModelOptions]="{standalone: true}"> </td>
+                                <td>Select All</td>
+                                <td>Priority</td>
+                                <td style="text-align: center;">Rows</td>
+                                <td style="text-align: center;">Columns</td>
+                                <td style="text-align: center;">Total</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2"></td>
+                                <td style="text-align: center;"> </td>
+                                <!-- <td style="text-align: center;"><input type="number" name="totalRows" formControlName="totalRows" (keyup)="calStrength($event, 'rows')"></td> -->
+                                <td style="text-align: center;"><input type="number" name="totalColumns" formControlName="totalColumns" (keyup)="calStrength($event, 'cols')"></td>
+                                <td style="text-align: center;"><input type="number" name="roomStrength" formControlName="roomStrength"></td>
+                            </tr>
+                            <tr *ngFor="let rm of vacancyRoomList">
+                                <td><input type="checkbox" name="checked" [disabled]="rm.disabled" (click)="selectSingleRoom(rm.checked, rm)" [(ngModel)]="rm.checked" [ngModelOptions]="{standalone: true}"></td>
+                                <td>{{rm.room}}</td>
+                                <td style="width: 10%;"><input type="number" name="priority" [(ngModel)]="rm.priority" [disabled]="rm.disabled" [ngModelOptions]="{standalone: true}"  ></td>
+                                <td style="width: 10%;"><input type="number" name="total_rows" [(ngModel)]="rm.total_rows" (keyup)="rowCol($event, rm)" [disabled]="rm.disabled" [ngModelOptions]="{standalone: true}"></td>
+                                <td style="width: 10%;"><input type="number" name="total_columns" [(ngModel)]="rm.total_columns" (keyup)="rowCol($event, rm)"  [disabled]="rm.disabled" [ngModelOptions]="{standalone: true}"></td>
+                                <td style="width: 10%;"><input type="number" name="room_strength" [(ngModel)]="rm.room_strength" disabled [ngModelOptions]="{standalone: true}"></td>
+                            </tr>
+                         </table>
+                    </div>
+                </div>
+                <div class="form-btn">
+                    <button mat-raised-button class="add-btn back-btn" (click)="goBack()">Back</button>
+                    <button mat-raised-button class="add-btn" color="accent" (click)="addExamTable('update')">
+                    Save
+                </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- / CONTENT -->
+</div>

@@ -1,0 +1,138 @@
+<div id="dashboard" class="page-layout simple">
+
+  <div class="center" fusePerfectScrollbar>
+
+      <!-- HEADER -->
+      <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+          <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+              <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                  <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                  <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                  <span>Examination Management</span>
+                  <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                  <span>Exam Master</span>
+                  <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                  <span>Exam Revision Master</span>
+              </div>
+          </div>
+
+      </div>
+      <!-- / HEADER -->
+
+      <!-- CONTENT -->
+      <div class="content">
+          <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+              <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                  <mat-expansion-panel-header>
+                      <mat-panel-title>
+                          <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                              <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                  <mat-icon class="fs  icon-align ">book</mat-icon>
+                                  <strong class="table-heads">Exam Revision Master</strong>
+                              </div>
+                          </div>
+                      </mat-panel-title>
+                      <label class="filter-align">Filter</label>
+                      <mat-icon>filter_list</mat-icon>
+                  </mat-expansion-panel-header>
+                  <form name="examRevisionForm" [formGroup]="examRevisionForm" novalidate>
+                      <div fxLayout="row">
+                          <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                              <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(examRevisionForm.value.collegeId)" required>
+                                  <mat-option *ngFor="let college of colleges" [value]="college.collegeId">{{college.collegeCode}}</mat-option>
+                              </mat-select>
+                          </mat-form-field>
+                          <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                              <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(examRevisionForm.value.courseId)" required>
+                                  <mat-option *ngFor="let course of courses" [value]="course.courseId">{{course.courseCode}}</mat-option>
+                              </mat-select>
+                          </mat-form-field>
+                      </div>
+                  </form>
+              </mat-expansion-panel>
+              <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+              </mat-expansion-panel>
+          </mat-accordion>
+          <mat-card class="pd-card table-align" *ngIf="examRevisionForm.value.courseId">
+              <mat-card-content>
+                  <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                      <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                          <label for="search" class="mr-8">
+                          <mat-icon class="secondary-text">search</mat-icon>
+                      </label>
+                          <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                              <input matInput (keyup)="applyFilter($event.target.value)" placeholder="Search">
+                          </mat-form-field>
+                      </div>
+                      <button class="btn-add" mat-raised-button color="accent" (click)="openDialog()">
+                      <i class="material-icons">add</i>
+                      Add Revision Master</button>
+                  </div>
+              </mat-card-content>
+
+              <div class="mat-elevation-z8">
+                  <div class="example-container ">
+                      <table mat-table [dataSource]="dataSource" matSort>
+
+                          <!-- ID Column -->
+                          <ng-container matColumnDef="id">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>SI.No </th>
+                              <td mat-cell *matCellDef="let row; let i=index"> {{examRevisionMaster.indexOf(row)+1}} </td>
+                          </ng-container>
+
+                          <!-- Grade Code Column -->
+                          <ng-container matColumnDef="examRevisionTypeName">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>Exam Revision Type</th>
+                              <td mat-cell *matCellDef="let row"> {{row.examRevisionTypeName}} </td>
+                          </ng-container>
+
+                          <!-- Grade Name Column -->
+                          <ng-container matColumnDef="fromDate">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>From Date</th>
+                              <td mat-cell *matCellDef="let row"> {{row.fromDate | date: 'dd MMM, yy'}} </td>
+                          </ng-container>
+
+                          <!--Min Score Percent Column -->
+                          <ng-container matColumnDef="toDate">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>To Date</th>
+                              <td mat-cell *matCellDef="let row"> {{row.toDate | date: 'dd MMM, yy'}} </td>
+                          </ng-container>
+
+                          <!-- Min Points Column -->
+                          <ng-container matColumnDef="amount">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>Amount</th>
+                              <td mat-cell *matCellDef="let row"> {{row.amount}} </td>
+                          </ng-container>
+
+                          <!-- Is Active Column -->
+                          <ng-container matColumnDef="isActive">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
+                              <td mat-cell *matCellDef="let row">
+                                  <span *ngIf="row.isActive==true" class="active">Active</span>
+                                  <span *ngIf="row.isActive==false" class="in-active">InActive</span>
+                              </td>
+                          </ng-container>
+
+                          <!-- Actions Column -->
+                          <ng-container matColumnDef="actions">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header> Actions </th>
+                              <td mat-cell *matCellDef="let row" class="text-ctr"> <i class="material-icons edit " matTooltip="Edit" (click)="editDialog(row)"> border_color</i> </td>
+                          </ng-container>
+
+
+                          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                          <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                          </tr>
+                      </table>
+                  </div>
+                  <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+              </div>
+
+          </mat-card>
+
+          <!-- / CONTENT -->
+
+      </div>
+  </div>
+</div>

@@ -1,0 +1,132 @@
+<div id="dashboard" class="page-layout simple">
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Reports</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Reports</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Assignment Pending List Report</span>
+                </div>
+            </div>
+
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 24px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align">book</mat-icon>
+                                    <strong class="table-heads">Assignment Pending List Report</strong>
+                                    <!-- <span *ngIf="dataSecStaff || dataSECPrincipal" style="font-weight: 550;
+                                    margin-left: 7px;
+                                    font-size: 16px;">For : {{data}}</span> -->
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="feeFormGroup" [formGroup]="feeFormGroup" novalidate>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(feeFormGroup.value.collegeId)"  required>
+                                    <mat-option *ngFor="let college of colleges" [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <mat-select placeholder="Academic Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(feeFormGroup.value.academicYearId)" required>
+                                    <mat-option *ngFor="let academicYear of academicYears" [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(feeFormGroup.value.courseId)"  required>
+                                    <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <mat-select placeholder="Course Group" name="courseGroupId" formControlName="courseGroupId" (selectionChange)="selectedGroup(feeFormGroup.value.courseGroupId)"  required>
+                                    <mat-option *ngFor="let courseGroup of courseGroups" [value]="courseGroup.fk_course_group_id">{{courseGroup.group_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId" (selectionChange)="selectedYear(feeFormGroup.value.courseYearId)" required>
+                                    <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.fk_course_year_id">{{courseYear.course_year_name}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+                            <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <mat-select placeholder="Section" name="groupSectionId" formControlName="groupSectionId" required>
+                                    <mat-option *ngFor="let section of sections" [value]="section.fk_group_section_id">{{section.section}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13">
+                            <button mat-raised-button class="add-btn" color="accent" (click)="getEmpAttendanceReport()" style="width: 100%;">Get List</button>
+                        </div>
+                        <div class="save-btn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13" *ngIf="!isEmptyObject(pageParams)">
+                            <button mat-raised-button class="add-btn back-btn" (click)="goBack()">Back</button>
+                        </div>
+                      </div>
+                    </form>
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState= true" (closed)="panelOpenState= false">
+                </mat-expansion-panel>
+            </mat-accordion>
+
+            <mat-card class="pd-card table-align" *ngIf="studentDueList.length > 0">
+                <!-- <mat-card-content>
+                    <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                            <label for="search" class="mr-8">
+                              <mat-icon class="secondary-text">search</mat-icon>
+                          </label>
+                            <mat-form-field floatLabel="never" fxFlex="1 0
+                              auto">
+                                <input matInput (keyup)="applyFilter($event.target.value)" placeholder="Search">
+                            </mat-form-field>
+                        </div>
+                    </div>
+                </mat-card-content> -->
+
+                <div class="mat-elevation-z8">
+                    <div class="example-container">
+                        <ejs-grid #grid [dataSource]='gridData'  [toolbar]='toolbar'  [allowSorting]='true'   [pageSettings]='initialPage'  allowTextWrap='true' (toolbarClick)='toolbarClick($event)' textAlign='Lift'
+                        [allowExcelExport]='true' [allowPaging]='true' [allowPdfExport]='true'>
+                              <e-columns>
+                                  <e-column field='id' headerText='S.No'  width='50' textAlign='Lift'></e-column>
+                                  <e-column field='Assignment' headerText='Assignment' width='150' textAlign='Lift' ></e-column>
+                                  <e-column field='subject_name' headerText='Subject' width='120' textAlign='Lift' ></e-column>
+                                  <e-column field='subject_code' headerText='Subject Code' width='90' textAlign='Lift' ></e-column>
+                                  <e-column field='Employee' headerText='Employee' width='150' textAlign='Lift' ></e-column>
+                                  <e-column field='college_shortname' headerText='College' width='65' textAlign='Lift' ></e-column>
+                                  <e-column field='course_year_name' headerText='Course Year' width='80' textAlign='Lift' ></e-column>
+                                  <e-column field='description' headerText='Description' width='100' textAlign='Lift' ></e-column>
+                              </e-columns>
+                          </ejs-grid>
+                   
+                    </div>
+                    
+                </div>
+
+            </mat-card>
+
+            <!-- / CONTENT -->
+
+        </div>
+
+        <!-- / CONTENT -->
+    </div>
+</div>

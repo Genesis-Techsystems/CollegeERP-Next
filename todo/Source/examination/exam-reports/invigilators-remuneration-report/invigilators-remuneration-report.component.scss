@@ -1,0 +1,131 @@
+.icon {
+    color: aliceblue !important;
+    padding: 4px;
+}
+
+.ptnbtn {
+    margin-top: 4% !important;
+}
+
+/* ================= PRINT STYLES ================= */
+@media print {
+
+    /* Hide UI */
+    #printNone {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    .print-section {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    header nav,
+    footer {
+        display: none !important;
+    }
+
+    body {
+        margin: 0 !important;
+    }
+
+    /* ================= HEADER ================= */
+    .header {
+        text-align: center !important;
+        page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    .collegeName {
+        text-align: center !important;
+        font-size: 24px !important;
+        margin-top: 10px !important;
+        margin-bottom: 0 !important;
+        color: black !important;
+        font-weight: 550 !important;
+
+        page-break-after: avoid !important;
+    }
+
+    .title {
+        text-align: center !important;
+        font-size: 21px !important;
+        color: black !important;
+        font-weight: 550 !important;
+        margin: 4px 0 !important;
+
+        page-break-after: avoid !important;
+    }
+
+    .details {
+        font-size: 16px !important;
+        text-align: center !important;
+        color: black !important;
+        margin-bottom: 10px !important;
+
+        page-break-after: avoid !important;
+    }
+
+    /* ================= TABLE ================= */
+    table {
+        width: 100% !important;
+        border: 1px solid black !important;
+        border-collapse: collapse !important;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 12px !important;
+
+        page-break-inside: auto !important;
+    }
+
+    th, td {
+        border: 1px solid black !important;
+        padding: 4px !important;
+        text-align: center;
+        vertical-align: middle;
+
+        page-break-inside: avoid !important;
+        word-break: break-word;
+    }
+
+    tr {
+        page-break-inside: avoid !important;
+        page-break-after: auto !important;
+    }
+
+    thead {
+        display: table-header-group;
+    }
+
+    tbody {
+        display: table-row-group;
+    }
+
+    /* ================= PRINT CONTENT ================= */
+    .print-content {
+        margin-top: 10px !important;
+        page-break-before: auto !important;
+    }
+
+    /* Fix large container breaking */
+    div {
+        page-break-inside: auto !important;
+    }
+
+    /* ================= FOOTER ================= */
+    .print-total-footer {
+        text-align: right;
+        margin-top: 100px;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .header-text {
+        margin-top: -40px !important;
+    }
+}
+
+/* Hide print section in screen */
+.print-section {
+    display: none;
+}

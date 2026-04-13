@@ -1,0 +1,119 @@
+<div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Post Examination</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Evaluators Exam Subjects</span>
+                </div>
+            </div>
+        
+        </div>
+        <!-- CONTENT -->
+        <div class="content">
+           
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between">
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <!-- <mat-icon class="secondary-text icon-align ">table_chart</mat-icon> -->
+                        <i class="material-icons icon-align ">
+                              ballot
+                              </i>
+                        <!-- <h1 class="secondary-text table-head fs-20">Campus</h1> -->
+                        <strong class="table-heads">Evaluator Exam Subjects</strong>
+                    </div>
+                </div>
+        
+            </div>
+    <mat-card class="pd-card table-align ">
+        <mat-card-content>
+            <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                    <label for="search" class="mr-8">
+                      <mat-icon class="secondary-text">search</mat-icon>
+                  </label>
+                    <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                        <input matInput (keyup)="applyFilter($event.target.value)" placeholder="Search">
+                    </mat-form-field>
+                </div>
+               
+            </div>
+        </mat-card-content>
+
+        <div class="mat-elevation-z8 ">
+            <div class="example-container ">
+                <table mat-table [dataSource]="dataSource " matSort>
+
+                    <!-- ID Column -->
+                    <ng-container matColumnDef="id">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                        <td mat-cell *matCellDef="let row index as i">{{i+1}} </td>
+                    </ng-container>
+
+                    <!--  questionGroupName Column -->
+                    <ng-container matColumnDef="Name">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Evaluator Name</th>
+                        <td mat-cell *matCellDef="let row"> {{row.evaluatorName}} </td>
+                    </ng-container>
+
+                       <!-- bestOfAnswers column -->
+                       <ng-container matColumnDef="SubjectName">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject Name</th>
+                        <td mat-cell *matCellDef="let row"> 
+                            {{row.subjectName}}    
+                        </td>
+                    </ng-container>
+
+                     <!-- isSingleGroup Column -->
+                       <ng-container matColumnDef="SubjectCode">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject Code</th>
+                        <td mat-cell *matCellDef="let row"> {{row.subjectCode}}   </td>
+                       </ng-container>
+
+                        <!-- isSingleGroup Column -->
+                        <ng-container matColumnDef="profileFromDate">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Valid From Date</th>
+                            <td mat-cell *matCellDef="let row"> {{row.profileValidFromDate | date}}   </td>
+                           </ng-container>
+
+                            <!-- isSingleGroup Column -->
+                       <ng-container matColumnDef="profileToDate">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Valid To Date</th>
+                        <td mat-cell *matCellDef="let row"> {{row.profileValidToDate | date}}   </td>
+                       </ng-container>
+                      
+                    <!-- Isactive Column -->
+                    <ng-container matColumnDef="status">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
+                        <td mat-cell *matCellDef="let row">
+                            <span *ngIf="row.isActive==true" class="active">Active</span>
+                            <span *ngIf="row.isActive==false" class="in-active">InActive</span>
+                        </td>
+                    </ng-container>
+
+                    <!-- Actions Column -->
+                    <ng-container matColumnDef="actions">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Actions </th>
+                        <td mat-cell *matCellDef="let row" class="text-ctr"> <i class="material-icons edit" matTooltip="Edit" > border_color</i> </td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                    </tr>
+                </table>
+            </div>
+            <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+        </div>
+
+    </mat-card>
+
+    <!-- / CONTENT -->
+</div>
+</div>
+</div>

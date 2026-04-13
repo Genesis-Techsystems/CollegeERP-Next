@@ -1,0 +1,139 @@
+.mb-24 {
+    margin-bottom: 10px !important;
+}
+.mp-24 {
+    margin-top: 8px !important;
+    overflow: hidden !important;
+}
+.savebtn-align {
+    margin: 3px 0px 15px 0px !important;
+    float: right;
+    button {
+        width: 100%;
+    }
+}
+.down-box {
+    border: 2px solid #c3d9ff;
+    margin: 20px 0px 0 0px;
+    background: #fff;
+    border-radius: 3px;
+}
+.header-align {
+    border-bottom: 2px solid #ffcf46;
+    padding-bottom: 8px;
+    margin: 16px 12px;
+}
+.absent {
+    background: #ecf3ff;
+    margin: 0;
+    padding: 11px;
+    border: 1px solid #c3d9ff;
+    font-weight: 500;
+    text-transform: uppercase;
+    text-align: center;
+    span {
+        float: right;
+    }
+}
+p {
+    margin: 0 !important;
+    padding: 10px;
+    border-bottom: 1px solid #dedede;
+}
+.span-active {
+    color: #00c300;
+}
+.span-inActive {
+    color: red;
+}
+.mar-8 {
+    margin: 0 8px;
+}
+.mat-raised-button {
+    min-width: 135px !important;
+    line-height: 30px !important;
+}
+p {
+    margin: 4px 5px !important;
+}
+p.details-off {
+    font-weight: 500;
+    margin: 0 !important;
+    padding: 5px !important;
+    border-bottom: 0px solid #dedede !important;
+}
+.colr {
+    color: #0d29ff;
+}
+.break {
+    background: #dedede;
+}
+.mat-dialog-actions {
+    margin: 0px 13px 5px 0 !important;
+}
+.div-border {
+    padding: 0 !important;
+}
+.mar-8 {
+    margin: 0 8px;
+}
+.example-container {
+    height: 450px;
+}
+.abs-div {
+    overflow: auto;
+    max-height: 442px;
+}
+.prxy {
+    background: yellow;
+    padding: 5px;
+    border-radius: 3px;
+    margin-left: 10px;
+}
+.ex-amt {
+    border: 2px solid #c4c4c4;
+    width: 40%;
+    height: 30px;
+    border-radius: 3px;
+    float: right;
+    text-align: right;
+}
+.exFee-amt {
+    border: 2px solid #c4c4c4;
+    height: 30px;
+    border-radius: 3px;
+    float: right;
+    margin: 15px 0px;
+    padding-left: 5px;
+    text-align: right;
+}
+.add-fee {
+    border: 1px solid #dedede;
+    margin: 10px;
+    padding: 5px;
+    background: #ecf3ff;
+    border-radius: 5px;
+}
+.bordr-fee {
+    padding: 16px !important;
+}
+.mat-table {
+    padding: 0px 0px;
+}
+.search-box{
+    position: relative;
+    margin: 5px 5px 0 5px;
+    input{
+        width: 100%;
+        border: 2px solid #ffcf46;
+        padding: 10px 10px 10px 32px;
+        margin-bottom: 8px;
+        border-radius: 5px;
+    }
+    i{
+        position: absolute;
+        top: 11px;
+        left: 10px;
+        font-size: 15px;
+    }
+}

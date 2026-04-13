@@ -1,0 +1,199 @@
+<div id="admission-dashboard" class="page-layout simple">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination Management</span>
+              <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+              <span>Result Processing</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Apply Moderation Rule</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+
+        <div class="mat-elevation-z8 bkgrd">
+            <form name="examFeeCollectionForm" [formGroup]="examFeeCollectionForm" style="padding-bottom: 1px;" class="form-pad" novalidate>
+                <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                    <i class="material-icons sub-header-icon">money</i>
+                    <span class="sub-header-text">Apply Moderation Rule</span>
+                </div>
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd" style="padding: 0px 15px;">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(examFeeCollectionForm.value.collegeId)" required>
+                                <mat-option *ngFor="let college of colleges" [value]="college.collegeId">{{college.collegeCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(examFeeCollectionForm.value.academicYearId)" required>
+                                <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.academicYearId">{{obcjt.academicYear}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(examFeeCollectionForm.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses" [value]="course.courseId">{{course.courseCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Course Group" name="courseGroupId" formControlName="courseGroupId" (selectionChange)="selectedCourseGroup(examFeeCollectionForm.value.courseGroupId)" required>
+                                <mat-option *ngFor="let obcjt of courseGroups" [value]="obcjt.courseGroupId">{{obcjt.groupCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId" (selectionChange)="selectedCourseYear(examFeeCollectionForm.value.courseYearId)" required>
+                                <mat-option *ngFor="let objt of courseYears; let i = index" [value]="objt.courseYearId">{{objt.courseYearName}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="44" fxFlex.gt-md="44">
+                            <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExam(examFeeCollectionForm.value.courseYearId)" required>
+                                <ngx-mat-select-search [placeholderLabel]="'Search Exam...'"
+                                [noEntriesFoundLabel]="'no matching data found'" (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>    
+                                <mat-option *ngFor="let exam of examData" [value]="exam.examId" matTooltip="{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})"
+                                >{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="44" fxFlex.gt-md="44">
+                            <mat-select placeholder="Exam Subject" name="subjectId" formControlName="subjectId" required>
+                                <ngx-mat-select-search [placeholderLabel]="'Search Subject...'" (keyup)="searchSubject($event.target.value)" [noEntriesFoundLabel]="'no matching data found'" ></ngx-mat-select-search>
+                                <mat-option *ngFor="let objt of subjectsData; let i = index" [value]="objt.subjectId">
+                                    {{objt.subjectCode}} - {{objt.subjectName}}
+                                    <span style="color: blue;">({{objt.regulationCode}})</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="12" fxFlex.gt-md="12">
+                            <button mat-raised-button class="add-btn" color="accent" [disabled]="this.examFeeCollectionForm.invalid" (click)="getDetails()">Generate</button>
+                             </div>
+
+                    </div>
+
+                </div>
+
+                <!-- <div class="form-btn">
+                    <button mat-raised-button class="add-btn back-btn" (click)="goBack()">Back</button>
+                </div> -->
+            </form>
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" style="margin-top: 10px;
+            border-top: 7px solid #eff0f2;">
+            <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <strong class="table-heads" style="font-size: 14px !important">{{selectedData}}</strong>
+                </div>
+            </div>
+
+
+  
+            <div fxLayout="row">
+                <div fxLayout="column " fxFlex="100" *ngIf="subjectModerationStudents.length > 0">
+                    <div class="mat-elevation-z8" *ngFor="let info of moderationRuleInfo">
+                <h5 fxLayout="column" class="p-8 count inf" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">Moderation Marks Added: 
+                       <p style="color:#0d29ff">{{info.ModerationMarks_added}} </p>
+                </h5>
+                <h5 fxLayout="column" class="p-8 count inf" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">Actual Marks Percentage:
+                    <p style="color:#0d29ff">{{info.actual_pass_percentage}}%</p>
+                    </h5>
+                <h5 fxLayout="column" class="p-8 count inf" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">Moderation Pass Percentage: 
+                    <p style="color:#0d29ff">{{info.moderation_pass_percentage}}% </p>
+                </h5>
+                <h5 fxLayout="column" class="p-8 count inf" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">Students with Moderation Marks:
+                    <p style="color:#0d29ff"> {{info.NoOfStudentsPassed_With_ModerationMarks}}% </p>
+                    </h5>
+                        </div>
+                </div>
+      
+            </div>
+
+
+
+
+
+<!-- 
+            <div fxLayout="column" fxLayout="row wrap " fxFlex="100"  fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" class="table-heads" fxLayout="row" fxLayoutAlign="start center" *ngFor="let info of moderationRuleInfo">
+                    <h5 fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" style="color: #0c51a4;font-size: 14px !important">
+                        Moderation Marks Added
+                        <br>
+                        <span style="color:black;font-weight:500"> {{info.ModerationMarks_added}}</span>
+                    </h5>
+                    <h5 fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" style="color: #0c51a4;font-size: 14px !important">
+                        Actual Marks Percentage
+                        <br>
+                        <span style="color:black;font-weight:500">{{info.actual_pass_percentage}}%</span>
+                    </h5>
+                    <h5 fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" style="color: #0c51a4;font-size: 14px !important"
+                    >Moderation Pass Percentage
+                        <br>
+                        <span style="color:black;font-weight:500">{{info.moderation_pass_percentage}}%</span>
+                    </h5>
+                    <h5 fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" style="color: #0c51a4;font-size: 14px !important"
+                    >
+                        No of Students with Moderation Marks
+                        <br>
+                        <span style="color:black;font-weight:500">{{info.NoOfStudentsPassed_With_ModerationMarks}}%</span></h5>
+                </div>
+            </div> -->
+
+        </div>
+
+        
+    <div class="content pd-card mt-15" *ngIf="subjectModerationStudents.length > 0">
+        <div class="mat-elevation-z8 " style="padding: 20px;">
+            <div class="example-container ">
+                    <table class="table table-striped fee fee_ mar" >
+                            <thead>
+                                <tr>
+                                    <th class="table-th">S.No</th>
+                                    <th class="table-th">Student Name</th>
+                                    <th class="table-th">Internal Marks</th>
+                                    <th class="table-th">External Marks</th>
+                                    <th class="table-th">Total Marks</th>
+                                    <th class="table-th">Moderation Marks</th>
+                                    <th class="table-th">After Moderation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let studentAtt of subjectModerationStudents; let i=index">
+                                    <td class="table-td" style="text-align: center !important;"> {{subjectModerationStudents.indexOf(studentAtt) + 1}}</td>
+                                    <td class="table-td">{{studentAtt.StudentName}} (<span style="color:blue">{{studentAtt.hallticket_number}}</span>)</td>
+                                    <td class="table-td" style="text-align: center;">
+                                        <span *ngIf="studentAtt.internal_marks != null">{{studentAtt.internal_marks}}</span>
+                                        <span *ngIf="studentAtt.internal_marks == null"> - </span>
+                                    </td>
+                                    <td class="table-td" style="text-align: center;">
+                                            <span *ngIf="studentAtt.external_marks != null">{{studentAtt.external_marks}}</span>
+                                        <span *ngIf="studentAtt.external_marks == null"> - </span>
+                                    </td>
+                                   <td class="table-td" style="text-align: center;">
+                                            <span *ngIf="studentAtt.totalmarks != null">{{studentAtt.totalmarks}}</span>
+                                            <span *ngIf="studentAtt.totalmarks == null"> - </span>
+                                    </td>
+                                    <td class="table-td" style="text-align: center;">
+                                            <span *ngIf="studentAtt.ModerationMarks_added != null">{{studentAtt.ModerationMarks_added}}</span>
+                                            <span *ngIf="studentAtt.ModerationMarks_added == null"> - </span>
+                                    </td>
+                                    <td class="table-td" style="text-align: center;">
+                                        <span *ngIf="studentAtt.ModerationMarks != null">{{studentAtt.ModerationMarks}}</span>
+                                        <span *ngIf="studentAtt.ModerationMarks == null"> - </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                    </table>
+            </div>
+        </div>
+    </div>
+    
+        </div>
+
+    </div>
+    <!-- / CONTENT -->
+
+</div>

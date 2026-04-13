@@ -1,0 +1,304 @@
+.buttons {
+    justify-content: end;
+    display: flex;
+    margin-top: -1.5%;
+}
+
+.buttonsdrop {
+    justify-content: end;
+    display: flex;
+    margin-top: -0.5%;
+}
+
+// .mlr-15 {
+//     margin-left: 15px !important;
+//     margin-right: 15px !important;
+// }
+
+.week-day {
+    margin-top: 5px !important;
+}
+
+.exp-con {
+    overflow: hidden !important;
+}
+
+.bordr {
+    border: 1px solid #dedede;
+}
+
+.yar-bordr {
+    border: 2px solid #89c5ff;
+    border-radius: 3px;
+    margin: 0px 24px 16px 24px !important;
+    padding: 10px 10px;
+    background: #fbfbfb;
+}
+
+p {
+    margin: 3px !important;
+    font-weight: 500;
+}
+
+.accordion-align {
+    width: 100%;
+    padding: 0px 24px 0px 24px !important;
+}
+
+table {
+    width: 100%;
+    border-spacing: 0px !important;
+    padding: 0px 8px 10px 8px !important;
+}
+
+th {
+    padding: 5px 5px !important;
+    background: #fff !important;
+    border-bottom: 5px solid #c3d9ff !important;
+}
+
+td {
+    padding: 5px 5px !important;
+}
+
+tr:nth-child(even) {
+    background: #f1f6ff
+}
+
+tr:nth-child(odd) {
+    background: #FFF
+}
+
+.table-bac {
+    background: #C3D9FF;
+    margin: 0 9px;
+    padding: 12px 2px;
+    border-radius: 3px;
+}
+
+.div-bac {
+    margin: 0 9px;
+    padding: 9px 0px;
+    border-radius: 3px;
+}
+
+.inpt-amt {
+    height: 26px;
+    width: 100%;
+    text-align: right;
+    border: 1px solid #cecece;
+    border-radius: 3px;
+}
+
+.star {
+    position: absolute;
+    color: red;
+    top: -3px;
+    font-size: 15px;
+    right: 0px;
+}
+
+.std-his {
+    margin: 0px 24px !important;
+    border: 4px solid #c3d9ff;
+    border-radius: 3px;
+}
+
+.pay {
+    border: 10px solid #c3d9ff;
+    margin: 0px 24px 0px 24px !important;
+    padding: 5px 5px;
+}
+
+.pic {
+    width: 80%;
+    padding: 6px;
+    background: #c3d9ff;
+}
+
+.discount_head {
+    margin: 5px;
+}
+
+.delete-table {
+    color: red !important;
+    font-size: 23px;
+    cursor: pointer;
+    margin-left: 15px;
+    position: absolute;
+    top: 6px;
+    right: -32px;
+}
+
+.delete {
+    color: red !important;
+    font-size: 23px;
+    cursor: pointer;
+    margin-left: 0px;
+    position: absolute;
+    left: 0;
+}
+
+h2 {
+    margin: 10px 8px;
+    font-weight: 500;
+}
+
+.paid {
+    // color: #00c500;
+    font-weight: 500;
+}
+
+.pay-btn {
+    position: absolute;
+    right: 6px;
+    bottom: 17px;
+}
+
+.position-rel {
+    position: relative;
+}
+
+.amt {
+    input {
+        text-align: right;
+    }
+
+    .mat-form-field-label-wrapper {
+        text-align: right !important;
+    }
+}
+
+.tr-bakgrnd {
+    background: transparent !important;
+}
+
+.pay-box {
+    border: 1px solid #cacaca;
+    height: 30px;
+    border-radius: 3px;
+    text-align: right;
+    margin-top: 10px;
+}
+
+.tick {
+    position: absolute;
+    z-index: 9999;
+    height: 20px;
+    right: 30px;
+    top: 2px;
+}
+
+.table-bac {
+    margin: -15px 9px 15px 9px !important;
+    padding: 10px 0px 0px 1px !important;
+}
+
+.clr-view {
+    background: #00b8ff;
+    padding: 1px 7px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.dtnd {
+    color: red;
+    font-weight: bold;
+}
+
+.incollege {
+    color: green;
+    font-weight: bold;
+}
+
+.passedout {
+    color: #461eb6;
+    font-weight: bold;
+}
+
+.discontinued {
+    color: red;
+    font-weight: bold;
+}
+
+.detainRecmnd {
+    color: orangered;
+    font-weight: bold;
+}
+
+.pd-page {
+    padding: 0px;
+}
+
+.student-img {
+    max-width: 100%;
+    widows: 120px !important;
+    vertical-align: top;
+    border: none;
+    border-radius: 50%;
+}
+
+.search-img {
+    img {
+        max-width: 100%;
+        widows: 120px !important;
+        vertical-align: top;
+        border: none;
+        border-radius: 50%;
+    }
+
+}
+
+.stnt-status-active {
+    color: green;
+    font-weight: 500;
+}
+
+.stnt-status-inActive {
+    color: red;
+    font-weight: 500;
+}
+
+.student-img-active {
+    height: 50px;
+    width: 50px;
+    border-radius: 50%;
+    border: 2px solid #34e834;
+}
+
+.student-img-inactive {
+    height: 50px;
+    width: 50px;
+    border-radius: 50%;
+    border: 2px solid #f44336;
+}
+
+.loopdiv {
+    width: 100%;
+    display: contents;
+}
+
+.editCancel {
+    color: red !important;
+    font-size: 23px;
+    cursor: pointer;
+}
+
+.mt-15 {
+    margin-top: -10px !important;
+}
+
+.marks {
+    font-weight: 600 !important;
+    color: red !important;
+    cursor: pointer;
+}
+
+.my-custom-tooltip {
+    max-width: unset !important;
+    // position: TooltipPosition = 'above';
+    background-color: rgb(255, 128, 128);
+    color: black;
+    font-size: larger !important;
+}

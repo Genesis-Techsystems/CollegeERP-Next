@@ -1,0 +1,270 @@
+/* follow your project's style patterns */
+.backlog-table {
+  width: 100%;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    th {
+      font-weight: 600;
+      background-color: #f5f5f5;
+      padding: 10px 12px;
+      text-align: left;
+    }
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #e0e0e0;
+      vertical-align: middle;
+    }
+    tr:hover {
+      background: #fafafa;
+    }
+  }
+
+  .failed-subjects {
+    max-width: 420px;
+    white-space: normal;
+    word-break: break-word;
+  }
+}
+
+.search-align{
+  margin:-0.9% !important;
+}
+
+.actions-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.icon{
+  color: aliceblue !important;
+  padding: 4px;
+}
+.ptnbtn{
+  margin-top:4% !important;
+}
+
+.align-items{
+  margin-top:0.4% !important;
+}
+.no-data {
+  padding: 20px;
+  text-align: center;
+  color: rgba(0,0,0,0.6);
+}
+.radio-btn {
+    margin: 20px 0px 0px 24px;
+}
+.r-btn {
+    margin-left: 4% !important;
+}
+
+//print
+
+//-------------------------------- PRINT CLEAN VERSION -------------------------------//
+/* ✅ FINAL CLEAN PRINT STYLES */
+@media print {
+
+  /* Page margins */
+  @page {
+    margin: 6mm 8mm 10mm 8mm !important;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide unnecessary UI elements */
+  #dashboard .header,
+  #dashboard .content,
+  mat-accordion,
+  mat-card,
+  .mat-paginator,
+  button,
+  .add-btn,
+  .pd-card,
+  .filter-align,
+  .mat-form-field,
+  .link-header,
+  #printNone {
+    display: none !important;
+  }
+
+  /* Show ONLY print section */
+  #printSection {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    position: relative !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /**************************************
+   ✅ HEADER SECTION (Logo + Title)
+  **************************************/
+  .print-header-container {
+    display: flex !important;
+    align-items: center !important; /* Same horizontal line ✅ */
+    justify-content: flex-start !important;
+    width: 100% !important;
+    gap: 20px !important;
+    margin: -10px 0 8px 0 !important; /* Removes blank top space ✅ */
+    padding: 0 !important;
+  }
+
+  /* Logo Left */
+  .logo-container {
+    width: 140px !important;
+    text-align: left !important;
+  }
+
+  img.portraitLogo {
+    width: 120px !important; /* Increased size ✅ */
+    height: auto !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
+  /* College Name + Report Title Center */
+  .text-section {
+    flex: 1 !important;
+    text-align: center !important;
+    margin: 0 !important;
+  }
+
+  .text-section .collegeName {
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    margin: 0 !important;
+    text-transform: uppercase !important;
+  }
+
+  .text-section .title {
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    margin: 2px 0 0 0 !important;
+  }
+
+  /**************************************
+   ✅ TABLE SECTION
+  **************************************/
+  table.subject-table-refined {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 6px !important; /* Table closer to header ✅ */
+    font-size: 10px !important;
+    font-family: 'Times New Roman', serif !important;
+  }
+
+  .subject-table-refined th,
+  .subject-table-refined td {
+    border: 1px solid #000 !important;
+    padding: 3px !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+  }
+
+  .subject-table-refined th {
+    background: #f2f2f2 !important;
+    font-weight: bold !important;
+  }
+
+  .subject-table-refined td:nth-child(2),
+  .subject-table-refined td:nth-child(3),
+  .subject-table-refined td:nth-child(4) {
+    text-align: left !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+}
+
+
+
+.print-btn{
+  border:none !important;
+  background: white !important;
+}
+
+ .non-print-div {
+      display: block;
+      height: 100% !important;
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    
+    .print-div {
+      display: none;
+    }
+    
+    .print-content .non-print-div {
+      display: none !important;
+    }
+    
+    .print-content .print-div {
+      display: block !important;
+    }
+
+    //
+
+/* 🔹 Hide everything except the printable table when printing */
+
+/* === CENTER: TEXT SECTION === */
+.text-section {
+  flex: 1 1 100% !important;
+  width: 100% !important;
+  margin-top: 0 !important;
+
+
+  .collegeName {
+    font-size: 22px;
+    font-weight: bold;
+    margin: 0;
+    color: #000;
+    text-transform: uppercase;
+    width:100% ;
+  }
+
+  .title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 4px 0;
+    color: #000;
+    width:100% 
+  }
+
+  .details {
+    font-size: 14px;
+    color: #000;
+    margin: 2px 0;
+    width:100% 
+  }
+
+  ////
+  
+}
+.mar{
+  margin: 0px 0;
+}
+.table-td {
+  padding: 8px 8px !important;
+  text-align: left;
+  font-weight: 400;
+}
+.mp-5{
+  margin-top: 5px;
+}
+p{
+  margin: 5px 0px;
+  color: #c76d2f;
+}
+.table-th{
+  padding: 8px 5px !important;
+  background: #C3D9FF;
+  // background: #ecf3ff;
+  font-weight: 550;
+}

@@ -1,0 +1,277 @@
+<div id="dashboard" class="page-layout simple">
+
+  <div class="center" fusePerfectScrollbar>
+
+      <!-- HEADER -->
+      <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+          <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+              <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                  <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                  <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                  <span>Examination Management</span>
+                  <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                  <span>Exam Fee Structure</span>
+              </div>
+          </div>
+
+      </div>
+      <!-- / HEADER -->
+
+      <!-- CONTENT -->
+      <div class="content">
+          <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+              <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                  <mat-expansion-panel-header>
+                      <mat-panel-title>
+                          <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                              <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                  <mat-icon class="fs  icon-align ">book</mat-icon>
+                                  <strong class="table-heads">Exam Fee Structure</strong>
+                              </div>
+                          </div>
+                      </mat-panel-title>
+                      <label class="filter-align">Filter</label>
+                      <mat-icon>filter_list</mat-icon>
+                  </mat-expansion-panel-header>
+                  <form name="staffForm" [formGroup]="staffForm" novalidate>
+                      <div fxLayout="row">
+                          <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                              <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                  <mat-option *ngFor="let course of courses" [value]="course.courseId">{{course.courseCode}}</mat-option>
+                              </mat-select>
+                          </mat-form-field>
+                          <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                              <mat-select placeholder="Exam" name="examId" formControlName="examId" required>
+                                  <mat-option *ngFor="let exam of exams" [value]="exam.examId">{{exam.examName}}</mat-option>
+                              </mat-select>
+                          </mat-form-field>
+                      </div>
+                      <div fxLayout="row">
+                             <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                <input matInput placeholder="Exam Fee Structure" name="examFeeStructureName" formControlName="examFeeStructureName" required>
+                            </mat-form-field>
+                             <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <input matInput [matDatepicker]="fDate" placeholder="Collection Start Date" name="collectionStartDate" formControlName="collectionStartDate">
+                                <mat-datepicker-toggle matSuffix [for]="fDate"></mat-datepicker-toggle>
+                                <mat-datepicker #fDate></mat-datepicker>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <input matInput [matDatepicker]="tDate" placeholder="Collection End Date" name="collectionEndDate" formControlName="collectionEndDate">
+                                <mat-datepicker-toggle matSuffix [for]="tDate"></mat-datepicker-toggle>
+                                <mat-datepicker #tDate></mat-datepicker>
+                            </mat-form-field>
+                        </div>
+                  </form>
+              </mat-expansion-panel>
+              <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+              </mat-expansion-panel>
+          </mat-accordion>
+
+          <mat-card class="pd-card table-align" *ngIf="courseGroupYears.length > 0">
+              <div fxLayout="row">
+                  <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30">
+                      <div class="mat-elevation-z8 weeday-bordr">
+                          <h3 class="absent">Course Years</h3>
+                          <div class="search-box">
+                                <i class="fa fa-search" aria-hidden="true"></i>
+                                <input [(ngModel)]="searchText" placeholder="Search..." [ngModelOptions]="{standalone: true}">
+                          </div>
+                          <div class="abs-div">
+                              <p *ngFor="let courseGroupYear of courseGroupYears | courseFilter: searchText;let i = index;">
+                                  <input type="checkbox" name="check-{{i}}" [(ngModel)]="courseGroupYear.check" [ngModelOptions]="{standalone: true}"> {{courseGroupYear.groupCode}} - {{courseGroupYear.courseYearCode}}
+                              </p>
+                          </div>
+                      </div>
+                  </div>
+                  <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="70" fxFlex.gt-md="70">
+                      <div class="mat-elevation-z8 ">
+                        <form name="examForm" [formGroup]="examForm" novalidate>
+                           <div fxLayout="row">
+                              <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33" style="border: 1px solid #dedede;">
+                                  <h3 style="text-align: center;color: blue;">Regular Fee & Fines</h3>
+                                  <p>Fee Amount <input class="ex-amt" type="number" formControlName="regFee" name="amount" step="any"></p>
+                                  <!-- <p>LateFee(1st) <input class="ex-amt" type="number" name="amount" step="any"></p>
+                                  <p>LateFee(2nd) <input class="ex-amt" type="number" name="amount" step="any"></p>
+                                  <p>LateFee(3rd) <input class="ex-amt" type="number" name="amount" step="any"></p> -->
+                              </div>
+                              <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33" style="border: 1px solid #dedede;">
+                                  <h3 style="text-align: center;color: blue;">Supplementary Fee</h3>
+                                  <p>1 Subject Fee <input class="ex-amt" type="number" name="amount" formControlName="subject1Fee" step="any"></p>
+                                  <p>2 Subjects Fee <input class="ex-amt" type="number" name="amount" formControlName="subject2Fee" step="any"></p>
+                                  <p>3 Subjects Fee <input class="ex-amt" type="number" name="amount" formControlName="subject3Fee" step="any"></p>
+                                  <p>4 Subjects Fee <input class="ex-amt" type="number" name="amount" formControlName="subject4Fee" step="any"></p>
+                              </div>
+                              <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33" style="border: 1px solid #dedede;">
+                                  <h3 style="text-align: center;color: blue;">Supplementary Fee</h3>
+                                  <p>5 Subjects Fee <input class="ex-amt" type="number" name="amount" formControlName="subject5Fee" step="any"></p>
+                                  <p>6 Subjects Fee <input class="ex-amt" type="number" name="amount" formControlName="subject6Fee" step="any"></p>
+                                  <p>7 Subjects Fee <input class="ex-amt" type="number" name="amount" formControlName="subject7Fee" step="any"></p>
+                              </div>
+                          </div>
+                        </form>
+
+                          <!-- ADDITIONAL FEES -->
+                          <div class="add-fee" style="padding-left: 6px;">
+                              <h2 style="margin: 8px 0px 0px 8px;">List Of Additional Fees Applicable</h2>
+                              <!-- <div fxLayout="row">
+                                  <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40">
+                                      <input matInput placeholder="Fee Name" name="examFeeStructureName" [(ngModel)]="examAdditionalFee.examFeeStructureName" [ngModelOptions]="{standalone: true}">
+                                  </mat-form-field>
+                              </div> -->
+                              <div fxLayout="row">
+                                  <label id="example-radio-group-label" style="color: red;padding: 22px 0px;">Applicable For :</label>
+                                  <div fxLayout="column" class="p-8 bordr-fee" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                      <section fxLayout="column" fxFlex="100" style="margin-top: 5px">
+                                          <mat-radio-group [(ngModel)]="examAdditionalFee.adtExamfeetypeCatId" [ngModelOptions]="{standalone: true}" style="text-align: center;">
+                                              <mat-radio-button style="margin-right: 15px;" *ngFor="let objct of examFeeTypes" [value]="objct.generalDetailId">{{objct.generalDetailDisplayName}}</mat-radio-button>
+                                          </mat-radio-group>
+                                      </section>
+                                  </div>
+                                  <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                      <input class="exFee-amt" placeholder="Amount" type="number" [(ngModel)]="examAdditionalFee.fee" [ngModelOptions]="{standalone: true}">
+                                  </div>
+                                  <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                      <button mat-raised-button class="add-btn" color="accent" (click)="addAdditionalFees()">Add</button>
+                                  </div>
+                              </div>
+
+                              <div fxLayout="row" *ngIf="addedexamAdditionalFee.length>0">
+                                  <table mat-table [dataSource]="dataSource " matSort>
+                                      <!-- ID Column -->
+                                      <ng-container matColumnDef="id">
+                                          <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                          <td mat-cell *matCellDef="let row; let i=index"> {{addedexamAdditionalFee.indexOf(row) + 1}} </td>
+                                      </ng-container>
+
+                                      <!-- Subject Code Column -->
+                                      <ng-container matColumnDef="ApplicableFor">
+                                          <th mat-header-cell *matHeaderCellDef mat-sort-header>Type</th>
+                                          <td mat-cell *matCellDef="let row"> {{row.type}} </td>
+                                      </ng-container>
+
+                                      <!-- Regulation Column -->
+                                      <ng-container matColumnDef="fee">
+                                          <th mat-header-cell *matHeaderCellDef mat-sort-header>Amount</th>
+                                          <td mat-cell *matCellDef="let row"> {{row.fee}} </td>
+                                      </ng-container>
+                                      <!-- Actions Column -->
+                                      <ng-container matColumnDef="actions">
+                                          <th mat-header-cell *matHeaderCellDef mat-sort-header> Actions </th>
+                                          <td mat-cell *matCellDef="let row; let i =index">
+                                              <!-- <i class="material-icons edit" (click)="editSubject(row)"> border_color</i> -->
+                                              <i class="fa fa-times edit" (click)="deleteFee(row,i)"></i>
+                                          </td>
+                                      </ng-container>
+
+                                      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                                      <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                                      </tr>
+                                  </table>
+                              </div>
+                          </div>
+
+                          <!-- FINES -->
+                          <div class="add-fee" style="padding-left: 6px;">
+                            <h2 style="margin: 8px 0px 0px 8px;">Late Fee Fines</h2>
+                            <!-- <div fxLayout="row">
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40">
+                                    <input matInput placeholder="Fee Name" name="fineName" [(ngModel)]="examLateFees.fineName" [ngModelOptions]="{standalone: true}">
+                                </mat-form-field>
+                            </div> -->
+                            <div fxLayout="row">
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40">
+                                    <input matInput placeholder="Fee Fine Name" name="fineName" [(ngModel)]="examLateFees.fineName" [ngModelOptions]="{standalone: true}">
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                    <input matInput [matDatepicker]="fnDate" placeholder="Fine Start Date" name="fineFromDate" [(ngModel)]="examLateFees.fineFromDate" [ngModelOptions]="{standalone: true}">
+                                    <mat-datepicker-toggle matSuffix [for]="fnDate"></mat-datepicker-toggle>
+                                    <mat-datepicker #fnDate></mat-datepicker>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                    <input matInput [matDatepicker]="tfnDate" placeholder="Fine End Date" name="fineToDate" [(ngModel)]="examLateFees.fineToDate" [ngModelOptions]="{standalone: true}">
+                                    <mat-datepicker-toggle matSuffix [for]="tfnDate"></mat-datepicker-toggle>
+                                    <mat-datepicker #tfnDate></mat-datepicker>
+                                </mat-form-field>
+                            </div>
+                            <div fxLayout="row">
+                                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                    <input class="exFee-amt" placeholder="Reg Fee Fine" type="number" step="any" name="regFeeFine" [(ngModel)]="examLateFees.regFeeFine" [ngModelOptions]="{standalone: true}">
+                                </div>
+                                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                    <input class="exFee-amt" placeholder="Supple Fee Fine" type="number" step="any" name="supplyFeeFine" [(ngModel)]="examLateFees.supplyFeeFine" [ngModelOptions]="{standalone: true}">
+                                </div>
+                                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="addExamLateFees(examLateFees)">Add</button>
+                                </div>
+                            </div>
+
+                            <div fxLayout="row" *ngIf="addedExamLateFees.length>0">
+                                <table mat-table [dataSource]="dataSource1" matSort>
+                                    <!-- ID Column -->
+                                    <ng-container matColumnDef="id">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                        <td mat-cell *matCellDef="let row; let i=index"> {{addedExamLateFees.indexOf(row) + 1}} </td>
+                                    </ng-container>
+
+                                    <!-- Subject Name Column -->
+                                    <ng-container matColumnDef="fineName">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Fine Name</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.fineName}} </td>
+                                    </ng-container>
+
+                                    <!-- Subject Code Column -->
+                                    <ng-container matColumnDef="fineFromDate">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Fine Date</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.fineFromDate | date:'MMM d, y'}} - {{row.fineToDate | date:'MMM d, y'}} </td>
+                                    </ng-container>
+
+                                    <!-- Regulation Column -->
+                                    <ng-container matColumnDef="regFeeFine">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Reg Fee Fine</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.regFeeFine}} </td>
+                                    </ng-container>
+
+                                     <!-- Regulation Column -->
+                                    <ng-container matColumnDef="supplyFeeFine">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Supple Fee Fine</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.supplyFeeFine}} </td>
+                                    </ng-container>
+
+                                    <!-- Actions Column -->
+                                    <ng-container matColumnDef="actions">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Actions </th>
+                                        <td mat-cell *matCellDef="let row; let i =index">
+                                            <!-- <i class="material-icons edit" (click)="editSubject(row)"> border_color</i> -->
+                                            <i class="fa fa-times edit" (click)="deleteFeeFine(row,i)"></i>
+                                        </td>
+                                    </ng-container>
+
+                                    <tr mat-header-row *matHeaderRowDef="displayedColumns1"></tr>
+                                    <tr mat-row *matRowDef="let row; columns: displayedColumns1;">
+                                    </tr>
+                                </table>
+
+                            </div>
+                        </div>
+
+                      </div>
+
+                  </div>
+
+              </div>
+              <div class="save-btn-align">
+                  <button mat-raised-button class="add-btn back-btn" (click)="goBack()">Back</button>
+                  <button mat-raised-button class="add-btn" color="accent" style=" margin-top: 14px;width: 10px;" (click)="addExamFeestructure()">Save</button>
+              </div>
+          </mat-card>
+
+            <div class="save-btn-align" *ngIf="courseGroupYears.length == 0">
+                  <button mat-raised-button class="add-btn back-btn" (click)="goBack()">Back</button>
+            </div>
+
+          <!-- / CONTENT -->
+
+      </div>
+  </div>
+</div>

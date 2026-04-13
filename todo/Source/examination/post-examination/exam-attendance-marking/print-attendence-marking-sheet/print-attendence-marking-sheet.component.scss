@@ -1,0 +1,85 @@
+
+    .printbtn{
+        display: flex;
+        justify-content: end;
+        margin: 10px;
+    }
+   
+    @media print {
+        #printPageButton {
+          display: none;
+        }
+        header nav, footer {
+          display: none;
+       }
+       
+      }
+     
+   
+     button{
+      margin-left: 15px;
+     }
+     .layout{
+      margin: auto !important;
+      margin-top: 0px !important;
+      
+      width:990px !important;
+     }
+  
+.STDIMG{
+align-items: end;
+}
+
+
+.firstborder{
+    margin-bottom: 10px !important;
+    justify-content: center;
+    display: flex;
+    }
+    .lastborder{
+        margin-top: 5px !important;
+        }
+
+
+
+        .sheet{
+            text-align: center !important;
+            // margin-bottom: 10px;
+            
+        }
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

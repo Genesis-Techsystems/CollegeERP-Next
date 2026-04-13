@@ -58,7 +58,7 @@ export function Breadcrumb({ items, maxItems, className }: BreadcrumbProps) {
 
   return (
     <nav aria-label="Breadcrumb" className={cn(className)}>
-      <ol className="flex items-center flex-wrap gap-0.5 text-sm">
+      <ol className="flex items-center flex-wrap gap-0.5 text-[10px] leading-5">
         {visibleItems.map((item, index) => {
           const isFirst = index === 0
           const isEllipsis = item.label === '...' && item.href === undefined && shouldCollapse

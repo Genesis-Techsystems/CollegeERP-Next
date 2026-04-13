@@ -1,0 +1,119 @@
+<div class="layout"  >
+    <div id="dashboard" class="page-layout simple "  id="printsection" >
+        <div class="sheet" *ngIf="orgCode == 'AMS'">
+            <!-- <h3 style="margin-bottom: -17px !important;"><b>{{data[0].exam_name}}</b> </h3> -->
+  
+            <h2 style="margin-bottom: -17px !important; font-size: 20px !important;"><b>ANDHRA MAHILA SABHA ARTS & SCIENCE COLLEGE FOR WOMEN</b> </h2>
+            <h2 style="margin-bottom: -17px !important; font-size: 20px !important;"><b>(AUTONOMOUS)</b> </h2>
+  
+            <h3 style="margin-bottom: 15px !important;"><b>O.U CAMPUS. HYDERABAD</b> </h3>
+  
+         </div>
+         <div fxLayout="row" *ngIf="orgCode == 'SUK'">
+          <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"  >
+            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="clglogo" *ngIf="Logo != null">
+              <img  [src]="Logo" >
+          </div>
+  
+          <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100"  *ngIf="Logo == null">
+            <img  src="assets/images/avatars/default_logo.png" style="height:60px;width:500px !important">
+        </div>
+         
+        </div>
+  
+        </div>
+         <div class="sheet" *ngIf="orgCode == 'SUK'">
+          <!-- <h3 style="margin-bottom: -17px !important;"><b>{{data[0].exam_name}}</b> </h3> -->
+  
+          <h2 style="margin-bottom: -10px !important; font-size: 20px !important;"><b>{{groupName[0]?.college_name}}</b> </h2>
+  
+       </div>
+  
+  
+        <div fxLayout="row" >
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+                <table id="table1">
+                    <tr>
+                        <td> Program: &nbsp;{{groupName[0]?.group_name}}</td>
+                        <td>SUBJECT WISE D-FORM </td>
+                        <td></td>
+                    </tr>
+                  </table>
+                 
+            </div>
+        </div>
+        <div id="line"><hr /></div>
+        <div fxLayout="row" >
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+                <table id="table1">
+                    <tr>
+                        <td> Exam Date : &nbsp; {{details[0]?.exam_date | date:'MMM d, y'}}</td>
+                        <td> Exam Time :&nbsp;{{details[0]?.sessin_time}}</td>
+                        <td> Exam Session :&nbsp;{{details[0]?.exam_session_name}}&nbsp;</td>
+                       
+                    </tr>
+                  </table>
+                  
+            </div>
+        </div>
+        <div id="line"><hr /></div>
+        <div fxLayout="row" >
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+                <table id="table1">
+                    <tr>
+                        <td>
+                          Course Name: &nbsp; {{details[0]?.subject_name}}-{{details[0]?.subject_code}}
+                        </td>
+                    </tr>
+                  </table>
+                  
+            </div>
+        </div>
+        <div id="line"><hr /></div>
+  
+    <div fxLayout="row">
+  
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+          <table id="table2">
+            <tr>
+                <td *ngFor="let d of details" style="margin:0; float:left; width:25%; border: none !important; vertical-align: middle !important;">
+                   {{d.hallticket_number}}
+                </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <div id="line"><hr /></div>
+  
+      <div fxLayout="row" >
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+            <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                  <table id="table1">
+                    <tr>
+                       <td>Total : {{details.length}}</td>
+                       <td>No.of Additions :</td>
+                       <td>No. of Present :</td>
+                       <td>No. of Absent :</td>
+  
+                    </tr>
+                    
+                    
+                  </table>
+                </div>
+              </div>
+        </div>
+      </div>
+      <div class="printbtn">
+        <button  id="printPageButton" mat-raised-button class="back-btn"  (click)="goBack()">
+          Back</button>
+          <button  id="printPageButton" mat-raised-button color="add-btn" color="accent" (click)="printPage('printsection')">
+              Print</button>
+      </div>
+    </div>
+  </div>
+  
+          
+   
+  
+  

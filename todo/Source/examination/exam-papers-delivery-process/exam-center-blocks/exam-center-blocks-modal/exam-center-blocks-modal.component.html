@@ -1,0 +1,53 @@
+<div class="content">
+    <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+        <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+            <div fxLayoutAlign="start center" class="mod-head">
+                <!-- <mat-icon>assessment</mat-icon> -->
+                <i class="fa fa-th-large icon-align" aria-hidden="true"></i>
+                <span>{{dialogTitle}}</span>
+            </div>
+        </div>
+    </div>
+    <form name="blockForm" [formGroup]="blockForm" novalidate>
+        <mat-dialog-content>
+            <div fxLayout="column">
+                <div fxLayout="row wrap " fxFlex="100">
+
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="50">
+                        <mat-select placeholder="Building" name="buildingId" formControlName="buildingId" required>
+                            <mat-option *ngFor="let building of buildings" [value]="building.buildingId">{{building.buildingName}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+                <div fxLayout="row wrap " fxFlex="100">
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="40">
+                        <input matInput placeholder="Block Name" name="blockName" formControlName="blockName" required>
+                    </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                        <input matInput placeholder="Block Code" name="blockCode" formControlName="blockCode" required>
+                    </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="20">
+                        <input matInput placeholder="No Of Floors" type="number" name="noOfFloors" formControlName="noOfFloors">
+                    </mat-form-field>
+                </div>
+                <div fxLayout="row wrap " fxFlex="100">
+                    <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="25">
+                        <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
+                    </section>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" *ngIf="blockForm.controls.isActive.value === false">
+                        <input matInput placeholder="Reason" name="reason" formControlName="reason">
+                    </mat-form-field>
+                </div>
+            </div>
+        </mat-dialog-content>
+        <mat-dialog-actions>
+            <button mat-raised-button class="cls-btn" mat-dialog-close>
+                    Close
+                </button>
+            <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+            Save
+        </button>
+
+        </mat-dialog-actions>
+    </form>
+</div>

@@ -164,7 +164,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'flex h-full w-full flex-col bg-slate-900',
+        'flex h-full w-full flex-col bg-[hsl(var(--sidebar-background))] border-r border-[hsl(var(--sidebar-border))]',
         isSidebarOpen ? '' : 'overflow-hidden md:flex',
         isRightPositioned && 'order-last',
       )}
@@ -174,11 +174,11 @@ export function Sidebar() {
       {/* ── Brand header ─────────────────────────────────────────────── */}
       <div
         className={cn(
-          'flex shrink-0 items-center py-4',
+          'flex shrink-0 items-center pt-5 pb-4',
           isExpanded ? 'gap-3 px-4' : 'justify-center px-2',
         )}
       >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/10">
           <Image
             src={smartLogo}
             alt="Campus Connect"
@@ -188,11 +188,34 @@ export function Sidebar() {
           />
         </div>
         {isExpanded && (
-          <div className="min-w-0">
-            <p className="text-[13px] font-bold uppercase tracking-wide text-white leading-tight">
-              {user?.collegeName ?? 'College ERP'}
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-semibold text-white leading-tight truncate">
+              {user?.collegeName ?? 'Smart Campus'}
+            </p>
+            <p className="mt-0.5 text-[11px] text-[hsl(var(--sidebar-foreground))] leading-tight truncate">
+              Connect ERP
             </p>
           </div>
+        )}
+
+        {/* Collapse toggle (matches reference placement near brand) */}
+        {isExpanded && (
+          <button
+            type="button"
+            onClick={toggleSidebarCollapsed}
+            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-surface))] hover:text-[hsl(var(--sidebar-foreground-active))] transition-colors duration-150"
+          >
+            {isRightPositioned ? (
+              isSidebarCollapsed
+                ? <PanelRightOpen className="h-4 w-4" aria-hidden="true" />
+                : <PanelRightClose className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              isSidebarCollapsed
+                ? <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+                : <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+            )}
+          </button>
         )}
       </div>
 
@@ -200,7 +223,7 @@ export function Sidebar() {
       {isExpanded && searchOpen && (
         <div className="shrink-0 px-3 pb-2">
           <div className="relative flex items-center">
-            <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+            <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-[hsl(var(--sidebar-foreground))]" aria-hidden="true" />
             <input
               ref={searchInputRef}
               type="text"
@@ -208,13 +231,13 @@ export function Sidebar() {
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => e.key === 'Escape' && setSearchOpen(false)}
               placeholder="Search menu…"
-              className="h-8 w-full rounded-md bg-slate-800 pl-8 pr-8 text-[13px] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-600"
+              className="h-8 w-full rounded-md bg-[hsl(var(--sidebar-surface))] pl-8 pr-8 text-[13px] text-[hsl(var(--sidebar-foreground))] placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-[hsl(var(--sidebar-border))]"
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-2 text-slate-400 hover:text-white"
+                className="absolute right-2 text-[hsl(var(--sidebar-foreground))] hover:text-[hsl(var(--sidebar-foreground-active))]"
                 aria-label="Clear search"
               >
                 <X className="h-3.5 w-3.5" />
@@ -234,7 +257,7 @@ export function Sidebar() {
           paddingRight: isExpanded ? undefined : '0.25rem',
         }}
       >
-        <ul className="space-y-0.5">
+        <ul className="space-y-0">
           {displayedItems.map((item) => (
             <li key={item.id}>
               <NavItem item={item} depth={0} />
@@ -250,24 +273,6 @@ export function Sidebar() {
       <div className="shrink-0 px-2 py-2">
         <div className={cn('flex items-center gap-1', isExpanded ? 'justify-around' : 'justify-center')}>
 
-          {/* Collapse / expand toggle */}
-          <button
-            type="button"
-            onClick={toggleSidebarCollapsed}
-            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors duration-150"
-          >
-            {isRightPositioned ? (
-              isSidebarCollapsed
-                ? <PanelRightOpen className="h-4 w-4" aria-hidden="true" />
-                : <PanelRightClose className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              isSidebarCollapsed
-                ? <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
-                : <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
-            )}
-          </button>
-
           {isExpanded && (
             <>
               {/* Nav search toggle */}
@@ -278,8 +283,8 @@ export function Sidebar() {
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-md transition-colors duration-150',
                   searchOpen
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white',
+                    ? 'bg-[hsl(var(--sidebar-surface))] text-[hsl(var(--sidebar-foreground-active))]'
+                    : 'text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-surface))] hover:text-[hsl(var(--sidebar-foreground-active))]',
                 )}
               >
                 <Search className="h-4 w-4" aria-hidden="true" />
@@ -293,7 +298,7 @@ export function Sidebar() {
                 type="button"
                 onClick={handleLogout}
                 title="Logout"
-                className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-red-900/40 hover:text-red-400 transition-colors duration-150"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-[hsl(var(--sidebar-foreground))] hover:bg-red-900/40 hover:text-red-400 transition-colors duration-150"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
               </button>

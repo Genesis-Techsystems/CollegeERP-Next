@@ -1,0 +1,78 @@
+<div class="content">
+    <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+        <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+            <div fxLayoutAlign="start center" class="mod-head">
+                <i class="fa fa-book icon-align" aria-hidden="true"></i>
+                <span> Delete Subject Confirmation</span>
+            </div>
+        </div>
+    </div>
+    <form name="StatusForm" [formGroup]="StatusForm" novalidate>
+        <mat-dialog-content>
+            <div fxLayout="column" class="div-border">
+                          <div fxLayout="row wrap " fxFlex="100">
+                              <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                  <p class="details-off">Course  </p>
+                              </div>
+                              <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                                  <p class="details-off"> : <span class="colr"> {{data.collegeCode}} /  {{data.courseYearName}}</span></p>
+                              </div>
+                          </div>
+                          <!-- <div fxLayout="row wrap " fxFlex="100">
+                              <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                  <p class="details-off">Course Year : </p>
+                              </div>
+                              <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                                  <p class="details-off"><span class="colr"> {{data.courseYearName}} </span></p>
+                              </div>
+                          </div> -->
+                          <div fxLayout="row wrap " fxFlex="100">
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <p class="details-off">Subject</p>
+                            </div>
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                                <p class="details-off">  :  <span class="colr"> {{data.subjectName}} 
+                                    <span style="color: darkgray !important;">({{data.subjectCode}})</span> </span></p>
+                            </div>
+                          </div>
+                          <div fxLayout="row wrap " fxFlex="100">
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <p class="details-off">Subject Type  </p>
+                            </div>
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                                <p class="details-off"> : <span class="colr"> {{data.subjecttypeCode}} </span></p>
+                            </div>
+                          </div>
+                          <div fxLayout="row wrap " fxFlex="100">
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <p class="details-off">Credits </p>
+                            </div>
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                                <p class="details-off">  :  <span class="colr"> {{data.credits}} </span></p>
+                            </div>
+                          </div>
+            </div>
+            <div fxLayout="column">
+                <!-- <div fxLayout="row wrap " fxFlex="100">
+                    <p>
+                        Sure, you want to delete ?
+                    </p>
+                </div> -->
+                <div fxLayout="row wrap " fxFlex="100">
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100">
+                        <input matInput placeholder="Reason" name="reason" formControlName="reason" required>
+                    </mat-form-field>
+                </div>
+            </div>
+        </mat-dialog-content>
+        <mat-dialog-actions class="popup-btn">
+            <button mat-raised-button class="cls-btn" mat-dialog-close>
+                  No
+              </button>
+            <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+          Yes
+      </button>
+
+        </mat-dialog-actions>
+    </form>
+</div>

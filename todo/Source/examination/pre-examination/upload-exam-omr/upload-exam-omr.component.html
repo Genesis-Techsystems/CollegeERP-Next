@@ -1,0 +1,118 @@
+
+  <div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Pre Examination</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Upload Exam Omr</span>
+                </div>
+            </div>
+
+        </div>
+        <div class="content">
+          <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+              <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                  <mat-expansion-panel-header>
+                      <mat-panel-title>
+                          <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                              <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                  <mat-icon class="fs  icon-align ">book</mat-icon>
+                                  <strong class="table-heads">Upload Exam Omr</strong>
+                              </div>
+                          </div>
+                      </mat-panel-title>
+                      <label class="filter-align">Filter</label>
+                      <mat-icon>filter_list</mat-icon>
+                  </mat-expansion-panel-header>
+                  <div fxLayout="row">
+                    <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                       
+                                <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                                    <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                                      <input
+                                      id="1-basic"
+                                        type="file"
+                                        #fileInput
+                                        (change)="uploadFiles(fileInput.files)"
+                                        webkitdirectory
+                                        multiple
+                                        class="choose"
+                                      />
+                                    </div>
+                                   
+                                </div>
+                                  <br>    
+                            <div class="mat-elevation-z8" *ngIf="uploadedFiles?.length">
+                                <div class="example-container">
+                                    <table mat-table [dataSource]="uploadedFiles" matSort>
+                                      
+                                        <ng-container matColumnDef="filename">
+                                            <th mat-header-cell *matHeaderCellDef mat-sort-header>File Name</th>
+                                            <td mat-cell *matCellDef="let row"> {{row.fileName}} </td>
+                                        </ng-container>
+                
+                                        <ng-container matColumnDef="folder">
+                                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Folder Name</th>
+                                            <td mat-cell *matCellDef="let row"> {{row.folder }} </td>
+                                        </ng-container>
+                                        <ng-container matColumnDef="status">
+                                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+                                            <td mat-cell *matCellDef="let row">
+                                                <span *ngIf="row.status=='Upload Success'" class="active">{{row.status }}</span>
+                                                <span *ngIf="row.status=='-'">{{row.status }}</span>    
+                                            </td>
+                                            <!-- Upload Success -->
+                                        </ng-container>
+                                        <ng-container matColumnDef="view">
+                                            <th mat-header-cell *matHeaderCellDef mat-sort-header>View</th>
+                                            <td mat-cell *matCellDef="let row">
+                                                <a [href]="row.view" target="_blank" ><i class="material-icons remove_red_eye hover"  matTooltip="View">
+                                                    remove_red_eye</i></a>
+                                                <!-- <i class="material-icons remove_red_eye hover"  matTooltip="View"  (click)="editDialog(row.view)">
+                                                    remove_red_eye</i>  -->
+                                                 
+                                            </td>
+                                            <!-- Upload Success -->
+                                        </ng-container>
+                                        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                                        <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                                        </tr>
+                                    </table>
+                                 
+                                </div>
+                                <br>
+                                <div style="margin-left: 1100px;" >
+                                    <button mat-raised-button class="add-btn"(click)="submit()"  color="accent">
+                                      Save
+                                      </button>
+                                     
+                                      </div>
+                            </div>
+                
+                           
+                            
+                        
+                              <br>
+                </div>
+                </div> 
+                 
+              </mat-expansion-panel>
+             
+          </mat-accordion>
+
+          <br>
+      </div>
+     
+        </div>
+        </div>
+      

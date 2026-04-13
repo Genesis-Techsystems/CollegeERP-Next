@@ -1,0 +1,643 @@
+<div id="dashboard" class="page-layout simple" id="printNone">
+
+  <div class="center" fusePerfectScrollbar>
+
+    <!-- HEADER -->
+    <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+      <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+        fxLayoutAlign.gt-xs="center start">
+        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+          <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Examination Management</span>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Pre Examination</span>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Exam Scheduling Forms</span>
+        </div>
+      </div>
+
+    </div>
+    <!-- / HEADER -->
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+        <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                  <mat-icon class="fs  icon-align ">book</mat-icon>
+                  <strong class="table-heads">Exam Scheduling Forms</strong>
+                </div>
+              </div>
+            </mat-panel-title>
+            <label class="filter-align">Filter</label>
+            <mat-icon>filter_list</mat-icon>
+          </mat-expansion-panel-header>
+          <form name="staffForm" [formGroup]="staffForm" novalidate>
+            <div fxLayout="row">
+              <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                  (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                  <mat-option *ngFor="let course of courses"
+                    [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="16" fxFlex.gt-md="16">
+                <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId"
+                  (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)" required>
+                  <mat-option *ngFor="let academicYear of academicYears"
+                    [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="52" fxFlex.gt-md="52">
+                <mat-select placeholder="Exam Master" name="examId" formControlName="examId"
+                  (selectionChange)="selectedExam(staffForm.value.examId)" required>
+                  <ngx-mat-select-search (keyup)="searchExam($event.target.value)" [placeholderLabel]="'Search Exam...'"
+                    [noEntriesFoundLabel]="'no matching data found'">
+                  </ngx-mat-select-search>
+                  <mat-option *ngFor="let exam of examDuplicateList" [value]="exam.fk_exam_id"
+                    matTooltip="{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})">{{exam.exam_name}}
+                    ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})
+                    <span class="rol-no">
+                      <span *ngIf="exam.is_internal_exam != false">(Internal)</span>
+                      <span *ngIf="exam.is_regular_exam != false">(Regular)</span>
+                      <span *ngIf="exam.is_supply_exam != false">(Supple)</span>
+                    </span>
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="32" fxFlex.gt-md="32">
+                <mat-select placeholder="Exam Timetable" name="examTimetableId" formControlName="examTimetableId"
+                  (selectionChange)="selectedExamTimetable(staffForm.value.examTimetableId)" required>
+                  <mat-option *ngFor="let objct of examTimetables" [value]="objct.examTimetableId">
+                    {{objct.examDate}}&nbsp;
+                    <span *ngIf="objct.examDate != null" class="rol-no">({{objct.examSessionName}})</span>
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+          </form>
+        </mat-expansion-panel>
+        <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+        </mat-expansion-panel>
+      </mat-accordion>
+
+      <mat-card class="pd-card table-align" *ngIf="flag">
+        <mat-card-content>
+          <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="2">
+            <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row"
+              fxLayoutAlign="start center">
+              <label for="search" class="mr-8">
+                <mat-icon class="secondary-text">search</mat-icon>
+              </label>
+              <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                <input matInput (keyup)="applyFilter($event.target.value)" name="search" placeholder="Search">
+              </mat-form-field>
+            </div>
+          </div>
+
+        </mat-card-content>
+
+        <div class="mat-elevation-z8 ">
+          <div *ngIf="flag" style="    padding: 10px 24px;
+    display: flex
+;
+    justify-content: end;
+    position: relative;
+    top: -2px;">
+            <div style="    border: 2px solid #ffcf46;
+    padding: 2px 0px 7px 10px;
+    border-radius: 5px;">
+              <button class="btn-add" mat-raised-button color="accent" (click)="printTable('Room')">
+                <i class="material-icons">print</i>
+                Room Wise Seating Print</button>
+              <button class="btn-add" mat-raised-button color="accent" (click)="printTable('RoomSubject')">
+                <i class="material-icons">print</i>
+                Room Subject Counts Print </button>
+              <button class="btn-add" mat-raised-button color="accent" (click)="printTable('Group')">
+                <i class="material-icons">print</i>
+                Group Wise Seating Print</button>
+              <button class="btn-add" mat-raised-button color="accent"
+                (click)="printAttendanceSheet('printAttendanceSheet')">
+                <i class="material-icons">print</i>
+                Print Attendance Sheet</button>
+              <button class="btn-add" mat-raised-button color="accent" (click)="printStickers()">
+                <i class="material-icons">print</i>
+                Print Stickers</button>
+              <button class="btn-add" mat-raised-button color="accent" (click)="printGroupStickers()">
+                <i class="material-icons">print</i>
+                Group-Wise Stickers</button>
+              <button class="btn-add" mat-raised-button color="accent" (click)="printInvigilator('printInvigilators')">
+                <i class="material-icons">print</i>
+                Print Invigilator</button>
+              <button class="btn-add" mat-raised-button color="accent" (click)="printCoverSlip()">
+                <i class="material-icons">print</i>
+                Cover Slip</button>
+              <button class="btn-add" mat-raised-button color="accent" (click)="printPackingSlip()">
+                <i class="material-icons">print</i>
+                Packing Slip</button>
+            </div>
+          </div>
+          <div class="example-container ">
+            <table mat-table [dataSource]="dataSource " matSort>
+              <!-- ID Column -->
+              <ng-container matColumnDef="id">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                <td mat-cell *matCellDef="let row; let i=i ndex" align="center"> {{roomAllotments.indexOf(row) + 1}}
+                </td>
+              </ng-container>
+
+              <!-- Session Column -->
+              <ng-container matColumnDef="examSessionName">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Exam Session</th>
+                <td mat-cell *matCellDef="let row"> {{row?.examSessionName}}
+                  ({{tConvert(row?.sessionStartTime)}}-{{tConvert(row?.sessionEndTime)}})
+                </td>
+              </ng-container>
+
+              <!-- Campus Code Column sessionStartTime sessionEndTime -->
+              <ng-container matColumnDef="examDate">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Exam Date</th>
+                <td mat-cell *matCellDef="let row"> {{row.examDate | date:'d MMM, y'}} </td>
+              </ng-container>
+
+              <!-- Organization Column -->
+              <ng-container matColumnDef="roomCode">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Room Code</th>
+                <td mat-cell *matCellDef="let row"> {{row.buildingCode}} / {{row.blockCode}} / {{row.floorName}} /
+                  {{row.roomCode}} </td>
+              </ng-container>
+
+              <!-- District Column -->
+              <ng-container matColumnDef="bookedSeats">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Booked Seats</th>
+                <td mat-cell *matCellDef="let row "> {{row.bookedSeats}} </td>
+              </ng-container>
+
+              <ng-container matColumnDef="blockedSeats">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Blocked Seats</th>
+                <td mat-cell *matCellDef="let row "> {{row.blockedSeats}} </td>
+              </ng-container>
+
+              <ng-container matColumnDef="availableSeats">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Available Seats</th>
+                <td mat-cell *matCellDef="let row "> {{row.availableSeats}} </td>
+              </ng-container>
+
+              <!-- Isactive Column -->
+              <ng-container matColumnDef="isActive">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
+                <td mat-cell *matCellDef="let row">
+                  <span *ngIf="row.isActive==true" class="active">Active</span>
+                  <span *ngIf="row.isActive==false" class="in-active">InActive</span>
+                </td>
+              </ng-container>
+
+              <!-- Actions Column -->
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> Actions </th>
+                <!-- <td mat-cell *matCellDef="let row" class="text-ctr">Set Allot Students <i class="material-icons edit" matTooltip="Edit" (click)="editExamRoomAllotment(row)"> border_color</i> </td> -->
+                <td mat-cell *matCellDef="let row" class="text-ctr assign-btn"> <span
+                    (click)="editExamRoomAllotment(row)">Seat Allot Students</span> </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+              </tr>
+            </table>
+          </div>
+          <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+        </div>
+
+      </mat-card>
+
+      <!-- / CONTENT -->
+
+    </div>
+  </div>
+</div>
+
+<div id="print-room-section" style="display: none;">
+  <!-- <div style="width: 100%;">
+      <img src="assets/images/avatars/MECS_BANNER.png" class="college-banner" />
+    </div> -->
+  <div style="width: 100%;" *ngIf="this.universityCode === 'MECS'">
+    <img src="assets/images/avatars/MECS_BANNER.png" class="college-banner" />
+  </div>
+
+  <div *ngIf="this.universityCode === 'MVSR'">
+    <img src="assets/images/avatars/MVSR_BANNER.png" class="college-banner-2" />
+  </div>
+  <div style="width: 100%;">
+    <p class="s_head">SEATING ARRANGEMENT</p>
+    <p class="s_sub_head">{{exam_name}}</p>
+    <div class="exam-info">
+      <span class="left">Date : <b>{{formatDate(examTimetable?.examDate)}}</b></span>
+      <span class="right" *ngIf="!isExamTimetableEmpty">Session : <b>
+          <!-- {{examTimetable.examTimetableDetail[0].sessionStartTime}} - {{examTimetable.examTimetableDetail[0].sessionEndTime}} -->
+          ({{tConvert(examTimetable.examTimetableDetail[0].sessionStartTime)}}-{{tConvert(examTimetable.examTimetableDetail[0].sessionEndTime)}})
+        </b></span>
+    </div>
+    <div *ngFor="let group of groupedAllocations; let gIndex = index;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>S.No.</th>
+            <th>Room Number</th>
+            <th>H.T. Numbers</th>
+            <th>Branch</th>
+            <th>No. of Students</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let alloc of group.records; let i = index;">
+            <td>{{ i + 1 }}</td>
+            <td>{{ alloc.room_name }}</td>
+            <td>{{ alloc['min(tssd.hallticket_number)'] }} to {{ alloc['max(tssd.hallticket_number)'] }}</td>
+            <td>{{ alloc.group_code }}</td>
+            <td>{{ alloc.cnt }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <br />
+    </div>
+    <div class="footer-info">
+      <div>Total No. of Students : {{getTotal()}}</div>
+      <div style="margin-top: 10%;">Controller of Examinations</div>
+    </div>
+  </div>
+</div>
+
+<div id="print-room-subject-section" style="display: none;">
+  <!-- <div style="width: 100%;">
+      <img src="assets/images/avatars/MECS_BANNER.png" class="college-banner" />
+    </div> -->
+  <div style="width: 100%;" *ngIf="this.universityCode === 'MECS'">
+    <img src="assets/images/avatars/MECS_BANNER.png" class="college-banner" />
+  </div>
+
+  <div *ngIf="this.universityCode === 'MVSR'">
+    <img src="assets/images/avatars/MVSR_BANNER.png" class="college-banner-2" />
+  </div>
+  <div style="width: 100%;">
+    <p class="s_head">SEATING ARRANGEMENT</p>
+    <p class="s_sub_head">{{exam_name}}</p>
+    <div class="exam-info">
+      <span class="left">Date : <b>{{formatDate(examTimetable?.examDate)}}</b></span>
+      <span class="right" *ngIf="!isExamTimetableEmpty">Session : <b>
+          <!-- {{examTimetable.examTimetableDetail[0].sessionStartTime}} - {{examTimetable.examTimetableDetail[0].sessionEndTime}} -->
+          ({{tConvert(examTimetable.examTimetableDetail[0].sessionStartTime)}}-{{tConvert(examTimetable.examTimetableDetail[0].sessionEndTime)}})
+        </b></span>
+    </div>
+    <div *ngFor="let group of groupedSubjectAllocations; let gIndex = index;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>S.No.</th>
+            <th>Room Number</th>
+            <th>Subject</th>
+            <th>No. of Question Papers</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let alloc of group.records; let i = index;">
+            <td>{{ i + 1 }}</td>
+            <td>{{ alloc.room_name }}</td>
+            <td>{{ alloc.subject_name }}({{ alloc.subject_code }})</td>
+            <td>{{ alloc.cnt }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <br />
+    </div>
+    <div class="footer-info">
+      <div>Total No. of Students : {{getSubjectRoomTotal()}}</div>
+      <div style="margin-top: 10%;">Controller of Examinations</div>
+    </div>
+  </div>
+</div>
+
+<div id="print-group-section" style="display: none;">
+
+  <!-- Header -->
+  <div *ngIf="this.universityCode === 'MECS'">
+    <img src="assets/images/avatars/MECS_BANNER.png" class="college-banner" />
+  </div>
+
+  <div *ngIf="this.universityCode === 'MVSR'">
+    <img src="assets/images/avatars/MVSR_BANNER.png" class="college-banner-2" />
+  </div>
+
+  <div style="width: 100%;">
+    <p class="s_head">SEATING ARRANGEMENT</p>
+    <p class="s_sub_head">{{exam_name}}</p>
+    <!-- <p class="s_subject">Subject: Matrices & Calculus</p> -->
+    <div class="exam-info">
+      <span class="left">Date : <b>{{formatDate(examTimetable?.examDate)}}</b></span>
+      <span class="right" *ngIf="!isExamTimetableEmpty">Session : <b>
+          <!-- {{examTimetable.examTimetableDetail[0].sessionStartTime}} - {{examTimetable.examTimetableDetail[0].sessionEndTime}} -->
+          ({{tConvert(examTimetable.examTimetableDetail[0].sessionStartTime)}}-{{tConvert(examTimetable.examTimetableDetail[0].sessionEndTime)}})
+        </b></span>
+    </div>
+    <ng-container *ngFor="let subject of groupedSubjects">
+      <h3 style="margin-top: 40px;">Subject: {{ subject.subject_name }}</h3>
+
+      <table border="1" style="border-collapse: collapse; text-align: center; width: 100%; margin-bottom: 40px;">
+        <thead>
+          <tr>
+            <th>S.No.</th>
+            <th>Branch</th>
+            <th>H.T. Numbers</th>
+            <th>Room Number</th>
+            <th>No. of Students</th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let group of subject.branches">
+            <ng-container *ngFor="let alloc of group.allocations; let i = index">
+              <tr>
+                <td *ngIf="i === 0" [attr.rowspan]="group.allocations.length">{{ group.sno }}</td>
+                <td *ngIf="i === 0" [attr.rowspan]="group.allocations.length">{{ group.branch }}</td>
+                <td>
+                  <strong>{{ alloc['min(tssd.hallticket_number)'] }} to {{ alloc['max(tssd.hallticket_number)']
+                    }}</strong>
+                </td>
+                <td>{{ alloc.room_name }}</td>
+                <td>{{ alloc.cnt }}</td>
+              </tr>
+            </ng-container>
+          </ng-container>
+        </tbody>
+      </table>
+    </ng-container>
+  </div>
+</div>
+<div class="layout hall-ticket-wrapper" *ngIf="printAttendance">
+  <div *ngFor="let group of groupedData; let i = index" class="page-align print-page">
+
+    <!-- Header -->
+    <div *ngIf="group.students[0]?.university_code === 'MECS'">
+      <img src="assets/images/avatars/MECS_BANNER.png" class="college-banner" />
+    </div>
+
+    <div *ngIf="group.students[0]?.university_code === 'MVSR'">
+      <img src="assets/images/avatars/MVSR_BANNER.png" class="college-banner-2" />
+    </div>
+
+    <h4 class="header"><b> ATTENDANCE SHEET </b></h4>
+
+    <div>
+      <h4 style="text-align:center !important">
+        {{group.students[0]?.exam_name}} ({{group.students[0]?.exam_type_name}})
+      </h4>
+    </div>
+
+    <!-- Exam Info -->
+    <div class="exam-header">
+      <div class="row">
+        <div class="left"><b>Branch :</b> {{group.students[0]?.group_code}}</div>
+        <div class="center"><b>Date :</b> {{group.students[0]?.exam_date | date : 'dd/MM/yyyy'}}</div>
+        <div class="right"><b>Room :</b> {{group.students[0]?.room_name}}</div>
+      </div>
+
+      <div class="row">
+        <div class="left" style="flex: 2;"><b>Subject:</b> {{group.students[0]?.subject_name}}</div>
+        <div class="right"><b>Session:</b> {{group.students[0]?.sessin_time}}</div>
+      </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <table class="subject-table-refined">
+      <thead>
+        <tr>
+          <th>S.NO</th>
+          <th>H.T. NO.</th>
+          <th>Student Name</th>
+          <th>Serial No.</th>
+          <th>Signature of the Student</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let data of group?.students; let i = index">
+          <td>{{i + 1}}</td>
+          <td>{{data?.hallticket_number}}</td>
+          <td>{{data?.student_name}}</td>
+          <td>{{data?.omr_serial_no}}</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Summary Table -->
+    <table class="subject-table-refined">
+      <thead>
+        <tr>
+          <th>Total No.of Students Registered</th>
+          <th>Total No.of Students Absent</th>
+          <th>Total No.of Students Present</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>{{group?.students?.length}}</td>
+          <td></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Signatures -->
+    <div class="signatures">
+      <div>Signature of the Invigilator - I</div>
+      <div>Signature of the Invigilator - II</div>
+      <div>Controller of Examinations</div>
+    </div>
+
+  </div>
+</div>
+<div class="layout hall-ticket-wrapper" *ngIf="printInvigilators" style="width:99% !important">
+  <div class="page-align print-page">
+
+    <!-- Header -->
+    <div *ngIf="this.universityCode === 'MECS'">
+      <img src="assets/images/avatars/MECS_BANNER.png" class="college-banner" />
+    </div>
+
+    <div *ngIf="this.universityCode === 'MVSR'">
+      <img src="assets/images/avatars/MVSR_BANNER.png" class="college-banner-2" />
+    </div>
+
+    <h4 class="header"><b> Invigilators </b></h4>
+
+    <div>
+      <h4 style="text-align:center !important">
+        {{exam_name}}
+      </h4>
+    </div>
+
+    <!-- Exam Info -->
+    <div class="exam-header" *ngIf="this.examInvigilationAllotmentsList.length > 0">
+      <div class="row">
+        <div class="left"><b>Exam Date :</b> {{examInvigilationAllotmentsList[0]?.examDate | date : 'dd/MM/yyyy'}}</div>
+        <div class="right"><b>Session :</b>
+          ({{tConvert(examInvigilationAllotmentsList[0]?.sessionStartTime)}}-{{tConvert(examInvigilationAllotmentsList[0]?.sessionEndTime)}})
+        </div>
+      </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <table class="subject-table-refined" *ngIf="this.examInvigilationAllotmentsList.length > 0">
+      <thead>
+        <tr>
+          <th>S.NO</th>
+          <th>Room</th>
+          <th>Invigilator</th>
+          <th>Signature</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let data of examInvigilationAllotmentsList; let i = index">
+          <td>{{i + 1}}</td>
+          <td>{{data?.roomName}}</td>
+          <td>{{data?.invigilatorEmpName}}</td>
+          <td> </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<div class="layout hall-ticket-wrapper" style="width:98% !important" *ngIf="isCoverSlip">
+
+  <h4 class="header"><b> CoverSlip </b></h4>
+
+  <div>
+    <h4 style="text-align:center !important">
+      {{exam_name}}
+    </h4>
+  </div>
+
+  <!-- Exam Info -->
+  <div class="exam-header" *ngIf="groupedCoverSlipData.length > 0">
+    <div class="row">
+      <div class="left"><b>Exam Date :</b> {{groupedCoverSlipData[0]?.exam_date | date : 'dd/MM/yyyy'}}</div>
+      <div class="right"><b>Session :</b>
+        ({{tConvert(groupedCoverSlipData[0]?.session_start_time)}}-{{tConvert(groupedCoverSlipData[0]?.session_end_time)}})
+      </div>
+    </div>
+  </div>
+
+  <!-- Loop through each grouped subject block -->
+  <table class="subject-table-refined" *ngFor="let group of groupedCoverSlipData; let i = index">
+    <thead>
+      <tr>
+        <th>S.NO</th>
+        <th>Subject Details</th>
+        <th>Packing Slip</th>
+        <th>Present</th>
+        <th>Absent</th>
+        <th>MalPractice</th>
+        <th>Other</th>
+        <th>Buffer</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Subject Info -->
+      <tr>
+        <td>{{i + 1}}</td>
+        <td>
+          {{group.course_name}}/{{group.exam_type}}/{{group.course_year}} <br>
+          {{group.subject_code}} - {{group.subject_name}}
+        </td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+
+      <!-- Department Rows -->
+      <tr *ngFor="let dept of group.groups">
+        <td></td>
+        <td>{{dept.course_group || '--'}}</td>
+        <td></td>
+        <td>{{dept.present || 0}}</td>
+        <td>{{dept.absent || 0}}</td>
+        <td>{{dept.mal_practice || 0}}</td>
+        <td></td>
+        <td></td>
+      </tr>
+
+      <!-- Totals Row -->
+      <tr>
+        <td></td>
+        <td><b>TOTALS</b></td>
+        <td></td>
+        <td><b>{{group.total_present}}</b></td>
+        <td><b>{{group.total_absent}}</b></td>
+        <td><b>{{group.total_malpractice}}</b></td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<div class="layout hall-ticket-wrapper" style="width:98% !important" *ngIf="isPackingSlip">
+  <div *ngFor="let data of packingSlipData; let i = index" class="cover-slip-page">
+
+    <h4 class="header"><b> Packing Slip </b></h4>
+
+    <div>
+      <h4 style="text-align:center !important">
+        {{exam_name}}
+      </h4>
+    </div>
+
+    <!-- Exam Info -->
+    <div class="exam-header">
+      <div class="row">
+        <div class="left"><b>Exam Date :</b> {{data?.exam_date | date : 'dd/MM/yyyy'}}</div>
+        <div class="right"><b>Session :</b>
+          ({{tConvert(data?.session_start_time)}}-{{tConvert(data?.session_end_time)}})
+        </div>
+      </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <table class="subject-table-refined">
+      <thead>
+        <tr>
+          <th>S.NO</th>
+          <th>Subject Details</th>
+          <th>Packing Slip</th>
+          <th>Present</th>
+          <th>Absent</th>
+          <th>MalPractise</th>
+          <th>Other</th>
+          <th>Buffer</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>
+            {{data?.course_name}}/{{data?.course_group}}/{{data?.exam_type}}/{{data?.course_year}} <br>
+            {{data?.subject_code}} - {{data?.subject_name}}
+          </td>
+          <td> </td>
+          <td>{{data?.Present}}</td>
+          <td>{{data?.registered_for_exam - data?.Present}}</td>
+          <td>{{data?.mal_practice}}</td>
+          <td></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

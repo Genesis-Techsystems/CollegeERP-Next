@@ -1,0 +1,64 @@
+<div class="layout"  >
+    <div id="dashboard" class="page-layout simple "  id="printsection" >
+        <div class="sheet" >
+            <h3 style="margin-bottom: -17px !important;"><b>{{data[0].exam_name}}</b> </h3>
+            <h4>{{data[0].room_name}} - ({{tConvert(data[0].sessionStartTime)}} - {{tConvert(data[0].sessionEndTime)}}) - {{(data[0].sessionEndTime)}})  </h4>
+            <h4></h4>
+         </div>
+      <div fxLayout="row" >
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"  class="firstborder">
+            <table mat-table [dataSource]="dataSource " matSort>
+                <ng-container matColumnDef="id">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>S.No</th>
+                    <td mat-cell *matCellDef="let row" class="text-crt"> {{data.indexOf(row) + 1}} </td>
+                </ng-container>
+                <!-- roll_number Column -->
+                <ng-container matColumnDef="admissionNumber">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Hallticket No</th>
+                    <td mat-cell *matCellDef="let row"> {{row.roll_number}} </td>
+                </ng-container>
+
+                <!-- firstName Column -->
+                <ng-container matColumnDef="firstName">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Student Name</th>
+                    <td mat-cell *matCellDef="let row"> {{row.student_name}} </td>
+                </ng-container>
+                <ng-container matColumnDef="subjectCode">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject</th>
+                    <td mat-cell *matCellDef="let row"> {{row.subject_code}}
+                </td>
+                </ng-container>
+                <!-- Actions Column -->
+                <ng-container matColumnDef="barcode">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>barcode</th>
+                    <td mat-cell *matCellDef="let row"> 
+
+                        <span style="display: flex; justify-content: center; margin-bottom: -4px;"> {{row.roll_number}}</span>
+    
+                        <img [src]="'data:image/jpg;base64,'+row.omr_barcode" style="height:30px;" /> 
+                        <span style="display: flex; justify-content: center; font-size:10px; margin-top: 1px;"> ({{tConvert(data[0].sessionStartTime)}} - {{tConvert(data[0].sessionEndTime)}}) &nbsp; &nbsp; {{row.subject_code}}</span>
+
+
+                    </td> 
+                </ng-container>
+                <ng-container matColumnDef="signature">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Signature</th>
+                    <td mat-cell *matCellDef="let row"> 
+                    </td> 
+                </ng-container>
+                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                </tr>
+            </table>
+      </div>
+      </div>
+    </div>
+    <div class="printbtn">
+     <button  id="printPageButton" mat-raised-button class="back-btn"  (click)="printBack()">
+       Back</button>
+       <button  id="printPageButton" mat-raised-button color="add-btn" color="accent" (click)="printPage('printsection')">
+           Print</button>
+   </div>
+    </div>
+
+

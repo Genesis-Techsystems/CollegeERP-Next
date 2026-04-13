@@ -1,0 +1,234 @@
+<!-- 
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                                ballot
+                                </i>
+                    <span> Student Answer Sheets List - {{data[0]?.course_code}} / {{data[0]?.exam_month_yr}} <span *ngIf="data[0]?.subject_code!=''"> / {{data[0]?.subject_code}}({{data[0]?.subject_name}})</span></span>
+                </div>
+            </div>
+        </div>
+        <mat-dialog-content>
+
+        <div class="mat-elevation-z8">
+            <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="35" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                    <label for="search" class="mr-8">
+                        <mat-icon class="secondary-text">search</mat-icon>
+                    </label>
+                    <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                        <input matInput [(ngModel)]="searchText" name="search" placeholder="Search">
+                    </mat-form-field>
+                </div>
+                <div fxFlex.gt-xs="65" fxFlex.gt-md="65" fxLayout="row" fxLayoutAlign="start end" class="buttons">
+                  <div class="black-fg" fxLayout="row" fxLayoutAlign="start center" >
+                    <strong style="margin-left: 12px;" class="table-heads" > </strong>
+                </div>
+                        </div>
+            </div>
+            <div class="example-container">
+                <table class="mar">
+                  <thead>
+                    <tr>
+                      <th class="table-th">S.No</th>
+                      
+                      <th class="table-th">Omr Serial No</th>
+                      <th class="table-th">Evaluators</th>
+                      <th class="table-th">Marks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <ng-container *ngFor="let studentAtt of data | filter:searchText; let i = index">
+                      <tr>
+                        <td class="table-td" [attr.rowspan]="studentAtt.Evaluatorlist.length">{{ i + 1 }}</td>
+                        
+                        <td class="table-td" [attr.rowspan]="studentAtt.Evaluatorlist.length">{{ studentAtt.omr_serial_no }}</td>
+                        <td class="table-td">{{ studentAtt.Evaluatorlist[0].evaluatorName }}</td>
+                        <td class="table-td">{{ studentAtt.Evaluatorlist[0].marks }}</td>
+                      </tr>
+                      <tr *ngFor="let list of studentAtt.Evaluatorlist.slice(1)">
+                        <td class="table-td">{{ list.evaluatorName }}</td>
+                        <td class="table-td">{{ list.marks }}</td>
+                      </tr>
+                    </ng-container>
+                  </tbody>
+                </table>
+              </div>
+</div>
+
+</mat-dialog-content>
+<mat-dialog-actions>
+<button mat-raised-button class="cls-btn" mat-dialog-close>
+            Close
+            </button>
+
+
+</mat-dialog-actions>
+</div>
+</div> -->
+
+<div id="dashboard" class="page-layout simple" id="printNone">
+
+  <div class="center" fusePerfectScrollbar>
+
+      <!-- HEADER -->
+      <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+          <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+              fxLayoutAlign.gt-xs="center start">
+              <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                  <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                  <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                  <span>Reports</span>
+                  <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                  <span>Examination Reports</span>
+                  <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                  <span> Student Answer Sheets List </span>
+              </div>
+          </div>
+      </div>
+      <!-- / HEADER -->
+
+      <!-- CONTENT -->
+      <div class="content">
+          <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" *ngIf="data.length > 0">
+              <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                  <div class="black-fg" fxLayout="row" fxLayoutAlign="start center" >
+                      <strong style="margin-left: 12px;" class="table-heads" > Student Answer Sheets List  - {{data[0]?.course_code}} / {{data[0]?.exam_month_yr}} <span *ngIf="data[0]?.subject_code!=''"> / {{data[0]?.subject_code}}({{data[0]?.subject_name}})</span> </strong>
+                      <button mat-raised-button class="back-btn" (click)="goBack()">Back</button>
+                  </div>
+                  <!-- <div class="buttonadd">
+                    <button mat-raised-button class="add-btn back-btn" (click)="goBack()">Back</button>
+                  </div> -->
+                 
+              </div>
+          </div>
+          <div fxLayout="row" *ngIf="data && data.length > 0">
+              <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                  <mat-card class="pd-card table-align">
+                      <mat-card-content>
+                          <div fxLayout="row" fxLayout.xs="column" style="position: relative;" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                              <div fxFlex.gt-xs="28" fxFlex.gt-md="28" fxLayout="row" fxLayoutAlign="start center">
+                                  <button mat-raised-button class="add-btn" color="accent"  (click)="exportAsExcel()">
+                          <i class="fa fa-file-excel-o icon" aria-hidden="true"></i>Export Excel</button>
+                          <button mat-raised-button class="add-btn" color="accent"  (click)="printPage()">
+                              <i class="fa fa-print icon" aria-hidden="true"></i>Print Report</button>
+                              </div>
+                              <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                                <label for="search" class="mr-8">
+                                  <mat-icon class="secondary-text">search</mat-icon>
+                              </label>
+                              <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                                  <input matInput [(ngModel)]="searchText" name="search" placeholder="Search">
+                              </mat-form-field>
+                              </div>
+                </div>
+                      </mat-card-content>
+                      <div class="mat-elevation-z8">
+                          <div class="example-container" style="overflow: hidden !important;" #excelTable>
+                              <strong style="display: none !important;"> Student Answer Sheets -
+                                   - {{data[0]?.course_code}} / {{data[0]?.exam_month_yr}} <span *ngIf="data[0]?.subject_code!=''"> / {{data[0]?.subject_code}}({{data[0]?.subject_name}})</span> </strong>
+                                  <table>
+                                    <thead>
+                                      <tr>
+                                        <th class="table-th" style="width: 10% !important;">S.No</th>
+                                        
+                                        <th class="table-th" style="width: 20% !important;">Omr Serial No</th>
+                                        <th class="table-th" style="width: 40% !important;">Evaluators</th>
+                                        <th class="table-th" style="width: 10% !important;">Marks</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      <ng-container *ngFor="let studentAtt of data | filter:searchText; let i = index">
+                                        <tr>
+                                          <td class="table-td" [attr.rowspan]="studentAtt.Evaluatorlist.length" style="width: 10% !important;">{{ i + 1 }}</td>
+                                          
+                                          <td class="table-td" [attr.rowspan]="studentAtt.Evaluatorlist.length" style="width: 20% !important;">{{ studentAtt.omr_serial_no }}</td>
+                                          <td class="table-td" style="width: 40% !important;">{{ studentAtt.Evaluatorlist[0].evaluatorName }}</td>
+                                          <td class="table-td" style="width: 10% !important;">{{ studentAtt.Evaluatorlist[0].marks }}</td>
+                                        </tr>
+                                        <tr *ngFor="let list of studentAtt.Evaluatorlist.slice(1)">
+                                          <td class="table-td" style="width: 40% !important;">{{ list.evaluatorName }}</td>
+                                          <td class="table-td" style="width: 10% !important;">{{ list.marks }}</td>
+                                        </tr>
+                                      </ng-container>
+                                    </tbody>
+                                  </table>
+                          </div>
+                          <!-- <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator> -->
+                      </div>
+                  </mat-card>
+              </div>
+          </div>
+      </div>
+  </div>
+</div>
+<div style="width:100% !important">
+  <div fxLayout="row" *ngIf="orgCode != 'SUK'">
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+          <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo != null">
+              <img [src]="Logo" class="portraitLogo">
+          </div>
+          <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo == null">
+              <img src="assets/images/avatars/default_logo.png" class="portraitLogo">
+          </div>
+          <div fxLayout="column" fxFlex="85" fxFlex.gt-xs="85" fxFlex.gt-md="85">
+              <p class="collegeName">Student Answer Sheets Report </p>
+              <p  class="title"> {{data[0]?.course_code}} / {{data[0]?.exam_month_yr}} <span *ngIf="data[0]?.subject_code!=''"> / {{data[0]?.subject_code}}({{data[0]?.subject_name}})</span>  </p>        
+          </div>
+      </div>
+  </div>
+  <div fxLayout="row" *ngIf="orgCode == 'SUK'">
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+          <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="clglogo"
+              *ngIf="Logo != null">
+              <img [src]="Logo" style="height:auto !important;width:1200px !important;">
+          </div>
+
+          <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100" *ngIf="Logo == null">
+              <img src="assets/images/avatars/default_logo.png" style="height:100px;width:500px !important">
+          </div>
+
+      </div>
+
+  </div>
+
+  <div fxLayout="row" *ngIf="orgCode == 'SUK'">
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+          <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+              <p class="collegeName">Student Answer Sheets Report </p>
+              <p class="title"> {{data[0]?.course_code}} / {{data[0]?.exam_month_yr}} <span *ngIf="data[0]?.subject_code!=''"> / {{data[0]?.subject_code}}({{data[0]?.subject_name}})</span>  </p>
+          </div>
+      </div>
+  </div>
+  <div>
+    <table>
+      <thead>
+        <tr>
+          <th class="table-th">S.No</th>
+          <th class="table-th">Omr Serial No</th>
+          <th class="table-th">Evaluators</th>
+          <th class="table-th">Marks</th>
+        </tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let studentAtt of data; let i = index">
+          <tr>
+            <td class="table-td" [attr.rowspan]="studentAtt.Evaluatorlist.length">{{ i + 1 }}</td>
+            
+            <td class="table-td" [attr.rowspan]="studentAtt.Evaluatorlist.length">{{ studentAtt.omr_serial_no }}</td>
+            <td class="table-td">{{ studentAtt.Evaluatorlist[0].evaluatorName }}</td>
+            <td class="table-td">{{ studentAtt.Evaluatorlist[0].marks }}</td>
+          </tr>
+          <tr *ngFor="let list of studentAtt.Evaluatorlist.slice(1)">
+            <td class="table-td">{{ list.evaluatorName }}</td>
+            <td class="table-td">{{ list.marks }}</td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+  </div>

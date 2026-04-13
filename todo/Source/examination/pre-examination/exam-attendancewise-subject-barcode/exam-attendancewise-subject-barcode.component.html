@@ -1,0 +1,200 @@
+<div id="admission-dashboard" class="page-layout simple">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination Management</span>
+              <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+              <span>Pre Examination</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Attendance-wise Course Barcode</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+
+        <div class="mat-elevation-z8 bkgrd">
+            <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                <i class="material-icons sub-header-icon">money</i>
+                <span class="sub-header-text">Exam Attendance-wise Course Barcode</span>
+            </div>
+            <form name="examFeeCollectionForm" [formGroup]="examFeeCollectionForm" novalidate>
+
+                <div fxLayout="row">
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                        fxFlex.gt-md="20">
+                        <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                            (selectionChange)="selectedCourse(examFeeCollectionForm.value.courseId)" required>
+                            <mat-option *ngFor="let course of courses"
+                                [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                        fxFlex.gt-md="20">
+                        <mat-select placeholder="Exam Year" name="academicYearId"
+                            formControlName="academicYearId"
+                            (selectionChange)="selectedAcademicYear(examFeeCollectionForm.value.academicYearId)"
+                            required>
+                            <mat-option *ngFor="let academicYear of academicYears"
+                                [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                        fxFlex.gt-md="60">
+                        <mat-select placeholder="Exam Master" name="examId" formControlName="examId"
+                            (selectionChange)="selectedExam(examFeeCollectionForm.value.examId)" required>
+                            <ngx-mat-select-search 
+                                [placeholderLabel]="'Search...'"
+                                [noEntriesFoundLabel]="'no matching data found'"
+                                (keyup)="searchexam($event.target.value)"></ngx-mat-select-search>
+                            <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})">
+
+                                {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date |
+                                date:dateFormate}})
+                                <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;"
+                                    matTooltip='Internal'>(Internal)</span>
+                                <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;"
+                                    matTooltip="Regular">(Regular)</span>
+                                <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;"
+                                    matTooltip="Supple">(Supple)</span>
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+
+
+
+                </div>
+                <div class="row-wrap">
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                        fxFlex.gt-md="20">
+                        <mat-select placeholder="College" name="collegeId" formControlName="collegeId"
+                            (selectionChange)="selectedCollege(examFeeCollectionForm.value.collegeId)" required>
+                            <mat-option *ngFor="let college of colleges"
+                                [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                        fxFlex.gt-md="20">
+                        <mat-select placeholder="Course Group " name="courseGroupId"
+                            formControlName="courseGroupId"
+                            (selectionChange)="selectedGroup(examFeeCollectionForm.value.courseGroupId)" required>
+                            <mat-option *ngFor="let courseGroup of courseGroups"
+                                [value]="courseGroup.fk_course_group_id">{{courseGroup.group_code}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                        fxFlex.gt-md="20">
+                        <mat-select placeholder="Course Years" name="courseYearId"
+                            formControlName="courseYearId"
+                            (selectionChange)="selectedYear(examFeeCollectionForm.value.courseYearId)" required>
+                            <mat-option *ngFor="let courseYear of courseYears"
+                                [value]="courseYear.fk_course_year_id">{{courseYear.course_year_code}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                    fxFlex.gt-md="20">
+                    <mat-select placeholder="Regulation" name="regulationId"
+                        formControlName="regulationId"
+                        (selectionChange)="selectedRegulation(examFeeCollectionForm.value.regulatonId)" required>
+                        <mat-option *ngFor="let obj of regulationList"
+                            [value]="obj.fk_regulation_id">{{obj.regulation_code}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
+                        fxFlex.gt-md="30">
+                        <mat-select placeholder="Subject" name="subjectId" formControlName="subjectId" required
+                           >
+                            <ngx-mat-select-search (keyup)="searchSubject($event.target.value)"
+                                [placeholderLabel]="'Search Subject...'"
+                                [noEntriesFoundLabel]="'no matching data found'">
+                            </ngx-mat-select-search>
+                            <mat-option *ngFor="let subject of subjectData" [value]="subject.fk_subject_id"
+                                matTooltip="{{subject.subject_name}} ({{subject.subject_code}})">{{subject.subject_name}}
+                                ({{subject.subject_code}})
+
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                        <button mat-raised-button class="add-btn" color="accent" (click)="getDetails()">Get
+                            List</button>
+                    </div>
+                </div>
+            </form>
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" style="margin-top: 10px;
+                border-top: 7px solid #eff0f2;">
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <strong class="table-heads" style="font-size: 14px !important">{{selectedData}}</strong>
+                    </div>
+                    
+                </div>
+            </div>
+            
+    <div class="content pd-card mt-15" *ngIf="subjectModerationStudents.length > 0">
+        <div class="mat-elevation-z8 ex-btn" style="padding: 10px;padding-top: 35px;">
+            <div class="example-container ">
+                <!-- <div class="form-btn">
+                    <button mat-raised-button class="add-btn back-btn ex-btn" (click)="ExportTOExcel()">Download Excel</button>
+                </div>  -->
+                    <table class="table table-striped fee fee_ mar" >
+                            <thead>
+                                <tr>
+                                    <th class="table-th">S.No</th>
+                                    <th class="table-th">Student Name</th>
+                                    <th class="table-th">Barcode Number</th>
+                                    <th class="table-th">Barcode</th>
+                                    <th class="table-th">View OMR Page</th>
+                                    <th class="table-th">View Answer Page</th>
+
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let studentAtt of subjectModerationStudents; let i=index">
+                                    <td class="table-td" style="text-align: center !important;"> {{subjectModerationStudents.indexOf(studentAtt) + 1}}</td>
+                                    <td class="table-td">{{studentAtt.StudentName}} (<span style="color:blue">{{studentAtt.hallticket_number}}</span>)</td>
+                                    <td class="table-td"> {{studentAtt.omr_serial_no}}   </td>
+                                    <td class="table-td">
+                                        <span *ngIf="studentAtt.omr_barcode=='-'">-</span>
+                                        <span *ngIf="studentAtt.omr_barcode!='-'">
+                                        <img [src]="'data:image/jpg;base64,'+studentAtt.omr_barcode" style="height:20px;" /> 
+                                        </span>
+                                    </td>
+                                    <td><i class="material-icons remove_red_eye hover"  matTooltip="View" (click)="Print(studentAtt)">
+                                        remove_red_eye</i></td>
+                                        <td><mat-icon (click)="printbarCode(studentAtt)" style="color: #042956;"> insert_drive_file</mat-icon></td>
+                                </tr>
+                            </tbody>
+                    </table>
+            </div>
+            <div class="printbtn">
+                <!-- <button  mat-raised-button color="accent" style="margin-right: 24px;" (click)="printDform()" class="">Print D-Form</button> -->
+                <button  mat-raised-button color="accent" style="margin-right: 24px;" (click)="Stickers()" class="">Print Stickers</button>
+                <button  mat-raised-button color="accent" style="margin-right: 24px;" (click)="StickersWithBn()" class="">Print Stickers With Barcode No</button>
+                <button  mat-raised-button color="accent" style="margin-right: 24px;" (click)="StickersHallTicketNo()" class="">Print Stickers Without USN</button>
+                <!-- <button  mat-raised-button color="accent" style="margin-right: 24px;" (click)="omrpage()" class="">Print OMR Sheets</button>
+                <button  mat-raised-button color="accent"  (click)=" omrSinglePage()" class="">Print Answer Sheets </button> -->
+
+            </div>
+        </div>
+    </div>
+
+        </div>
+
+    </div>
+    <!-- / CONTENT -->
+
+</div>
