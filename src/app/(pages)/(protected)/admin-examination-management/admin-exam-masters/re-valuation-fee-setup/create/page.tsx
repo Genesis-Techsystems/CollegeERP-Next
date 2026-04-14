@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toDateOnlyISO } from '@/common/generic-functions'
 import { distinct } from '@/lib/utils'
-import { buildQuery } from '@/services/crud'
+import { crud, buildQuery } from '@/services/crud'
 import {
 	getCollegeFilters,
 	listCourseGroups,
@@ -236,11 +236,7 @@ export default function CreateRevaluationFeeStructurePage() {
 		const groups = await listCourseGroups(courseId).catch(() => [])
 		const groupList = Array.isArray(groups) ? groups : []
 		setCourseGroups(groupList)
-		const query = encodeURIComponent(`Course.courseId==${courseId}.and.isActive==true`)
-		const cgRows = await fetch(`/api/proxy/domain/list/CourseGroup?size=99999&query=${query}`)
-			.then((r) => r.json())
-			.then((data) => (Array.isArray(data) ? data : Array.isArray(data?.content) ? data.content : []))
-			.catch(() => groupList)
+		const cgRows = await crud.list('CourseGroup', `Course.courseId==${courseId}.and.isActive==true`).catch(() => groupList)
 		const groupMap: Record<number, string> = {}
 		for (const g of cgRows as any[]) {
 			const gid = Number(

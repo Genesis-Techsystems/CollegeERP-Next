@@ -5,7 +5,7 @@ import { ChevronDown, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select } from '@/common/components/select'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   getExamRegistrationForm,
@@ -309,48 +309,27 @@ export default function ExamRegistrationManualFeelessPage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <div className="md:col-span-5 space-y-1">
                 <Label>Student</Label>
-                <Select value={studentId || undefined} onValueChange={setStudentId}>
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Select Student" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <div className="p-2 border-b sticky top-0 bg-white z-10">
-                      <Input
-                        value={studentQuery}
-                        onChange={(e) => setStudentQuery(e.target.value)}
-                        placeholder="Search student..."
-                        className="h-8 text-[12px]"
-                      />
-                    </div>
-                    {students.map((s) => (
-                      <SelectItem
-                        key={`s-${pickNum(s, ['studentId', 'fk_student_id']) || pickText(s, ['hallticketNumber', 'rollNumber', 'hallticket_number'])}`}
-                        value={String(pickNum(s, ['studentId', 'fk_student_id']))}
-                      >
-                        {`${pickText(s, ['firstName', 'studentName', 'student_name']) || '-'} (${pickText(s, ['hallticketNumber', 'rollNumber', 'hallticket_number']) || '-'})`}
-                      </SelectItem>
-                    ))}
-                    {students.length === 0 && studentQuery.trim().length >= 3 && (
-                      <div className="px-2 py-2 text-[12px] text-muted-foreground">No students found.</div>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Select
+                  value={studentId || null}
+                  onChange={(v) => setStudentId(v ?? '')}
+                  options={students.map((s) => ({
+                    value: String(pickNum(s, ['studentId', 'fk_student_id'])),
+                    label: `${pickText(s, ['firstName', 'studentName', 'student_name']) || '-'} (${pickText(s, ['hallticketNumber', 'rollNumber', 'hallticket_number']) || '-'})`,
+                  }))}
+                  placeholder="Select Student"
+                  searchable
+                  onSearch={(term) => setStudentQuery(term)}
+                />
               </div>
 
               <div className="md:col-span-5 space-y-1">
                 <Label>Exam</Label>
-                <Select value={examId || undefined} onValueChange={setExamId}>
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Select Exam" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredExams.map((e) => (
-                      <SelectItem key={`e-${pickNum(e, ['examId', 'fk_exam_id'])}`} value={String(pickNum(e, ['examId', 'fk_exam_id']))}>
-                        {pickText(e, ['examName', 'exam_name']) || '-'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Select
+                  value={examId || null}
+                  onChange={(v) => setExamId(v ?? '')}
+                  options={filteredExams.map((e) => ({ value: String(pickNum(e, ['examId', 'fk_exam_id'])), label: pickText(e, ['examName', 'exam_name']) || '-' }))}
+                  placeholder="Select Exam"
+                />
               </div>
 
               <div className="md:col-span-2">
@@ -485,20 +464,11 @@ export default function ExamRegistrationManualFeelessPage() {
               <div className="md:col-span-3 space-y-1">
                 <Label>Course Year *</Label>
                 <Select
-                  value={selectedCourseYearId ? String(selectedCourseYearId) : undefined}
-                  onValueChange={(v) => setSelectedCourseYearId(Number(v))}
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Course Year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {courseYearOptions.map((cy) => (
-                      <SelectItem key={`cy-${cy.id}`} value={String(cy.id)}>
-                        {cy.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  value={selectedCourseYearId ? String(selectedCourseYearId) : null}
+                  onChange={(v) => setSelectedCourseYearId(v ? Number(v) : null)}
+                  options={courseYearOptions.map((cy) => ({ value: String(cy.id), label: cy.label }))}
+                  placeholder="Course Year"
+                />
               </div>
             </div>
           </div>

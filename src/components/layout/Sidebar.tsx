@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useMemo } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import {
   LogOut,
@@ -18,11 +18,10 @@ import { useSessionContext } from '@/context/SessionContext'
 import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
 import smartLogo from '@/assets/images/smart-campus-logo.png'
-import { NEXT_API } from '@/config/constants/api'
+import { logout } from '@/services/auth'
 import { IS_DEBUG_MODE, DebugTrigger, useDebugStore } from '@/debug'
 
 export function Sidebar() {
-  const router = useRouter()
   const pathname = usePathname()
   const { user } = useSessionContext()
   const {
@@ -155,8 +154,11 @@ export function Sidebar() {
   }
 
   async function handleLogout() {
-    await fetch(NEXT_API.AUTH.LOGOUT, { method: 'POST' })
-    router.push('/login')
+    await logout()
+    // Full page reload clears the React Query cache (module-level QueryClient singleton),
+    // all Zustand in-memory state, and all React component state — prevents previous
+    // user's data from leaking into the next session.
+    window.location.href = '/login'
   }
 
   const isRightPositioned = sidebarPosition === 'right'

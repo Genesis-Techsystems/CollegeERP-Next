@@ -5,7 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { NEXT_API } from '@/config/constants/api'
+import {
+	listExamStdAttDetails,
+	listRoomwiseOmrStudents,
+	getExamRoomAllotmentById,
+	getSingleDomain,
+} from '@/services/seating-plan'
 import { PageContainer, PageHeader } from '@/components/layout'
 
 function flattenLegacyResult(body: any): any[] {
@@ -24,24 +29,7 @@ async function fetchExamStdAttDetails(params: {
 	courseId: number
 	examTimetableId: number
 }): Promise<any[]> {
-	const search = new URLSearchParams({
-		in_flag: 'exam_std_att_details',
-		in_exam_id: String(params.examId),
-		in_clg_id: '0',
-		in_course_id: String(params.courseId),
-		in_course_group_id: '0',
-		in_course_year_id: '0',
-		in_regulation_id: '0',
-		in_subject_id: '0',
-		in_examtype_catdet_id: '0',
-		in_std_id: '0',
-		in_exam_timetable_id: String(params.examTimetableId),
-		in_room_id: '0',
-		in_exam_labbatch_id: '0',
-	})
-	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_get_exam_std_reg_tt_details?${search.toString()}`))
-	const body = await res.json().catch(() => null)
-	return flattenLegacyResult(body)
+	return listExamStdAttDetails(params)
 }
 
 async function fetchRoomwiseOmrStudents(params: {
@@ -50,51 +38,15 @@ async function fetchRoomwiseOmrStudents(params: {
 	examDate: string
 	sessionId: number
 }): Promise<any[]> {
-	const search = new URLSearchParams({
-		in_flag: 'roomwise_OMR_students',
-		in_exam_id: String(params.examId),
-		in_college_id: '0',
-		in_course_id: String(params.courseId),
-		in_course_group_id: '0',
-		in_course_year_id: '0',
-		in_room_id: '0',
-		in_std_id: '0',
-		in_invgilator_emp_id: '0',
-		in_regulation_id: '0',
-		from_exam_date: params.examDate || '',
-		to_exam_date: params.examDate || '',
-		in_subject_id: '0',
-		in_session_id: String(params.sessionId || 0),
-	})
-	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_get_exam_allotment_details?${search.toString()}`))
-	const body = await res.json().catch(() => null)
-	return flattenLegacyResult(body)
+	return listRoomwiseOmrStudents(params)
 }
 
 async function fetchExamRoomAllotmentById(examRoomAllotmentId: number): Promise<any | null> {
-	if (!examRoomAllotmentId) return null
-	const search = new URLSearchParams({
-		size: '1',
-		query: `examRoomAllotmentId==${examRoomAllotmentId}`,
-	})
-	const res = await fetch(NEXT_API.PROXY(`/domain/list/ExamRoomAllotment?${search.toString()}`))
-	const body = await res.json().catch(() => null)
-	const rows = body?.data?.resultList ?? body?.resultList ?? body?.data ?? []
-	if (!Array.isArray(rows) || rows.length === 0) return null
-	return rows[0]
+	return getExamRoomAllotmentById(examRoomAllotmentId)
 }
 
 async function fetchSingleDomain(entity: string, idField: string, id: number): Promise<any | null> {
-	if (!id) return null
-	const search = new URLSearchParams({
-		size: '1',
-		query: `${idField}==${id}`,
-	})
-	const res = await fetch(NEXT_API.PROXY(`/domain/list/${entity}?${search.toString()}`))
-	const body = await res.json().catch(() => null)
-	const rows = body?.data?.resultList ?? body?.resultList ?? body?.data ?? []
-	if (!Array.isArray(rows) || rows.length === 0) return null
-	return rows[0]
+	return getSingleDomain(entity, idField, id)
 }
 
 function num(v: unknown): number {

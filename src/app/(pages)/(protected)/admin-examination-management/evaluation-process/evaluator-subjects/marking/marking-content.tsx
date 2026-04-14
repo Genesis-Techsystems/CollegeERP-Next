@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo, useImperativeHandle, forwardRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  AlertCircle, Check, X, Eye, Trash2, ZoomIn, ZoomOut,
-  ChevronLeft, ChevronRight, Clock, Undo2, XCircle, Flag,
-  LogOut, AlertTriangle, ArrowLeft, Move,
+  AlertCircle, Eye, FileText, ClipboardList, ZoomIn, ZoomOut,
+  ChevronLeft, ChevronRight, Clock, XCircle, Flag,
+  AlertTriangle, ArrowLeft,
 } from 'lucide-react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
@@ -32,7 +32,9 @@ import {
   getEvalSetting,
   updateEvalAssignmentStartDate,
   updateEvalAssignment,
+  updateEvalsCompletedCount,
   saveStudentEvalPages,
+  saveFinalEvalPdf,
   finalizeEvalMarks,
   rejectEvalAssignment,
   ufmEvalAssignment,
@@ -41,8 +43,11 @@ import {
   EVAL_STATUS,
   type QuestionMark,
   type EvalAssignmentDetail,
-  type EvalPagePayload,
+  type MarkStampPayload,
+  type NotAnsweredPayload,
 } from '@/services/evaluation'
+import { MINIO_URL } from '@/config/constants/api'
+import { PDFDocument } from 'pdf-lib'
 
 const ANSWER_SHEETS_PATH = '/admin-examination-management/evaluation-process/evaluator-subjects/answer-sheets'
 
@@ -95,6 +100,14 @@ interface Stamp {
   questionId: number
   label: string
   marks: number
+  /**
+   * Primary key from ExamStudentEvaluationPages.
+   * 0 (or null) means the row has not been persisted yet. Once the first save
+   * returns, subsequent saves must echo this id so the server UPDATEs instead of
+   * inserting a duplicate (which violates the uniqueness constraint on
+   * assignmentId+questionPaperMarksId).
+   */
+  studentEvaluationPageId: number | null
 }
 
 // ─── QuestionNavPanel — adapted from script-grader QuestionNav ────────────────
@@ -242,19 +255,29 @@ interface PdfCanvasViewerProps {
   onCloseThumbnails: () => void
   onCanvasClick: (pageNum: number, x: number, y: number) => void
   onStampDelete: (stamp: Stamp) => void
-  onStampMove: (stamp: Stamp, newX: number, newY: number) => void
 }
 
-function PdfCanvasViewer({
+/**
+ * Imperative handle exposed by PdfCanvasViewer so the parent can generate the
+ * final annotated PDF (for Finish) without reaching into this component's DOM.
+ */
+export interface PdfCanvasViewerHandle {
+  /**
+   * Returns one JPEG blob per PDF page, with stamps baked onto the pixels.
+   * Mirrors Angular's imageCanvas() + renderAnnotations() flow used by finishPaper().
+   */
+  captureAnnotatedPages: () => Promise<Blob[]>
+}
+
+const PdfCanvasViewer = forwardRef<PdfCanvasViewerHandle, PdfCanvasViewerProps>(function PdfCanvasViewer({
   url, stamps, selectedMark, locked, stampSize,
   showThumbnails, onCloseThumbnails, onCanvasClick,
-  onStampDelete, onStampMove,
-}: PdfCanvasViewerProps) {
+  onStampDelete,
+}, ref) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const pageWrapRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const canvasRefs = useRef<Record<number, HTMLCanvasElement | null>>({})
   const genRef = useRef<Record<number, number>>({})
-  const prevStampsRef = useRef<Stamp[]>([])
 
   const [numPages, setNumPages] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
@@ -262,184 +285,76 @@ function PdfCanvasViewer({
   const [pdfError, setPdfError] = useState(false)
   const pdfDocRef = useRef<any>(null)
 
-  // Stamp hover popup — fixed-position so crossing the div boundary doesn't lose it
-  const [stampPopup, setStampPopup] = useState<{ stamp: Stamp; x: number; y: number } | null>(null)
-  const popupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Stamps are immovable once placed — matches Angular, which has no drag handler.
+  // To reposition, the evaluator uses the Delete Mark button and clicks again.
 
-  // Stamp drag state
-  const [dragState, setDragState] = useState<{
-    stamp: Stamp
-    offsetX: number
-    offsetY: number
-    screenX: number
-    screenY: number
-    canvasRect: DOMRect
-  } | null>(null)
+  // ── Capture pages with stamps for Finish flow ──────────────────────────────
+  // Render each page at BASE_SCALE onto a fresh offscreen canvas, draw the stamps
+  // at their saved BASE_SCALE-space coordinates, and export JPEG blobs. Mirrors
+  // Angular imageCanvas() + renderAnnotations() (evaluation.component.ts:990, 882).
+  useImperativeHandle(ref, () => ({
+    captureAnnotatedPages: async () => {
+      const doc = pdfDocRef.current
+      if (!doc) return []
+      const total: number = doc.numPages
+      const blobs: Blob[] = []
 
-  function clearPopupTimer() {
-    if (popupTimerRef.current) clearTimeout(popupTimerRef.current)
-  }
-  function schedulePopupClose() {
-    popupTimerRef.current = setTimeout(() => setStampPopup(null), 250)
-  }
+      for (let pageNum = 1; pageNum <= total; pageNum++) {
+        const page = await doc.getPage(pageNum)
+        const viewport = page.getViewport({ scale: PDF_BASE_SCALE })
+        const off = document.createElement('canvas')
+        off.width = Math.floor(viewport.width)
+        off.height = Math.floor(viewport.height)
+        const ctx = off.getContext('2d')!
+        await page.render({ canvasContext: ctx, viewport }).promise
 
-  const handleStampMouseDown = useCallback((e: React.MouseEvent, stamp: Stamp) => {
-    if (locked) return
-    e.preventDefault()
-    e.stopPropagation()
-    const canvasEl = canvasRefs.current[stamp.pageNum]
-    if (!canvasEl) return
-    const canvasRect = canvasEl.getBoundingClientRect()
-    clearPopupTimer()
-    setStampPopup(null)
-    setDragState({
-      stamp,
-      offsetX: e.clientX - (canvasRect.left + stamp.x * zoomMultiplier),
-      offsetY: e.clientY - (canvasRect.top + stamp.y * zoomMultiplier),
-      screenX: e.clientX,
-      screenY: e.clientY,
-      canvasRect,
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locked, zoomMultiplier])
+        // Bake stamps onto the rasterized page (coords are already in BASE_SCALE space).
+        const pageStamps = stamps.filter((s) => s.pageNum === pageNum)
+        if (pageStamps.length > 0) {
+          const SW = stampSize
+          const SH = stampSize
+          for (const stamp of pageStamps) {
+            // Label (e.g. "1a") to the left of the badge
+            ctx.save()
+            ctx.font = `bold ${Math.max(11, Math.round(SW * 0.3))}px Arial`
+            ctx.fillStyle = '#0f766e' // teal-700
+            ctx.textBaseline = 'middle'
+            ctx.fillText(stamp.label, stamp.x - Math.round(SW * 0.9), stamp.y + SH / 2)
+            ctx.restore()
 
-  useEffect(() => {
-    if (!dragState) return
-    const onMove = (e: MouseEvent) => {
-      // Refresh canvasRect on every move so the absolute preview stays accurate even through scroll
-      const canvas = canvasRefs.current[dragState.stamp.pageNum]
-      const freshRect = canvas ? canvas.getBoundingClientRect() : dragState.canvasRect
-      setDragState((prev) => prev ? { ...prev, screenX: e.clientX, screenY: e.clientY, canvasRect: freshRect } : null)
-    }
-    const onUp = (e: MouseEvent) => {
-      const { stamp } = dragState
-      const canvas = canvasRefs.current[stamp.pageNum]
-      // Always use a fresh rect on drop so scroll during drag doesn't misplace the stamp
-      const freshRect = canvas ? canvas.getBoundingClientRect() : dragState.canvasRect
-      const rawX = (e.clientX - freshRect.left) / zoomMultiplier - stampSize / 2
-      const rawY = (e.clientY - freshRect.top) / zoomMultiplier - stampSize / 2
-      const maxX = canvas ? canvas.width / zoomMultiplier - stampSize : rawX
-      const maxY = canvas ? canvas.height / zoomMultiplier - stampSize : rawY
-      const newX = Math.max(0, Math.min(maxX, rawX))
-      const newY = Math.max(0, Math.min(maxY, rawY))
-      setDragState(null)
-      onStampMove(stamp, newX, newY)
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    return () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-  }, [dragState, zoomMultiplier, stampSize, onStampMove])
+            // Teal badge with the awarded marks
+            ctx.save()
+            ctx.fillStyle = '#0d9488' // teal-600
+            ctx.fillRect(stamp.x, stamp.y, SW, SH)
+            ctx.fillStyle = '#ffffff'
+            ctx.font = `900 ${Math.max(11, Math.round(SW * 0.42))}px Arial`
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText(String(stamp.marks), stamp.x + SW / 2, stamp.y + SH / 2)
+            ctx.restore()
 
-  // ── Drawing helpers (mirror Angular's draw functions exactly) ───────────────
+            // Green ✓ tick to the right of the badge
+            ctx.save()
+            ctx.font = `bold ${Math.max(16, Math.round(SW * 0.65))}px Arial`
+            ctx.fillStyle = '#16a34a' // green-600
+            ctx.textBaseline = 'middle'
+            ctx.fillText('\u2713', stamp.x + SW + 2, stamp.y + SH / 2)
+            ctx.restore()
+          }
+        }
 
-  function drawMarkStamp(ctx: CanvasRenderingContext2D, x: number, y: number, marks: number, zoom: number, sz: number) {
-    const W = sz * zoom
-    const H = sz * zoom
-    const r = Math.max(3, 7 * zoom * (sz / 50))
-
-    ctx.save()
-
-    // Drop shadow
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.28)'
-    ctx.shadowBlur = 8 * zoom
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 2 * zoom
-
-    // Fill — cyan-600
-    ctx.fillStyle = '#0891b2'
-    ctx.beginPath()
-    ctx.moveTo(x + r, y)
-    ctx.lineTo(x + W - r, y)
-    ctx.arcTo(x + W, y, x + W, y + r, r)
-    ctx.lineTo(x + W, y + H - r)
-    ctx.arcTo(x + W, y + H, x + W - r, y + H, r)
-    ctx.lineTo(x + r, y + H)
-    ctx.arcTo(x, y + H, x, y + H - r, r)
-    ctx.lineTo(x, y + r)
-    ctx.arcTo(x, y, x + r, y, r)
-    ctx.closePath()
-    ctx.fill()
-
-    // Reset shadow before stroke + text
-    ctx.shadowColor = 'transparent'
-    ctx.shadowBlur = 0
-    ctx.shadowOffsetY = 0
-
-    // Subtle top-edge highlight
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.30)'
-    ctx.lineWidth = 1.5 * zoom
-    ctx.stroke()
-
-    // Mark number
-    ctx.fillStyle = 'white'
-    ctx.font = `900 ${Math.round(28 * zoom * (sz / 50))}px Arial`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(String(marks), x + W / 2, y + H / 2)
-
-    ctx.restore()
-  }
-
-  function drawQuestionLabel(ctx: CanvasRenderingContext2D, x: number, y: number, label: string, zoom: number, sz: number) {
-    const fontSize = Math.max(8, Math.round(12 * zoom * (sz / 50)))
-    ctx.save()
-    ctx.font = `700 ${fontSize}px Arial`
-
-    const textW = ctx.measureText(label).width
-    const padX = 4 * zoom
-    const padY = 2.5 * zoom
-    const pillW = textW + padX * 2
-    const pillH = fontSize + padY * 2
-    const pillX = Math.max(0, x)
-    const pillY = y - pillH - 4 * zoom
-    const pr = Math.min(pillH / 2, 3 * zoom)
-
-    // Pill background with shadow
-    ctx.shadowColor = 'rgba(0,0,0,0.2)'
-    ctx.shadowBlur = 4 * zoom
-    ctx.shadowOffsetY = 1 * zoom
-    ctx.fillStyle = '#dc2626'
-    ctx.beginPath()
-    ctx.moveTo(pillX + pr, pillY)
-    ctx.lineTo(pillX + pillW - pr, pillY)
-    ctx.arcTo(pillX + pillW, pillY, pillX + pillW, pillY + pr, pr)
-    ctx.lineTo(pillX + pillW, pillY + pillH - pr)
-    ctx.arcTo(pillX + pillW, pillY + pillH, pillX + pillW - pr, pillY + pillH, pr)
-    ctx.lineTo(pillX + pr, pillY + pillH)
-    ctx.arcTo(pillX, pillY + pillH, pillX, pillY + pillH - pr, pr)
-    ctx.lineTo(pillX, pillY + pr)
-    ctx.arcTo(pillX, pillY, pillX + pr, pillY, pr)
-    ctx.closePath()
-    ctx.fill()
-
-    ctx.shadowColor = 'transparent'
-    ctx.shadowBlur = 0
-    ctx.shadowOffsetY = 0
-
-    // Label text
-    ctx.fillStyle = 'white'
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(label, pillX + padX, pillY + pillH / 2)
-
-    ctx.restore()
-  }
-
-  function drawAnnotationsOnCanvas(ctx: CanvasRenderingContext2D, pageNum: number, currentStamps: Stamp[], zoom: number, sz: number) {
-    for (const s of currentStamps.filter((st) => st.pageNum === pageNum)) {
-      const dx = s.x * zoom
-      const dy = s.y * zoom
-      drawMarkStamp(ctx, dx, dy, s.marks, zoom, sz)
-      drawQuestionLabel(ctx, dx, dy, s.label, zoom, sz)
-    }
-  }
+        const blob: Blob | null = await new Promise((resolve) =>
+          off.toBlob((b) => resolve(b), 'image/jpeg', 0.92),
+        )
+        if (blob) blobs.push(blob)
+      }
+      return blobs
+    },
+  }), [ref, stamps, stampSize])
 
   // ── Page rendering ──────────────────────────────────────────────────────────
 
-  const renderPage = useCallback(async (pageNum: number, stampsSnapshot: Stamp[], zoom: number, sz: number) => {
+  const renderPage = useCallback(async (pageNum: number, zoom: number) => {
     const doc = pdfDocRef.current
     if (!doc) return
     const canvas = canvasRefs.current[pageNum]
@@ -474,14 +389,11 @@ function PdfCanvasViewer({
     }
     if (genRef.current[pageNum] !== myGen) return
 
-    // Resize display canvas (resets it to blank + identity transform) then
-    // copy the rendered PDF in and draw annotations — always in identity space.
+    // Resize display canvas and copy rendered PDF. Stamps are rendered as HTML overlays, not on canvas.
     canvas.width = newW
     canvas.height = newH
     const ctx = canvas.getContext('2d')!
     ctx.drawImage(tmp, 0, 0)
-    drawAnnotationsOnCanvas(ctx, pageNum, stampsSnapshot, zoom, sz)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── Load PDF document ───────────────────────────────────────────────────────
@@ -512,34 +424,19 @@ function PdfCanvasViewer({
   useEffect(() => {
     if (!numPages || !pdfDocRef.current) return
     const t = setTimeout(() => {
-      for (let p = 1; p <= numPages; p++) renderPage(p, stamps, zoomMultiplier, stampSize)
+      for (let p = 1; p <= numPages; p++) renderPage(p, zoomMultiplier)
     }, 60)
     return () => clearTimeout(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [numPages, renderPage])
 
-  // ── Re-render affected pages when stamps change ─────────────────────────────
-
-  useEffect(() => {
-    const prevPages = new Set(prevStampsRef.current.map((s) => s.pageNum))
-    const newPages = new Set(stamps.map((s) => s.pageNum))
-    const dirty = new Set([...prevPages, ...newPages])
-    prevStampsRef.current = stamps
-
-    if (!pdfDocRef.current || numPages === 0) return
-    dirty.forEach((p) => {
-      if (p >= 1 && p <= numPages) renderPage(p, stamps, zoomMultiplier, stampSize)
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stamps, numPages, renderPage])
-
-  // ── Re-render all pages when zoom or stamp size changes ────────────────────
+  // ── Re-render all pages when zoom changes ──────────────────────────────────
 
   useEffect(() => {
     if (!pdfDocRef.current || numPages === 0) return
-    for (let p = 1; p <= numPages; p++) renderPage(p, stamps, zoomMultiplier, stampSize)
+    for (let p = 1; p <= numPages; p++) renderPage(p, zoomMultiplier)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoomMultiplier, stampSize, numPages, renderPage])
+  }, [zoomMultiplier, numPages, renderPage])
 
 
   // ── IntersectionObserver — track which page is visible ─────────────────────
@@ -669,60 +566,54 @@ function PdfCanvasViewer({
                   }}
                 />
 
-                {/* Stamp hit-area overlay — pointer-events-none on wrapper, auto on each stamp */}
-                {!locked && pageStamps.length > 0 && (
+                {/* Stamp overlay — Angular-parity: stamps are immovable once placed.
+                    To reposition, use Delete Mark and click again. The ✕ button deletes. */}
+                {pageStamps.length > 0 && (
                   <div className="absolute inset-0 pointer-events-none">
                     {pageStamps.map((stamp) => {
-                      if (dragState?.stamp.id === stamp.id) return null
+                      const badgeFont = Math.max(11, Math.round(SW * 0.42))
                       return (
                         <div
                           key={stamp.id}
-                          className="absolute pointer-events-auto"
+                          className="absolute pointer-events-auto flex items-center gap-1 select-none group"
                           style={{
+                            // Anchor badge top-left at (stamp.x, stamp.y); label extends to the left via negative margin.
                             left: stamp.x * zoomMultiplier,
                             top: stamp.y * zoomMultiplier,
-                            width: SW,
-                            height: SH,
-                            cursor: 'grab',
                           }}
-                          onMouseDown={(e) => handleStampMouseDown(e, stamp)}
-                          onMouseEnter={() => {
-                            const el = canvasRefs.current[stamp.pageNum]
-                            if (!el) return
-                            const r = el.getBoundingClientRect()
-                            clearPopupTimer()
-                            setStampPopup({
-                              stamp,
-                              x: r.left + stamp.x * zoomMultiplier,
-                              y: r.top + stamp.y * zoomMultiplier,
-                            })
-                          }}
-                          onMouseLeave={schedulePopupClose}
-                        />
+                        >
+                          <span
+                            className="text-teal-700 font-bold whitespace-nowrap drop-shadow-sm"
+                            style={{ fontSize: Math.max(11, Math.round(SW * 0.3)), marginRight: 2, marginLeft: -Math.round(SW * 0.9) }}
+                          >
+                            {stamp.label}
+                          </span>
+                          <span
+                            className="inline-flex items-center justify-center rounded bg-teal-600 text-white font-black shadow"
+                            style={{ width: SW, height: SH, fontSize: badgeFont }}
+                          >
+                            {stamp.marks}
+                          </span>
+                          <span
+                            className="text-green-600 font-bold leading-none"
+                            style={{ fontFamily: "'Caveat', cursive", fontSize: Math.max(16, Math.round(SW * 0.65)) }}
+                            aria-hidden
+                          >
+                            ✓
+                          </span>
+                          {!locked && (
+                            <button
+                              type="button"
+                              className="hidden group-hover:inline-flex items-center justify-center h-5 w-5 rounded-full bg-red-500 text-white text-[10px] font-bold shadow ml-0.5 cursor-pointer hover:bg-red-600"
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); onStampDelete(stamp) }}
+                              title="Delete stamp"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
                       )
                     })}
-                  </div>
-                )}
-
-                {/* Drag preview — absolute within this canvas wrapper (same coord space, no fixed-positioning transform issues) */}
-                {!locked && dragState?.stamp.pageNum === pageNum && (
-                  <div
-                    className="absolute pointer-events-none select-none z-50"
-                    style={{
-                      left: dragState.screenX - dragState.canvasRect.left - SW / 2,
-                      top: dragState.screenY - dragState.canvasRect.top - SH / 2,
-                      width: SW,
-                      height: SH,
-                    }}
-                  >
-                    <div className="w-full h-full rounded-xl bg-cyan-600/75 shadow-2xl flex items-center justify-center">
-                      <span
-                        className="text-white font-black select-none"
-                        style={{ fontSize: Math.max(10, Math.round(SW * 0.42)) }}
-                      >
-                        {dragState.stamp.marks}
-                      </span>
-                    </div>
                   </div>
                 )}
               </div>
@@ -730,32 +621,6 @@ function PdfCanvasViewer({
           )
         })}
       </div>
-
-      {/* Icon-only stamp action popup — positioned relative to stamp top-left, not cursor */}
-      {stampPopup && !locked && !dragState && (
-        <div
-          className="fixed z-[500] flex items-center bg-white border border-slate-200 rounded-lg shadow-lg p-0.5 gap-px"
-          style={{
-            left: stampPopup.x + (stampSize * zoomMultiplier) / 2 - 36,
-            top: stampPopup.y - 40,
-            pointerEvents: 'auto',
-          }}
-          onMouseEnter={clearPopupTimer}
-          onMouseLeave={schedulePopupClose}
-        >
-          <div className="p-1.5 rounded text-slate-400" title="Drag to reposition">
-            <Move className="h-3.5 w-3.5" />
-          </div>
-          <div className="w-px h-4 bg-slate-100 mx-0.5" />
-          <button
-            onClick={() => { setStampPopup(null); onStampDelete(stampPopup.stamp) }}
-            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
-            title="Delete stamp"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
 
       {/* ── Thumbnail overlay ── */}
       {showThumbnails && numPages > 0 && (
@@ -799,7 +664,7 @@ function PdfCanvasViewer({
       )}
     </div>
   )
-}
+})
 
 // ─── MarkingRightPanel — adapted from script-grader MarkingPanel ──────────────
 
@@ -847,42 +712,24 @@ function MarkingRightPanel({
         </div>
       </div>
 
-      {/* Action buttons — always visible in right panel */}
+      {/* Primary actions — Save & Exit + Finish at top */}
       {!locked && (
         <div className="mx-3 mt-3 shrink-0 grid grid-cols-2 gap-2">
-          {/* Save & Exit — amber */}
+          {/* Save & Exit — teal (script-grader primary) */}
           <button
             disabled={saving}
             onClick={onSaveAndExit}
-            className="h-9 rounded bg-amber-500 text-white hover:bg-amber-600 text-[11px] font-bold disabled:opacity-50 transition-colors"
+            className="h-9 rounded bg-teal-600 text-white hover:bg-teal-700 text-[11px] font-bold disabled:opacity-50 transition-colors"
           >
             {saving ? '…' : 'Save & Exit'}
           </button>
-          {/* Finish — green */}
+          {/* Finish — emerald */}
           <button
             disabled={saving}
             onClick={onFinish}
             className="h-9 rounded bg-emerald-600 text-white hover:bg-emerald-700 text-[11px] font-bold disabled:opacity-50 transition-colors"
           >
             {saving ? '…' : 'Finish'}
-          </button>
-          {/* Reject — red */}
-          <button
-            disabled={saving}
-            onClick={onReject}
-            className="h-9 rounded bg-red-500 text-white hover:bg-red-600 text-[11px] font-semibold disabled:opacity-50 transition-colors"
-          >
-            <XCircle className="h-3 w-3 inline mr-1 -mt-0.5" />
-            Reject
-          </button>
-          {/* UFM — indigo */}
-          <button
-            disabled={saving}
-            onClick={onUFM}
-            className="h-9 rounded bg-indigo-600 text-white hover:bg-indigo-700 text-[11px] font-semibold disabled:opacity-50 transition-colors"
-          >
-            <Flag className="h-3 w-3 inline mr-1 -mt-0.5" />
-            UFM
           </button>
         </div>
       )}
@@ -931,11 +778,16 @@ function MarkingRightPanel({
                         {q.qvalue}
                         {isNA && <span className="ml-1 text-[9px] text-muted-foreground font-normal">(NA)</span>}
                       </td>
-                      <td className={cn(
-                        'px-3 py-1.5 text-center font-semibold',
-                        isNA ? 'text-muted-foreground' : hasMarks ? 'text-foreground' : 'text-slate-400',
-                      )}>
-                        {isNA ? 'NA' : (q.answeredMarks ?? '—')}
+                      <td className="px-3 py-1.5 text-center">
+                        {isNA ? (
+                          <span className="font-semibold text-muted-foreground">NA</span>
+                        ) : hasMarks ? (
+                          <span className="inline-flex items-center justify-center h-5 min-w-[1.75rem] px-1.5 rounded bg-teal-100 text-teal-700 border border-teal-200 text-[11px] font-bold">
+                            {q.answeredMarks}
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-slate-400">—</span>
+                        )}
                       </td>
                       <td className="px-3 py-1.5 text-center text-muted-foreground">{q.questionMarks}</td>
                     </tr>
@@ -970,6 +822,28 @@ function MarkingRightPanel({
           </span>
         </div>
       </div>
+
+      {/* Destructive actions — Reject + UFM anchored at bottom (less commonly clicked) */}
+      {!locked && (
+        <div className="mx-3 mb-3 mt-2 shrink-0 grid grid-cols-2 gap-2">
+          <button
+            disabled={saving}
+            onClick={onReject}
+            className="h-9 rounded bg-red-500 text-white hover:bg-red-600 text-[11px] font-semibold disabled:opacity-50 transition-colors"
+          >
+            <XCircle className="h-3 w-3 inline mr-1 -mt-0.5" />
+            Reject Paper
+          </button>
+          <button
+            disabled={saving}
+            onClick={onUFM}
+            className="h-9 rounded bg-slate-700 text-white hover:bg-slate-800 text-[11px] font-semibold disabled:opacity-50 transition-colors"
+          >
+            <Flag className="h-3 w-3 inline mr-1 -mt-0.5" />
+            UFM
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -1180,7 +1054,6 @@ export default function MarkingPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [activeQId, setActiveQId] = useState<number | null>(null)
   const [marksInterval, setMarksInterval] = useState(0.5)
-  const [iconAnnotations, setIconAnnotations] = useState<Record<number, 'right' | 'wrong'>>({})
   const [deletingMark, setDeletingMark] = useState(false)
   const [showThumbnails, setShowThumbnails] = useState(false)
   const [stampSize, setStampSize] = useState(50)
@@ -1191,6 +1064,7 @@ export default function MarkingPage() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const blobUrlRef = useRef<string | null>(null)
+  const viewerRef = useRef<PdfCanvasViewerHandle | null>(null)
 
   // ── Derived ────────────────────────────────────────────────────────────────
 
@@ -1261,6 +1135,7 @@ export default function MarkingPage() {
               questionId: q.questionPaperMarksId,
               label: q.qvalue ?? String(q.questionPaperMarksId),
               marks: q.answeredMarks!,
+              studentEvaluationPageId: q.studentEvaluationPageId || null,
             }))
           setStamps(restoredStamps)
         } else {
@@ -1386,6 +1261,113 @@ export default function MarkingPage() {
     })
   }, [pushUndo])
 
+  // ── Payload builders — mirrors Angular exactly ─────────────────────────────
+  // The backend proc keys `mbtn_*` columns off iconType = 'marksBtn'. Writing any
+  // other value (e.g. 'stamp') persists the row but hides it from reload.
+  // Similarly the Angular "notAnswered" path uses a different, broader shape and
+  // omits iconType entirely. See evaluation.component.ts:1101-1115 and :1074-1097.
+
+  /** Mirrors Angular evaluation.component.ts:676-728 + :1105 (marksBtn payload). */
+  const buildMarkStampPayload = useCallback(
+    (q: QuestionMark, pageNum: number, x: number, y: number, marks: number): MarkStampPayload => ({
+      isActive: true,
+      questionPaperMarksId: q.questionPaperMarksId,
+      iconId: 2,
+      iconValue: marks,
+      iconType: 'marksBtn',
+      pageNumber: pageNum,
+      x_Axis: Math.round(x),
+      y_Axis: Math.round(y),
+      marks,
+      examEvaluationAssignmentId,
+      studentAnswerPaper: null,
+      studentEvaluationPagePath: null,
+      isBlankPage: false,
+      isViewed: true,
+      isNotAnswered: false,
+      comments: null,
+    }),
+    [examEvaluationAssignmentId],
+  )
+
+  /** Mirrors Angular evaluation.component.ts:1074-1097 (notAnswered() payload). */
+  const buildNotAnsweredPayload = useCallback(
+    (q: QuestionMark): NotAnsweredPayload => ({
+      questionPaperMarksId: q.questionPaperMarksId,
+      qno: q.qno ?? '',
+      qvalue: q.qvalue ?? '',
+      calculated_total_marks: q.calculated_total_marks ?? 0,
+      question: q.question ?? '',
+      studentEvaluationPageId: q.studentEvaluationPageId ?? 0,
+      isNotAnswered: true,
+      questionMarks: q.questionMarks ?? 0,
+      level1No: q.level1No ?? 0,
+      groupNo: q.groupNo ?? 0,
+      answeredMarks: q.answeredMarks,
+      color: q.color,
+      error_message: q.error_message ?? null,
+      rgb_color: q.rgb_color ?? null,
+      isCheckedForNotAnswered: q.isCheckedForNotAnswered ?? false,
+      no_action_yet: q.no_action_yet,
+      pageNumber: null,
+      x_Axis: null,
+      y_Axis: null,
+      isActive: true,
+      marks: null,
+      examEvaluationAssignmentId,
+      studentAnswerPaper: null,
+      studentEvaluationPagePath: null,
+      isBlankPage: false,
+      isViewed: true,
+      comments: null,
+    }),
+    [examEvaluationAssignmentId],
+  )
+
+  // ── Refresh annotations — mirrors Angular getQuestionsAnnotations('reload') ─
+  // After every successful save/delete, Angular re-fetches the question paper so
+  // that `studentEvaluationPageId` gets populated on any newly-inserted rows.
+  // Without this, a second save on the same stamp within one session would send
+  // `null` id and the server would try to INSERT a duplicate, tripping the
+  // unique constraint on (assignmentId, questionPaperMarksId).
+  const refreshAnnotations = useCallback(async () => {
+    try {
+      const [freshQs] = await getExamQpDraftMarks({
+        examEvaluationAssignmentId,
+        orgId: user?.organizationId ?? user?.collegeId,
+      })
+      const idByQ = new Map(freshQs.map((q) => [q.questionPaperMarksId, q]))
+      setQuestions((prev) =>
+        prev.map((q) => {
+          const fresh = idByQ.get(q.questionPaperMarksId)
+          return fresh
+            ? {
+                ...q,
+                studentEvaluationPageId: fresh.studentEvaluationPageId,
+                mbtn_x: fresh.mbtn_x,
+                mbtn_y: fresh.mbtn_y,
+                mbtn_pageNum: fresh.mbtn_pageNum,
+                no_action_yet: fresh.no_action_yet,
+                rgb_color: fresh.rgb_color,
+                error_message: fresh.error_message,
+                calculated_total_marks: fresh.calculated_total_marks,
+              }
+            : q
+        }),
+      )
+      setStamps((prev) =>
+        prev.map((s) => {
+          const fresh = idByQ.get(s.questionId)
+          return fresh && fresh.studentEvaluationPageId
+            ? { ...s, studentEvaluationPageId: fresh.studentEvaluationPageId }
+            : s
+        }),
+      )
+    } catch {
+      // Silent — save already succeeded; next action will retry the refresh
+    }
+  }, [examEvaluationAssignmentId, user?.organizationId, user?.collegeId])
+
   /** Place a stamp on the PDF and assign the mark — mirrors Angular's addAnnotation() */
   const handleAddStamp = useCallback(
     (pageNum: number, x: number, y: number) => {
@@ -1398,26 +1380,19 @@ export default function MarkingPage() {
         questionId: activeQId,
         label: activeQuestion.qvalue ?? String(activeQId),
         marks: selectedMark,
+        studentEvaluationPageId: activeQuestion.studentEvaluationPageId || null,
       }
       setStamps((prev) => [...prev.filter((s) => s.questionId !== activeQId), stamp])
       handleMarksChange(activeQId, selectedMark)
       setSelectedMark(null)
 
       // Immediate save (Angular: addAnnotation saves each stamp as it's placed)
-      const payload: EvalPagePayload = {
-        examEvaluationAssignmentId,
-        pageNumber: pageNum,
-        marks: selectedMark,
-        iconType: 'stamp',
-        questionPaperMarksId: activeQId,
-        isNotAnswered: false,
-        comments: '',
-        x_Axis: Math.round(x),
-        y_Axis: Math.round(y),
-      }
-      saveStudentEvalPages([payload]).catch(() => {})
+      const payload = buildMarkStampPayload(activeQuestion, pageNum, x, y, selectedMark)
+      saveStudentEvalPages([payload])
+        .then(() => refreshAnnotations())
+        .catch(() => {})
     },
-    [activeQId, selectedMark, activeQuestion, handleMarksChange, examEvaluationAssignmentId],
+    [activeQId, selectedMark, activeQuestion, handleMarksChange, buildMarkStampPayload, refreshAnnotations],
   )
 
   /** Mark multiple questions as Not Answered — mirrors Angular's notAnswered() */
@@ -1436,48 +1411,17 @@ export default function MarkingPage() {
     setStamps((prev) => prev.filter((s) => !idSet.has(s.questionId)))
     setSelectedMark(null)
 
-    // Immediate save — NA: no stamp position needed
-    const payloads: EvalPagePayload[] = ids.map((id) => ({
-      examEvaluationAssignmentId,
-      pageNumber: 1,
-      marks: 0,
-      iconType: null,
-      questionPaperMarksId: id,
-      isNotAnswered: true,
-      comments: '',
-      x_Axis: 0,
-      y_Axis: 0,
-    }))
-    saveStudentEvalPages(payloads).catch(() => {})
-  }, [pushUndo, examEvaluationAssignmentId])
-
-  /** ✓ / ✗ icon annotation */
-  const handleIconAnnotation = useCallback((iconValue: 'right' | 'wrong') => {
-    if (!activeQId) return
-    setIconAnnotations((prev) => ({ ...prev, [activeQId]: iconValue }))
-  }, [activeQId])
+    // Immediate save — NA uses a broader payload shape than mark stamps
+    const affected = questions.filter((q) => idSet.has(q.questionPaperMarksId))
+    const payloads: NotAnsweredPayload[] = affected.map(buildNotAnsweredPayload)
+    if (payloads.length > 0) {
+      saveStudentEvalPages(payloads)
+        .then(() => refreshAnnotations())
+        .catch(() => {})
+    }
+  }, [pushUndo, questions, buildNotAnsweredPayload, refreshAnnotations])
 
   /** Delete saved mark for active question */
-  const handleDeleteMark = useCallback(async () => {
-    if (!activeQId || locked) return
-    setDeletingMark(true)
-    try {
-      await deleteEvalMark(examEvaluationAssignmentId, activeQId)
-      setQuestions((prev) =>
-        prev.map((q) =>
-          q.questionPaperMarksId === activeQId
-            ? { ...q, answeredMarks: null, isNotAnswered: false, no_action_yet: 1, color: '#009688', studentEvaluationPageId: 0 }
-            : q,
-        ),
-      )
-      setStamps((prev) => prev.filter((s) => s.questionId !== activeQId))
-      setSelectedMark(null)
-      setIconAnnotations((prev) => { const next = { ...prev }; delete next[activeQId]; return next })
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete mark.')
-    } finally { setDeletingMark(false) }
-  }, [activeQId, locked, examEvaluationAssignmentId])
-
   /** Delete a specific stamp from the PDF overlay — called from canvas popup */
   const handleStampDelete = useCallback(async (stamp: Stamp) => {
     if (locked) return
@@ -1494,28 +1438,9 @@ export default function MarkingPage() {
       )
       setStamps((prev) => prev.filter((s) => s.questionId !== qId))
       setSelectedMark(null)
-      setIconAnnotations((prev) => { const next = { ...prev }; delete next[qId]; return next })
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete mark.')
     } finally { setDeletingMark(false) }
-  }, [locked, examEvaluationAssignmentId])
-
-  /** Reposition a stamp after drag — mirrors Angular's updateAnnotation() */
-  const handleStampMove = useCallback(async (stamp: Stamp, newX: number, newY: number) => {
-    if (locked) return
-    setStamps((prev) => prev.map((s) => s.id === stamp.id ? { ...s, x: newX, y: newY } : s))
-    const payload: EvalPagePayload = {
-      examEvaluationAssignmentId,
-      pageNumber: stamp.pageNum,
-      marks: stamp.marks,
-      iconType: 'stamp',
-      questionPaperMarksId: stamp.questionId,
-      isNotAnswered: false,
-      comments: '',
-      x_Axis: Math.round(newX),
-      y_Axis: Math.round(newY),
-    }
-    saveStudentEvalPages([payload]).catch(() => {})
   }, [locked, examEvaluationAssignmentId])
 
   const handleSelectQuestion = useCallback((q: QuestionMark) => {
@@ -1523,40 +1448,17 @@ export default function MarkingPage() {
     setSelectedMark(null)
   }, [])
 
-  // ── Payload builder ────────────────────────────────────────────────────────
-
-  const buildPages = useCallback(
-    (qs: QuestionMark[]): EvalPagePayload[] =>
-      qs.map((q) => {
-        const icon = iconAnnotations[q.questionPaperMarksId]
-        const stamp = stamps.find((s) => s.questionId === q.questionPaperMarksId)
-        return {
-          examEvaluationAssignmentId,
-          pageNumber: stamp?.pageNum ?? 1,
-          marks: q.answeredMarks ?? 0,
-          iconType: icon ? 'iconBtn' : stamp ? 'stamp' : null,
-          iconId: icon === 'right' ? 3 : icon === 'wrong' ? 7 : undefined,
-          iconValue: icon ? 1 : undefined,
-          questionPaperMarksId: q.questionPaperMarksId,
-          isNotAnswered: q.isNotAnswered,
-          comments: '',
-          x_Axis: stamp ? Math.round(stamp.x) : 0,
-          y_Axis: stamp ? Math.round(stamp.y) : 0,
-        }
-      }),
-    [examEvaluationAssignmentId, iconAnnotations, stamps],
-  )
-
   // ── Save & Exit ────────────────────────────────────────────────────────────
-
+  // Angular (evaluation.component.ts:1301-1341 back()) only updates the
+  // assignment's status + elapsed time here. Individual stamp saves already
+  // happened on-click via addAnnotation(); re-saving with incomplete payloads
+  // is what triggered the ConstraintViolationException we hit before.
   const handleSaveExit = useCallback(async () => {
     if (!window.confirm('Are you sure you want to exit the evaluation?')) return
     if (locked) { navigateBack(); return }
 
     setSaving(true)
     try {
-      const acted = questions.filter((q) => q.no_action_yet === 0)
-      if (acted.length > 0) await saveStudentEvalPages(buildPages(acted))
       await updateEvalAssignment(examEvaluationAssignmentId, {
         evaluationStatusCatDetId: EVAL_STATUS.IN_PROGRESS,
         evaluationTime: elapsedSeconds,
@@ -1565,10 +1467,15 @@ export default function MarkingPage() {
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to save.')
     } finally { setSaving(false) }
-  }, [locked, questions, examEvaluationAssignmentId, elapsedSeconds, navigateBack, buildPages])
+  }, [locked, examEvaluationAssignmentId, elapsedSeconds, navigateBack])
 
   // ── Submit (Finish) ────────────────────────────────────────────────────────
-
+  // Mirrors Angular finishPaper() (evaluation.component.ts:1361):
+  //   1. Capture each rendered page as JPEG with stamps baked on.
+  //   2. Build a new PDF (pdf-lib), embed each JPEG on a fresh page.
+  //   3. POST multipart to saveFinalExamStdEvaluationpdf.
+  //   4. Call s_pop_exam_questionpaper_details with exam_questionpaper_finalmarks_update.
+  //   5. updateEvaluationsCompletedCount, then navigate back.
   const handleSubmit = useCallback(async () => {
     if (pendingQuestions.length > 0) {
       alert(`Please evaluate the following question(s): ${pendingQuestions.map((q) => q.qvalue).join(', ')}`)
@@ -1578,13 +1485,41 @@ export default function MarkingPage() {
 
     setSaving(true)
     try {
-      await saveStudentEvalPages(buildPages(questions))
+      // 1. Capture annotated page images
+      const pageBlobs = viewerRef.current
+        ? await viewerRef.current.captureAnnotatedPages()
+        : []
+
+      // 2. Compose into a new PDF (same page dimensions Angular uses: 300×400 pt).
+      const outDoc = await PDFDocument.create()
+      for (const blob of pageBlobs) {
+        const buf = await blob.arrayBuffer()
+        const img = await outDoc.embedJpg(buf)
+        const page = outDoc.addPage([300, 400])
+        page.drawImage(img, { x: 10, y: 25, width: 280, height: 365 })
+      }
+      const pdfBytes = await outDoc.save()
+      // Copy into a fresh ArrayBuffer so Blob/File constructors see a tight view.
+      const copy = new Uint8Array(pdfBytes.byteLength)
+      copy.set(pdfBytes)
+      const pdfBlob = new Blob([copy.buffer], { type: 'application/pdf' })
+      const originalPath = assignmentDetail?.studentanswerPath ?? ''
+      const filename = originalPath.split(/[\\/]/).pop() || `evaluation-${examEvaluationAssignmentId}.pdf`
+
+      // 3. Upload the final evaluated PDF
+      await saveFinalEvalPdf(examEvaluationAssignmentId, pdfBlob, filename)
+
+      // 4. Finalize marks server-side
       await finalizeEvalMarks(examEvaluationAssignmentId)
+
+      // 5. Bump the evaluator's completed count (best-effort, matches Angular)
+      await updateEvalsCompletedCount(examEvaluatorProfileDetId).catch(() => {})
+
       navigateBack()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to submit.')
     } finally { setSaving(false) }
-  }, [pendingQuestions, questions, examEvaluationAssignmentId, navigateBack, buildPages])
+  }, [pendingQuestions, examEvaluationAssignmentId, examEvaluatorProfileDetId, assignmentDetail, navigateBack])
 
   // ── Reject ─────────────────────────────────────────────────────────────────
 
@@ -1598,7 +1533,8 @@ export default function MarkingPage() {
         evaluationStatusCatDetId: EVAL_STATUS.REJECTED,
         omrSerialNo,
         evaluationTime: elapsedSeconds,
-        evaluatedTotalMarks: null,
+        // Angular echoes whatever is on the assignment (typically null pre-finish).
+        evaluatedTotalMarks: assignmentDetail?.evaluatedTotalMarks ?? null,
         answerSheetCheckDate: today,
         evaluationStartDate: assignmentDetail?.evaluationStartDate ?? null,
         evaluationEndDate: today,
@@ -1626,7 +1562,7 @@ export default function MarkingPage() {
         evaluationStatusCatDetId: EVAL_STATUS.REJECTED,
         omrSerialNo,
         evaluationTime: elapsedSeconds,
-        evaluatedTotalMarks: null,
+        evaluatedTotalMarks: assignmentDetail?.evaluatedTotalMarks ?? null,
         answerSheetCheckDate: today,
         evaluationStartDate: assignmentDetail?.evaluationStartDate ?? null,
         evaluationEndDate: today,
@@ -1672,7 +1608,9 @@ export default function MarkingPage() {
   // ── Main render ────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    // Concrete viewport-relative height so internal panes scroll instead of the whole page.
+    // 6rem ≈ AppShell Topbar (h-12 = 48px) + breadcrumb card (~44px).
+    <div className="h-[calc(100dvh-6rem)] flex flex-col bg-background overflow-hidden">
 
       {/* ── Top header bar — matches script-grader bg-nav style ── */}
       <div className="h-10 bg-slate-800 flex items-center justify-between px-5 shrink-0">
@@ -1749,66 +1687,59 @@ export default function MarkingPage() {
               ) : null}
             </div>
 
-            {/* Annotation tools — fixed at bottom of marks column */}
+            {/* Toolbox — view question, view answers, view all pages, stamp size.
+                (Correct/Wrong icon annotations removed — only marks are sent.) */}
             {!locked && (
               <div className="shrink-0 border-t border-slate-200 p-2 bg-muted/20">
                 <div className="grid grid-cols-2 gap-1.5 place-items-center">
-                  {/* ✓ correct */}
+                  {/* 📋 Question Paper — Angular openModal(questionPaperPath) */}
                   <button
-                    disabled={!activeQuestion}
-                    onClick={() => handleIconAnnotation('right')}
-                    title="Mark correct"
-                    className={cn(
-                      'flex items-center justify-center w-9 h-9 rounded-full border-2 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95',
-                      activeQId && iconAnnotations[activeQId] === 'right'
-                        ? 'bg-green-500 border-green-500 text-white shadow-md'
-                        : 'bg-white border-green-400 text-green-600 hover:bg-green-50 hover:border-green-500',
-                    )}
+                    disabled={!assignmentDetail?.questionPaperPath}
+                    onClick={() => {
+                      const p = assignmentDetail?.questionPaperPath
+                      if (p) window.open(`${MINIO_URL}${p}`, '_blank', 'width=900,height=550')
+                    }}
+                    title="View Question Paper"
+                    className="col-span-2 flex items-center justify-center gap-1.5 w-full h-8 rounded-lg border-2 bg-white border-slate-300 text-slate-600 text-[10px] font-medium hover:bg-slate-50 hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
                   >
-                    <Check className="h-4 w-4" strokeWidth={3} />
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    View Questions
                   </button>
-                  {/* ✗ wrong */}
+                  {/* 📄 Sample Answer Sheet — Angular openModal(modelAnswerPaperPath) */}
                   <button
-                    disabled={!activeQuestion}
-                    onClick={() => handleIconAnnotation('wrong')}
-                    title="Mark wrong"
-                    className={cn(
-                      'flex items-center justify-center w-9 h-9 rounded-full border-2 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95',
-                      activeQId && iconAnnotations[activeQId] === 'wrong'
-                        ? 'bg-red-500 border-red-500 text-white shadow-md'
-                        : 'bg-white border-red-400 text-red-500 hover:bg-red-50 hover:border-red-500',
-                    )}
+                    disabled={!assignmentDetail?.modelAnswerPaperPath}
+                    onClick={() => {
+                      const p = assignmentDetail?.modelAnswerPaperPath
+                      if (p) window.open(`${MINIO_URL}${p}`, '_blank', 'width=900,height=550')
+                    }}
+                    title="View Sample Answer Sheet"
+                    className="col-span-2 flex items-center justify-center gap-1.5 w-full h-8 rounded-lg border-2 bg-white border-slate-300 text-slate-600 text-[10px] font-medium hover:bg-slate-50 hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
                   >
-                    <X className="h-4 w-4" strokeWidth={3} />
+                    <FileText className="h-3.5 w-3.5" />
+                    View Answers
                   </button>
-                  {/* 👁 view pages */}
+                  {/* 👁 View all pages */}
                   <button
                     disabled={!pdfUrl}
                     onClick={() => setShowThumbnails(true)}
                     title="View all pages"
-                    className="flex items-center justify-center w-9 h-9 rounded-full border-2 bg-white border-slate-300 text-slate-600 hover:bg-slate-50 hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
+                    className="col-span-2 flex items-center justify-center gap-1.5 w-full h-8 rounded-lg border-2 bg-white border-slate-300 text-slate-600 text-[10px] font-medium hover:bg-slate-50 hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
                   >
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-3.5 w-3.5" />
+                    View All Pages
                   </button>
-                  {/* 🗑 delete mark */}
+
+                  {/* Paper Modal button — hidden. Angular opens the question
+                      paper PDF in a new window (paper-modal.component.ts).
+                      Un-comment and pass a valid questionpaper path when ready:
                   <button
-                    disabled={!activeQuestion || deletingMark || activeQuestion.no_action_yet === 1}
-                    onClick={handleDeleteMark}
-                    title="Delete mark"
-                    className="flex items-center justify-center w-9 h-9 rounded-full border-2 bg-white border-slate-300 text-slate-500 hover:bg-red-50 hover:border-red-400 hover:text-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
+                    onClick={() => openPaperModal(questionPaperPath)}
+                    title="Open question paper"
+                    className="col-span-2 flex items-center justify-center gap-1 w-full h-8 rounded-lg border-2 bg-white border-slate-300 text-slate-500 text-[10px] font-medium hover:bg-slate-50"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    Question Paper
                   </button>
-                  {/* ↩ undo */}
-                  <button
-                    disabled={undoStack.length === 0}
-                    onClick={handleUndo}
-                    title="Undo last mark (Ctrl+Z)"
-                    className="col-span-2 flex items-center justify-center gap-1 w-full h-8 rounded-lg border-2 bg-white border-slate-300 text-slate-500 text-[10px] font-medium hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
-                  >
-                    <Undo2 className="h-3 w-3" />
-                    Undo
-                  </button>
+                  */}
 
                   {/* Stamp size control */}
                   <div className="col-span-2 flex items-center justify-between w-full mt-0.5 gap-1">
@@ -1891,6 +1822,7 @@ export default function MarkingPage() {
               </div>
             ) : pdfUrl ? (
               <PdfCanvasViewer
+                ref={viewerRef}
                 url={pdfUrl}
                 stamps={stamps}
                 selectedMark={selectedMark}
@@ -1900,7 +1832,6 @@ export default function MarkingPage() {
                 onCloseThumbnails={() => setShowThumbnails(false)}
                 onCanvasClick={handleAddStamp}
                 onStampDelete={handleStampDelete}
-                onStampMove={handleStampMove}
               />
             ) : (
               <div className="flex h-full items-center justify-center bg-white text-slate-400 text-sm">

@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table/TableCard'
+import { TableCard } from '@/common/components/table'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer, PageHeader } from '@/components/layout'

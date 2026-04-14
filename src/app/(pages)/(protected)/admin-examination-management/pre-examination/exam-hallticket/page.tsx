@@ -4,12 +4,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Select as SearchableSelect, type SelectOption } from '@/common/components/select/Select'
+import { Select, type SelectOption } from '@/common/components/select'
 import { format, parseISO } from 'date-fns'
 import type { ColDef } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table/TableCard'
+import { DataTable, TableCard } from '@/common/components/table'
 import { PageContainer, PageHeader } from '@/components/layout'
 import {
   getExamHalltickets,
@@ -395,7 +393,7 @@ export default function ExamHallticketPage() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                 <div className="md:col-span-4 space-y-1">
-                  <SearchableSelect
+                  <Select
                     label="Student"
                     placeholder="Search by student name or rollno."
                     value={studentId ? String(studentId) : null}
@@ -409,16 +407,12 @@ export default function ExamHallticketPage() {
                 </div>
                 <div className="md:col-span-7 space-y-1">
                   <Label>Exam</Label>
-                  <Select value={studentExamId ? String(studentExamId) : undefined} onValueChange={(v) => setStudentExamId(Number(v))}>
-                    <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger>
-                    <SelectContent>
-                      {studentExamOptions.map((e) => (
-                        <SelectItem key={`se-${e.id}`} value={String(e.id)}>
-                          {e.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Select
+                    value={studentExamId ? String(studentExamId) : null}
+                    onChange={(v) => setStudentExamId(v ? Number(v) : null)}
+                    options={studentExamOptions.map((e) => ({ value: String(e.id), label: e.label }))}
+                    placeholder="Exam"
+                  />
                 </div>
               </div>
               {!!selectedStudent && !!studentExamId && (
@@ -454,30 +448,30 @@ export default function ExamHallticketPage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <div className="md:col-span-2 space-y-1">
                 <Label>Program</Label>
-                <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Program" /></SelectTrigger>
-                  <SelectContent>
-                    {courses.map((c, i) => <SelectItem key={`c-${i}`} value={String(c.fk_course_id)}>{c.course_code}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Select
+                  value={courseId ? String(courseId) : null}
+                  onChange={(v) => setCourseId(v ? Number(v) : null)}
+                  options={courses.map((c) => ({ value: String(c.fk_course_id), label: c.course_code }))}
+                  placeholder="Program"
+                />
               </div>
               <div className="md:col-span-2 space-y-1">
                 <Label>Exam Year</Label>
-                <Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger>
-                  <SelectContent>
-                    {academicYears.map((a, i) => <SelectItem key={`ay-${i}`} value={String(a.fk_academic_year_id)}>{a.academic_year}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Select
+                  value={academicYearId ? String(academicYearId) : null}
+                  onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+                  options={academicYears.map((a) => ({ value: String(a.fk_academic_year_id), label: a.academic_year }))}
+                  placeholder="Exam Year"
+                />
               </div>
               <div className="md:col-span-4 space-y-1">
                 <Label>Exam Master</Label>
                 <Select
-                  value={examId ? String(examId) : undefined}
-                  onValueChange={async (v) => {
-                    const next = Number(v)
+                  value={examId ? String(examId) : null}
+                  onChange={async (v) => {
+                    const next = v ? Number(v) : null
                     setExamId(next)
-                    if (!courseId || !academicYearId) return
+                    if (!next || !courseId || !academicYearId) return
                     const rest = await getUnivExamRestNoTt({
                       courseId,
                       examId: next,
@@ -488,40 +482,37 @@ export default function ExamHallticketPage() {
                     const firstCollege = dedupeBy(rest, (r) => Number(r.fk_college_id))[0]?.fk_college_id
                     setCollegeId(firstCollege ? Number(firstCollege) : null)
                   }}
-                >
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Master" /></SelectTrigger>
-                  <SelectContent>
-                    {exams.map((e, i) => <SelectItem key={`e-${i}`} value={String(e.fk_exam_id)}>{e.exam_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                  options={exams.map((e) => ({ value: String(e.fk_exam_id), label: e.exam_name }))}
+                  placeholder="Exam Master"
+                />
               </div>
 
               <div className="md:col-span-2 space-y-1">
                 <Label>College</Label>
-                <Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger>
-                  <SelectContent>
-                    {colleges.map((c, i) => <SelectItem key={`clg-${i}`} value={String(c.fk_college_id)}>{c.college_code}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Select
+                  value={collegeId ? String(collegeId) : null}
+                  onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                  options={colleges.map((c) => ({ value: String(c.fk_college_id), label: c.college_code }))}
+                  placeholder="College"
+                />
               </div>
               <div className="md:col-span-2 space-y-1">
                 <Label>Course Group</Label>
-                <Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Group" /></SelectTrigger>
-                  <SelectContent>
-                    {groups.map((g, i) => <SelectItem key={`g-${i}`} value={String(g.fk_course_group_id)}>{g.group_code}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Select
+                  value={courseGroupId ? String(courseGroupId) : null}
+                  onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+                  options={groups.map((g) => ({ value: String(g.fk_course_group_id), label: g.group_code }))}
+                  placeholder="Course Group"
+                />
               </div>
               <div className="md:col-span-2 space-y-1">
                 <Label>Course Year</Label>
-                <Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger>
-                  <SelectContent>
-                    {years.map((y, i) => <SelectItem key={`y-${i}`} value={String(y.fk_course_year_id)}>{y.course_year_code}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Select
+                  value={courseYearId ? String(courseYearId) : null}
+                  onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+                  options={years.map((y) => ({ value: String(y.fk_course_year_id), label: y.course_year_code }))}
+                  placeholder="Course Year"
+                />
               </div>
               <div className="md:col-span-2">
                 <Button type="button" onClick={onGetList} disabled={loading} className="h-8 px-3 text-[12px] w-full">

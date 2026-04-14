@@ -4,13 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select } from '@/common/components/select'
 import {
   getUnivExamFiltersRegSup,
   listStudents,
@@ -115,37 +109,26 @@ export default function StudentExamFeeRegistrationPage() {
             <div className="md:col-span-4 space-y-1">
               <Label>Student</Label>
               <Select
-                value={studentId ? String(studentId) : undefined}
-                onValueChange={(v) => {
-                  const sid = Number(v)
+                value={studentId ? String(studentId) : null}
+                onChange={(v) => {
+                  const sid = v ? Number(v) : 0
                   setStudentId(sid)
                   const s = students.find((x) => Number(x.studentId ?? x.id) === sid) ?? null
                   setStudentInfo(s)
                   setExamId(null)
                 }}
-              >
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Student" /></SelectTrigger>
-                <SelectContent>
-                  {students.map((s, i) => (
-                    <SelectItem key={`st-${s.studentId ?? i}`} value={String(s.studentId ?? s.id)}>
-                      {(s.hallticketNumber ?? s.rollNumber ?? '-') + ' - ' + (s.firstName ?? s.studentName ?? '-')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={students.map((s, i) => ({ value: String(s.studentId ?? s.id ?? i), label: (s.hallticketNumber ?? s.rollNumber ?? '-') + ' - ' + (s.firstName ?? s.studentName ?? '-') }))}
+                placeholder="Select Student"
+              />
             </div>
             <div className="md:col-span-4 space-y-1">
               <Label>Exam</Label>
-              <Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Exam" /></SelectTrigger>
-                <SelectContent>
-                  {exams.map((e, i) => (
-                    <SelectItem key={`e-${e.fk_exam_id ?? i}`} value={String(e.fk_exam_id ?? e.examId)}>
-                      {(e.exam_name ?? e.examName) ?? `Exam ${e.fk_exam_id ?? e.examId}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => setExamId(v ? Number(v) : 0)}
+                options={exams.map((e, i) => ({ value: String(e.fk_exam_id ?? e.examId ?? i), label: (e.exam_name ?? e.examName) ?? `Exam ${e.fk_exam_id ?? e.examId}` }))}
+                placeholder="Select Exam"
+              />
             </div>
             <div className="md:col-span-1">
               <Button type="button" className="h-8 text-[12px] w-full" onClick={getList} disabled={loading}>

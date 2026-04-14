@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table/TableCard'
+import { TableCard } from '@/common/components/table'
 import ExamMasterModal from './ExamMasterModal'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer, PageHeader } from '@/components/layout'

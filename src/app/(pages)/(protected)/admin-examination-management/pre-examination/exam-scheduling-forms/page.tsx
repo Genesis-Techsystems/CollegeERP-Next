@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select } from '@/common/components/select'
 import { ChevronDown, Filter } from 'lucide-react'
 import { toDateStr } from '@/common/generic-functions'
 import {
@@ -262,9 +262,9 @@ export default function ExamSchedulingFormsPage() {
             <div className="md:col-span-2 space-y-1">
               <Label>Course</Label>
               <Select
-                value={courseId ? String(courseId) : undefined}
-                onValueChange={(v) => {
-                  setCourseId(Number(v))
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => {
+                  setCourseId(v ? Number(v) : null)
                   setAcademicYearId(null)
                   setExamId(null)
                   setCourseYearId(null)
@@ -274,26 +274,17 @@ export default function ExamSchedulingFormsPage() {
                   setTimetables([])
                   setRoomRows([])
                 }}
-              >
-                <SelectTrigger className="h-8 text-[12px]">
-                  <SelectValue placeholder="Course" />
-                </SelectTrigger>
-                <SelectContent>
-                  {courses.map((c, i) => (
-                    <SelectItem key={`c-${i}`} value={String(c.fk_course_id)}>
-                      {c.course_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={courses.map((c) => ({ value: String(c.fk_course_id), label: c.course_code }))}
+                placeholder="Course"
+              />
             </div>
 
             <div className="md:col-span-2 space-y-1">
               <Label>Exam Year</Label>
               <Select
-                value={academicYearId ? String(academicYearId) : undefined}
-                onValueChange={(v) => {
-                  setAcademicYearId(Number(v))
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => {
+                  setAcademicYearId(v ? Number(v) : null)
                   setExamId(null)
                   setCourseYearId(null)
                   setCollegeId(null)
@@ -302,82 +293,46 @@ export default function ExamSchedulingFormsPage() {
                   setTimetables([])
                   setRoomRows([])
                 }}
-              >
-                <SelectTrigger className="h-8 text-[12px]">
-                  <SelectValue placeholder="Exam Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {academicYears.map((a, i) => (
-                    <SelectItem key={`ay-${i}`} value={String(a.fk_academic_year_id)}>
-                      {a.academic_year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={academicYears.map((a) => ({ value: String(a.fk_academic_year_id), label: a.academic_year }))}
+                placeholder="Exam Year"
+              />
             </div>
 
             <div className="md:col-span-4 space-y-1">
               <Label>Exam Master</Label>
               <Select
-                value={examId ? String(examId) : undefined}
-                onValueChange={(v) => {
-                  const nextExamId = Number(v)
+                value={examId ? String(examId) : null}
+                onChange={(v) => {
+                  const nextExamId = v ? Number(v) : null
                   setExamId(nextExamId)
-                  void onExamChange(nextExamId)
+                  if (nextExamId) void onExamChange(nextExamId)
                 }}
-              >
-                <SelectTrigger className="h-8 text-[12px]">
-                  <SelectValue placeholder="Exam Master" />
-                </SelectTrigger>
-                <SelectContent>
-                  {exams.map((e, i) => (
-                    <SelectItem key={`e-${i}`} value={String(e.fk_exam_id)}>
-                      {e.exam_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={exams.map((e) => ({ value: String(e.fk_exam_id), label: e.exam_name }))}
+                placeholder="Exam Master"
+              />
             </div>
 
             <div className="md:col-span-2 space-y-1">
               <Label>College</Label>
-              <Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]">
-                  <SelectValue placeholder="College" />
-                </SelectTrigger>
-                <SelectContent>
-                  {colleges.map((c, i) => (
-                    <SelectItem key={`cl-${i}`} value={String(c.fk_college_id)}>
-                      {c.college_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                options={colleges.map((c) => ({ value: String(c.fk_college_id), label: c.college_code }))}
+                placeholder="College"
+              />
             </div>
 
             <div className="md:col-span-2 space-y-1">
               <Label>Exam Timetable</Label>
               <Select
-                value={examTimetableId ? String(examTimetableId) : undefined}
-                onValueChange={(v) => {
-                  const parsed = Number(v)
-                  setExamTimetableId(Number.isFinite(parsed) ? parsed : null)
+                value={examTimetableId ? String(examTimetableId) : null}
+                onChange={(v) => {
+                  const parsed = v ? Number(v) : null
+                  setExamTimetableId(parsed !== null && Number.isFinite(parsed) ? parsed : null)
                 }}
-              >
-                <SelectTrigger className="h-8 text-[12px]">
-                  <SelectValue placeholder="Exam Timetable" />
-                </SelectTrigger>
-                <SelectContent>
-                  {timetables.map((t, i) => (
-                    <SelectItem
-                      key={`tt-${i}`}
-                      value={String(pickId(t, ['examTimetableId', 'fk_exam_timetable_id', 'exam_timetable_id', 'id']))}
-                    >
-                      {toDateStr(t.examDate)} ({t.examSessionName ?? '-'})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={timetables.map((t) => ({ value: String(pickId(t, ['examTimetableId', 'fk_exam_timetable_id', 'exam_timetable_id', 'id'])), label: `${toDateStr(t.examDate)} (${t.examSessionName ?? '-'})` }))}
+                placeholder="Exam Timetable"
+              />
             </div>
           </div>
 

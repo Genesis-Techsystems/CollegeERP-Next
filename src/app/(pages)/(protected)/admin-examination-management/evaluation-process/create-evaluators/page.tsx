@@ -4,8 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ColDef } from 'ag-grid-community'
 import { LayoutList, Settings } from 'lucide-react'
-import { MultiSelect } from '@/common/components/select'
-import type { SelectOption } from '@/common/components/select'
+import { Select, MultiSelect, type SelectOption } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
@@ -13,7 +12,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -574,22 +572,15 @@ export default function CreateEvaluatorsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <Label className="text-[12px]">University College</Label>
-              <Select value={form.collegeCode || undefined} onValueChange={(v) => setForm((p) => ({ ...p, collegeCode: v }))}>
-                <SelectTrigger className="h-9 text-[12px]">
-                  <SelectValue placeholder="University College" />
-                </SelectTrigger>
-                <SelectContent>
-                  {colleges.map((c) => {
-                    const value = String(c?.collegeCode ?? c?.college_code ?? c?.collegeId ?? c?.pk_college_id ?? '')
-                    const key = String(c?.collegeId ?? c?.pk_college_id ?? value)
-                    return (
-                      <SelectItem key={`clg-${key}`} value={value}>
-                        {String(c?.collegeCode ?? c?.college_code ?? c?.collegeName ?? c?.college_name ?? value)}
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
+              <Select
+                value={form.collegeCode || null}
+                onChange={(v) => setForm((p) => ({ ...p, collegeCode: v ?? '' }))}
+                options={colleges.map((c) => {
+                  const value = String(c?.collegeCode ?? c?.college_code ?? c?.collegeId ?? c?.pk_college_id ?? '')
+                  return { value, label: String(c?.collegeCode ?? c?.college_code ?? c?.collegeName ?? c?.college_name ?? value) } as SelectOption
+                })}
+                placeholder="University College"
+              />
             </div>
             <div>
               <Label className="text-[12px]">Title</Label>
@@ -665,42 +656,24 @@ export default function CreateEvaluatorsPage() {
                   Course <span className="text-red-600">*</span>
                 </Label>
                 <Select
-                  value={prefCourseId ? String(prefCourseId) : ''}
-                  onValueChange={(v) => {
-                    setPrefCourseId(Number(v))
-                    setPrefRegulationId(null)
-                    setPrefSubjectIds([])
-                  }}
+                  value={prefCourseId ? String(prefCourseId) : null}
+                  onChange={(v) => { setPrefCourseId(v ? Number(v) : null); setPrefRegulationId(null); setPrefSubjectIds([]) }}
+                  options={prefCourses.map((c) => ({ value: String(pickNum(c, ['courseId'])), label: pickText(c, ['courseCode']) } as SelectOption))}
+                  placeholder="Course"
                   disabled={prefLoading}
-                >
-                  <SelectTrigger className="h-9 text-[12px]">
-                    <SelectValue placeholder="Course" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {prefCourses.map((c) => (
-                      <SelectItem key={`pc-${pickNum(c, ['courseId'])}`} value={String(pickNum(c, ['courseId']))}>
-                        {pickText(c, ['courseCode'])}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
               <div className="min-w-[160px] flex-1">
                 <Label className="text-[12px]">
                   Regulation <span className="text-red-600">*</span>
                 </Label>
-                <Select value={prefRegulationId ? String(prefRegulationId) : ''} onValueChange={(v) => setPrefRegulationId(Number(v))} disabled={!prefCourseId}>
-                  <SelectTrigger className="h-9 text-[12px]">
-                    <SelectValue placeholder="Regulation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {prefRegulations.map((r) => (
-                      <SelectItem key={`pr-${pickNum(r, ['regulationId'])}`} value={String(pickNum(r, ['regulationId']))}>
-                        {pickText(r, ['regulationName', 'regulationCode'])}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Select
+                  value={prefRegulationId ? String(prefRegulationId) : null}
+                  onChange={(v) => setPrefRegulationId(v ? Number(v) : null)}
+                  options={prefRegulations.map((r) => ({ value: String(pickNum(r, ['regulationId'])), label: pickText(r, ['regulationName', 'regulationCode']) } as SelectOption))}
+                  placeholder="Regulation"
+                  disabled={!prefCourseId}
+                />
               </div>
               <div className="min-w-[220px] flex-[2]">
                 <Label className="text-[12px]">Subjects</Label>
@@ -779,76 +752,33 @@ export default function CreateEvaluatorsPage() {
                   Course <span className="text-red-600">*</span>
                 </Label>
                 <Select
-                  value={credCourseId ? String(credCourseId) : ''}
-                  onValueChange={(v) => {
-                    setCredCourseId(Number(v))
-                    setCredAcademicYearId(null)
-                    setCredExamId(null)
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-[12px]">
-                    <SelectValue placeholder="Course" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {credCourses.map((c) => (
-                      <SelectItem key={`cc-${pickNum(c, ['fk_course_id'])}`} value={String(pickNum(c, ['fk_course_id']))}>
-                        {pickText(c, ['course_code', 'courseCode'])}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  value={credCourseId ? String(credCourseId) : null}
+                  onChange={(v) => { setCredCourseId(v ? Number(v) : null); setCredAcademicYearId(null); setCredExamId(null) }}
+                  options={credCourses.map((c) => ({ value: String(pickNum(c, ['fk_course_id'])), label: pickText(c, ['course_code', 'courseCode']) } as SelectOption))}
+                  placeholder="Course"
+                />
               </div>
               <div>
                 <Label className="text-[12px]">Academic Year</Label>
                 <Select
-                  value={credAcademicYearId ? String(credAcademicYearId) : ''}
-                  onValueChange={(v) => {
-                    setCredAcademicYearId(Number(v))
-                    setCredExamId(null)
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-[12px]">
-                    <SelectValue placeholder="Academic Year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {credAcademicYears.map((a) => (
-                      <SelectItem key={`cay-${pickNum(a, ['fk_academic_year_id'])}`} value={String(pickNum(a, ['fk_academic_year_id']))}>
-                        {pickText(a, ['academic_year'])}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  value={credAcademicYearId ? String(credAcademicYearId) : null}
+                  onChange={(v) => { setCredAcademicYearId(v ? Number(v) : null); setCredExamId(null) }}
+                  options={credAcademicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id'])), label: pickText(a, ['academic_year']) } as SelectOption))}
+                  placeholder="Academic Year"
+                />
               </div>
               <div className="sm:col-span-1">
                 <Label className="text-[12px]">
                   Exam <span className="text-red-600">*</span>
                 </Label>
                 <Select
-                  value={credExamId ? String(credExamId) : ''}
-                  onValueChange={(v) => setCredExamId(Number(v))}
+                  value={credExamId ? String(credExamId) : null}
+                  onChange={(v) => setCredExamId(v ? Number(v) : null)}
+                  options={credExams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id'])), label: `${pickText(e, ['exam_name'])} (${formatYmd(e.from_date ?? e.fromDate)} – ${formatYmd(e.to_date ?? e.toDate)})` } as SelectOption))}
+                  placeholder="Exam"
+                  searchable
                   disabled={!credCourseId || !credAcademicYearId}
-                >
-                  <SelectTrigger className="h-9 text-[12px]">
-                    <SelectValue placeholder="Exam" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <div className="p-2 border-b border-slate-100">
-                      <Input
-                        className="h-8 text-[12px]"
-                        placeholder="Search..."
-                        value={credExamSearch}
-                        onChange={(e) => setCredExamSearch(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      />
-                    </div>
-                    {credExamsFiltered.map((e) => (
-                      <SelectItem key={`cex-${pickNum(e, ['fk_exam_id'])}`} value={String(pickNum(e, ['fk_exam_id']))}>
-                        {pickText(e, ['exam_name'])} ({formatYmd(e.from_date ?? e.fromDate)} – {formatYmd(e.to_date ?? e.toDate)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
             </div>
             <p className="text-[13px] text-slate-700">
