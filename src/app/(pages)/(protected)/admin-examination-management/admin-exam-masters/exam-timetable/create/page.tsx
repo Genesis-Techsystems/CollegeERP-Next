@@ -24,6 +24,7 @@ import {
 	getUnivExamSubjectFilters,
 } from '@/services/examination'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { toastSuccess } from '@/lib/toast'
 
 type Slot = {
 	date: string
@@ -448,7 +449,11 @@ export default function CreateExamTimetablePage() {
 
 				{stagedRows.length > 0 && (
 					<div className="flex items-center justify-end pt-3 pr-2 pb-1">
-						<Button type="button" className="h-8 text-[12px]" onClick={() => alert('Saved (stub)')}>
+						<Button
+							type="button"
+							className="h-8 text-[12px]"
+							onClick={() => toastSuccess('Saved')}
+						>
 							Save
 						</Button>
 					</div>

@@ -26,7 +26,7 @@ import {
 	listExamTimetablesByExam,
 	listExamRoomAllotments as listExamRoomAllotmentsPre,
 } from '@/services/pre-examination'
-import { ChevronDown, Filter } from 'lucide-react'
+import { ChevronDown, Filter, Plus, Printer } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { NEXT_API } from '@/config/constants/api'
 import { toDateStr } from '@/common/generic-functions'
@@ -649,35 +649,93 @@ export default function SeatingPlanSetupPage() {
 	}
 
 	function openSeatAllotStudents(row: AllocationRow) {
+		const raw = row.raw ?? {}
+		const pickNum = (...values: unknown[]) => {
+			for (const value of values) {
+				const parsed = Number(value ?? 0)
+				if (Number.isFinite(parsed) && parsed > 0) return parsed
+			}
+			return null
+		}
+		const normalizeDate = (value: unknown) => {
+			const source = String(value ?? '').trim()
+			const isoMatch = source.match(/\d{4}-\d{2}-\d{2}/)
+			if (isoMatch) return isoMatch[0]
+			return toDateStr(source) || source
+		}
+		const normalizedRoomCode =
+			String(row.roomCode ?? '').trim() && String(row.roomCode ?? '').trim() !== '-'
+				? String(row.roomCode).trim()
+				: [raw.buildingCode, raw.blockCode, raw.floorName, raw.roomCode ?? raw.room ?? raw.block_room]
+						.map((x: unknown) => String(x ?? '').trim())
+						.filter(Boolean)
+						.join(' / ')
+
+		const resolvedCourseId = pickNum(selectedCourseId, raw.fk_course_id, raw.courseId, raw.course_id)
+		const resolvedAcademicYearId = pickNum(
+			selectedAcademicYearId,
+			raw.fk_academic_year_id,
+			raw.academicYearId,
+			raw.academic_year_id,
+		)
+		const resolvedExamId = pickNum(selectedExamId, raw.fk_exam_id, raw.examId, raw.exam_id)
+		const resolvedCollegeId = pickNum(selectedCollegeId, raw.fk_college_id, raw.collegeId, raw.college_id)
+		const resolvedExamTimetableId = pickNum(
+			selectedExamTimetableId,
+			raw.fk_exam_timetable_id,
+			raw.examTimetableId,
+			raw.exam_timetable_id,
+		)
+		const resolvedSessionId = pickNum(
+			selectedTimetable?.examSessionId,
+			selectedTimetable?.fk_exam_session_id,
+			selectedTimetable?.sessionId,
+			selectedTimetable?.exam_session_id,
+			raw.examSessionId,
+			raw.fk_exam_session_id,
+			raw.sessionId,
+			raw.exam_session_id,
+		)
+		const resolvedExamRoomAllotmentId = pickNum(
+			raw.examRoomAllotmentId,
+			raw.exam_room_allotment_id,
+			raw.id,
+		)
+		const resolvedSubjectId = pickNum(
+			raw.subjectId,
+			raw.subject_id,
+			selectedTimetable?.subjectId,
+			selectedTimetable?.subject_id,
+		)
+
 		const params = new URLSearchParams({
-			collegeId: String(selectedCollegeId ?? ''),
-			courseId: String(selectedCourseId ?? ''),
-			examId: String(selectedExamId ?? ''),
-			examTimetableId: String(selectedExamTimetableId ?? ''),
-			academicYearId: String(selectedAcademicYearId ?? ''),
+			collegeId: String(resolvedCollegeId ?? ''),
+			courseId: String(resolvedCourseId ?? ''),
+			examId: String(resolvedExamId ?? ''),
+			examTimetableId: String(resolvedExamTimetableId ?? ''),
+			academicYearId: String(resolvedAcademicYearId ?? ''),
 			academicYear: String(
 				academicYearOptions.find((a) => a.id === selectedAcademicYearId)?.label ?? ''
 			),
-			courseCode: String(courses.find((c: any) => (c.courseId ?? c.id) === selectedCourseId)?.courseCode ?? courses.find((c: any) => (c.courseId ?? c.id) === selectedCourseId)?.course_code ?? ''),
-			examName: String(examMasters.find((e: any) => (e.examId ?? e.id) === selectedExamId)?.examName ?? ''),
-			sessionId: String(
-				selectedTimetable?.examSessionId ??
-				selectedTimetable?.fk_exam_session_id ??
-				selectedTimetable?.sessionId ??
-				selectedTimetable?.exam_session_id ??
+			courseCode: String(
+				courses.find((c: any) => Number(c.courseId ?? c.id ?? c.fk_course_id) === Number(resolvedCourseId))?.courseCode ??
+				courses.find((c: any) => Number(c.courseId ?? c.id ?? c.fk_course_id) === Number(resolvedCourseId))?.course_code ??
+				raw.courseCode ??
+				raw.course_code ??
 				''
 			),
-			roomCode: String(row.roomCode ?? ''),
-			examDate: String(row.examDate ?? ''),
+			examName: String(
+				examMasters.find((e: any) => Number(e.examId ?? e.id ?? e.fk_exam_id) === Number(resolvedExamId))?.examName ??
+				raw.examName ??
+				raw.exam_name ??
+				''
+			),
+			sessionId: String(resolvedSessionId ?? ''),
+			roomCode: String(normalizedRoomCode || '-'),
+			examDate: String(normalizeDate(row.examDate ?? raw.examDate ?? raw.exam_date)),
 			examSession: String(row.session ?? ''),
-			examRoomAllotmentId: String(row.raw?.examRoomAllotmentId ?? row.raw?.id ?? ''),
-			subjectId: String(
-				row.raw?.subjectId ??
-				row.raw?.subject_id ??
-				selectedTimetable?.subjectId ??
-				selectedTimetable?.subject_id ??
-				''
-			),
+			examRoomAllotmentId: String(resolvedExamRoomAllotmentId ?? ''),
+			subjectId: String(resolvedSubjectId ?? ''),
 		})
 		router.push(`/admin-examination-management/pre-examination/exam-scheduling-forms/add-exam-scheduling-forms?${params.toString()}`)
 	}
@@ -889,34 +947,80 @@ export default function SeatingPlanSetupPage() {
 			</div>
 
 			{selectedExamTimetableId != null && (
-				<div className="app-card p-3 space-y-2">
-					<div className="flex items-center gap-3">
+				<div className="app-card p-3 space-y-3">
+					<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
 						<div className="relative w-full max-w-sm">
 							<input
-								className="h-9 w-full rounded-full border border-slate-300 bg-white px-4 text-sm"
+								className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-[12px] text-foreground shadow-sm placeholder:text-slate-400 focus:border-[hsl(var(--primary))]/40 focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]/25"
 								placeholder="Search"
 								value={searchText}
 								onChange={(e) => setSearchText(e.target.value)}
 							/>
 						</div>
-						<div className="ml-auto flex items-center gap-3">
-							<Button className="h-9 rounded-full text-[12px]" onClick={handleCopyExistingSeating}>+ Copy Existing Seating</Button>
-							<Button className="h-9 rounded-full text-[12px]" onClick={handleAddRoomSeatingPlan}>+ Add Room Seating Plan</Button>
-							<Button className="h-9 rounded-full text-[12px]" onClick={handleAssignSeating}>+ Assign Seating</Button>
+						<div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-white px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
+								onClick={handleCopyExistingSeating}
+							>
+								<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+								Copy Existing Seating
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-white px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
+								onClick={handleAddRoomSeatingPlan}
+							>
+								<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+								Add Room Seating Plan
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-white px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
+								onClick={handleAssignSeating}
+							>
+								<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+								Assign Seating
+							</Button>
 						</div>
 					</div>
 
-					<div className="rounded-md border p-3">
-						<div className="flex flex-wrap gap-2">
-							<Button className="h-9 rounded-full text-[12px]" onClick={() => window.print()}>Room Wise Seating Print</Button>
-							<Button className="h-9 rounded-full text-[12px]" onClick={() => window.print()}>Room Subject Counts Print</Button>
-							<Button className="h-9 rounded-full text-[12px]" onClick={() => window.print()}>Group Wise Seating Print</Button>
-							<Button className="h-9 rounded-full text-[12px]" onClick={() => window.print()}>Print Attendance Sheet</Button>
-							<Button className="h-9 rounded-full text-[12px]" onClick={() => window.print()}>Print Student</Button>
-							<Button className="h-9 rounded-full text-[12px]" onClick={() => window.print()}>Group-Wise Stickers</Button>
-							<Button className="h-9 rounded-full text-[12px]" onClick={() => window.print()}>Print Invigilator</Button>
-							<Button className="h-9 rounded-full text-[12px]" onClick={() => window.print()}>Cover Slip</Button>
-							<Button className="h-9 rounded-full text-[12px]" onClick={() => window.print()}>Packing Slip</Button>
+					<div className="rounded-lg border border-slate-200/90 bg-slate-50/70 p-2.5">
+						<p className="mb-2 px-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">
+							Print & exports
+						</p>
+						<div className="flex flex-wrap gap-1.5">
+							{(
+								[
+									'Room Wise Seating Print',
+									'Room Subject Counts Print',
+									'Group Wise Seating Print',
+									'Print Attendance Sheet',
+									'Print Student',
+									'Group-Wise Stickers',
+									'Print Invigilator',
+									'Cover Slip',
+									'Packing Slip',
+								] as const
+							).map((label) => (
+								<Button
+									key={label}
+									type="button"
+									variant="outline"
+									size="sm"
+									className="h-8 gap-1.5 rounded-md border-slate-200 bg-white px-2.5 text-[11px] font-medium text-slate-700 shadow-sm hover:border-slate-300 hover:bg-white hover:text-slate-900"
+									onClick={() => window.print()}
+								>
+									<Printer className="h-3 w-3 shrink-0 text-slate-500" aria-hidden />
+									{label}
+								</Button>
+							))}
 						</div>
 					</div>
 

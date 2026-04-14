@@ -20,7 +20,7 @@ import { formatDate } from '@/common/generic-functions'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MARKING_PATH = '/admin-examination-management/evaluation-process/evaluator-subjects/marking'
+const MARKING_PATH = '/admin-examination-management/evaluation-process/assign-answerpapers-dynamic'
 const BACK_PATH    = '/admin-examination-management/evaluation-process/evaluator-subjects'
 
 function isActionable(row: StudentAnswerPaper): boolean {

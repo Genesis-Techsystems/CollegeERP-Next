@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Filter, User } from 'lucide-react'
+import { ChevronDown, Filter, Trash2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -554,8 +554,16 @@ export default function ExamRegisterSubjectsPage() {
                       <td className="px-2 py-1">{r.subjectName ?? r.subject_name ?? '-'}</td>
                       <td className="px-2 py-1">{r.examtypeCatCode ?? r.exam_type_code ?? '-'}</td>
                       <td className="px-2 py-1">
-                        <Button type="button" variant="outline" className="h-7 text-[11px]" onClick={() => void onDeleteRegistered(r)}>
-                          Delete
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => void onDeleteRegistered(r)}
+                          aria-label="Delete subject"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </td>
                     </tr>
