@@ -714,7 +714,29 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
 
   const labelLower = (item.label ?? '').toLowerCase()
   const preExamBase = '/admin-examination-management/pre-examination'
+  const reEvalBase = '/admin-examination-management/re-evaluation'
+  const evalProcessBase = '/admin-examination-management/evaluation-process'
+  const postExamBase = '/admin-examination-management/post-examination'
   const forcedRoute = (() => {
+    if (labelLower.includes('re-evaluation request') || labelLower.includes('reevaluation request')) {
+      return `${reEvalBase}/re-evaluation-request`
+    }
+    if (
+      labelLower.includes('re-evaluation fee') ||
+      labelLower.includes('reevaluation fee') ||
+      labelLower.includes('re-valuation fee')
+    ) {
+      return `${reEvalBase}/re-evaluation-fee`
+    }
+    if (labelLower.includes('exam revised marks')) {
+      return `${postExamBase}/re-evaluation-marks-entry`
+    }
+    if (labelLower.includes('re-evaluation assign') || labelLower.includes('reevaluation assign')) {
+      return `${evalProcessBase}/re-evaluation-assign`
+    }
+    if (labelLower.includes('evaluation status tracking')) {
+      return `${evalProcessBase}/update-evaluator-answer-papers-status`
+    }
     if (labelLower.includes('student exam fee col')) return `${preExamBase}/student-exam-fee-registration`
     if (labelLower.includes('exam scheduling for')) return `${preExamBase}/exam-scheduling-forms`
     if (labelLower.includes('exam register subjec')) return `${preExamBase}/exam-register-subjects`

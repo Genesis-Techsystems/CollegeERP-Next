@@ -1527,3 +1527,121 @@ export async function assignMultipleUpdateEvaluationAssignmentRevision(params: {
     in_course_year_id: params.courseYearId,
   })
 }
+
+export async function getReevaluationAssignSubjects(employeeId: number): Promise<Record<string, unknown>[]> {
+  const data = await crud
+    .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
+      in_flag: 'list_exam_subjects',
+      in_orgid: 1,
+      in_fdate: '1990-01-01',
+      in_tdate: '1990-01-01',
+      in_exam_month_yr: '',
+      in_course_code: '',
+      in_course_year_code: '',
+      in_subject_code: '',
+      in_evalutor_profileid: 0,
+      in_exam_date: '1990-01-01',
+      in_regulation_code: '',
+      in_emp_id: 0,
+      in_questionpaper_id: 0,
+      in_evaluator_role_id: 0,
+      in_academic_year: '',
+      in_exam_short_name: '',
+      in_affiliatedto_catdet_id: 1,
+      in_loginuser_empid: employeeId || 0,
+    })
+    .catch(() => ({ result: [] }))
+  return Array.isArray(data?.result?.[0]) ? data.result[0] : []
+}
+
+export async function getReevaluationAssignBundleByCodes(params: {
+  employeeId: number
+  courseCode: string
+  examMonthYear: string
+  courseYearCode: string
+  subjectCode: string
+}): Promise<{
+  evaluators: Record<string, unknown>[]
+  summary: Record<string, unknown>[]
+  students: Record<string, unknown>[]
+}> {
+  const common = {
+    in_orgid: 1,
+    in_fdate: '1990-01-01',
+    in_tdate: '1990-01-01',
+    in_exam_month_yr: params.examMonthYear,
+    in_course_code: params.courseCode,
+    in_course_year_code: params.courseYearCode,
+    in_subject_code: params.subjectCode,
+    in_evalutor_profileid: 0,
+    in_exam_date: '1990-01-01',
+    in_regulation_code: '',
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: 0,
+    in_academic_year: '',
+    in_exam_short_name: '',
+    in_affiliatedto_catdet_id: 1,
+    in_loginuser_empid: params.employeeId || 0,
+  }
+
+  const [evalData, stdData] = await Promise.all([
+    crud
+      .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
+        in_flag: 'list_evaluatorassignment_list_reevaluation',
+        ...common,
+        in_evaluator_role_id: 64,
+      })
+      .catch(() => ({ result: [] })),
+    crud
+      .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
+        in_flag: 'list_evaluationstudent_list_revision',
+        ...common,
+      })
+      .catch(() => ({ result: [] })),
+  ])
+
+  return {
+    evaluators: Array.isArray(evalData?.result?.[0]) ? evalData.result[0] : [],
+    summary: Array.isArray(evalData?.result?.[1]) ? evalData.result[1] : [],
+    students: Array.isArray(stdData?.result?.[0]) ? stdData.result[0] : [],
+  }
+}
+
+export async function runReevaluationAssignmentPopByCodes(params: {
+  subjectCode: string
+  courseYearCode: string
+}): Promise<void> {
+  await crud.getAllRecords('s_get_examevaluation_bycodes', {
+    in_flag: 're_evaluation_assignment_pop',
+    in_profileids: '',
+    in_exam_evaluationassignment_ids: '',
+    in_omr_serial_nos: '',
+    in_timetable_det_ids: '',
+    in_exam_id: 0,
+    in_subject_id: params.subjectCode,
+    in_course_year_id: params.courseYearCode,
+  })
+}
+
+export async function assignReevaluationByCodes(params: {
+  profileId: number
+  subjectCode: string
+  examMonthYear: string
+  courseCode: string
+  courseYearCode: string
+  assignmentIdsCsv: string
+  timetableDetIds: string
+}): Promise<void> {
+  await crud.getAllRecords('s_get_examevaluation_bycodes', {
+    in_flag: 'UpdateEvaluationAssignment',
+    in_profileids: params.profileId,
+    in_subject_code: params.subjectCode,
+    in_exam_month_yr: params.examMonthYear,
+    in_coursecode: params.courseCode,
+    in_coursegroup: '',
+    in_courseyear: params.courseYearCode,
+    in_exam_evaluationassignment_ids: params.assignmentIdsCsv,
+    in_timetable_det_ids: params.timetableDetIds,
+  })
+}
