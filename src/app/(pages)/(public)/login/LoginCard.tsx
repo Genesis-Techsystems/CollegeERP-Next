@@ -8,7 +8,7 @@ import { z } from 'zod'
 import Image from 'next/image'
 import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react'
 import logo from '@/assets/images/logo.jpg'
-import { NEXT_API } from '@/config/constants/api'
+import { login } from '@/services/auth'
 
 const loginSchema = z.object({
   usernameOrEmail: z.string().min(1, 'Username is required'),
@@ -30,22 +30,11 @@ export function LoginCard() {
   const onSubmit = async (data: LoginFormData) => {
     setError(null)
     try {
-      const res = await fetch(NEXT_API.AUTH.LOGIN, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, isMobile: false }),
-      })
-
-      if (!res.ok) {
-        setError('Invalid username or password')
-        return
-      }
-
-      const { user } = await res.json()
+      const { user } = await login({ usernameOrEmail: data.usernameOrEmail, password: data.password })
       setIsPending(true)
       router.push(user.defaultDashboardPath || '/dashboard')
-    } catch {
-      setError('Unable to sign in. Please try again.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid username or password')
     }
   }
 

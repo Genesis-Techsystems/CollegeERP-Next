@@ -6,7 +6,7 @@ import { ChevronDown, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select } from '@/common/components/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   getUnivExamFiltersRegSup,
@@ -237,56 +237,42 @@ export default function OnlineExamFeeRegistrationPage() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-2 space-y-1">
               <Label>Course *</Label>
-              <Select value={courseId ? String(courseId) : undefined} onValueChange={onCourseChange}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger>
-                <SelectContent>
-                  {courses.map((c, i) => (
-                    <SelectItem key={`c-${i}`} value={String(c.fk_course_id)}>{c.course_code}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => onCourseChange(v ?? '')}
+                options={courses.map((c) => ({ value: String(c.fk_course_id), label: c.course_code }))}
+                placeholder="Course"
+              />
             </div>
 
             <div className="md:col-span-2 space-y-1">
               <Label>Exam Year *</Label>
-              <Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={onAcademicYearChange}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger>
-                <SelectContent>
-                  {academicYears.map((a, i) => (
-                    <SelectItem key={`ay-${i}`} value={String(a.fk_academic_year_id)}>
-                      {a.academic_year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => onAcademicYearChange(v ?? '')}
+                options={academicYears.map((a) => ({ value: String(a.fk_academic_year_id), label: a.academic_year }))}
+                placeholder="Exam Year"
+              />
             </div>
 
             <div className="md:col-span-5 space-y-1">
               <Label>Exam Master *</Label>
-              <Select value={examId ? String(examId) : undefined} onValueChange={onExamChange}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Master" /></SelectTrigger>
-                <SelectContent>
-                  {exams.map((e, i) => (
-                    <SelectItem key={`e-${i}`} value={String(e.fk_exam_id)}>
-                      {(e.exam_name ?? e.examName) ?? `Exam ${e.fk_exam_id}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => onExamChange(v ?? '')}
+                options={exams.map((e) => ({ value: String(e.fk_exam_id), label: (e.exam_name ?? e.examName) ?? `Exam ${e.fk_exam_id}` }))}
+                placeholder="Exam Master"
+              />
             </div>
 
             <div className="md:col-span-2 space-y-1">
               <Label>College *</Label>
-              <Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger>
-                <SelectContent>
-                  {colleges.map((c, i) => (
-                    <SelectItem key={`cl-${i}`} value={String(c.fk_college_id ?? c.collegeId)}>
-                      {c.college_code ?? c.collegeCode ?? c.college_name ?? c.collegeName ?? `College ${c.fk_college_id ?? c.collegeId}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                options={colleges.map((c) => ({ value: String(c.fk_college_id ?? c.collegeId), label: c.college_code ?? c.collegeCode ?? c.college_name ?? c.collegeName ?? `College ${c.fk_college_id ?? c.collegeId}` }))}
+                placeholder="College"
+              />
             </div>
 
             <div className="md:col-span-1">

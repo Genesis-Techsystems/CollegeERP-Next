@@ -5,9 +5,8 @@ import { ChevronDown, Eye, Filter, PlusCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select as SearchableSelect, type SelectOption } from '@/common/components/select/Select'
+import { Select, type SelectOption } from '@/common/components/select'
 import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
 import {
   addExamAdditionalFeeReceipt,
@@ -768,7 +767,7 @@ export default function AdditionalExamFeesPage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-4 space-y-1">
               <Label>Student *</Label>
-              <SearchableSelect
+              <Select
                 value={studentId ? String(studentId) : null}
                 onChange={(v) => setStudentId(v ? Number(v) : null)}
                 options={studentOptions}
@@ -781,7 +780,7 @@ export default function AdditionalExamFeesPage() {
 
             <div className="md:col-span-7 space-y-1">
               <Label>Exam *</Label>
-              <SearchableSelect
+              <Select
                 value={examId ? String(examId) : null}
                 onChange={(v) => {
                   const next = v ? Number(v) : null
@@ -855,34 +854,27 @@ export default function AdditionalExamFeesPage() {
           <div className="mt-2.5 grid grid-cols-1 md:grid-cols-12 gap-2 items-end border p-2.5">
             <div className="md:col-span-4 space-y-1">
               <Label>Semester *</Label>
-              <Select value={semesterId ? String(semesterId) : undefined} onValueChange={(v) => setSemesterId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Semester" /></SelectTrigger>
-                <SelectContent>
-                  {semesters.map((s, i) => (
-                    <SelectItem
-                      key={`sem-${i}`}
-                      value={String(
-                        pickNum(s, ['courseYearId', 'course_year_id', 'fk_course_year_id', 'fk_course_yearId', 'fromCourseYearId']),
-                      )}
-                    >
-                      {pickText(s, ['courseYearName', 'course_year_name']) || '-'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={semesterId ? String(semesterId) : null}
+                onChange={(v) => setSemesterId(v ? Number(v) : null)}
+                options={semesters.map((s) => ({
+                  value: String(pickNum(s, ['courseYearId', 'course_year_id', 'fk_course_year_id', 'fk_course_yearId', 'fromCourseYearId'])),
+                  label: pickText(s, ['courseYearName', 'course_year_name']) || '-',
+                }))}
+                placeholder="Semester"
+              />
             </div>
             <div className="md:col-span-3 space-y-1">
               <Label>Additional Fee *</Label>
-              <Select value={feeTypeId ? String(feeTypeId) : undefined} onValueChange={(v) => setFeeTypeId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Additional Fee" /></SelectTrigger>
-                <SelectContent>
-                  {feeTypes.map((t, i) => (
-                    <SelectItem key={`ft2-${i}`} value={String(t.generalDetailId ?? t.addtExamFeeTypeCatId)}>
-                      {getFeeTypeLabel(t)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={feeTypeId ? String(feeTypeId) : null}
+                onChange={(v) => setFeeTypeId(v ? Number(v) : null)}
+                options={feeTypes.map((t) => ({
+                  value: String(t.generalDetailId ?? t.addtExamFeeTypeCatId),
+                  label: getFeeTypeLabel(t),
+                }))}
+                placeholder="Additional Fee"
+              />
             </div>
             <div className="md:col-span-2">
               <Button
@@ -977,15 +969,17 @@ export default function AdditionalExamFeesPage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <div className="md:col-span-3 space-y-1">
                 <Label>Pay Mode *</Label>
-                <Select value={paymentMode} onValueChange={setPaymentMode}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Pay Mode" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Cash">Cash</SelectItem>
-                    <SelectItem value="Online">Online</SelectItem>
-                    <SelectItem value="Cheque">Cheque</SelectItem>
-                    <SelectItem value="DD">DD</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Select
+                  value={paymentMode ?? null}
+                  onChange={(v) => setPaymentMode(v ?? '')}
+                  options={[
+                    { value: 'Cash', label: 'Cash' },
+                    { value: 'Online', label: 'Online' },
+                    { value: 'Cheque', label: 'Cheque' },
+                    { value: 'DD', label: 'DD' },
+                  ]}
+                  placeholder="Pay Mode"
+                />
               </div>
               <div className="md:col-span-3 space-y-1">
                 <Label>Reference Number</Label>
@@ -1113,16 +1107,12 @@ export default function AdditionalExamFeesPage() {
           <div className="space-y-3">
             <div className="space-y-1">
               <Label>Additional Fee Type *</Label>
-              <Select value={feeTypeId ? String(feeTypeId) : undefined} onValueChange={(v) => setFeeTypeId(Number(v))}>
-                <SelectTrigger className="h-9 text-[12px]"><SelectValue placeholder="Fee Type" /></SelectTrigger>
-                <SelectContent>
-                  {feeTypes.map((t, i) => (
-                    <SelectItem key={`ft-${i}`} value={String(t.generalDetailId ?? t.addtExamFeeTypeCatId)}>
-                      {getFeeTypeLabel(t)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={feeTypeId ? String(feeTypeId) : null}
+                onChange={(v) => setFeeTypeId(v ? Number(v) : null)}
+                options={feeTypes.map((t) => ({ value: String(t.generalDetailId ?? t.addtExamFeeTypeCatId), label: getFeeTypeLabel(t) }))}
+                placeholder="Fee Type"
+              />
             </div>
             <div className="space-y-1">
               <Label>Amount *</Label>

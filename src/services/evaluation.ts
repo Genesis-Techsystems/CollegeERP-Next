@@ -7,7 +7,7 @@
  * All calls route through /api/proxy/ — never call Spring Boot directly.
  */
 
-import { crud, domainUpdate, putDetails } from '@/services/crud'
+import { crud, domainUpdate, putDetails, uploadFile } from '@/services/crud'
 import { EXAM_EVAL_API } from '@/config/constants/api'
 import { parseApiError } from '@/lib/errors'
 import { txt } from '@/common/utils/data-helpers'
@@ -89,6 +89,10 @@ export interface EvalAssignmentDetail {
   examEvaluatorProfileDetId: number
   evaluationTime: number | null
   studentanswerPath?: string
+  /** MinIO-relative path to the question paper PDF (for "View Question" button). */
+  questionPaperPath?: string
+  /** MinIO-relative path to the model/sample answer sheet PDF. */
+  modelAnswerPaperPath?: string
   /** Maximum marks for the question paper — from questionpaper_total_marks */
   qpTotalMarks?: number
 }
@@ -393,6 +397,8 @@ interface RawAssignDetail {
   evaluation_enddate: string | null
   evaluationtime_sec: number | null
   studentanswer_path: string | null
+  questionpaper_path?: string | null
+  modelanswersheet_path?: string | null
   questionpaper_total_marks?: number
 }
 
@@ -436,6 +442,8 @@ function mapRawAssignment(x: RawAssignDetail, assignmentId: number): EvalAssignm
     examEvaluatorProfileDetId: 0,
     evaluationTime: x.evaluationtime_sec ?? null,
     studentanswerPath: x.studentanswer_path ?? undefined,
+    questionPaperPath: x.questionpaper_path ?? undefined,
+    modelAnswerPaperPath: x.modelanswersheet_path ?? undefined,
     qpTotalMarks: x.questionpaper_total_marks,
   }
 }
@@ -531,22 +539,64 @@ export async function updateEvalAssignment(
 /**
  * Saves the evaluator's marks/annotations for all pages.
  * Angular: postDetailsByRequest(addExamStudentEvaluationPagesList, ...)
+ *
+ * Two distinct shapes — DO NOT merge them. The backend proc
+ * `s_get_examquestionpaper_details` keys `mbtn_*` columns off `icontype = 'marksBtn'`,
+ * so any other iconType value gets written but never returned on reload.
+ *
+ * - MarkStampPayload  → a placed mark stamp (Angular evaluation.component.ts:676-728 + :1105)
+ * - NotAnsweredPayload → questions flagged Not Answered (Angular :1074-1097)
  */
-export interface EvalPagePayload {
-  examEvaluationAssignmentId: number
-  pageNumber: number
-  marks: number
-  iconType: string | null
+export interface MarkStampPayload {
+  isActive: true
   questionPaperMarksId: number
-  isNotAnswered: boolean
-  comments: string
+  iconId: 2
+  iconValue: number
+  iconType: 'marksBtn'
+  pageNumber: number
   x_Axis: number
   y_Axis: number
-  iconId?: number
-  iconValue?: number
-  questionnumber?: string
-  questioncode?: string
+  marks: number
+  examEvaluationAssignmentId: number
+  studentAnswerPaper: null
+  studentEvaluationPagePath: null
+  isBlankPage: false
+  isViewed: true
+  isNotAnswered: false
+  comments: null
 }
+
+export interface NotAnsweredPayload {
+  questionPaperMarksId: number
+  qno: string
+  qvalue: string
+  calculated_total_marks: number
+  question: string
+  studentEvaluationPageId: number
+  isNotAnswered: true
+  questionMarks: number
+  level1No: number
+  groupNo: number
+  answeredMarks: number | null
+  color: string
+  error_message: string | null
+  rgb_color: string | null
+  isCheckedForNotAnswered: boolean
+  no_action_yet: number
+  pageNumber: null
+  x_Axis: null
+  y_Axis: null
+  isActive: true
+  marks: null
+  examEvaluationAssignmentId: number
+  studentAnswerPaper: null
+  studentEvaluationPagePath: null
+  isBlankPage: false
+  isViewed: true
+  comments: null
+}
+
+export type EvalPagePayload = MarkStampPayload | NotAnsweredPayload
 
 export async function saveStudentEvalPages(pages: EvalPagePayload[]): Promise<void> {
   await crud.postDetails(EXAM_EVAL_API.ADD_STUDENT_EVAL_PAGES, pages)
@@ -577,17 +627,24 @@ export async function updateEvalsCompletedCount(examEvaluatorProfileDetId: numbe
   await putDetails(EXAM_EVAL_API.UPDATE_EVALS_COMPLETED_COUNT, { examEvaluatorProfileDetId })
 }
 
-// ─── Save Final Evaluated PDF ─────────────────────────────────────────────────
+// ─── Save Final Evaluated PDF (multipart upload) ─────────────────────────────
 
 /**
- * Saves the path of the final annotated PDF after evaluation is complete.
- * Angular: postDetailsByRequest(saveFinalExamStdEvaluationpdfUrl, ...)
+ * Uploads the final annotated PDF after evaluation is complete.
+ * Angular: postDetailsByRequest(saveFinalExamStdEvaluationpdfUrl, ...) with FormData
+ * containing the PDF file + examEvaluationAssignmentId (evaluation.component.ts:1399).
  */
-export async function saveFinalEvalPdf(data: {
-  examEvaluationAssignmentId: number
-  evaluatedAnswerPaperPath: string
-}): Promise<void> {
-  await crud.postDetails(EXAM_EVAL_API.SAVE_FINAL_EVAL_PDF, data)
+export async function saveFinalEvalPdf(
+  examEvaluationAssignmentId: number,
+  file: File | Blob,
+  filename: string,
+): Promise<void> {
+  const formData = new FormData()
+  // Angular sends a File; Blob is accepted if a filename is supplied.
+  if (file instanceof File) formData.append('file', file)
+  else formData.append('file', file, filename)
+  formData.append('examEvaluationAssignmentId', String(examEvaluationAssignmentId))
+  await uploadFile(EXAM_EVAL_API.SAVE_FINAL_EVAL_PDF, formData)
 }
 
 // ─── Finalize Evaluation Marks (Proc) ────────────────────────────────────────

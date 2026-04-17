@@ -22,7 +22,14 @@ import { DataTable, Select, ConfirmDialog } from '@/common/components'
 
 // Wrong — will fail at build time
 import DataTable from '@/common/components/table'   // default import, does not exist
+
+// Wrong — never import raw Shadcn Select primitives in pages or feature components
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+// Use the wrapper instead:
+import { Select } from '@/common/components/select'
 ```
+
+> **Rule:** `SelectContent`, `SelectItem`, `SelectTrigger`, and `SelectValue` from `@/components/ui/select` are internal Shadcn primitives. They are only for building new components inside `src/common/components/`. All page-level dropdowns must use `<Select>` from `@/common/components/select`.
 
 ---
 
@@ -42,10 +49,10 @@ Mirrors Angular's `src/app/common/components/`. Each component mirrors an Angula
 
 | Directory | Components |
 |---|---|
-| `common/components/table/` | `DataTable` — AG Grid Community v35 wrapper with server-side pagination support; `Table` — lightweight simple table |
+| `common/components/table/` | `DataTable` — AG Grid Community v35 wrapper with server-side pagination support; `Table` — lightweight simple table; `TableCard` — card-shell wrapper that houses a table with header/footer slots |
 | `common/components/date-picker/` | `DatePicker`, `MonthYearPicker` — react-day-picker v9 |
 | `common/components/search/` | `SearchInput` — instant by default (0 ms debounce); pass `serverSearch` for 300 ms debounce on API searches; pass `collapsible` to render as icon button that expands on click |
-| `common/components/select/` | `Select` (async-safe, Radix Popover), `MultiSelect` (Popover + Checkbox) |
+| `common/components/select/` | `Select` (async-safe, Radix Popover — props: `value`, `onChange`, `options: SelectOption[]`, `placeholder`, `label`, `searchable`, `clearable`, `isLoading`, `disabled`), `MultiSelect` (Popover + Checkbox) |
 | `common/components/charts/` | `BarChart` — recharts v3 (vertical/horizontal, stacked, click handler); `PieChart` — recharts v3 (donut mode, hover expand, custom tooltip); `DrilldownChart` stub |
 | `common/components/theme-setting-modal/` | `ThemeSettingModal` — appearance, color scheme, sidebar, font size |
 | `common/components/breadcrumb/` | `Breadcrumb`, `useBreadcrumb` hook |
@@ -85,6 +92,20 @@ Each entity has a typed wrapper in `src/services/`. Use the domain service, not 
 ```ts
 import { getExamSessions, createExamSession, updateExamSession, deleteExamSession } from '@/services/exam-session'
 ```
+
+**All service files must be re-exported from `src/services/index.ts`.** Pages import from the barrel (`@/services`), never from a direct path (`@/services/specific-file`). If a new service file has naming conflicts with existing exports, use aliased re-exports to resolve them — do not skip the barrel export.
+
+### Auth service (`auth.ts`)
+
+```ts
+import { login, logout, getUserAccess } from '@/services/auth'
+```
+
+| Function | Use |
+|---|---|
+| `login(credentials)` | POSTs to `NEXT_API.AUTH.LOGIN` — call from LoginCard only |
+| `logout()` | POSTs to `NEXT_API.AUTH.LOGOUT` — call from Topbar/Sidebar only |
+| `getUserAccess(userId)` | GETs user permissions via `NEXT_API.PROXY(AUTH_API.USER_ACCESS)` |
 
 ---
 
@@ -173,6 +194,35 @@ const columnDefs = useMemo<ColDef<Entity>[]>(
 ```
 
 ### Rules
-- Always use `StatusBadge` from `@/common/components/data-display` for `isActive` columns — never inline badge spans.
+- Always use `StatusBadge` from `@/common/components/data-display` for **any boolean status column** (`isActive`, `isEvaluated`, `isPublished`, `isApproved`, etc.) — never inline `<span>`, never `valueGetter`/`valueFormatter` returning `'Active'/'Inactive'` strings.
+- `StatusBadge` accepts `status: boolean | 'active' | 'inactive' | 'pending' | 'draft' | 'published'` and an optional `label` override.
 - `COL_DEFS` keys are the source of truth for column layout; renderers are opt-in via spread.
 - `makeActionsRenderer` pattern for any renderer that closes over page state.
+
+---
+
+## Compliance Audit — Quick Checks
+
+Run these greps to verify zero violations before merging. All should return **no matches**.
+
+```bash
+# A1 — Raw Shadcn Select primitives in pages (must be zero)
+grep -r "from '@/components/ui/select'" src/app src/common
+
+# A2 — Deep internal component imports (must be zero outside src/common/components itself)
+grep -r "from '@/common/components/[a-z-]*/[A-Z]" src/app src/hooks src/services
+
+# A2 — Deep layout imports (must be zero)
+grep -r "from '@/components/layout/[A-Z]" src/app
+
+# B1 — Raw URL strings in fetch() (must be zero)
+grep -rn "fetch\(['\`]/api/" src/app src/common src/hooks src/store src/components/layout
+
+# B2 — Direct fetch() calls in pages/components (must be zero outside src/app/api and src/services)
+grep -rn "fetch(" src/app --include="*.tsx" | grep -v "src/app/api/"
+
+# C1 — Inline status spans in AG Grid renderers (must be zero)
+grep -rn "valueGetter.*Active\|valueFormatter.*Active\|<span.*Active" src/app --include="*.tsx"
+```
+
+> When adding a new service file: (1) export all functions from `src/services/index.ts`, (2) check for name conflicts with existing barrel exports, (3) use aliased re-exports if conflicts exist.

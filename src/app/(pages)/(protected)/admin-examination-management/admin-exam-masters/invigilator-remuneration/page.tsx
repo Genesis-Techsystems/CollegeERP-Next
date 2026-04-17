@@ -21,7 +21,7 @@ import {
 import { format, parseISO } from 'date-fns'
 import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
 import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table/TableCard'
+import { TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer, PageHeader } from '@/components/layout'
 import {

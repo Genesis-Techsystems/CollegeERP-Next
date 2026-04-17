@@ -5,13 +5,7 @@ import { ChevronDown, Eye, FileText, Filter } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select } from '@/common/components/select'
 import {
   generateBarcodesForExamStudents,
   getExamOmrStudents,
@@ -468,141 +462,85 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-2 space-y-1">
               <Label>Course</Label>
-              <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger>
-                <SelectContent>
-                  {courses.map((c, i) => (
-                    <SelectItem key={`c-${i}`} value={String(pickNum(c, ['fk_course_id', 'courseId', 'fk_courseId']))}>
-                      {pickText(c, ['course_code', 'courseCode', 'course_name', 'courseName']) || '-'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => setCourseId(v ? Number(v) : 0)}
+                options={courses.map((c, i) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId', 'fk_courseId']) || i), label: pickText(c, ['course_code', 'courseCode', 'course_name', 'courseName']) || '-' }))}
+                placeholder="Course"
+              />
             </div>
             <div className="md:col-span-2 space-y-1">
               <Label>Exam Year</Label>
-              <Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger>
-                <SelectContent>
-                  {academicYears.map((a, i) => (
-                    <SelectItem
-                      key={`ay-${i}`}
-                      value={String(pickNum(a, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']))}
-                    >
-                      {pickText(a, ['academic_year', 'academicYear']) || '-'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
+                options={academicYears.map((a, i) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']) || i), label: pickText(a, ['academic_year', 'academicYear']) || '-' }))}
+                placeholder="Exam Year"
+              />
             </div>
             <div className="md:col-span-4 space-y-1">
               <Label>Exam Master</Label>
               <Select
-                value={examId ? String(examId) : undefined}
-                onValueChange={async (v) => {
-                  const eid = Number(v)
+                value={examId ? String(examId) : null}
+                onChange={async (v) => {
+                  const eid = v ? Number(v) : 0
                   setExamId(eid)
                   if (courseId && academicYearId) await onExamLoad(courseId, academicYearId, eid)
                 }}
-              >
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Master" /></SelectTrigger>
-                <SelectContent>
-                  {exams.map((e, i) => (
-                    <SelectItem key={`e-${i}`} value={String(pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']))}>
-                      {pickText(e, ['exam_name', 'examName']) || '-'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={exams.map((e, i) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']) || i), label: pickText(e, ['exam_name', 'examName']) || '-' }))}
+                placeholder="Exam Master"
+              />
             </div>
 
             <div className="md:col-span-2 space-y-1">
               <Label>College</Label>
-              <Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger>
-                <SelectContent>
-                  {colleges.map((c, i) => (
-                    <SelectItem
-                      key={`clg-${i}`}
-                      value={String(pickNum(c, ['fk_college_id', 'collegeId', 'fk_collegeId']))}
-                    >
-                      {pickText(c, ['college_code', 'collegeCode', 'college_name', 'collegeName']) || '-'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => setCollegeId(v ? Number(v) : 0)}
+                options={colleges.map((c, i) => ({ value: String(pickNum(c, ['fk_college_id', 'collegeId', 'fk_collegeId']) || i), label: pickText(c, ['college_code', 'collegeCode', 'college_name', 'collegeName']) || '-' }))}
+                placeholder="College"
+              />
             </div>
             <div className="md:col-span-2 space-y-1">
               <Label>Course Group</Label>
-              <Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Group" /></SelectTrigger>
-                <SelectContent>
-                  {groups.map((g, i) => (
-                    <SelectItem
-                      key={`g-${i}`}
-                      value={String(pickNum(g, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']))}
-                    >
-                      {pickText(g, ['group_code', 'groupCode', 'course_group_code', 'courseGroupCode']) || '-'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={courseGroupId ? String(courseGroupId) : null}
+                onChange={(v) => setCourseGroupId(v ? Number(v) : 0)}
+                options={groups.map((g, i) => ({ value: String(pickNum(g, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']) || i), label: pickText(g, ['group_code', 'groupCode', 'course_group_code', 'courseGroupCode']) || '-' }))}
+                placeholder="Group"
+              />
             </div>
             <div className="md:col-span-2 space-y-1">
               <Label>Course Year</Label>
-              <Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger>
-                <SelectContent>
-                  {years.map((y, i) => (
-                    <SelectItem
-                      key={`y-${i}`}
-                      value={String(pickNum(y, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']))}
-                    >
-                      {pickText(y, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) || '-'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={courseYearId ? String(courseYearId) : null}
+                onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
+                options={years.map((y, i) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']) || i), label: pickText(y, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) || '-' }))}
+                placeholder="Course Year"
+              />
             </div>
             <div className="md:col-span-2 space-y-1">
               <Label>Regulation</Label>
               <Select
-                value={regulationId ? String(regulationId) : undefined}
-                onValueChange={(v) => {
-                  const uiRegId = Number(v)
+                value={regulationId ? String(regulationId) : null}
+                onChange={(v) => {
+                  const uiRegId = v ? Number(v) : 0
                   setRegulationId(uiRegId)
                   setSelectedBackendRegulationId(regulationBackendIdMap.get(uiRegId) ?? 0)
                   setSubjectId(null)
                 }}
-              >
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger>
-                <SelectContent>
-                  {regulations.map((r, i) => (
-                    <SelectItem
-                      key={`r-${i}`}
-                      value={String(pickRegValue(r))}
-                    >
-                      {pickText(r, REG_TEXT_KEYS) || `Regulation ${pickRegValue(r)}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={regulations.map((r, i) => ({ value: String(pickRegValue(r) || i), label: pickText(r, REG_TEXT_KEYS) || `Regulation ${pickRegValue(r)}` }))}
+                placeholder="Regulation"
+              />
             </div>
             <div className="md:col-span-3 space-y-1">
               <Label>Subject</Label>
-              <Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger>
-                <SelectContent>
-                  {subjects.map((s, i) => (
-                    <SelectItem key={`s-${i}`} value={String(pickNum(s, SUBJECT_ID_KEYS))}>
-                      {(pickText(s, ['subject_name', 'subjectName']) || '-') +
-                        ' (' +
-                        (pickText(s, ['subject_code', 'subjectCode']) || '-') +
-                        ')'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={subjectId ? String(subjectId) : null}
+                onChange={(v) => setSubjectId(v ? Number(v) : 0)}
+                options={subjects.map((s, i) => ({ value: String(pickNum(s, SUBJECT_ID_KEYS) || i), label: (pickText(s, ['subject_name', 'subjectName']) || '-') + ' (' + (pickText(s, ['subject_code', 'subjectCode']) || '-') + ')' }))}
+                placeholder="Subject"
+              />
             </div>
             <div className="md:col-span-2">
               <Button type="button" onClick={getList} disabled={loading} className="h-8 px-3 text-[12px] w-full">Get List</Button>

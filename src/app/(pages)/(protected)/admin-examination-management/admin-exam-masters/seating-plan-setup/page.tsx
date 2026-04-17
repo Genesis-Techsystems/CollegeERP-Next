@@ -10,15 +10,17 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
-import type { ColDef } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table/TableCard'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import { DataTable, TableCard } from '@/common/components/table'
+import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { distinct } from '@/lib/utils'
 import { listCourseYears, getExamTimetableDetails } from '@/services/examination'
 import {
 	listExamInvigilationAllotments,
 	listExamRoomAllotments as listExamRoomAllotmentsDomain,
+	listRoomwiseOmrStudents,
+	listUnivExamFiltersByCode,
 } from '@/services/seating-plan'
 import {
 	getUnivExamFiltersRegSup,
@@ -28,7 +30,6 @@ import {
 } from '@/services/pre-examination'
 import { ChevronDown, Filter, Plus, Printer } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { NEXT_API } from '@/config/constants/api'
 import { toDateStr } from '@/common/generic-functions'
 
 type AllocationRow = {
@@ -206,25 +207,7 @@ async function fetchRoomwiseOmrStudents(params: {
 	examDate?: string
 	sessionId?: number
 }): Promise<any[]> {
-	const search = new URLSearchParams({
-		in_flag: 'roomwise_OMR_students',
-		in_exam_id: String(params.examId),
-		in_college_id: '0',
-		in_course_id: String(params.courseId),
-		in_course_group_id: '0',
-		in_course_year_id: '0',
-		in_room_id: '0',
-		in_std_id: '0',
-		in_invgilator_emp_id: '0',
-		in_regulation_id: '0',
-		from_exam_date: String(params.examDate ?? ''),
-		to_exam_date: String(params.examDate ?? ''),
-		in_subject_id: '0',
-		in_session_id: String(params.sessionId ?? 0),
-	})
-	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_get_exam_allotment_details?${search.toString()}`))
-	const body = await res.json().catch(() => null)
-	return flattenLegacyResult(body)
+	return listRoomwiseOmrStudents(params)
 }
 
 async function fetchUnivExamFilters(params?: {
@@ -233,28 +216,12 @@ async function fetchUnivExamFilters(params?: {
 	examId?: number
 	academicYearId?: number
 }): Promise<any[]> {
-	const search = new URLSearchParams({
-		in_flag: 'univ_exam_filters',
-		in_flag_type: 'ALL',
-		in_university_id: '0',
-		in_univ_examcenter_id: '0',
-		in_college_id: '0',
-		in_course_id: String(params?.courseId ?? 0),
-		in_course_group_id: '0',
-		in_course_year_id: '0',
-		in_exam_id: String(params?.examId ?? 0),
-		in_academic_year_id: String(params?.academicYearId ?? 0),
-		in_regulation_id: '0',
-		in_subject_id: '0',
-		in_sub_flag_type: '',
-		in_param1: '0',
-		in_param2: '0',
-		in_loginuser_roleid: '0',
-		in_loginuser_empid: String(params?.loginEmpId ?? 31754),
-	})
-	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_get_exam_filters_bycode?${search.toString()}`))
-	const body = await res.json().catch(() => null)
-	return flattenLegacyResult(body)
+	return listUnivExamFiltersByCode(params)
+}
+
+// ── Pure renderer ─────────────────────────────────────────────────────────────
+function statusRenderer(p: ICellRendererParams) {
+	return <StatusBadge status={p.data?.isActive ?? false} />
 }
 
 export default function SeatingPlanSetupPage() {
@@ -791,7 +758,7 @@ export default function SeatingPlanSetupPage() {
 			{ field: 'bookedSeats', headerName: 'Booked Seats', width: 120, flex: 0 },
 			{ field: 'blockedSeats', headerName: 'Blocked Seats', width: 130, flex: 0 },
 			{ field: 'availableSeats', headerName: 'Available Seats', width: 140, flex: 0 },
-			{ field: 'isActive', headerName: 'Status', width: 90, flex: 0, valueFormatter: (p: any) => p.value ? 'Active' : 'InActive' },
+			{ field: 'isActive', headerName: 'Status', width: 90, flex: 0, cellRenderer: statusRenderer },
 			{
 				headerName: 'Actions', width: 150, flex: 0,
 				cellRenderer: (p: any) => (

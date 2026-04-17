@@ -26,7 +26,7 @@ import {
 import { useSessionContext } from '@/context/SessionContext'
 import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
-import { NEXT_API, AUTH_API } from '@/config/constants/api'
+import { getUserAccess, logout } from '@/services/auth'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,8 +81,6 @@ export function Topbar() {
   const fetchPages = useCallback(async (userId: number | string) => {
     setPagesLoading(true)
     try {
-      const res = await fetch(`${NEXT_API.PROXY(AUTH_API.USER_ACCESS)}?userId=${userId}&status=true`)
-      if (!res.ok) return
       const body: {
         success: boolean
         data?: {
@@ -96,7 +94,7 @@ export function Topbar() {
             pages?: Array<{ displayName: string; url: string }>
           }>
         }
-      } = await res.json()
+      } = await getUserAccess(userId)
       if (!body.success) return
 
       const modules = body.data?.modules ?? []
@@ -242,8 +240,11 @@ export function Topbar() {
     roleAvatarStyle[user?.userRole ?? ''] ?? 'bg-cyan-100 text-cyan-700'
 
   async function handleLogout() {
-    await fetch(NEXT_API.AUTH.LOGOUT, { method: 'POST' })
-    router.push('/login')
+    await logout()
+    // Full page reload clears the React Query cache (module-level QueryClient singleton),
+    // all Zustand in-memory state, and all React component state — prevents previous
+    // user's data from leaking into the next session.
+    window.location.href = '/login'
   }
 
   // ── Render ────────────────────────────────────────────────────────────────

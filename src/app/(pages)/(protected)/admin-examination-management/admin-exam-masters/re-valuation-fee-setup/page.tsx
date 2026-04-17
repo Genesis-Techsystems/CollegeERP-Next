@@ -4,9 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { TableCard } from '@/common/components/table/TableCard'
-import { DataTable } from '@/common/components/table'
-import type { ColDef } from 'ag-grid-community'
+import { TableCard, DataTable } from '@/common/components/table'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import { StatusBadge } from '@/common/components/data-display'
 import { distinct } from '@/lib/utils'
 import { buildQuery } from '@/services/crud'
 import { createExamFeeStructure, getCollegeFilters, listCourseYears, listExamFeeStructures, listExamMasters, updateExamFeeStructure } from '@/services/examination'
@@ -22,6 +22,11 @@ import { Pencil, Plus, ChevronDown, Filter } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useRouter } from 'next/navigation'
 import { PageContainer, PageHeader } from '@/components/layout'
+
+// ── Pure renderer ─────────────────────────────────────────────────────────────
+function statusRenderer(p: ICellRendererParams) {
+	return <StatusBadge status={p.data?.isActive ?? false} />
+}
 
 export default function RevaluationFeeSetupPage() {
 	const router = useRouter()
@@ -218,7 +223,7 @@ export default function RevaluationFeeSetupPage() {
 		},
 		{ headerName: 'Regular Fee', minWidth: 130, valueGetter: (p) => p.data?.regularFee ?? p.data?.regFee ?? '—' },
 		{ headerName: 'Supple Fee', minWidth: 130, valueGetter: (p) => p.data?.suppleFee ?? p.data?.supplyFee ?? '—' },
-		{ field: 'isActive', headerName: 'Status', minWidth: 110, valueGetter: (p) => (p.data?.isActive ? 'Active' : 'InActive') },
+		{ field: 'isActive', headerName: 'Status', minWidth: 110, cellRenderer: statusRenderer },
 		{
 			headerName: 'Actions',
 			minWidth: 110,

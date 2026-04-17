@@ -6,8 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Select as SearchableSelect, type SelectOption } from '@/common/components/select/Select'
+import { Select, type SelectOption } from '@/common/components/select'
 import {
   deactivateRegisteredExamSubject,
   getUnivExamFiltersRegSup,
@@ -371,7 +370,7 @@ export default function ExamRegisterSubjectsPage() {
         <div className="p-3 space-y-2">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-5 space-y-1">
-              <SearchableSelect
+              <Select
                 label="Student"
                 placeholder="Search by student name / hallticket"
                 value={studentId ? String(studentId) : null}
@@ -385,16 +384,12 @@ export default function ExamRegisterSubjectsPage() {
             </div>
             <div className="md:col-span-7 space-y-1">
               <Label>Exam</Label>
-              <Select value={examId ? String(examId) : undefined} onValueChange={(v) => void onExamSelect(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Exam" /></SelectTrigger>
-                <SelectContent>
-                  {exams.map((e, i) => (
-                    <SelectItem key={`e-${e.fk_exam_id ?? i}`} value={String(e.fk_exam_id ?? e.examId)}>
-                      {(e.exam_name ?? e.examName) ?? `Exam ${e.fk_exam_id ?? e.examId}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => { if (v) void onExamSelect(Number(v)) }}
+                options={exams.map((e, i) => ({ value: String(e.fk_exam_id ?? e.examId), label: (e.exam_name ?? e.examName) ?? `Exam ${e.fk_exam_id ?? e.examId}` }))}
+                placeholder="Select Exam"
+              />
             </div>
           </div>
         </div>
@@ -451,16 +446,12 @@ export default function ExamRegisterSubjectsPage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
               <div className="md:col-span-3 rounded border p-3">
                 <Label>Course Year</Label>
-                <Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => void onCourseYearSelect(Number(v))}>
-                  <SelectTrigger className="h-9 text-[13px] mt-1"><SelectValue placeholder="Course Year" /></SelectTrigger>
-                  <SelectContent>
-                    {courseYears.map((y, i) => (
-                      <SelectItem key={`cy-${y.courseYearId ?? i}`} value={String(y.courseYearId ?? y.fk_course_year_id)}>
-                        {y.courseYearName ?? y.course_year_name ?? y.courseYearCode ?? y.course_year_code}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Select
+                  value={courseYearId ? String(courseYearId) : null}
+                  onChange={(v) => { if (v) void onCourseYearSelect(Number(v)) }}
+                  options={courseYears.map((y, i) => ({ value: String(y.courseYearId ?? y.fk_course_year_id), label: y.courseYearName ?? y.course_year_name ?? y.courseYearCode ?? y.course_year_code }))}
+                  placeholder="Course Year"
+                />
               </div>
 
               <div className="md:col-span-5 rounded border overflow-hidden">

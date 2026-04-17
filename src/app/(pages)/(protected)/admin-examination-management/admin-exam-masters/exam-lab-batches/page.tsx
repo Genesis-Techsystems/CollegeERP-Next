@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table/TableCard'
+import { TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer, PageHeader } from '@/components/layout'
 import {

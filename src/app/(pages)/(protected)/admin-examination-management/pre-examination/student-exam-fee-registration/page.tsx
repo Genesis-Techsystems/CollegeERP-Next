@@ -3,14 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Select as SearchableSelect, type SelectOption } from '@/common/components/select/Select'
+import { Input } from '@/components/ui/input'
+import { Select } from '@/common/components/select'
 import {
   getUnivExamFiltersRegSup,
   listStudents,
@@ -51,7 +45,7 @@ export default function StudentExamFeeRegistrationPage() {
   const [studentId, setStudentId] = useState<number | null>(null)
   const [examId, setExamId] = useState<number | null>(null)
   const [studentInfo, setStudentInfo] = useState<AnyRow | null>(null)
-
+  const [studentSearch, setStudentSearch] = useState('')
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
 
   const exams = useMemo(() => {
@@ -65,17 +59,28 @@ export default function StudentExamFeeRegistrationPage() {
     return dedupeBy(byCollege, (r) => Number(r.fk_exam_id)).filter((r) => Number(r.fk_exam_id) > 0)
   }, [filterRows, studentInfo])
 
-  const studentOptions = useMemo<SelectOption[]>(
-    () =>
-      students.map((s, i) => ({
-        value: String(getStudentRowId(s, i + 1)),
-        label: `${s.hallticketNumber ?? s.rollNumber ?? '-'} - ${s.firstName ?? s.studentName ?? '-'}`,
-      })),
-    [students],
-  )
+  // const studentOptions = useMemo<SelectOption[]>(
+  //   () =>
+  //     students.map((s, i) => ({
+  //       value: String(getStudentRowId(s, i + 1)),
+  //       label: `${s.hallticketNumber ?? s.rollNumber ?? '-'} - ${s.firstName ?? s.studentName ?? '-'}`,
+  //     })),
+  //   [students],
+  // )
 
   async function onSearchStudents(term: string) {
     const q = term.trim()
+    if (!q) {
+      setStudents([])
+      return
+    }
+    if (q.length < 3) return
+    const rows = await listStudents(q).catch(() => [])
+    setStudents(Array.isArray(rows) ? rows : [])
+  }
+
+  async function searchStudents() {
+    const q = studentSearch.trim()
     if (!q) {
       setStudents([])
       return
@@ -122,43 +127,43 @@ export default function StudentExamFeeRegistrationPage() {
         </div>
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="md:col-span-5 space-y-1">
-              <SearchableSelect
-                label="Student"
-                placeholder="Search by student name or rollno."
+            <div className="md:col-span-3 space-y-1">
+              <Label>Student Search</Label>
+              <div className="flex gap-2">
+                <Input
+                  className="h-8 text-[12px]"
+                  placeholder="Search student name / hallticket"
+                  value={studentSearch}
+                  onChange={(e) => setStudentSearch(e.target.value)}
+                />
+                <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={searchStudents}>
+                  Search
+                </Button>
+              </div>
+            </div>
+            <div className="md:col-span-4 space-y-1">
+              <Label>Student</Label>
+              <Select
                 value={studentId ? String(studentId) : null}
-                options={studentOptions}
-                searchable
-                clearable
-                className="[&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
-                onSearch={(term) => void onSearchStudents(term)}
                 onChange={(v) => {
-                  const sid = Number(v ?? 0)
-                  if (!sid) {
-                    setStudentId(null)
-                    setStudentInfo(null)
-                    setExamId(null)
-                    return
-                  }
+                  const sid = v ? Number(v) : 0
                   setStudentId(sid)
                   const s = students.find((x, idx) => getStudentRowId(x, idx + 1) === sid) ?? null
                   setStudentInfo(s)
                   setExamId(null)
                 }}
+                options={students.map((s, i) => ({ value: String(s.studentId ?? s.id ?? i), label: (s.hallticketNumber ?? s.rollNumber ?? '-') + ' - ' + (s.firstName ?? s.studentName ?? '-') }))}
+                placeholder="Select Student"
               />
             </div>
             <div className="md:col-span-6 space-y-1">
               <Label>Exam</Label>
-              <Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Exam" /></SelectTrigger>
-                <SelectContent>
-                  {exams.map((e, i) => (
-                    <SelectItem key={`e-${e.fk_exam_id ?? i}`} value={String(e.fk_exam_id ?? e.examId)}>
-                      {(e.exam_name ?? e.examName) ?? `Exam ${e.fk_exam_id ?? e.examId}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => setExamId(v ? Number(v) : 0)}
+                options={exams.map((e, i) => ({ value: String(e.fk_exam_id ?? e.examId ?? i), label: (e.exam_name ?? e.examName) ?? `Exam ${e.fk_exam_id ?? e.examId}` }))}
+                placeholder="Select Exam"
+              />
             </div>
             <div className="md:col-span-1">
               <Button type="button" className="h-8 text-[12px] w-full" onClick={getList} disabled={loading}>

@@ -17,7 +17,7 @@
 
 import { redirect } from 'next/navigation'
 import { SessionProvider } from '@/context/SessionContext'
-import { AppShell } from '@/components/layout/AppShell'
+import { AppShell } from '@/components/layout'
 import { getSession } from '@/lib/session'
 import { springGetUserDetails } from '@/integrations/spring-api'
 import { buildNavTree } from '@/lib/navigation'

@@ -7,13 +7,7 @@ import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select } from '@/common/components/select'
 import { ChevronDown, Filter } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
@@ -328,48 +322,30 @@ export default function EvaluationApprovalsPage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-3">
               <Label className="text-[12px] text-muted-foreground">Course</Label>
-              <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]">
-                  <SelectValue placeholder="Course" />
-                </SelectTrigger>
-                <SelectContent>
-                  {courses.map((c) => (
-                    <SelectItem key={`c-${pickNum(c, ['fk_course_id', 'courseId'])}`} value={String(pickNum(c, ['fk_course_id', 'courseId']))}>
-                      {pickText(c, ['course_code', 'courseCode', 'course_name', 'courseName'])}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => setCourseId(v ? Number(v) : 0)}
+                options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode', 'course_name', 'courseName']) }))}
+                placeholder="Course"
+              />
             </div>
             <div className="md:col-span-5">
               <Label className="text-[12px] text-muted-foreground">Exam</Label>
-              <Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]">
-                  <SelectValue placeholder="Exam" />
-                </SelectTrigger>
-                <SelectContent>
-                  {exams.map((e) => (
-                    <SelectItem key={`e-${pickNum(e, ['fk_exam_id', 'examId'])}`} value={String(pickNum(e, ['fk_exam_id', 'examId']))}>
-                      {pickText(e, ['exam_name', 'examName'])}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => setExamId(v ? Number(v) : 0)}
+                options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) }))}
+                placeholder="Exam"
+              />
             </div>
             <div className="md:col-span-3">
               <Label className="text-[12px] text-muted-foreground">Evaluators</Label>
-              <Select value={evaluatorProfileId ? String(evaluatorProfileId) : undefined} onValueChange={(v) => setEvaluatorProfileId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]">
-                  <SelectValue placeholder="Evaluator" />
-                </SelectTrigger>
-                <SelectContent>
-                  {evaluators.map((e) => (
-                    <SelectItem key={`ev-${pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])}`} value={String(pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId']))}>
-                      {pickText(e, ['evaluator_name', 'evaluatorName']) || `Evaluator ${pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={evaluatorProfileId ? String(evaluatorProfileId) : null}
+                onChange={(v) => setEvaluatorProfileId(v ? Number(v) : 0)}
+                options={evaluators.map((e) => ({ value: String(pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])), label: pickText(e, ['evaluator_name', 'evaluatorName']) || `Evaluator ${pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])}` }))}
+                placeholder="Evaluator"
+              />
             </div>
             <div className="md:col-span-1">
               <Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>

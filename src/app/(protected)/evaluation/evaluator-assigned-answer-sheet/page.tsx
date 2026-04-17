@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
-import type { ColDef, CellClickedEvent } from 'ag-grid-community'
+import type { ColDef, CellClickedEvent, ICellRendererParams } from 'ag-grid-community'
 import { FileText } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
 import { SearchInput } from '@/common/components/search'
+import { StatusBadge } from '@/common/components/data-display'
 
 interface AnswerPaper {
   answerId: number
@@ -16,6 +17,10 @@ interface AnswerPaper {
   barcode: string
   isEvaluated: boolean
   marksAwarded: number | null
+}
+
+function evaluatedRenderer(p: ICellRendererParams<AnswerPaper>) {
+  return <StatusBadge status={p.data?.isEvaluated ?? false} label={p.data?.isEvaluated ? 'Evaluated' : 'Pending'} />
 }
 
 export default function EvaluatorAssignedAnswerSheetPage() {
@@ -65,16 +70,7 @@ export default function EvaluatorAssignedAnswerSheetPage() {
         field: 'isEvaluated',
         headerName: 'Status',
         minWidth: 110,
-        cellRenderer: (p: { data?: AnswerPaper }) =>
-          p.data?.isEvaluated ? (
-            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-emerald-50 text-emerald-700">
-              Evaluated
-            </span>
-          ) : (
-            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-amber-50 text-amber-700">
-              Pending
-            </span>
-          ),
+        cellRenderer: evaluatedRenderer,
       },
     ],
     []
