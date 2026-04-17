@@ -753,6 +753,21 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
     if (labelLower.includes('student exam lab bat')) return `${preExamBase}/student-exam-lab-batches`
     if (labelLower.includes('exam registration ma')) return `${preExamBase}/exam-registration-manual-feeless`
     if (labelLower.includes('college exam timetable view')) return `${preExamBase}/college-exam-timetable-view`
+    if (labelLower.includes('exam center barcode')) {
+      return '/admin-examination-management/exam-papers-delivery-process/exam-center-barcodes'
+    }
+    if (labelLower.includes('answer paper bag')) {
+      return '/admin-examination-management/exam-papers-delivery-process/univ-exam-answer-paper-bags'
+    }
+    if (labelLower.includes('exam scan profile')) {
+      return '/admin-examination-management/exam-papers-delivery-process/exam-scan-profile'
+    }
+    if (labelLower.includes('scan bundle detail')) {
+      return '/admin-examination-management/exam-papers-delivery-process/scan-bundle-details'
+    }
+    if (labelLower.includes('scan bundles') || labelLower.includes('exam scan bundle')) {
+      return '/admin-examination-management/exam-papers-delivery-process/scan-bundles'
+    }
     return null
   })()
 
