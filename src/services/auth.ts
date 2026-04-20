@@ -9,6 +9,7 @@
  */
 
 import { NEXT_API, AUTH_API } from '@/config/constants/api'
+import type { SessionUser } from '@/types/user'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,4 +72,15 @@ export async function getUserAccess(userId: string | number): Promise<any> {
   }
 
   return res.json()
+}
+
+/**
+ * Returns the currently authenticated session user from /api/auth/me.
+ * Returns null when the session is unavailable/expired.
+ */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const res = await fetch(NEXT_API.AUTH.ME, { cache: 'no-store' })
+  if (!res.ok) return null
+  const body = (await res.json().catch(() => null)) as { user?: SessionUser } | null
+  return body?.user ?? null
 }

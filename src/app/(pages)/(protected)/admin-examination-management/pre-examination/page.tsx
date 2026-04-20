@@ -4,6 +4,7 @@ import Link from 'next/link'
 
 export default function PreExaminationIndexPage() {
   const pages = [
+    'complete-exam-fee-registration',
     'student-exam-fee-registration',
     'exam-scheduling-forms',
     'exam-register-subjects',

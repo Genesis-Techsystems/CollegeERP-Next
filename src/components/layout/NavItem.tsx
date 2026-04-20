@@ -753,8 +753,26 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
     if (labelLower.includes('student exam lab bat')) return `${preExamBase}/student-exam-lab-batches`
     if (labelLower.includes('exam registration ma')) return `${preExamBase}/exam-registration-manual-feeless`
     if (labelLower.includes('college exam timetable view')) return `${preExamBase}/college-exam-timetable-view`
+    if (labelLower.includes('complete exam fee registration') || labelLower.includes('complete examfee registration')) {
+      return `${preExamBase}/complete-exam-fee-registration`
+    }
     if (labelLower.includes('exam center barcode')) {
       return '/admin-examination-management/exam-papers-delivery-process/exam-center-barcodes'
+    }
+    if (labelLower.includes('moderation rule setup')) {
+      return '/admin-examination-management/result-processing/moderation-rule-setup'
+    }
+    if (labelLower.includes('grade rule settings') || labelLower.includes('grade rule setup')) {
+      return '/admin-examination-management/result-processing/grade-rule-settings'
+    }
+    if (labelLower.includes('apply moderation rule')) {
+      return '/admin-examination-management/result-processing/apply-moderation-rule'
+    }
+    if (labelLower.includes('t-sheets') || labelLower.includes('t sheets') || labelLower.includes('t-sheet')) {
+      return '/admin-examination-management/result-processing/t-sheets'
+    }
+    if (labelLower.includes('verify exam marks') || labelLower.includes('verify exam status')) {
+      return '/admin-examination-management/admin-post-examination/verify-exam-marks'
     }
     if (labelLower.includes('answer paper bag')) {
       return '/admin-examination-management/exam-papers-delivery-process/univ-exam-answer-paper-bags'

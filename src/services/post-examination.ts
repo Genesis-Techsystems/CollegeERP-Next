@@ -372,6 +372,97 @@ export async function runCompleteExamResultProcessingPublish(examId: number): Pr
   await getAllRecords('s_pop_exam_resultprocessing_publish_v4', { in_exam_id: examId })
 }
 
+export type VerifyExamMarksMode = 'internal' | 'external' | 'evaluation' | 'all'
+
+export async function getVerifyExamMarksFilters(params: {
+  organizationId: number
+  employeeId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_collegewisedetails_bycode', {
+    in_flag: 'clg_exam_timetable_filters',
+    in_org_id: params.organizationId || 0,
+    in_college_id: 0,
+    in_course_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_group_section_id: 0,
+    in_academic_year_id: 0,
+    in_dept_id: 0,
+    in_isadmin: 0,
+    in_loginuser_empid: params.employeeId || 0,
+    in_loginuser_roleid: 0,
+    in_employee: '',
+    in_subject: '',
+    in_gm_codes: '',
+  })
+  const groups = data?.result ?? []
+  const picked = firstGroupByFlag(groups, ['clg_exam_timetable_filters'])
+  if (picked.length > 0) return picked
+  return firstNonEmptyGroup(groups)
+}
+
+export async function getVerifyExamMarksColleges(): Promise<AnyRow[]> {
+  return domainList<AnyRow>('College', buildQuery({ isActive: true }))
+}
+
+export async function getVerifyExamMarksExams(employeeId: number): Promise<AnyRow[]> {
+  return getCompleteExamProcessFilters(employeeId)
+}
+
+export async function getVerifyExamMarksReport(params: {
+  mode: VerifyExamMarksMode
+  examId: number
+  collegeId: number
+  courseGroupId: number
+  subjectId: number
+}): Promise<AnyRow[]> {
+  const inFlag =
+    params.mode === 'internal' ? 'int_exam_marks_entered_count' : 'ext_int_exam_marks_entered_count'
+
+  const payload = {
+    in_flag: inFlag,
+    in_exam_id: params.examId,
+    in_college_id: params.collegeId,
+    in_course_id: 0,
+    in_course_group_id: params.courseGroupId || 0,
+    in_course_year_id: 0,
+    in_academic_year_id: 0,
+    in_regulation_id: 0,
+    in_subject_id: params.subjectId || 0,
+  }
+
+  const procAttempts = [
+    's_get_exam_premoderation_reports_bycodes',
+    's_get_exam_premoderation',
+    's_get_exam_resultprocessing',
+    's_get_exam_result_processing',
+  ]
+  for (const proc of procAttempts) {
+    try {
+      const data = await getAllRecords<any>(proc, payload)
+      const result = data?.result
+
+      if (Array.isArray(result)) {
+        if (result.length > 0 && Array.isArray(result[0])) {
+          const groups = result as AnyRow[][]
+          const rows = firstNonEmptyGroup(groups)
+          if (rows.length > 0) return rows
+        } else if (result.length > 0 && typeof result[0] === 'object') {
+          return result as AnyRow[]
+        }
+      }
+
+      if (Array.isArray(data?.resultList) && data.resultList.length > 0) {
+        return data.resultList as AnyRow[]
+      }
+    } catch {
+      // fallback to next proc name variant
+    }
+  }
+
+  return []
+}
+
 export async function getInternalAttendanceStudents(
   params: AttendanceFilterParams,
 ): Promise<AnyRow[]> {
