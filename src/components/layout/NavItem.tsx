@@ -786,6 +786,35 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
     if (labelLower.includes('scan bundles') || labelLower.includes('exam scan bundle')) {
       return '/admin-examination-management/exam-papers-delivery-process/scan-bundles'
     }
+    if (labelLower.includes('student re-admission') || labelLower.includes('student readmission')) {
+      return '/admin-student-information-system/student-re-admission'
+    }
+    if (labelLower.includes('readmission application') || labelLower.includes('re-admission application')) {
+      return '/admin-student-information-system/readmission-application'
+    }
+    if (labelLower.includes('student discontinue')) {
+      return '/admin-student-information-system/student-discontinue'
+    }
+    if (labelLower.includes('student passout') || labelLower.includes('students passout')) {
+      return '/admin-student-information-system/student-passout'
+    }
+    if (
+      labelLower.includes('assign student roll') ||
+      labelLower.includes('generate student roll') ||
+      labelLower.includes('student roll number')
+    ) {
+      return '/admin-student-information-system/generate-student-rollno'
+    }
+    if (labelLower.includes('student subjects') || labelLower.includes('student subject')) {
+      return '/admin-student-information-system/student-subjects'
+    }
+    if (
+      labelLower.includes('student co-curriculum activit') ||
+      labelLower.includes('student co curricular activit') ||
+      labelLower.includes('student cc activit')
+    ) {
+      return '/admin-student-information-system/student-cc-activities'
+    }
     return null
   })()
 

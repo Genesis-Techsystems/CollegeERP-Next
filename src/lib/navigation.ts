@@ -36,6 +36,15 @@ function normalizeHref(path: string): string {
       /\/admin-examination-management\/pre-examinations\//i,
       '/admin-examination-management/pre-examination/',
     )
+    // Student Information System legacy path variants.
+    .replace(
+      /\/admin-student-information-system\/student-readmission$/i,
+      '/admin-student-information-system/student-re-admission',
+    )
+    .replace(
+      /\/admin-student-information-system\/readmission-application$/i,
+      '/admin-student-information-system/readmission-application',
+    )
     // Legacy short page slugs used in old pre-examination sidebar.
     .replace(
       /\/admin-examination-management\/pre-examination\/subject-barcode$/i,

@@ -60,6 +60,7 @@ export {
 export type { CollegeFiltersResult as ExamMasterCollegeFiltersResult } from './exam-master'
 export * from './exam-lab-batches'
 export * from './exam-lab-timetable'
+export * from './student-information'
 // invigilator-remuneration: listActiveColleges conflicts with pre-examination.
 export {
   listInvigilatorRemunerations,
