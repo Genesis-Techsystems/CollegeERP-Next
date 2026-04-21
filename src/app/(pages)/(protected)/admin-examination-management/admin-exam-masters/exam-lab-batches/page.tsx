@@ -268,16 +268,18 @@ export default function ExamLabBatchesPage() {
         )}
       </div>
 
-      <TableCard
-        headerLeft={
-          <Input className="h-8 text-[12px] max-w-sm" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
-        }
-        headerRight={
-          <Button className="h-8 text-[12px]" onClick={openAdd}>+ Add Exam Batch</Button>
-        }
-      >
-        <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loading} pagination />
-      </TableCard>
+      {hasFetched && (
+        <TableCard
+          headerLeft={
+            <Input className="h-8 text-[12px] max-w-sm" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
+          }
+          headerRight={
+            <Button className="h-8 text-[12px]" onClick={openAdd}>+ Add Exam Batch</Button>
+          }
+        >
+          <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loading} pagination />
+        </TableCard>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-xl p-0 overflow-hidden" hideClose>

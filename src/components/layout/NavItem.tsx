@@ -574,10 +574,13 @@ function NavIcon({
   name,
   active,
   kind = 'page',
+  /** Solid primary background (Exam masters design-system row) */
+  primarySurface = false,
 }: {
   name?: string
   active?: boolean
   kind?: 'module' | 'page'
+  primarySurface?: boolean
 }) {
   const resolved = resolveIcon(name)
   const Icon = resolved ?? (kind === 'module' ? LayoutDashboard : ChevronRight)
@@ -586,7 +589,11 @@ function NavIcon({
     <span
       className={cn(
         'flex items-center justify-center h-[18px] w-[18px] shrink-0 transition-colors duration-150',
-        active ? 'text-[hsl(var(--sidebar-primary))]' : 'text-[hsl(var(--sidebar-foreground))]',
+        active
+          ? primarySurface
+            ? 'text-[hsl(var(--primary-foreground))]'
+            : 'text-[hsl(var(--sidebar-primary))]'
+          : 'text-[hsl(var(--sidebar-foreground))]',
       )}
     >
       <Icon className="h-[13px] w-[13px]" strokeWidth={1.75} aria-hidden="true" />
@@ -614,6 +621,89 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
   )
 }
 
+const EXAM_MASTERS_PATH = '/admin-examination-management/admin-exam-masters'
+
+/**
+ * Admin Exam Masters nav branch — primary-tinted active state. Scoped to this subtree only.
+ */
+function usesExamMastersDesign(item: NavItemType): boolean {
+  if (item.href?.includes(EXAM_MASTERS_PATH)) return true
+  if (
+    item.id.startsWith('sub_module_') &&
+    item.children?.some((c) => c.href?.includes(EXAM_MASTERS_PATH))
+  ) {
+    return true
+  }
+  return false
+}
+
+function navCollapsibleTriggerClasses(
+  examMasters: boolean,
+  isChildActive: boolean,
+  isSelfActive: boolean,
+  isActive: boolean,
+): string {
+  if (examMasters && isChildActive && !isSelfActive) {
+    return cn(
+      'text-[hsl(var(--sidebar-foreground-active))]',
+      'bg-[hsl(var(--primary))]/12',
+      'ring-1 ring-[hsl(var(--primary))]/35',
+    )
+  }
+  if (examMasters && isActive && isSelfActive) {
+    return cn(
+      'text-[hsl(var(--primary-foreground))]',
+      'bg-[hsl(var(--primary))]',
+      'shadow-sm',
+    )
+  }
+  if (isChildActive && !isSelfActive) {
+    return 'text-[hsl(var(--sidebar-foreground-active))]'
+  }
+  if (isActive) {
+    return cn(
+      'text-[hsl(var(--sidebar-primary))]',
+      'bg-[hsl(var(--sidebar-active-bg))]',
+      'ring-1 ring-[hsl(var(--sidebar-active-border))]',
+    )
+  }
+  return cn(
+    'text-[hsl(var(--sidebar-foreground))]',
+    'hover:bg-[hsl(var(--sidebar-hover-bg))]',
+    'hover:text-[hsl(var(--sidebar-foreground-active))]',
+  )
+}
+
+function navLeafClasses(examMasters: boolean, isActive: boolean): string {
+  if (examMasters && isActive) {
+    return cn(
+      'text-[hsl(var(--primary-foreground))]',
+      'bg-[hsl(var(--primary))]',
+      'shadow-sm',
+      'hover:bg-[hsl(var(--primary))]',
+    )
+  }
+  if (examMasters) {
+    return cn(
+      'text-[hsl(var(--sidebar-foreground))]',
+      'hover:bg-[hsl(var(--sidebar-hover-bg))] hover:text-[hsl(var(--sidebar-foreground-active))]',
+    )
+  }
+  if (isActive) {
+    return cn(
+      'text-[hsl(var(--sidebar-primary))]',
+      'bg-[hsl(var(--sidebar-active-bg))]',
+      'ring-1 ring-[hsl(var(--sidebar-active-border))]',
+      'hover:bg-[hsl(var(--sidebar-active-bg))]',
+    )
+  }
+  return cn(
+    'text-[hsl(var(--sidebar-foreground))]',
+    'hover:bg-[hsl(var(--sidebar-hover-bg))] hover:text-[hsl(var(--sidebar-foreground-active))]',
+    'hover:translate-x-0.5',
+  )
+}
+
 export function NavItem({ item, depth = 0 }: NavItemProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -624,7 +714,29 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
 
   const labelLower = (item.label ?? '').toLowerCase()
   const preExamBase = '/admin-examination-management/pre-examination'
+  const reEvalBase = '/admin-examination-management/re-evaluation'
+  const evalProcessBase = '/admin-examination-management/evaluation-process'
+  const postExamBase = '/admin-examination-management/post-examination'
   const forcedRoute = (() => {
+    if (labelLower.includes('re-evaluation request') || labelLower.includes('reevaluation request')) {
+      return `${reEvalBase}/re-evaluation-request`
+    }
+    if (
+      labelLower.includes('re-evaluation fee') ||
+      labelLower.includes('reevaluation fee') ||
+      labelLower.includes('re-valuation fee')
+    ) {
+      return `${reEvalBase}/re-evaluation-fee`
+    }
+    if (labelLower.includes('exam revised marks')) {
+      return `${postExamBase}/re-evaluation-marks-entry`
+    }
+    if (labelLower.includes('re-evaluation assign') || labelLower.includes('reevaluation assign')) {
+      return `${evalProcessBase}/re-evaluation-assign`
+    }
+    if (labelLower.includes('evaluation status tracking')) {
+      return `${evalProcessBase}/update-evaluator-answer-papers-status`
+    }
     if (labelLower.includes('student exam fee col')) return `${preExamBase}/student-exam-fee-registration`
     if (labelLower.includes('exam scheduling for')) return `${preExamBase}/exam-scheduling-forms`
     if (labelLower.includes('exam register subjec')) return `${preExamBase}/exam-register-subjects`
@@ -641,6 +753,68 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
     if (labelLower.includes('student exam lab bat')) return `${preExamBase}/student-exam-lab-batches`
     if (labelLower.includes('exam registration ma')) return `${preExamBase}/exam-registration-manual-feeless`
     if (labelLower.includes('college exam timetable view')) return `${preExamBase}/college-exam-timetable-view`
+    if (labelLower.includes('complete exam fee registration') || labelLower.includes('complete examfee registration')) {
+      return `${preExamBase}/complete-exam-fee-registration`
+    }
+    if (labelLower.includes('exam center barcode')) {
+      return '/admin-examination-management/exam-papers-delivery-process/exam-center-barcodes'
+    }
+    if (labelLower.includes('moderation rule setup')) {
+      return '/admin-examination-management/result-processing/moderation-rule-setup'
+    }
+    if (labelLower.includes('grade rule settings') || labelLower.includes('grade rule setup')) {
+      return '/admin-examination-management/result-processing/grade-rule-settings'
+    }
+    if (labelLower.includes('apply moderation rule')) {
+      return '/admin-examination-management/result-processing/apply-moderation-rule'
+    }
+    if (labelLower.includes('t-sheets') || labelLower.includes('t sheets') || labelLower.includes('t-sheet')) {
+      return '/admin-examination-management/result-processing/t-sheets'
+    }
+    if (labelLower.includes('verify exam marks') || labelLower.includes('verify exam status')) {
+      return '/admin-examination-management/admin-post-examination/verify-exam-marks'
+    }
+    if (labelLower.includes('answer paper bag')) {
+      return '/admin-examination-management/exam-papers-delivery-process/univ-exam-answer-paper-bags'
+    }
+    if (labelLower.includes('exam scan profile')) {
+      return '/admin-examination-management/exam-papers-delivery-process/exam-scan-profile'
+    }
+    if (labelLower.includes('scan bundle detail')) {
+      return '/admin-examination-management/exam-papers-delivery-process/scan-bundle-details'
+    }
+    if (labelLower.includes('scan bundles') || labelLower.includes('exam scan bundle')) {
+      return '/admin-examination-management/exam-papers-delivery-process/scan-bundles'
+    }
+    if (labelLower.includes('student re-admission') || labelLower.includes('student readmission')) {
+      return '/admin-student-information-system/student-re-admission'
+    }
+    if (labelLower.includes('readmission application') || labelLower.includes('re-admission application')) {
+      return '/admin-student-information-system/readmission-application'
+    }
+    if (labelLower.includes('student discontinue')) {
+      return '/admin-student-information-system/student-discontinue'
+    }
+    if (labelLower.includes('student passout') || labelLower.includes('students passout')) {
+      return '/admin-student-information-system/student-passout'
+    }
+    if (
+      labelLower.includes('assign student roll') ||
+      labelLower.includes('generate student roll') ||
+      labelLower.includes('student roll number')
+    ) {
+      return '/admin-student-information-system/generate-student-rollno'
+    }
+    if (labelLower.includes('student subjects') || labelLower.includes('student subject')) {
+      return '/admin-student-information-system/student-subjects'
+    }
+    if (
+      labelLower.includes('student co-curriculum activit') ||
+      labelLower.includes('student co curricular activit') ||
+      labelLower.includes('student cc activit')
+    ) {
+      return '/admin-student-information-system/student-cc-activities'
+    }
     return null
   })()
 
@@ -651,6 +825,8 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
   const isActive = isSelfActive || isChildActive
 
   const isOpen = isActive ? true : !collapsedItems.has(item.id)
+
+  const examMasters = usesExamMastersDesign(item)
 
   // True only when sidebar is collapsed AND the mouse is not hovering over it
   const isEffectivelyCollapsed = isSidebarCollapsed && !isSidebarHovered
@@ -699,7 +875,6 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
     depth === 0 ? 'pl-2.5' : depth === 1 ? 'pl-6' : depth === 2 ? 'pl-9.5' : 'pl-12'
 
   const baseLinkClasses = cn(
-    // Typography + tighter vertical rhythm (reduced gaps)
     'group relative flex items-center gap-2.5 rounded-lg py-2 text-[12px] font-medium',
     'transition-all duration-150 ease-out',
     `pr-3 ${paddingLeft}`,
@@ -722,28 +897,21 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
           className={cn(
             baseLinkClasses,
             'w-full',
-            isChildActive && !isSelfActive
-              ? 'text-[hsl(var(--sidebar-foreground-active))]'
-              : isActive
-              ? [
-                  'text-[hsl(var(--sidebar-primary))]',
-                  'bg-[hsl(var(--sidebar-active-bg))]',
-                  'ring-1 ring-[hsl(var(--sidebar-active-border))]',
-                ]
-              : [
-                  'text-[hsl(var(--sidebar-foreground))]',
-                  'hover:bg-[hsl(var(--sidebar-hover-bg))]',
-                  'hover:text-[hsl(var(--sidebar-foreground-active))]',
-                ],
+            navCollapsibleTriggerClasses(examMasters, isChildActive, isSelfActive, isActive),
           )}
         >
-          {isActive && (
+          {isActive && !examMasters && (
             <span
               className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-[hsl(var(--sidebar-primary))]"
               aria-hidden="true"
             />
           )}
-          <NavIcon name={item.icon} active={isActive} kind={depth === 0 ? 'module' : 'page'} />
+          <NavIcon
+            name={item.icon}
+            active={isActive}
+            kind={depth === 0 ? 'module' : 'page'}
+            primarySurface={examMasters && isActive && isSelfActive}
+          />
           <span className="flex-1 text-left leading-none truncate whitespace-nowrap">
             {item.label}
           </span>
@@ -784,29 +952,15 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
         }
       }}
       aria-current={isActive ? 'page' : undefined}
-      className={cn(
-        baseLinkClasses,
-        isActive
-          ? [
-              'text-[hsl(var(--sidebar-primary))]',
-              'bg-[hsl(var(--sidebar-active-bg))]',
-              'ring-1 ring-[hsl(var(--sidebar-active-border))]',
-              'hover:bg-[hsl(var(--sidebar-active-bg))]',
-            ]
-          : [
-              'text-[hsl(var(--sidebar-foreground))]',
-              'hover:bg-[hsl(var(--sidebar-hover-bg))] hover:text-[hsl(var(--sidebar-foreground-active))]',
-              'hover:translate-x-0.5',
-            ],
-      )}
+      className={cn(baseLinkClasses, navLeafClasses(examMasters, isActive))}
     >
-      {isActive && (
+      {isActive && !examMasters && (
         <span
           className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-[hsl(var(--sidebar-primary))]"
           aria-hidden="true"
         />
       )}
-      <NavIcon name={item.icon} active={isActive} kind="page" />
+      <NavIcon name={item.icon} active={isActive} kind="page" primarySurface={examMasters && isActive} />
       <span className="flex-1 leading-none truncate whitespace-nowrap">
         {item.label}
       </span>

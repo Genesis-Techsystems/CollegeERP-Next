@@ -17,7 +17,7 @@ import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { listExamSessions, createExamSession, updateExamSession, getCollegeFilters } from '@/services/examination'
 import { distinct } from '@/lib/utils'
 
@@ -78,8 +78,6 @@ export default function ExamSessionPage() {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
-  const [filterOpen, setFilterOpen] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [universityOptions, setUniversityOptions] = useState<{ code: string; name?: string }[]>([])
 
   const [form, setForm] = useState({
@@ -126,11 +124,6 @@ export default function ExamSessionPage() {
     const lower = q.toLowerCase()
     return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(lower))
   }, [q, rows])
-
-  const filteredByStatus = useMemo(() => {
-    if (statusFilter === 'all') return filtered
-    return filtered.filter((r) => statusFilter === 'active' ? !!r.isActive : !r.isActive)
-  }, [filtered, statusFilter])
   function formatTime12h(value?: string) {
     if (!value) return ''
     const raw = String(value).trim()
@@ -172,34 +165,10 @@ export default function ExamSessionPage() {
 
   return (
     <PageContainer className="space-y-5">
-      <PageHeader title="Exam Sessions" subtitle="Create and manage exam time slots" />
-
-      <div className="app-card overflow-hidden">
-        <div className="px-3 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className={`h-5 rounded-md border px-2 text-[11px] font-medium ${statusFilter === 'all' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600'}`}
-              onClick={() => setStatusFilter('all')}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className={`h-5 rounded-md border px-2 text-[11px] font-medium ${statusFilter === 'active' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-600'}`}
-              onClick={() => setStatusFilter('active')}
-            >
-              Active
-            </button>
-            <button
-              type="button"
-              className={`h-5 rounded-md border px-2 text-[11px] font-medium ${statusFilter === 'inactive' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-slate-200 text-slate-600'}`}
-              onClick={() => setStatusFilter('inactive')}
-            >
-              InActive
-            </button>
-          </div>
-        </div>
+      <div className="app-card overflow-hidden px-4 py-3">
+        <h1 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
+          Exam Sessions
+        </h1>
       </div>
 
       <TableCard
@@ -232,7 +201,7 @@ export default function ExamSessionPage() {
           </Button>
         }
       >
-        <DataTable rowData={filteredByStatus} columnDefs={columnDefs} loading={loading} pagination />
+        <DataTable rowData={filtered} columnDefs={columnDefs} loading={loading} pagination />
       </TableCard>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) { setOpen(false); setEditing(null) } }}>

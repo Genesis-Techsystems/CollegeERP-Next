@@ -95,7 +95,10 @@ export function Topbar() {
           }>
         }
       } = await getUserAccess(userId)
-      if (!body.success) return
+      if (!body.success) {
+        setPages([])
+        return
+      }
 
       const modules = body.data?.modules ?? []
       const collected: SearchPage[] = []
@@ -132,8 +135,10 @@ export function Topbar() {
           }
         }
       }
-
       setPages(collected)
+    } catch {
+      // Keep Topbar usable even when user-access API is temporarily unavailable.
+      setPages([])
     } finally {
       setPagesLoading(false)
     }

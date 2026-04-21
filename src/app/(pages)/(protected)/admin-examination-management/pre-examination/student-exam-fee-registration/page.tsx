@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Select } from '@/common/components/select'
 import {
   getUnivExamFiltersRegSup,
@@ -24,17 +24,28 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
   })
 }
 
+function getStudentRowId(s: AnyRow, fallback: number): number {
+  const id = Number(
+    s.studentId ??
+      s.id ??
+      s.fk_student_id ??
+      s.student_detail_id ??
+      s.studentDetailId ??
+      0,
+  )
+  return id > 0 ? id : fallback
+}
+
 export default function StudentExamFeeRegistrationPage() {
   const [loading, setLoading] = useState(false)
   const [filterRows, setFilterRows] = useState<AnyRow[]>([])
   const [payments, setPayments] = useState<AnyRow[]>([])
 
   const [students, setStudents] = useState<AnyRow[]>([])
-  const [studentSearch, setStudentSearch] = useState('')
   const [studentId, setStudentId] = useState<number | null>(null)
   const [examId, setExamId] = useState<number | null>(null)
   const [studentInfo, setStudentInfo] = useState<AnyRow | null>(null)
-
+  const [studentSearch, setStudentSearch] = useState('')
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
 
   const exams = useMemo(() => {
@@ -48,8 +59,32 @@ export default function StudentExamFeeRegistrationPage() {
     return dedupeBy(byCollege, (r) => Number(r.fk_exam_id)).filter((r) => Number(r.fk_exam_id) > 0)
   }, [filterRows, studentInfo])
 
+  // const studentOptions = useMemo<SelectOption[]>(
+  //   () =>
+  //     students.map((s, i) => ({
+  //       value: String(getStudentRowId(s, i + 1)),
+  //       label: `${s.hallticketNumber ?? s.rollNumber ?? '-'} - ${s.firstName ?? s.studentName ?? '-'}`,
+  //     })),
+  //   [students],
+  // )
+
+  async function onSearchStudents(term: string) {
+    const q = term.trim()
+    if (!q) {
+      setStudents([])
+      return
+    }
+    if (q.length < 3) return
+    const rows = await listStudents(q).catch(() => [])
+    setStudents(Array.isArray(rows) ? rows : [])
+  }
+
   async function searchStudents() {
     const q = studentSearch.trim()
+    if (!q) {
+      setStudents([])
+      return
+    }
     if (q.length < 3) return
     const rows = await listStudents(q).catch(() => [])
     setStudents(Array.isArray(rows) ? rows : [])
@@ -113,7 +148,7 @@ export default function StudentExamFeeRegistrationPage() {
                 onChange={(v) => {
                   const sid = v ? Number(v) : 0
                   setStudentId(sid)
-                  const s = students.find((x) => Number(x.studentId ?? x.id) === sid) ?? null
+                  const s = students.find((x, idx) => getStudentRowId(x, idx + 1) === sid) ?? null
                   setStudentInfo(s)
                   setExamId(null)
                 }}
@@ -121,7 +156,7 @@ export default function StudentExamFeeRegistrationPage() {
                 placeholder="Select Student"
               />
             </div>
-            <div className="md:col-span-4 space-y-1">
+            <div className="md:col-span-6 space-y-1">
               <Label>Exam</Label>
               <Select
                 value={examId ? String(examId) : null}
@@ -155,7 +190,10 @@ export default function StudentExamFeeRegistrationPage() {
               </thead>
               <tbody>
                 {payments.map((r, i) => (
-                  <tr key={`p-${i}`} className="border-t">
+                  <tr
+                    key={`p-${r.receiptNo ?? 'na'}-${r.studentName ?? 'na'}-${r.rollNumber ?? 'na'}-${r.receiptAmount ?? 'na'}`}
+                    className="border-t"
+                  >
                     <td className="px-2 py-1">{i + 1}</td>
                     <td className="px-2 py-1">{r.studentName ?? '-'} ({r.rollNumber ?? '-'})</td>
                     <td className="px-2 py-1">{r.receiptNo ?? '-'}</td>

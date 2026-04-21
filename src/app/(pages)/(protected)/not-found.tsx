@@ -16,9 +16,13 @@ export default function NotFound() {
     const redirect = setTimeout(() => {
       if (window.history.length > 1) {
         router.back()
-      } else {
-        router.replace('/dashboard')
+        return
       }
+      if (window.location.pathname.includes('readmission-application')) {
+        router.replace('/admin-student-information-system/student-re-admission')
+        return
+      }
+      router.replace('/dashboard')
     }, 3000)
 
     return () => {

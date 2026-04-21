@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import type { NavItem } from '@/types/navigation'
 import { IS_DEBUG_MODE, DebugPanel } from '@/debug'
 import { Breadcrumb, useBreadcrumb } from '@/common/components/breadcrumb'
+import { Toaster } from 'sonner'
 
 interface AppShellProps {
   children: ReactNode
@@ -101,6 +102,8 @@ export function AppShell({ children, initialNavItems }: AppShellProps) {
           </div>
         </main>
       </div>
+
+      <Toaster richColors closeButton position="top-center" />
     </div>
   )
 }

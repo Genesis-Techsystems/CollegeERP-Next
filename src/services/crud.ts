@@ -18,7 +18,6 @@
 import { AppError, parseApiError } from '@/lib/errors'
 import type { ApiResponse } from '@/types/api'
 import { DOMAIN } from '@/config/constants/api'
-import type { OrderBy } from './query'
 
 export { buildQuery } from './query'
 export type { OrderBy } from './query'
@@ -28,6 +27,28 @@ export type { OrderBy } from './query'
 interface PageResponse<T> {
   resultList: T[] | T | null
   totalCount: number
+}
+
+/** Normalizes Spring list payloads: `data`, top-level `resultList`, `resultList` page, or `Page.content`. */
+function domainListRows<T>(body: ApiResponse<unknown> & { resultList?: unknown }): T[] {
+  const raw = body.data
+  if (raw == null) {
+    if (Array.isArray(body.resultList)) return body.resultList as T[]
+    return []
+  }
+  if (Array.isArray(raw)) return raw as T[]
+  if (raw && typeof raw === 'object' && 'resultList' in raw) {
+    const page = raw as PageResponse<T>
+    const list = page.resultList
+    if (list == null) return []
+    if (Array.isArray(list)) return list
+    return [list as unknown as T]
+  }
+  if (raw && typeof raw === 'object' && 'content' in raw) {
+    const content = (raw as { content?: unknown }).content
+    if (Array.isArray(content)) return content as T[]
+  }
+  return [raw as T]
 }
 
 // ─── CrudService class ────────────────────────────────────────────────────────
@@ -48,34 +69,20 @@ class CrudService {
       ? `${this.base}/${DOMAIN.LIST}/${entity}?size=99999&query=${encodeURIComponent(query)}`
       : `${this.base}/${DOMAIN.LIST}/${entity}?size=99999`
 
-    const res = await fetch(url)
+    const res = await fetch(url, { cache: 'no-store', credentials: 'include' })
 
     if (!res.ok) {
       const body = await res.json().catch(() => null)
       throw parseApiError(res, body)
     }
 
-    const body = await res.json()
+    const body = (await res.json()) as ApiResponse<unknown> & { resultList?: unknown }
 
     if (!body.success) {
       throw new AppError('API_ERROR', body.message ?? `Failed to list ${entity}`)
     }
 
-    const raw = body.data
-
-    if (raw == null) return []
-
-    if (raw && typeof raw === 'object' && !Array.isArray(raw) && 'resultList' in raw) {
-      const page = raw as PageResponse<T>
-      const list = page.resultList
-      if (list == null) return []
-      if (Array.isArray(list)) return list
-      return [list as unknown as T]
-    }
-
-    if (Array.isArray(raw)) return raw as T[]
-
-    return [raw as T]
+    return domainListRows<T>(body)
   }
 
   // ── Create ────────────────────────────────────────────────────────────────
@@ -172,7 +179,10 @@ class CrudService {
       Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
     )
 
-    const res = await fetch(`${this.base}/${DOMAIN.PROC}/${procName}?${searchParams}`)
+    const res = await fetch(`${this.base}/${DOMAIN.PROC}/${procName}?${searchParams}`, {
+      cache: 'no-store',
+      credentials: 'include',
+    })
 
     if (!res.ok) {
       const body = await res.json().catch(() => null)

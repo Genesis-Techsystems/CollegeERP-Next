@@ -22,6 +22,10 @@ import {
   saveExamMarksSetup,
 } from '@/services/examination'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { cn } from '@/lib/utils'
+
+/** 1px solid light-black border on all data-entry controls (`border` = 1px in Tailwind). */
+const FIELD_OUTLINE = 'border-[1px] border-solid border-black/25'
 
 type AnyRow = Record<string, any>
 
@@ -176,7 +180,10 @@ export default function ExamMaxMarksSetupPage() {
       <div className="app-card overflow-hidden">
         <button
           type="button"
-          className="w-full px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between text-left"
+          className={cn(
+            'w-full px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between text-left rounded-t-md',
+            FIELD_OUTLINE,
+          )}
           onClick={() => setFilterOpen((v) => !v)}
         >
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Marks Setup</h2>
@@ -191,7 +198,7 @@ export default function ExamMaxMarksSetupPage() {
             <div className="space-y-1 md:col-span-3">
               <Label>University</Label>
               <Select value={universityId ? String(universityId) : undefined} onValueChange={(v) => setUniversityId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="University" /></SelectTrigger>
+                <SelectTrigger className={cn('h-8 text-[12px]', FIELD_OUTLINE)}><SelectValue placeholder="University" /></SelectTrigger>
                 <SelectContent>
                   {universities.map((u, i) => (
                     <SelectItem key={`u-${u.fk_university_id ?? i}`} value={String(u.fk_university_id)}>
@@ -204,7 +211,7 @@ export default function ExamMaxMarksSetupPage() {
             <div className="space-y-1 md:col-span-3">
               <Label>Course</Label>
               <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger>
+                <SelectTrigger className={cn('h-8 text-[12px]', FIELD_OUTLINE)}><SelectValue placeholder="Course" /></SelectTrigger>
                 <SelectContent>
                   {courses.map((c, i) => (
                     <SelectItem key={`c-${c.fk_course_id ?? i}`} value={String(c.fk_course_id)}>
@@ -217,7 +224,7 @@ export default function ExamMaxMarksSetupPage() {
             <div className="space-y-1 md:col-span-3">
               <Label>Regulation</Label>
               <Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger>
+                <SelectTrigger className={cn('h-8 text-[12px]', FIELD_OUTLINE)}><SelectValue placeholder="Regulation" /></SelectTrigger>
                 <SelectContent>
                   {regulations.map((r, i) => (
                     <SelectItem key={`r-${r.regulationId ?? i}`} value={String(r.regulationId)}>
@@ -228,11 +235,16 @@ export default function ExamMaxMarksSetupPage() {
               </Select>
             </div>
             <div className="md:col-span-2 flex items-center gap-2 h-8">
-              <Checkbox id="disabled" checked={isForDisabled} onCheckedChange={(v) => setIsForDisabled(Boolean(v))} />
+              <Checkbox
+                id="disabled"
+                className={FIELD_OUTLINE}
+                checked={isForDisabled}
+                onCheckedChange={(v) => setIsForDisabled(Boolean(v))}
+              />
               <Label htmlFor="disabled">Is For Disability</Label>
             </div>
             <div className="md:col-span-1">
-              <Button onClick={getDetails} className="h-8 px-3 text-[12px] w-full">Get List</Button>
+              <Button onClick={getDetails} className={cn('h-8 px-3 text-[12px] w-full', FIELD_OUTLINE)}>Get List</Button>
             </div>
           </div>
         )}
@@ -243,7 +255,7 @@ export default function ExamMaxMarksSetupPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[15px] font-semibold text-[hsl(var(--primary))]">Marks Setup</h3>
             <SearchInput
-              className="h-8 text-[12px] w-[260px]"
+              className={cn('h-8 text-[12px] w-[260px] rounded-md', FIELD_OUTLINE)}
               placeholder="Search"
               value={q}
               onChange={setQ}
@@ -256,35 +268,36 @@ export default function ExamMaxMarksSetupPage() {
                 <div className="flex items-end gap-2 flex-wrap">
                   <div className="w-[230px] space-y-1">
                     <Label>Marks Setup Name</Label>
-                    <Input className="h-8 text-[12px]" value={r.marksSetupName} onChange={(e) => updateRowText(i, 'marksSetupName', e.target.value)} />
+                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} value={r.marksSetupName} onChange={(e) => updateRowText(i, 'marksSetupName', e.target.value)} />
                   </div>
                   <div className="w-[82px] space-y-1">
                     <Label>Internal</Label>
-                    <Input className="h-8 text-[12px]" type="number" value={r.internalMarks} onChange={(e) => updateRow(i, 'internalMarks', Number(e.target.value))} />
+                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} type="number" value={r.internalMarks} onChange={(e) => updateRow(i, 'internalMarks', Number(e.target.value))} />
                   </div>
                   <div className="w-[82px] space-y-1">
                     <Label>External</Label>
-                    <Input className="h-8 text-[12px]" type="number" value={r.externalMarks} onChange={(e) => updateRow(i, 'externalMarks', Number(e.target.value))} />
+                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} type="number" value={r.externalMarks} onChange={(e) => updateRow(i, 'externalMarks', Number(e.target.value))} />
                   </div>
                   <div className="w-[96px] space-y-1">
                     <Label className="whitespace-nowrap">External Pass %</Label>
-                    <Input className="h-8 text-[12px]" type="number" value={r.externalPassPercentage} onChange={(e) => updateRow(i, 'externalPassPercentage', Number(e.target.value))} />
+                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} type="number" value={r.externalPassPercentage} onChange={(e) => updateRow(i, 'externalPassPercentage', Number(e.target.value))} />
                   </div>
                   <div className="w-[82px] space-y-1">
                     <Label className="whitespace-nowrap">Pass %</Label>
-                    <Input className="h-8 text-[12px]" type="number" value={r.passPercentage} onChange={(e) => updateRow(i, 'passPercentage', Number(e.target.value))} />
+                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} type="number" value={r.passPercentage} onChange={(e) => updateRow(i, 'passPercentage', Number(e.target.value))} />
                   </div>
                   <div className="w-[96px] space-y-1">
                     <Label className="whitespace-nowrap">Final Internal %</Label>
-                    <Input className="h-8 text-[12px]" type="number" value={r.finalIntPercentage} onChange={(e) => updateRow(i, 'finalIntPercentage', Number(e.target.value))} />
+                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} type="number" value={r.finalIntPercentage} onChange={(e) => updateRow(i, 'finalIntPercentage', Number(e.target.value))} />
                   </div>
                   <div className="w-[96px] space-y-1">
                     <Label className="whitespace-nowrap">Final External %</Label>
-                    <Input className="h-8 text-[12px]" type="number" value={r.finalExtPercentage} onChange={(e) => updateRow(i, 'finalExtPercentage', Number(e.target.value))} />
+                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} type="number" value={r.finalExtPercentage} onChange={(e) => updateRow(i, 'finalExtPercentage', Number(e.target.value))} />
                   </div>
                   <div className="w-[95px] flex items-center gap-2 h-8 self-end pb-1">
                     <Checkbox
                       id={`active-${i}`}
+                      className={FIELD_OUTLINE}
                       checked={!!r.isActive}
                       onCheckedChange={(v) => updateRowBool(i, 'isActive', Boolean(v))}
                     />
@@ -295,7 +308,7 @@ export default function ExamMaxMarksSetupPage() {
             ))}
           </div>
           <div className="mt-3 flex justify-end">
-            <Button className="h-8 text-[12px]" onClick={save} disabled={rows.length === 0}>Save</Button>
+            <Button className={cn('h-8 text-[12px]', FIELD_OUTLINE)} onClick={save} disabled={rows.length === 0}>Save</Button>
           </div>
         </div>
       )}

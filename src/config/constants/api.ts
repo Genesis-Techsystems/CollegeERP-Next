@@ -768,6 +768,12 @@ export const UNIV_EXAM_CENTER_API = {
   REGIONAL_CENTERS: 'UnivExamRegionalCenters',
   /** CRUD: UnivExamCenters */
   EXAM_CENTERS: 'UnivExamCenters',
+  /** CRUD: UnivExamGroup — exam paper delivery exam groups (per university) */
+  UNIV_EXAM_GROUP: 'UnivExamGroup',
+  /** CRUD: UnivExamGroupDetails — exams linked to an exam group (paper delivery) */
+  UNIV_EXAM_GROUP_DETAILS: 'UnivExamGroupDetails',
+  /** GET: `getAllRecords/s_get_exam_group_bycode` — exam group lists / exam pick lists (REGSUP, etc.) */
+  EXAM_GROUP_BY_CODE: 's_get_exam_group_bycode',
   /** CRUD: UnivExamBundle */
   EXAM_BUNDLE: 'UnivExamBundle',
   /** CRUD: UnivExamBags */
@@ -778,6 +784,12 @@ export const UNIV_EXAM_CENTER_API = {
   ANSWER_PAPER_BAGS: 'UnivExamAnswerPaperBags',
   /** CRUD: UnivEcProfiles */
   EC_PROFILES: 'UnivEcProfiles',
+  /** CRUD: ExamScanProfiles */
+  EXAM_SCAN_PROFILES: 'ExamScanProfiles',
+  /** CRUD: ExamScanBundles */
+  EXAM_SCAN_BUNDLES: 'ExamScanBundles',
+  /** CRUD: ExamScanBundleDetails */
+  EXAM_SCAN_BUNDLE_DETAILS: 'ExamScanBundleDetails',
   /** CRUD: UnivEcQuestionPaperConfig */
   EC_QP_CONFIG: 'UnivEcQuestionPaperConfig',
   /** CRUD: UnivExamBagTransportation */
@@ -790,6 +802,14 @@ export const UNIV_EXAM_CENTER_API = {
   EC_COLLEGES: 'UnivEcColleges',
   /** POST: add list univ EC colleges */
   ADD_EC_COLLEGES: 'addListUnivEcColleges',
+  /** CRUD: UnivEcCollegeDetails */
+  EC_COLLEGE_DETAILS: 'UnivEcCollegeDetails',
+  /** GET: `getAllRecords/s_get_exam_center_bycode` — exam-center filters / group-year-subject mapping */
+  GET_COLLEGE_EXAM_CENTERS: 's_get_exam_center_bycode',
+  /** POST: add univ EC college details */
+  ADD_EC_COLLEGE_DETAILS: 'addUnivEcCollegeDetails',
+  /** PUT: update inactive univ EC college details */
+  UPDATE_INACTIVE_EC_COLLEGE_DETAILS: 'updateInActiveUnivEcCollegeDetails',
   /** POST: add list univ EC profiles */
   ADD_EC_PROFILES: 'addListUnivEcProfiles',
   /** POST: add list univ exam center rooms */

@@ -539,7 +539,7 @@ export default function InternalExamRegistrationMultiplePage() {
 
       {!!regulationId && (
       <div className="app-card p-3 space-y-2">
-        <div className="text-[14px] font-medium rounded bg-blue-100 border px-3 py-2">Select Exam Subjects</div>
+        <div className="text-[13px] font-medium rounded bg-blue-100 border px-3 py-2">Select Exam Subjects</div>
 
         <div className="border rounded overflow-hidden">
           <div className="border-b p-3">
@@ -580,7 +580,7 @@ export default function InternalExamRegistrationMultiplePage() {
                 const sid = getStudentId(s)
                 const checked = !!s.c
                 return (
-                  <div key={`a-${sid || i}`} className="px-2 py-2 flex items-center gap-2">
+                <div key={`a-${sid || i}`} className="px-2 py-2 text-[12px] flex items-center gap-2">
                     <Checkbox checked={checked} onCheckedChange={(v) => toggleStudent(sid, !!v)} />
                     <span className={s.already ? 'text-muted-foreground' : ''}>
                       {s.firstName ?? s.studentName ?? '-'} ({s.hallticketNumber ?? '-'})
@@ -593,20 +593,20 @@ export default function InternalExamRegistrationMultiplePage() {
 
           <div className="md:col-span-4 border-r overflow-hidden">
             <div className="p-2 border-b bg-slate-50"><Input className="h-8 text-[12px]" placeholder="Search..." value={searchSelected} onChange={(e) => setSearchSelected(e.target.value)} /></div>
-            <div className="p-2 border-b">Selected Students: <span className="text-blue-600">{selectedStudents.length}</span></div>
+            <div className="p-2 border-b text-[12px]">Selected Students: <span className="text-blue-600">{selectedStudents.length}</span></div>
             <div className="max-h-[300px] overflow-auto divide-y">
               {selectedFiltered.map((s, i) => (
-                <div key={`sel-${i}`} className="px-2 py-2">{s.firstName ?? s.studentName ?? '-'} ({s.hallticketNumber ?? '-'})</div>
+                <div key={`sel-${i}`} className="px-2 py-2 text-[12px]">{s.firstName ?? s.studentName ?? '-'} ({s.hallticketNumber ?? '-'})</div>
               ))}
             </div>
           </div>
 
           <div className="md:col-span-4 overflow-hidden">
             <div className="p-2 border-b bg-slate-50"><Input className="h-8 text-[12px]" placeholder="Search..." value={searchRegistered} onChange={(e) => setSearchRegistered(e.target.value)} /></div>
-            <div className="p-2 border-b">Registered Students: <span className="text-blue-600">{registeredStudents.length}</span></div>
+            <div className="p-2 border-b text-[12px]">Registered Students: <span className="text-blue-600">{registeredStudents.length}</span></div>
             <div className="max-h-[300px] overflow-auto divide-y">
               {registeredFiltered.map((s, i) => (
-                <div key={`reg-${i}`} className="px-2 py-2">{s.firstName ?? s.studentName ?? '-'} ({s.hallticketNumber ?? '-'})</div>
+                <div key={`reg-${i}`} className="px-2 py-2 text-[12px]">{s.firstName ?? s.studentName ?? '-'} ({s.hallticketNumber ?? '-'})</div>
               ))}
             </div>
           </div>

@@ -1,5 +1,6 @@
 export * from './query'
 export * from './crud'
+export * from './auth'
 export * from './admin/organization'
 export * from './admin/campus'
 export * from './admin/question-bank'
@@ -59,6 +60,7 @@ export {
 export type { CollegeFiltersResult as ExamMasterCollegeFiltersResult } from './exam-master'
 export * from './exam-lab-batches'
 export * from './exam-lab-timetable'
+export * from './student-information'
 // invigilator-remuneration: listActiveColleges conflicts with pre-examination.
 export {
   listInvigilatorRemunerations,
@@ -88,3 +90,4 @@ export {
   listExamStdAttDetails,
 } from './seating-plan'
 export type { ListRoomsParams, GenerateSeatingParams, SaveSeatingRequest } from './seating-plan'
+export * from './post-examination'

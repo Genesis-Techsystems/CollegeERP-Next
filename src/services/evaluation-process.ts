@@ -1,5 +1,5 @@
 import { buildQuery, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords, postDetails } from '@/services/crud'
-import { EXAM_EVAL_API, NEXT_API } from '@/config/constants/api'
+import { EXAM_EVAL_API, NEXT_API, QUESTION_PAPER_API } from '@/config/constants/api'
 import { getUnivExamFiltersByType, getUnivExamRestNoTtBundle, getUnivExamSubjectUc } from '@/services/pre-examination'
 import { toDateOnlyISO } from '@/common/generic-functions'
 
@@ -89,6 +89,137 @@ export async function createExamQuestionPaper(payload: Record<string, unknown>):
     }
   }
   throw new Error('Unable to create exam question paper.')
+}
+
+export async function getAssignQuestionPaperTemplateList(params: {
+  examId: number
+  courseYearId: number
+  regulationId: number
+  subjectId?: number
+}): Promise<AnyRow[]> {
+  const unpackRows = (payload: unknown): AnyRow[] => {
+    if (Array.isArray(payload)) return payload as AnyRow[]
+    const obj = (payload ?? {}) as Record<string, unknown>
+    const result0 = (obj.result as unknown[] | undefined)?.[0]
+    if (Array.isArray(result0)) return result0 as AnyRow[]
+    const nestedData = (obj.data ?? {}) as Record<string, unknown>
+    const nestedResult0 = (nestedData.result as unknown[] | undefined)?.[0]
+    if (Array.isArray(nestedResult0)) return nestedResult0 as AnyRow[]
+    return []
+  }
+
+  const payload = {
+    in_exam_id: params.examId,
+    in_course_year_id: params.courseYearId,
+    in_regulation_id: params.regulationId,
+    in_subject_id: params.subjectId ?? 0,
+  }
+
+  // Primary backend proc (confirmed): s_get_question_paper_assignments
+  try {
+    const primary = await getAllRecords<unknown>('s_get_question_paper_assignments', payload)
+    const rows = unpackRows(primary)
+    if (rows.length > 0) return rows
+  } catch {
+    // fall through to legacy endpoint/proc candidates
+  }
+
+  const endpointCandidates = ['getQuestionPaperAssignments', 'getQPAssignments']
+  for (const endpoint of endpointCandidates) {
+    try {
+      const data = await fetchDetails<unknown>(endpoint, payload)
+      const rows = unpackRows(data)
+      if (rows.length > 0) return rows
+    } catch {
+      // try next candidate
+    }
+  }
+
+  const procCandidates = ['s_get_examquestionpaper_details', 's_get_examevaluation_bycodes']
+  for (const proc of procCandidates) {
+    try {
+      const data = await getAllRecords<unknown>(proc, {
+        in_flag: 'getQuestionPaperAssignments',
+        ...payload,
+      })
+      const rows = unpackRows(data)
+      if (rows.length > 0) return rows
+    } catch {
+      // try next proc
+    }
+  }
+  return []
+}
+
+export async function getQuestionPaperTemplateViewRows(templateId: number): Promise<AnyRow[]> {
+  if (!templateId) return []
+  const payload = {
+    in_flag: 'list_exam_questionpaper_details',
+    in_orgid: 1,
+    in_fdate: '1990-01-01',
+    in_tdate: '1990-01-01',
+    in_exam_questionpaper_template_id: templateId,
+    in_exam_questionpaper_id: 0,
+    in_exam_id: 0,
+    in_course_year_id: 0,
+    in_subject_id: 0,
+    in_evalutor_profileid: 0,
+    in_exam_date: '1990-01-01',
+    in_regulation_id: 0,
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: 0,
+    in_exam_evaluationassignment_id: 0,
+  }
+  const data = await getAllRecords<{ result?: AnyRow[][] }>('s_get_examquestionpaper_details', payload).catch(() => ({ result: [] }))
+  return Array.isArray(data?.result?.[0]) ? data.result?.[0] ?? [] : []
+}
+
+export async function listQuestionPaperTemplates(): Promise<AnyRow[]> {
+  const entities = [
+    EXAM_EVAL_API.QP_TEMPLATE,
+    'ExamQuestionpaperTemplate',
+    'ExamQuestionPaperTemplate',
+    'ExamQpTemplate',
+  ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+  const queries = ['order(examQuestionPaperTemplateId=ASC)', buildQuery({ isActive: true })]
+  for (const entity of entities) {
+    for (const query of queries) {
+      try {
+        const rows = await domainList<AnyRow>(entity, query)
+        if (Array.isArray(rows) && rows.length > 0) return rows
+      } catch {
+        // try next entity/query
+      }
+    }
+  }
+  return []
+}
+
+export async function createQuestionPaperTemplateAssignment(payload: {
+  examMasterId: number
+  regulationId: number
+  subjectId: number
+  examQuestionpaperTemplateId: number
+  courseYearId: number
+  isActive: boolean
+}): Promise<AnyRow> {
+  return domainCreate<AnyRow>(QUESTION_PAPER_API.QP_TEMP_ASSIGN, payload)
+}
+
+export async function updateQuestionPaperTemplateAssignment(
+  assignmentId: number,
+  payload: {
+    examQptempAssignId: number
+    examMasterId: number
+    regulationId: number
+    subjectId: number
+    examQuestionpaperTemplateId: number
+    courseYearId: number
+    isActive: boolean
+  },
+): Promise<AnyRow> {
+  return domainUpdate<AnyRow>(QUESTION_PAPER_API.QP_TEMP_ASSIGN, 'examQptempAssignId', assignmentId, payload)
 }
 
 export async function getEvaluationApprovalsFilters(employeeId: number): Promise<AnyRow[]> {

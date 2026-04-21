@@ -18,6 +18,7 @@ export interface DatePickerProps {
   disabled?: boolean
   minDate?: Date
   maxDate?: Date
+  clearable?: boolean
   className?: string
 }
 
@@ -31,8 +32,9 @@ export function DatePicker({
   disabled = false,
   minDate,
   maxDate,
+  clearable = true,
   className,
-}: DatePickerProps) {
+}: Readonly<DatePickerProps>) {
   const id = useId()
   const [open, setOpen] = useState(false)
 
@@ -79,7 +81,7 @@ export function DatePicker({
             <span className="flex-1 truncate">
               {value ? format(value, 'PPP') : placeholder}
             </span>
-            {value && (
+            {clearable && value && (
               <X
                 className="ml-auto h-4 w-4 shrink-0 opacity-60 hover:opacity-100"
                 onClick={handleClear}

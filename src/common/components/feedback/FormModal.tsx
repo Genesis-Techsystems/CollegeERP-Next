@@ -29,14 +29,23 @@ export interface FormModalProps {
   title: string
   description?: string
   /** Called when the <form> fires its submit event. */
-  onSubmit: (e: React.FormEvent) => void
+  onSubmit: (e: { preventDefault: () => void }) => void
   isSubmitting?: boolean
   submitLabel?: string
+  cancelLabel?: string
   children: React.ReactNode
   /** Controls DialogContent max-width. Defaults to 'md'. */
   size?: 'sm' | 'md' | 'lg' | 'xl'
   /** Extra class applied to the inner form element. */
   formClassName?: string
+  /** Extra class applied to DialogContent wrapper. */
+  contentClassName?: string
+  /** Extra class applied to title. */
+  titleClassName?: string
+  /** Hide top-right close icon when false. */
+  showCloseButton?: boolean
+  /** Render a full-width divider under modal header. */
+  showHeaderDivider?: boolean
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -52,20 +61,27 @@ export function FormModal({
   onSubmit,
   isSubmitting = false,
   submitLabel = 'Save',
+  cancelLabel = 'Cancel',
   children,
   size = 'md',
   formClassName,
-}: FormModalProps) {
+  contentClassName,
+  titleClassName,
+  showCloseButton = true,
+  showHeaderDivider = false,
+}: Readonly<FormModalProps>) {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent
         className={cn(
           'max-h-[90vh] overflow-y-auto',
+          !showCloseButton && '[&>button]:hidden',
           sizeClass[size],
+          contentClassName,
         )}
       >
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+        <DialogHeader className={cn(showHeaderDivider && 'border-b border-border pb-3')}>
+          <DialogTitle className={titleClassName}>{title}</DialogTitle>
           {description && (
             <DialogDescription>{description}</DialogDescription>
           )}
@@ -84,7 +100,7 @@ export function FormModal({
               onClick={onClose}
               disabled={isSubmitting}
             >
-              Cancel
+              {cancelLabel}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && (
