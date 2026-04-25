@@ -9,7 +9,7 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
 import { distinct } from '@/lib/utils'
 import { buildQuery } from '@/services/crud'
-import { createExamFeeStructure, getCollegeFilters, listCourseYears, listExamFeeStructures, listExamMasters, updateExamFeeStructure } from '@/services/examination'
+import { getCollegeFilters, listExamFeeStructures, listExamMasters } from '@/services/examination'
 import {
 	Select,
 	SelectContent,
@@ -17,9 +17,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Pencil, Plus, ChevronDown, Filter } from 'lucide-react'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Pencil, Plus, Filter } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { PageContainer, PageHeader } from '@/components/layout'
 
@@ -33,7 +31,7 @@ export default function RevaluationFeeSetupPage() {
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [filtersData, setFiltersData] = useState<any[]>([])
 	const [academicData, setAcademicData] = useState<any[]>([])
-	const [filterOpen, setFilterOpen] = useState(true)
+	const [filterOpen] = useState(true)
 
 	const [universities, setUniversities] = useState<any[]>([])
 	const [courses, setCourses] = useState<any[]>([])
@@ -51,43 +49,6 @@ export default function RevaluationFeeSetupPage() {
 	const [loadingList, setLoadingList] = useState(false)
 	const [q, setQ] = useState('')
 	const [hasFetched, setHasFetched] = useState(false)
-
-	// Modal state
-	const [modalOpen, setModalOpen] = useState(false)
-	const [editing, setEditing] = useState<any | null>(null)
-	const [saving, setSaving] = useState(false)
-	const [form, setForm] = useState({
-		examFeeStructureName: '',
-		collectionStartDate: '',
-		collectionEndDate: '',
-		regularFee: '',
-		suppleFee: '',
-		isActive: true,
-	})
-
-	// Add-page specific state
-	const [courseYears, setCourseYears] = useState<any[]>([])
-	const [selectedCourseYearIds, setSelectedCourseYearIds] = useState<number[]>([])
-	const [revalSubjectFees, setRevalSubjectFees] = useState<{ one?: string; two?: string; three?: string; four?: string; five?: string }>({
-		one: '',
-		two: '',
-		three: '',
-		four: '',
-		five: '',
-	})
-	type LateFeeFine = { name: string; startDate: string; endDate: string; regFeeFine?: string; suppleFeeFine?: string }
-	const [lateFeeName, setLateFeeName] = useState('')
-	const [lateFeeStart, setLateFeeStart] = useState('')
-	const [lateFeeEnd, setLateFeeEnd] = useState('')
-	const [lateFeeReg, setLateFeeReg] = useState('')
-	const [lateFeeSupple, setLateFeeSupple] = useState('')
-	const [lateFeeFines, setLateFeeFines] = useState<LateFeeFine[]>([])
-
-	type AdditionalFee = { name: string; type: 'regular' | 'supple'; amount: string }
-	const [addFeeName, setAddFeeName] = useState('')
-	const [addFeeType, setAddFeeType] = useState<'regular' | 'supple'>('regular')
-	const [addFeeAmount, setAddFeeAmount] = useState('')
-	const [additionalFees, setAdditionalFees] = useState<AdditionalFee[]>([])
 
 	const fetchFilters = useCallback(async () => {
 		setLoadingFilters(true)
@@ -159,10 +120,6 @@ export default function RevaluationFeeSetupPage() {
 			setExamMasters(list)
 			if (list.length > 0) setSelectedExamId(list[0].examId ?? list[0].id ?? null)
 
-			// Also load Course Years for the selected course
-			const years = selectedCourseId ? await listCourseYears(selectedCourseId) : []
-			setCourseYears(Array.isArray(years) ? years : [])
-			setSelectedCourseYearIds([])
 			setHasFetched(false)
 		}
 		loadExamMasters()
@@ -186,6 +143,12 @@ export default function RevaluationFeeSetupPage() {
 			setLoadingList(false)
 		}
 	}
+
+	useEffect(() => {
+		if (!selectedExamId) return
+		void handleGetList()
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [selectedExamId, selectedCollegeId])
 
 	const filteredRows = useMemo(() => {
 		if (!q.trim()) return rows
@@ -245,77 +208,24 @@ export default function RevaluationFeeSetupPage() {
 		},
 	], [selectedExamId])
 
-	function openAdd() {
-		setEditing(null)
-		setForm({
-			examFeeStructureName: '',
-			collectionStartDate: '',
-			collectionEndDate: '',
-			regularFee: '',
-			suppleFee: '',
-			isActive: true,
-		})
-		setSelectedCourseYearIds([])
-		setRevalSubjectFees({ one: '', two: '', three: '', four: '', five: '' })
-		setLateFeeName(''); setLateFeeStart(''); setLateFeeEnd(''); setLateFeeReg(''); setLateFeeSupple('')
-		setLateFeeFines([])
-		setAddFeeName(''); setAddFeeType('regular'); setAddFeeAmount('')
-		setAdditionalFees([])
-		setModalOpen(true)
-	}
-
 	function openEdit(row: any) {
-		setEditing(row)
-		setForm({
-			examFeeStructureName: row?.examFeeStructureName ?? '',
-			collectionStartDate: String(row?.collectionStartDate ?? ''),
-			collectionEndDate: String(row?.collectionEndDate ?? ''),
-			regularFee: String(row?.regularFee ?? row?.regFee ?? ''),
-			suppleFee: String(row?.suppleFee ?? row?.supplyFee ?? ''),
-			isActive: row?.isActive !== undefined ? !!row.isActive : true,
+		const selectedExam = examMasters.find((e: any) => Number(e.examId ?? e.id) === Number(selectedExamId))
+		const selectedCourse = courses.find((c: any) => Number(c.fk_course_id) === Number(selectedCourseId))
+		const selectedYear = academicYears.find((a: any) => Number(a.fk_academic_year_id) === Number(selectedAcademicYearId))
+		const id = Number(row?.examFeeStructureId ?? row?.id ?? 0)
+		if (!id) return
+		const params = new URLSearchParams({
+			examFeeStructureId: String(id),
+			courseId: String(selectedCourseId ?? ''),
+			academicYearId: String(selectedAcademicYearId ?? ''),
+			examId: String(selectedExamId ?? ''),
+			courseName: String(selectedCourse?.course_name ?? selectedCourse?.course_code ?? ''),
+			academicYear: String(selectedYear?.academic_year ?? ''),
+			examName: String(selectedExam?.examName ?? ''),
+			fromDate: String(selectedExam?.fromDate ?? selectedExam?.examFromDate ?? ''),
+			toDate: String(selectedExam?.toDate ?? selectedExam?.examToDate ?? ''),
 		})
-		setModalOpen(true)
-	}
-
-	function closeModal() {
-		setModalOpen(false)
-		setEditing(null)
-		setSaving(false)
-	}
-
-	async function save(e: any) {
-		e.preventDefault()
-		if (!selectedExamId) return
-		setSaving(true)
-		try {
-			const payload: Record<string, unknown> = {
-				examFeeStructureName: form.examFeeStructureName,
-				collectionStartDate: form.collectionStartDate || null,
-				collectionEndDate: form.collectionEndDate || null,
-				regularFee: form.regularFee === '' ? null : Number(form.regularFee),
-				suppleFee: form.suppleFee === '' ? null : Number(form.suppleFee),
-				isActive: form.isActive,
-				examId: selectedExamId,
-				examMaster: { examId: selectedExamId },
-			}
-			if (selectedCollegeId) {
-				payload['collegeId'] = selectedCollegeId
-				payload['College'] = { collegeId: selectedCollegeId } as any
-			}
-			// Extended fields (backend may ignore if not mapped)
-			payload['courseYearIds'] = selectedCourseYearIds
-			payload['revaluationSubjectFees'] = revalSubjectFees
-			payload['lateFeeFines'] = lateFeeFines
-			payload['additionalFees'] = additionalFees
-			const id = editing?.examFeeStructureId ?? editing?.id
-			if (id != null) await updateExamFeeStructure(Number(id), payload)
-			else await createExamFeeStructure(payload)
-
-			closeModal()
-			await handleGetList()
-		} finally {
-			setSaving(false)
-		}
+		router.push(`/admin-examination-management/admin-exam-masters/re-valuation-fee-setup/create?${params.toString()}`)
 	}
 
 	return (
@@ -324,23 +234,14 @@ export default function RevaluationFeeSetupPage() {
 			<div className="app-card overflow-hidden">
 				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
 					<h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Re-Evaluation Fee Setup</h2>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						className="h-6 px-2.5 text-[12px]"
-						onClick={() => setFilterOpen((v) => !v)}
-						aria-expanded={filterOpen}
-					>
-						<Filter className="mr-1.5 h-3.5 w-3.5" />
-						Filter
-						<ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-					</Button>
+					<div className="inline-flex items-center gap-1.5 text-[12px] text-slate-700">
+						<span>Filter</span>
+						<Filter className="h-3.5 w-3.5" />
+					</div>
 				</div>
 				{filterOpen && (
-				<div className="px-3 py-3">
-					<div className="rounded-xl border border-slate-200 bg-white p-4">
-						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+				<div className="px-3 py-3 bg-white">
+						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-15 gap-3 items-end">
 							<div className="space-y-1 lg:col-span-2">
 								<Label>University *</Label>
 								<Select
@@ -382,26 +283,6 @@ export default function RevaluationFeeSetupPage() {
 							</div>
 
 							<div className="space-y-1 lg:col-span-2">
-								<Label>College</Label>
-								<Select
-									value={selectedCollegeId != null ? String(selectedCollegeId) : undefined}
-									onValueChange={(v) => setSelectedCollegeId(Number(v))}
-									disabled={colleges.length === 0}
-								>
-									<SelectTrigger className="h-8 text-[12px]">
-										<SelectValue placeholder="Select College" />
-									</SelectTrigger>
-									<SelectContent>
-										{colleges.map((c) => (
-											<SelectItem key={c.fk_college_id} value={String(c.fk_college_id)}>
-												{c.college_code ?? c.college_name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="space-y-1 lg:col-span-2">
 								<Label>Exam Year *</Label>
 								<Select
 									value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : undefined}
@@ -421,7 +302,7 @@ export default function RevaluationFeeSetupPage() {
 								</Select>
 							</div>
 
-							<div className="space-y-1 lg:col-span-3">
+							<div className="space-y-1 lg:col-span-6">
 								<Label>Exam Master *</Label>
 								<Select
 									value={selectedExamId != null ? String(selectedExamId) : undefined}
@@ -441,13 +322,26 @@ export default function RevaluationFeeSetupPage() {
 								</Select>
 							</div>
 
-							<div className="lg:col-span-1 flex items-end justify-end">
-								<Button onClick={handleGetList} disabled={!selectedExamId || loadingList} className="h-8 px-3 text-[12px] w-full lg:w-auto">
-									Get List
-								</Button>
+							<div className="space-y-1 lg:col-span-3">
+								<Label>College</Label>
+								<Select
+									value={selectedCollegeId != null ? String(selectedCollegeId) : undefined}
+									onValueChange={(v) => setSelectedCollegeId(Number(v))}
+									disabled={colleges.length === 0}
+								>
+									<SelectTrigger className="h-8 text-[12px]">
+										<SelectValue placeholder="Select College" />
+									</SelectTrigger>
+									<SelectContent>
+										{colleges.map((c) => (
+											<SelectItem key={c.fk_college_id} value={String(c.fk_college_id)}>
+												{c.college_code ?? c.college_name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
 							</div>
 						</div>
-					</div>
 				</div>
 				)}
 			</div>
@@ -493,286 +387,6 @@ export default function RevaluationFeeSetupPage() {
 				<DataTable rowData={filteredRows} columnDefs={cols} loading={loadingList} pagination />
 			</TableCard>
 			)}
-
-			<Dialog open={modalOpen} onOpenChange={setModalOpen}>
-				<DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-y-auto">
-					<DialogHeader>
-						<DialogTitle className="text-[16px] font-semibold text-[hsl(var(--primary))]">
-							{editing ? 'Edit Exam Fee Structure' : 'Add Exam Fee Structure'}
-						</DialogTitle>
-					</DialogHeader>
-					<form onSubmit={save} className="space-y-4">
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-							<div className="space-y-1">
-								<Label>Re-Valuation Fee Structure *</Label>
-								<Input
-									value={form.examFeeStructureName}
-									onChange={(e) => setForm((s) => ({ ...s, examFeeStructureName: e.target.value }))}
-									required
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label>Regular Fee</Label>
-								<Input
-									type="number"
-									value={form.regularFee}
-									onChange={(e) => setForm((s) => ({ ...s, regularFee: e.target.value }))}
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label>Supple Fee</Label>
-								<Input
-									type="number"
-									value={form.suppleFee}
-									onChange={(e) => setForm((s) => ({ ...s, suppleFee: e.target.value }))}
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label>Collection Start Date</Label>
-								<Input
-									type="date"
-									value={form.collectionStartDate}
-									onChange={(e) => setForm((s) => ({ ...s, collectionStartDate: e.target.value }))}
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label>Collection End Date</Label>
-								<Input
-									type="date"
-									value={form.collectionEndDate}
-									onChange={(e) => setForm((s) => ({ ...s, collectionEndDate: e.target.value }))}
-								/>
-							</div>
-							<div className="flex items-center gap-2 pt-5">
-								<Checkbox
-									id="rvIsActive"
-									checked={form.isActive}
-									onCheckedChange={(v) => setForm((s) => ({ ...s, isActive: Boolean(v) }))}
-								/>
-								<Label htmlFor="rvIsActive">Active</Label>
-							</div>
-						</div>
-
-						<div className="app-card border rounded-md">
-							<div className="px-3 py-2 border-b bg-slate-50/60">
-								<h3 className="text-[13px] font-medium">Course Years</h3>
-							</div>
-							<div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-auto">
-								{courseYears.map((cy: any) => {
-									const id = cy.courseYearId ?? cy.id ?? cy.yearId
-									const label = cy.courseYearName ?? cy.yearName ?? cy.name ?? ''
-									const checked = selectedCourseYearIds.includes(id)
-									return (
-										<label key={id} className="flex items-center gap-2 text-[12px]">
-											<input
-												type="checkbox"
-												checked={checked}
-												onChange={(e) => {
-													setSelectedCourseYearIds((prev) =>
-														e.target.checked ? [...prev, id] : prev.filter((x) => x !== id),
-													)
-												}}
-											/>
-											<span>{label}</span>
-										</label>
-									)
-								})}
-							</div>
-						</div>
-
-						<div className="app-card border rounded-md">
-							<div className="px-3 py-2 border-b bg-slate-50/60">
-								<h3 className="text-[13px] font-medium">Exam Re-Valuation Fee</h3>
-							</div>
-							<div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-								<div className="space-y-1">
-									<Label>1 Subject Fee</Label>
-									<Input type="number" value={revalSubjectFees.one} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, one: e.target.value }))} />
-								</div>
-								<div className="space-y-1">
-									<Label>2 Subjects Fee</Label>
-									<Input type="number" value={revalSubjectFees.two} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, two: e.target.value }))} />
-								</div>
-								<div className="space-y-1">
-									<Label>3 Subjects Fee</Label>
-									<Input type="number" value={revalSubjectFees.three} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, three: e.target.value }))} />
-								</div>
-								<div className="space-y-1">
-									<Label>4 Subjects Fee</Label>
-									<Input type="number" value={revalSubjectFees.four} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, four: e.target.value }))} />
-								</div>
-								<div className="space-y-1">
-									<Label>5 Subjects Fee</Label>
-									<Input type="number" value={revalSubjectFees.five} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, five: e.target.value }))} />
-								</div>
-							</div>
-						</div>
-
-						<div className="app-card border rounded-md">
-							<div className="px-3 py-2 border-b bg-slate-50/60">
-								<h3 className="text-[13px] font-medium">Late Fee Fines</h3>
-							</div>
-							<div className="p-3 space-y-3">
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-									<div className="space-y-1">
-										<Label>Late Fee Fine Name</Label>
-										<Input value={lateFeeName} onChange={(e) => setLateFeeName(e.target.value)} />
-									</div>
-									<div className="space-y-1">
-										<Label>Reg Fee Fine</Label>
-										<Input type="number" value={lateFeeReg} onChange={(e) => setLateFeeReg(e.target.value)} />
-									</div>
-									<div className="space-y-1">
-										<Label>Supple Fee Fine</Label>
-										<Input type="number" value={lateFeeSupple} onChange={(e) => setLateFeeSupple(e.target.value)} />
-									</div>
-									<div className="grid grid-cols-2 gap-3">
-										<div className="space-y-1">
-											<Label>Fine Start Date</Label>
-											<Input type="date" value={lateFeeStart} onChange={(e) => setLateFeeStart(e.target.value)} />
-										</div>
-										<div className="space-y-1">
-											<Label>Fine End Date</Label>
-											<Input type="date" value={lateFeeEnd} onChange={(e) => setLateFeeEnd(e.target.value)} />
-										</div>
-									</div>
-								</div>
-								<div className="flex justify-end">
-									<Button
-										type="button"
-										onClick={() => {
-											if (!lateFeeName.trim()) return
-											setLateFeeFines((prev) => [...prev, { name: lateFeeName, startDate: lateFeeStart, endDate: lateFeeEnd, regFeeFine: lateFeeReg, suppleFeeFine: lateFeeSupple }])
-											setLateFeeName(''); setLateFeeStart(''); setLateFeeEnd(''); setLateFeeReg(''); setLateFeeSupple('')
-										}}
-									>
-										Add
-									</Button>
-								</div>
-								<div className="rounded-md border">
-									<table className="w-full text-left text-[12px]">
-										<thead className="bg-slate-50">
-											<tr>
-												<th className="px-2 py-1 w-12">Sl.No</th>
-												<th className="px-2 py-1">Fine Name</th>
-												<th className="px-2 py-1">Fine Date</th>
-												<th className="px-2 py-1">Reg Fee Fine</th>
-												<th className="px-2 py-1">Supple Fee Fine</th>
-												<th className="px-2 py-1 w-16">Actions</th>
-											</tr>
-										</thead>
-										<tbody>
-											{lateFeeFines.map((f, i) => (
-												<tr key={i} className="border-t">
-													<td className="px-2 py-1">{i + 1}</td>
-													<td className="px-2 py-1">{f.name}</td>
-													<td className="px-2 py-1">{[f.startDate, f.endDate].filter(Boolean).join(' to ') || '—'}</td>
-													<td className="px-2 py-1">{f.regFeeFine || '—'}</td>
-													<td className="px-2 py-1">{f.suppleFeeFine || '—'}</td>
-													<td className="px-2 py-1">
-														<Button type="button" size="sm" variant="ghost" onClick={() => setLateFeeFines((prev) => prev.filter((_, idx) => idx !== i))}>
-															Remove
-														</Button>
-													</td>
-												</tr>
-											))}
-											{lateFeeFines.length === 0 && (
-												<tr>
-													<td className="px-2 py-3 text-center text-muted-foreground" colSpan={6}>No fines added</td>
-												</tr>
-											)}
-										</tbody>
-									</table>
-								</div>
-							</div>
-						</div>
-
-						<div className="app-card border rounded-md">
-							<div className="px-3 py-2 border-b bg-slate-50/60">
-								<h3 className="text-[13px] font-medium">List of Additional Fees Applicable</h3>
-							</div>
-							<div className="p-3 space-y-3">
-								<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-									<div className="space-y-1">
-										<Label>Additional Fees *</Label>
-										<Input value={addFeeName} onChange={(e) => setAddFeeName(e.target.value)} placeholder="Fee name" />
-									</div>
-									<div className="space-y-1">
-										<Label>Type</Label>
-										<div className="flex items-center gap-5 text-[12px]">
-											<label className="flex items-center gap-2">
-												<input type="radio" checked={addFeeType === 'regular'} onChange={() => setAddFeeType('regular')} />
-												Regular
-											</label>
-											<label className="flex items-center gap-2">
-												<input type="radio" checked={addFeeType === 'supple'} onChange={() => setAddFeeType('supple')} />
-												Supple
-											</label>
-										</div>
-									</div>
-									<div className="space-y-1">
-										<Label>Amount</Label>
-										<Input type="number" value={addFeeAmount} onChange={(e) => setAddFeeAmount(e.target.value)} />
-									</div>
-								</div>
-								<div className="flex justify-end">
-									<Button
-										type="button"
-										onClick={() => {
-											if (!addFeeName.trim()) return
-											setAdditionalFees((prev) => [...prev, { name: addFeeName, type: addFeeType, amount: addFeeAmount }])
-											setAddFeeName(''); setAddFeeAmount('')
-										}}
-									>
-										Add
-									</Button>
-								</div>
-								<div className="rounded-md border">
-									<table className="w-full text-left text-[12px]">
-										<thead className="bg-slate-50">
-											<tr>
-												<th className="px-2 py-1 w-12">Sl.No</th>
-												<th className="px-2 py-1">Type</th>
-												<th className="px-2 py-1">Exam Type</th>
-												<th className="px-2 py-1">Amount</th>
-												<th className="px-2 py-1 w-16">Actions</th>
-											</tr>
-										</thead>
-										<tbody>
-											{additionalFees.map((f, i) => (
-												<tr key={i} className="border-t">
-													<td className="px-2 py-1">{i + 1}</td>
-													<td className="px-2 py-1">{f.name}</td>
-													<td className="px-2 py-1" style={{ textTransform: 'capitalize' }}>{f.type}</td>
-													<td className="px-2 py-1">{f.amount || '—'}</td>
-													<td className="px-2 py-1">
-														<Button type="button" size="sm" variant="ghost" onClick={() => setAdditionalFees((prev) => prev.filter((_, idx) => idx !== i))}>
-															Remove
-														</Button>
-													</td>
-												</tr>
-											))}
-											{additionalFees.length === 0 && (
-												<tr>
-													<td className="px-2 py-3 text-center text-muted-foreground" colSpan={5}>No additional fees</td>
-												</tr>
-											)}
-										</tbody>
-									</table>
-								</div>
-							</div>
-						</div>
-						<DialogFooter className="pt-3">
-							<Button type="button" variant="outline" onClick={closeModal}>
-								Cancel
-							</Button>
-							<Button type="submit" disabled={saving}>
-								{editing ? 'Update' : 'Save'}
-							</Button>
-						</DialogFooter>
-					</form>
-				</DialogContent>
-			</Dialog>
 		</PageContainer>
 	)
 }

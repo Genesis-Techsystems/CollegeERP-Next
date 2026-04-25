@@ -78,14 +78,14 @@ export async function updateExamSession(id: number, payload: Record<string, unkn
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function listExamGrades(filters?: { courseId?: number; regulationId?: number; isForDisabled?: boolean }) {
-	const where: Record<string, string | number | boolean> = { isActive: true }
+	const where: Record<string, string | number | boolean> = {}
 	if (filters?.courseId) where['Course.courseId'] = filters.courseId
 	if (filters?.regulationId) where['Regulation.regulationId'] = filters.regulationId
 	// Spring Boot entity field is `disabled` (Angular form calls it `isForDisabled`)
 	if (filters?.isForDisabled !== undefined) where.disabled = filters.isForDisabled
 
-	// If no filters passed, list all (legacy behavior)
-	const hasAny = Object.keys(where).length > 1 || filters?.isForDisabled !== undefined
+	// Mirror Angular API query shape exactly for this screen.
+	const hasAny = Object.keys(where).length > 0
 	return domainList(ENTITIES.EXAM_GRADE.name, hasAny ? buildQuery(where) : undefined)
 }
 
@@ -142,6 +142,14 @@ export async function updateExamFeeStructure(id: number, payload: Record<string,
 	return domainUpdate(ENTITIES.EXAM_FEE_STRUCTURE.name, ENTITIES.EXAM_FEE_STRUCTURE.pk, id, payload)
 }
 
+export async function getExamFeeStructure(id: number) {
+	const rows = await domainList(
+		ENTITIES.EXAM_FEE_STRUCTURE.name,
+		buildQuery({ [ENTITIES.EXAM_FEE_STRUCTURE.pk]: id }),
+	)
+	return Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Reference data for Exam Master Details
 // ──────────────────────────────────────────────────────────────────────────────
@@ -176,7 +184,10 @@ export async function getExamTimetableDetails(courseYearId: number, courseId: nu
 	const res = await fetch(NEXT_API.PROXY(`${EXAM_API.EXAM_TIMETABLE_DETAILS}?courseYearId=${courseYearId}&courseId=${courseId}&examId=${examId}`))
 	const body = await res.json().catch(() => null)
 	// API wraps rows under .data — return rows array directly
-	return (body && typeof body === 'object' && 'data' in body) ? (body as any).data : body
+	if (body && typeof body === 'object' && 'data' in body) {
+		return (body as { data?: unknown }).data
+	}
+	return body
 }
 
 /**

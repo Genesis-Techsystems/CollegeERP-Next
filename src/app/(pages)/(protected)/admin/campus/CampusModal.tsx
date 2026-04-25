@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogFooter,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -174,12 +173,14 @@ export default function CampusModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Campus' : 'Add Campus'}</DialogTitle>
-          <DialogDescription>
-            {isEditing ? 'Update the campus details below.' : 'Fill in the details to create a new campus.'}
-          </DialogDescription>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto pt-3">
+        <DialogHeader className="space-y-0 pr-8 pt-0">
+          <div className="h-7 flex items-start">
+            <DialogTitle className="text-lg font-semibold leading-none text-[hsl(var(--primary))]">
+              {isEditing ? 'Edit Campus' : 'Add Campus'}
+            </DialogTitle>
+          </div>
+          <div className="-mx-6 mt-1 border-b border-slate-200" />
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">

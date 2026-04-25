@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -20,6 +21,7 @@ import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer } from '@/components/layout'
 import { listExamSessions, createExamSession, updateExamSession, getCollegeFilters } from '@/services/examination'
 import { distinct } from '@/lib/utils'
+import { toastError, toastSuccess } from '@/lib/toast'
 
 // ── Column shape ─────────────────────────────────────────────────────────────
 const COL_DEFS = {
@@ -53,6 +55,7 @@ function makeActionsRenderer(
     <Button
       size="sm"
       variant="ghost"
+      aria-label="Edit exam session"
       onClick={() => {
         setEditing(p.data)
         setForm({
@@ -67,7 +70,7 @@ function makeActionsRenderer(
         setOpen(true)
       }}
     >
-      Edit
+      <Pencil className="h-4 w-4" />
     </Button>
   )
 }
@@ -152,12 +155,32 @@ export default function ExamSessionPage() {
   )
 
   async function save() {
-    const payload = { ...form, reason: form.isActive ? 'active' : (form.reason || '') }
-    if (editing?.examSessionId) {
-      await updateExamSession(editing.examSessionId, payload)
-    } else {
-      await createExamSession(payload)
+    const payload: Record<string, unknown> = {
+      examSessionName: form.examSessionName.trim(),
+      examsessioninCatCode: form.examsessioninCatCode.trim(),
+      // Some backends still bind this camel-case variant.
+      examSessionInCatCode: form.examsessioninCatCode.trim(),
+      universityCode: form.universityCode.trim(),
+      sessionStartTime: form.sessionStartTime || null,
+      sessionEndTime: form.sessionEndTime || null,
+      isActive: form.isActive,
+      reason: form.isActive ? 'active' : (form.reason || '').trim(),
     }
+
+    try {
+      if (editing?.examSessionId) {
+        payload.examSessionId = editing.examSessionId
+        await updateExamSession(editing.examSessionId, payload)
+        toastSuccess('Exam session updated successfully')
+      } else {
+        await createExamSession(payload)
+        toastSuccess('Exam session created successfully')
+      }
+    } catch (error) {
+      toastError(error, `Failed to ${editing?.examSessionId ? 'update' : 'create'} exam session`)
+      return
+    }
+
     setOpen(false)
     setEditing(null)
     await refresh()

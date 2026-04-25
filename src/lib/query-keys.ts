@@ -102,6 +102,111 @@ export const QK = {
     list: () => ['Campus', 'list'] as const,
   },
 
+  // ── Academic Years ─────────────────────────────────────────────────────
+  academicYears: {
+    all: ['AcademicYear'] as const,
+    list: () => ['AcademicYear', 'list'] as const,
+  },
+
+  // ── Financial Years ───────────────────────────────────────────────────
+  financialYears: {
+    all: ['FinancialYear'] as const,
+    list: () => ['FinancialYear', 'list'] as const,
+  },
+
+  // ── College Courses & Groups ──────────────────────────────────────────
+  collegeCoursesGroups: {
+    all: ['CollegeCoursesGroups'] as const,
+    list: (universityId: number, collegeId: number, courseId?: number, courseGroupId?: number) =>
+      ['CollegeCoursesGroups', 'list', { universityId, collegeId, courseId, courseGroupId }] as const,
+    filters: (orgId: number, empId: number) =>
+      ['CollegeCoursesGroups', 'filters', orgId, empId] as const,
+  },
+
+  // ── Course Types / Courses ────────────────────────────────────────────
+  courseTypes: {
+    all: ['CourseType'] as const,
+    list: () => ['CourseType', 'list'] as const,
+  },
+  courses: {
+    all: ['Course'] as const,
+    list: () => ['Course', 'list'] as const,
+  },
+  courseGroups: {
+    all: ['CourseGroup'] as const,
+    list: () => ['CourseGroup', 'list'] as const,
+  },
+  courseYears: {
+    all: ['CourseYear'] as const,
+    list: () => ['CourseYear', 'list'] as const,
+  },
+  groupSections: {
+    all: ['GroupSection'] as const,
+    list: () => ['GroupSection', 'list'] as const,
+  },
+  batches: {
+    all: ['Batch'] as const,
+    list: () => ['Batch', 'list'] as const,
+  },
+  studentBatches: {
+    all: ['StudentAcademicbatch'] as const,
+    list: () => ['StudentAcademicbatch', 'list'] as const,
+  },
+
+  // ── Universities ───────────────────────────────────────────────────────
+  universities: {
+    all: ['Universities'] as const,
+    list: () => ['Universities', 'list'] as const,
+  },
+
+  // ── Colleges ───────────────────────────────────────────────────────────
+  colleges: {
+    all: ['College'] as const,
+    list: () => ['College', 'list'] as const,
+  },
+
+  // ── Buildings ──────────────────────────────────────────────────────────
+  buildings: {
+    all: ['Building'] as const,
+    list: () => ['Building', 'list'] as const,
+  },
+
+  // ── Blocks ─────────────────────────────────────────────────────────────
+  blocks: {
+    all: ['Block'] as const,
+    list: () => ['Block', 'list'] as const,
+  },
+
+  // ── Floors ─────────────────────────────────────────────────────────────
+  floors: {
+    all: ['Floor'] as const,
+    list: () => ['Floor', 'list'] as const,
+  },
+
+  // ── Room Details ───────────────────────────────────────────────────────
+  roomDetails: {
+    all: ['Room'] as const,
+    list: () => ['Room', 'list'] as const,
+  },
+
+  // ── Room Types ────────────────────────────────────────────────────────
+  roomTypes: {
+    all: ['RoomType'] as const,
+    list: () => ['RoomType', 'list'] as const,
+  },
+
+  // ── Rooms ─────────────────────────────────────────────────────────────
+  rooms: {
+    all: ['Room'] as const,
+    list: () => ['Room', 'list'] as const,
+  },
+
+  // ── General Settings ───────────────────────────────────────────────────
+  generalSettings: {
+    all: ['GeneralSetting'] as const,
+    list: () => ['GeneralSetting', 'list'] as const,
+  },
+
   // ── Question Banks ─────────────────────────────────────────────────────
   questionBanks: {
     all: ['Assessment'] as const,

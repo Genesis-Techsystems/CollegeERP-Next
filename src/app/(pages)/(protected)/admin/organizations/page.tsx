@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PlusIcon, Building2, PencilIcon } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/common/components/search'
@@ -21,14 +21,14 @@ import { rowIndexGetter } from '@/lib/utils'
 
 const COL_DEFS = {
   siNo:         { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<Organization>,
-  logo:         { headerName: 'Logo', field: 'logoPath', minWidth: 80, width: 80, flex: 0 } as ColDef<Organization>,
-  orgName:      { field: 'orgName', headerName: 'Organization Name', minWidth: 180 } as ColDef<Organization>,
-  orgCode:      { field: 'orgCode', headerName: 'Organization Code', minWidth: 140 } as ColDef<Organization>,
-  address:      { field: 'address', headerName: 'Address', minWidth: 200 } as ColDef<Organization>,
-  mobileNumber: { field: 'mobileNumber', headerName: 'Mobile No', minWidth: 130 } as ColDef<Organization>,
-  email:        { field: 'email', headerName: 'Email', minWidth: 180 } as ColDef<Organization>,
-  isActive:     { field: 'isActive', headerName: 'Status', minWidth: 110 } as ColDef<Organization>,
-  actions:      { headerName: 'Actions', minWidth: 110, flex: 0, width: 110 } as ColDef<Organization>,
+  logo:         { headerName: 'Logo', field: 'logoPath', minWidth: 64, width: 64, flex: 0 } as ColDef<Organization>,
+  orgName:      { field: 'orgName', headerName: 'Organization Name', minWidth: 150, flex: 1.2 } as ColDef<Organization>,
+  orgCode:      { field: 'orgCode', headerName: 'Org Code', minWidth: 110, flex: 0.9 } as ColDef<Organization>,
+  address:      { field: 'address', headerName: 'Address', minWidth: 150, flex: 1.2 } as ColDef<Organization>,
+  mobileNumber: { field: 'mobileNumber', headerName: 'Mobile', minWidth: 110, flex: 0.9 } as ColDef<Organization>,
+  email:        { field: 'email', headerName: 'Email', minWidth: 150, flex: 1.1 } as ColDef<Organization>,
+  isActive:     { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<Organization>,
+  actions:      { headerName: 'Actions', minWidth: 86, flex: 0, width: 86 } as ColDef<Organization>,
 }
 
 // ─── Cell renderers ────────────────────────────────────────────────────────
@@ -104,38 +104,40 @@ export default function OrganizationsPage() {
   // ── Render ──────────────────────────────────────────────────────────────
   return (
     <PageContainer className="space-y-5">
-      <PageHeader
-        title="Organizations"
-        subtitle="Manage organization records"
-        action={
+      <div className="app-card overflow-hidden">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+          <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Organisation</h2>
+        </div>
+        <div className="flex items-center justify-between gap-3 p-3">
+          <SearchInput
+            className="max-w-sm w-full"
+            placeholder="Search organisations..."
+            value={searchValue}
+            onChange={setSearchValue}
+          />
           <Button size="sm" onClick={() => { setEditingOrg(null); setModalOpen(true) }}>
             <PlusIcon className="h-4 w-4 mr-1" />
-            Add Organization
+            Add Organisation
           </Button>
-        }
-      />
+        </div>
 
-      <SearchInput
-        className="max-w-sm"
-        placeholder="Search organizations…"
-        value={searchValue}
-        onChange={setSearchValue}
-      />
-
-      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-        {!loading && organizations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-            <Building2 className="h-10 w-10 mb-3 opacity-40" />
-            <p className="text-sm">No organizations found</p>
+        <div className="px-3 pb-3">
+          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+            {!loading && organizations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                <Building2 className="h-10 w-10 mb-3 opacity-40" />
+                <p className="text-sm">No organizations found</p>
+              </div>
+            ) : (
+              <DataTable
+                rowData={filteredData}
+                columnDefs={columnDefs}
+                loading={loading}
+                pagination
+              />
+            )}
           </div>
-        ) : (
-          <DataTable
-            rowData={filteredData}
-            columnDefs={columnDefs}
-            loading={loading}
-            pagination
-          />
-        )}
+        </div>
       </div>
 
       <OrganizationModal

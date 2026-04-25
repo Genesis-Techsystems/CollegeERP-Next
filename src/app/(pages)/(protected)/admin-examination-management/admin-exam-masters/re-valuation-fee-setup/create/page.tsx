@@ -4,13 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/common/components/date-picker'
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toDateOnlyISO } from '@/common/generic-functions'
@@ -18,13 +11,15 @@ import { distinct } from '@/lib/utils'
 import { crud, buildQuery } from '@/services/crud'
 import {
 	getCollegeFilters,
+	getExamFeeStructure,
 	listCourseGroups,
 	listCourseYears,
 	listExamMasters,
 	createExamFeeStructure,
+	updateExamFeeStructure,
 } from '@/services/examination'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronDown, Filter } from 'lucide-react'
+import { Filter } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 
 type LateFeeFine = { name: string; startDate: string; endDate: string; regFeeFine?: string; suppleFeeFine?: string }
@@ -48,6 +43,12 @@ function toDateString(value: Date | null) {
 	return toDateOnlyISO(value)
 }
 
+function parseNumberOrNull(v: string): number | null {
+	if (v === '' || v == null) return null
+	const n = Number(v)
+	return Number.isFinite(n) ? n : null
+}
+
 export default function CreateRevaluationFeeStructurePage() {
 	const router = useRouter()
 	const searchParams = useSearchParams()
@@ -56,7 +57,7 @@ export default function CreateRevaluationFeeStructurePage() {
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [filtersData, setFiltersData] = useState<any[]>([])
 	const [academicData, setAcademicData] = useState<any[]>([])
-	const [filterOpen, setFilterOpen] = useState(true)
+	const [filterOpen] = useState(true)
 
 	const [courses, setCourses] = useState<any[]>([])
 	const [academicYears, setAcademicYears] = useState<any[]>([])
@@ -74,6 +75,7 @@ export default function CreateRevaluationFeeStructurePage() {
 	const [paramExamName, setParamExamName] = useState('')
 	const [paramExamFromDate, setParamExamFromDate] = useState('')
 	const [paramExamToDate, setParamExamToDate] = useState('')
+	const [editId, setEditId] = useState<number | null>(null)
 
 	const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
 	const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<number | null>(null)
@@ -203,6 +205,7 @@ export default function CreateRevaluationFeeStructurePage() {
 		const examName = searchParams?.get('examName') ?? ''
 		const fromDate = searchParams?.get('fromDate') ?? ''
 		const toDate = searchParams?.get('toDate') ?? ''
+		const id = searchParams?.get('examFeeStructureId')
 		setParamCourseId(c ? Number(c) : null)
 		setParamYearId(y ? Number(y) : null)
 		setParamExamId(e ? Number(e) : null)
@@ -211,6 +214,7 @@ export default function CreateRevaluationFeeStructurePage() {
 		setParamExamName(examName)
 		setParamExamFromDate(fromDate)
 		setParamExamToDate(toDate)
+		setEditId(id ? Number(id) : null)
 
 		fetchFilters()
 	}, [fetchFilters])
@@ -304,6 +308,68 @@ export default function CreateRevaluationFeeStructurePage() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [loadingFilters])
 
+	useEffect(() => {
+		async function loadExisting() {
+			if (!editId) return
+			const row = await getExamFeeStructure(editId).catch(() => null)
+			if (!row) return
+
+			setForm({
+				examFeeStructureName: String(row.examFeeStructureName ?? ''),
+				collectionStartDate: String(row.collectionStartDate ?? row.collectionStartOn ?? ''),
+				collectionEndDate: String(row.collectionEndDate ?? row.collectionEndOn ?? ''),
+				regularFee: String(row.regularFee ?? row.regFee ?? ''),
+				suppleFee: String(row.suppleFee ?? row.supplyFee ?? ''),
+				isActive: row.isActive !== false,
+			})
+
+			const rv = row.revaluationSubjectFees ?? row.revaluationFee ?? {}
+			setRevalSubjectFees({
+				one: String(rv.one ?? rv.subject1Fee ?? ''),
+				two: String(rv.two ?? rv.subject2Fee ?? ''),
+				three: String(rv.three ?? rv.subject3Fee ?? ''),
+				four: String(rv.four ?? rv.subject4Fee ?? ''),
+				five: String(rv.five ?? rv.subject5Fee ?? ''),
+			})
+
+			const fines = Array.isArray(row.examFeeFine) ? row.examFeeFine : []
+			setLateFeeFines(
+				fines.map((f: any) => ({
+					name: String(f.fineName ?? ''),
+					startDate: String(f.fineFromDate ?? ''),
+					endDate: String(f.fineToDate ?? ''),
+					regFeeFine: String(f.regFeeFine ?? ''),
+					suppleFeeFine: String(f.supplyFeeFine ?? f.suppleFeeFine ?? ''),
+				})),
+			)
+
+			const adt = Array.isArray(row.examFeeAdditionalStructure) ? row.examFeeAdditionalStructure : []
+			setAdditionalFees(
+				adt.map((f: any) => ({
+					name: String(f.name ?? f.feeName ?? ''),
+					type: String(f.type ?? '').toLowerCase().includes('supple') ? 'supple' : 'regular',
+					amount: String(f.fee ?? f.amount ?? ''),
+				})),
+			)
+
+			const selectedIds = new Set<number>(
+				(Array.isArray(row.examFeeStructureCourseyr) ? row.examFeeStructureCourseyr : [])
+					.map((cy: any) => Number(cy.courseYearId ?? cy.fk_course_year_id))
+					.filter((v: number) => Number.isFinite(v)),
+			)
+			if (selectedIds.size > 0) {
+				setSelectedCourseYearKeys(
+					new Set(
+						displayCourseYears
+							.filter((y: any) => selectedIds.has(Number(y.courseYearId ?? y.id)))
+							.map((y: any) => String(y.__rowKey ?? y.courseYearId ?? y.id)),
+					),
+				)
+			}
+		}
+		void loadExisting()
+	}, [displayCourseYears, editId])
+
 	function toggleCourseYear(key: string) {
 		setSelectedCourseYearKeys((s) => {
 			const next = new Set(s)
@@ -311,12 +377,6 @@ export default function CreateRevaluationFeeStructurePage() {
 			else next.add(key)
 			return next
 		})
-	}
-
-	function parseNumberOrNull(v: string): number | null {
-		if (v === '' || v == null) return null
-		const n = Number(v)
-		return Number.isFinite(n) ? n : null
 	}
 
 	function saveLateFeeRow() {
@@ -347,6 +407,14 @@ export default function CreateRevaluationFeeStructurePage() {
 		)
 	}, [form.examFeeStructureName, selectedAcademicYearId, selectedCourseId, selectedCourseYearKeys.size, selectedExamId])
 
+	const selectedCourseRow = courses.find((c) => c.fk_course_id === selectedCourseId)
+	const selectedAcademicYear = selectedAcademicYearId
+		? academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)?.academic_year
+		: paramAcademicYear
+	const programText = `${selectedCourseRow?.course_code ?? selectedCourseRow?.course_name ?? paramCourseName ?? '—'}${
+		selectedAcademicYear ? ` / (${selectedAcademicYear})` : ''
+	}`
+
 	async function save() {
 		if (!canSave) return
 		const selectedCourseYearIds = Array.from(
@@ -362,9 +430,18 @@ export default function CreateRevaluationFeeStructurePage() {
 			examFeeStructureName: form.examFeeStructureName,
 			collectionStartDate: form.collectionStartDate || null,
 			collectionEndDate: form.collectionEndDate || null,
+			// keep both naming styles for backend compatibility
+			regFee: parseNumberOrNull(form.regularFee),
+			supplyFee: parseNumberOrNull(form.suppleFee),
 			regularFee: parseNumberOrNull(form.regularFee),
 			suppleFee: parseNumberOrNull(form.suppleFee),
+			subject1Fee: parseNumberOrNull(revalSubjectFees.one ?? ''),
+			subject2Fee: parseNumberOrNull(revalSubjectFees.two ?? ''),
+			subject3Fee: parseNumberOrNull(revalSubjectFees.three ?? ''),
+			subject4Fee: parseNumberOrNull(revalSubjectFees.four ?? ''),
+			subject5Fee: parseNumberOrNull(revalSubjectFees.five ?? ''),
 			isActive: form.isActive,
+			reason: null,
 			// relationships
 			examId: selectedExamId,
 			examMaster: { examId: selectedExamId },
@@ -393,37 +470,30 @@ export default function CreateRevaluationFeeStructurePage() {
 			})),
 			// nested: additional
 			examFeeAdditionalStructure: additionalFees.map((r) => ({
-				adtExamfeetypeCatId: undefined,
+				adtExamfeetypeCatId: null,
 				type: r.type === 'regular' ? 'Regular' : 'Supple',
 				includeInReg: r.type === 'regular',
 				fee: parseNumberOrNull(r.amount),
 				isActive: true,
 			})),
 		}
-		await createExamFeeStructure(payload)
+		if (editId) await updateExamFeeStructure(editId, payload)
+		else await createExamFeeStructure(payload)
 		router.push('/admin-examination-management/admin-exam-masters/re-valuation-fee-setup')
 	}
 
 	return (
 		<PageContainer className="space-y-5">
-		<PageHeader title="Add Re-Evaluation Fee" subtitle="Create a new re-evaluation fee structure" />
+		<PageHeader title={editId ? 'Edit Re-Evaluation Fee' : 'Add Re-Evaluation Fee'} subtitle={editId ? 'Update re-evaluation fee structure' : 'Create a new re-evaluation fee structure'} />
 			
 
 			<div className="app-card overflow-hidden">
 				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-					<h2 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">Add Re-Evaluation Fee Structure</h2>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						className="h-6 px-2.5 text-[12px]"
-						onClick={() => setFilterOpen((v) => !v)}
-						aria-expanded={filterOpen}
-					>
-						<Filter className="mr-1.5 h-3.5 w-3.5" />
-						Filter
-						<ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-					</Button>
+					<h2 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">{editId ? 'Edit Re-Evaluation Fee Structure' : 'Add Re-Evaluation Fee Structure'}</h2>
+					<div className="inline-flex items-center gap-1.5 text-[12px] text-slate-700">
+						<span>Filter</span>
+						<Filter className="h-3.5 w-3.5" />
+					</div>
 				</div>
 
 				{filterOpen && (
@@ -433,17 +503,7 @@ export default function CreateRevaluationFeeStructurePage() {
 							<div className="min-w-0 flex items-center gap-1">
 								<span className="font-semibold text-slate-900 whitespace-nowrap">Program :</span>
 								<span className="text-[hsl(var(--primary))] whitespace-nowrap overflow-hidden text-ellipsis">
-									{courses.find((c) => c.fk_course_id === selectedCourseId)?.course_code ??
-										courses.find((c) => c.fk_course_id === selectedCourseId)?.course_name ??
-										paramCourseName ??
-										'—'}
-									{(selectedAcademicYearId
-										? academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)?.academic_year
-										: paramAcademicYear)
-										? ` / (${(selectedAcademicYearId
-											? academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)?.academic_year
-											: paramAcademicYear) ?? ''})`
-										: ''}
+									{programText}
 								</span>
 							</div>
 							<div className="min-w-0 flex items-center gap-1 md:-ml-2">
@@ -673,11 +733,11 @@ export default function CreateRevaluationFeeStructurePage() {
 									<div className="flex items-center gap-6 h-8">
 										<label className="inline-flex items-center gap-2 text-[12px]">
 											<input type="radio" checked={addFeeType === 'regular'} onChange={() => setAddFeeType('regular')} />
-											Regular
+											<span>Regular</span>
 										</label>
 										<label className="inline-flex items-center gap-2 text-[12px]">
 											<input type="radio" checked={addFeeType === 'supple'} onChange={() => setAddFeeType('supple')} />
-											Supple
+											<span>Supple</span>
 										</label>
 									</div>
 								</div>
@@ -729,7 +789,7 @@ export default function CreateRevaluationFeeStructurePage() {
 
 					<div className="flex items-center justify-end gap-2">
 						<Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => router.push('/admin-examination-management/admin-exam-masters/re-valuation-fee-setup')}>Cancel</Button>
-						<Button type="button" className="h-8 text-[12px]" onClick={save} disabled={!canSave}>Save</Button>
+						<Button type="button" className="h-8 text-[12px]" onClick={save} disabled={!canSave}>{editId ? 'Update' : 'Save'}</Button>
 					</div>
 
 		</PageContainer>

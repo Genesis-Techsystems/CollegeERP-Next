@@ -545,6 +545,19 @@ export const SETUP_API = {
   COLLEGE_CERTIFICATE: 'CollegeCertificate',
 } as const
 
+// ─── Room Details / Devices ────────────────────────────────────────────────
+
+export const ROOM_DETAILS_API = {
+  /** GET proc: room + device details list by campus/building/block/floor/room filters */
+  GET_ROOM_DEVICE_DETAILS: 'get_room_device_details',
+  /** POST: add room-device mappings list */
+  ADD_ROOM_DETAILS_LIST: 'addRoomDetailsList',
+  /** PUT: update room-device mapping */
+  UPDATE_ROOM_DETAILS: 'updateRoomDetails',
+  /** CRUD/list: EttlDevices */
+  ETTL_DEVICES: 'EttlDevices',
+} as const
+
 // ─── Data Security ───────────────────────────────────────────────────────────
 
 export const DATA_SECURITY_API = {
@@ -733,6 +746,8 @@ export const UNIVERSITY_API = {
   UPDATE_COLLEGE_WISE_COURSES_GROUPS: 'updateUnivCollegeWiseCoursesAndGroups',
   /** POST: add univ college wise groups */
   ADD_COLLEGE_WISE_GROUPS: 'addUnivCollegeWiseGroups',
+  /** POST: add univ college wise courses and groups in one payload */
+  ADD_COLLEGE_WISE_COURSES_GROUPS: 'addUnivCollegeWiseCoursesAndGroups',
   /** CRUD: UnivAdmissionAllotment */
   ADMISSION_ALLOTMENT: 'UnivAdmissionAllotment',
   /** CRUD: UnivAdmissionAllotmentDetails */

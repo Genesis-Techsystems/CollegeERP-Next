@@ -15,10 +15,10 @@ import { Label } from '@/components/ui/label'
 import { rowIndexGetter } from '@/lib/utils'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
-  createUnivExamAnswerPaperBag,
-  listAllActiveUnivExamAnswerPaperBags,
-  pickUnivExamAnswerPaperBagId,
-  updateUnivExamAnswerPaperBag,
+  createUnivExamBag,
+  listAllActiveUnivExamBags,
+  pickUnivExamBagId,
+  updateUnivExamBag,
   type AnyRow,
 } from '@/services/exam-papers-delivery'
 
@@ -63,6 +63,7 @@ export default function UnivExamAnswerPaperBagsPage() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Row | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [formModal, setFormModal] = useState({
     bagSerialNo: '',
     trackerId: '',
@@ -86,8 +87,8 @@ export default function UnivExamAnswerPaperBagsPage() {
       { headerName: 'Bag Serial No', minWidth: 140, valueGetter: (p) => txt(p.data?.bagSerialNo) },
       { headerName: 'Tracker Id', minWidth: 120, valueGetter: (p) => txt(p.data?.trackerId) },
       { headerName: 'Total Answer Books', minWidth: 150, valueGetter: (p) => txt(p.data?.totalAnswerBooks) },
-      { headerName: 'Dispatched Status', minWidth: 150, valueGetter: (p) => txt(p.data?.dispatchStatusCatdetName) },
-      { headerName: 'Sealed By Name', minWidth: 140, valueGetter: (p) => txt(p.data?.sealedbyName) },
+      { headerName: 'Dispatched Status', minWidth: 150, valueGetter: (p) => txt(p.data?.dispatchStatusCatdetName ?? p.data?.dispatchStatusName) },
+      { headerName: 'Sealed By Name', minWidth: 140, valueGetter: (p) => txt(p.data?.sealedbyName ?? p.data?.sealedByName) },
       { headerName: 'Is Sealed', minWidth: 100, cellRenderer: sealedRenderer },
       { field: 'isActive', headerName: 'Status', minWidth: 100, cellRenderer: statusRenderer },
       { headerName: 'Actions', minWidth: 72, width: 72, flex: 0, cellRenderer: makeEditRenderer(onEdit) },
@@ -98,7 +99,7 @@ export default function UnivExamAnswerPaperBagsPage() {
   async function loadData() {
     setLoading(true)
     try {
-      const data = await listAllActiveUnivExamAnswerPaperBags().catch(() => [])
+      const data = await listAllActiveUnivExamBags().catch(() => [])
       setRows(Array.isArray(data) ? data : [])
     } finally {
       setLoading(false)
@@ -111,6 +112,7 @@ export default function UnivExamAnswerPaperBagsPage() {
 
   function openCreate() {
     setEditing(null)
+    setEditingId(null)
     setFormModal({
       bagSerialNo: '',
       trackerId: '',
@@ -126,11 +128,20 @@ export default function UnivExamAnswerPaperBagsPage() {
 
   function onEdit(row: Row) {
     setEditing(row)
+    const directId = pickUnivExamBagId(row)
+    const fallbackId =
+      directId ||
+      Object.entries(row).reduce((acc, [key, value]) => {
+        if (acc > 0) return acc
+        if (!/bag.*id/i.test(key)) return 0
+        return num(value)
+      }, 0)
+    setEditingId(fallbackId > 0 ? fallbackId : null)
     setFormModal({
       bagSerialNo: txt(row.bagSerialNo),
       trackerId: txt(row.trackerId),
       totalAnswerBooks: txt(row.totalAnswerBooks),
-      sealedbyName: txt(row.sealedbyName),
+      sealedbyName: txt(row.sealedbyName ?? row.sealedByName),
       dispatchStatusCatdetId: txt(row.dispatchStatusCatdetId),
       isSealed: row.isSealed === true,
       isActive: row.isActive === true,
@@ -158,7 +169,9 @@ export default function UnivExamAnswerPaperBagsPage() {
       bagSerialNo: formModal.bagSerialNo.trim(),
       trackerId: formModal.trackerId.trim(),
       totalAnswerBooks: Number(formModal.totalAnswerBooks),
+      // Keep both key variants for backend compatibility.
       sealedbyName: formModal.sealedbyName.trim(),
+      sealedByName: formModal.sealedbyName.trim(),
       dispatchStatusCatdetId: num(formModal.dispatchStatusCatdetId) || null,
       isSealed: formModal.isSealed,
       isActive: formModal.isActive,
@@ -167,12 +180,25 @@ export default function UnivExamAnswerPaperBagsPage() {
 
     setSaving(true)
     try {
-      const id = pickUnivExamAnswerPaperBagId(editing ?? {})
-      if (id > 0) {
-        await updateUnivExamAnswerPaperBag(id, { ...payload, univExamAnswerPaperBagId: id })
+      if (editing) {
+        const id = editingId ?? pickUnivExamBagId(editing)
+        if (id <= 0) {
+          toastError('Unable to determine record id for update.')
+          return
+        }
+        await updateUnivExamBag(id, {
+          ...payload,
+          univExamBagId: id,
+          univExamBagsId: id,
+          // Angular update payload carries these fields; preserve current row values
+          // so backend validations pass even when form doesn't edit them.
+          univExamcenterId: num(editing?.univExamcenterId ?? editing?.univExamCenterId),
+          examTimetableId: num(editing?.examTimetableId),
+          sealedbyUserId: num(editing?.sealedbyUserId),
+        })
         toastSuccess('Exam answer paper bag updated.')
       } else {
-        await createUnivExamAnswerPaperBag(payload)
+        await createUnivExamBag(payload)
         toastSuccess('Exam answer paper bag created.')
       }
       setModalOpen(false)

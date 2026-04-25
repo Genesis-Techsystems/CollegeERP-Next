@@ -1,4 +1,5 @@
 import { getAllRecords, domainList, domainCreate, domainUpdate, buildQuery } from '@/services/crud'
+import { GM_CODES } from '@/config/constants'
 
 type AnyRow = Record<string, any>
 
@@ -93,6 +94,13 @@ export async function getLabSubjects(params: {
   )
   const result = (data?.result ?? data?.data?.result ?? []) as AnyRow[][]
   return Array.isArray(result) ? result.flat() : []
+}
+
+export async function listExamLabBatchExamTypes(): Promise<AnyRow[]> {
+  return domainList<AnyRow>(
+    'GeneralDetail',
+    buildQuery({ 'GeneralMaster.generalMasterCode': GM_CODES.EXAM_FEE_TYPE, isActive: true }),
+  )
 }
 
 async function listEntity(query: string): Promise<AnyRow[]> {

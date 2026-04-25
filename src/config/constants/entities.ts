@@ -24,6 +24,13 @@ export const ENTITIES = {
   // ─── Organisation ────────────────────────────────────────────────────────────
   ORGANIZATION:           { name: 'Organization',              pk: 'organizationId'              },
   CAMPUS:                 { name: 'Campus',                    pk: 'campusId'                    },
+  UNIVERSITIES:           { name: 'Universities',              pk: 'universityId'                },
+  COLLEGE:                { name: 'College',                   pk: 'collegeId'                   },
+  BUILDING:               { name: 'Building',                  pk: 'buildingId'                  },
+  BLOCK:                  { name: 'Block',                     pk: 'blockId'                     },
+  FLOOR:                  { name: 'Floor',                     pk: 'floorId'                     },
+  ROOM_TYPE:              { name: 'RoomType',                  pk: 'roomTypeId'                  },
+  GENERAL_SETTING:        { name: 'GeneralSetting',            pk: 'generalSettingId'            },
   // ─── Geo hierarchy ───────────────────────────────────────────────────────────
   COUNTRY:                { name: 'Country',                   pk: 'countryId'                   },
   STATE:                  { name: 'State',                     pk: 'stateId'                     },
@@ -37,6 +44,13 @@ export const ENTITIES = {
   REGULATION:             { name: 'Regulation',                pk: 'regulationId'                },
   COURSE_GROUP:           { name: 'CourseGroup',               pk: 'courseGroupId'               },
   COURSE_YEAR:            { name: 'CourseYear',                pk: 'courseYearId'                },
+  COURSE_TYPE:            { name: 'CourseType',                pk: 'courseTypeId'                },
+  COURSE:                 { name: 'Course',                    pk: 'courseId'                    },
+  GROUP_SECTION:          { name: 'GroupSection',              pk: 'groupSectionId'              },
+  BATCH:                  { name: 'Batch',                     pk: 'batchId'                     },
+  STUDENT_ACADEMIC_BATCH: { name: 'StudentAcademicbatch',      pk: 'studentAcademicbatchId'      },
+  ACADEMIC_YEAR:          { name: 'AcademicYear',              pk: 'academicYearId'              },
+  FINANCIAL_YEAR:         { name: 'FinancialYear',             pk: 'financialYearId'             },
   SUBJECT:                { name: 'Subject',                   pk: 'subjectId'                   },
   ROOM:                   { name: 'Room',                      pk: 'roomId'                      },
 } as const

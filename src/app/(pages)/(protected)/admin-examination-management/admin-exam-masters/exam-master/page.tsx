@@ -233,12 +233,12 @@ export default function ExamMasterPage() {
 
   const columnDefs = useMemo<ColDef<ExamMaster>[]>(
     () => [
-      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70, flex: 0 },
-      { field: 'examName', headerName: 'Exam Name', minWidth: 160 },
-      { field: 'examShortName', headerName: 'Short Name', minWidth: 120 },
+      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 56, minWidth: 56, flex: 0 },
+      { field: 'examName', headerName: 'Exam Name', minWidth: 120 },
+      { field: 'examShortName', headerName: 'Short Name', minWidth: 96 },
       {
         headerName: 'Exam Type',
-        minWidth: 160,
+        minWidth: 120,
         valueGetter: (p) => {
           const types: string[] = []
           if (p.data?.isRegularExam) types.push('Regular')
@@ -250,24 +250,24 @@ export default function ExamMasterPage() {
       {
         field: 'examMonthYr',
         headerName: 'Month/Year',
-        minWidth: 120,
+        minWidth: 92,
         valueFormatter: (p) => (p.value ? format(new Date(p.value), 'MM/yyyy') : '—'),
       },
       {
         field: 'fromDate',
         headerName: 'From Date',
-        minWidth: 110,
+        minWidth: 90,
         valueFormatter: (p) => (p.value ? format(new Date(p.value), 'dd/MM/yyyy') : '—'),
       },
       {
         field: 'toDate',
         headerName: 'To Date',
-        minWidth: 110,
+        minWidth: 90,
         valueFormatter: (p) => (p.value ? format(new Date(p.value), 'dd/MM/yyyy') : '—'),
       },
       {
         headerName: 'Fee Notification',
-        minWidth: 110,
+        minWidth: 92,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) =>
           p.data?.feeNotificationFilePath ? (
             <a
@@ -286,7 +286,7 @@ export default function ExamMasterPage() {
       },
       {
         headerName: 'Notification',
-        minWidth: 110,
+        minWidth: 92,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) =>
           p.data?.notificationFilePath ? (
             <a
@@ -305,7 +305,7 @@ export default function ExamMasterPage() {
       },
       {
         headerName: 'Exam Labels',
-        minWidth: 110,
+        minWidth: 92,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) => (
           <button
             type="button"
@@ -327,7 +327,7 @@ export default function ExamMasterPage() {
       {
         field: 'isActive',
         headerName: 'Status',
-        width: 90,
+        width: 76,
         flex: 0,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) => (
           <StatusBadge status={p.data?.isActive ?? false} />
@@ -335,9 +335,9 @@ export default function ExamMasterPage() {
       },
       {
         headerName: 'Actions',
-        minWidth: 100,
+        minWidth: 80,
         flex: 0,
-        width: 100,
+        width: 80,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) => (
           <Button
             size="icon"

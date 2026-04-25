@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Filter } from 'lucide-react'
+import { Alert } from 'antd'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,6 +29,7 @@ import { cn } from '@/lib/utils'
 const FIELD_OUTLINE = 'border-[1px] border-solid border-black/25'
 
 type AnyRow = Record<string, any>
+type Notice = { type: 'success' | 'error'; message: string } | null
 
 export default function ExamMaxMarksSetupPage() {
   const orgId = 0
@@ -46,6 +48,7 @@ export default function ExamMaxMarksSetupPage() {
   const [loading, setLoading] = useState(false)
   const [q, setQ] = useState('')
   const [filterOpen, setFilterOpen] = useState(true)
+  const [notice, setNotice] = useState<Notice>(null)
 
   useEffect(() => {
     async function loadBase() {
@@ -149,6 +152,7 @@ export default function ExamMaxMarksSetupPage() {
 
   async function save() {
     if (!universityId || !courseId || !regulationId || rows.length === 0) return
+    setNotice(null)
     const payload = rows.map((r) => ({
       marksSetupId: r.marksSetupId ?? undefined,
       subjectCategoryCatDetId: r.subjectCategoryCatDetId,
@@ -167,10 +171,10 @@ export default function ExamMaxMarksSetupPage() {
     }))
     const res = await saveExamMarksSetup(payload).catch(() => ({ success: false, message: 'Save failed' }))
     if ((res as any)?.success === false) {
-      alert((res as any)?.message ?? 'Save failed')
+      setNotice({ type: 'error', message: (res as any)?.message ?? 'Save failed' })
       return
     }
-    alert((res as any)?.message ?? 'Saved')
+    setNotice({ type: 'success', message: (res as any)?.message ?? 'Saved' })
     await getDetails()
   }
 
@@ -249,6 +253,18 @@ export default function ExamMaxMarksSetupPage() {
           </div>
         )}
       </div>
+      {notice && (
+        <Alert
+          type={notice.type}
+          title={notice.message}
+          showIcon
+          action={(
+            <Button type="button" size="sm" variant="outline" className="h-7 text-[12px]" onClick={() => setNotice(null)}>
+              Close
+            </Button>
+          )}
+        />
+      )}
 
       {rows.length > 0 && (
         <div className="app-card p-4">

@@ -20,9 +20,10 @@ import {
 	getCollegeFilters,
 	listCourseGroups,
 	listCourseYears,
+	listExamFeeStructures,
 	listExamMasters,
 } from '@/services/examination'
-import { createExamFeeStructure } from '@/services/examination'
+import { createExamFeeStructure, updateExamFeeStructure } from '@/services/examination'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { listGeneralDetailsByMaster } from '@/services/examination'
@@ -128,6 +129,7 @@ export default function CreateExamFeeStructurePage() {
 
 	const pageParams = useMemo(
 		() => ({
+			check: Number(searchParams.get('check') ?? 1),
 			universityId: Number(searchParams.get('universityId') ?? 0),
 			universityCode: String(searchParams.get('universityCode') ?? ''),
 			courseId: Number(searchParams.get('courseId') ?? 0),
@@ -138,9 +140,11 @@ export default function CreateExamFeeStructurePage() {
 			examName: String(searchParams.get('examName') ?? ''),
 			fromDate: String(searchParams.get('fromDate') ?? ''),
 			toDate: String(searchParams.get('toDate') ?? ''),
+			examFeeStructureId: Number(searchParams.get('examFeeStructureId') ?? 0),
 		}),
 		[searchParams],
 	)
+	const isEditMode = pageParams.examFeeStructureId > 0
 
 	const groupCodes = useMemo(
 		() =>
@@ -340,6 +344,62 @@ export default function CreateExamFeeStructurePage() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [selectedCourseId, selectedAcademicYearId, pageParams.examId])
 
+	useEffect(() => {
+		async function loadExisting() {
+			if (!isEditMode) return
+			const query = buildQuery({ examFeeStructureId: pageParams.examFeeStructureId })
+			const rows = await listExamFeeStructures(query).catch(() => [])
+			const row = Array.isArray(rows) ? rows[0] : null
+			if (!row) return
+
+			setForm((s) => ({
+				...s,
+				examFeeStructureName: String(row.examFeeStructureName ?? ''),
+				collectionStartDate: toDateString(parseDateValue(String(row.collectionStartDate ?? ''))),
+				collectionEndDate: toDateString(parseDateValue(String(row.collectionEndDate ?? ''))),
+				regFee: row.regFee != null ? String(row.regFee) : '',
+				suppleFee: row.supplyFee != null ? String(row.supplyFee) : (row.suppleFee != null ? String(row.suppleFee) : ''),
+				subject1Fee: row.subject1Fee != null ? String(row.subject1Fee) : '',
+				subject2Fee: row.subject2Fee != null ? String(row.subject2Fee) : '',
+				subject3Fee: row.subject3Fee != null ? String(row.subject3Fee) : '',
+				subject4Fee: row.subject4Fee != null ? String(row.subject4Fee) : '',
+				subject5Fee: row.subject5Fee != null ? String(row.subject5Fee) : '',
+				subject6Fee: row.subject6Fee != null ? String(row.subject6Fee) : '',
+				subject7Fee: row.subject7Fee != null ? String(row.subject7Fee) : '',
+				isActive: row.isActive !== undefined ? Boolean(row.isActive) : true,
+			}))
+
+			const activeCourseYears = (row.examFeeStructureCourseyr ?? [])
+				.filter((x: any) => x?.isActive !== false)
+				.map((x: any) => Number(x.courseYearId))
+				.filter((x: number) => Number.isFinite(x) && x > 0)
+			setSelectedCourseYearIds(new Set(activeCourseYears))
+
+			const fineRows = (row.examFeeFine ?? [])
+				.filter((x: any) => x?.isActive !== false)
+				.map((x: any) => ({
+					fineName: String(x.fineName ?? ''),
+					fineFromDate: toDateString(parseDateValue(String(x.fineFromDate ?? ''))),
+					fineToDate: toDateString(parseDateValue(String(x.fineToDate ?? ''))),
+					regFeeFine: x.regFeeFine != null ? String(x.regFeeFine) : '',
+					suppleFeeFine: x.supplyFeeFine != null ? String(x.supplyFeeFine) : '',
+				}))
+			setFines(fineRows)
+
+			const addRows = (row.examFeeAdditionalStructure ?? [])
+				.filter((x: any) => x?.isActive !== false)
+				.map((x: any) => ({
+					typeId: String(x.adtExamfeetypeCatId ?? ''),
+					typeName: String(x.adtExamfeetypeCatDisplayName ?? x.type ?? ''),
+					examType: String(x.type ?? '').toLowerCase().includes('supp') ? 'SUPPLE' as const : 'REG' as const,
+					includeInReg: Boolean(x.includeInReg),
+					amount: x.fee != null ? String(x.fee) : '',
+				}))
+			setAdditionalRows(addRows)
+		}
+		loadExisting()
+	}, [isEditMode, pageParams.examFeeStructureId])
+
 	function toggleCourseYear(id: number) {
 		setSelectedCourseYearIds((s) => {
 			const next = new Set(s)
@@ -500,13 +560,20 @@ export default function CreateExamFeeStructurePage() {
 		}
 
 		try {
-			await createExamFeeStructure(payload)
+			if (isEditMode) {
+				await updateExamFeeStructure(pageParams.examFeeStructureId, {
+					...payload,
+					examFeeStructureId: pageParams.examFeeStructureId,
+				})
+			} else {
+				await createExamFeeStructure(payload)
+			}
 			touchFormAfterSave()
-			toastSuccess('Exam fee structure saved')
+			toastSuccess(`Exam fee structure ${isEditMode ? 'updated' : 'saved'}`)
 			// Navigate back to list
 			router.push('/admin-examination-management/admin-exam-masters/exam-fee-setup')
 		} catch (err) {
-			toastError(err, 'Failed to save exam fee structure')
+			toastError(err, `Failed to ${isEditMode ? 'update' : 'save'} exam fee structure`)
 		}
 	}
 
@@ -518,10 +585,10 @@ export default function CreateExamFeeStructurePage() {
 
 	return (
 		<PageContainer className="space-y-5">
-		<PageHeader title="Add Exam Fee Structure" subtitle="Create a new exam fee structure" />
+		<PageHeader title={isEditMode ? 'Edit Exam Fee Structure' : 'Add Exam Fee Structure'} subtitle={isEditMode ? 'Update existing exam fee structure' : 'Create a new exam fee structure'} />
 			<div className="app-card overflow-hidden">
 				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
-					<h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Add Exam Fee Structure</h2>
+					<h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">{isEditMode ? 'Edit Exam Fee Structure' : 'Add Exam Fee Structure'}</h2>
 				</div>
 
 				<div className="px-3 py-3 space-y-3">
@@ -592,29 +659,33 @@ export default function CreateExamFeeStructurePage() {
 								const id = y.courseYearId ?? y.id
 								if (id == null) return null
 								const checked = selectedCourseYearIds.has(Number(id))
+								const yearName = String(y.courseYearName ?? y.yearName ?? '').trim()
+								const yearCode = String(y.courseYearCode ?? y.course_year_code ?? '').trim()
+								// Angular screen displays course-year code format (e.g. IYEARISEM).
+								const yearLabel = yearCode || yearName || `Year ${id}`
+								const branchFromYearCode = yearCode.includes('-') ? yearCode.split('-')[0].trim() : ''
+								const groupLabel =
+									String(
+										y.__displayGroupCode ??
+										y.groupCode ??
+										y.group_code ??
+										y.courseGroupCode ??
+										y.course_group_code ??
+										branchFromYearCode ??
+										y.branchCode ??
+										y.branch_code ??
+										y.specializationCode ??
+										y.specialization_code ??
+										y.deptCode ??
+										y.dept_code ??
+										''
+									).trim()
 								return (
 									<label key={String(y.__rowKey ?? id)} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-50 text-[12px]">
 										<Checkbox checked={checked} onCheckedChange={() => toggleCourseYear(Number(id))} />
 										<span>
-											{(() => {
-												const yearCode = String(y.courseYearCode ?? y.course_year_code ?? '')
-												const branchFromYear = yearCode.includes('-') ? yearCode.split('-')[0].trim() : ''
-												const label =
-													y.__displayGroupCode ||
-													y.groupCode ||
-													y.group_code ||
-													y.courseGroupCode ||
-													y.course_group_code ||
-													branchFromYear ||
-													y.branchCode ||
-													y.branch_code ||
-													y.specializationCode ||
-													y.specialization_code ||
-													y.deptCode ||
-													y.dept_code
-												return label ? `${label} - ` : ''
-											})()}
-											{y.courseYearCode ?? y.course_year_code ?? y.courseYearName ?? y.yearName ?? `Year ${id}`}
+											{groupLabel ? `${groupLabel} - ` : ''}
+											{yearLabel}
 										</span>
 									</label>
 								)
@@ -933,8 +1004,8 @@ export default function CreateExamFeeStructurePage() {
 					</div>
 
 					<div className="flex items-center justify-end gap-2">
-						<Button type="button" variant="outline" className="h-8 text-[12px]">Cancel</Button>
-						<Button type="button" className="h-8 text-[12px]" onClick={save} disabled={!canSave}>Save</Button>
+						<Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => router.push('/admin-examination-management/admin-exam-masters/exam-fee-setup')}>Cancel</Button>
+						<Button type="button" className="h-8 text-[12px]" onClick={save} disabled={!canSave}>{isEditMode ? 'Update' : 'Save'}</Button>
 					</div>
 				</div>
 			</div>

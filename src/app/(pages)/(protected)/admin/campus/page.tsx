@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PlusIcon, MapPin, PencilIcon } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/common/components/search'
@@ -19,11 +19,11 @@ import { rowIndexGetter } from '@/lib/utils'
 
 const COL_DEFS = {
   siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<Campus>,
-  campusName: { field: 'campusName', headerName: 'Campus Name', minWidth: 180 } as ColDef<Campus>,
-  campusCode: { field: 'campusCode', headerName: 'Campus Code', minWidth: 140 } as ColDef<Campus>,
-  orgCode: { field: 'orgCode', headerName: 'Organization', minWidth: 140 } as ColDef<Campus>,
-  districtName: { field: 'districtName', headerName: 'District', minWidth: 140 } as ColDef<Campus>,
-  isActive: { field: 'isActive', headerName: 'Status', minWidth: 110 } as ColDef<Campus>,
+  campusName: { field: 'campusName', headerName: 'Campus Name', minWidth: 150, flex: 1.2 } as ColDef<Campus>,
+  campusCode: { field: 'campusCode', headerName: 'Campus Code', minWidth: 110, flex: 0.9 } as ColDef<Campus>,
+  orgCode: { field: 'orgCode', headerName: 'Organization', minWidth: 120, flex: 1 } as ColDef<Campus>,
+  districtName: { field: 'districtName', headerName: 'District', minWidth: 110, flex: 0.9 } as ColDef<Campus>,
+  isActive: { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<Campus>,
   actions: { headerName: 'Actions', minWidth: 90, flex: 0, width: 90 } as ColDef<Campus>,
 }
 
@@ -88,38 +88,40 @@ export default function CampusPage() {
   // ── Render ──────────────────────────────────────────────────────────────
   return (
     <PageContainer className="space-y-5">
-      <PageHeader
-        title="Campus"
-        subtitle="Manage campus records"
-        action={
+      <div className="app-card overflow-hidden">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+          <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Campus</h2>
+        </div>
+        <div className="flex items-center justify-between gap-3 p-3">
+          <SearchInput
+            className="max-w-sm w-full"
+            placeholder="Search campuses..."
+            value={searchValue}
+            onChange={setSearchValue}
+          />
           <Button size="sm" onClick={() => { setEditingCampus(null); setModalOpen(true) }}>
             <PlusIcon className="h-4 w-4 mr-1" />
             Add Campus
           </Button>
-        }
-      />
+        </div>
 
-      <SearchInput
-        className="max-w-sm"
-        placeholder="Search campuses…"
-        value={searchValue}
-        onChange={setSearchValue}
-      />
-
-      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-        {!loading && filteredData.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-            <MapPin className="h-10 w-10 mb-3 opacity-40" />
-            <p className="text-sm">No campuses found</p>
+        <div className="px-3 pb-3">
+          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+            {!loading && filteredData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                <MapPin className="h-10 w-10 mb-3 opacity-40" />
+                <p className="text-sm">No campuses found</p>
+              </div>
+            ) : (
+              <DataTable
+                rowData={filteredData}
+                columnDefs={columnDefs}
+                loading={loading}
+                pagination
+              />
+            )}
           </div>
-        ) : (
-          <DataTable
-            rowData={filteredData}
-            columnDefs={columnDefs}
-            loading={loading}
-            pagination
-          />
-        )}
+        </div>
       </div>
 
       <CampusModal

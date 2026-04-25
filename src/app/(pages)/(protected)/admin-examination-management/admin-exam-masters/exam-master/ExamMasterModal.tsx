@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { format } from 'date-fns'
 import { Paperclip, X } from 'lucide-react'
 import type { ExamMaster } from '@/types/exam-master'
 import { createExamMaster, updateExamMaster, uploadExamFiles } from '@/services/exam-master'
@@ -118,8 +119,8 @@ function parseDate(val: string | undefined | null): Date | null {
   return isNaN(d.getTime()) ? null : d
 }
 
-function toISOOrNull(val: Date | null): string | null {
-  return val ? val.toISOString() : null
+function toYMDOrNull(val: Date | null): string | null {
+  return val ? format(val, 'yyyy-MM-dd') : null
 }
 
 export default function ExamMasterModal({ open, onClose, exam, context, onSaved }: ExamMasterModalProps) {
@@ -421,9 +422,10 @@ function buildPayload(values: FormValues, exam: ExamMaster | null, ctx: ExamMast
     ...(exam ? { examId: exam.examId } : {}),
     examName: values.examName,
     examShortName: values.examShortName,
-    examMonthYr: toISOOrNull(values.examMonthYr),
-    fromDate: toISOOrNull(values.fromDate),
-    toDate: toISOOrNull(values.toDate),
+    // Backend expects date-only strings (Angular sends yyyy-MM-dd), not ISO timestamps.
+    examMonthYr: toYMDOrNull(values.examMonthYr),
+    fromDate: toYMDOrNull(values.fromDate),
+    toDate: toYMDOrNull(values.toDate),
     isRegularExam: values.isRegularExam,
     isSupplyExam: values.isSupplyExam,
     isInternalExam: values.isInternalExam,
@@ -431,8 +433,8 @@ function buildPayload(values: FormValues, exam: ExamMaster | null, ctx: ExamMast
     isResultprocessStarted: values.isResultprocessStarted,
     isActive: values.isActive,
     reason: values.reason,
-    notificationPublishedOn: toISOOrNull(values.notificationPublishedOn),
-    feeNotificationPublishedOn: toISOOrNull(values.feeNotificationPublishedOn),
+    notificationPublishedOn: toYMDOrNull(values.notificationPublishedOn),
+    feeNotificationPublishedOn: toYMDOrNull(values.feeNotificationPublishedOn),
     universityId: ctx.universityId ?? undefined,
     collegeId: ctx.collegeId ?? undefined,
     courseId: ctx.courseId ?? undefined,

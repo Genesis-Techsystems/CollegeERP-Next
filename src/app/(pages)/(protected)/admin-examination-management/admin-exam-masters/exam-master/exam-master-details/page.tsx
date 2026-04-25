@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, ClipboardList } from 'lucide-react'
+import { ArrowLeft, ClipboardList, Pencil, Trash2 } from 'lucide-react'
+import { Alert } from 'antd'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import type {
@@ -25,7 +26,7 @@ import {
   saveExamMasterDetails,
 } from '@/services/exam-master'
 import { GM_CODES } from '@/config/constants/ui'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 
 function PageSkeleton() {
   return (
@@ -44,31 +45,6 @@ function PageSkeleton() {
   )
 }
 
-function ToastNotification({
-  message,
-  type,
-  onClose,
-}: {
-  message: string
-  type: 'success' | 'error'
-  onClose: () => void
-}) {
-  useEffect(() => {
-    const t = setTimeout(onClose, 3000)
-    return () => clearTimeout(t)
-  }, [onClose])
-
-  return (
-    <div
-      className={`fixed bottom-6 right-6 z-50 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg transition-all ${
-        type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
-      }`}
-    >
-      {message}
-    </div>
-  )
-}
-
 function ExamMasterDetailsInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -77,7 +53,7 @@ function ExamMasterDetailsInner() {
   const [exam, setExam] = useState<ExamMaster | null>(null)
 
   useEffect(() => {
-    if (!examId || isNaN(examId)) {
+    if (!examId || Number.isNaN(examId)) {
       router.replace('/admin-examination-management/admin-exam-masters/exam-master')
       return
     }
@@ -204,7 +180,7 @@ function ExamMasterDetailsInner() {
   }
 
   function handleEdit(row: ExamMasterDetails) {
-    const idx = examMasterDetails.findIndex((d) => d === row)
+    const idx = examMasterDetails.indexOf(row)
     if (idx === -1) return
     setFormState({
       regulationId: String(row.regulationId ?? ''),
@@ -242,7 +218,7 @@ function ExamMasterDetailsInner() {
   }
 
   function handleDelete(row: ExamMasterDetails) {
-    const idx = examMasterDetails.findIndex((d) => d === row)
+    const idx = examMasterDetails.indexOf(row)
     if (idx === -1) return
     setExamMasterDetails((prev) => {
       const updated = [...prev]
@@ -271,18 +247,29 @@ function ExamMasterDetailsInner() {
 
   return (
     <PageContainer className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" onClick={() => router.back()}>
-          <ArrowLeft />
-          Back
-        </Button>
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Exam Master Details</h1>
-          <p className="text-sm text-slate-500">
-            {exam.examName} &mdash; {exam.examMonthYr}
-          </p>
+      <div className="app-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-200 bg-slate-50/60">
+          <div>
+            <h1 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Exam Master Details</h1>
+            <p className="text-[12px] text-slate-500">
+              {exam.examName} &mdash; {exam.examMonthYr}
+            </p>
+          </div>
         </div>
       </div>
+
+      {toast && (
+        <Alert
+          type={toast.type}
+          title={toast.message}
+          showIcon
+          action={(
+            <Button type="button" size="sm" variant="outline" className="h-7 text-[12px]" onClick={() => setToast(null)}>
+              Close
+            </Button>
+          )}
+        />
+      )}
 
       {examFeeTypes.length === 0 ? (
         <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -299,28 +286,27 @@ function ExamMasterDetailsInner() {
             clearForm()
           }}
         >
-          <TabsList>
-            {examFeeTypes.map((t) => (
-              <TabsTrigger key={t.generalDetailId} value={String(t.generalDetailId)}>
-                {t.generalDetailCode}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
           {examFeeTypes.map((t) => (
             <TabsContent key={t.generalDetailId} value={String(t.generalDetailId)}>
-              <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
-                <h3 className="font-semibold text-sm text-slate-700">{isEditing ? 'Edit Exam Label' : 'Add Exam Label'}</h3>
+              <div className="app-card p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-[14px] text-[hsl(var(--card-title))]">{isEditing ? 'Edit Exam Label' : 'Add Exam Label'}</h3>
+                  <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-700">
+                    {t.generalDetailCode}
+                  </span>
+                </div>
+                <hr className="border-slate-200" />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-600">
+                    <label htmlFor="regulationId" className="text-xs font-medium text-slate-600">
                       Regulation <span className="text-red-500">*</span>
                     </label>
                     <select
+                      id="regulationId"
                       value={formState.regulationId}
                       onChange={(e) => setFormState((s) => ({ ...s, regulationId: e.target.value }))}
-                      className={`w-full rounded-md border px-3 py-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-ring ${
+                      className={`h-8 w-full rounded-md border px-2.5 text-[12px] bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-ring ${
                         formErrors.regulationId ? 'border-red-400' : 'border-slate-200'
                       }`}
                     >
@@ -335,13 +321,14 @@ function ExamMasterDetailsInner() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-600">
+                    <label htmlFor="courseGroupId" className="text-xs font-medium text-slate-600">
                       Course Group <span className="text-red-500">*</span>
                     </label>
                     <select
+                      id="courseGroupId"
                       value={formState.courseGroupId}
                       onChange={(e) => setFormState((s) => ({ ...s, courseGroupId: e.target.value }))}
-                      className={`w-full rounded-md border px-3 py-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-ring ${
+                      className={`h-8 w-full rounded-md border px-2.5 text-[12px] bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-ring ${
                         formErrors.courseGroupId ? 'border-red-400' : 'border-slate-200'
                       }`}
                     >
@@ -356,13 +343,14 @@ function ExamMasterDetailsInner() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-600">
+                    <label htmlFor="courseYearId" className="text-xs font-medium text-slate-600">
                       Course Year <span className="text-red-500">*</span>
                     </label>
                     <select
+                      id="courseYearId"
                       value={formState.courseYearId}
                       onChange={(e) => setFormState((s) => ({ ...s, courseYearId: e.target.value }))}
-                      className={`w-full rounded-md border px-3 py-2 text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-ring ${
+                      className={`h-8 w-full rounded-md border px-2.5 text-[12px] bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-ring ${
                         formErrors.courseYearId ? 'border-red-400' : 'border-slate-200'
                       }`}
                     >
@@ -377,58 +365,60 @@ function ExamMasterDetailsInner() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-600">
+                    <label htmlFor="examLabel" className="text-xs font-medium text-slate-600">
                       Exam Label <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="examLabel"
                       type="text"
                       value={formState.examLabel}
                       onChange={(e) => setFormState((s) => ({ ...s, examLabel: e.target.value }))}
                       placeholder="Enter exam label"
-                      className={`w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring ${
+                      className={`h-8 w-full rounded-md border px-2.5 text-[12px] shadow-sm focus:outline-none focus:ring-2 focus:ring-ring ${
                         formErrors.examLabel ? 'border-red-400' : 'border-slate-200'
                       }`}
                     />
                     {formErrors.examLabel && <p className="text-xs text-red-500">{formErrors.examLabel}</p>}
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="isBridgeCourse"
-                    checked={formState.isBridgeCourse}
-                    onCheckedChange={(v) => setFormState((s) => ({ ...s, isBridgeCourse: !!v }))}
-                  />
-                  <label htmlFor="isBridgeCourse" className="text-sm text-slate-700 cursor-pointer">
-                    Is Bridge Course
-                  </label>
+                  <div className="space-y-1 flex flex-col justify-end">
+                    <p className="text-xs font-medium text-slate-600">Bridge Course&nbsp;</p>
+                    <label htmlFor="isBridgeCourse" className="h-8 inline-flex items-center gap-2 rounded-md border border-slate-200 px-2.5 text-[12px] text-slate-700 cursor-pointer whitespace-nowrap">
+                      <Checkbox
+                        id="isBridgeCourse"
+                        checked={formState.isBridgeCourse}
+                        onCheckedChange={(v) => setFormState((s) => ({ ...s, isBridgeCourse: !!v }))}
+                      />
+                      Is Bridge Course
+                    </label>
+                  </div>
                 </div>
 
                 <div className="flex gap-2">
                   {isEditing ? (
                     <>
-                      <Button onClick={handleUpdate}>Update</Button>
-                      <Button variant="outline" onClick={clearForm}>
+                      <Button className="h-8 text-[12px]" onClick={handleUpdate}>Update</Button>
+                      <Button variant="outline" className="h-8 text-[12px]" onClick={clearForm}>
                         Cancel
                       </Button>
                     </>
                   ) : (
-                    <Button onClick={handleAdd}>Add</Button>
+                    <Button className="h-8 text-[12px]" onClick={handleAdd}>Add</Button>
                   )}
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white overflow-hidden mt-4">
-                <table className="w-full text-sm">
+              <div className="app-card overflow-hidden mt-4">
+                <table className="w-full text-[11px]">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">SI.No</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Regulation</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Course Group</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Course Year</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Exam Label</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Bridge Course</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Actions</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-black uppercase">SI.No</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-black uppercase">Regulation</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-black uppercase">Course Group</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-black uppercase">Course Year</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-black uppercase">Exam Label</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-black uppercase">Bridge Course</th>
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-black uppercase">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -443,25 +433,25 @@ function ExamMasterDetailsInner() {
                       </tr>
                     ) : (
                       filteredDetails.map((row, i) => (
-                        <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3">{i + 1}</td>
-                          <td className="px-4 py-3">{row.regulationCode || row.regulationId}</td>
-                          <td className="px-4 py-3">{row.courseGroupCode || row.courseGroupId}</td>
-                          <td className="px-4 py-3">{row.courseYearName || row.courseYearId}</td>
-                          <td className="px-4 py-3">{row.examLabel}</td>
-                          <td className="px-4 py-3">{row.isBridgeCourse ? 'Yes' : 'No'}</td>
-                          <td className="px-4 py-3">
+                        <tr key={`${row.examMasterDetailsId ?? 'new'}-${row.regulationId ?? ''}-${row.courseGroupId ?? ''}-${row.courseYearId ?? ''}-${i}`} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-2.5">{i + 1}</td>
+                          <td className="px-4 py-2.5">{row.regulationCode || row.regulationId}</td>
+                          <td className="px-4 py-2.5">{row.courseGroupCode || row.courseGroupId}</td>
+                          <td className="px-4 py-2.5">{row.courseYearName || row.courseYearId}</td>
+                          <td className="px-4 py-2.5">{row.examLabel}</td>
+                          <td className="px-4 py-2.5">{row.isBridgeCourse ? 'Yes' : 'No'}</td>
+                          <td className="px-4 py-2.5">
                             <div className="flex items-center gap-1">
-                              <Button size="sm" variant="ghost" onClick={() => handleEdit(row)}>
-                                Edit
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEdit(row)}>
+                                <Pencil className="h-3.5 w-3.5" />
                               </Button>
                               <Button
-                                size="sm"
+                                size="icon"
                                 variant="ghost"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
                                 onClick={() => handleDelete(row)}
                               >
-                                Delete
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </td>
@@ -476,13 +466,15 @@ function ExamMasterDetailsInner() {
         </Tabs>
       )}
 
-      <div className="flex justify-end">
-        <Button onClick={handleSubmit} disabled={saving}>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" className="h-8 text-[12px]" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back
+        </Button>
+        <Button className="h-8 text-[12px]" onClick={handleSubmit} disabled={saving}>
           {saving ? 'Saving...' : 'Save All'}
         </Button>
       </div>
-
-      {toast && <ToastNotification message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </PageContainer>
   )
 }

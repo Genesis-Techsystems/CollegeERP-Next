@@ -634,21 +634,32 @@ export async function listEvaluationModerationData(params: {
     in_academic_year_id: params.academicYearId,
     in_loginuser_empid: params.employeeId || 0,
   }
-  const evaluatorData = await getAllRecords<{ result: AnyRow[][] }>('s_get_examevaluation_bycodes', {
-    in_flag: 'list_evaluatorassignment_list',
-    ...common,
-    in_evaluator_role_id: 64,
-  })
-  const studentData = await getAllRecords<{ result: AnyRow[][] }>('s_get_examevaluation_bycodes', {
-    in_flag: 'list_evaluationstudent_list',
-    ...common,
-    in_evaluator_role_id: 0,
-  })
+  const toResultGroups = async (
+    flag: 'list_evaluatorassignment_list' | 'list_evaluationstudent_list',
+    evaluatorRoleId: number,
+  ): Promise<AnyRow[][]> => {
+    try {
+      const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_examevaluation_bycodes', {
+        in_flag: flag,
+        ...common,
+        in_evaluator_role_id: evaluatorRoleId,
+      })
+      return data?.result ?? []
+    } catch (error: any) {
+      // "No Records(s) found." is a valid empty-state for this flow.
+      const msg = String(error?.message ?? '')
+      if (msg.toLowerCase().includes('no records')) return []
+      throw error
+    }
+  }
+
+  const evaluatorGroups = await toResultGroups('list_evaluatorassignment_list', 64)
+  const studentGroups = await toResultGroups('list_evaluationstudent_list', 0)
   return {
-    evaluators: evaluatorData?.result?.[0] ?? [],
-    totals: studentData?.result?.[1] ?? [],
-    omrRows: evaluatorData?.result?.[2] ?? [],
-    students: studentData?.result?.[0] ?? [],
+    evaluators: evaluatorGroups[0] ?? [],
+    totals: studentGroups[1] ?? [],
+    omrRows: evaluatorGroups[2] ?? [],
+    students: studentGroups[0] ?? [],
   }
 }
 
@@ -669,6 +680,150 @@ export async function assignModerationEvaluation(params: {
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
   })
+}
+
+export async function getChiefEvaluationFilters(employeeId: number): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
+    in_flag: 'univ_exam_inep_filters',
+    in_flag_type: 'CHIEF_EVAL',
+    in_university_id: 0,
+    in_college_id: 0,
+    in_course_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_exam_id: 0,
+    in_academic_year_id: 0,
+    in_regulation_id: 0,
+    in_subject_id: 0,
+    in_loginuser_empid: employeeId || 0,
+    in_loginuser_roleid: 0,
+    in_sub_flag_type: 'ALL',
+    in_param1: 0,
+    in_param2: 'REGSUP',
+  }).catch(() => ({ result: [] }))
+  const groups = data?.result ?? []
+  return groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_inep_filters') ?? []
+}
+
+export async function getChiefEvaluationSubjectFilters(params: {
+  courseId: number
+  examId: number
+  academicYearId: number
+  employeeId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
+    in_flag: 'univ_exam_subject_inep',
+    in_flag_type: 'CHIEF_EVAL',
+    in_university_id: 0,
+    in_college_id: 0,
+    in_course_id: params.courseId,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_exam_id: params.examId,
+    in_academic_year_id: params.academicYearId,
+    in_regulation_id: 0,
+    in_subject_id: 0,
+    in_loginuser_empid: params.employeeId || 0,
+    in_loginuser_roleid: 0,
+    in_sub_flag_type: 'NoLAB',
+    in_param1: 0,
+    in_param2: 0,
+  }).catch(() => ({ result: [] }))
+  const groups = data?.result ?? []
+  return groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_sub_inep') ?? []
+}
+
+export async function listChiefEvaluationRows(params: {
+  employeeId: number
+  organizationId: number
+  examId: number
+  courseId: number
+  academicYearId: number
+  courseYearId: number
+  regulationId: number
+  subjectId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_examevaluation_bycodes', {
+    in_flag: 'list_evaluationApprovalstudent_list',
+    in_orgid: params.organizationId || 1,
+    in_fdate: '1990-01-01',
+    in_tdate: '1990-01-01',
+    in_evalutor_profileid: 0,
+    in_exam_date: '1990-01-01',
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: 0,
+    in_academic_year: '',
+    in_exam_short_name: '',
+    in_affiliatedto_catdet_id: 0,
+    in_exam_id: params.examId,
+    in_course_year_id: params.courseYearId,
+    in_subject_id: params.subjectId,
+    in_regulation_id: params.regulationId,
+    in_course_id: params.courseId,
+    in_academic_year_id: params.academicYearId,
+    in_loginuser_empid: params.employeeId || 0,
+  }).catch(() => ({ result: [] }))
+  return (data?.result?.[0] ?? []).filter(Boolean)
+}
+
+export async function getChiefEvaluatorDetails(params: {
+  employeeId: number
+  organizationId: number
+  examId: number
+  courseId: number
+  academicYearId: number
+  courseYearId: number
+  regulationId: number
+  subjectId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_examevaluation_bycodes', {
+    in_flag: 'chief_evaluator_details',
+    in_orgid: params.organizationId || 1,
+    in_fdate: '1990-01-01',
+    in_tdate: '1990-01-01',
+    in_evalutor_profileid: 0,
+    in_exam_date: '1990-01-01',
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: 0,
+    in_academic_year: '',
+    in_exam_short_name: '',
+    in_affiliatedto_catdet_id: 0,
+    in_exam_id: params.examId,
+    in_course_year_id: params.courseYearId,
+    in_subject_id: params.subjectId,
+    in_regulation_id: params.regulationId,
+    in_course_id: params.courseId,
+    in_academic_year_id: params.academicYearId,
+    in_loginuser_empid: params.employeeId || 0,
+  }).catch(() => ({ result: [] }))
+  return (data?.result?.[0] ?? []).filter(Boolean)
+}
+
+export async function assignChiefEvaluation(params: {
+  evaluatorProfileId: number
+  evaluatorProfileDetId: number
+  examEvaluationAssignmentId: number
+  omrSerialNo: string
+}): Promise<AnyRow> {
+  const payload = {
+    in_flag: 'chief_eval_assignment',
+    in_evaluator_profile_id: params.evaluatorProfileId,
+    in_evaluator_profiledet_id: params.evaluatorProfileDetId,
+    in_exam_evaluationassignment_id: params.examEvaluationAssignmentId,
+    in_omr_serial_no: params.omrSerialNo,
+  }
+  const procs = ['s_pop_exam_chief_eval_assignment', 's_pop_exam_chiefeval_assign']
+  let lastError: unknown = null
+  for (const proc of procs) {
+    try {
+      return await getAllRecords<AnyRow>(proc, payload)
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Failed to assign chief evaluation.')
 }
 
 export async function getAssignSubjectsEvaluatorRoles(): Promise<AnyRow[]> {

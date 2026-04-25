@@ -79,7 +79,13 @@ class CrudService {
     const body = (await res.json()) as ApiResponse<unknown> & { resultList?: unknown }
 
     if (!body.success) {
-      throw new AppError('API_ERROR', body.message ?? `Failed to list ${entity}`)
+      const queryPart = query ? ` (query: ${query})` : ''
+      throw new AppError(
+        'API_ERROR',
+        body.message
+          ? `Failed to list ${entity}${queryPart}: ${body.message}`
+          : `Failed to list ${entity}${queryPart}`,
+      )
     }
 
     return domainListRows<T>(body)

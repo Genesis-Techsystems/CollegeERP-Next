@@ -105,7 +105,7 @@ export async function listUnivExamBagsActive(): Promise<AnyRow[]> {
 }
 
 export function pickUnivExamBagId(row: AnyRow): number {
-  return num(row.univExamBagId ?? row.univ_exam_bag_id)
+  return num(row.univExamBagId ?? row.univExamBagsId ?? row.univ_exam_bag_id)
 }
 
 export async function listUnivExamBagsByCenterAndTimetable(
@@ -140,7 +140,17 @@ export async function createUnivExamBag(payload: Record<string, unknown>): Promi
 }
 
 export async function updateUnivExamBag(univExamBagId: number, payload: Record<string, unknown>): Promise<AnyRow> {
-  return domainUpdate<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_BAGS, 'univExamBagId', univExamBagId, payload)
+  const pks = ['univExamBagId', 'univExamBagsId'] as const
+  let lastErr: unknown
+  for (const pk of pks) {
+    try {
+      return await domainUpdate<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_BAGS, pk, univExamBagId, payload)
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  if (lastErr instanceof Error) throw lastErr
+  throw new AppError('API_ERROR', 'Failed to update exam bag')
 }
 
 export async function createUnivExamBundle(payload: Record<string, unknown>): Promise<AnyRow> {

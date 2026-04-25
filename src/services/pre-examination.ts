@@ -186,7 +186,13 @@ export async function listStudents(q: string): Promise<AnyRow[]> {
   } catch {
     // fallback below
   }
-  return domainList<AnyRow>('Student', buildQuery({ isActive: true, firstName: term }))
+  // Domain fallback in some environments uses StudentProfile (not Student).
+  // Keep this best-effort and never throw from search.
+  try {
+    return await domainList<AnyRow>('StudentProfile', buildQuery({ isActive: true, firstName: term }))
+  } catch {
+    return []
+  }
 }
 
 export async function getExamHalltickets(params: {

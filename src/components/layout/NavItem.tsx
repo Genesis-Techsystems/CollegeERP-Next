@@ -808,6 +808,79 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
     if (labelLower.includes('student subjects') || labelLower.includes('student subject')) {
       return '/admin-student-information-system/student-subjects'
     }
+    if (labelLower === 'college' || labelLower === 'colleges') {
+      return '/admin/colleges'
+    }
+    if (labelLower.includes('academic year')) {
+      return '/admin/academic-years'
+    }
+    if (labelLower.includes('financial year')) {
+      return '/admin/financial-years'
+    }
+    if (
+      (labelLower.includes('college courses') && labelLower.includes('group'))
+      || (labelLower.includes('college subject') && labelLower.includes('group'))
+    ) {
+      return '/admin/college-courses-groups'
+    }
+    if (
+      labelLower.includes('subject type')
+      || labelLower.includes('subjects type')
+      || labelLower.includes('subject types')
+      || labelLower.includes('course type')
+    ) {
+      return '/admin/course-types'
+    }
+    if (labelLower === 'subjects' || labelLower === 'subject' || labelLower === 'course') {
+      return '/admin/courses'
+    }
+    if (labelLower.includes('subject group') || labelLower.includes('course group')) {
+      return '/admin/course-groups'
+    }
+    if (labelLower.includes('semister') || labelLower.includes('semester') || labelLower.includes('course year')) {
+      return '/admin/course-years'
+    }
+    if (labelLower === 'sections' || labelLower === 'section') {
+      return '/admin/group-sections'
+    }
+    if (labelLower.includes('student batch')) {
+      return '/admin/student-batches'
+    }
+    if (labelLower === 'batches' || labelLower === 'batch') {
+      return '/admin/batches'
+    }
+    if (labelLower === 'building' || labelLower === 'buildings') {
+      return '/admin/buildings'
+    }
+    if (
+      labelLower === 'block' ||
+      labelLower === 'blocks' ||
+      labelLower.includes(' block ') ||
+      labelLower.startsWith('block ') ||
+      labelLower.endsWith(' block') ||
+      labelLower.startsWith('blocks ') ||
+      labelLower.endsWith(' blocks')
+    ) {
+      return '/admin/blocks'
+    }
+    if (labelLower === 'floor' || labelLower === 'floors') {
+      return '/admin/floors'
+    }
+    if (labelLower.includes('room details') || labelLower === 'room detail') {
+      return '/admin/room-details'
+    }
+    if (labelLower === 'room' || labelLower === 'rooms') {
+      return '/admin/rooms'
+    }
+    if (labelLower.includes('room type') || labelLower === 'room types') {
+      return '/admin/room-types'
+    }
+    if (labelLower === 'general setting' || labelLower === 'general settings') {
+      return '/admin/general-settings'
+    }
+    if (labelLower.includes('digital online sync')) {
+      return '/admin/digital-online-sync'
+    }
     if (
       labelLower.includes('student co-curriculum activit') ||
       labelLower.includes('student co curricular activit') ||

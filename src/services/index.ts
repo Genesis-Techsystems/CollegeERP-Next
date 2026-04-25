@@ -3,6 +3,26 @@ export * from './crud'
 export * from './auth'
 export * from './admin/organization'
 export * from './admin/campus'
+export * from './admin/academic-year'
+export * from './admin/financial-year'
+export * from './admin/college-courses-groups'
+export * from './admin/course-type'
+export * from './admin/course'
+export * from './admin/course-group'
+export * from './admin/course-year'
+export * from './admin/group-section'
+export * from './admin/batch'
+export * from './admin/student-batch'
+export * from './admin/university'
+export * from './admin/college'
+export * from './admin/building'
+export * from './admin/block'
+export * from './admin/floor'
+export * from './admin/room-detail'
+export * from './admin/room-type'
+export * from './admin/room'
+export * from './admin/general-setting'
+export * from './admin/digital-online-sync'
 export * from './admin/question-bank'
 export * from './evaluation'
 export * from './evaluation-process'
@@ -24,6 +44,7 @@ export {
   updateExamMasterSvc,
   uploadExamNotificationFiles,
   listExamFeeStructures,
+  getExamFeeStructure,
   createExamFeeStructure,
   updateExamFeeStructure,
   listGeneralDetailsByMaster,

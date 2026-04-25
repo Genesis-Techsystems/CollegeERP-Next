@@ -201,6 +201,39 @@ function formatRoomCode(value?: string) {
 		.join(' / ')
 }
 
+function mapAllocationRows(rows: any[]): AllocationRow[] {
+	const out = new Map<string, AllocationRow>()
+	let seq = 1
+	for (const r of rows ?? []) {
+		const examDate = String(r.examDate ?? r.exam_date ?? '')
+		const session = String(
+			r.examSessionName ??
+			r.examsessioninCatCode ??
+			r.exam_session_name ??
+			r.session ??
+			'',
+		)
+		const roomCode = [r.buildingCode, r.blockCode, r.floorName, r.roomCode ?? r.room_code ?? r.room ?? r.block_room]
+			.filter(Boolean)
+			.join(' / ') || '-'
+		const allotmentId = Number(r.examRoomAllotmentId ?? r.exam_room_allotment_id ?? r.id ?? 0)
+		const key = allotmentId > 0 ? `id:${allotmentId}` : `${toDateStr(examDate)}|${session}|${roomCode}`
+		if (out.has(key)) continue
+		out.set(key, {
+			sl: seq++,
+			examDate,
+			session,
+			roomCode,
+			bookedSeats: Number(r.bookedSeats ?? r.booked_seats ?? r.noOfSeats ?? r.no_of_seats ?? 0),
+			blockedSeats: Number(r.blockedSeats ?? r.blocked_seats ?? 0),
+			availableSeats: Number(r.availableSeats ?? r.available_seats ?? r.roomCapacity ?? r.capacity ?? 0),
+			isActive: r.isActive ?? true,
+			raw: r,
+		})
+	}
+	return Array.from(out.values())
+}
+
 async function fetchRoomwiseOmrStudents(params: {
 	examId: number
 	courseId: number
@@ -529,45 +562,27 @@ export default function SeatingPlanSetupPage() {
 				setPreviewRows([])
 				return
 			}
-			const selectedExamDate = toDateStr(selectedTimetable?.examDate)
-			const selectedSessionId =
-				Number(
-					selectedTimetable?.sessionId ??
-					0
-				) || 0
-
-			let rows = await fetchRoomwiseOmrStudents({
-				examId: selectedExamId,
-				courseId: selectedCourseId,
-				examDate: selectedExamDate,
-				sessionId: selectedSessionId,
-			}).catch(() => [])
-
-			// Fallback to domain query if legacy SP has no data for the chosen date/session.
-			if (!Array.isArray(rows) || rows.length === 0) {
-				rows = await listExamRoomAllotmentsPre(selectedCollegeId, selectedExamId, selectedExamTimetableId).catch(() => [])
-			}
+			// Angular parity: prefer ExamRoomAllotment rows first (already aggregated per room).
+			let rows = await listExamRoomAllotmentsPre(selectedCollegeId, selectedExamId, selectedExamTimetableId).catch(() => [])
 			if (!Array.isArray(rows) || rows.length === 0) {
 				rows = await listExamRoomAllotmentsDomain(selectedExamId, selectedExamTimetableId).catch(() => [])
+			}
+			// Last fallback only when allotments are absent: student-level SP rows.
+			if (!Array.isArray(rows) || rows.length === 0) {
+				const selectedExamDate = toDateStr(selectedTimetable?.examDate)
+				const selectedSessionId = Number(selectedTimetable?.sessionId ?? 0) || 0
+				rows = await fetchRoomwiseOmrStudents({
+					examId: selectedExamId,
+					courseId: selectedCourseId,
+					examDate: selectedExamDate,
+					sessionId: selectedSessionId,
+				}).catch(() => [])
 			}
 			if (!Array.isArray(rows) || rows.length === 0) {
 				setPreviewRows([])
 				return
 			}
-			const mapped: AllocationRow[] = rows.map((r: any, i: number) => ({
-				sl: i + 1,
-				examDate: String(r.examDate ?? r.exam_date ?? ''),
-				session: String(r.examSessionName ?? r.examsessioninCatCode ?? r.exam_session_name ?? ''),
-				roomCode: [r.buildingCode, r.blockCode, r.floorName, r.roomCode ?? r.room_code ?? r.room ?? r.block_room]
-					.filter(Boolean)
-					.join(' / ') || '-',
-				bookedSeats: Number(r.bookedSeats ?? r.booked_seats ?? r.noOfSeats ?? 0),
-				blockedSeats: Number(r.blockedSeats ?? r.blocked_seats ?? 0),
-				availableSeats: Number(r.availableSeats ?? r.available_seats ?? 0),
-				isActive: r.isActive ?? true,
-				raw: r,
-			}))
-			setPreviewRows(mapped)
+			setPreviewRows(mapAllocationRows(rows))
 		}
 		loadRoomAllotmentsBySelection()
 	}, [selectedCollegeId, selectedCourseId, selectedExamId, selectedExamTimetableId, selectedTimetable])
@@ -575,20 +590,7 @@ export default function SeatingPlanSetupPage() {
 	async function handleCopyExistingSeating() {
 		if (!selectedExamId || !selectedExamTimetableId) return
 		const rows = await listExamRoomAllotmentsPre(selectedCollegeId ?? 0, selectedExamId, selectedExamTimetableId).catch(() => [])
-		const mapped: AllocationRow[] = (rows ?? []).map((r: any, i: number) => ({
-			sl: i + 1,
-			examDate: String(r.examDate ?? ''),
-			session: String(r.examSessionName ?? ''),
-			roomCode: [r.buildingCode, r.blockCode, r.floorName, r.roomCode ?? r.room ?? r.block_room]
-				.filter(Boolean)
-				.join(' / ') || '-',
-			bookedSeats: Number(r.bookedSeats ?? r.booked_seats ?? r.noOfSeats ?? 0),
-			blockedSeats: Number(r.blockedSeats ?? r.blocked_seats ?? 0),
-			availableSeats: Number(r.availableSeats ?? r.available_seats ?? 0),
-			isActive: r.isActive ?? true,
-			raw: r,
-		}))
-		setPreviewRows(mapped)
+		setPreviewRows(mapAllocationRows(rows ?? []))
 	}
 
 	async function handleAssignSeating() {
@@ -777,10 +779,10 @@ export default function SeatingPlanSetupPage() {
 
 	return (
 		<PageContainer className="space-y-5">
-			<PageHeader title="Seating Plan Setup" subtitle="Allocate exam room seating" />
+			<PageHeader title="Exam Room Seating Plan" subtitle="Allocate exam room seating" />
 			<div className="app-card overflow-hidden">
 				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-					<h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Seating Plan Setup</h2>
+					<h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Room Seating Plan</h2>
 					<Button
 						type="button"
 						variant="outline"

@@ -1,5 +1,6 @@
 'use client'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Alert } from 'antd'
 import { useSessionContext } from '@/context/SessionContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +15,7 @@ import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Pencil } from 'lucide-react'
 import { createExamGrade, getCollegeFilters, listExamGrades, listRegulations, updateExamGrade } from '@/services/examination'
+import { getErrorMessage } from '@/lib/errors'
 
 // ── Pure renderers ────────────────────────────────────────────────────────────
 function statusRenderer(p: ICellRendererParams) {
@@ -51,6 +53,7 @@ export default function GradeSetupPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
   const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [form, setForm] = useState({
     gradeCode: '',
     gradeName: '',
@@ -61,6 +64,7 @@ export default function GradeSetupPage() {
     creditPoints: '',
     description: '',
     isActive: true,
+    reason: 'active',
   })
 
   useEffect(() => {
@@ -136,6 +140,7 @@ export default function GradeSetupPage() {
   }
 
   const openAdd = useCallback(() => {
+    setNotice(null)
     setEditing(null)
     setForm({
       gradeCode: '',
@@ -147,22 +152,25 @@ export default function GradeSetupPage() {
       creditPoints: '',
       description: '',
       isActive: true,
+      reason: 'active',
     })
     setModalOpen(true)
   }, [])
 
   const openEdit = useCallback((row: any) => {
+    setNotice(null)
     setEditing(row)
     setForm({
       gradeCode: row?.gradeCode ?? '',
       gradeName: row?.gradeName ?? '',
       minPoints: String(row?.minPoints ?? row?.fromPoints ?? row?.minGradePoint ?? ''),
       maxPoints: String(row?.maxPoints ?? row?.toPoints ?? row?.maxGradePoint ?? ''),
-      fromPercentage: String(row?.fromPercentage ?? row?.minPercentage ?? ''),
-      toPercentage: String(row?.toPercentage ?? row?.maxPercentage ?? ''),
+      fromPercentage: String(row?.fromPercentage ?? row?.minPercentage ?? row?.minScorePercent ?? ''),
+      toPercentage: String(row?.toPercentage ?? row?.maxPercentage ?? row?.maxScorePercent ?? ''),
       creditPoints: String(row?.creditPoints ?? row?.gradePoint ?? ''),
-      description: String(row?.description ?? row?.remarks ?? row?.gradeDesc ?? ''),
+      description: String(row?.description ?? row?.remarks ?? row?.gradeDesc ?? ' '),
       isActive: row?.isActive !== undefined ? !!row.isActive : true,
+      reason: String(row?.reason ?? (row?.isActive === false ? '' : 'active')),
     })
     setModalOpen(true)
   }, [])
@@ -178,39 +186,39 @@ export default function GradeSetupPage() {
     if (!selectedCourseId || !selectedRegulationId) return
 
     setSaving(true)
+    setNotice(null)
     try {
       const payload: Record<string, unknown> = {
-        // Always include these common fields
         gradeCode: form.gradeCode,
         gradeName: form.gradeName,
         isActive: form.isActive,
-        disabled: isForDisabled,
-        description: form.description,
-
-        // Common numeric ranges (backend field names can vary; include both)
+        reason: form.isActive ? 'active' : (form.reason?.trim() || null),
+        description: form.description?.trim() ? form.description : ' ',
         minPoints: form.minPoints === '' ? null : Number(form.minPoints),
         maxPoints: form.maxPoints === '' ? null : Number(form.maxPoints),
-        fromPercentage: form.fromPercentage === '' ? null : Number(form.fromPercentage),
-        toPercentage: form.toPercentage === '' ? null : Number(form.toPercentage),
+        minScorePercent: form.fromPercentage === '' ? null : Number(form.fromPercentage),
+        maxScorePercent: form.toPercentage === '' ? null : Number(form.toPercentage),
         creditPoints: form.creditPoints === '' ? null : Number(form.creditPoints),
-
-        // Some installs use `gradePoint` instead of `creditPoints`
-        gradePoint: form.creditPoints === '' ? null : Number(form.creditPoints),
-
-        // Relationship hints (different Spring mappings exist; harmless if ignored)
-        courseId: selectedCourseId,
-        regulationId: selectedRegulationId,
       }
 
       const id = editing?.examGradesId ?? editing?.examGradeId ?? editing?.id
       if (id != null) {
-        await updateExamGrade(Number(id), payload)
+        await updateExamGrade(Number(id), { ...payload, examGradesId: Number(id) })
       } else {
-        await createExamGrade(payload)
+        await createExamGrade({
+          ...payload,
+          universityId: selectedUniversityId,
+          courseId: selectedCourseId,
+          regulationId: selectedRegulationId,
+          isForDisabled,
+        })
       }
 
+      setNotice({ type: 'success', message: `Exam grade ${id != null ? 'updated' : 'created'} successfully.` })
       closeModal()
       await handleGetList()
+    } catch (error: unknown) {
+      setNotice({ type: 'error', message: getErrorMessage(error) })
     } finally {
       setSaving(false)
     }
@@ -253,8 +261,8 @@ export default function GradeSetupPage() {
       minWidth: 150,
       valueGetter: (p) => {
         const d = p.data ?? {}
-        const min = d.fromPercentage ?? d.minPercentage
-        const max = d.toPercentage ?? d.maxPercentage
+        const min = d.fromPercentage ?? d.minPercentage ?? d.minScorePercent
+        const max = d.toPercentage ?? d.maxPercentage ?? d.maxScorePercent
         if (min == null && max == null) return '—'
         const left = min != null ? String(min) : ''
         const right = max != null ? String(max) : ''
@@ -302,6 +310,18 @@ export default function GradeSetupPage() {
 	return (
 		<PageContainer className="space-y-5">
       <PageHeader title="Grade Setup" subtitle="Configure examination grade bands" />
+      {notice && (
+        <Alert
+          type={notice.type}
+          title={notice.message}
+          showIcon
+          action={(
+            <Button type="button" size="sm" variant="outline" className="h-7 text-[12px]" onClick={() => setNotice(null)}>
+              Close
+            </Button>
+          )}
+        />
+      )}
       <CollegeFilterPanel
         title="Exam Grades"
         collapsible

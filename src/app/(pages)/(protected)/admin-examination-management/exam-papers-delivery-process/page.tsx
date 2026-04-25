@@ -25,6 +25,7 @@ const PAGES: { slug: string; label: string }[] = [
   { slug: 'exam-center-courses', label: 'Exam center courses' },
   { slug: 'exam-center-subjects', label: 'Exam center subjects' },
   { slug: 'exam-center-barcodes', label: 'Exam center barcodes' },
+  { slug: 'exam-seatno-barcodes', label: 'Exam seatno barcodes' },
   { slug: 'buildings', label: 'Exam center buildings' },
   { slug: 'blocks', label: 'Exam center blocks' },
   { slug: 'floors', label: 'Exam center floors' },

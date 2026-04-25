@@ -49,6 +49,8 @@ export default function RevisionMasterPage() {
   const [isActive, setIsActive] = useState(true)
   const [reason, setReason] = useState('active')
   const [filterOpen, setFilterOpen] = useState(true)
+  const [saveError, setSaveError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     async function loadBase() {
@@ -108,6 +110,7 @@ export default function RevisionMasterPage() {
 
   function openAdd() {
     setEditing(null)
+    setSaveError('')
     setExamRevisionTypeId(revisionTypes[0]?.generalDetailId ?? null)
     const today = toDateOnlyISO(new Date())
     setFromDate(today)
@@ -119,6 +122,7 @@ export default function RevisionMasterPage() {
   }
 
   function openEdit(row: any) {
+    setSaveError('')
     setEditing(row)
     setExamRevisionTypeId(Number(row.examRevisionTypeId ?? null))
     setFromDate(toDateStr(row.fromDate))
@@ -130,14 +134,17 @@ export default function RevisionMasterPage() {
   }
 
   async function save() {
+    setSaveError('')
     if (!collegeId || !courseId || !examRevisionTypeId || !fromDate || !toDate) return
     if (fromDate > toDate) {
-      alert('From Date should be <= To Date')
+      setSaveError('From Date should be less than or equal to To Date.')
       return
     }
+    setIsSaving(true)
     const payload = {
-      college: { collegeId },
-      course: { courseId },
+      // Backend persists relation reliably when flat ids are present.
+      collegeId,
+      courseId,
       examRevisionTypeId,
       fromDate,
       toDate,
@@ -145,15 +152,21 @@ export default function RevisionMasterPage() {
       isActive,
       reason,
     }
-    if (editing?.revisionMasterId) {
-      const updatePayload = { ...payload, createdDt: editing.createdDt }
-      await updateRevisionMaster(Number(editing.revisionMasterId), updatePayload).catch(() => null)
-    } else {
-      await createRevisionMaster(payload).catch(() => null)
+    try {
+      if (editing?.revisionMasterId) {
+        const updatePayload = { ...payload, createdDt: editing.createdDt }
+        await updateRevisionMaster(Number(editing.revisionMasterId), updatePayload)
+      } else {
+        await createRevisionMaster(payload)
+      }
+      setOpen(false)
+      const list = await listRevisionMastersByCourse(courseId).catch(() => [])
+      setRows(Array.isArray(list) ? list : [])
+    } catch (err: any) {
+      setSaveError(err?.message || 'Unable to process your request at this time, please try again!')
+    } finally {
+      setIsSaving(false)
     }
-    setOpen(false)
-    const list = await listRevisionMastersByCourse(courseId).catch(() => [])
-    setRows(Array.isArray(list) ? list : [])
   }
 
   return (
@@ -302,8 +315,9 @@ export default function RevisionMasterPage() {
             )}
           </div>
           <DialogFooter>
+            {saveError ? <p className="mr-auto text-[12px] text-red-600">{saveError}</p> : null}
             <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
-            <Button onClick={save}>Save</Button>
+            <Button onClick={save} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

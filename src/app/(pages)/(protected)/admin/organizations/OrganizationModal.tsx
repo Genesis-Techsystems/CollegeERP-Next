@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogFooter,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -263,24 +262,24 @@ export default function OrganizationModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Organization' : 'Add Organization'}</DialogTitle>
-          <DialogDescription>
-            {isEditing ? 'Update the organization details below.' : 'Fill in the details to create a new organization.'}
-          </DialogDescription>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto pt-3">
+        <DialogHeader className="space-y-0 pr-8 pt-0">
+          <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
+            {isEditing ? 'Edit Organization' : 'Add Organization'}
+          </DialogTitle>
+          <div className="-mx-6 mt-2 border-b border-slate-200" />
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 py-2">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
 
           {/* ── Basic info ─────────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-0.5">
               <Label htmlFor="orgName">Organization Name *</Label>
               <Input id="orgName" {...register('orgName')} placeholder="e.g. ABC University" />
               {errors.orgName && <p className="text-xs text-red-500">{errors.orgName.message}</p>}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label htmlFor="orgCode">Organization Code *</Label>
               <Input id="orgCode" {...register('orgCode')} placeholder="e.g. ABCU" />
               {errors.orgCode && <p className="text-xs text-red-500">{errors.orgCode.message}</p>}
@@ -288,7 +287,7 @@ export default function OrganizationModal({
           </div>
 
           {/* ── Logo upload ────────────────────────────────────────────── */}
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <Label>Logo</Label>
             <div className="flex items-center gap-3">
               <img
@@ -309,15 +308,15 @@ export default function OrganizationModal({
           </div>
 
           {/* ── Address ────────────────────────────────────────────────── */}
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <Label htmlFor="address">Address *</Label>
             <Input id="address" {...register('address')} placeholder="Full address" />
             {errors.address && <p className="text-xs text-red-500">{errors.address.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {/* Country */}
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label>Country</Label>
               <Controller
                 name="countryId"
@@ -346,7 +345,7 @@ export default function OrganizationModal({
             </div>
 
             {/* State */}
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label>State</Label>
               <Controller
                 name="stateId"
@@ -375,7 +374,7 @@ export default function OrganizationModal({
             </div>
 
             {/* District */}
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label>District *</Label>
               <Controller
                 name="districtId"
@@ -404,7 +403,7 @@ export default function OrganizationModal({
             </div>
 
             {/* City */}
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label>City</Label>
               <Controller
                 name="cityId"
@@ -429,13 +428,13 @@ export default function OrganizationModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-0.5">
               <Label htmlFor="mandal">Mandal *</Label>
               <Input id="mandal" {...register('mandal')} placeholder="e.g. Kukatpally" />
               {errors.mandal && <p className="text-xs text-red-500">{errors.mandal.message}</p>}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label htmlFor="pincode">Pincode *</Label>
               <Input id="pincode" {...register('pincode')} placeholder="6-digit pincode" />
               {errors.pincode && <p className="text-xs text-red-500">{errors.pincode.message}</p>}
@@ -443,53 +442,53 @@ export default function OrganizationModal({
           </div>
 
           {/* ── Contact ────────────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-0.5">
               <Label htmlFor="mobileNumber">Mobile No</Label>
               <Input id="mobileNumber" {...register('mobileNumber')} placeholder="10-digit number" />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label htmlFor="landlineNumber">Landline No</Label>
               <Input id="landlineNumber" {...register('landlineNumber')} placeholder="Landline number" />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" {...register('email')} placeholder="org@example.com" />
               {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label htmlFor="fax">Fax</Label>
               <Input id="fax" {...register('fax')} placeholder="Fax number" />
             </div>
           </div>
 
           {/* ── Social / Web ───────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-0.5">
               <Label htmlFor="googleUrl">Google URL</Label>
               <Input id="googleUrl" {...register('googleUrl')} placeholder="https://..." />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label htmlFor="facebookUrl">Facebook URL</Label>
               <Input id="facebookUrl" {...register('facebookUrl')} placeholder="https://..." />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
               <Input id="linkedinUrl" {...register('linkedinUrl')} placeholder="https://..." />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label htmlFor="url">Website URL</Label>
               <Input id="url" {...register('url')} placeholder="https://..." />
             </div>
           </div>
 
           {/* ── License ────────────────────────────────────────────────── */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-0.5">
               <Label htmlFor="licenseFdate">License From Date</Label>
               <Input id="licenseFdate" type="date" {...register('licenseFdate')} />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label htmlFor="licenseTdate">License To Date</Label>
               <Input
                 id="licenseTdate"
@@ -498,7 +497,7 @@ export default function OrganizationModal({
                 min={licenseFdate || undefined}
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <Label htmlFor="noIssuedLicenses">No. of Licenses</Label>
               <Input id="noIssuedLicenses" type="number" {...register('noIssuedLicenses')} placeholder="e.g. 100" />
             </div>

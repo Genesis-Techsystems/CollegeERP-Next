@@ -149,8 +149,15 @@ export default function CreateExamTimetablePage() {
 		const arr = Array.isArray(yrs) ? yrs : []
 		setCourseYears(arr)
 		if (arr.length > 0) {
-			const first = arr[0].courseYearId ?? arr[0].id ?? null
-			if (first != null) setSelectedCourseYearId(first)
+			if (
+				paramCourseYearId &&
+				arr.some((y: any) => Number(y.courseYearId ?? y.id) === Number(paramCourseYearId))
+			) {
+				setSelectedCourseYearId(paramCourseYearId)
+			} else {
+				const first = arr[0].courseYearId ?? arr[0].id ?? null
+				if (first != null) setSelectedCourseYearId(first)
+			}
 		}
 	}
 
@@ -174,13 +181,13 @@ export default function CreateExamTimetablePage() {
 	}, [selectedCourseId, selectedAcademicYearId])
 
 	useEffect(() => {
-		if (!loadingFilters && courses.length > 0) {
-			if (paramCourseId && courses.some((c: any) => c.fk_course_id === paramCourseId)) {
-				handleCourseChange(paramCourseId, filtersData, academicData)
-			}
+		if (loadingFilters || courses.length === 0 || !paramCourseId) return
+		if (selectedCourseId === paramCourseId) return
+		if (courses.some((c: any) => c.fk_course_id === paramCourseId)) {
+			handleCourseChange(paramCourseId, filtersData, academicData)
 		}
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [loadingFilters])
+	}, [loadingFilters, paramCourseId, courses, selectedCourseId])
 
 	useEffect(() => {
 		if (paramAcademicYearId && academicYears.some((a: any) => a.fk_academic_year_id === paramAcademicYearId)) {
@@ -224,8 +231,12 @@ export default function CreateExamTimetablePage() {
 				}).catch(() => [])
 			}
 			const mapped = (rows ?? []).map((r: any) => {
-				const code = String(r.subject_code ?? r.subjectCode ?? r.code ?? '')
-				const name = String(r.subject_name ?? r.subjectName ?? r.name ?? '')
+				const code = String(
+					r.subject_code ?? r.subjectCode ?? r.subCode ?? r.paperCode ?? r.code ?? ''
+				).trim()
+				const name = String(
+					r.subject_name ?? r.subjectName ?? r.sub_name ?? r.paperName ?? r.name ?? ''
+				).trim()
 				return { code, name }
 			}).filter((x) => x.code)
 			// Deduplicate by code

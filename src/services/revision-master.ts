@@ -32,7 +32,33 @@ export async function listCoursesByUniversity(universityId: number): Promise<Any
 }
 
 export async function listRevisionMastersByCourse(courseId: number): Promise<AnyRow[]> {
-  return listRevisionEntity(buildQuery({ 'course.courseId': courseId, isActive: true }))
+  const queries = [
+    buildQuery({ 'course.courseId': courseId, isActive: true }),
+    buildQuery({ 'Course.courseId': courseId, isActive: true }),
+    buildQuery({ courseId, isActive: true }),
+    buildQuery({ 'course.courseId': courseId }),
+    buildQuery({ 'Course.courseId': courseId }),
+    buildQuery({ courseId }),
+  ]
+
+  for (const q of queries) {
+    const rows = await listRevisionEntity(q).catch(() => [])
+    if (Array.isArray(rows) && rows.length > 0) return rows
+  }
+  // Final fallback: fetch all and filter client-side for backend variants
+  const allRows = await listRevisionEntity().catch(() => [])
+  if (!Array.isArray(allRows) || allRows.length === 0) return []
+  const id = Number(courseId)
+  return allRows.filter((r) => {
+    const rowCourseId = Number(
+      r?.courseId ??
+      r?.fk_course_id ??
+      r?.course?.courseId ??
+      r?.Course?.courseId ??
+      0,
+    )
+    return rowCourseId === id
+  })
 }
 
 export async function listRevisionTypes(): Promise<AnyRow[]> {

@@ -31,10 +31,47 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { ChevronDown, Filter, Pencil, Plus } from 'lucide-react'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
+import { Alert } from 'antd'
+import { getErrorMessage } from '@/lib/errors'
 
 // ── Pure renderer ─────────────────────────────────────────────────────────────
 function statusRenderer(p: ICellRendererParams) {
   return <StatusBadge status={p.data?.isActive ?? false} />
+}
+
+function toYMDOrNull(value: string): string | null {
+  const raw = value.trim()
+  if (!raw) return null
+  const d = new Date(raw)
+  return Number.isNaN(d.getTime()) ? raw : format(d, 'yyyy-MM-dd')
+}
+
+function getSuppleFeeText(row: Record<string, unknown>): string {
+  const asText = (value: unknown): string => {
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value)
+    return ''
+  }
+  const direct = row.suppleFee ?? row.supplyFee
+  const subjectFees = [
+    row.subject1Fee,
+    row.subject2Fee,
+    row.subject3Fee,
+    row.subject4Fee,
+    row.subject5Fee,
+    row.subject6Fee,
+    row.subject7Fee,
+  ]
+  const parts = subjectFees
+    .map((value, idx) => ({ idx: idx + 1, value }))
+    .map((x) => ({ ...x, text: asText(x.value).trim() }))
+    .filter((x) => x.text !== '')
+    .map((x) => `Subject-${x.idx} - ${x.text}`)
+
+  if (parts.length > 0) return parts.join(', ')
+  const directText = asText(direct).trim()
+  if (directText !== '') return directText
+  return '—'
 }
 
 export default function ExamFeeSetupPage() {
@@ -70,6 +107,7 @@ export default function ExamFeeSetupPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
   const [saving, setSaving] = useState(false)
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [form, setForm] = useState({
     examFeeStructureName: '',
     collectionStartDate: '',
@@ -176,16 +214,16 @@ export default function ExamFeeSetupPage() {
   }, [q, rows])
 
   const cols = useMemo<ColDef<any>[]>(() => [
-    { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
-    { field: 'examFeeStructureName', headerName: 'Exam Fee Structure', minWidth: 260 },
+    { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 56, minWidth: 56, flex: 0 },
+    { field: 'examFeeStructureName', headerName: 'Exam Fee Structure', minWidth: 170 },
     {
       headerName: 'Exam Master',
-      minWidth: 260,
+      minWidth: 170,
       valueGetter: (p) => p.data?.examMaster?.examName ?? p.data?.examMasterName ?? p.data?.examName ?? '—',
     },
     {
       headerName: 'Collection Start Date',
-      minWidth: 170,
+      minWidth: 125,
       valueGetter: (p) => {
         const v = p.data?.collectionStartDate ?? p.data?.collectionStartOn ?? p.data?.fromDate
         if (!v) return '—'
@@ -195,7 +233,7 @@ export default function ExamFeeSetupPage() {
     },
     {
       headerName: 'Collection End Date',
-      minWidth: 170,
+      minWidth: 125,
       valueGetter: (p) => {
         const v = p.data?.collectionEndDate ?? p.data?.collectionEndOn ?? p.data?.toDate
         if (!v) return '—'
@@ -205,24 +243,24 @@ export default function ExamFeeSetupPage() {
     },
     {
       headerName: 'Regular Fee',
-      minWidth: 130,
+      minWidth: 90,
       valueGetter: (p) => p.data?.regularFee ?? p.data?.regFee ?? '—',
     },
     {
       headerName: 'Supple Fee',
-      minWidth: 130,
-      valueGetter: (p) => p.data?.suppleFee ?? p.data?.supplyFee ?? '—',
+      minWidth: 90,
+      valueGetter: (p) => getSuppleFeeText((p.data ?? {}) as Record<string, unknown>),
     },
     {
       field: 'isActive',
       headerName: 'Status',
-      width: 90,
+      width: 76,
       flex: 0,
       cellRenderer: statusRenderer,
     },
     {
       headerName: 'Actions',
-      minWidth: 110,
+      minWidth: 80,
       cellRenderer: (p: any) => (
         <Button
           type="button"
@@ -231,7 +269,26 @@ export default function ExamFeeSetupPage() {
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            openEdit(p.data)
+            if (!selectedExamId) return
+            const uni = universities.find((u) => u.fk_university_id === selectedUniversityId)
+            const course = courses.find((c) => c.fk_course_id === selectedCourseId)
+            const ay = academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)
+            const exam = examMasters.find((ex) => (ex.examId ?? ex.id) === selectedExamId)
+            const qp = new URLSearchParams({
+              check: mode === 'college' ? '2' : '1',
+              universityId: String(selectedUniversityId ?? 0),
+              universityCode: String(uni?.university_code ?? ''),
+              courseId: String(selectedCourseId ?? 0),
+              courseName: String(course?.course_code ?? course?.course_name ?? ''),
+              academicYearId: String(selectedAcademicYearId ?? 0),
+              academicYear: String(ay?.academic_year ?? ''),
+              examId: String(selectedExamId ?? 0),
+              examName: String(exam?.examName ?? ''),
+              fromDate: String(exam?.fromDate ?? ''),
+              toDate: String(exam?.toDate ?? ''),
+              examFeeStructureId: String(p.data?.examFeeStructureId ?? p.data?.id ?? 0),
+            })
+            router.push(`/admin-examination-management/admin-exam-masters/exam-fee-setup/create?${qp.toString()}`)
           }}
           disabled={!selectedExamId}
         >
@@ -239,7 +296,7 @@ export default function ExamFeeSetupPage() {
         </Button>
       ),
     },
-  ], [selectedExamId])
+  ], [selectedExamId, universities, selectedUniversityId, courses, selectedCourseId, academicYears, selectedAcademicYearId, examMasters, mode, router])
 
   const titleLine = useMemo(() => {
     const uni = universities.find((u) => u.fk_university_id === selectedUniversityId)
@@ -290,13 +347,17 @@ export default function ExamFeeSetupPage() {
     if (!selectedExamId) return
 
     setSaving(true)
+    setNotice(null)
     try {
       const payload: Record<string, unknown> = {
         examFeeStructureName: form.examFeeStructureName,
-        collectionStartDate: form.collectionStartDate || null,
-        collectionEndDate: form.collectionEndDate || null,
+        collectionStartDate: toYMDOrNull(form.collectionStartDate),
+        collectionEndDate: toYMDOrNull(form.collectionEndDate),
+        // Keep both naming styles to match legacy Angular + current APIs.
         regularFee: form.regularFee === '' ? null : Number(form.regularFee),
+        regFee: form.regularFee === '' ? null : Number(form.regularFee),
         suppleFee: form.suppleFee === '' ? null : Number(form.suppleFee),
+        supplyFee: form.suppleFee === '' ? null : Number(form.suppleFee),
         isActive: form.isActive,
         // Relationship hints
         examId: selectedExamId,
@@ -304,11 +365,14 @@ export default function ExamFeeSetupPage() {
       }
 
       const id = editing?.examFeeStructureId ?? editing?.id
-      if (id != null) await updateExamFeeStructure(Number(id), payload)
+      if (id != null) await updateExamFeeStructure(Number(id), { ...payload, examFeeStructureId: Number(id) })
       else await createExamFeeStructure(payload)
 
+      setNotice({ type: 'success', message: `Exam fee structure ${id != null ? 'updated' : 'created'} successfully.` })
       closeModal()
       await handleGetList()
+    } catch (error: unknown) {
+      setNotice({ type: 'error', message: getErrorMessage(error) })
     } finally {
       setSaving(false)
     }
@@ -317,6 +381,18 @@ export default function ExamFeeSetupPage() {
   return (
     <PageContainer className="space-y-5">
       <PageHeader title="Exam Fee Structures" subtitle="Configure fee structures per exam" />
+      {notice && (
+        <Alert
+          type={notice.type}
+          title={notice.message}
+          showIcon
+          action={(
+            <Button type="button" size="sm" variant="outline" className="h-7 text-[12px]" onClick={() => setNotice(null)}>
+              Close
+            </Button>
+          )}
+        />
+      )}
       <div className="app-card overflow-hidden">
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
           <h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Exam Fee Structures</h2>
