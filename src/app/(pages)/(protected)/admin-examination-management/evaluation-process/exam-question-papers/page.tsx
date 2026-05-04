@@ -2,12 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, type SelectOption } from '@/common/components/select'
-import { ChevronDown, Filter } from 'lucide-react'
+import { ChevronDown, Filter, PencilIcon } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
 import { cn } from '@/lib/utils'
@@ -63,16 +62,15 @@ function statusRenderer(p: ICellRendererParams) {
 
 function actionsRenderer() {
   return (
-    <div className="flex items-center gap-2">
-      <Button size="sm" variant="outline" className="h-7">Edit</Button>
-    </div>
+    <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label="Edit question paper">
+      <PencilIcon className="h-3.5 w-3.5" />
+    </Button>
   )
 }
 
 export default function ExamQuestionPapersPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
   const [rows, setRows] = useState<AnyRow[]>([])
 
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
@@ -215,12 +213,6 @@ export default function ExamQuestionPapersPage() {
     if (courseGroups[0]) setCourseGroupId(pickNum(courseGroups[0], ['fk_course_group_id', 'courseGroupId']))
   }, [courseGroups])
 
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
-
   useEffect(() => {
     if (courseYears[0]) setCourseYearId(pickNum(courseYears[0], ['fk_course_year_id', 'courseYearId']))
   }, [courseYears])
@@ -280,7 +272,8 @@ export default function ExamQuestionPapersPage() {
       },
       {
         headerName: 'Actions',
-        minWidth: 110,
+        width: 72,
+        flex: 0,
         cellRenderer: actionsRenderer,
       },
     ],
@@ -324,12 +317,23 @@ export default function ExamQuestionPapersPage() {
         )}
       </div>
 
-      <div className="app-card p-3 space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <SearchInput className="w-full max-w-sm" placeholder="Search" value={search} onChange={setSearch} />
-          <Button size="sm">Exam Question Paper</Button>
-        </div>
-        <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
+      <div className="app-card overflow-hidden p-3">
+        <DataTable
+          rowData={rows}
+          columnDefs={cols}
+          pagination
+          loading={loading}
+          toolbar={{
+            search: true,
+            searchPlaceholder: 'Search…',
+            pdfDocumentTitle: 'Exam Question Papers',
+          }}
+          toolbarTrailing={(
+            <Button type="button" size="sm" className="h-[30px] px-3 text-[12px]">
+              Exam Question Paper
+            </Button>
+          )}
+        />
       </div>
     </PageContainer>
   )

@@ -1,4 +1,5 @@
 import { NEXT_API } from '@/config/constants/api'
+import { getAllRecords } from '@/services/crud'
 
 /**
  * Seating Plan services — wrappers over legacy SPs exposed via getAllRecords.
@@ -188,9 +189,21 @@ export async function getExamRoomAllotmentById(examRoomAllotmentId: number): Pro
 	})
 	const res = await fetch(NEXT_API.PROXY(`/domain/list/ExamRoomAllotment?${search.toString()}`))
 	const body = await res.json().catch(() => null)
-	const rows = body?.data?.resultList ?? body?.resultList ?? body?.data ?? []
-	if (!Array.isArray(rows) || rows.length === 0) return null
-	return rows[0]
+	const raw = body?.data?.resultList ?? body?.resultList ?? body?.data ?? null
+	if (raw == null) return null
+	if (Array.isArray(raw)) {
+		const row = raw[0]
+		return row && typeof row === 'object' ? row : null
+	}
+	if (typeof raw === 'object') {
+		if ('content' in raw && Array.isArray((raw as { content?: unknown }).content)) {
+			const chunk = ((raw as { content: unknown[] }).content ?? []) as unknown[]
+			const row = chunk[0]
+			return row && typeof row === 'object' ? (row as object) : null
+		}
+		return raw
+	}
+	return null
 }
 
 export async function getSingleDomain(entity: string, idField: string, id: number): Promise<any | null> {
@@ -212,28 +225,27 @@ export async function listUnivExamFiltersByCode(params?: {
 	examId?: number
 	academicYearId?: number
 }): Promise<any[]> {
-	const search = new URLSearchParams({
+	// Use crud getAllRecords so URLs match the rest of the app (avoids 308 redirect churn)
+	// and participate in in-flight dedupe for identical params.
+	const data = await getAllRecords<{ result?: any[][] }>('s_get_exam_filters_bycode', {
 		in_flag: 'univ_exam_filters',
 		in_flag_type: 'ALL',
-		in_university_id: '0',
-		in_univ_examcenter_id: '0',
-		in_college_id: '0',
-		in_course_id: String(params?.courseId ?? 0),
-		in_course_group_id: '0',
-		in_course_year_id: '0',
-		in_exam_id: String(params?.examId ?? 0),
-		in_academic_year_id: String(params?.academicYearId ?? 0),
-		in_regulation_id: '0',
-		in_subject_id: '0',
-		in_sub_flag_type: '',
-		in_param1: '0',
-		in_param2: '0',
-		in_loginuser_roleid: '0',
-		in_loginuser_empid: String(params?.loginEmpId ?? 31754),
+		in_university_id: 0,
+		in_college_id: 0,
+		in_course_id: params?.courseId ?? 0,
+		in_course_group_id: 0,
+		in_course_year_id: 0,
+		in_exam_id: params?.examId ?? 0,
+		in_academic_year_id: params?.academicYearId ?? 0,
+		in_regulation_id: 0,
+		in_subject_id: 0,
+		in_loginuser_empid: params?.loginEmpId ?? 0,
+		in_loginuser_roleid: 0,
+		in_sub_flag_type: 'ALL',
+		in_param1: 0,
+		in_param2: 0,
 	})
-	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_get_exam_filters_bycode?${search.toString()}`))
-	const body = await res.json().catch(() => null)
-	return flattenResult(body)
+	return flattenResult(data)
 }
 
 export async function listExamStdAttDetails(params: {

@@ -122,7 +122,7 @@ export function MonthYearPicker({
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       {label && (
-        <label htmlFor={id} className="text-sm font-medium">
+        <label htmlFor={id} className="text-[12px] font-medium">
           {label}
           {required && <span className="text-destructive ml-0.5">*</span>}
         </label>
@@ -136,41 +136,41 @@ export function MonthYearPicker({
             disabled={disabled}
             aria-required={required || undefined}
             className={cn(
-              'w-full justify-start text-left font-normal',
+              'h-8 w-full justify-start text-left text-[12px] font-normal',
               !value && 'text-muted-foreground',
               error && 'border-destructive focus-visible:ring-destructive',
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+            <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0" />
             <span className="flex-1 truncate">
               {value ? format(value, 'MMM yyyy') : placeholder}
             </span>
             {value && (
               <X
-                className="ml-auto h-4 w-4 shrink-0 opacity-60 hover:opacity-100"
+                className="ml-auto h-3.5 w-3.5 shrink-0 opacity-60 hover:opacity-100"
                 onClick={handleClear}
               />
             )}
           </Button>
         </PopoverTrigger>
 
-        <PopoverContent className="w-64 p-3" align="start">
+        <PopoverContent className="w-56 p-2.5" align="start">
           {/* Year navigation */}
-          <div className="flex items-center justify-between mb-3">
+          <div className="mb-2.5 flex items-center justify-between">
             <button
               type="button"
               aria-label="Previous year"
               disabled={!canGoPrev}
               onClick={() => setViewYear((y) => y - 1)}
               className={cn(
-                'p-1 rounded hover:bg-accent transition-colors',
+                'rounded p-1 hover:bg-accent transition-colors',
                 !canGoPrev && 'opacity-40 pointer-events-none',
               )}
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-3.5 w-3.5" />
             </button>
 
-            <span className="text-sm font-semibold" aria-live="polite">
+            <span className="text-[13px] font-semibold" aria-live="polite">
               {viewYear}
             </span>
 
@@ -180,11 +180,11 @@ export function MonthYearPicker({
               disabled={!canGoNext}
               onClick={() => setViewYear((y) => y + 1)}
               className={cn(
-                'p-1 rounded hover:bg-accent transition-colors',
+                'rounded p-1 hover:bg-accent transition-colors',
                 !canGoNext && 'opacity-40 pointer-events-none',
               )}
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
 
@@ -193,7 +193,7 @@ export function MonthYearPicker({
             ref={gridRef}
             role="grid"
             aria-label={`Months for ${viewYear}`}
-            className="grid grid-cols-3 gap-1.5"
+            className="grid grid-cols-3 gap-1"
             onKeyDown={handleKeyDown}
           >
             {MONTH_LABELS.map((month, idx) => {
@@ -210,7 +210,7 @@ export function MonthYearPicker({
                     aria-label={`${month} ${viewYear}`}
                     onClick={() => handleMonthClick(idx)}
                     className={cn(
-                      'block rounded-md px-2 py-1.5 text-sm text-center cursor-pointer transition-colors select-none',
+                      'block cursor-pointer select-none rounded-md px-2 py-1 text-[11px] text-center transition-colors',
                       'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       isSelected
                         ? 'bg-primary text-primary-foreground font-medium'
@@ -229,7 +229,7 @@ export function MonthYearPicker({
       </Popover>
 
       {error && (
-        <p className="text-sm text-destructive mt-1">{error}</p>
+        <p className="mt-1 text-[11px] text-destructive">{error}</p>
       )}
     </div>
   )

@@ -75,7 +75,6 @@ export default function EvaluationModerationPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
-  const [search, setSearch] = useState('')
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
@@ -231,12 +230,6 @@ export default function EvaluationModerationPage() {
   const uploaded = Number(totals.NoOfAnswerpapersUploaded ?? 0)
   const unassigned = Number(totals.UnAssinged ?? 0)
   const assigned = Math.max(uploaded - unassigned, 0)
-
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return evaluatorRows
-    return evaluatorRows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [evaluatorRows, search])
 
   const assignedByEvaluator = useMemo(() => {
     const map = new Map<number, Set<string>>()
@@ -443,13 +436,18 @@ export default function EvaluationModerationPage() {
           </div>
 
           <div className="app-card overflow-hidden">
-            <div className="p-4 border-b border-slate-200 bg-white">
-              <div className="w-full max-w-sm">
-                <SearchInput className="w-full" placeholder="Search" value={search} onChange={setSearch} />
-              </div>
-            </div>
             <div className="p-4">
-              <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
+              <DataTable
+                rowData={evaluatorRows}
+                columnDefs={cols}
+                pagination
+                loading={loading}
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Evaluation Moderation',
+                }}
+              />
             </div>
           </div>
 
@@ -473,7 +471,7 @@ export default function EvaluationModerationPage() {
 
               <div className="md:col-span-5 border rounded-md p-2">
                 <div className="flex items-center justify-between mb-2 gap-2">
-                  <SearchInput value={omrSearch} onChange={setOmrSearch} placeholder="Search OMR..." className="max-w-xs" />
+                  <SearchInput value={omrSearch} onChange={setOmrSearch} placeholder="Search OMR…" className="w-full max-w-sm" />
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"
@@ -555,7 +553,7 @@ export default function EvaluationModerationPage() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="w-full max-w-sm">
-              <SearchInput value={popupSearch} onChange={setPopupSearch} placeholder="Search" className="w-full" />
+              <SearchInput value={popupSearch} onChange={setPopupSearch} placeholder="Search…" className="w-full max-w-sm" />
             </div>
             <div className="max-h-[420px] overflow-auto border rounded">
               <table className="w-full text-[13px]">

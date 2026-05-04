@@ -490,7 +490,6 @@ export default function RoomDetailModal({
             <DataTable
               rowData={selectedRoomDeviceRows}
               columnDefs={DEVICE_COL_DEFS}
-              pagination={false}
               loading={false}
             />
           </div>

@@ -88,8 +88,8 @@ export default function EvaluatorAssignedAnswerSheetPage() {
       />
 
       <SearchInput
-        className="max-w-sm"
-        placeholder="Search answer papers..."
+        className="w-full max-w-sm"
+        placeholder="Search answer papers…"
         value={searchValue}
         onChange={setSearchValue}
       />

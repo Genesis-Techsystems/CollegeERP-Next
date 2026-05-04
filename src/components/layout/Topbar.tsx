@@ -304,7 +304,7 @@ export function Topbar() {
                     ? `search-result-${activeResultIndex}`
                     : undefined
                 }
-                placeholder="Search pages..."
+                placeholder="Search pages…"
                 value={searchTerm}
                 onChange={handleSearchChange}
                 onKeyDown={handleKeyDown}

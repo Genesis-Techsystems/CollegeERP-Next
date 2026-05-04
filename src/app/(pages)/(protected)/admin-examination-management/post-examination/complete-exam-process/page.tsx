@@ -155,7 +155,7 @@ export default function CompleteExamProcessPage() {
       <PageHeader title="Complete Exam Process" subtitle="Post examination workflow" />
 
       <div className="app-card p-3">
-        <div className="border-b border-yellow-200 pb-2">
+        <div className="border-b border-slate-200 pb-3">
           <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">Complete Exam Process</h2>
         </div>
         <div className="mt-3 grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
@@ -171,7 +171,7 @@ export default function CompleteExamProcessPage() {
         <ActionCard title="Setup Assignments" subtitle="Review student assignments, OMR details, and answer papers." button="Setup Assignments" disabled={!examId || loading} onClick={() => void runAction(() => runCompleteExamSetupAssignments(selectedExamId), 'Assignments setup completed')} />
         <ActionCard title="Finalize Evaluation Status" subtitle="Update status from Evaluated to Finalized." button="Finalize Evaluation Status" disabled={!examId || loading} onClick={() => void runAction(() => runCompleteExamFinalizeAction('exam_finalise_evaluation_status', selectedExamId), 'Evaluation status finalized')} />
         <ActionCard title="Finalize Evaluation Marks" subtitle="Finalize marks after finalized evaluation status." button="Finalize Evaluation Marks" disabled={!examId || loading} onClick={() => void runAction(() => runCompleteExamFinalizeAction('exam_finalise_evaluation_marks', selectedExamId), 'Evaluation marks finalized')} />
-        <ActionCard title="Marks Entered Status" subtitle="View evaluator marks status report." button="Verify Exam Marks" disabled={!examId || loading} onClick={() => router.push('/admin-examination-management/admin-post-examination/verify-exam-marks')} />
+        <ActionCard title="Marks Entered Status" subtitle="View evaluator marks status report." button="Verify Exam Marks" disabled={!examId || loading} onClick={() => router.push('/admin-examination-management/post-examination/verify-exam-marks')} />
       </div>
 
       <div className="app-card p-3 space-y-3">

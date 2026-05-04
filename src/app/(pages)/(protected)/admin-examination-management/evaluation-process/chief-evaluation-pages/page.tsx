@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { PencilIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, type SelectOption } from '@/common/components/select'
@@ -424,7 +425,7 @@ export default function ChiefEvaluationPagesPage() {
               {selectedCourseLabel} / {selectedExamLabel} / {selectedCourseYearLabel}
             </div>
             <div className="w-full max-w-xs">
-              <SearchInput className="w-full" placeholder="Search OMR Serial No" value={search} onChange={setSearch} />
+              <SearchInput className="w-full max-w-sm" placeholder="Search OMR serial no…" value={search} onChange={setSearch} />
             </div>
           </div>
           <div className="p-4 overflow-auto">
@@ -452,25 +453,46 @@ export default function ChiefEvaluationPagesPage() {
                       <td className="px-3 py-2">
                         {String(e1?.evaluated_totalmarks ?? '')}
                         {e1?.evaluated_totalmarks != null && (
-                          <button className="ml-2 text-blue-700 hover:underline" onClick={() => void onEdit(serialNo, 1)}>
-                            Edit
-                          </button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-1 h-8 w-8 p-0"
+                            aria-label="Edit evaluator 1 marks"
+                            onClick={() => void onEdit(serialNo, 1)}
+                          >
+                            <PencilIcon className="h-3.5 w-3.5 text-blue-700" />
+                          </Button>
                         )}
                       </td>
                       <td className="px-3 py-2">
                         {String(e2?.evaluated_totalmarks ?? '')}
                         {e2?.evaluated_totalmarks != null && (
-                          <button className="ml-2 text-blue-700 hover:underline" onClick={() => void onEdit(serialNo, 2)}>
-                            Edit
-                          </button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-1 h-8 w-8 p-0"
+                            aria-label="Edit evaluator 2 marks"
+                            onClick={() => void onEdit(serialNo, 2)}
+                          >
+                            <PencilIcon className="h-3.5 w-3.5 text-blue-700" />
+                          </Button>
                         )}
                       </td>
                       <td className="px-3 py-2">
                         {String(e3?.evaluated_totalmarks ?? '')}
                         {e3?.evaluated_totalmarks != null && (
-                          <button className="ml-2 text-blue-700 hover:underline" onClick={() => void onEdit(serialNo, 3)}>
-                            Edit
-                          </button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-1 h-8 w-8 p-0"
+                            aria-label="Edit evaluator 3 marks"
+                            onClick={() => void onEdit(serialNo, 3)}
+                          >
+                            <PencilIcon className="h-3.5 w-3.5 text-blue-700" />
+                          </Button>
                         )}
                       </td>
                       <td className="px-3 py-2">{String(row?.final_marks ?? '-')}</td>

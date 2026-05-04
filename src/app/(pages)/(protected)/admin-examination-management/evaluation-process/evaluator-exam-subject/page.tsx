@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Filter } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SearchInput } from '@/common/components/search'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { addExamEvaluators, runEvaluationProc } from '@/services/evaluation-process-admin'
 import { getUnivExamFiltersByType } from '@/services/pre-examination'
@@ -299,7 +299,7 @@ export default function EvaluatorExamSubjectPage() {
 
       {configuredRows.length > 0 && (
         <div className="app-card p-3 space-y-2">
-          <div className="w-full max-w-sm"><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" className="h-8 text-[12px]" /></div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search…" className="w-full max-w-sm" />
           <div className="overflow-auto rounded border">
             <table className="w-full text-[12px]">
               <thead className="bg-slate-50"><tr><th className="px-2 py-1 text-left">SI.No</th><th className="px-2 py-1 text-left">Evaluator Name</th><th className="px-2 py-1 text-left">Subject</th><th className="px-2 py-1 text-left">College</th><th className="px-2 py-1 text-left">Exam Month Year</th></tr></thead>

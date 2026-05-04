@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Filter } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Select as SearchableSelect } from '@/common/components/select'
 import type { SelectOption } from '@/common/components/select'
+import { SearchInput } from '@/common/components/search'
 import {
   addMultipleEvaluators,
   getModeratorEvaluatorProfiles,
@@ -242,7 +242,7 @@ export default function ModeratorEvaluatorsPage() {
                     resetLists()
                   }}
                   options={examOptions}
-                  placeholder="Search exam..."
+                  placeholder="Search exam…"
                   searchable
                 />
               </div>
@@ -257,7 +257,7 @@ export default function ModeratorEvaluatorsPage() {
                     resetLists()
                   }}
                   options={subjectOptions}
-                  placeholder="Search subjects..."
+                  placeholder="Search subjects…"
                   searchable
                 />
               </div>
@@ -270,7 +270,7 @@ export default function ModeratorEvaluatorsPage() {
                     resetLists()
                   }}
                   options={moderatorOptions}
-                  placeholder="Search names..."
+                  placeholder="Search names…"
                   searchable
                 />
               </div>
@@ -297,7 +297,7 @@ export default function ModeratorEvaluatorsPage() {
                 </Button>
               )}
             </div>
-            <Input placeholder="Search..." value={searchAvailable} onChange={(e) => setSearchAvailable(e.target.value)} className="h-8 text-[12px] max-w-sm" />
+            <SearchInput placeholder="Search evaluators…" value={searchAvailable} onChange={setSearchAvailable} className="w-full max-w-sm" />
             <div className="overflow-auto rounded border">
               <table className="w-full text-[12px]">
                 <thead className="bg-slate-50">

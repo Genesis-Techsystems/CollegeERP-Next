@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Filter } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SearchInput } from '@/common/components/search'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   assignEvaluatorProfiles,
@@ -248,7 +248,7 @@ export default function AssignEvaluatorsPage() {
             Evaluation Students: <span className="text-red-600">{studentRows.length}</span> | Total Students: <span className="text-red-600">{studentRows.length}</span> | No.Of AnswerPapers Uploaded: <span className="text-red-600">{uploadedCount}</span> | UnAssigned: <span className="text-red-600">{unAssigned}</span> | Assigned: <span className="text-red-600">{noOfAssigned}</span> | No of Evaluators: <span className="text-red-600">{evaluatorRows.length}</span> | Selected Evaluators: <span className="text-red-600">{selectedProfileIds.length}</span>
           </p>
           <div className="flex items-center justify-between gap-2">
-            <Input placeholder="Search evaluator..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 text-[12px] max-w-sm" />
+            <SearchInput placeholder="Search evaluator…" value={search} onChange={setSearch} className="w-full max-w-sm" />
             {unAssigned > 0 && <Button type="button" onClick={assignList} disabled={loading || selectedProfileIds.length === 0}>Assign</Button>}
           </div>
           <div className="overflow-auto rounded border">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useSessionContext } from '@/context/SessionContext'
 import { ChevronDown, ChevronUp, Filter } from 'lucide-react'
 import { Alert } from 'antd'
 import { Label } from '@/components/ui/label'
@@ -25,15 +26,34 @@ import {
 import { PageContainer, PageHeader } from '@/components/layout'
 import { cn } from '@/lib/utils'
 
-/** 1px solid light-black border on all data-entry controls (`border` = 1px in Tailwind). */
-const FIELD_OUTLINE = 'border-[1px] border-solid border-black/25'
+/** Common control border used across this page (matches reference light outline). */
+const FIELD_OUTLINE = 'border border-[#e1e6ee]'
+const FIELD_INPUT = 'h-10 rounded-[8px] bg-white text-[12px]'
+const FILTER_INPUT = 'h-9 rounded-[8px] bg-white text-[12px]'
+const CHECKBOX_STYLE = 'border-[#cfd6e2] data-[state=checked]:bg-[#17a689] data-[state=checked]:border-[#17a689]'
 
 type AnyRow = Record<string, any>
 type Notice = { type: 'success' | 'error'; message: string } | null
 
+function categoryChipClass(label: string): string {
+  const value = label.toLowerCase()
+  if (value.includes('special')) return 'bg-[#e9f2ff] text-[#005ecb]'
+  if (value.includes('lab')) return 'bg-[#fff3d7] text-[#9a6400]'
+  return 'bg-[#e8fbf8] text-[#007e7a]'
+}
+
 export default function ExamMaxMarksSetupPage() {
-  const orgId = 0
-  const empId = 31754
+  const { user } = useSessionContext()
+  const orgId = useMemo(() => {
+    const fromStorage = Number(globalThis.localStorage?.getItem('organizationId') ?? 0)
+    const fromSession = Number(user?.organizationId ?? 0)
+    return fromStorage || fromSession || 1
+  }, [user?.organizationId])
+  const empId = useMemo(() => {
+    const fromStorage = Number(globalThis.localStorage?.getItem('employeeId') ?? 0)
+    const fromSession = Number(user?.employeeId ?? 0)
+    return fromStorage || fromSession || 31754
+  }, [user?.employeeId])
 
   const [filtersData, setFiltersData] = useState<AnyRow[]>([])
   const [subjectCats, setSubjectCats] = useState<AnyRow[]>([])
@@ -60,7 +80,7 @@ export default function ExamMaxMarksSetupPage() {
       setSubjectCats(Array.isArray(cats) ? cats : [])
     }
     loadBase()
-  }, [])
+  }, [orgId, empId])
 
   const universities = useMemo(() => dedupe(filtersData, 'fk_university_id'), [filtersData])
   const courses = useMemo(
@@ -181,16 +201,16 @@ export default function ExamMaxMarksSetupPage() {
   return (
     <PageContainer className="space-y-5">
       <PageHeader title="Exam Marks Setup" subtitle="Configure maximum marks per subject" />
-      <div className="app-card overflow-hidden">
+      <div className="app-card overflow-hidden shadow-sm">
         <button
           type="button"
           className={cn(
-            'w-full px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between text-left rounded-t-md',
+            'w-full px-6 py-3 border-b border-slate-200 bg-white flex items-center justify-between text-left rounded-t-md',
             FIELD_OUTLINE,
           )}
           onClick={() => setFilterOpen((v) => !v)}
         >
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Marks Setup</h2>
+          <h2 className="text-[15px] font-semibold text-[#007e7a]">Exam Marks Setup</h2>
           <div className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
             <span>Filter</span>
             <Filter className="h-3.5 w-3.5" />
@@ -198,11 +218,11 @@ export default function ExamMaxMarksSetupPage() {
           </div>
         </button>
         {filterOpen && (
-          <div className="px-3 py-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className="space-y-1 md:col-span-3">
-              <Label>University</Label>
+              <Label className="text-[13px]">University</Label>
               <Select value={universityId ? String(universityId) : undefined} onValueChange={(v) => setUniversityId(Number(v))}>
-                <SelectTrigger className={cn('h-8 text-[12px]', FIELD_OUTLINE)}><SelectValue placeholder="University" /></SelectTrigger>
+                <SelectTrigger className={cn(FILTER_INPUT, FIELD_OUTLINE)}><SelectValue placeholder="University" /></SelectTrigger>
                 <SelectContent>
                   {universities.map((u, i) => (
                     <SelectItem key={`u-${u.fk_university_id ?? i}`} value={String(u.fk_university_id)}>
@@ -213,9 +233,9 @@ export default function ExamMaxMarksSetupPage() {
               </Select>
             </div>
             <div className="space-y-1 md:col-span-3">
-              <Label>Course</Label>
+              <Label className="text-[13px]">Course</Label>
               <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
-                <SelectTrigger className={cn('h-8 text-[12px]', FIELD_OUTLINE)}><SelectValue placeholder="Course" /></SelectTrigger>
+                <SelectTrigger className={cn(FILTER_INPUT, FIELD_OUTLINE)}><SelectValue placeholder="Course" /></SelectTrigger>
                 <SelectContent>
                   {courses.map((c, i) => (
                     <SelectItem key={`c-${c.fk_course_id ?? i}`} value={String(c.fk_course_id)}>
@@ -226,9 +246,9 @@ export default function ExamMaxMarksSetupPage() {
               </Select>
             </div>
             <div className="space-y-1 md:col-span-3">
-              <Label>Regulation</Label>
+              <Label className="text-[13px]">Regulation</Label>
               <Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}>
-                <SelectTrigger className={cn('h-8 text-[12px]', FIELD_OUTLINE)}><SelectValue placeholder="Regulation" /></SelectTrigger>
+                <SelectTrigger className={cn(FILTER_INPUT, FIELD_OUTLINE)}><SelectValue placeholder="Regulation" /></SelectTrigger>
                 <SelectContent>
                   {regulations.map((r, i) => (
                     <SelectItem key={`r-${r.regulationId ?? i}`} value={String(r.regulationId)}>
@@ -238,17 +258,22 @@ export default function ExamMaxMarksSetupPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="md:col-span-2 flex items-center gap-2 h-8">
+            <div className="md:col-span-2 flex items-center gap-2 h-9">
               <Checkbox
                 id="disabled"
-                className={FIELD_OUTLINE}
+                className={CHECKBOX_STYLE}
                 checked={isForDisabled}
                 onCheckedChange={(v) => setIsForDisabled(Boolean(v))}
               />
-              <Label htmlFor="disabled">Is For Disability</Label>
+              <Label htmlFor="disabled" className="text-[13px]">Is For Disability</Label>
             </div>
             <div className="md:col-span-1">
-              <Button onClick={getDetails} className={cn('h-8 px-3 text-[12px] w-full', FIELD_OUTLINE)}>Get List</Button>
+              <Button
+                onClick={getDetails}
+                className="h-[30px] w-full px-4 text-[12px] rounded-[10px] text-white border-0 bg-[linear-gradient(135deg,#1D9E75_0%,#1a6fa0_100%)] hover:bg-[linear-gradient(135deg,#1D9E75_0%,#1a6fa0_100%)]"
+              >
+                Get List
+              </Button>
             </div>
           </div>
         )}
@@ -267,57 +292,53 @@ export default function ExamMaxMarksSetupPage() {
       )}
 
       {rows.length > 0 && (
-        <div className="app-card p-4">
+        <div className="app-card p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[15px] font-semibold text-[hsl(var(--primary))]">Marks Setup</h3>
+            <h3 className="text-[15px] font-semibold text-[#007e7a]">Marks Setup</h3>
             <SearchInput
-              className={cn('h-8 text-[12px] w-[260px] rounded-md', FIELD_OUTLINE)}
-              placeholder="Search"
+              className="w-full max-w-sm"
+              placeholder="Search marks…"
               value={q}
               onChange={setQ}
             />
           </div>
           <div className="space-y-2">
             {filteredRows.map((r, i) => (
-              <div key={`m-${r.subjectCategoryCatDetId}-${i}`} className="border border-slate-300 rounded-md p-3">
-                <div className="text-blue-700 font-medium text-[13px] mb-2">{r.subjectCategoryCode || r.marksSetupName}</div>
-                <div className="flex items-end gap-2 flex-wrap">
-                  <div className="w-[230px] space-y-1">
-                    <Label>Marks Setup Name</Label>
-                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} value={r.marksSetupName} onChange={(e) => updateRowText(i, 'marksSetupName', e.target.value)} />
-                  </div>
-                  <div className="w-[82px] space-y-1">
-                    <Label>Internal</Label>
-                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} type="number" value={r.internalMarks} onChange={(e) => updateRow(i, 'internalMarks', Number(e.target.value))} />
-                  </div>
-                  <div className="w-[82px] space-y-1">
-                    <Label>External</Label>
-                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} type="number" value={r.externalMarks} onChange={(e) => updateRow(i, 'externalMarks', Number(e.target.value))} />
-                  </div>
-                  <div className="w-[96px] space-y-1">
-                    <Label className="whitespace-nowrap">External Pass %</Label>
-                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} type="number" value={r.externalPassPercentage} onChange={(e) => updateRow(i, 'externalPassPercentage', Number(e.target.value))} />
-                  </div>
-                  <div className="w-[82px] space-y-1">
-                    <Label className="whitespace-nowrap">Pass %</Label>
-                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} type="number" value={r.passPercentage} onChange={(e) => updateRow(i, 'passPercentage', Number(e.target.value))} />
-                  </div>
-                  <div className="w-[96px] space-y-1">
-                    <Label className="whitespace-nowrap">Final Internal %</Label>
-                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} type="number" value={r.finalIntPercentage} onChange={(e) => updateRow(i, 'finalIntPercentage', Number(e.target.value))} />
-                  </div>
-                  <div className="w-[96px] space-y-1">
-                    <Label className="whitespace-nowrap">Final External %</Label>
-                    <Input className={cn('h-8 text-[12px]', FIELD_OUTLINE)} type="number" value={r.finalExtPercentage} onChange={(e) => updateRow(i, 'finalExtPercentage', Number(e.target.value))} />
-                  </div>
-                  <div className="w-[95px] flex items-center gap-2 h-8 self-end pb-1">
-                    <Checkbox
-                      id={`active-${i}`}
-                      className={FIELD_OUTLINE}
-                      checked={!!r.isActive}
-                      onCheckedChange={(v) => updateRowBool(i, 'isActive', Boolean(v))}
-                    />
-                    <Label htmlFor={`active-${i}`}>Active</Label>
+              <div key={`m-${r.subjectCategoryCatDetId}-${i}`} className="rounded-xl border border-[#dde3ec] overflow-hidden bg-white">
+                <div className="px-4 py-2 border-b border-[#e8ecf2] bg-[#f8f8f4]">
+                  <span className={cn('inline-flex items-center rounded-full px-3 py-0.5 text-[12px] font-semibold', categoryChipClass(String(r.subjectCategoryCode || r.marksSetupName || '')))}>
+                    {r.subjectCategoryCode || r.marksSetupName}
+                  </span>
+                </div>
+                <div className="px-4 py-3 overflow-x-auto">
+                  <div className="min-w-[920px]">
+                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_80px] gap-2 text-[11px] font-semibold uppercase tracking-[0.02em] text-[hsl(var(--foreground))]">
+                      <span>Marks Setup Name</span>
+                      <span>Internal</span>
+                      <span>External</span>
+                      <span>Ext. Pass %</span>
+                      <span>Pass %</span>
+                      <span>Final Int. %</span>
+                      <span>Final Ext. %</span>
+                      <span>Active</span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_80px] gap-2 items-center">
+                      <Input className={cn(FIELD_INPUT, FIELD_OUTLINE)} value={r.marksSetupName} onChange={(e) => updateRowText(i, 'marksSetupName', e.target.value)} />
+                      <Input className={cn(FIELD_INPUT, FIELD_OUTLINE)} type="number" value={r.internalMarks} onChange={(e) => updateRow(i, 'internalMarks', Number(e.target.value))} />
+                      <Input className={cn(FIELD_INPUT, FIELD_OUTLINE)} type="number" value={r.externalMarks} onChange={(e) => updateRow(i, 'externalMarks', Number(e.target.value))} />
+                      <Input className={cn(FIELD_INPUT, FIELD_OUTLINE)} type="number" value={r.externalPassPercentage} onChange={(e) => updateRow(i, 'externalPassPercentage', Number(e.target.value))} />
+                      <Input className={cn(FIELD_INPUT, FIELD_OUTLINE)} type="number" value={r.passPercentage} onChange={(e) => updateRow(i, 'passPercentage', Number(e.target.value))} />
+                      <Input className={cn(FIELD_INPUT, FIELD_OUTLINE)} type="number" value={r.finalIntPercentage} onChange={(e) => updateRow(i, 'finalIntPercentage', Number(e.target.value))} />
+                      <Input className={cn(FIELD_INPUT, FIELD_OUTLINE)} type="number" value={r.finalExtPercentage} onChange={(e) => updateRow(i, 'finalExtPercentage', Number(e.target.value))} />
+                      <div className="h-10 flex items-center justify-center">
+                        <Checkbox
+                          id={`active-${i}`}
+                          className={CHECKBOX_STYLE}
+                          checked={!!r.isActive}
+                          onCheckedChange={(v) => updateRowBool(i, 'isActive', Boolean(v))}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

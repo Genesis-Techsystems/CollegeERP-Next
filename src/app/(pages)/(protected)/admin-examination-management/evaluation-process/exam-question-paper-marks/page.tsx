@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -53,7 +52,6 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
 export default function ExamQuestionPaperMarksPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
   const [hasFetched, setHasFetched] = useState(false)
   const [openAddModal, setOpenAddModal] = useState(false)
   const [rows, setRows] = useState<AnyRow[]>([])
@@ -141,12 +139,6 @@ export default function ExamQuestionPaperMarksPage() {
       setLoading(false)
     }
   }
-
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
 
   const courses = useMemo(() => dedupeBy(baseRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])), [baseRows])
   const academicYears = useMemo(
@@ -417,21 +409,28 @@ export default function ExamQuestionPaperMarksPage() {
 
       {hasFetched && (
         <div className="app-card overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="w-full max-w-sm">
-                <SearchInput
-                  className="w-full"
-                  placeholder="Search"
-                  value={search}
-                  onChange={setSearch}
-                />
-              </div>
-              <Button size="sm" onClick={() => setOpenAddModal(true)}>+ Exam Question Paper</Button>
-            </div>
-          </div>
           <div className="p-4">
-            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
+            <DataTable
+              rowData={rows}
+              columnDefs={cols}
+              pagination
+              loading={loading}
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search…',
+                pdfDocumentTitle: 'Exam Question Paper',
+              }}
+              toolbarTrailing={(
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-[30px] px-3 text-[12px]"
+                  onClick={() => setOpenAddModal(true)}
+                >
+                  + Exam Question Paper
+                </Button>
+              )}
+            />
           </div>
         </div>
       )}

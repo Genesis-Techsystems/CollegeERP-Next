@@ -99,8 +99,8 @@ export default function Table<T = any>({
   className,
 }: TableProps<T>) {
   const [page, setPage] = useState(0)
-  const cellPad = density === 'compact' ? 'px-2 py-1' : 'px-3 py-2.5'
-  const headPad = density === 'compact' ? 'px-2 py-1' : 'px-3 py-2.5'
+  const cellPad = density === 'compact' ? 'px-2 py-0.5' : 'px-3 py-1.5'
+  const headPad = density === 'compact' ? 'px-2 py-1' : 'px-3 py-2'
   const emptyPad = density === 'compact' ? 'px-2 py-6' : 'px-3 py-8'
 
   const paginate = pageSize > 0
@@ -182,7 +182,7 @@ export default function Table<T = any>({
       )}
 
       <div className="rounded-lg border border-border bg-card overflow-auto">
-        <table className="min-w-full divide-y divide-border text-xs">
+        <table className="min-w-full divide-y divide-border">
           <thead className="bg-muted/50">
             <tr>
               {columns.map((col) => (
@@ -190,7 +190,7 @@ export default function Table<T = any>({
                   key={col.id as string}
                   scope="col"
                   style={col.width ? { width: `${col.width}%` } : undefined}
-                  className={cn('text-left font-semibold text-foreground', headPad)}
+                  className={cn('app-table-head-cell text-left font-semibold text-foreground', headPad)}
                 >
                   {col.label}
                 </th>
@@ -232,7 +232,7 @@ export default function Table<T = any>({
                     <td
                       key={col.id as string}
                       style={col.width ? { width: `${col.width}%` } : undefined}
-                      className={cn('text-foreground', cellPad)}
+                      className={cn('app-table-value-cell text-foreground', cellPad)}
                     >
                       {renderCell(col, row, localIndex)}
                     </td>

@@ -5,7 +5,6 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { LayoutTemplate } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
 import { StatusBadge } from '@/common/components/data-display'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/common/components/select'
@@ -81,7 +80,6 @@ export default function EvaluationTemplatesPage() {
   const [templates, setTemplates] = useState<EvalTemplate[]>([])
   const [tableLoading, setTableLoading] = useState(false)
   const [tableVisible, setTableVisible] = useState(false)
-  const [search, setSearch] = useState('')
 
   // ── Load university filter options on mount ───────────────────────────────
   useEffect(() => {
@@ -126,17 +124,6 @@ export default function EvaluationTemplatesPage() {
       setTableLoading(false)
     }
   }, [selectedUniversityId])
-
-  // ── Client-side search ────────────────────────────────────────────────────
-  const filteredTemplates = useMemo(() => {
-    if (!search) return templates
-    const q = search.toLowerCase()
-    return templates.filter(
-      (t) =>
-        t.templateTitle?.toLowerCase().includes(q) ||
-        t.templateDescription?.toLowerCase().includes(q),
-    )
-  }, [templates, search])
 
   // ── Column definitions ────────────────────────────────────────────────────
   const columnDefs = useMemo<ColDef<EvalTemplate>[]>(
@@ -186,36 +173,35 @@ export default function EvaluationTemplatesPage() {
 
       {/* Table section */}
       {tableVisible && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-500">
-              {filteredTemplates.length} template{filteredTemplates.length !== 1 ? 's' : ''} found
-            </p>
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              placeholder="Search title or description…"
-            />
-          </div>
-
-          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
-            {!tableLoading && filteredTemplates.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                <LayoutTemplate className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm font-medium">No evaluation templates found</p>
-                <p className="text-xs mt-1">
-                  No active templates exist for the selected university
-                </p>
-              </div>
-            ) : (
+        <div className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
+          {!tableLoading && templates.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+              <LayoutTemplate className="h-10 w-10 mb-3 opacity-40" />
+              <p className="text-sm font-medium">No evaluation templates found</p>
+              <p className="text-xs mt-1">
+                No active templates exist for the selected university
+              </p>
+            </div>
+          ) : (
+            <div className="p-4">
               <DataTable
-                rowData={filteredTemplates}
+                rowData={templates}
                 columnDefs={columnDefs}
                 loading={tableLoading}
                 pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search title or description…',
+                  pdfDocumentTitle: 'Evaluation Templates',
+                }}
+                toolbarLeading={
+                  <span className="text-[13px] text-muted-foreground whitespace-nowrap">
+                    {templates.length} template{templates.length !== 1 ? 's' : ''}
+                  </span>
+                }
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </PageContainer>

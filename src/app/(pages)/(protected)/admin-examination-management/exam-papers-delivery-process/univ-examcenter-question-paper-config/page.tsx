@@ -5,7 +5,6 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { BookMarked, Pencil, Plus } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -57,8 +56,6 @@ export default function UnivExamCenterQuestionPaperConfigPage() {
   const [saving, setSaving] = useState(false)
   const [rows, setRows] = useState<Row[]>([])
   const [centers, setCenters] = useState<Row[]>([])
-  const [search, setSearch] = useState('')
-
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Row | null>(null)
   const [form, setForm] = useState({
@@ -77,12 +74,6 @@ export default function UnivExamCenterQuestionPaperConfigPage() {
       })),
     [centers],
   )
-
-  const filteredRows = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(q))
-  }, [rows, search])
 
   const columnDefs = useMemo<ColDef<Row>[]>(
     () => [
@@ -177,22 +168,31 @@ export default function UnivExamCenterQuestionPaperConfigPage() {
       <PageHeader title="Examcenter Question Paper Config" subtitle="Exam papers delivery process · Examcenter Question Paper Config" />
 
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
           <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
           <h2 className="text-[14px] font-semibold text-[hsl(var(--card-title))]">Examcenter Question Paper Config</h2>
         </div>
       </div>
 
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search" className="w-full sm:max-w-xs" />
-          <Button type="button" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1" />
-            Add Question Paper Config
-          </Button>
-        </div>
         <div className="p-2">
-          <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loading} pagination />
+          <DataTable
+            rowData={rows}
+            columnDefs={columnDefs}
+            loading={loading}
+            pagination
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search…',
+              pdfDocumentTitle: 'Examcenter Question Paper Config',
+            }}
+            toolbarTrailing={
+              <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Add Question Paper Config
+              </Button>
+            }
+          />
         </div>
       </div>
 

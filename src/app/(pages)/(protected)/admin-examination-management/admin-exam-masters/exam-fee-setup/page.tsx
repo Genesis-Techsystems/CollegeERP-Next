@@ -12,21 +12,20 @@ import { TableCard } from '@/common/components/table'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
 import { distinct } from '@/lib/utils'
+import {
+  computeCascadeFromRows,
+  deriveExamOptions,
+  sortAcademicYearsDesc,
+} from '@/lib/univ-exam-filter-cascade'
 import { buildQuery } from '@/services/crud'
 import {
   createExamFeeStructure,
-  getCollegeFilters,
+  getUnivExamFiltersForExamFeeSetup,
   listExamFeeStructures,
-  listExamMasters,
+  resolveExamLoginEmpId,
   updateExamFeeStructure,
-} from '@/services/examination'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+} from '@/services'
+import { Select } from '@/common/components/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ChevronDown, Filter, Pencil, Plus } from 'lucide-react'
 import { format } from 'date-fns'
@@ -84,7 +83,6 @@ export default function ExamFeeSetupPage() {
   // Filter data
   const [loadingFilters, setLoadingFilters] = useState(true)
   const [filtersData, setFiltersData] = useState<any[]>([])
-  const [academicData, setAcademicData] = useState<any[]>([])
 
   const [universities, setUniversities] = useState<any[]>([])
   const [courses, setCourses] = useState<any[]>([])
@@ -100,7 +98,6 @@ export default function ExamFeeSetupPage() {
   const [rows, setRows] = useState<any[]>([])
   const [loadingList, setLoadingList] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
-  const [q, setQ] = useState('')
   const [filterOpen, setFilterOpen] = useState(true)
 
   // Modal (add/edit)
@@ -120,30 +117,48 @@ export default function ExamFeeSetupPage() {
   const fetchFilters = useCallback(async () => {
     setLoadingFilters(true)
     try {
-      const orgId = user?.organizationId ?? 0
-      const empId = user?.employeeId ?? 0
-      const { filtersData: filters, academicData: academic } = await getCollegeFilters(orgId, empId)
+      const empId = resolveExamLoginEmpId(user?.employeeId)
+      const rows = await getUnivExamFiltersForExamFeeSetup(empId)
+      const list = Array.isArray(rows) ? rows : []
+      setFiltersData(list)
 
-      setFiltersData(filters as any[])
-      setAcademicData(academic as any[])
-
-      const unis = distinct(filters as any[], (r) => r.fk_university_id)
+      const unis = distinct(
+        list.filter((r: any) => r && r.fk_university_id != null && r.fk_university_id !== ''),
+        (r: any) => r.fk_university_id,
+      )
       setUniversities(unis)
 
       if (unis.length > 0) {
         const uniId = unis[0].fk_university_id
-        handleUniversityChange(uniId, filters as any[], academic as any[])
+        setSelectedUniversityId(uniId)
+        const c = computeCascadeFromRows(uniId, list)
+        setCourses(c.courses)
+        setSelectedCourseId(c.firstCourse)
+        setAcademicYears(c.academicYears)
+        setSelectedAcademicYearId(c.firstAy)
+        setExamMasters(c.exams)
+        setSelectedExamId(c.firstExam)
+      } else {
+        setSelectedUniversityId(null)
+        setCourses([])
+        setSelectedCourseId(null)
+        setAcademicYears([])
+        setSelectedAcademicYearId(null)
+        setExamMasters([])
+        setSelectedExamId(null)
       }
+      setRows([])
+      setHasFetched(false)
     } finally {
       setLoadingFilters(false)
     }
-  }, [user?.organizationId, user?.employeeId])
+  }, [user?.employeeId])
 
   useEffect(() => {
     fetchFilters()
   }, [fetchFilters])
 
-  function handleUniversityChange(universityId: number, filtersRef = filtersData, academicRef = academicData) {
+  function handleUniversityChange(universityId: number, filtersRef = filtersData) {
     setSelectedUniversityId(universityId)
     setSelectedCourseId(null)
     setSelectedAcademicYearId(null)
@@ -151,44 +166,57 @@ export default function ExamFeeSetupPage() {
     setRows([])
     setHasFetched(false)
 
-    const filtered = (filtersRef ?? []).filter((r: any) => r.fk_university_id === universityId)
-    const distinctCourses = distinct(filtered, (r: any) => r.fk_course_id)
-    setCourses(distinctCourses)
+    const ref = filtersRef ?? []
+    const c = computeCascadeFromRows(universityId, ref)
+    setCourses(c.courses)
+    setSelectedCourseId(c.firstCourse)
+    setAcademicYears(c.academicYears)
+    setSelectedAcademicYearId(c.firstAy)
+    setExamMasters(c.exams)
+    setSelectedExamId(c.firstExam)
+  }
 
-    // Academic years are per-university in the proc output
-    const years = distinct((academicRef ?? []).filter((a: any) => a.fk_university_id === universityId), (a: any) => a.fk_academic_year_id)
-    setAcademicYears(years)
+  function handleCourseChange(courseId: number) {
+    if (!selectedUniversityId) return
+    setSelectedCourseId(courseId)
+    setSelectedAcademicYearId(null)
+    setSelectedExamId(null)
+    setRows([])
+    setHasFetched(false)
 
-    if (distinctCourses.length > 0) {
-      setSelectedCourseId(distinctCourses[0].fk_course_id)
-    }
-    if (years.length > 0) {
-      setSelectedAcademicYearId(years[0].fk_academic_year_id)
+    const ref = filtersData
+    const aySource = ref.filter(
+      (r: any) =>
+        r &&
+        Number(r.fk_university_id) === Number(selectedUniversityId) &&
+        Number(r.fk_course_id) === Number(courseId),
+    )
+    const ayDistinct = sortAcademicYearsDesc(
+      distinct(aySource, (r: any) => r.fk_academic_year_id).filter((r: any) => r.fk_academic_year_id != null),
+    )
+    setAcademicYears(ayDistinct)
+    const firstAy = ayDistinct[0]?.fk_academic_year_id ?? null
+    setSelectedAcademicYearId(firstAy)
+    if (firstAy != null) {
+      const examOpts = deriveExamOptions(ref, selectedUniversityId, courseId, firstAy)
+      setExamMasters(examOpts)
+      setSelectedExamId(examOpts[0]?.examId ?? null)
+    } else {
+      setExamMasters([])
+      setSelectedExamId(null)
     }
   }
 
-  useEffect(() => {
-    async function loadExamMasters() {
-      setExamMasters([])
-      setSelectedExamId(null)
-      setRows([])
-      setHasFetched(false)
-      if (!selectedCourseId || !selectedAcademicYearId) return
-
-      const query = buildQuery({
-        'Course.courseId': selectedCourseId,
-        'AcademicYear.academicYearId': selectedAcademicYearId,
-        isActive: true,
-      })
-
-      const exams = await listExamMasters(query)
-      const list = Array.isArray(exams) ? exams : []
-      setExamMasters(list)
-      if (list.length > 0) setSelectedExamId(list[0].examId ?? list[0].id ?? null)
-    }
-    loadExamMasters()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCourseId, selectedAcademicYearId])
+  function handleAcademicYearChange(ayId: number) {
+    if (!selectedUniversityId || !selectedCourseId) return
+    setSelectedAcademicYearId(ayId)
+    setSelectedExamId(null)
+    setRows([])
+    setHasFetched(false)
+    const examOpts = deriveExamOptions(filtersData, selectedUniversityId, selectedCourseId, ayId)
+    setExamMasters(examOpts)
+    setSelectedExamId(examOpts[0]?.examId ?? null)
+  }
 
   async function handleGetList() {
     if (!selectedExamId) return
@@ -197,7 +225,7 @@ export default function ExamFeeSetupPage() {
     try {
       // NOTE: field paths depend on Spring entity mappings; we include the most common ones.
       const query = buildQuery({
-        'ExamMaster.examId': selectedExamId,
+        'examMaster.examId': selectedExamId,
         isActive: true,
       })
       const data = await listExamFeeStructures(query)
@@ -206,12 +234,6 @@ export default function ExamFeeSetupPage() {
       setLoadingList(false)
     }
   }
-
-  const filteredRows = useMemo(() => {
-    if (!q.trim()) return rows
-    const lower = q.toLowerCase()
-    return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(lower))
-  }, [q, rows])
 
   const cols = useMemo<ColDef<any>[]>(() => [
     { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 56, minWidth: 56, flex: 0 },
@@ -432,84 +454,77 @@ export default function ExamFeeSetupPage() {
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
-          <div className="space-y-1">
-            <Label>University *</Label>
+          <div className="min-w-0">
             <Select
-              value={selectedUniversityId != null ? String(selectedUniversityId) : undefined}
-              onValueChange={(v) => handleUniversityChange(Number(v))}
+              label="University *"
+              className="[&_button]:h-8 [&_button]:text-[12px]"
+              value={selectedUniversityId != null ? String(selectedUniversityId) : null}
+              onChange={(v) => {
+                if (!v) return
+                handleUniversityChange(Number(v))
+              }}
+              options={universities.map((u) => ({
+                value: String(u.fk_university_id),
+                label: String(u.university_code ?? u.university_name ?? '—'),
+              }))}
               disabled={loadingFilters}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder={loadingFilters ? 'Loading…' : 'Select University'} />
-              </SelectTrigger>
-              <SelectContent>
-                {universities.map((u) => (
-                  <SelectItem key={u.fk_university_id} value={String(u.fk_university_id)}>
-                    {u.university_code ?? u.university_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder={loadingFilters ? 'Loading…' : 'Select University'}
+            />
           </div>
 
-          <div className="space-y-1">
-            <Label>Course *</Label>
+          <div className="min-w-0">
             <Select
-              value={selectedCourseId != null ? String(selectedCourseId) : undefined}
-              onValueChange={(v) => setSelectedCourseId(Number(v))}
+              label="Course *"
+              className="[&_button]:h-8 [&_button]:text-[12px]"
+              value={selectedCourseId != null ? String(selectedCourseId) : null}
+              onChange={(v) => {
+                if (!v) return
+                handleCourseChange(Number(v))
+              }}
+              options={courses.map((c) => ({
+                value: String(c.fk_course_id),
+                label: String(c.course_code ?? c.course_name ?? '—'),
+              }))}
               disabled={courses.length === 0}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Select Course" />
-              </SelectTrigger>
-              <SelectContent>
-                {courses.map((c) => (
-                  <SelectItem key={c.fk_course_id} value={String(c.fk_course_id)}>
-                    {c.course_code ?? c.course_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select Course"
+            />
           </div>
 
-          <div className="space-y-1">
-            <Label>Exam Year *</Label>
+          <div className="min-w-0">
             <Select
-              value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : undefined}
-              onValueChange={(v) => setSelectedAcademicYearId(Number(v))}
+              label="Exam Year *"
+              className="[&_button]:h-8 [&_button]:text-[12px]"
+              value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
+              onChange={(v) => {
+                if (!v) return
+                handleAcademicYearChange(Number(v))
+              }}
+              options={academicYears.map((a) => ({
+                value: String(a.fk_academic_year_id),
+                label: String(a.academic_year ?? '—'),
+              }))}
               disabled={academicYears.length === 0}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Select Exam Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {academicYears.map((a) => (
-                  <SelectItem key={a.fk_academic_year_id} value={String(a.fk_academic_year_id)}>
-                    {a.academic_year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select Exam Year"
+            />
           </div>
 
-          <div className="space-y-1 lg:col-span-2">
-            <Label>Exam Master *</Label>
+          <div className="min-w-0 lg:col-span-2">
             <Select
-              value={selectedExamId != null ? String(selectedExamId) : undefined}
-              onValueChange={(v) => { setSelectedExamId(Number(v)); setRows([]) }}
+              label="Exam Master *"
+              className="[&_button]:h-8 [&_button]:text-[12px]"
+              value={selectedExamId != null ? String(selectedExamId) : null}
+              onChange={(v) => {
+                setSelectedExamId(v != null ? Number(v) : null)
+                setRows([])
+                setHasFetched(false)
+              }}
+              options={examMasters.map((e) => ({
+                value: String(e.examId ?? e.id),
+                label: String(e.examName ?? '—'),
+              }))}
               disabled={examMasters.length === 0}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Select Exam Master" />
-              </SelectTrigger>
-              <SelectContent>
-                {examMasters.map((e) => (
-                  <SelectItem key={e.examId ?? e.id} value={String(e.examId ?? e.id)}>
-                    {e.examName ?? '—'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select Exam Master"
+            />
           </div>
 
           <div className="lg:col-span-1 flex items-end justify-end">
@@ -530,47 +545,48 @@ export default function ExamFeeSetupPage() {
         <span className="text-[13px] text-[hsl(var(--primary))] font-semibold truncate">{titleLine || '—'}</span>
       </div>
 
-      <TableCard
-        headerLeft={
-          <Input
-            className="h-9 max-w-sm text-[12px]"
-            placeholder="Search…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            disabled={rows.length === 0}
-          />
-        }
-        headerRight={
-          <Button
-            size="sm"
-            onClick={() => {
-              if (!selectedExamId) return
-              const uni = universities.find((u) => u.fk_university_id === selectedUniversityId)
-              const course = courses.find((c) => c.fk_course_id === selectedCourseId)
-              const ay = academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)
-              const exam = examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)
-              const qp = new URLSearchParams({
-                universityId: String(selectedUniversityId ?? 0),
-                universityCode: String(uni?.university_code ?? ''),
-                courseId: String(selectedCourseId ?? 0),
-                courseName: String(course?.course_code ?? course?.course_name ?? ''),
-                academicYearId: String(selectedAcademicYearId ?? 0),
-                academicYear: String(ay?.academic_year ?? ''),
-                examId: String(selectedExamId ?? 0),
-                examName: String(exam?.examName ?? ''),
-                fromDate: String(exam?.fromDate ?? ''),
-                toDate: String(exam?.toDate ?? ''),
-              })
-              router.push(`/admin-examination-management/admin-exam-masters/exam-fee-setup/create?${qp.toString()}`)
-            }}
-            disabled={!selectedExamId}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Exam Fee Structure
-          </Button>
-        }
-      >
-        <DataTable rowData={filteredRows} columnDefs={cols} loading={loadingList} pagination />
+      <TableCard withHeaderBorder={false}>
+        <DataTable
+          rowData={rows}
+          columnDefs={cols}
+          loading={loadingList}
+          pagination
+          toolbar={{
+            search: true,
+            searchPlaceholder: 'Search exam fee structures…',
+            pdfDocumentTitle: 'Exam fee structures',
+          }}
+          toolbarTrailing={(
+            <Button
+              size="sm"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={() => {
+                if (!selectedExamId) return
+                const uni = universities.find((u) => u.fk_university_id === selectedUniversityId)
+                const course = courses.find((c) => c.fk_course_id === selectedCourseId)
+                const ay = academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)
+                const exam = examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)
+                const qp = new URLSearchParams({
+                  universityId: String(selectedUniversityId ?? 0),
+                  universityCode: String(uni?.university_code ?? ''),
+                  courseId: String(selectedCourseId ?? 0),
+                  courseName: String(course?.course_code ?? course?.course_name ?? ''),
+                  academicYearId: String(selectedAcademicYearId ?? 0),
+                  academicYear: String(ay?.academic_year ?? ''),
+                  examId: String(selectedExamId ?? 0),
+                  examName: String(exam?.examName ?? ''),
+                  fromDate: String(exam?.fromDate ?? ''),
+                  toDate: String(exam?.toDate ?? ''),
+                })
+                router.push(`/admin-examination-management/admin-exam-masters/exam-fee-setup/create?${qp.toString()}`)
+              }}
+              disabled={!selectedExamId}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Add Exam Fee Structure
+            </Button>
+          )}
+        />
       </TableCard>
       </>
       )}

@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/common/components/select'
+import { SearchInput } from '@/common/components/search'
 import { ChevronDown, Filter } from 'lucide-react'
 import {
   getUnivExamFiltersRegSup,
@@ -508,8 +508,8 @@ export default function StudentExamLabBatchesPage() {
           {notice && <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">{notice}</div>}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <div className="md:col-span-4 border rounded">
-              <div className="p-2 border-b">
-                <Input className="h-8 text-[12px]" placeholder="Search..." value={searchStudent} onChange={(e) => onSearchStudent(e.target.value)} />
+              <div className="border-b p-2">
+                <SearchInput className="w-full max-w-sm" placeholder="Search students…" value={searchStudent} onChange={onSearchStudent} />
               </div>
               <div className="max-h-[360px] overflow-auto">
                 <table className="w-full text-[12px]">

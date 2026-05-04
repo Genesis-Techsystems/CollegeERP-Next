@@ -135,7 +135,7 @@ export default function AssignQuestionTemplatePage() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           <div className="md:col-span-4 border rounded">
             <div className="p-2 border-b">
-              <SearchInput value={search} onChange={setSearch} placeholder="Search Template ..." />
+              <SearchInput className="w-full max-w-sm" value={search} onChange={setSearch} placeholder="Search template…" />
             </div>
             <div className="max-h-[560px] overflow-auto">
               {filteredTemplates.map((t, i) => {

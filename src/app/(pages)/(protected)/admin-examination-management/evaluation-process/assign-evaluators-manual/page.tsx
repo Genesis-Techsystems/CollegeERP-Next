@@ -5,8 +5,8 @@ import { createPortal } from 'react-dom'
 import { Filter } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SearchInput } from '@/common/components/search'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   getEvaluatorAssignmentBundle,
@@ -270,7 +270,7 @@ export default function AssignEvaluatorsManualPage() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <div className="md:col-span-3 rounded border p-2">
               <h3 className="text-[13px] font-semibold text-blue-700 mb-2">Evaluators (Completed/Assigned)</h3>
-              <Input placeholder="Search evaluator..." value={searchEvaluator} onChange={(e) => setSearchEvaluator(e.target.value)} className="h-8 text-[12px] mb-2" />
+              <SearchInput placeholder="Search evaluator…" value={searchEvaluator} onChange={setSearchEvaluator} className="mb-2 w-full max-w-sm" />
               <div className="max-h-[320px] overflow-auto space-y-1">
                 {filteredEvaluators.map((row) => (
                   <label key={num(row.pk_exam_evaluator_profile_id)} className="flex items-start gap-2 text-[12px]">
@@ -291,7 +291,7 @@ export default function AssignEvaluatorsManualPage() {
                 <h3 className="text-[13px] font-semibold">Serial No</h3>
                 <span className="text-[12px] text-blue-700 font-semibold">Selected: {selectedStudentIds.length}</span>
               </div>
-              <Input placeholder="Search OMR..." value={searchOmr} onChange={(e) => setSearchOmr(e.target.value)} className="h-8 text-[12px] mb-2" />
+              <Input placeholder="Search OMR…" value={searchOmr} onChange={(e) => setSearchOmr(e.target.value)} className="h-8 text-[12px] mb-2" />
               <div className="max-h-[320px] overflow-auto space-y-1">
                 {filteredStudents.map((row, i) => {
                   const id = num(row.fk_exam_evaluationassignment_id)
@@ -394,11 +394,11 @@ export default function AssignEvaluatorsManualPage() {
               </div>
               <div className="p-3 max-h-[60vh] overflow-auto">
                 <div className="mb-2">
-                  <Input
-                    placeholder="Search"
+                  <SearchInput
+                    placeholder="Search…"
                     value={detailSearch}
-                    onChange={(e) => setDetailSearch(e.target.value)}
-                    className="h-8 text-[12px] max-w-[260px]"
+                    onChange={setDetailSearch}
+                    className="w-full max-w-sm"
                   />
                 </div>
                 <table className="w-full text-[12px]">

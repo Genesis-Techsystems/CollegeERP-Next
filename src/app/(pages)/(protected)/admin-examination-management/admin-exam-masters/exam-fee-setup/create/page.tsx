@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSessionContext } from '@/context/SessionContext'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import {
@@ -56,6 +57,7 @@ function toDateString(value: Date | null) {
 }
 
 export default function CreateExamFeeStructurePage() {
+	const { user } = useSessionContext()
 	const router = useRouter()
 	const searchParams = useSearchParams()
 	// Filters
@@ -223,7 +225,13 @@ export default function CreateExamFeeStructurePage() {
 	const fetchFilters = useCallback(async () => {
 		setLoadingFilters(true)
 		try {
-			const { filtersData: f, academicData: ay } = await getCollegeFilters(0, 0)
+			const orgIdFromStorage = Number(globalThis.localStorage?.getItem('organizationId') ?? 0)
+			const empIdFromStorage = Number(globalThis.localStorage?.getItem('employeeId') ?? 0)
+			const orgIdFromSession = Number(user?.organizationId ?? 0)
+			const empIdFromSession = Number(user?.employeeId ?? 0)
+			const orgId = orgIdFromStorage || orgIdFromSession || 1
+			const empId = empIdFromStorage || empIdFromSession || 31754
+			const { filtersData: f, academicData: ay } = await getCollegeFilters(orgId, empId)
 			setFiltersData(f ?? [])
 			setAcademicData(ay ?? [])
 			const distinctCourses = distinct(f ?? [], (r) => r.fk_course_id)
@@ -234,7 +242,7 @@ export default function CreateExamFeeStructurePage() {
 		} finally {
 			setLoadingFilters(false)
 		}
-	}, [])
+	}, [user?.employeeId, user?.organizationId])
 
 	useEffect(() => {
 		fetchFilters()

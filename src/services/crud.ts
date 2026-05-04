@@ -51,10 +51,44 @@ function domainListRows<T>(body: ApiResponse<unknown> & { resultList?: unknown }
   return [raw as T]
 }
 
+/** Stable key for deduping stored-proc GETs (param order–independent). */
+function procGetCacheKey(procName: string, params: Record<string, string | number>): string {
+  const keys = Object.keys(params).sort()
+  const parts = keys.map((k) => `${k}=${String(params[k])}`)
+  return `${procName}::${parts.join('&')}`
+}
+
+type ProcGetCacheEntry = {
+  promise?: Promise<unknown>
+  /** JSON snapshot so cached reads do not share mutable objects across callers */
+  dataJson?: string
+  freshUntil?: number
+}
+
 // ─── CrudService class ────────────────────────────────────────────────────────
 
 class CrudService {
   private readonly base = '/api/proxy'
+
+  /**
+   * In-flight dedupe for identical `domain/list` URLs (parallel page loads + Strict Mode).
+   * Cleared when the request settles; does not cache completed responses.
+   */
+  private readonly listInflight = new Map<string, Promise<unknown[]>>()
+
+  /**
+   * Dedupes identical `getAllRecords` URLs: shares one in-flight request, and briefly
+   * reuses the last success (exam filter cascades + React Strict Mode duplicate effects).
+   */
+  private readonly procGetDedupe = new Map<string, ProcGetCacheEntry>()
+  private static readonly PROC_GET_FRESH_MS = 900
+  private toQueryString(params?: Record<string, string | number>): string {
+    if (!params || Object.keys(params).length === 0) return ''
+    const searchParams = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+    )
+    return `?${searchParams}`
+  }
 
   // ── List ──────────────────────────────────────────────────────────────────
 
@@ -69,26 +103,36 @@ class CrudService {
       ? `${this.base}/${DOMAIN.LIST}/${entity}?size=99999&query=${encodeURIComponent(query)}`
       : `${this.base}/${DOMAIN.LIST}/${entity}?size=99999`
 
-    const res = await fetch(url, { cache: 'no-store', credentials: 'include' })
+    let inflight = this.listInflight.get(url) as Promise<T[]> | undefined
+    if (!inflight) {
+      inflight = (async (): Promise<T[]> => {
+        const res = await fetch(url, { cache: 'no-store', credentials: 'include' })
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+        if (!res.ok) {
+          const body = await res.json().catch(() => null)
+          throw parseApiError(res, body)
+        }
+
+        const body = (await res.json()) as ApiResponse<unknown> & { resultList?: unknown }
+
+        if (!body.success) {
+          const queryPart = query ? ` (query: ${query})` : ''
+          throw new AppError(
+            'API_ERROR',
+            body.message
+              ? `Failed to list ${entity}${queryPart}: ${body.message}`
+              : `Failed to list ${entity}${queryPart}`,
+          )
+        }
+
+        return domainListRows<T>(body)
+      })().finally(() => {
+        this.listInflight.delete(url)
+      })
+      this.listInflight.set(url, inflight)
     }
 
-    const body = (await res.json()) as ApiResponse<unknown> & { resultList?: unknown }
-
-    if (!body.success) {
-      const queryPart = query ? ` (query: ${query})` : ''
-      throw new AppError(
-        'API_ERROR',
-        body.message
-          ? `Failed to list ${entity}${queryPart}: ${body.message}`
-          : `Failed to list ${entity}${queryPart}`,
-      )
-    }
-
-    return domainListRows<T>(body)
+    return inflight
   }
 
   // ── Create ────────────────────────────────────────────────────────────────
@@ -181,27 +225,70 @@ class CrudService {
    * @returns the raw `data` field from the response
    */
   async getAllRecords<T>(procName: string, params: Record<string, string | number>): Promise<T> {
+    const key = procGetCacheKey(procName, params)
+    const now = Date.now()
+    const bucket = this.procGetDedupe.get(key) ?? {}
+
+    if (bucket.dataJson != null && bucket.freshUntil != null && now < bucket.freshUntil) {
+      try {
+        return JSON.parse(bucket.dataJson) as T
+      } catch {
+        this.procGetDedupe.delete(key)
+      }
+    }
+
+    if (bucket.promise) {
+      return bucket.promise as Promise<T>
+    }
+
     const searchParams = new URLSearchParams(
       Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
     )
 
-    const res = await fetch(`${this.base}/${DOMAIN.PROC}/${procName}?${searchParams}`, {
-      cache: 'no-store',
-      credentials: 'include',
-    })
+    const promise = (async (): Promise<T> => {
+      const res = await fetch(`${this.base}/${DOMAIN.PROC}/${procName}?${searchParams}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      })
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw parseApiError(res, body)
+      }
+
+      const body: ApiResponse<T> = await res.json()
+
+      if (!body.success) {
+        throw new AppError('API_ERROR', body.message ?? `Failed to call ${procName}`)
+      }
+
+      const data = body.data as T
+      let snapshot: string
+      try {
+        snapshot = JSON.stringify(data)
+      } catch {
+        snapshot = ''
+      }
+      if (snapshot) {
+        this.procGetDedupe.set(key, {
+          dataJson: snapshot,
+          freshUntil: Date.now() + CrudService.PROC_GET_FRESH_MS,
+        })
+      }
+      return data
+    })()
+
+    this.procGetDedupe.set(key, { ...bucket, promise })
+
+    try {
+      return await promise
+    } finally {
+      const latest = this.procGetDedupe.get(key)
+      if (latest?.promise === promise) {
+        latest.promise = undefined
+        if (!latest.dataJson) this.procGetDedupe.delete(key)
+      }
     }
-
-    const body: ApiResponse<T> = await res.json()
-
-    if (!body.success) {
-      throw new AppError('API_ERROR', body.message ?? `Failed to call ${procName}`)
-    }
-
-    return body.data as T
   }
 
   // ── Proxy Helpers ─────────────────────────────────────────────────────────
@@ -213,15 +300,13 @@ class CrudService {
    * @param params - optional query parameters
    */
   async fetchDetails<T>(path: string, params?: Record<string, string | number>): Promise<T> {
-    let url = `${this.base}/${path}`
-    if (params && Object.keys(params).length > 0) {
-      const searchParams = new URLSearchParams(
-        Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-      )
-      url += `?${searchParams}`
+    const query = this.toQueryString(params)
+    let attemptedPath = path
+    let res = await fetch(`${this.base}/${attemptedPath}${query}`)
+    if (res.status === 404 && /[A-Z]/.test(path)) {
+      attemptedPath = path.toLowerCase()
+      res = await fetch(`${this.base}/${attemptedPath}${query}`)
     }
-
-    const res = await fetch(url)
     if (!res.ok) {
       const body = await res.json().catch(() => null)
       throw parseApiError(res, body)

@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Filter } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SearchInput } from '@/common/components/search'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   getEvaluatorAssignmentBundleByFlag,
@@ -307,7 +307,7 @@ export default function ReAssignEvaluatorsPage() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <div className="md:col-span-3 rounded border p-2">
               <h3 className="text-[13px] font-semibold text-blue-700 mb-2">Assigned Evaluator Names</h3>
-              <Input value={searchSource} onChange={(e) => setSearchSource(e.target.value)} placeholder="Search names..." className="h-8 text-[12px] mb-2" />
+              <SearchInput value={searchSource} onChange={setSearchSource} placeholder="Search names…" className="mb-2 w-full max-w-sm" />
               <Select value={sourceEvaluatorId ? String(sourceEvaluatorId) : undefined} onValueChange={(v) => onSourceEvaluatorChange(num(v))}>
                 <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Evaluator Name" /></SelectTrigger>
                 <SelectContent>
@@ -321,9 +321,9 @@ export default function ReAssignEvaluatorsPage() {
             </div>
 
             <div className="md:col-span-4 rounded border p-2">
-              <div className="flex items-center justify-between mb-2">
-                <Input value={searchOmr} onChange={(e) => setSearchOmr(e.target.value)} placeholder="Search..." className="h-8 text-[12px] w-[70%]" />
-                <span className="text-[12px] text-blue-700 font-semibold">Serial No: {selectedAssignmentIds.length}</span>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <SearchInput value={searchOmr} onChange={setSearchOmr} placeholder="Search OMR…" className="min-w-0 w-full max-w-sm" />
+                <span className="shrink-0 text-[12px] font-semibold text-blue-700">Serial No: {selectedAssignmentIds.length}</span>
               </div>
               <div className="max-h-[340px] overflow-auto border rounded">
                 <table className="w-full text-[12px]">
@@ -358,7 +358,7 @@ export default function ReAssignEvaluatorsPage() {
 
             <div className="md:col-span-3 rounded border p-2">
               <h3 className="text-[13px] font-semibold text-blue-700 mb-2">Re-Assign Evaluator Names</h3>
-              <Input value={searchTarget} onChange={(e) => setSearchTarget(e.target.value)} placeholder="Search names..." className="h-8 text-[12px] mb-2" />
+              <SearchInput value={searchTarget} onChange={setSearchTarget} placeholder="Search names…" className="mb-2 w-full max-w-sm" />
               <Select value={String(targetEvaluatorId)} onValueChange={(v) => setTargetEvaluatorId(num(v))}>
                 <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Evaluator Name" /></SelectTrigger>
                 <SelectContent>

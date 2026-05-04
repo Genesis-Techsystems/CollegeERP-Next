@@ -206,6 +206,14 @@ export const QK = {
     all: ['GeneralSetting'] as const,
     list: () => ['GeneralSetting', 'list'] as const,
   },
+  banks: {
+    all: ['Bank'] as const,
+    list: () => ['Bank', 'list'] as const,
+  },
+  castes: {
+    all: ['Caste'] as const,
+    list: () => ['Caste', 'list'] as const,
+  },
 
   // ── Question Banks ─────────────────────────────────────────────────────
   questionBanks: {

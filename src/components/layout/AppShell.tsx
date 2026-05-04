@@ -70,7 +70,7 @@ export function AppShell({ children, initialNavItems }: AppShellProps) {
           'relative z-30 shrink-0 overflow-hidden transition-all duration-200 ease-in-out',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           // Match reference UI widths (tighter)
-          sidebarIsExpanded ? 'w-[220px]' : 'w-[56px]',
+          sidebarIsExpanded ? 'w-[260px]' : 'w-[56px]',
         )}
         style={{ height: '100vh', position: 'sticky', top: 0 }}
       >

@@ -372,7 +372,7 @@ export default function ExamGroupDetailsPage() {
       />
 
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="border-b border-yellow-200 pb-2 flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 border-b border-slate-200 pb-3">
           <List className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
           <h2 className="text-[15px] font-semibold leading-tight truncate">
             <span className="text-[hsl(var(--card-title))]">{titleParts.base}</span>

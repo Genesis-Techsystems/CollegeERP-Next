@@ -116,8 +116,8 @@ export default function RoomTypesPage() {
         </div>
         <div className="flex items-center justify-between gap-3 p-3">
           <SearchInput
-            className="max-w-sm w-full"
-            placeholder="Search room types..."
+            className="w-full max-w-sm"
+            placeholder="Search room types…"
             value={searchValue}
             onChange={setSearchValue}
           />

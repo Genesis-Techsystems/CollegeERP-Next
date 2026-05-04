@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ColDef } from 'ag-grid-community'
-import { LayoutList, Settings } from 'lucide-react'
+import { LayoutList, PencilIcon, Settings } from 'lucide-react'
 import { Select, MultiSelect, type SelectOption } from '@/common/components/select'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -104,10 +103,17 @@ function makeDetailsRenderer(
 
 function makeActionsRenderer(openEdit: (row: AnyRow) => void, sendOne: (row: AnyRow) => void) {
   return (p: { data?: AnyRow }) => (
-    <div className="flex items-center gap-2">
-      <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => openEdit(p.data ?? {})}>
-        Edit
-      </button>
+    <div className="flex items-center gap-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0"
+        aria-label="Edit evaluator"
+        onClick={() => openEdit(p.data ?? {})}
+      >
+        <PencilIcon className="h-3.5 w-3.5" />
+      </Button>
       <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => sendOne(p.data ?? {})}>
         Mail
       </button>
@@ -155,7 +161,6 @@ export default function CreateEvaluatorsPage() {
   const [rows, setRows] = useState<AnyRow[]>([])
   const [colleges, setColleges] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editRow, setEditRow] = useState<AnyRow | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
@@ -512,12 +517,6 @@ export default function CreateEvaluatorsPage() {
     }
   }
 
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
-
   const cols = useMemo<ColDef[]>(
     () => [
       { headerName: 'No.', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70 },
@@ -547,20 +546,27 @@ export default function CreateEvaluatorsPage() {
           <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Evaluator&apos;s Profile</h2>
         </div>
         <div className="p-4 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="w-full max-w-sm">
-              <SearchInput className="w-full" placeholder="Search" value={search} onChange={setSearch} />
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => openSendCredentialsModal('bulk')} disabled={loading}>
-                Send Evaluator Credentials
-              </Button>
-              <Button onClick={openAdd} disabled={loading}>
-                Create Evaluator
-              </Button>
-            </div>
-          </div>
-          <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
+          <DataTable
+            rowData={rows}
+            columnDefs={cols}
+            pagination
+            loading={loading}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search…',
+              pdfDocumentTitle: "Create Evaluators",
+            }}
+            toolbarTrailing={
+              <>
+                <Button type="button" variant="outline" onClick={() => openSendCredentialsModal('bulk')} disabled={loading}>
+                  Send Evaluator Credentials
+                </Button>
+                <Button type="button" onClick={openAdd} disabled={loading}>
+                  Create Evaluator
+                </Button>
+              </>
+            }
+          />
         </div>
       </div>
 

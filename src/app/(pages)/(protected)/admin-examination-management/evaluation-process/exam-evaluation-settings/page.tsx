@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
-import { DataTable } from '@/common/components/table'
+import { DataTable, TableCard } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -11,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, type SelectOption } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
-import { ChevronDown, Filter } from 'lucide-react'
+import { ChevronDown, Filter, PencilIcon, Plus } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { toDateOnlyISO } from '@/common/generic-functions'
 import {
@@ -68,9 +67,16 @@ function statusRenderer(p: { value?: boolean }) {
 
 function makeActionsRenderer(openEdit: (row: AnyRow) => void) {
   return (p: { data?: AnyRow }) => (
-    <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => openEdit(p.data ?? {})}>
-      Edit
-    </button>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-8 w-8 p-0"
+      aria-label="Edit evaluation settings"
+      onClick={() => openEdit(p.data ?? {})}
+    >
+      <PencilIcon className="h-3.5 w-3.5" />
+    </Button>
   )
 }
 
@@ -113,7 +119,6 @@ export default function ExamEvaluationSettingsPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
-  const [search, setSearch] = useState('')
 
   const [filterRows, setFilterRows] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnyRow[]>([])
@@ -257,12 +262,6 @@ export default function ExamEvaluationSettingsPage() {
     }
   }
 
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
-
   const cols = useMemo<ColDef[]>(
     () => [
       { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
@@ -282,7 +281,7 @@ export default function ExamEvaluationSettingsPage() {
       { field: 'evaluationStartDate', headerName: 'Evaluation Start Date', minWidth: 160, valueGetter: (p) => toYmd(p.data?.evaluationStartDate) || '-' },
       { field: 'evaluationEndDate', headerName: 'Evaluation End Date', minWidth: 160, valueGetter: (p) => toYmd(p.data?.evaluationEndDate) || '-' },
       { field: 'isActive', headerName: 'Status', minWidth: 110, cellRenderer: statusRenderer },
-      { headerName: 'Actions', minWidth: 110, cellRenderer: makeActionsRenderer(openEdit) },
+      { headerName: 'Actions', width: 72, flex: 0, cellRenderer: makeActionsRenderer(openEdit) },
     ],
     [],
   )
@@ -338,19 +337,26 @@ export default function ExamEvaluationSettingsPage() {
       </div>
 
       {hasFetched && (
-        <div className="app-card overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="w-full max-w-sm">
-                <SearchInput className="w-full" placeholder="Search" value={search} onChange={setSearch} />
-              </div>
-              <Button onClick={openAdd}>Add Evaluation Settings</Button>
-            </div>
-          </div>
-          <div className="p-4">
-            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
-          </div>
-        </div>
+        <TableCard withHeaderBorder={false}>
+          <DataTable
+            rowData={rows}
+            columnDefs={cols}
+            pagination
+            paginationPageSize={10}
+            loading={loading}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search…',
+              pdfDocumentTitle: 'Exam Evaluation Settings',
+            }}
+            toolbarTrailing={(
+              <Button type="button" size="sm" onClick={openAdd} className="h-[30px] px-3 text-[12px]">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Add Evaluation Settings
+              </Button>
+            )}
+          />
+        </TableCard>
       )}
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>

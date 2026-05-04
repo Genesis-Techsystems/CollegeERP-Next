@@ -379,7 +379,11 @@ export function ModerationRulePage({
             <Select value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectOptions} placeholder="Exam Subject" searchable />
           </div>
           <div className="md:col-span-2">
-            <Button className="h-8 text-[12px] w-full" disabled={!collegeId || !examId || !courseYearId || !courseGroupId || !subjectId || loading} onClick={() => void onGenerate()}>
+            <Button
+              className="h-8 w-full text-[12px] text-[#FFFFFF] bg-gradient-to-r from-[#0E7096] via-[#1C8FA8] to-[#27A9B4] hover:from-[#0E7096] hover:via-[#1C8FA8] hover:to-[#27A9B4]"
+              disabled={!collegeId || !examId || !courseYearId || !courseGroupId || !subjectId || loading}
+              onClick={() => void onGenerate()}
+            >
               Generate
             </Button>
           </div>

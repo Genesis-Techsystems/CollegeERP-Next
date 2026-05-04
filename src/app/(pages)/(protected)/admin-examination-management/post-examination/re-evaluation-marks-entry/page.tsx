@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { BookMarked, ChevronDown } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Select } from '@/common/components/select'
-import { SearchInput } from '@/common/components/search'
+import { DataTable, TableCard } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -57,6 +58,26 @@ function passBadge(value: boolean | null) {
   return <span className="text-rose-700 font-medium">F</span>
 }
 
+function ReEvalMarksInputRenderer(
+  params: ICellRendererParams<AnyRow> & {
+    maxMarks: number
+    onChange: (row: AnyRow, value: number) => void
+  },
+) {
+  const val = Number(params.data?.reevaluation_marks ?? 0)
+  const max = params.maxMarks > 0 ? params.maxMarks : undefined
+  return (
+    <Input
+      type="number"
+      min={0}
+      max={max}
+      className="h-8 text-right text-[12px]"
+      value={Number.isFinite(val) ? String(val) : '0'}
+      onChange={(e) => params.data && params.onChange(params.data, Number(e.target.value || 0))}
+    />
+  )
+}
+
 export default function ReEvaluationMarksEntryPage() {
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
   const organizationId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
@@ -65,7 +86,6 @@ export default function ReEvaluationMarksEntryPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(true)
-  const [search, setSearch] = useState('')
 
   const [allFilters, setAllFilters] = useState<AnyRow[]>([])
   const [studentRows, setStudentRows] = useState<AnyRow[]>([])
@@ -232,17 +252,6 @@ export default function ReEvaluationMarksEntryPage() {
     [subjects, examTimetableDetId],
   )
 
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return studentRows
-    return studentRows.filter((row) =>
-      [textFrom(row, ['hallticket_number']), textFrom(row, ['student_name']), textFrom(row, ['omr_serial_no'])]
-        .join(' ')
-        .toLowerCase()
-        .includes(term),
-    )
-  }, [studentRows, search])
-
   async function getList() {
     const selectedExamId = Number(examId ?? 0)
     const selectedSubjectId = numFrom(selectedSubject, ['fk_subject_id'])
@@ -278,28 +287,74 @@ export default function ReEvaluationMarksEntryPage() {
     }
   }
 
-  function onMarksChange(index: number, raw: string) {
-    const nextRows = [...studentRows]
-    const next = nextRows[index]
-    if (!next) return
-    const setup = marksSetupRows?.[0] ?? {}
-    const minMarks = 0
-    const maxAllowed = Number(setup.external_marks ?? 0)
-    const passPct = Number(setup.external_pass_percentage ?? 0)
-    let parsed = Number(raw)
-    if (!Number.isFinite(parsed)) parsed = 0
-    if (parsed < minMarks) parsed = minMarks
-    if (maxAllowed > 0 && parsed > maxAllowed) {
-      parsed = maxAllowed
-      toastError(`Entered marks should be less than ${maxAllowed}.`)
-    }
-    nextRows[index] = {
-      ...next,
-      reevaluation_marks: parsed,
-      isPass: isPassByMarks(parsed, maxAllowed, passPct),
-    }
-    setStudentRows(nextRows)
-  }
+  const onMarksChange = useCallback(
+    (row: AnyRow, raw: number) => {
+      const id = numFrom(row, ['pk_exam_revision_sub_id'])
+      const setup = marksSetupRows?.[0] ?? {}
+      const minMarks = 0
+      const maxAllowed = Number(setup.external_marks ?? 0)
+      const passPct = Number(setup.external_pass_percentage ?? 0)
+      let parsed = Number(raw)
+      if (!Number.isFinite(parsed)) parsed = 0
+      if (parsed < minMarks) parsed = minMarks
+      if (maxAllowed > 0 && parsed > maxAllowed) {
+        parsed = maxAllowed
+        toastError(`Entered marks should be less than ${maxAllowed}.`)
+      }
+      setStudentRows((prev) =>
+        prev.map((r) =>
+          numFrom(r, ['pk_exam_revision_sub_id']) === id
+            ? { ...r, reevaluation_marks: parsed, isPass: isPassByMarks(parsed, maxAllowed, passPct) }
+            : r,
+        ),
+      )
+    },
+    [marksSetupRows],
+  )
+
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      {
+        colId: 'siNo',
+        headerName: 'SI No',
+        width: 72,
+        flex: 0,
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+      },
+      {
+        field: 'hallticket_number',
+        headerName: 'Hallticket Number',
+        minWidth: 140,
+        valueGetter: (p) => textFrom(p.data, ['hallticket_number']) || '-',
+      },
+      {
+        field: 'student_name',
+        headerName: 'Student',
+        minWidth: 180,
+        flex: 1,
+        valueGetter: (p) => textFrom(p.data, ['student_name']) || '-',
+      },
+      {
+        field: 'omr_serial_no',
+        headerName: 'Omr Serial Number',
+        minWidth: 140,
+        valueGetter: (p) => textFrom(p.data, ['omr_serial_no']) || '-',
+      },
+      {
+        headerName: 'Marks',
+        minWidth: 120,
+        cellRenderer: ReEvalMarksInputRenderer,
+        cellRendererParams: { maxMarks, onChange: onMarksChange },
+      },
+      {
+        colId: 'result',
+        headerName: 'Result',
+        minWidth: 100,
+        cellRenderer: (p: ICellRendererParams<AnyRow>) => passBadge(p.data?.isPass ?? null),
+      },
+    ],
+    [maxMarks, onMarksChange],
+  )
 
   async function saveMarks() {
     if (studentRows.length === 0) return
@@ -330,7 +385,7 @@ export default function ReEvaluationMarksEntryPage() {
       <PageHeader title="Exam revised marks" subtitle="Post examination · Re-evaluation marks entry" />
 
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="border-b border-yellow-200 pb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2">
             <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
             <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">Exam revised marks</h2>
@@ -467,56 +522,32 @@ export default function ReEvaluationMarksEntryPage() {
       </div>
 
       {studentRows.length > 0 && (
-        <div className="app-card overflow-hidden">
-          <div className="p-3 border-b border-slate-200 bg-white flex items-center justify-between gap-3">
-            <div className="w-full max-w-[320px]">
-              <SearchInput placeholder="Search..." value={search} onChange={setSearch} />
-            </div>
-            <div className="text-[12px] text-slate-600">Entered marks should be less than: <span className="font-semibold">{maxMarks || '-'}</span></div>
-          </div>
-          <div className="overflow-x-auto p-3">
-            <table className="w-full min-w-[980px] border-collapse text-[12px]">
-              <thead>
-                <tr className="border-b bg-slate-50">
-                  <th className="px-2 py-2 text-left font-semibold">SI No</th>
-                  <th className="px-2 py-2 text-left font-semibold">Hallticket Number</th>
-                  <th className="px-2 py-2 text-left font-semibold">Student</th>
-                  <th className="px-2 py-2 text-left font-semibold">Omr Serial Number</th>
-                  <th className="px-2 py-2 text-left font-semibold">Marks</th>
-                  <th className="px-2 py-2 text-left font-semibold">Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((row, index) => (
-                  <tr key={numFrom(row, ['pk_exam_revision_sub_id']) || index} className="border-b">
-                    <td className="px-2 py-1.5">{index + 1}</td>
-                    <td className="px-2 py-1.5">{textFrom(row, ['hallticket_number']) || '-'}</td>
-                    <td className="px-2 py-1.5">{textFrom(row, ['student_name']) || '-'}</td>
-                    <td className="px-2 py-1.5">{textFrom(row, ['omr_serial_no']) || '-'}</td>
-                    <td className="px-2 py-1.5 w-[120px]">
-                      <Input
-                        type="number"
-                        min={0}
-                        max={maxMarks || undefined}
-                        className="h-8 text-right"
-                        value={String(Number(row.reevaluation_marks ?? 0))}
-                        onChange={(e) => onMarksChange(index, e.target.value)}
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      {passBadge(row.isPass ?? null)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="p-3 border-t border-slate-200 flex justify-end">
-            <Button onClick={() => void saveMarks()} disabled={saving || loading}>
-              Save
-            </Button>
-          </div>
-        </div>
+        <TableCard withHeaderBorder={false}>
+          <DataTable<AnyRow>
+            rowData={studentRows}
+            columnDefs={columnDefs}
+            loading={loading}
+            getRowId={(p) => String(numFrom(p.data, ['pk_exam_revision_sub_id']))}
+            pagination
+            paginationPageSize={50}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search…',
+              pdfDocumentTitle: 'Re-evaluation Marks Entry',
+              lockColumnIds: ['siNo', 'result'],
+            }}
+            toolbarLeading={
+              <div className="text-[12px] text-slate-600 whitespace-nowrap shrink-0">
+                Entered marks should be less than: <span className="font-semibold">{maxMarks || '-'}</span>
+              </div>
+            }
+            toolbarTrailing={
+              <Button size="sm" className="h-[30px] px-3 text-[12px]" onClick={() => void saveMarks()} disabled={saving || loading}>
+                Save
+              </Button>
+            }
+          />
+        </TableCard>
       )}
     </PageContainer>
   )

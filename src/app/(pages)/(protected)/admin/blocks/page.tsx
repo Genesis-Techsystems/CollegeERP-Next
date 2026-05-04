@@ -93,8 +93,8 @@ export default function BlocksPage() {
         </div>
         <div className="flex items-center justify-between gap-3 p-3">
           <SearchInput
-            className="max-w-sm w-full"
-            placeholder="Search blocks..."
+            className="w-full max-w-sm"
+            placeholder="Search blocks…"
             value={searchValue}
             onChange={setSearchValue}
           />

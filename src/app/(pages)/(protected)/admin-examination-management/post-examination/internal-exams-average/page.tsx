@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { ColDef, ColGroupDef } from 'ag-grid-community'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MultiSelect, Select as CommonSelect } from '@/common/components/select'
+import { DataTable, TableCard } from '@/common/components/table'
 import {
   getInternalExamAverageMarks,
   getRegulationById,
@@ -72,36 +73,42 @@ function buildAverageMatrix(rows: AnyRow[], selectedExams: AnyRow[]) {
     if (code && !subjectMap.has(code)) subjectMap.set(code, { subject_code: code, subject_name: name })
   }
   const subjects = [...subjectMap.values()]
-  const templateCells = subjects.flatMap((s) =>
-    examNameList.map((examName) => ({
-      subject_code: s.subject_code,
-      subject_name: s.subject_name,
-      exam_name: examName,
-      marks: 0,
-      pk_exam_final_int_mark_id: null,
-      created_dt: null,
-      fk_student_id: null,
-      fk_subject_id: null,
-      fk_course_year_id: null,
-    })),
+  const templateCells: AnyRow[] = subjects.flatMap((s) =>
+    examNameList.map(
+      (examName): AnyRow => ({
+        subject_code: s.subject_code,
+        subject_name: s.subject_name,
+        exam_name: examName,
+        marks: 0,
+        pk_exam_final_int_mark_id: null,
+        created_dt: null,
+        fk_student_id: null,
+        fk_subject_id: null,
+        fk_course_year_id: null,
+      }),
+    ),
   )
   const byRoll = new Map<string, AnyRow>()
   for (const row of normalized) {
     const roll = strFrom(row, ['roll_number', 'rollNumber'])
     if (!roll) continue
     if (!byRoll.has(roll)) {
-      byRoll.set(roll, {
+      const studentRow: AnyRow = {
         rollNumber: roll,
         firstName: strFrom(row, ['first_name', 'firstName']),
-        studentMarksCount: templateCells.map((c) => ({ ...c })),
-      })
+        studentMarksCount: templateCells.map((c) => ({ ...c })) as AnyRow[],
+      }
+      byRoll.set(roll, studentRow)
     }
     const student = byRoll.get(roll)
     if (!student) continue
+    const marksArrUnknown = student.studentMarksCount
+    const marksArr = (Array.isArray(marksArrUnknown) ? marksArrUnknown : []) as AnyRow[]
     const subjectCode = strFrom(row, ['subject_code', 'subjectCode'])
     const examName = strFrom(row, ['exam_name', 'examName'])
-    const cell = student.studentMarksCount.find((c: AnyRow) => c.subject_code === subjectCode && c.exam_name === examName)
-    if (!cell) continue
+    let cellIdx = marksArr.findIndex((c) => c.subject_code === subjectCode && c.exam_name === examName)
+    if (cellIdx < 0) continue
+    const cell: any = marksArr[cellIdx]
     cell.marks = Number(row.marks ?? 0)
     cell.pk_exam_final_int_mark_id = row.pk_exam_final_int_mark_id ?? null
     cell.created_dt = row.created_dt ?? null
@@ -137,7 +144,6 @@ export default function InternalExamsAveragePage() {
   const [regulationCode, setRegulationCode] = useState('')
   const [internalType, setInternalType] = useState('')
 
-  const [search, setSearch] = useState('')
   const [selectedData, setSelectedData] = useState('')
   const [tempV, setTempV] = useState('')
   const [finalInternalMarks, setFinalInternalMarks] = useState<AnyRow[]>([])
@@ -373,18 +379,47 @@ export default function InternalExamsAveragePage() {
     }
   }
 
-  const filteredStudents = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return midExamMarks
-    return midExamMarks.filter((s) => `${s.firstName ?? ''} ${s.rollNumber ?? ''}`.toLowerCase().includes(q))
-  }, [midExamMarks, search])
+  const columnDefs = useMemo<(ColDef<AnyRow> | ColGroupDef<AnyRow>)[]>(() => {
+    if (!keys.length || !examNames.length) return []
+    const frozen: ColDef<AnyRow>[] = [
+      {
+        colId: 'siNo',
+        headerName: 'S.No',
+        width: 72,
+        flex: 0,
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+      },
+      {
+        colId: 'student',
+        headerName: 'Student',
+        minWidth: 220,
+        flex: 1,
+        valueGetter: (p) => `${String(p.data?.firstName ?? '')} (${String(p.data?.rollNumber ?? '')})`,
+      },
+    ]
+    const groups: ColGroupDef<AnyRow>[] = keys.map((k, subjIdx) => ({
+      headerName: `${k.subject_name} (${k.subject_code})`,
+      children: examNames.map((exam, examIdx) => ({
+        colId: `avg_${subjIdx}_${examIdx}`,
+        headerName: exam,
+        width: 88,
+        flex: 0,
+        valueGetter: (p) => {
+          const marks = p.data?.studentMarksCount as AnyRow[] | undefined
+          const cell = marks?.find((c) => c.subject_code === k.subject_code && c.exam_name === exam)
+          return Number(cell?.marks ?? 0)
+        },
+      })),
+    }))
+    return [...frozen, ...groups]
+  }, [keys, examNames])
 
   return (
     <PageContainer className="space-y-4">
       <PageHeader title="Internal Exam Average" subtitle="Post examination" />
 
       <div className="app-card p-3">
-        <div className="border-b border-yellow-200 pb-2">
+        <div className="border-b border-slate-200 pb-3">
           <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">Internal Exam Average</h2>
         </div>
 
@@ -419,39 +454,27 @@ export default function InternalExamsAveragePage() {
           <div className="app-card p-3 border-t-[7px] border-t-slate-100">
             <div className="text-[14px] font-semibold">{selectedData} <span className="text-slate-500 font-normal">({tempV})</span></div>
           </div>
-          <div className="app-card p-3 overflow-x-auto">
-            <div className="mb-2 max-w-md">
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" className="h-8 text-[12px]" />
-            </div>
-            <table className="w-full min-w-[900px] border-collapse text-[12px]">
-              <thead>
-                <tr>
-                  <th className="border px-2 py-1">S.No</th>
-                  <th className="border px-2 py-1 text-left">Student</th>
-                  {keys.map((k) => (
-                    <th key={k.subject_code} className="border px-2 py-1 text-center" colSpan={examNames.length}>
-                      {k.subject_name} ({k.subject_code})
-                      <p className="text-blue-700 font-medium">{examNames.join(' | ')}</p>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStudents.map((student, idx) => (
-                  <tr key={`${student.rollNumber}-${idx}`}>
-                    <td className="border px-2 py-1 text-center">{idx + 1}</td>
-                    <td className="border px-2 py-1">{student.firstName} (<span className="text-blue-700">{student.rollNumber}</span>)</td>
-                    {student.studentMarksCount.map((m: AnyRow, i: number) => (
-                      <td key={`${student.rollNumber}-${i}`} className="border px-2 py-1 text-center">{Number(m.marks ?? 0)}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-end">
-            <Button className="h-8 text-[12px]" onClick={() => void onSave()} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
-          </div>
+          <TableCard withHeaderBorder={false}>
+            <DataTable<AnyRow>
+              rowData={midExamMarks}
+              columnDefs={columnDefs}
+              loading={loading}
+              getRowId={(p) => String(p.data?.rollNumber ?? '')}
+              pagination
+              paginationPageSize={50}
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search…',
+                pdfDocumentTitle: 'Internal Exam Average',
+                lockColumnIds: ['siNo', 'student'],
+              }}
+              toolbarTrailing={
+                <Button className="h-[30px] px-3 text-[12px]" onClick={() => void onSave()} disabled={saving}>
+                  {saving ? 'Saving...' : 'Save'}
+                </Button>
+              }
+            />
+          </TableCard>
         </>
       )}
     </PageContainer>

@@ -11,7 +11,6 @@ import {
   assignReevaluationByCodes,
   getReevaluationAssignBundleByCodes,
   getReevaluationAssignSubjects,
-  runReevaluationAssignmentPopByCodes,
 } from '@/services/evaluation'
 import { toastError, toastSuccess } from '@/lib/toast'
 
@@ -208,22 +207,6 @@ export default function ReEvaluationAssignPage() {
     setSelectedOmrSet(new Set(filteredOmrRows.map((r) => textFrom(r, ['omr_serial_no']))))
   }
 
-  async function runAutoAssign() {
-    if (!subjectCode || !courseYearCode) {
-      toastError('Please select Subject and Course Year first.')
-      return
-    }
-    setLoading(true)
-    try {
-      await runReevaluationAssignmentPopByCodes({ subjectCode, courseYearCode })
-      toastSuccess('Re-evaluation assignment run completed.')
-    } catch (error) {
-      toastError(error, 'Failed to run re-evaluation assignment.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   async function getList() {
     if (!courseCode || !examMonthYear || !courseYearCode || !subjectCode) {
       toastError('Please select all filters.')
@@ -326,7 +309,7 @@ export default function ReEvaluationAssignPage() {
       <PageHeader title="Re evaluation assign" subtitle="Evaluation process · Re-evaluation assignment" />
 
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="border-b border-yellow-200 pb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2">
             <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
             <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">Re evaluation assign</h2>
@@ -359,14 +342,9 @@ export default function ReEvaluationAssignPage() {
                 <Label>Course Year</Label>
                 <Select value={courseYearCode} onChange={setCourseYearCode} options={courseYearOptions} searchable />
               </div>
-              <div className="space-y-1 md:col-span-4">
+              <div className="space-y-1 md:col-span-5">
                 <Label>Subject</Label>
                 <Select value={subjectCode} onChange={setSubjectCode} options={subjectOptions} searchable />
-              </div>
-              <div className="md:col-span-1">
-                <Button className="h-9 w-full" onClick={() => void runAutoAssign()} disabled={loading}>
-                  Run
-                </Button>
               </div>
               <div className="md:col-span-1">
                 <Button className="h-9 w-full" onClick={() => void getList()} disabled={loading}>
@@ -394,7 +372,7 @@ export default function ReEvaluationAssignPage() {
             <div className="md:col-span-3 border rounded-md p-2 bg-white">
               <h3 className="text-[14px] font-semibold text-blue-700 px-1 pb-2">Evaluators</h3>
               <div className="px-1 pb-2">
-                <SearchInput placeholder="Search evaluator..." value={evaluatorSearch} onChange={setEvaluatorSearch} />
+                <SearchInput className="w-full max-w-sm" placeholder="Search evaluator…" value={evaluatorSearch} onChange={setEvaluatorSearch} />
               </div>
               <div className="max-h-[420px] overflow-auto space-y-1 px-1">
                 {filteredEvaluators.map((row) => {
@@ -420,7 +398,7 @@ export default function ReEvaluationAssignPage() {
 
             <div className="md:col-span-4 border rounded-md p-2 bg-white">
               <div className="flex items-center justify-between gap-2 pb-2">
-                <SearchInput placeholder="Search OMR..." value={omrSearch} onChange={setOmrSearch} />
+                <SearchInput className="w-full max-w-sm" placeholder="Search OMR…" value={omrSearch} onChange={setOmrSearch} />
                 <span className="text-[12px] font-medium text-blue-700">Selected: {selectedOmrSet.size}</span>
               </div>
               <div className="max-h-[420px] overflow-auto border rounded">

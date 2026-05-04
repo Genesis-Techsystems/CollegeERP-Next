@@ -5,7 +5,6 @@ import { BookMarked, ChevronDown, Pencil } from 'lucide-react'
 import type { ColDef } from 'ag-grid-community'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
 import { Select } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { Button } from '@/components/ui/button'
@@ -124,7 +123,6 @@ export default function EvaluationStatusTrackingPage() {
   const [filters, setFilters] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnswerPaperRow[]>([])
   const [hasFetched, setHasFetched] = useState(false)
-  const [search, setSearch] = useState('')
 
   const [examMonthYear, setExamMonthYear] = useState<string | null>(null)
   const [subjectCode, setSubjectCode] = useState<string | null>(null)
@@ -193,17 +191,6 @@ export default function EvaluationStatusTrackingPage() {
     setRows([])
     setHasFetched(false)
   }, [examMonthYear, subjectCode, evaluatorProfileId, timeTableId])
-
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) =>
-      [r.omrSerialNo, statusText(r), String(r.evaluatedTotalMarks ?? ''), String(r.answerSheetCheckDate ?? '')]
-        .join(' ')
-        .toLowerCase()
-        .includes(term),
-    )
-  }, [rows, search])
 
   const columnDefs = useMemo<ColDef<AnswerPaperRow>[]>(
     () => [
@@ -290,7 +277,7 @@ export default function EvaluationStatusTrackingPage() {
       <PageHeader title="Evaluation status tracking" subtitle="Evaluation process · Update evaluator answer paper status" />
 
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="border-b border-yellow-200 pb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2">
             <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
             <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">Evaluation status tracking</h2>
@@ -375,11 +362,18 @@ export default function EvaluationStatusTrackingPage() {
 
       {hasFetched && (
         <div className="app-card overflow-hidden">
-          <div className="p-3 border-b border-slate-200 bg-white">
-            <SearchInput className="w-full md:w-[320px]" placeholder="Search" value={search} onChange={setSearch} />
-          </div>
           <div className="p-3">
-            <DataTable rowData={filteredRows} columnDefs={columnDefs} pagination loading={loading} />
+            <DataTable
+              rowData={rows}
+              columnDefs={columnDefs}
+              pagination
+              loading={loading}
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search…',
+                pdfDocumentTitle: 'Answer Paper Status',
+              }}
+            />
           </div>
         </div>
       )}

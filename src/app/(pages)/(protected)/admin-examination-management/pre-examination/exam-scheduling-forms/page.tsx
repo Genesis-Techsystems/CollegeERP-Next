@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
 import { Select } from '@/common/components/select'
+import { SearchInput } from '@/common/components/search'
 import { ChevronDown, Filter } from 'lucide-react'
 import { toDateStr } from '@/common/generic-functions'
 import {
@@ -206,7 +206,35 @@ export default function ExamSchedulingFormsPage() {
     }
   }
 
+  function pickAllotId(r: AnyRow): number {
+    const id = pickId(r, [
+      'examRoomAllotmentId',
+      'exam_room_allotment_id',
+      'fk_exam_room_allotment_id',
+      'examRoomAlotId',
+    ])
+    return id || pickId(r, ['id'])
+  }
+
+  function pickSessionIdForOmr(r: AnyRow): number {
+    return pickId(r, [
+      'examSessionId',
+      'fk_exam_session_id',
+      'exam_session_id',
+      'sessionId',
+      'examsessioninCatCode',
+      'exam_session_cat_id',
+      'in_session_id',
+    ])
+  }
+
   function openSeatAllotStudents(row: AnyRow) {
+    const courseRow =
+      courses.find((c) => Number(c.fk_course_id) === Number(courseId)) ??
+      courses.find((c) => Number(c.courseId) === Number(courseId))
+    const courseLabel =
+      String(courseRow?.courseCode ?? courseRow?.course_name ?? courseRow?.courseName ?? courseRow?.course_code ?? '').trim() ||
+      String(courseRow?.fk_course_id ?? '')
     const params = new URLSearchParams({
       collegeId: String(collegeId ?? ''),
       courseId: String(courseId ?? ''),
@@ -216,11 +244,8 @@ export default function ExamSchedulingFormsPage() {
         academicYears.find((a) => Number(a.fk_academic_year_id) === Number(academicYearId))?.academicYear ??
           '',
       ),
-      courseCode: String(
-        courses.find((c) => Number(c.fk_course_id) === Number(courseId))?.courseCode ??
-          courses.find((c) => Number(c.fk_course_id) === Number(courseId))?.course_name ??
-          '',
-      ),
+      courseName: courseLabel,
+      courseCode: courseLabel,
       examName: String(
         exams.find((e) => Number(e.fk_exam_id) === Number(examId))?.examName ??
           exams.find((e) => Number(e.fk_exam_id) === Number(examId))?.exam_name ??
@@ -228,11 +253,12 @@ export default function ExamSchedulingFormsPage() {
       ),
       examTimetableId: String(examTimetableId ?? ''),
       subjectId: String(row.subjectId ?? row.subject_id ?? ''),
-      sessionId: String(row.examSessionId ?? row.fk_exam_session_id ?? ''),
+      sessionId: String(pickSessionIdForOmr(row)),
+      examType: String(row.examSessionName ?? row.sessionName ?? row.examsessioninCatCode ?? ''),
       roomCode: String([row.buildingCode, row.blockCode, row.floorName, row.roomCode].filter(Boolean).join(' / ')),
       examDate: toDateStr(row.examDate),
       examSession: String(row.examSessionName ?? ''),
-      examRoomAllotmentId: String(row.examRoomAllotmentId ?? row.id ?? ''),
+      examRoomAllotmentId: String(pickAllotId(row)),
     })
     router.push(`/admin-examination-management/pre-examination/exam-scheduling-forms/add-exam-scheduling-forms?${params.toString()}`)
   }
@@ -348,14 +374,7 @@ export default function ExamSchedulingFormsPage() {
       {hasFetchedList && (
         <div className="app-card p-3 space-y-2">
           <div className="space-y-3">
-            <div className="w-full max-w-sm">
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search"
-                className="h-8 text-[12px]"
-              />
-            </div>
+            <SearchInput value={search} onChange={setSearch} placeholder="Search…" className="w-full max-w-sm" />
             <div className="w-full rounded border border-amber-300 p-3">
               <div className="flex flex-wrap gap-2">
                 {printActions.map((label) => (

@@ -3,11 +3,19 @@ import { GM_CODES } from '@/config/constants/ui'
 
 type AnyRow = Record<string, any>
 
-async function listRevisionEntity(query?: string): Promise<AnyRow[]> {
+/** Angular parity: `examFeeRevisionMaster` + `course.courseId` + `isActive` — one list call; alternate entity/query only if needed. */
+async function listRevisionForQuery(query: string): Promise<AnyRow[]> {
   try {
-    return await domainList<AnyRow>('ExamFeeRevisionMaster', query)
+    const fee = await domainList<AnyRow>('ExamFeeRevisionMaster', query)
+    if (Array.isArray(fee) && fee.length > 0) return fee
   } catch {
-    return domainList<AnyRow>('ExamRevisionMaster', query)
+    // try legacy entity below
+  }
+  try {
+    const rev = await domainList<AnyRow>('ExamRevisionMaster', query)
+    return Array.isArray(rev) ? rev : []
+  } catch {
+    return []
   }
 }
 
@@ -32,33 +40,22 @@ export async function listCoursesByUniversity(universityId: number): Promise<Any
 }
 
 export async function listRevisionMastersByCourse(courseId: number): Promise<AnyRow[]> {
-  const queries = [
-    buildQuery({ 'course.courseId': courseId, isActive: true }),
-    buildQuery({ 'Course.courseId': courseId, isActive: true }),
-    buildQuery({ courseId, isActive: true }),
-    buildQuery({ 'course.courseId': courseId }),
-    buildQuery({ 'Course.courseId': courseId }),
-    buildQuery({ courseId }),
-  ]
+  if (!Number.isFinite(courseId) || courseId <= 0) return []
 
-  for (const q of queries) {
-    const rows = await listRevisionEntity(q).catch(() => [])
-    if (Array.isArray(rows) && rows.length > 0) return rows
-  }
-  // Final fallback: fetch all and filter client-side for backend variants
-  const allRows = await listRevisionEntity().catch(() => [])
-  if (!Array.isArray(allRows) || allRows.length === 0) return []
-  const id = Number(courseId)
-  return allRows.filter((r) => {
-    const rowCourseId = Number(
-      r?.courseId ??
-      r?.fk_course_id ??
-      r?.course?.courseId ??
-      r?.Course?.courseId ??
-      0,
-    )
-    return rowCourseId === id
-  })
+  // 1) Angular field name is `course.courseId` (see legacy `listDetailsByTwoIds(..., 'course.courseId', 'isActive')`).
+  const angularShape = buildQuery({ 'course.courseId': courseId, isActive: true })
+  let rows = await listRevisionForQuery(angularShape)
+  if (rows.length > 0) return rows
+
+  // 2) Typical Spring/JPA relation path used elsewhere in this codebase.
+  const pascalCourse = buildQuery({ 'Course.courseId': courseId, isActive: true })
+  rows = await listRevisionForQuery(pascalCourse)
+  if (rows.length > 0) return rows
+
+  // 3) Flat `courseId` filter only if both relation paths returned no rows.
+  const flat = buildQuery({ courseId, isActive: true })
+  rows = await listRevisionForQuery(flat)
+  return rows
 }
 
 export async function listRevisionTypes(): Promise<AnyRow[]> {

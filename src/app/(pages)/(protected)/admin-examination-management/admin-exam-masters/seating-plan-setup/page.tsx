@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSessionContext } from '@/context/SessionContext'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,6 +30,7 @@ import {
 	listExamRoomAllotments as listExamRoomAllotmentsPre,
 } from '@/services/pre-examination'
 import { ChevronDown, Filter, Plus, Printer } from 'lucide-react'
+import { SearchInput } from '@/common/components/search'
 import { useRouter } from 'next/navigation'
 import { toDateStr } from '@/common/generic-functions'
 
@@ -249,7 +251,24 @@ async function fetchUnivExamFilters(params?: {
 	examId?: number
 	academicYearId?: number
 }): Promise<any[]> {
-	return listUnivExamFiltersByCode(params)
+	return listUnivExamFiltersByCode({
+		loginEmpId: params?.loginEmpId,
+		courseId: params?.courseId,
+		examId: params?.examId,
+		academicYearId: params?.academicYearId,
+	})
+}
+
+/** Rows already returned by REGSUP for this course / exam / AY — avoids a duplicate `univ_exam_filters` ALL proc. */
+function scopeRegSupUnivRows(rows: any[], courseId: number, examId: number, academicYearId: number): any[] {
+	return (rows ?? []).filter((r: any) => {
+		const c = Number(r.fk_course_id ?? r.course_id ?? 0)
+		const e = Number(r.fk_exam_id ?? r.exam_id ?? r.pk_exam_id ?? 0)
+		const ay = Number(r.fk_academic_year_id ?? r.academic_year_id ?? 0)
+		if (c !== Number(courseId) || e !== Number(examId)) return false
+		if (Number(academicYearId) > 0 && ay > 0 && ay !== Number(academicYearId)) return false
+		return true
+	})
 }
 
 // ── Pure renderer ─────────────────────────────────────────────────────────────
@@ -259,6 +278,12 @@ function statusRenderer(p: ICellRendererParams) {
 
 export default function SeatingPlanSetupPage() {
 	const router = useRouter()
+	const { user } = useSessionContext()
+	const employeeId = useMemo(() => {
+		const fromStorage = Number(globalThis.localStorage?.getItem('employeeId') ?? 0)
+		const fromSession = Number(user?.employeeId ?? 0)
+		return fromStorage || fromSession || 0
+	}, [user?.employeeId])
 	// Top-level filters
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [baseRows, setBaseRows] = useState<any[]>([])
@@ -280,7 +305,6 @@ export default function SeatingPlanSetupPage() {
 	const [sessionOptions, setSessionOptions] = useState<SessionOption[]>([])
 	const [univExamFilterRows, setUnivExamFilterRows] = useState<any[]>([])
 	const [filterOpen, setFilterOpen] = useState(true)
-	const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
 
 	// Table data from selected exam session/timetable
 	const [previewRows, setPreviewRows] = useState<AllocationRow[]>([])
@@ -295,7 +319,7 @@ export default function SeatingPlanSetupPage() {
 			const distinctCourses = distinct(univRows ?? [], (r) => r.fk_course_id)
 			setCourses(distinctCourses)
 			if (distinctCourses.length > 0) {
-				await handleCourseChange(distinctCourses[0].fk_course_id)
+				await handleCourseChange(distinctCourses[0].fk_course_id, Array.isArray(univRows) ? univRows : [])
 			}
 		} finally {
 			setLoadingFilters(false)
@@ -306,7 +330,7 @@ export default function SeatingPlanSetupPage() {
 		fetchFilters()
 	}, [fetchFilters])
 
-	async function handleCourseChange(courseId: number) {
+	async function handleCourseChange(courseId: number, regSupRows?: any[]) {
 		setSelectedCourseId(courseId)
 		setSelectedCollegeId(null)
 		setSelectedExamId(null)
@@ -316,7 +340,8 @@ export default function SeatingPlanSetupPage() {
 		setSelectedCourseYearId(null)
 
 		// Keep exam years aligned to the selected course like legacy flow.
-		const yearRowsForCourse = (baseRows ?? []).filter(
+		const rowSource = regSupRows ?? baseRows ?? []
+		const yearRowsForCourse = rowSource.filter(
 			(a: any) => Number(a.fk_course_id ?? a.course_id ?? 0) === Number(courseId),
 		)
 		const years = distinct(
@@ -408,7 +433,18 @@ export default function SeatingPlanSetupPage() {
 		[sessionOptions, selectedExamTimetableId]
 	)
 
+	/** Stable key so room-allotment fetch does not re-run when `sessionOptions` gets a new array ref with the same session. */
+	const roomAllotmentLoadKey = useMemo(() => {
+		if (!selectedCollegeId || !selectedCourseId || !selectedExamId || !selectedExamTimetableId) return ''
+		const o = sessionOptions.find((s) => Number(s.id) === Number(selectedExamTimetableId))
+		const date = String(o?.examDate ?? '')
+		const sid = Number(o?.sessionId ?? 0) || 0
+		return `${selectedCollegeId}|${selectedCourseId}|${selectedExamId}|${selectedExamTimetableId}|${date}|${sid}`
+	}, [selectedCollegeId, selectedCourseId, selectedExamId, selectedExamTimetableId, sessionOptions])
+
 	useEffect(() => {
+		const ac = new AbortController()
+		const { signal } = ac
 		async function loadExamTimetables() {
 			setExamTimetables([])
 			setPreviewRows([])
@@ -423,6 +459,7 @@ export default function SeatingPlanSetupPage() {
 				academicYearId: selectedAcademicYearId ?? 0,
 				employeeId: employeeId || 0,
 			}).catch(() => [])
+			if (signal.aborted) return
 			const restList = Array.isArray(rest) ? rest : []
 			setRestRows(restList)
 			const distinctColleges = distinct(restList.filter((x: any) => x.fk_college_id), (x: any) => x.fk_college_id)
@@ -432,14 +469,25 @@ export default function SeatingPlanSetupPage() {
 					? prevId
 					: (distinctColleges[0]?.fk_college_id ?? null)
 			})
-			const freshUnivRows = await fetchUnivExamFilters({
-				courseId: selectedCourseId ?? 0,
-				examId: selectedExamId ?? 0,
-				academicYearId: selectedAcademicYearId ?? 0,
-			}).catch(() => [])
-			const effectiveUnivRows = Array.isArray(freshUnivRows) && freshUnivRows.length > 0
-				? freshUnivRows
-				: univExamFilterRows
+			let effectiveUnivRows = scopeRegSupUnivRows(
+				univExamFilterRows,
+				selectedCourseId,
+				selectedExamId,
+				selectedAcademicYearId ?? 0,
+			)
+			if (effectiveUnivRows.length === 0) {
+				const fetched = await fetchUnivExamFilters({
+					loginEmpId: employeeId || 0,
+					courseId: selectedCourseId ?? 0,
+					examId: selectedExamId ?? 0,
+					academicYearId: selectedAcademicYearId ?? 0,
+				}).catch(() => [])
+				effectiveUnivRows = Array.isArray(fetched) ? fetched : []
+			}
+			if (effectiveUnivRows.length === 0) {
+				effectiveUnivRows = univExamFilterRows
+			}
+			if (signal.aborted) return
 			// Legacy behavior: timetable list should still appear even when course-year mapping is absent.
 			const directTt = await listExamTimetablesByExam(selectedExamId).catch(() => [])
 			let list = Array.isArray(directTt) ? directTt : []
@@ -447,10 +495,7 @@ export default function SeatingPlanSetupPage() {
 				const rows = await getExamTimetableDetails(selectedCourseYearId, selectedCourseId, selectedExamId).catch(() => [])
 				list = Array.isArray(rows) ? rows : []
 			}
-			if (process.env.NODE_ENV !== 'production') {
-				// Temporary debug: inspect legacy timetable payload keys for exact mapping.
-				console.log('[SeatingPlanSetup] getExamTimetableDetails first row:', list?.[0] ?? null)
-			}
+			if (signal.aborted) return
 			setExamTimetables(list)
 			if (list.length > 0) {
 				const opts = extractSessionOptions(list)
@@ -517,8 +562,10 @@ export default function SeatingPlanSetupPage() {
 				})
 			}
 		}
-		loadExamTimetables()
-	}, [employeeId, selectedCourseId, selectedCourseYearId, selectedExamId, selectedAcademicYearId, univExamFilterRows])
+		void loadExamTimetables()
+		return () => ac.abort()
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- univExamFilterRows read for scope only; avoids extra passes
+	}, [employeeId, selectedCourseId, selectedCourseYearId, selectedExamId, selectedAcademicYearId])
 
 	useEffect(() => {
 		function mapSelectedSessionRows() {
@@ -557,20 +604,26 @@ export default function SeatingPlanSetupPage() {
 	}, [selectedExamTimetableId, examTimetables])
 
 	useEffect(() => {
+		if (!roomAllotmentLoadKey) return
+		const ac = new AbortController()
+		const { signal } = ac
 		async function loadRoomAllotmentsBySelection() {
 			if (!selectedExamId || !selectedExamTimetableId || !selectedCourseId || !selectedCollegeId) {
 				setPreviewRows([])
 				return
 			}
+			const sessionRow = sessionOptions.find((s) => Number(s.id) === Number(selectedExamTimetableId))
 			// Angular parity: prefer ExamRoomAllotment rows first (already aggregated per room).
 			let rows = await listExamRoomAllotmentsPre(selectedCollegeId, selectedExamId, selectedExamTimetableId).catch(() => [])
+			if (signal.aborted) return
 			if (!Array.isArray(rows) || rows.length === 0) {
 				rows = await listExamRoomAllotmentsDomain(selectedExamId, selectedExamTimetableId).catch(() => [])
 			}
+			if (signal.aborted) return
 			// Last fallback only when allotments are absent: student-level SP rows.
 			if (!Array.isArray(rows) || rows.length === 0) {
-				const selectedExamDate = toDateStr(selectedTimetable?.examDate)
-				const selectedSessionId = Number(selectedTimetable?.sessionId ?? 0) || 0
+				const selectedExamDate = toDateStr(sessionRow?.examDate)
+				const selectedSessionId = Number(sessionRow?.sessionId ?? 0) || 0
 				rows = await fetchRoomwiseOmrStudents({
 					examId: selectedExamId,
 					courseId: selectedCourseId,
@@ -578,14 +631,16 @@ export default function SeatingPlanSetupPage() {
 					sessionId: selectedSessionId,
 				}).catch(() => [])
 			}
+			if (signal.aborted) return
 			if (!Array.isArray(rows) || rows.length === 0) {
 				setPreviewRows([])
 				return
 			}
 			setPreviewRows(mapAllocationRows(rows))
 		}
-		loadRoomAllotmentsBySelection()
-	}, [selectedCollegeId, selectedCourseId, selectedExamId, selectedExamTimetableId, selectedTimetable])
+		void loadRoomAllotmentsBySelection()
+		return () => ac.abort()
+	}, [roomAllotmentLoadKey])
 
 	async function handleCopyExistingSeating() {
 		if (!selectedExamId || !selectedExamTimetableId) return
@@ -706,7 +761,9 @@ export default function SeatingPlanSetupPage() {
 			examRoomAllotmentId: String(resolvedExamRoomAllotmentId ?? ''),
 			subjectId: String(resolvedSubjectId ?? ''),
 		})
-		router.push(`/admin-examination-management/pre-examination/exam-scheduling-forms/add-exam-scheduling-forms?${params.toString()}`)
+		router.push(
+			`/admin-examination-management/admin-exam-masters/seating-plan-setup/seat-allot-students?${params.toString()}`,
+		)
 	}
 
 	function handleAddRoomSeatingPlan() {
@@ -856,7 +913,7 @@ export default function SeatingPlanSetupPage() {
 									<div className="p-2 border-b">
 										<input
 											className="h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-[12px]"
-											placeholder="Search Exam..."
+											placeholder="Search Exam…"
 											value={examMasterSearch}
 											onChange={(e) => setExamMasterSearch(e.target.value)}
 										/>
@@ -918,14 +975,7 @@ export default function SeatingPlanSetupPage() {
 			{selectedExamTimetableId != null && (
 				<div className="app-card p-3 space-y-3">
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-						<div className="relative w-full max-w-sm">
-							<input
-								className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-[12px] text-foreground shadow-sm placeholder:text-slate-400 focus:border-[hsl(var(--primary))]/40 focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]/25"
-								placeholder="Search"
-								value={searchText}
-								onChange={(e) => setSearchText(e.target.value)}
-							/>
-						</div>
+						<SearchInput className="w-full max-w-sm" placeholder="Search…" value={searchText} onChange={setSearchText} />
 						<div className="flex flex-wrap items-center gap-2 sm:ml-auto">
 							<Button
 								type="button"

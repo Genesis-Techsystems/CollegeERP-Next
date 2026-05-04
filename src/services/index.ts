@@ -22,6 +22,8 @@ export * from './admin/room-detail'
 export * from './admin/room-type'
 export * from './admin/room'
 export * from './admin/general-setting'
+export * from './admin/bank'
+export * from './admin/caste'
 export * from './admin/digital-online-sync'
 export * from './admin/question-bank'
 export * from './evaluation'
@@ -33,6 +35,10 @@ export * from './pre-examination'
 // examination: CollegeFiltersResult and getCollegeFilters conflict with evaluation.ts (already exported)
 // and exam-master.ts; use named re-exports to avoid ambiguity.
 export {
+  resolveExamLoginEmpId,
+  getUnivExamFiltersAll,
+  getUnivExamFiltersForExamFeeSetup,
+  getUnivExamRestCollegesForRevaluationFee,
   listExamSessions,
   createExamSession,
   updateExamSession,
@@ -48,6 +54,7 @@ export {
   createExamFeeStructure,
   updateExamFeeStructure,
   listGeneralDetailsByMaster,
+  listExamFeeTypeGeneralDetails,
   listRegulations,
   listCourseGroups,
   listCourseYears,
@@ -79,6 +86,7 @@ export {
   saveExamMasterDetails,
 } from './exam-master'
 export type { CollegeFiltersResult as ExamMasterCollegeFiltersResult } from './exam-master'
+export * from './exam-fcar-setup-master'
 export * from './exam-lab-batches'
 export * from './exam-lab-timetable'
 export * from './student-information'

@@ -62,6 +62,62 @@ function pick<T = unknown>(obj: any, keys: string[], fallback: T): T {
 	return fallback
 }
 
+/** Domain list payloads sometimes wrap the allotment in arrays or omit row/col totals; infer grid from coordinates when needed. */
+function unwrapExamRoomAllotRecord(raw: any): any | null {
+	if (raw == null || raw === '') return null
+	if (Array.isArray(raw)) return raw.length > 0 ? raw[0] : null
+	if (typeof raw === 'object' && raw.examRoomAllotment != null && Array.isArray(raw.examRoomAllotment)) {
+		const a = raw.examRoomAllotment
+		return a.length > 0 ? a[0] : null
+	}
+	return raw
+}
+
+function examRoomSeatDto(allotment: any): any[] {
+	if (!allotment || typeof allotment !== 'object') return []
+	const dto =
+		allotment.examRoomStudentAllotmentDTO ??
+		allotment.examRoomStudentAllotments ??
+		allotment.exam_room_student_allotment_dto ??
+		allotment.exam_room_student_allotment
+	const list = Array.isArray(dto) ? dto : []
+	return list
+}
+
+const ROW_DIM_KEYS = [
+	'totalRows',
+	'total_rows',
+	'total_row',
+	'rows_count',
+	'rowCount',
+	'noOfRows',
+	'no_of_rows',
+	'Rows',
+]
+const COL_DIM_KEYS = [
+	'totalColumns',
+	'total_columns',
+	'total_cols',
+	'cols_count',
+	'columnCount',
+	'columns_count',
+	'noOfColumns',
+	'no_of_columns',
+	'Columns',
+]
+
+function maxSeatRowCol(rows: any[]): { maxRow: number; maxCol: number } {
+	let maxRow = 0
+	let maxCol = 0
+	for (const r of rows) {
+		const rn = num(pick(r, ['rowNo', 'row_no', 'rowNO', 'row'], 0))
+		const cn = num(pick(r, ['columnNo', 'column_no', 'columnNO', 'colNo', 'col_no', 'column'], 0))
+		if (rn > maxRow) maxRow = rn
+		if (cn > maxCol) maxCol = cn
+	}
+	return { maxRow, maxCol }
+}
+
 export default function SeatAllotStudentsPage() {
 	const router = useRouter()
 	const searchParams = useSearchParams()
@@ -119,7 +175,7 @@ export default function SeatAllotStudentsPage() {
 				])
 				setAttendanceRows(Array.isArray(attData) ? attData : [])
 				setSeatRows(Array.isArray(seatsData) ? seatsData : [])
-				setRoomAllotment(allotmentData)
+				setRoomAllotment(unwrapExamRoomAllotRecord(allotmentData))
 			} finally {
 				setLoading(false)
 			}
@@ -166,44 +222,46 @@ export default function SeatAllotStudentsPage() {
 	}, [details.courseId, searchParams])
 
 	const roomMeta = useMemo(() => {
-		const first = roomAllotment ?? seatRows[0] ?? {}
-		const allotSeats = Array.isArray(roomAllotment?.examRoomStudentAllotmentDTO) ? roomAllotment.examRoomStudentAllotmentDTO : []
+		const allotSeatsFromAllotment = examRoomSeatDto(roomAllotment ?? null)
+		const allotSeats = allotSeatsFromAllotment
+		const coordsUnion =
+			allotSeats.length > 0 ? [...allotSeats, ...seatRows].filter(Boolean) : [...seatRows]
 		const seatsSource = allotSeats.length > 0 ? allotSeats : seatRows
-		const totalRowsRaw = num(pick(first, ['totalRows', 'total_rows', 'rows_count'], 0))
-		const totalColsRaw = num(pick(first, ['totalColumns', 'total_columns', 'cols_count'], 0))
-		const maxRow = seatsSource.reduce((m: number, r: any) => Math.max(m, num(pick(r, ['rowNo', 'row_no'], 0))), 0)
-		const maxCol = seatsSource.reduce((m: number, r: any) => Math.max(m, num(pick(r, ['columnNo', 'column_no'], 0))), 0)
-		const totalRows = totalRowsRaw || maxRow
-		const totalCols = totalColsRaw || maxCol
-		const blockedFromGrid = seatRows.filter(
+		const { maxRow: inferRow, maxCol: inferCol } = maxSeatRowCol(coordsUnion)
+		const metaSource = roomAllotment ?? allotSeats[0] ?? seatRows[0] ?? {}
+		const totalRowsRaw = num(pick(metaSource, ROW_DIM_KEYS, 0))
+		const totalColsRaw = num(pick(metaSource, COL_DIM_KEYS, 0))
+		const totalRows = totalRowsRaw > 0 ? totalRowsRaw : inferRow > 0 ? inferRow : 0
+		const totalCols = totalColsRaw > 0 ? totalColsRaw : inferCol > 0 ? inferCol : 0
+		const blockedFromGrid = seatsSource.filter(
 			(r) =>
-				String(pick(r, ['examSeatStatusCode', 'examseatstatusCatCode', 'seat_status'], '')).toLowerCase() === 'blocked'
+				String(pick(r, ['examSeatStatusCode', 'examseatstatusCatCode', 'seat_status'], '')).toLowerCase() === 'blocked',
 		).length
-		const bookedFromGrid = seatRows.filter((r) => {
+		const bookedFromGrid = seatsSource.filter((r) => {
 			const status = String(pick(r, ['examSeatStatusCode', 'examseatstatusCatCode', 'seat_status'], '')).toLowerCase()
 			return status === 'booked' || num(pick(r, ['studentId', 'student_id', 'fk_std_id'], 0)) > 0
 		}).length
 		const totalSeats = totalRows > 0 && totalCols > 0 ? totalRows * totalCols : 0
-		const roomStrength = num(pick(first, ['roomStrength', 'room_strength'], 0))
-		const blockedSeats = num(pick(first, ['blockedSeats', 'blocked_seats'], blockedFromGrid))
-		const bookedSeats = num(pick(first, ['bookedSeats', 'booked_seats', 'noOfSeats'], bookedFromGrid))
+		const roomStrength = num(pick(metaSource, ['roomStrength', 'room_strength'], 0))
+		const blockedSeats = num(pick(metaSource, ['blockedSeats', 'blocked_seats'], blockedFromGrid))
+		const bookedSeats = num(pick(metaSource, ['bookedSeats', 'booked_seats', 'noOfSeats'], bookedFromGrid))
 		const availableSeats = num(
 			pick(
-				first,
+				metaSource,
 				['availableSeats', 'available_seats'],
-				Math.max((roomStrength || totalSeats || seatRows.length) - bookedSeats - blockedSeats, 0)
-			)
+				Math.max((roomStrength || totalSeats || seatsSource.length) - bookedSeats - blockedSeats, 0),
+			),
 		)
 		return {
 			totalRows,
 			totalCols,
 			roomStrength: roomStrength || totalSeats || seatRows.length,
-			priority: num(pick(first, ['priority'], 0)),
+			priority: num(pick(metaSource, ['priority'], 0)),
 			bookedSeats,
 			blockedSeats,
 			availableSeats,
-			capacity: totalSeats || seatRows.length,
-			roomLabel: details.roomCode || String(pick(first, ['room_name', 'roomName', 'roomCode', 'room_code'], '')),
+			capacity: totalSeats || seatsSource.length,
+			roomLabel: details.roomCode || String(pick(metaSource, ['room_name', 'roomName', 'roomCode', 'room_code'], '')),
 		}
 	}, [seatRows, roomAllotment, details.roomCode])
 
@@ -211,12 +269,12 @@ export default function SeatAllotStudentsPage() {
 		const totalRows = roomMeta.totalRows
 		const totalCols = roomMeta.totalCols
 		if (!totalRows || !totalCols) return []
-		const allotSeats = Array.isArray(roomAllotment?.examRoomStudentAllotmentDTO) ? roomAllotment.examRoomStudentAllotmentDTO : []
-		const seatsSource = allotSeats.length > 0 ? allotSeats : seatRows
+		const allotSeatsFromAllotment = examRoomSeatDto(roomAllotment ?? null)
+		const seatsSource = allotSeatsFromAllotment.length > 0 ? allotSeatsFromAllotment : seatRows
 		const seatByCell = new Map<string, any>()
 		for (const item of seatsSource) {
-			const rowNo = num(pick(item, ['rowNo', 'row_no'], 0))
-			const colNo = num(pick(item, ['columnNo', 'column_no'], 0))
+			const rowNo = num(pick(item, ['rowNo', 'row_no', 'rowNO', 'row'], 0))
+			const colNo = num(pick(item, ['columnNo', 'column_no', 'columnNO', 'colNo', 'col_no', 'column'], 0))
 			if (!rowNo || !colNo) continue
 			seatByCell.set(`${rowNo}-${colNo}`, item)
 		}
@@ -235,7 +293,9 @@ export default function SeatAllotStudentsPage() {
 				const colNo = cIdx + 1
 				const key = `${rowNo}-${colNo}`
 				const seat = seatByCell.get(key) ?? {}
-				const status = String(pick(seat, ['examSeatStatusCode', 'examseatstatusCatCode', 'seat_status'], 'Available'))
+				const status = String(
+					pick(seat, ['examSeatStatusCode', 'examseatstatusCatCode', 'seat_status', 'exam_display_seat_status_code'], 'Available'),
+				)
 				return {
 					key,
 					serial: serialMap.get(key) ?? '',
@@ -335,35 +395,45 @@ export default function SeatAllotStudentsPage() {
 
 					{mode === 'student' && (
 						<div className="rounded border border-blue-200 p-2 space-y-2">
-							<h3 className="text-[18px] leading-none font-medium text-blue-700 px-1">Seating Order</h3>
+							<h3 className="text-[13px] font-semibold leading-tight text-blue-700 px-1">Seating Order</h3>
 							<div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-2">
-								<div className="border border-slate-200 overflow-auto max-h-[520px]">
-									<table className="w-full border-collapse text-[12px]">
-										<tbody>
-											{seatingGrid.map((row, rIdx) => (
-												<tr key={`row-${rIdx}`}>
-													{row.map((seat) => {
-														const blocked = seat.status.toLowerCase() === 'blocked'
-														const booked = seat.status.toLowerCase() === 'booked' || !!seat.hallticket
-														return (
-															<td
-																key={seat.key}
-																title={seat.stdName ? `Student: ${seat.stdName}` : ''}
-																className={`min-w-[72px] h-[76px] align-top border border-blue-100 p-1 ${
-																	blocked ? 'bg-slate-200/70' : 'bg-white'
-																}`}
-															>
-																<div className="text-right text-[11px]">{seat.serial}</div>
-																<div className="text-center text-[18px] leading-none text-slate-500">{booked ? '■' : '□'}</div>
-																<div className="text-center font-medium leading-tight">{seat.hallticket || ''}</div>
-																<div className="text-center text-[10px] text-slate-600 leading-tight">{seat.subjectCode || ''}</div>
-															</td>
-														)
-													})}
-												</tr>
-											))}
-										</tbody>
-									</table>
+								<div className="border border-slate-200 overflow-auto max-h-[520px] min-h-[120px]">
+									{seatingGrid.length === 0 && !loading ? (
+										<p className="text-[11px] text-slate-500 p-4">
+											{!Number(details.examRoomAllotmentId)
+												? 'Room allotment ID is missing in the URL. Open this screen from Exam Scheduling Forms using Seat Allot Students.'
+												: roomMeta.totalRows === 0 || roomMeta.totalCols === 0
+													? 'The server returned no seating rows/columns and no seat coordinates to infer a grid. Check room allotment configuration.'
+													: 'No seating data to render.'}
+										</p>
+									) : (
+										<table className="w-full border-collapse text-[12px]">
+											<tbody>
+												{seatingGrid.map((row, rIdx) => (
+													<tr key={`row-${rIdx}`}>
+														{row.map((seat) => {
+															const blocked = seat.status.toLowerCase() === 'blocked'
+															const booked = seat.status.toLowerCase() === 'booked' || !!seat.hallticket
+															return (
+																<td
+																	key={seat.key}
+																	title={seat.stdName ? `Student: ${seat.stdName}` : ''}
+																	className={`min-w-[72px] h-[76px] align-top border border-blue-100 p-1 ${
+																		blocked ? 'bg-slate-200/70' : 'bg-white'
+																	}`}
+																>
+																	<div className="text-right text-[11px]">{seat.serial}</div>
+																	<div className="text-center text-[18px] leading-none text-slate-500">{booked ? '■' : '□'}</div>
+																	<div className="text-center font-medium leading-tight">{seat.hallticket || ''}</div>
+																	<div className="text-center text-[10px] text-slate-600 leading-tight">{seat.subjectCode || ''}</div>
+																</td>
+															)
+														})}
+													</tr>
+												))}
+											</tbody>
+										</table>
+									)}
 								</div>
 								<div className="border border-slate-200 overflow-hidden h-fit">
 									<table className="w-full border-collapse text-[12px]">

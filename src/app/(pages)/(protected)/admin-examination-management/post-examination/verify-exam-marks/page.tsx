@@ -4,10 +4,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select } from '@/common/components/select'
-import { DataTable, TableCard } from '@/common/components/table'
+import { DataTable } from '@/common/components/table'
 import type { ColDef } from 'ag-grid-community'
 import { toastError } from '@/lib/toast'
 import {
@@ -76,7 +75,6 @@ export default function VerifyExamMarksPage() {
   const [collegeRows, setCollegeRows] = useState<AnyRow[]>([])
   const [examRows, setExamRows] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnyRow[]>([])
-  const [searchText, setSearchText] = useState('')
 
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [examId, setExamId] = useState<number | null>(null)
@@ -248,20 +246,11 @@ export default function VerifyExamMarksPage() {
     setCourseGroupId(0)
     setSubjectId(0)
     setRows([])
-    setSearchText('')
   }
 
-  const visibleRows = useMemo(() => {
-    const q = searchText.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((row) =>
-      Object.values(row).some((value) => String(value ?? '').toLowerCase().includes(q)),
-    )
-  }, [rows, searchText])
-
   const columnDefs = useMemo<ColDef<AnyRow>[]>(() => {
-    if (!visibleRows.length) return []
-    const keys = Object.keys(visibleRows[0])
+    if (!rows.length) return []
+    const keys = Object.keys(rows[0])
     const ordered = [
       ...keys.filter((k) => ['id', 'college', 'Course_Code', 'Academic_Year', 'Course_Group', 'Course_Year', 'Subject'].includes(k)),
       ...keys.filter((k) => !['id', 'college', 'Course_Code', 'Academic_Year', 'Course_Group', 'Course_Year', 'Subject'].includes(k)),
@@ -271,7 +260,7 @@ export default function VerifyExamMarksPage() {
       headerName: toTitle(key),
       minWidth: key.length > 15 ? 190 : 130,
     }))
-  }, [visibleRows])
+  }, [rows])
 
   return (
     <PageContainer className="space-y-4">
@@ -352,20 +341,30 @@ export default function VerifyExamMarksPage() {
       </div>
 
       {rows.length > 0 && (
-        <TableCard title={MODE_LABEL[mode]} subtitle="Verify exam marks report">
-          <div className="mb-3 flex gap-2">
-            <Input
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Search"
-              className="h-8 text-[12px] max-w-xs"
-            />
-            <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={resetFilters}>
-              Reset
-            </Button>
+        <div className="app-card overflow-hidden">
+          <div className="border-b border-slate-200 px-3 py-2.5">
+            <h2 className="text-[15px] font-semibold text-[hsl(var(--primary))]">{MODE_LABEL[mode]}</h2>
+            <p className="text-[12px] text-muted-foreground">Verify exam marks report</p>
           </div>
-          <DataTable rowData={visibleRows} columnDefs={columnDefs} loading={loading} pagination />
-        </TableCard>
+          <div className="p-1.5">
+            <DataTable
+              rowData={rows}
+              columnDefs={columnDefs}
+              loading={loading}
+              pagination
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search…',
+                pdfDocumentTitle: MODE_LABEL[mode],
+              }}
+              toolbarTrailing={
+                <Button type="button" variant="outline" size="sm" className="h-[30px] px-3 text-[12px]" onClick={resetFilters}>
+                  Reset
+                </Button>
+              }
+            />
+          </div>
+        </div>
       )}
     </PageContainer>
   )

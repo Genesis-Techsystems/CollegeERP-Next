@@ -14,6 +14,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Select } from '@/common/components/select'
+import { DataTable, TableCard } from '@/common/components/table'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { MINIO_URL } from '@/config/constants/api'
 import { listStudents } from '@/services/pre-examination'
 import {
@@ -156,6 +158,95 @@ function isPhotocopyRevisionType(row: AnyRow): boolean {
   return label.includes('photo')
 }
 
+function revisionRowId(data: AnyRow | undefined): string {
+  if (!data) return '__no-data__'
+  return [
+    strFrom(data, ['hallticket_number', 'hallticketNumber']),
+    strFrom(data, ['gd_code', 'gdCode']),
+    strFrom(data, ['subject_details', 'subjectDetails']),
+    strFrom(data, ['course_year_code', 'courseYearCode']),
+    String(data.fee_amount ?? data.feeAmount ?? ''),
+  ].join('|')
+}
+
+const HISTORY_COL_DEFS = {
+  siNo: {
+    colId: 'siNo',
+    headerName: 'SI.No',
+    valueGetter: (p: { node?: { rowIndex?: number | null } | null }) => (p.node?.rowIndex ?? 0) + 1,
+    width: 72,
+    minWidth: 70,
+    flex: 0,
+    sortable: false,
+  } as ColDef<AnyRow>,
+  hallTicket: {
+    colId: 'hallTicket',
+    headerName: 'Hall ticket no.',
+    minWidth: 130,
+    valueGetter: (p) => strFrom(p.data ?? {}, ['hallticket_number', 'hallticketNumber']) || '—',
+  } as ColDef<AnyRow>,
+  courseYear: {
+    colId: 'courseYear',
+    headerName: 'Course/year',
+    minWidth: 120,
+    valueGetter: (p) => strFrom(p.data ?? {}, ['course_year_code', 'courseYearCode']) || '—',
+  } as ColDef<AnyRow>,
+  gdCode: {
+    colId: 'gdCode',
+    headerName: 'GD code',
+    minWidth: 100,
+    valueGetter: (p) => strFrom(p.data ?? {}, ['gd_code', 'gdCode']) || '—',
+  } as ColDef<AnyRow>,
+  subjectDetails: {
+    colId: 'subjectDetails',
+    headerName: 'Subject details',
+    minWidth: 220,
+    flex: 1,
+    valueGetter: (p) => strFrom(p.data ?? {}, ['subject_details', 'subjectDetails']) || '—',
+  } as ColDef<AnyRow>,
+  feeAmount: {
+    colId: 'feeAmount',
+    headerName: 'Fee amount',
+    minWidth: 110,
+    flex: 0,
+    cellClass: 'ag-right-aligned-cell',
+    valueGetter: (p) => {
+      const row = p.data ?? {}
+      const v = row.fee_amount ?? row.feeAmount
+      if (v != null && String(v).trim() !== '') return `₹ ${v}`
+      return '—'
+    },
+  } as ColDef<AnyRow>,
+  view: {
+    colId: 'view',
+    headerName: 'View',
+    width: 72,
+    minWidth: 72,
+    flex: 0,
+    sortable: false,
+    suppressSizeToFit: true,
+  } as ColDef<AnyRow>,
+}
+
+function makePhotocopyViewRenderer(onView: () => void) {
+  return function photocopyViewCell(_p: ICellRendererParams<AnyRow>) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          aria-label="View evaluation details"
+          onClick={onView}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      </div>
+    )
+  }
+}
+
 export default function ReEvaluationRequestPage() {
   const searchParams = useSearchParams()
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
@@ -175,6 +266,7 @@ export default function ReEvaluationRequestPage() {
   const [photocopyOpen, setPhotocopyOpen] = useState(false)
   const [photocopyRows, setPhotocopyRows] = useState<AnyRow[]>([])
   const [photocopyLoading, setPhotocopyLoading] = useState(false)
+  const [revisionHistoryLoading, setRevisionHistoryLoading] = useState(false)
 
   useEffect(() => {
     async function loadRevisionTypes() {
@@ -296,7 +388,7 @@ export default function ReEvaluationRequestPage() {
     }
     let cancelled = false
     ;(async () => {
-      setLoading(true)
+      setRevisionHistoryLoading(true)
       try {
         const rows = await getStudentRevisionRequestHistory({ examId, studentId })
         if (!cancelled) setRevisionHistory(Array.isArray(rows) ? rows : [])
@@ -306,7 +398,7 @@ export default function ReEvaluationRequestPage() {
           setRevisionHistory([])
         }
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setRevisionHistoryLoading(false)
       }
     })()
     return () => {
@@ -327,7 +419,7 @@ export default function ReEvaluationRequestPage() {
     if (sid && sid > 0) await loadExamsForStudent(sid)
   }
 
-  async function openPhotocopyView() {
+  const openPhotocopyView = useCallback(async () => {
     if (!studentId || !examId) return
     setPhotocopyOpen(true)
     setPhotocopyLoading(true)
@@ -340,7 +432,27 @@ export default function ReEvaluationRequestPage() {
     } finally {
       setPhotocopyLoading(false)
     }
-  }
+  }, [studentId, examId])
+
+  const historyColumnDefs = useMemo<ColDef<AnyRow>[]>(() => {
+    const base: ColDef<AnyRow>[] = [
+      HISTORY_COL_DEFS.siNo,
+      HISTORY_COL_DEFS.hallTicket,
+      HISTORY_COL_DEFS.courseYear,
+      HISTORY_COL_DEFS.gdCode,
+      HISTORY_COL_DEFS.subjectDetails,
+      HISTORY_COL_DEFS.feeAmount,
+    ]
+    if (showPhotocopyColumn) {
+      base.push({
+        ...HISTORY_COL_DEFS.view,
+        cellRenderer: makePhotocopyViewRenderer(() => {
+          void openPhotocopyView()
+        }),
+      })
+    }
+    return base
+  }, [showPhotocopyColumn, openPhotocopyView])
 
   const photoSrc = resolvePhotoUrl(studentRow)
   const statusCode = strFrom(studentRow ?? {}, ['studentStatusCode', 'student_status_code'])
@@ -355,7 +467,7 @@ export default function ReEvaluationRequestPage() {
       <PageHeader title="Re-evaluation request" subtitle="Examination management · Re-valuation · Request history" />
 
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="border-b border-yellow-200 pb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2">
             <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
             <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">Re-evaluation request</h2>
@@ -425,7 +537,7 @@ export default function ReEvaluationRequestPage() {
 
       {showProfile && studentRow && (
         <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-          <div className="border-b border-yellow-200 pb-2 flex items-center gap-2">
+          <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
             <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
             <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">Student</h2>
           </div>
@@ -485,64 +597,27 @@ export default function ReEvaluationRequestPage() {
       )}
 
       {showProfile && (
-        <div className="app-card p-3 border-t-[3px] border-t-amber-300 overflow-x-auto">
-          <div className="border-b border-yellow-200 pb-2 mb-3 flex items-center gap-2">
-            <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
-            <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">Request history</h2>
-          </div>
-          <table className="w-full min-w-[640px] border-collapse text-[12px]">
-            <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="px-3 py-2 text-left font-semibold">Hall ticket no.</th>
-                <th className="px-3 py-2 text-left font-semibold">Course/year</th>
-                <th className="px-3 py-2 text-left font-semibold">GD code</th>
-                <th className="px-3 py-2 text-left font-semibold">Subject details</th>
-                <th className="px-3 py-2 text-right font-semibold">Fee amount</th>
-                {showPhotocopyColumn ? (
-                  <th className="px-3 py-2 text-center font-semibold w-[88px]">View</th>
-                ) : null}
-              </tr>
-            </thead>
-            <tbody>
-              {revisionHistory.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={showPhotocopyColumn ? 6 : 5}
-                    className="px-3 py-6 text-center text-slate-500"
-                  >
-                    {loading ? 'Loading…' : 'No request history for this exam'}
-                  </td>
-                </tr>
-              ) : (
-                revisionHistory.map((row, idx) => (
-                  <tr key={idx} className="border-b">
-                    <td className="px-3 py-2">{strFrom(row, ['hallticket_number', 'hallticketNumber']) || '-'}</td>
-                    <td className="px-3 py-2">{strFrom(row, ['course_year_code', 'courseYearCode']) || '-'}</td>
-                    <td className="px-3 py-2">{strFrom(row, ['gd_code', 'gdCode']) || '-'}</td>
-                    <td className="px-3 py-2">{strFrom(row, ['subject_details', 'subjectDetails']) || '-'}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {row.fee_amount != null && row.fee_amount !== '' ? `₹ ${row.fee_amount}` : '-'}
-                    </td>
-                    {showPhotocopyColumn ? (
-                      <td className="px-3 py-2 text-center">
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          aria-label="View evaluation details"
-                          onClick={() => void openPhotocopyView()}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </td>
-                    ) : null}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <TableCard withHeaderBorder={false}>
+          <DataTable
+            rowData={revisionHistory}
+            columnDefs={historyColumnDefs}
+            loading={revisionHistoryLoading}
+            pagination
+            paginationPageSize={10}
+            getRowId={(p) => revisionRowId(p.data)}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search request history…',
+              pdfDocumentTitle: 'Re-evaluation request history',
+            }}
+            toolbarLeading={(
+              <span className="text-[12px] text-muted-foreground whitespace-nowrap">
+                Request history
+                {revisionHistory.length > 0 ? ` · ${revisionHistory.length} record${revisionHistory.length === 1 ? '' : 's'}` : null}
+              </span>
+            )}
+          />
+        </TableCard>
       )}
 
       <Dialog open={photocopyOpen} onOpenChange={setPhotocopyOpen}>

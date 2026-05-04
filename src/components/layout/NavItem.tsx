@@ -156,6 +156,7 @@ import {
   Wind,
 } from 'lucide-react'
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible'
+import { normalizeHref } from '@/lib/navigation'
 import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
 import type { NavItem as NavItemType } from '@/types/navigation'
@@ -564,6 +565,31 @@ function resolveIcon(name?: string): React.ElementType | null {
   return null
 }
 
+function inferIconNameFromLabel(label?: string): string | undefined {
+  if (!label) return undefined
+  const lower = label.toLowerCase()
+
+  if (lower.includes('exam masters') || lower.includes('master settings')) return 'settings'
+  if (lower.includes('pre examination')) return 'event_note'
+  if (lower.includes('evaluation process')) return 'fact_check'
+  if (lower.includes('post examination')) return 'assignment_turned_in'
+  if (lower.includes('re-evaluation') || lower.includes('reevaluation')) return 'rate_review'
+  if (lower.includes('delivery process') || lower.includes('papers delivery')) return 'folder_open'
+  if (lower.includes('result processing')) return 'leaderboard'
+
+  if (lower.includes('student') || lower.includes('user')) return 'people'
+  if (lower.includes('attendance')) return 'assignment'
+  if (lower.includes('performance') || lower.includes('analytics') || lower.includes('report')) return 'trending_up'
+  if (lower.includes('exam') || lower.includes('assessment')) return 'fact_check'
+  if (lower.includes('fee') || lower.includes('payment') || lower.includes('bank')) return 'account_balance_wallet'
+  if (lower.includes('course') || lower.includes('subject') || lower.includes('class')) return 'menu_book'
+  if (lower.includes('setting') || lower.includes('config')) return 'settings'
+  if (lower.includes('notification') || lower.includes('message')) return 'notifications'
+  if (lower.includes('certificate') || lower.includes('document')) return 'description'
+
+  return undefined
+}
+
 // ---------------------------------------------------------------------------
 // NavIcon sub-component
 // kind='module' → fallback LayoutDashboard (top-level module)
@@ -589,11 +615,9 @@ function NavIcon({
     <span
       className={cn(
         'flex items-center justify-center h-[18px] w-[18px] shrink-0 transition-colors duration-150',
-        active
-          ? primarySurface
-            ? 'text-[hsl(var(--primary-foreground))]'
-            : 'text-[hsl(var(--sidebar-primary))]'
-          : 'text-[hsl(var(--sidebar-foreground))]',
+        primarySurface && 'text-[hsl(var(--primary-foreground))]',
+        !primarySurface &&
+          (kind === 'module' ? 'text-[#D4AF37]' : active ? 'text-[#D4AF37]' : 'text-white/70'),
       )}
     >
       <Icon className="h-[13px] w-[13px]" strokeWidth={1.75} aria-hidden="true" />
@@ -608,20 +632,64 @@ function NavIcon({
 interface NavItemProps {
   item: NavItemType
   depth?: number
+  /**
+   * Pass `false` until the sidebar layout finishes client mount so nav markup matches SSR.
+   * Zustand `persist` can rehydrate `isSidebarCollapsed` before hydration; without this guard
+   * the tree flips between expanded links and icon-only buttons and causes hydration errors.
+   */
+  layoutHydrated?: boolean
 }
 
 /** Recursively checks if any descendant has an href matching the current pathname. */
 function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
   if (!item.children) return false
-  return item.children.some(
-    (child) =>
-      child.href === pathname ||
-      (child.href ? pathname.startsWith(child.href + '/') : false) ||
-      hasActiveDescendant(child, pathname),
-  )
+  const normPath = normalizeHref(pathname)
+  return item.children.some((child) => {
+    const ch = child.href?.trim()
+    if (ch) {
+      const nh = normalizeHref(ch)
+      if (normPath === nh || normPath.startsWith(`${nh}/`)) return true
+    }
+    return hasActiveDescendant(child, pathname)
+  })
+}
+
+function findSiblingCollapsibleIds(items: NavItemType[], targetId: string): string[] {
+  for (const item of items) {
+    const children = item.children ?? []
+    if (children.some((child) => child.id === targetId)) {
+      return children
+        .filter((child) => child.id !== targetId && child.children && child.children.length > 0)
+        .map((child) => child.id)
+    }
+    if (children.length > 0) {
+      const nested = findSiblingCollapsibleIds(children, targetId)
+      if (nested.length > 0) return nested
+    }
+  }
+  return []
 }
 
 const EXAM_MASTERS_PATH = '/admin-examination-management/admin-exam-masters'
+
+function mapLegacyMasterSettingsHref(href?: string): string | null {
+  if (!href) return null
+  const normalized = href.toLowerCase().replace(/\/+$/, '')
+  const legacyPrefix = '/admin/master-settings/'
+  if (!normalized.startsWith(legacyPrefix)) return null
+
+  const slug = normalized.slice(legacyPrefix.length)
+  if (!slug) return null
+
+  const routeMap: Record<string, string> = {
+    banks: '/admin/banks',
+    'caste-master': '/admin/caste-master',
+    'subject-type': '/admin/course-types',
+    'general-settings': '/admin/general-settings',
+  }
+
+  return routeMap[slug] ?? `/admin/${slug}`
+}
 
 /**
  * Admin Exam Masters nav branch — primary-tinted active state. Scoped to this subtree only.
@@ -645,72 +713,83 @@ function navCollapsibleTriggerClasses(
 ): string {
   if (examMasters && isChildActive && !isSelfActive) {
     return cn(
-      'text-[hsl(var(--sidebar-foreground-active))]',
-      'bg-[hsl(var(--primary))]/12',
-      'ring-1 ring-[hsl(var(--primary))]/35',
+      'text-white',
+      'bg-transparent',
+      'ring-0',
     )
   }
   if (examMasters && isActive && isSelfActive) {
     return cn(
-      'text-[hsl(var(--primary-foreground))]',
-      'bg-[hsl(var(--primary))]',
-      'shadow-sm',
+      'text-white',
+      'bg-transparent',
+      'shadow-none',
     )
   }
   if (isChildActive && !isSelfActive) {
-    return 'text-[hsl(var(--sidebar-foreground-active))]'
+    return 'text-white bg-transparent'
   }
   if (isActive) {
     return cn(
-      'text-[hsl(var(--sidebar-primary))]',
-      'bg-[hsl(var(--sidebar-active-bg))]',
-      'ring-1 ring-[hsl(var(--sidebar-active-border))]',
+      'text-white',
+      'bg-transparent',
+      'ring-0',
     )
   }
   return cn(
-    'text-[hsl(var(--sidebar-foreground))]',
-    'hover:bg-[hsl(var(--sidebar-hover-bg))]',
-    'hover:text-[hsl(var(--sidebar-foreground-active))]',
+    'text-white/80',
+    'hover:bg-transparent',
+    'hover:text-white',
   )
 }
 
-function navLeafClasses(examMasters: boolean, isActive: boolean): string {
-  if (examMasters && isActive) {
+/** Leaf row: gold only when this link is the actual current route (matches reference sidebar). */
+function navLeafClasses(examMasters: boolean, isSelfActive: boolean): string {
+  if (examMasters && isSelfActive) {
     return cn(
-      'text-[hsl(var(--primary-foreground))]',
-      'bg-[hsl(var(--primary))]',
-      'shadow-sm',
-      'hover:bg-[hsl(var(--primary))]',
+      'text-[#D4AF37]',
+      'font-semibold',
+      'bg-transparent',
+      'shadow-none',
+      'hover:bg-transparent hover:text-[#D4AF37]',
     )
   }
   if (examMasters) {
     return cn(
-      'text-[hsl(var(--sidebar-foreground))]',
-      'hover:bg-[hsl(var(--sidebar-hover-bg))] hover:text-[hsl(var(--sidebar-foreground-active))]',
+      'text-white',
+      'hover:bg-transparent hover:text-white',
     )
   }
-  if (isActive) {
+  if (isSelfActive) {
     return cn(
-      'text-[hsl(var(--sidebar-primary))]',
-      'bg-[hsl(var(--sidebar-active-bg))]',
-      'ring-1 ring-[hsl(var(--sidebar-active-border))]',
-      'hover:bg-[hsl(var(--sidebar-active-bg))]',
+      'text-[#D4AF37]',
+      'font-semibold',
+      'bg-transparent',
+      'ring-0',
+      'hover:bg-transparent hover:text-[#D4AF37]',
     )
   }
   return cn(
-    'text-[hsl(var(--sidebar-foreground))]',
-    'hover:bg-[hsl(var(--sidebar-hover-bg))] hover:text-[hsl(var(--sidebar-foreground-active))]',
-    'hover:translate-x-0.5',
+    'text-white',
+    'hover:bg-transparent hover:text-white',
+    'hover:translate-x-0',
   )
 }
 
-export function NavItem({ item, depth = 0 }: NavItemProps) {
+export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { collapsedItems, toggleCollapsed, isSidebarCollapsed, isSidebarHovered, setSidebarCollapsed } =
+  const { navItems, collapsedItems, toggleCollapsed, isSidebarCollapsed, isSidebarHovered, setSidebarCollapsed } =
     useNavigationStore()
 
   const hasChildren = item.children && item.children.length > 0
+  const showLeftIcon = true
+  const hasGenericArrowIcon =
+    item.icon === 'arrow_forward' || item.icon === 'arrow_forward_ios' || item.icon === 'chevron_right'
+  const inferredIconName = inferIconNameFromLabel(item.label)
+  const providedIconIsResolvable = !!item.icon && !!resolveIcon(item.icon)
+  const shouldPreferInferredIcon = !providedIconIsResolvable || (depth > 0 && hasGenericArrowIcon)
+  const iconName = shouldPreferInferredIcon ? inferredIconName ?? item.icon : item.icon
+  const renderedIconName = depth > 0 && !hasChildren ? 'chevron_right' : iconName
 
   const labelLower = (item.label ?? '').toLowerCase()
   const preExamBase = '/admin-examination-management/pre-examination'
@@ -718,8 +797,22 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
   const evalProcessBase = '/admin-examination-management/evaluation-process'
   const postExamBase = '/admin-examination-management/post-examination'
   const forcedRoute = (() => {
+    const masterSettingsRoute = mapLegacyMasterSettingsHref(item.href)
+    if (masterSettingsRoute) return masterSettingsRoute
+
     if (labelLower.includes('re-evaluation request') || labelLower.includes('reevaluation request')) {
       return `${reEvalBase}/re-evaluation-request`
+    }
+    // Exam Master — "Exam Re-Valuation Fee Setup" (Angular); not the re-evaluation module student fee screen.
+    if (
+      labelLower.includes('re-valuation fee setup') ||
+      labelLower.includes('revaluation fee setup') ||
+      (labelLower.includes('fee setup') &&
+        (labelLower.includes('re-valuation') ||
+          labelLower.includes('revaluation') ||
+          labelLower.includes('re valuation')))
+    ) {
+      return '/admin-examination-management/admin-exam-masters/re-valuation-fee-setup'
     }
     if (
       labelLower.includes('re-evaluation fee') ||
@@ -772,7 +865,38 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
       return '/admin-examination-management/result-processing/t-sheets'
     }
     if (labelLower.includes('verify exam marks') || labelLower.includes('verify exam status')) {
-      return '/admin-examination-management/admin-post-examination/verify-exam-marks'
+      return `${postExamBase}/verify-exam-marks`
+    }
+    if (
+      labelLower.includes('internal') &&
+      labelLower.includes('exam') &&
+      labelLower.includes('attendance') &&
+      (labelLower.includes('marking') || labelLower.includes('attendance marking')) &&
+      !labelLower.includes('external')
+    ) {
+      return `${postExamBase}/internal-exam-attendance-marking`
+    }
+    if (
+      labelLower.includes('external') &&
+      labelLower.includes('exam') &&
+      labelLower.includes('attendance') &&
+      (labelLower.includes('marking') || labelLower.includes('attendance marking'))
+    ) {
+      return `${postExamBase}/external-exam-attendance-marking`
+    }
+    if (
+      labelLower.includes('internal') &&
+      (labelLower.includes('exams average') ||
+        labelLower.includes('exam average') ||
+        labelLower.includes('internal exams avg'))
+    ) {
+      return `${postExamBase}/internal-exams-average`
+    }
+    if (
+      labelLower.includes('complete exam process') ||
+      labelLower.includes('complete examination process')
+    ) {
+      return `${postExamBase}/complete-exam-process`
     }
     if (labelLower.includes('answer paper bag')) {
       return '/admin-examination-management/exam-papers-delivery-process/univ-exam-answer-paper-bags'
@@ -891,18 +1015,24 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
     return null
   })()
 
-  const effectiveHref = forcedRoute ?? item.href
+  const rawNavTarget = forcedRoute ?? item.href ?? ''
+  const canonicalHref =
+    rawNavTarget && rawNavTarget !== '#' ? normalizeHref(rawNavTarget) : ''
+  const normPathname = normalizeHref(pathname)
   const isSelfActive =
-    effectiveHref === pathname || (effectiveHref ? pathname.startsWith(effectiveHref + '/') : false)
+    !!canonicalHref &&
+    canonicalHref.length > 1 &&
+    (normPathname === canonicalHref || normPathname.startsWith(`${canonicalHref}/`))
   const isChildActive = hasChildren ? hasActiveDescendant(item, pathname) : false
   const isActive = isSelfActive || isChildActive
 
-  const isOpen = isActive ? true : !collapsedItems.has(item.id)
+  const isOpen = !collapsedItems.has(item.id)
 
   const examMasters = usesExamMastersDesign(item)
 
   // True only when sidebar is collapsed AND the mouse is not hovering over it
-  const isEffectivelyCollapsed = isSidebarCollapsed && !isSidebarHovered
+  const isEffectivelyCollapsed =
+    layoutHydrated === false ? false : isSidebarCollapsed && !isSidebarHovered
 
   /* ── Icon-only mode: only top-level module icons shown ──────────── */
   if (isEffectivelyCollapsed) {
@@ -927,8 +1057,8 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
           'group relative flex w-full items-center justify-center rounded-md py-2 px-1',
           'transition-all duration-150 ease-out',
           isActive
-            ? 'text-[hsl(var(--sidebar-primary))] bg-[hsl(var(--sidebar-active-bg))] ring-1 ring-[hsl(var(--sidebar-active-border))]'
-            : 'text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-surface))] hover:text-[hsl(var(--sidebar-foreground-active))]',
+            ? 'text-white bg-white/12 ring-1 ring-white/20'
+            : 'text-white/75 hover:bg-white/10 hover:text-white',
         )}
       >
         {isActive && (
@@ -937,7 +1067,7 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
             aria-hidden="true"
           />
         )}
-        <NavIcon name={item.icon} active={isActive} kind="module" />
+        <NavIcon name={iconName} active={isActive} kind="module" />
       </button>
     )
   }
@@ -948,15 +1078,35 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
     depth === 0 ? 'pl-2.5' : depth === 1 ? 'pl-6' : depth === 2 ? 'pl-9.5' : 'pl-12'
 
   const baseLinkClasses = cn(
-    'group relative flex items-center gap-2.5 rounded-lg py-2 text-[12px] font-medium',
+    'group relative flex items-center gap-3 rounded-lg py-2 text-[12px] font-medium',
     'transition-all duration-150 ease-out',
     `pr-3 ${paddingLeft}`,
   )
 
   /* ── Expanded: parent items (collapsible groups) ─────────────────── */
   if (hasChildren) {
+    const handleOpenChange = (open: boolean) => {
+      // Accordion behavior at every depth:
+      // opening one group closes its sibling groups.
+      if (open) {
+        const siblingIds =
+          depth === 0
+            ? navItems
+              .filter((topLevelItem) => topLevelItem.id !== item.id && topLevelItem.children?.length)
+              .map((topLevelItem) => topLevelItem.id)
+            : findSiblingCollapsibleIds(navItems, item.id)
+
+        siblingIds.forEach((siblingId) => {
+          if (!collapsedItems.has(siblingId)) {
+            toggleCollapsed(siblingId)
+          }
+        })
+      }
+      toggleCollapsed(item.id)
+    }
+
     return (
-      <Collapsible open={isOpen} onOpenChange={() => toggleCollapsed(item.id)}>
+      <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
         <CollapsibleTrigger
           // data attributes let Sidebar's scroll effect target the active parent module
           {...(depth === 0 ? { 'data-nav-module': '', 'data-active': isActive ? 'true' : undefined } : {})}
@@ -964,7 +1114,7 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
             if (forcedRoute) {
               e.preventDefault()
               e.stopPropagation()
-              router.push(forcedRoute)
+              router.push(normalizeHref(forcedRoute))
             }
           }}
           className={cn(
@@ -973,24 +1123,21 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
             navCollapsibleTriggerClasses(examMasters, isChildActive, isSelfActive, isActive),
           )}
         >
-          {isActive && !examMasters && (
+          {depth === 0 && isActive && (
             <span
-              className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-[hsl(var(--sidebar-primary))]"
+              className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r bg-[hsl(var(--sidebar-primary))]"
               aria-hidden="true"
             />
           )}
-          <NavIcon
-            name={item.icon}
-            active={isActive}
-            kind={depth === 0 ? 'module' : 'page'}
-            primarySurface={examMasters && isActive && isSelfActive}
-          />
-          <span className="flex-1 text-left leading-none truncate whitespace-nowrap">
+          {showLeftIcon && (
+            <NavIcon name={renderedIconName} active={isSelfActive} kind={depth === 0 ? 'module' : 'page'} />
+          )}
+          <span className="flex-1 text-left leading-5 whitespace-normal break-words">
             {item.label}
           </span>
           <span
             className={cn(
-              'ml-auto shrink-0 text-slate-500 transition-transform duration-200',
+              'ml-auto shrink-0 text-white/70 transition-transform duration-200',
               isOpen && 'rotate-90',
             )}
           >
@@ -1005,7 +1152,7 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
               .sort((a, b) => a.sortOrder - b.sortOrder)
               .map((child) => (
                 <li key={child.id}>
-                  <NavItem item={child} depth={depth + 1} />
+                  <NavItem item={child} depth={depth + 1} layoutHydrated={layoutHydrated} />
                 </li>
               ))}
           </ul>
@@ -1017,24 +1164,26 @@ export function NavItem({ item, depth = 0 }: NavItemProps) {
   /* ── Expanded: leaf items ────────────────────────────────────────── */
   return (
     <Link
-      href={forcedRoute ?? item.href ?? '#'}
+      href={canonicalHref || rawNavTarget || '#'}
       onClick={(e) => {
         if (forcedRoute) {
           e.preventDefault()
-          router.push(forcedRoute)
+          router.push(normalizeHref(forcedRoute))
         }
       }}
-      aria-current={isActive ? 'page' : undefined}
-      className={cn(baseLinkClasses, navLeafClasses(examMasters, isActive))}
+      aria-current={isSelfActive ? 'page' : undefined}
+      className={cn(baseLinkClasses, navLeafClasses(examMasters, isSelfActive))}
     >
-      {isActive && !examMasters && (
+      {depth === 0 && isSelfActive && (
         <span
-          className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r bg-[hsl(var(--sidebar-primary))]"
+          className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r bg-[hsl(var(--sidebar-primary))]"
           aria-hidden="true"
         />
       )}
-      <NavIcon name={item.icon} active={isActive} kind="page" primarySurface={examMasters && isActive} />
-      <span className="flex-1 leading-none truncate whitespace-nowrap">
+      {showLeftIcon && (
+        <NavIcon name={renderedIconName} active={isSelfActive} kind="page" />
+      )}
+      <span className="flex-1 leading-5 whitespace-normal break-words">
         {item.label}
       </span>
     </Link>

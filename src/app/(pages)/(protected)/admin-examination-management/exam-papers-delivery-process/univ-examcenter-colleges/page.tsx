@@ -84,7 +84,6 @@ export default function UnivExamCenterCollegesPage() {
   const [assignedRows, setAssignedRows] = useState<Row[]>([])
   const [candidateRows, setCandidateRows] = useState<CandidateCollege[]>([])
   const [candidateSearch, setCandidateSearch] = useState('')
-  const [assignedSearch, setAssignedSearch] = useState('')
   const [selectAll, setSelectAll] = useState(false)
   const [showSections, setShowSections] = useState(false)
 
@@ -194,12 +193,6 @@ export default function UnivExamCenterCollegesPage() {
     if (!q) return candidateRows
     return candidateRows.filter((r) => txt(r.college_code).toLowerCase().includes(q))
   }, [candidateRows, candidateSearch])
-
-  const filteredAssigned = useMemo(() => {
-    const q = assignedSearch.trim().toLowerCase()
-    if (!q) return assignedRows
-    return assignedRows.filter((r) => JSON.stringify(r).toLowerCase().includes(q))
-  }, [assignedRows, assignedSearch])
 
   const loadFilters = useCallback(async () => {
     setLoadingFilters(true)
@@ -354,7 +347,7 @@ export default function UnivExamCenterCollegesPage() {
       <PageHeader title="Exam center colleges" subtitle="Exam papers delivery process · Exam center colleges" />
 
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="pb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2 min-w-0">
             <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
             <h2 className="text-[14px] font-semibold leading-tight text-[hsl(var(--card-title))] truncate">
@@ -404,7 +397,7 @@ export default function UnivExamCenterCollegesPage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
               <div className="md:col-span-5 border rounded-md p-2">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <SearchInput value={candidateSearch} onChange={setCandidateSearch} placeholder="Search..." className="w-full" />
+                  <SearchInput value={candidateSearch} onChange={setCandidateSearch} placeholder="Search…" className="w-full max-w-sm" />
                   <span className="text-[13px] text-blue-700 font-semibold whitespace-nowrap">Selected: {selectedCount}</span>
                 </div>
                 <div className="max-h-[320px] overflow-auto">
@@ -455,18 +448,25 @@ export default function UnivExamCenterCollegesPage() {
             </div>
           </div>
 
-          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300">
+          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-slate-200">
             <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">
               Exam Center Colleges - {headerText}
             </h3>
           </div>
 
           <div className="app-card overflow-hidden">
-            <div className="px-3 py-2 border-b border-border">
-              <SearchInput value={assignedSearch} onChange={setAssignedSearch} placeholder="Search" className="w-full sm:max-w-xs" />
-            </div>
             <div className="p-2">
-              <DataTable rowData={filteredAssigned} columnDefs={assignedColumnDefs} loading={loadingList} pagination />
+              <DataTable
+                rowData={assignedRows}
+                columnDefs={assignedColumnDefs}
+                loading={loadingList}
+                pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Exam Center Colleges — Assigned',
+                }}
+              />
             </div>
           </div>
         </>

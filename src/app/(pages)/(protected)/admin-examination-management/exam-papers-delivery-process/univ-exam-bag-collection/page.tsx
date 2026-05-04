@@ -5,7 +5,6 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { BookMarked, Pencil, Plus } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -58,8 +57,6 @@ export default function UnivExamBagCollectionPage() {
   const [saving, setSaving] = useState(false)
   const [rows, setRows] = useState<Row[]>([])
   const [answerPaperBags, setAnswerPaperBags] = useState<Row[]>([])
-  const [tableSearch, setTableSearch] = useState('')
-
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Row | null>(null)
   const [formModal, setFormModal] = useState({
@@ -81,12 +78,6 @@ export default function UnivExamBagCollectionPage() {
       })),
     [answerPaperBags],
   )
-
-  const filteredRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(q))
-  }, [rows, tableSearch])
 
   const columnDefs = useMemo<ColDef<Row>[]>(
     () => [
@@ -202,15 +193,24 @@ export default function UnivExamBagCollectionPage() {
       </div>
 
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
-          <SearchInput value={tableSearch} onChange={setTableSearch} placeholder="Search" className="w-full sm:max-w-xs" />
-          <Button type="button" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1" />
-            Add Exam Bag Collection
-          </Button>
-        </div>
         <div className="p-2">
-          <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loading} pagination />
+          <DataTable
+            rowData={rows}
+            columnDefs={columnDefs}
+            loading={loading}
+            pagination
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search…',
+              pdfDocumentTitle: 'Exam Bag Collection',
+            }}
+            toolbarTrailing={
+              <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Add Exam Bag Collection
+              </Button>
+            }
+          />
         </div>
       </div>
 

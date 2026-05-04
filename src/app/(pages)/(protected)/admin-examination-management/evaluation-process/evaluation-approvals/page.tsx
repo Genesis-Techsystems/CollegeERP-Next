@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -87,7 +86,6 @@ function makeActionsRenderer(loading: boolean, approveOne: (row: AnyRow) => Prom
 export default function EvaluationApprovalsPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
   const [hasFetched, setHasFetched] = useState(false)
   const [filters, setFilters] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnyRow[]>([])
@@ -149,12 +147,6 @@ export default function EvaluationApprovalsPage() {
     const s = String(total % 60).padStart(2, '0')
     return `${h}:${m}:${s}`
   }
-
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
 
   useEffect(() => {
     async function init() {
@@ -359,39 +351,39 @@ export default function EvaluationApprovalsPage() {
 
       {hasFetched && (
         <div className="app-card overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="w-full max-w-sm">
-                <SearchInput
-                  className="w-full"
-                  placeholder="Search"
-                  value={search}
-                  onChange={setSearch}
-                />
-              </div>
-              <div className="inline-flex items-center gap-3">
-                <label
-                  className={`inline-flex items-center gap-2 text-[12px] ${
-                    allEvaluatedSelected ? 'text-[hsl(var(--primary))]' : ''
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="h-3 w-3 accent-[hsl(var(--primary))]"
-                    checked={allEvaluatedSelected}
-                    disabled={evaluatableRows.length === 0}
-                    onChange={(e) => toggleAll(e.target.checked)}
-                  />
-                  <span>All</span>
-                </label>
-                <Button size="sm" disabled={selectedIds.length === 0 || loading} onClick={() => void approveSelected()}>
-                  Approve
-                </Button>
-              </div>
-            </div>
-          </div>
           <div className="p-4">
-            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
+            <DataTable
+              rowData={rows}
+              columnDefs={cols}
+              pagination
+              loading={loading}
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search…',
+                pdfDocumentTitle: 'Evaluation Approvals',
+              }}
+              toolbarTrailing={
+                <>
+                  <label
+                    className={`inline-flex items-center gap-2 text-[12px] shrink-0 ${
+                      allEvaluatedSelected ? 'text-[hsl(var(--primary))]' : ''
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3 accent-[hsl(var(--primary))]"
+                      checked={allEvaluatedSelected}
+                      disabled={evaluatableRows.length === 0}
+                      onChange={(e) => toggleAll(e.target.checked)}
+                    />
+                    <span>All</span>
+                  </label>
+                  <Button type="button" size="sm" disabled={selectedIds.length === 0 || loading} onClick={() => void approveSelected()}>
+                    Approve
+                  </Button>
+                </>
+              }
+            />
           </div>
         </div>
       )}

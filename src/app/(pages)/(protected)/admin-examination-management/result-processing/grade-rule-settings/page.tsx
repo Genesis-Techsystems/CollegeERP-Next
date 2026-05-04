@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select } from '@/common/components/select'
+import { SearchInput } from '@/common/components/search'
 import { DataTable, TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import type { ColDef } from 'ag-grid-community'
@@ -270,13 +271,15 @@ export default function GradeRuleSettingsPage() {
             type="button"
             size="sm"
             variant="ghost"
+            className="h-8 w-8 p-0"
+            aria-label="Edit grade rule"
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
               openEdit(p.data)
             }}
           >
-            <Pencil className="h-4 w-4" />
+            <Pencil className="h-3.5 w-3.5" />
           </Button>
         ),
       },
@@ -327,14 +330,7 @@ export default function GradeRuleSettingsPage() {
 
       {Boolean(regulationId) && (
       <TableCard
-        headerLeft={
-          <Input
-            className="h-7 max-w-sm text-[12px]"
-            placeholder="Search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        }
+        headerLeft={<SearchInput className="w-full max-w-sm" placeholder="Search…" value={q} onChange={setQ} />}
         headerRight={
           <Button size="sm" onClick={openAdd} disabled={!courseId || !regulationId}>
             + Add Grade Rule

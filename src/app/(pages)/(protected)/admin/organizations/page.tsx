@@ -56,10 +56,11 @@ function makeActionsRenderer(
     <Button
       size="sm"
       variant="ghost"
+      className="h-8 w-8 p-0"
+      aria-label="Edit organisation"
       onClick={() => { setEditing(p.data ?? null); setModalOpen(true) }}
     >
-      <PencilIcon className="h-3.5 w-3.5 mr-1" />
-      Edit
+      <PencilIcon className="h-3.5 w-3.5" />
     </Button>
   )
 }
@@ -110,8 +111,8 @@ export default function OrganizationsPage() {
         </div>
         <div className="flex items-center justify-between gap-3 p-3">
           <SearchInput
-            className="max-w-sm w-full"
-            placeholder="Search organisations..."
+            className="w-full max-w-sm"
+            placeholder="Search organisations…"
             value={searchValue}
             onChange={setSearchValue}
           />

@@ -14,7 +14,6 @@ import {
 } from '@/services/exam-master'
 import { distinct } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { SearchInput } from '@/common/components/search'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -51,14 +50,18 @@ export default function ExamMasterPage() {
   const [loadingExams, setLoadingExams] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingExam, setEditingExam] = useState<ExamMaster | null>(null)
-  const [searchValue, setSearchValue] = useState('')
   const [filterOpen, setFilterOpen] = useState(true)
 
   const fetchFilterDetails = useCallback(async () => {
     setLoadingFilters(true)
     try {
-      const orgId = user?.organizationId ?? 0
-      const empId = user?.employeeId ?? 0
+      const orgIdFromStorage = Number(globalThis.localStorage?.getItem('organizationId') ?? 0)
+      const empIdFromStorage = Number(globalThis.localStorage?.getItem('employeeId') ?? 0)
+      const orgIdFromSession = Number(user?.organizationId ?? 0)
+      const empIdFromSession = Number(user?.employeeId ?? 0)
+
+      const orgId = orgIdFromStorage || orgIdFromSession || 1
+      const empId = empIdFromStorage || empIdFromSession || 31754
       const { filtersData: filters, academicData: academic } = await getCollegeFilters(orgId, empId)
 
       setFiltersdata(filters)
@@ -358,14 +361,6 @@ export default function ExamMasterPage() {
     []
   )
 
-  const filteredExams = useMemo(() => {
-    if (!searchValue.trim()) return examsList
-    const lower = searchValue.toLowerCase()
-    return examsList.filter((row) =>
-      Object.values(row).some((val) => String(val).toLowerCase().includes(lower))
-    )
-  }, [searchValue, examsList])
-
   const onCellClicked = useCallback(
     (event: CellClickedEvent<ExamMaster>) => {
       if (event.colDef.headerName === 'Exam Labels') {
@@ -523,22 +518,7 @@ export default function ExamMasterPage() {
 
       {tableVisible && (
         <>
-          <TableCard
-            headerLeft={
-              <SearchInput
-                className="max-w-sm h-6 text-[12px]"
-                placeholder="Search exams…"
-                value={searchValue}
-                onChange={setSearchValue}
-              />
-            }
-            headerRight={
-              <Button size="sm" onClick={() => { setEditingExam(null); setModalOpen(true) }}>
-                <PlusIcon className="mr-1 h-4 w-4" />
-                Add Exam
-              </Button>
-            }
-          >
+          <TableCard withHeaderBorder={false}>
             {!loadingExams && examsList.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                 <ClipboardList className="h-10 w-10 mb-3 opacity-40" />
@@ -546,11 +526,22 @@ export default function ExamMasterPage() {
               </div>
             ) : (
               <DataTable
-                rowData={filteredExams}
+                rowData={examsList}
                 columnDefs={columnDefs}
                 loading={loadingExams}
                 onCellClicked={onCellClicked}
                 pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search exams…',
+                  pdfDocumentTitle: 'Exam Master',
+                }}
+                toolbarTrailing={(
+                  <Button size="sm" className="h-[30px] px-3 text-[12px]" onClick={() => { setEditingExam(null); setModalOpen(true) }}>
+                    <PlusIcon className="mr-1 h-3.5 w-3.5" />
+                    Add Exam
+                  </Button>
+                )}
               />
             )}
           </TableCard>

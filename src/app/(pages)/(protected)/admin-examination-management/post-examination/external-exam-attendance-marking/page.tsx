@@ -104,7 +104,6 @@ export default function ExternalExamAttendanceMarkingPage() {
   const [loadingList, setLoadingList] = useState(false)
   const [saving, setSaving] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
-  const [search, setSearch] = useState('')
 
   const [allFilters, setAllFilters] = useState<AnyRow[]>([])
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
@@ -241,12 +240,6 @@ export default function ExternalExamAttendanceMarkingPage() {
   const onToggleUfm = (examStdDetId: number, value: boolean) => {
     setRows((prev) => prev.map((r) => (r.examStdDetId === examStdDetId ? { ...r, isufm: value } : r)))
   }
-  const filteredRows = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) => `${r.hallticketNumber} ${r.firstName} ${r.groupCode} ${r.subjectCode}`.toLowerCase().includes(q))
-  }, [rows, search])
-
   async function onGetList() {
     if (!courseId || !academicYearId || !examId || !regulationId || !subjectId || !examDate) return
     setLoadingList(true)
@@ -384,20 +377,26 @@ export default function ExternalExamAttendanceMarkingPage() {
           </div>
 
           <div className="app-card overflow-hidden">
-            <div className="border-b bg-white px-3 py-3">
-              <Input className="h-8 text-[12px] max-w-sm" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />
-            </div>
             <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-12">
               <div className="lg:col-span-9">
-                <TableCard
-                  headerRight={
-                    <label className="inline-flex items-center gap-2 text-[12px]">
-                      <Checkbox checked={allPresent} onCheckedChange={(v) => setRows((prev) => prev.map((r) => ({ ...r, isPresent: Boolean(v) })))} />
-                      <span>{allPresent ? 'UnMark All' : 'Mark All'}</span>
-                    </label>
-                  }
-                >
-                  <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loadingList} pagination />
+                <TableCard withHeaderBorder={false}>
+                  <DataTable
+                    rowData={rows}
+                    columnDefs={columnDefs}
+                    loading={loadingList}
+                    pagination
+                    toolbar={{
+                      search: true,
+                      searchPlaceholder: 'Search…',
+                      pdfDocumentTitle: 'External Exam Attendance',
+                    }}
+                    toolbarTrailing={
+                      <label className="inline-flex items-center gap-2 text-[12px] shrink-0">
+                        <Checkbox checked={allPresent} onCheckedChange={(v) => setRows((prev) => prev.map((r) => ({ ...r, isPresent: Boolean(v) })))} />
+                        <span>{allPresent ? 'UnMark All' : 'Mark All'}</span>
+                      </label>
+                    }
+                  />
                 </TableCard>
               </div>
               <div className="space-y-3 lg:col-span-3">

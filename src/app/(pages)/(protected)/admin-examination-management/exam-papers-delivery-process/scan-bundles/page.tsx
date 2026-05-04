@@ -5,7 +5,6 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { BookMarked, ChevronDown, Filter, Pencil, Plus } from 'lucide-react'
 import { PageContainer } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
@@ -109,7 +108,6 @@ export default function ScanBundlesPage() {
   const [saving, setSaving] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(true)
   const [showTable, setShowTable] = useState(false)
-  const [tableSearch, setTableSearch] = useState('')
 
   const [baseRows, setBaseRows] = useState<Row[]>([])
   const [scanFilterRows, setScanFilterRows] = useState<Row[]>([])
@@ -205,12 +203,6 @@ export default function ScanBundlesPage() {
       ),
     [scanFilterRows, form.courseId, form.academicYearId, form.examId, form.courseYearId, form.regulationId],
   )
-
-  const filteredRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(q))
-  }, [rows, tableSearch])
 
   const headerText = useMemo(() => {
     const ex = exams.find((e) => pickExamGroupId(e) === Number(form.examId))
@@ -435,7 +427,7 @@ export default function ScanBundlesPage() {
   return (
     <PageContainer className="space-y-5">
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="pb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2 min-w-0">
             <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
             <h2 className="text-[14px] font-semibold leading-tight text-[hsl(var(--card-title))] truncate">Scan Bundles</h2>
@@ -462,20 +454,36 @@ export default function ScanBundlesPage() {
 
       {showTable && (
         <>
-          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300">
+          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-slate-200">
             <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">Scan Bundles - {headerText}</h3>
           </div>
           <div className="app-card overflow-hidden">
-            <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
-              <SearchInput value={tableSearch} onChange={setTableSearch} placeholder="Search" className="w-full sm:max-w-xs" />
-              <div className="flex items-center gap-2">
-                <Button type="button">Bulk Populate</Button>
-                <Button type="button">Bulk Print Stickers</Button>
-                <Button type="button" onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Scan Bundles</Button>
-              </div>
-            </div>
             <div className="p-2">
-              <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loading} pagination />
+              <DataTable
+                rowData={rows}
+                columnDefs={columnDefs}
+                loading={loading}
+                pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Scan Bundles',
+                }}
+                toolbarTrailing={
+                  <>
+                    <Button type="button" className="h-[30px] px-3 text-[12px]">
+                      Bulk Populate
+                    </Button>
+                    <Button type="button" className="h-[30px] px-3 text-[12px]">
+                      Bulk Print Stickers
+                    </Button>
+                    <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Scan Bundles
+                    </Button>
+                  </>
+                }
+              />
             </div>
           </div>
         </>

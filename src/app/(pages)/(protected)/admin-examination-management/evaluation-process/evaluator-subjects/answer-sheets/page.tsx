@@ -308,7 +308,7 @@ export default function AnswerSheetsPage() {
             </div>
 
             <SearchInput
-              className="sm:ml-auto sm:w-56"
+              className="w-full max-w-sm sm:ml-auto"
               placeholder="Search serial no…"
               value={searchValue}
               onChange={setSearchValue}

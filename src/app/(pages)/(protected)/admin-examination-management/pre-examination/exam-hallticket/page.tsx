@@ -525,17 +525,30 @@ export default function ExamHallticketPage() {
       </div>
 
       {(hasFetched || displayRows.length > 0) && (
-        <TableCard
-          headerLeft={
-            <span className="text-[12px] text-muted-foreground">{displayRows.length} records</span>
-          }
-          headerRight={
-            <Button type="button" className="h-8 text-[12px]" onClick={() => window.print()}>
-              {mode === 'student' ? 'Print' : 'Print All'}
-            </Button>
-          }
-        >
-          <DataTable rowData={displayRows} columnDefs={HALLTICKET_COL_DEFS} pagination />
+        <TableCard withHeaderBorder={false}>
+          <DataTable
+            rowData={displayRows}
+            columnDefs={HALLTICKET_COL_DEFS}
+            pagination
+            toolbar={{
+              pdfDocumentTitle: 'Exam hallticket list',
+            }}
+            toolbarLeading={(
+              <span className="text-[12px] text-muted-foreground whitespace-nowrap">
+                {displayRows.length} records
+              </span>
+            )}
+            toolbarTrailing={(
+              <Button
+                type="button"
+                size="sm"
+                className="h-[30px] px-3 text-[12px]"
+                onClick={() => window.print()}
+              >
+                {mode === 'student' ? 'Print' : 'Print All'}
+              </Button>
+            )}
+          />
         </TableCard>
       )}
     </PageContainer>

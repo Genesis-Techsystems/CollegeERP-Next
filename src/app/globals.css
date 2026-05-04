@@ -6,15 +6,15 @@
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   /* Semantic surface tokens */
-  --background: 220 33% 97%;         /* cool app canvas (matches reference UI) */
+  --background: 220 24% 94%;         /* slightly darker canvas for clearer card contrast */
   --foreground: 222 47% 11%;         /* deep navy text */
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
 
-  /* Brand: cyan/blue (requested) */
-  --primary: 199 89% 48%;            /* hsl(199 89% 48% / 1) */
+  /* Brand: teal (matches requested button screenshot) */
+  --primary: 175 42% 48%;
   --primary-foreground: 0 0% 100%;
 
   /* Secondary accent — dark amber-orange */
@@ -34,7 +34,7 @@
   /* Borders & inputs */
   --border: 220 16% 90%;
   --input: 220 16% 90%;
-  --ring: 199 89% 48%;               /* match primary */
+  --ring: 175 42% 48%;               /* match primary */
   --radius: 0.5rem;
 
   /* Sidebar — deep navy (reference) */
@@ -42,9 +42,9 @@
   --sidebar-surface: 222 45% 14%;       /* hover surface */
   --sidebar-foreground: 215 22% 72%;    /* muted text */
   --sidebar-foreground-active: 0 0% 100%;
-  --sidebar-primary: 199 89% 48%;       /* match primary */
+  --sidebar-primary: 175 42% 48%;       /* match primary */
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 199 89% 55%;        /* cyan/blue accent */
+  --sidebar-accent: 175 42% 55%;        /* teal accent */
   --sidebar-accent-foreground: 0 0% 100%;
   --sidebar-border: 222 40% 16%;
   --sidebar-ring: 243 75% 59%;
@@ -99,6 +99,12 @@
   --font-size-section-title: 1.125rem;
   --font-size-label: 0.875rem;
   --font-size-caption: 0.75rem;
+  --app-control-height: 30px;
+  --app-control-font-size: 12px;
+  --app-label-font-size: 12px;
+  --app-table-header-font-size: 11px;
+  --app-table-row-font-size: 10px;
+  --app-table-row-height: 24px;
 
   /* ── Border radius ──────────────────────────────────────────────────────── */
   --radius-card: 0.5rem;
@@ -107,12 +113,90 @@
 }
 
 /* ── AG Grid (Quartz) density tweaks for app tables ─────────────────────────── */
-.ag-theme-quartz {
+.app-data-table .ag-theme-quartz {
   --ag-font-size: 12px;
   --ag-grid-size: 3px;           /* compacts padding */
-  --ag-list-item-height: 22px;
+  --ag-list-item-height: 18px;
   --ag-header-height: 32px;
-  --ag-row-height: 30px;
+  --ag-row-height: var(--app-table-row-height);
+  --ag-cell-horizontal-padding: 12px;
+  --ag-font-family: 'Inter', sans-serif;
+  --ag-background-color: #ffffff;
+  --ag-header-background-color: #f7f7f2;
+  --ag-border-color: #e2e8f0;
+  --ag-row-border-color: #e2e8f0;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Global DataTable typography consistency (AG Grid) */
+.app-data-table .ag-theme-quartz .ag-header-cell-text {
+  font-size: var(--app-table-header-font-size);
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.app-data-table .ag-theme-quartz .ag-header-row {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell,
+.app-data-table .ag-theme-quartz .ag-cell-value {
+  font-size: var(--app-table-row-font-size) !important;
+  line-height: 1.2;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.app-data-table .ag-theme-quartz .ag-row {
+  min-height: var(--app-table-row-height) !important;
+}
+
+.app-data-table .ag-theme-quartz .ag-row:hover .ag-cell {
+  background-color: #f8fafc;
+}
+
+.app-data-table .ag-theme-quartz .ag-root-wrapper {
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+.app-data-table .ag-theme-quartz .ag-pinned-right-header,
+.app-data-table .ag-theme-quartz .ag-pinned-left-header {
+  border-color: #e2e8f0 !important;
+}
+
+/* Reusable control tokens */
+.app-control {
+  height: var(--app-control-height);
+  font-size: var(--app-control-font-size);
+}
+
+.app-label {
+  font-size: var(--app-label-font-size);
+}
+
+.app-table-head-cell {
+  font-size: var(--app-table-header-font-size);
+}
+
+.app-table-value-cell {
+  font-size: var(--app-table-row-font-size);
+}
+
+/* Native table typography baseline (for pages not using DataTable yet) */
+.app-card table th {
+  font-size: var(--app-table-header-font-size);
+  font-weight: 600;
+}
+
+.app-card table td {
+  font-size: var(--app-table-row-font-size);
+  line-height: 1.2;
+  font-weight: 500;
+  vertical-align: middle;
 }
 
 /* ── App-wide card shadow utility ─────────────────────────────────────────── */
@@ -134,10 +218,10 @@ main .app-card + .app-card {
    ───────────────────────────────────────────────────────────────────────── */
 .theme-examination {
   /* Typography */
-  font-family: var(--font-inter), var(--font-geist-sans), system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: 'Inter', sans-serif;
 
   /* Canvas and surfaces (warm, subtle contrast) */
-  --background: 220 33% 97%;           /* cool app canvas (reference) */
+  --background: 220 24% 94%;           /* slightly darker canvas for clearer card contrast */
   --foreground: 222 47% 12%;           /* near-navy text */
   --card: 0 0% 100%;                   /* pure white cards */
   --card-foreground: 222 47% 12%;
@@ -145,7 +229,7 @@ main .app-card + .app-card {
   --popover-foreground: 222 47% 12%;
 
   /* Brand and accents */
-  --primary: 199 89% 48%;              /* hsl(199 89% 48% / 1) */
+  --primary: 175 42% 48%;              /* teal */
   --primary-foreground: 0 0% 100%;
   --secondary: 39 84% 55%;             /* amber-500 */
   --secondary-foreground: 0 0% 100%;
@@ -163,7 +247,7 @@ main .app-card + .app-card {
   /* Borders & focus */
   --border: 220 13% 92%;
   --input: 220 13% 92%;
-  --ring: 199 89% 48%;                 /* match primary */
+  --ring: 175 42% 48%;                 /* match primary */
 
   /* Radii — slightly rounder */
   --radius: 0.625rem;
@@ -176,7 +260,7 @@ main .app-card + .app-card {
   --sidebar-surface: 217 33% 17%;
   --sidebar-foreground: 215 20% 70%;
   --sidebar-foreground-active: 0 0% 100%;
-  --sidebar-primary: 199 89% 48%;
+  --sidebar-primary: 175 42% 48%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 223 92% 62%;
   --sidebar-border: 217 33% 20%;
@@ -208,7 +292,7 @@ main .app-card + .app-card {
   --card-foreground: 210 40% 96%;
   --popover: 222 47% 10%;
   --popover-foreground: 210 40% 96%;
-  --primary: 199 89% 48%;
+  --primary: 175 42% 48%;
   --primary-foreground: 0 0% 100%;
   --secondary: 32 80% 38%;             /* darker amber for dark bg */
   --secondary-foreground: 0 0% 100%;
@@ -220,12 +304,12 @@ main .app-card + .app-card {
   --destructive-foreground: 210 40% 96%;
   --border: 217 33% 18%;
   --input: 217 33% 18%;
-  --ring: 199 89% 48%;
+  --ring: 175 42% 48%;
   --sidebar-background: 225 47% 5%;
   --sidebar-surface: 222 47% 10%;
   --sidebar-foreground: 215 20% 55%;
   --sidebar-foreground-active: 0 0% 100%;
-  --sidebar-primary: 199 89% 48%;
+  --sidebar-primary: 175 42% 48%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 234 89% 74%;
   --sidebar-border: 222 47% 13%;
@@ -400,7 +484,7 @@ html {
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: 'Inter', sans-serif;
   line-height: 1.6;
 }
 

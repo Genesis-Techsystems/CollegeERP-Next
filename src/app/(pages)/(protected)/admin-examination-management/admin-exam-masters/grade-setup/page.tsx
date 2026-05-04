@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert } from 'antd'
 import { useSessionContext } from '@/context/SessionContext'
 import { Button } from '@/components/ui/button'
@@ -7,32 +7,47 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import { DataTable, TableCard } from '@/common/components/table'
 import { CollegeFilterPanel } from '@/common/components/forms'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer, PageHeader } from '@/components/layout'
-import { Pencil } from 'lucide-react'
+import { Pencil, Plus } from 'lucide-react'
 import { createExamGrade, getCollegeFilters, listExamGrades, listRegulations, updateExamGrade } from '@/services/examination'
 import { getErrorMessage } from '@/lib/errors'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 
-// ── Pure renderers ────────────────────────────────────────────────────────────
-function statusRenderer(p: ICellRendererParams) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+function gradePillClass(grade: string): string {
+  const key = grade.trim().toUpperCase()
+  if (key === 'A+' || key === 'A') return 'bg-emerald-50 text-emerald-700'
+  if (key === 'B') return 'bg-sky-50 text-sky-700'
+  if (key === 'C') return 'bg-amber-50 text-amber-700'
+  if (key === 'D') return 'bg-indigo-50 text-indigo-700'
+  return 'bg-rose-50 text-rose-700'
 }
 
-function gradeCodeRenderer(p: ICellRendererParams) {
-  return <span className="font-mono text-xs text-indigo-700">{p.value ?? '—'}</span>
+function rangeText(minValue: unknown, maxValue: unknown): string {
+  if (minValue == null && maxValue == null) return '—'
+  const left = minValue != null ? String(minValue) : ''
+  const right = maxValue != null ? String(maxValue) : ''
+  return right ? `${left} - ${right}`.trim() : left || '—'
 }
 
-function creditPointsRenderer(p: ICellRendererParams) {
-  if (!p.value || p.value === '—') return <span className="text-[12px] text-slate-500">—</span>
-  return <span className="font-mono text-xs text-sky-700">{p.value}</span>
-}
+const GRADE_COLUMN_ORDER = [
+  'slNo',
+  'grade',
+  'gradeName',
+  'points',
+  'score',
+  'credit',
+  'status',
+  'action',
+] as const
+
+type ColumnKey = (typeof GRADE_COLUMN_ORDER)[number]
 
 export default function GradeSetupPage() {
   const { user } = useSessionContext()
+  const hasLoadedFiltersRef = useRef(false)
 
   const [loadingFilters, setLoadingFilters] = useState(true)
   const [allFilters, setAllFilters] = useState<unknown[]>([])
@@ -45,7 +60,6 @@ export default function GradeSetupPage() {
   const [selectedRegulationId, setSelectedRegulationId] = useState<number | null>(null)
   const [isForDisabled, setIsForDisabled] = useState(false)
 
-  const [q, setQ] = useState('')
   const [rows, setRows] = useState<any[]>([])
   const [loadingList, setLoadingList] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
@@ -68,11 +82,18 @@ export default function GradeSetupPage() {
   })
 
   useEffect(() => {
+    const orgIdFromStorage = Number(globalThis.localStorage?.getItem('organizationId') ?? 0)
+    const empIdFromStorage = Number(globalThis.localStorage?.getItem('employeeId') ?? 0)
+    const orgIdFromSession = Number(user?.organizationId ?? 0)
+    const empIdFromSession = Number(user?.employeeId ?? 0)
+
+    const orgId = orgIdFromStorage || orgIdFromSession || 1
+    const empId = empIdFromStorage || empIdFromSession || 31754
+    if (hasLoadedFiltersRef.current) return
+
     async function loadFilters() {
       setLoadingFilters(true)
       try {
-        const orgId = user?.organizationId ?? 0
-        const empId = user?.employeeId ?? 0
         const { filtersData } = await getCollegeFilters(orgId, empId)
         setAllFilters(filtersData)
 
@@ -93,9 +114,9 @@ export default function GradeSetupPage() {
         setLoadingFilters(false)
       }
     }
+    hasLoadedFiltersRef.current = true
     loadFilters()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [user?.employeeId, user?.organizationId])
 
   function handleUniversityChange(universityId: number, filtersRef?: any[]) {
     setSelectedUniversityId(universityId)
@@ -224,88 +245,79 @@ export default function GradeSetupPage() {
     }
   }
 
-  const filteredRows = useMemo(() => {
-    if (!q.trim()) return rows
-    const lower = q.toLowerCase()
-    return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(lower))
-  }, [q, rows])
-
-  const cols = useMemo<ColDef<any>[]>(() => [
-    { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 60 },
-    {
-      field: 'gradeCode',
-      headerName: 'Grade Code',
-      width: 84,
-      cellRenderer: gradeCodeRenderer,
+  const baseCols = useMemo<Record<ColumnKey, ColDef<any>>>(() => ({
+    slNo: {
+      colId: 'slNo',
+      headerName: 'S.No',
+      valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+      width: 80,
+      minWidth: 70,
+      flex: 0,
     },
-    {
-      field: 'gradeName',
-      headerName: 'Grade Name',
-      minWidth: 160,
+    grade: {
+      colId: 'grade',
+      headerName: 'Grade',
+      minWidth: 110,
+      valueGetter: (p) => String(p.data?.gradeCode ?? '—'),
+      cellRenderer: (p: ICellRendererParams<any>) => {
+        const gradeCode = String(p.value ?? '—')
+        return (
+          <span className={`inline-flex items-center rounded-lg px-2 py-0 text-[10px] font-semibold ${gradePillClass(gradeCode)}`}>
+            {gradeCode}
+          </span>
+        )
+      },
     },
-    {
+    gradeName: { colId: 'gradeName', headerName: 'Grade Name', field: 'gradeName', minWidth: 160, flex: 1 },
+    points: {
+      colId: 'points',
       headerName: 'Min - Max Points',
-      minWidth: 120,
-      valueGetter: (p) => {
-        const d = p.data ?? {}
-        const min = d.minPoints ?? d.fromPoints ?? d.minGradePoint
-        const max = d.maxPoints ?? d.toPoints ?? d.maxGradePoint
-        if (min == null && max == null) return '—'
-        const left = min != null ? String(min) : ''
-        const right = max != null ? String(max) : ''
-        return right ? `${left} - ${right}`.trim() : left || '—'
-      },
+      minWidth: 170,
+      valueGetter: (p) => rangeText(p.data?.minPoints ?? p.data?.fromPoints ?? p.data?.minGradePoint, p.data?.maxPoints ?? p.data?.toPoints ?? p.data?.maxGradePoint),
     },
-    {
+    score: {
+      colId: 'score',
       headerName: 'Min - Max Score %',
-      minWidth: 150,
-      valueGetter: (p) => {
-        const d = p.data ?? {}
-        const min = d.fromPercentage ?? d.minPercentage ?? d.minScorePercent
-        const max = d.toPercentage ?? d.maxPercentage ?? d.maxScorePercent
-        if (min == null && max == null) return '—'
-        const left = min != null ? String(min) : ''
-        const right = max != null ? String(max) : ''
-        return right ? `${left} - ${right}`.trim() : left || '—'
-      },
+      minWidth: 170,
+      valueGetter: (p) => rangeText(p.data?.fromPercentage ?? p.data?.minPercentage ?? p.data?.minScorePercent, p.data?.toPercentage ?? p.data?.maxPercentage ?? p.data?.maxScorePercent),
     },
-    {
-      headerName: 'Credit Points',
-      width: 92,
-      valueGetter: (p) => {
-        const d = p.data ?? {}
-        return d.creditPoints ?? d.gradePoint ?? '—'
-      },
-      cellRenderer: creditPointsRenderer,
+    credit: {
+      colId: 'credit',
+      headerName: 'Credit Pts',
+      minWidth: 120,
+      valueGetter: (p) => p.data?.creditPoints ?? p.data?.gradePoint ?? '—',
     },
-    {
-      field: 'isActive',
+    status: {
+      colId: 'status',
       headerName: 'Status',
-      width: 96,
-      cellRenderer: statusRenderer,
+      minWidth: 110,
+      cellRenderer: (p: ICellRendererParams<any>) => <StatusBadge status={p.data?.isActive ?? false} />,
     },
-    {
-      headerName: 'Actions',
-      minWidth: 100,
-      cellRenderer: (p: any) => (
-        <Button
+    action: {
+      colId: 'action',
+      headerName: 'Action',
+      minWidth: 90,
+      width: 90,
+      flex: 0,
+      sortable: false,
+      cellRenderer: (p: ICellRendererParams<any>) => (
+        <button
           type="button"
-          size="sm"
-          variant="ghost"
-          onClick={(e) => {
-            // In AG Grid, clicks can be consumed by row/cell handlers; stop propagation so
-            // the icon button always opens the modal.
-            e.preventDefault()
-            e.stopPropagation()
-            openEdit(p.data)
-          }}
+          onClick={() => openEdit(p.data)}
           disabled={!selectedCourseId || !selectedRegulationId}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-teal-300 text-teal-600 hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Edit grade"
         >
-          <Pencil className="h-4 w-4" />
-        </Button>
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
       ),
     },
-  ], [openEdit, selectedCourseId, selectedRegulationId])
+  }), [openEdit, selectedCourseId, selectedRegulationId])
+
+  const columnDefs = useMemo(
+    () => GRADE_COLUMN_ORDER.map((key) => baseCols[key]),
+    [baseCols],
+  )
 
 	return (
 		<PageContainer className="space-y-5">
@@ -342,35 +354,36 @@ export default function GradeSetupPage() {
          
          
           onClick={handleGetList}
-          disabled={!selectedCourseId || !selectedRegulationId || loadingList} className="h-8 px-3 text-[12px] w-full">
+          disabled={!selectedCourseId || !selectedRegulationId || loadingList} className="h-[30px] px-3 text-[12px] w-full">
           Get List
         </Button>
       </CollegeFilterPanel>
 
-      {/* Removed duplicate top search (search lives inside the table card header) */}
-
       {hasFetched && (
-      <TableCard
-        headerLeft={
-          <Input
-            className="h-7 max-w-sm text-[12px]"
-            placeholder="Search…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            disabled={rows.length === 0}
-          />
-        }
-        headerRight={
-          <Button
-            size="sm"
-            onClick={openAdd}
-            disabled={!selectedCourseId || !selectedRegulationId}
-          >
-            Add Exam Grade
-          </Button>
-        }
-      >
-        <DataTable rowData={filteredRows} columnDefs={cols} loading={loadingList} pagination />
+      <TableCard withHeaderBorder={false}>
+        <DataTable
+          rowData={rows}
+          columnDefs={columnDefs}
+          loading={loadingList}
+          pagination
+          paginationPageSize={10}
+          toolbar={{
+            search: true,
+            searchPlaceholder: 'Search grades…',
+            pdfDocumentTitle: 'Exam Grades',
+          }}
+          toolbarTrailing={(
+            <Button
+              size="sm"
+              onClick={openAdd}
+              disabled={!selectedCourseId || !selectedRegulationId}
+              className="h-[30px] px-3 text-[12px]"
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Add Exam Grade
+            </Button>
+          )}
+        />
       </TableCard>
       )}
 

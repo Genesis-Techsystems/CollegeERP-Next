@@ -5,7 +5,6 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { BookMarked, ChevronDown, Filter, Pencil, Plus } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -66,7 +65,6 @@ export default function UnivExamBagTransportationPage() {
   const [centers, setCenters] = useState<Row[]>([])
   const [bags, setBags] = useState<Row[]>([])
   const [rows, setRows] = useState<Row[]>([])
-  const [tableSearch, setTableSearch] = useState('')
 
   const [form, setForm] = useState({
     univExamReionalCenterId: '',
@@ -111,12 +109,6 @@ export default function UnivExamBagTransportationPage() {
       })),
     [bags],
   )
-
-  const filteredRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(q))
-  }, [rows, tableSearch])
 
   const headerText = useMemo(() => {
     const r = regionalCenters.find((x) => num(x.univExamReionalCenterId ?? x.univExamRegionalCenterId) === Number(form.univExamReionalCenterId))
@@ -301,7 +293,7 @@ export default function UnivExamBagTransportationPage() {
       <PageHeader title="Exam bag transportation" subtitle="Exam papers delivery process · Exam bag transportation" />
 
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="pb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2 min-w-0">
             <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
             <h2 className="text-[14px] font-semibold leading-tight text-[hsl(var(--card-title))] truncate">
@@ -327,19 +319,28 @@ export default function UnivExamBagTransportationPage() {
 
       {showTable && (
         <>
-          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300">
+          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-slate-200">
             <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">Exam Bag Transportation - {headerText}</h3>
           </div>
           <div className="app-card overflow-hidden">
-            <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
-              <SearchInput value={tableSearch} onChange={setTableSearch} placeholder="Search" className="w-full sm:max-w-xs" />
-              <Button type="button" onClick={openCreate}>
-                <Plus className="h-4 w-4 mr-1" />
-                Add Bag Transportation
-              </Button>
-            </div>
             <div className="p-2">
-              <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loadingList} pagination />
+              <DataTable
+                rowData={rows}
+                columnDefs={columnDefs}
+                loading={loadingList}
+                pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Exam Bag Transportation',
+                }}
+                toolbarTrailing={
+                  <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Add Bag Transportation
+                  </Button>
+                }
+              />
             </div>
           </div>
         </>

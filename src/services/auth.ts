@@ -18,6 +18,8 @@ export interface LoginCredentials {
   password: string
 }
 
+let preferredUserAccessPath: string = `api/${AUTH_API.USER_ACCESS}`
+
 // ─── login ────────────────────────────────────────────────────────────────────
 
 /**
@@ -63,9 +65,22 @@ export async function logout(): Promise<void> {
  * on non-OK responses.
  */
 export async function getUserAccess(userId: string | number): Promise<any> {
-  const res = await fetch(
-    `${NEXT_API.PROXY(AUTH_API.USER_ACCESS)}?userId=${userId}&status=true`,
-  )
+  const query = new URLSearchParams({ userId: String(userId), status: 'true' }).toString()
+  const primaryUrl = `${NEXT_API.PROXY(preferredUserAccessPath)}?${query}`
+  let res = await fetch(primaryUrl)
+
+  // Some environments expose this endpoint as /useraccess while others use /api/useraccess.
+  if (res.status === 404) {
+    const fallbackPath =
+      preferredUserAccessPath === AUTH_API.USER_ACCESS
+        ? `api/${AUTH_API.USER_ACCESS}`
+        : AUTH_API.USER_ACCESS
+    const fallbackUrl = `${NEXT_API.PROXY(fallbackPath)}?${query}`
+    res = await fetch(fallbackUrl)
+    if (res.ok) {
+      preferredUserAccessPath = fallbackPath
+    }
+  }
 
   if (!res.ok) {
     throw new Error(`Failed to fetch user access for userId=${userId}`)

@@ -277,6 +277,7 @@ export default function QuestionBankModal({ open, onClose, bank, onSaved, userId
               <div className="space-y-1">
                 <Label>Course</Label>
                 <SearchInput
+                  className="w-full max-w-sm"
                   placeholder="Search course…"
                   value={courseSearch}
                   onChange={setCourseSearch}

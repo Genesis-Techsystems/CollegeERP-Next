@@ -270,49 +270,37 @@ export default function AdditionalExamFeesPage() {
           )
         }
       } else {
-        setFeeTypes([])
+        // Same data as `sourceList` — broader mapping when exam-type filter yields no rows (single API call).
+        const mapped = sourceList.map((row) => {
+          const name =
+            row.addtExamFeeTypeName ??
+            row.addtFeeTypeName ??
+            row.generalDetailName ??
+            row.generalDetailDisplayName ??
+            row?.adtExamfeetypeCat?.generalDetailName ??
+            row?.adtExamfeetypeCat?.generalDetailDisplayName ??
+            row?.addtExamFeeTypeCat?.generalDetailName ??
+            row?.addtExamFeeTypeCat?.generalDetailDisplayName ??
+            'Additional Fee'
+          return {
+            ...row,
+            generalDetailId: Number(
+              row.adtExamfeetypeCatId ??
+                row.addtExamFeeTypeCatId ??
+                row.addtFeeTypeCatId ??
+                row?.adtExamfeetypeCat?.generalDetailId ??
+                row?.addtExamFeeTypeCat?.generalDetailId ??
+                0,
+            ),
+            generalDetailName: name,
+            fee: Boolean(row.includeInReg) === false && Boolean(row.includeInRev) === false ? Number(row.fee ?? 0) : 0,
+          }
+        })
+        setFeeTypes(dedupeFeeTypes(mapped))
       }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [structure, examType, examId])
-
-  // Safety net: if list is still empty, load exact ExamFeeAdditionalStructure once more.
-  useEffect(() => {
-    if (!examId || !student) return
-    if (Array.isArray(feeTypes) && feeTypes.length > 0) return
-    ;(async () => {
-      const isRegular = examType === 'Regular'
-      const list = await listExamFeeAdditionalStructureByExamType(isRegular ? 405 : 406)
-      if (!Array.isArray(list) || list.length === 0) return
-      const mapped = list.map((row) => {
-        const name =
-          row.addtExamFeeTypeName ??
-          row.addtFeeTypeName ??
-          row.generalDetailName ??
-          row.generalDetailDisplayName ??
-          row?.adtExamfeetypeCat?.generalDetailName ??
-          row?.adtExamfeetypeCat?.generalDetailDisplayName ??
-          row?.addtExamFeeTypeCat?.generalDetailName ??
-          row?.addtExamFeeTypeCat?.generalDetailDisplayName ??
-          'Additional Fee'
-        return {
-          ...row,
-          generalDetailId: Number(
-            row.adtExamfeetypeCatId ??
-              row.addtExamFeeTypeCatId ??
-              row.addtFeeTypeCatId ??
-              row?.adtExamfeetypeCat?.generalDetailId ??
-              row?.addtExamFeeTypeCat?.generalDetailId ??
-              0,
-          ),
-          generalDetailName: name,
-          fee: Boolean(row.includeInReg) === false && Boolean(row.includeInRev) === false ? Number(row.fee ?? 0) : 0,
-        }
-      })
-      setFeeTypes(dedupeFeeTypes(mapped))
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [examId, student, examType])
 
   // Keep the side-box amount in sync with the selected fee type default
   useEffect(() => {
@@ -771,7 +759,7 @@ export default function AdditionalExamFeesPage() {
                 value={studentId ? String(studentId) : null}
                 onChange={(v) => setStudentId(v ? Number(v) : null)}
                 options={studentOptions}
-                placeholder="Search by student name or roll no..."
+                placeholder="Search by student name or roll no…"
                 searchable
                 onSearch={(term) => setStudentSearch(term)}
                 isLoading={studentsLoading}
@@ -788,7 +776,7 @@ export default function AdditionalExamFeesPage() {
                   setExamSearch('')
                 }}
                 options={examOptions}
-                placeholder="Search exam..."
+                placeholder="Search exam…"
                 searchable
                 onSearch={(term) => setExamSearch(term)}
               />

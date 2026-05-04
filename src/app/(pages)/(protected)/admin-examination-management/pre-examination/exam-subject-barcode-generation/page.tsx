@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Filter } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Barcode, ChevronDown, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/common/components/select'
+import { DataTable, TableCard } from '@/common/components/table'
 import {
   generateBarcodesForExamStudents,
   getExamOmrStudents,
@@ -13,6 +14,7 @@ import {
   getUnivExamSubjectUc,
 } from '@/services/pre-examination'
 import { PageContainer, PageHeader } from '@/components/layout'
+import type { ColDef } from 'ag-grid-community'
 
 type AnyRow = Record<string, any>
 const REG_ID_KEYS = [
@@ -95,9 +97,53 @@ const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
   return ''
 }
 
+const COL_DEFS = {
+  slNo: {
+    colId: 'slNo',
+    headerName: 'S.No',
+    valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1,
+    width: 72,
+    minWidth: 64,
+    flex: 0,
+  } as ColDef<AnyRow>,
+  student: {
+    colId: 'student',
+    headerName: 'Student',
+    minWidth: 200,
+    flex: 1,
+    valueGetter: (p) => {
+      const r = p.data
+      if (!r) return '—'
+      const name = r.student_name ?? r.studentName ?? r.firstName ?? '—'
+      const ht = r.hallticket_number ?? r.hallticketNumber ?? r.rollNumber ?? '—'
+      return `${name} (${ht})`
+    },
+  } as ColDef<AnyRow>,
+  barcodeNo: {
+    colId: 'barcodeNo',
+    headerName: 'Barcode No',
+    minWidth: 130,
+    valueGetter: (p) => p.data?.omr_serial_no ?? p.data?.omrSerialNo ?? '—',
+  } as ColDef<AnyRow>,
+  subject: {
+    colId: 'subject',
+    headerName: 'Subject',
+    minWidth: 220,
+    flex: 1,
+    valueGetter: (p) => {
+      const r = p.data
+      if (!r) return '—'
+      const name = r.subject_name ?? r.subjectName ?? '—'
+      const code = r.subject_code ?? r.subjectCode ?? '—'
+      return `${name} (${code})`
+    },
+  } as ColDef<AnyRow>,
+}
+
 export default function ExamSubjectBarcodeGenerationPage() {
   const [isMounted, setIsMounted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [tableLoading, setTableLoading] = useState(false)
   const [filterOpen, setFilterOpen] = useState(true)
   const [hasFetched, setHasFetched] = useState(false)
   const [rows, setRows] = useState<AnyRow[]>([])
@@ -230,6 +276,21 @@ export default function ExamSubjectBarcodeGenerationPage() {
       pickText(subject, ['subject_name', 'subjectName']) || '-',
     ].join(' / ')
   }, [colleges, academicYears, courses, groups, years, subjects, collegeId, academicYearId, courseId, courseGroupId, courseYearId, subjectId])
+
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [COL_DEFS.slNo, COL_DEFS.student, COL_DEFS.barcodeNo, COL_DEFS.subject],
+    [],
+  )
+
+  const getRowId = useCallback((p: { data?: AnyRow }) => {
+    const d = p.data
+    if (!d) return ''
+    const det = Number(d.fk_exam_std_det_id ?? d.examStdDetId ?? d.exam_std_det_id ?? 0)
+    if (det > 0) return String(det)
+    const sid = Number(d.student_id ?? d.studentId ?? d.fk_student_id ?? 0)
+    const sub = Number(d.fk_subject_id ?? d.subjectId ?? 0)
+    return `row-${sid}-${sub}-${String(d.omr_serial_no ?? d.hallticket_number ?? '')}`
+  }, [])
 
   async function init() {
     setLoading(true)
@@ -390,32 +451,42 @@ export default function ExamSubjectBarcodeGenerationPage() {
     }
   }, [regulations, regulationId])
 
-  async function getList() {
+  async function fetchOmrStudentRows() {
     if (!examId || !collegeId || !courseGroupId || !courseYearId || !subjectId) return
     const selectedRegRow = regulations.find((r) => pickRegValue(r) === Number(regulationId ?? 0)) ?? null
     const backendRegulationId = selectedBackendRegulationId || pickBackendRegId(selectedRegRow)
-    setLoading(true)
+    const res = await getExamOmrStudents({
+      examId,
+      collegeId,
+      courseGroupId,
+      courseYearId,
+      regulationId: backendRegulationId > 0 ? backendRegulationId : 0,
+      subjectId,
+    }).catch(() => [])
+    setRows(Array.isArray(res) ? res : [])
+  }
+
+  async function getList() {
+    if (!examId || !collegeId || !courseGroupId || !courseYearId || !subjectId) return
+    setTableLoading(true)
     setHasFetched(true)
     try {
-      const res = await getExamOmrStudents({
-        examId,
-        collegeId,
-        courseGroupId,
-        courseYearId,
-        regulationId: backendRegulationId > 0 ? backendRegulationId : 0,
-        subjectId,
-      }).catch(() => [])
-      setRows(Array.isArray(res) ? res : [])
+      await fetchOmrStudentRows()
     } finally {
-      setLoading(false)
+      setTableLoading(false)
     }
   }
 
   async function generateBarcode() {
     const ids = rows.map((r) => Number(r.fk_exam_std_det_id ?? 0)).filter((x) => x > 0)
     if (ids.length === 0) return
-    await generateBarcodesForExamStudents(ids).catch(() => null)
-    await getList()
+    setTableLoading(true)
+    try {
+      await generateBarcodesForExamStudents(ids).catch(() => null)
+      await fetchOmrStudentRows()
+    } finally {
+      setTableLoading(false)
+    }
   }
 
   return (
@@ -524,7 +595,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
               />
             </div>
             <div className="md:col-span-2">
-              <Button type="button" onClick={getList} disabled={loading} className="h-8 px-3 text-[12px] w-full">Get List</Button>
+              <Button type="button" onClick={getList} disabled={loading || tableLoading} className="h-8 px-3 text-[12px] w-full">Get List</Button>
             </div>
           </div>
         </div>
@@ -532,43 +603,38 @@ export default function ExamSubjectBarcodeGenerationPage() {
       </div>
 
       {hasFetched && (
-        <div className="app-card p-3 space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-[12px] text-[hsl(var(--primary))] whitespace-nowrap overflow-hidden text-ellipsis">
-              {tableSummaryText}
-            </div>
-            <Button type="button" className="h-8 text-[12px]" onClick={generateBarcode}>
-              Generate Barcode
-            </Button>
-          </div>
-          <div className="overflow-auto rounded border">
-            <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-2 py-1 text-left">S.No</th>
-                  <th className="px-2 py-1 text-left">Student</th>
-                  <th className="px-2 py-1 text-left">Barcode No</th>
-                  <th className="px-2 py-1 text-left">Subject</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr key={`r-${i}`} className="border-t">
-                    <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">{r.student_name ?? '-'} ({r.hallticket_number ?? '-'})</td>
-                    <td className="px-2 py-1">{r.omr_serial_no ?? '-'}</td>
-                    <td className="px-2 py-1">{r.subject_name ?? '-'} ({r.subject_code ?? '-'})</td>
-                  </tr>
-                ))}
-                {!loading && rows.length === 0 && (
-                  <tr className="border-t">
-                    <td colSpan={4} className="px-2 py-6 text-center text-muted-foreground">No records found.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <TableCard withHeaderBorder={false}>
+          <DataTable
+            rowData={rows}
+            columnDefs={columnDefs}
+            loading={tableLoading}
+            pagination
+            paginationPageSize={10}
+            getRowId={getRowId}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search students…',
+              pdfDocumentTitle: 'Exam Subject Barcode',
+            }}
+            toolbarLeading={(
+              <span className="max-w-[min(100%,28rem)] truncate text-[12px] font-medium text-[hsl(var(--primary))]" title={tableSummaryText}>
+                {tableSummaryText}
+              </span>
+            )}
+            toolbarTrailing={(
+              <Button
+                type="button"
+                size="sm"
+                onClick={generateBarcode}
+                disabled={tableLoading || rows.length === 0}
+                className="h-[30px] px-3 text-[12px]"
+              >
+                <Barcode className="mr-1.5 h-3.5 w-3.5" />
+                Generate Barcode
+              </Button>
+            )}
+          />
+        </TableCard>
       )}
     </PageContainer>
   )

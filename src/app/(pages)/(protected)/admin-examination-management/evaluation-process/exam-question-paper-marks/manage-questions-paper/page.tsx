@@ -3,26 +3,18 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
+import { PencilIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function ManageQuestionsPaperPage() {
-  const [search, setSearch] = useState('')
-  const rows = useMemo(
+  const [rows] = useState(
     () => [
       { section: 'Part A', questionNo: 'Q1', questionType: 'Short', maxMarks: 5, difficulty: 'Easy' },
       { section: 'Part A', questionNo: 'Q2', questionType: 'Short', maxMarks: 5, difficulty: 'Medium' },
       { section: 'Part B', questionNo: 'Q3', questionType: 'Long', maxMarks: 10, difficulty: 'Hard' },
     ],
-    [],
   )
-
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
 
   const cols = useMemo<ColDef[]>(
     () => [
@@ -34,8 +26,13 @@ export default function ManageQuestionsPaperPage() {
       { field: 'difficulty', headerName: 'Difficulty', minWidth: 120 },
       {
         headerName: 'Action',
-        minWidth: 120,
-        cellRenderer: () => <Button size="sm" variant="outline" className="h-7">Edit</Button>,
+        width: 72,
+        flex: 0,
+        cellRenderer: () => (
+          <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label="Edit question">
+            <PencilIcon className="h-3.5 w-3.5" />
+          </Button>
+        ),
       },
     ],
     [],
@@ -49,16 +46,21 @@ export default function ManageQuestionsPaperPage() {
         </div>
         <div className="p-4 space-y-3 text-[13px]">
           <p>Configure question metadata and marks breakup for selected paper templates.</p>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <SearchInput
-              className="w-full max-w-sm"
-              placeholder="Search questions..."
-              value={search}
-              onChange={setSearch}
-            />
-            <Button size="sm">Add Question</Button>
-          </div>
-          <DataTable rowData={filteredRows} columnDefs={cols} pagination />
+          <DataTable
+            rowData={rows}
+            columnDefs={cols}
+            pagination
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search questions…',
+              pdfDocumentTitle: 'Manage Questions Paper',
+            }}
+            toolbarTrailing={
+              <Button type="button" size="sm" className="h-[30px] px-3 text-[12px]">
+                Add Question
+              </Button>
+            }
+          />
           <Link
             href="/admin-examination-management/evaluation-process/exam-question-paper-marks"
             className="text-blue-700 hover:underline"

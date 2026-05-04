@@ -3,25 +3,16 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 
 export default function ViewTemplatePage() {
-  const [search, setSearch] = useState('')
-  const rows = useMemo(
+  const [rows] = useState(
     () => [
       { templateCode: 'TPL-CSE-A', templateName: 'CSE Core Template A', sections: 3, totalMarks: 75 },
       { templateCode: 'TPL-ECE-B', templateName: 'ECE Core Template B', sections: 2, totalMarks: 70 },
       { templateCode: 'TPL-EEE-C', templateName: 'EEE Core Template C', sections: 4, totalMarks: 80 },
     ],
-    [],
   )
-
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
 
   const cols = useMemo<ColDef[]>(
     () => [
@@ -42,13 +33,16 @@ export default function ViewTemplatePage() {
         </div>
         <div className="p-4 space-y-3 text-[13px]">
           <p>Browse and inspect available question paper templates.</p>
-          <SearchInput
-            className="w-full max-w-sm"
-            placeholder="Search templates..."
-            value={search}
-            onChange={setSearch}
+          <DataTable
+            rowData={rows}
+            columnDefs={cols}
+            pagination
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search templates…',
+              pdfDocumentTitle: 'View Template',
+            }}
           />
-          <DataTable rowData={filteredRows} columnDefs={cols} pagination />
           <Link
             href="/admin-examination-management/evaluation-process/exam-question-paper-marks"
             className="text-blue-700 hover:underline"

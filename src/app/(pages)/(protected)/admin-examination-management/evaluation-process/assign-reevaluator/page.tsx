@@ -327,10 +327,10 @@ export default function AssignReEvaluatorPage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <div className="md:col-span-2 space-y-1"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((r) => <SelectItem key={String(num(r.fk_course_id))} value={String(num(r.fk_course_id))}>{txt(r.course_code)}</SelectItem>)}</SelectContent></Select></div>
               <div className="md:col-span-2 space-y-1"><Label>Academic Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((r) => <SelectItem key={String(num(r.fk_academic_year_id))} value={String(num(r.fk_academic_year_id))}>{txt(r.academic_year)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Exam</Label><SearchableSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Search exam..." searchable /></div>
+              <div className="md:col-span-4 space-y-1"><Label>Exam</Label><SearchableSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Search exam…" searchable /></div>
               <div className="md:col-span-2 space-y-1"><Label>Course Year</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((r) => <SelectItem key={String(num(r.fk_course_year_id))} value={String(num(r.fk_course_year_id))}>{txt(r.course_year_code)}</SelectItem>)}</SelectContent></Select></div>
               <div className="md:col-span-2 space-y-1"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((r) => <SelectItem key={String(num(r.fk_regulation_id))} value={String(num(r.fk_regulation_id))}>{txt(r.regulation_code)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Subject</Label><SearchableSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(num(v) || null)} options={subjectOptions} placeholder="Search subjects..." searchable /></div>
+              <div className="md:col-span-4 space-y-1"><Label>Subject</Label><SearchableSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(num(v) || null)} options={subjectOptions} placeholder="Search subjects…" searchable /></div>
               <div className="md:col-span-3">
                 <label className="inline-flex items-center gap-2 text-[12px]">
                   <input type="checkbox" checked={isReevaluation} onChange={(e) => { setIsReevaluation(e.target.checked); resetResult() }} />
@@ -383,7 +383,7 @@ export default function AssignReEvaluatorPage() {
           <div className="flex items-end justify-between gap-3">
             <div className="w-full max-w-xs">
               <Label>Evaluator (Bulk)</Label>
-              <SearchableSelect value={bulkEvaluatorId ? String(bulkEvaluatorId) : null} onChange={onBulkEvaluator} options={evaluatorOptions} placeholder="Select evaluator..." searchable />
+              <SearchableSelect value={bulkEvaluatorId ? String(bulkEvaluatorId) : null} onChange={onBulkEvaluator} options={evaluatorOptions} placeholder="Select evaluator…" searchable />
             </div>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => setShowSelected(true)} disabled={selectedRows.length === 0}>Add</Button>
@@ -415,7 +415,7 @@ export default function AssignReEvaluatorPage() {
                           value={num(row.assignEvaluatorProfileId) ? String(num(row.assignEvaluatorProfileId)) : null}
                           onChange={(v) => onSingleEvaluator(key, v)}
                           options={(row.availableEvaluators as AnyRow[] | undefined)?.map((e) => ({ value: String(num(e.pk_exam_evaluator_profile_id)), label: txt(e.evaluator_name) })) ?? []}
-                          placeholder="Select evaluator..."
+                          placeholder="Select evaluator…"
                           searchable
                         />
                       </td>

@@ -271,7 +271,7 @@ export function MultiSelect({
                   aria-label="Search options"
                   value={searchTerm}
                   onChange={handleSearchChange}
-                  placeholder="Search..."
+                  placeholder="Search…"
                   className="h-8 w-full rounded-md bg-transparent pl-7 pr-2 text-sm placeholder:text-slate-400 focus:outline-none"
                 />
               </div>

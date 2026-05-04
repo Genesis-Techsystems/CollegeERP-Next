@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -69,7 +68,6 @@ export default function AssignSubjectsEvaluatorPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
-  const [search, setSearch] = useState('')
 
   const [filterRows, setFilterRows] = useState<AnyRow[]>([])
   const [regulationSubjectRows, setRegulationSubjectRows] = useState<AnyRow[]>([])
@@ -299,26 +297,38 @@ export default function AssignSubjectsEvaluatorPage() {
     }
   }
 
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
-
   const cols = useMemo<ColDef[]>(
     () => [
       {
         headerName: '',
-        width: 60,
+        width: 52,
+        maxWidth: 56,
+        flex: 0,
+        suppressSizeToFit: true,
         cellRenderer: makeSelectRenderer(toggleOne),
       },
-      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
-      { field: 'evaluatorName', headerName: 'Evaluator Name', minWidth: 220 },
-      { field: 'courseName', headerName: 'Course', minWidth: 120 },
-      { field: 'examName', headerName: 'Exam', minWidth: 240 },
-      { field: 'profileName', headerName: 'Profile', minWidth: 160 },
-      { field: 'subjectName', headerName: 'Subject', minWidth: 240 },
-      { field: 'isActive', headerName: 'Status', minWidth: 100, cellRenderer: statusRenderer },
+      {
+        headerName: 'SI.No',
+        width: 72,
+        maxWidth: 80,
+        flex: 0,
+        suppressSizeToFit: true,
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+      },
+      { field: 'evaluatorName', headerName: 'Evaluator Name', flex: 2, minWidth: 96 },
+      { field: 'courseName', headerName: 'Course', flex: 1, minWidth: 80 },
+      { field: 'examName', headerName: 'Exam', flex: 2, minWidth: 96 },
+      { field: 'profileName', headerName: 'Profile', flex: 1, minWidth: 80 },
+      { field: 'subjectName', headerName: 'Subject', flex: 2, minWidth: 96 },
+      {
+        field: 'isActive',
+        headerName: 'Status',
+        width: 100,
+        maxWidth: 110,
+        flex: 0,
+        suppressSizeToFit: true,
+        cellRenderer: statusRenderer,
+      },
     ],
     [],
   )
@@ -438,22 +448,29 @@ export default function AssignSubjectsEvaluatorPage() {
 
       {hasFetched && (
         <div className="app-card overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="w-full max-w-sm">
-                <SearchInput className="w-full" placeholder="Search" value={search} onChange={setSearch} />
-              </div>
-              <label className="inline-flex items-center gap-2 text-[12px]">
-                <input type="checkbox" checked={allSelected} onChange={(e) => toggleAll(e.target.checked)} />
-                <span>All</span>
-              </label>
-            </div>
-          </div>
-          <div className="p-4">
-            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
+          <div className="min-w-0 p-4">
+            <DataTable
+              rowData={rows}
+              columnDefs={cols}
+              pagination
+              loading={loading}
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search…',
+                pdfDocumentTitle: 'Assign Subjects Evaluator',
+              }}
+              toolbarTrailing={
+                <label className="inline-flex items-center gap-2 text-[12px] shrink-0">
+                  <input type="checkbox" checked={allSelected} onChange={(e) => toggleAll(e.target.checked)} />
+                  <span>All</span>
+                </label>
+              }
+            />
           </div>
           <div className="px-4 pb-4 flex justify-end">
-            <Button onClick={() => void onSave()} disabled={loading || rows.length === 0}>Save</Button>
+            <Button type="button" onClick={() => void onSave()} disabled={loading || rows.length === 0}>
+              Save
+            </Button>
           </div>
         </div>
       )}

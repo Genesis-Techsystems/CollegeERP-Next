@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, Filter, Trash2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { SearchInput } from '@/common/components/search'
 import { Select, type SelectOption } from '@/common/components/select'
 import {
   deactivateRegisteredExamSubject,
@@ -456,12 +456,12 @@ export default function ExamRegisterSubjectsPage() {
 
               <div className="md:col-span-5 rounded border overflow-hidden">
                 <div className="px-3 py-2 border-b bg-slate-50 flex items-center justify-between gap-3">
-                  <div className="w-full max-w-[260px]">
-                    <Input
-                      className="h-8 text-[12px]"
-                      placeholder="Search..."
+                  <div className="w-full max-w-sm min-w-0">
+                    <SearchInput
+                      className="w-full"
+                      placeholder="Search subjects…"
                       value={subjectSearch}
-                      onChange={(e) => setSubjectSearch(e.target.value)}
+                      onChange={setSubjectSearch}
                     />
                   </div>
                   <div className="text-[12px] whitespace-nowrap">Total Subjects: <span className="font-semibold text-muted-foreground">{filteredSubjects.length}</span></div>

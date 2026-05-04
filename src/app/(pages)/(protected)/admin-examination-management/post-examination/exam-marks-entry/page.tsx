@@ -71,7 +71,6 @@ export default function ExamMarksEntryPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
-  const [search, setSearch] = useState('')
 
   const [allFilters, setAllFilters] = useState<AnyRow[]>([])
   const [restFilters, setRestFilters] = useState<AnyRow[]>([])
@@ -374,11 +373,6 @@ export default function ExamMarksEntryPage() {
     }
   }
 
-  const filteredRows = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) => `${r.hallticketNumber ?? ''} ${r.firstName ?? ''}`.toLowerCase().includes(q))
-  }, [rows, search])
   const maxMarks = useMemo(() => Number(rows.find((r) => Number(r.maxMarks ?? r.externalmarks ?? r.internalmarks ?? 0) > 0)?.maxMarks ?? 0), [rows])
 
   const selectedExam = useMemo(() => exams.find((x) => Number(x.fk_exam_id) === Number(examId)), [exams, examId])
@@ -457,7 +451,7 @@ export default function ExamMarksEntryPage() {
       <PageHeader title="Exam Marks Entry" subtitle="Post examination marks workflow" />
 
       <div className="app-card p-3">
-        <div className="border-b border-yellow-200 pb-2">
+        <div className="border-b border-slate-200 pb-3">
           <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">Exam Marks Entry</h2>
         </div>
         <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
@@ -491,9 +485,24 @@ export default function ExamMarksEntryPage() {
               </div>
             </div>
           </div>
-          <TableCard headerLeft={<Input className="h-8 text-[12px] max-w-sm" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />} headerRight={<div className="text-[12px] text-slate-600">Max Marks : <span className="font-semibold">{maxMarks || '-'}</span></div>}>
+          <TableCard withHeaderBorder={false}>
             <div className="space-y-3">
-              <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loading} pagination />
+              <DataTable
+                rowData={rows}
+                columnDefs={columnDefs}
+                loading={loading}
+                pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Exam Marks Entry',
+                }}
+                toolbarLeading={
+                  <div className="text-[12px] text-slate-600 whitespace-nowrap shrink-0">
+                    Max Marks : <span className="font-semibold">{maxMarks || '-'}</span>
+                  </div>
+                }
+              />
               <div className="flex items-center justify-end gap-2">
                 <Button className="h-8 text-[12px]" onClick={onSave} disabled={saving || rows.length === 0}>{saving ? 'Saving...' : 'Save Marks'}</Button>
                 <Button className="h-8 text-[12px]" variant="outline" onClick={() => globalThis?.print?.()}>Print</Button>

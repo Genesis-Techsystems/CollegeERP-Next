@@ -114,7 +114,6 @@ export default function UnivExamCenterRoomsPage() {
   const [vacancyRooms, setVacancyRooms] = useState<Row[]>([])
   const [vacancySearch, setVacancySearch] = useState('')
   const [selectedRooms, setSelectedRooms] = useState<Row[]>([])
-  const [tableSearch, setTableSearch] = useState('')
   const [selectAll, setSelectAll] = useState(false)
 
   const [showSections, setShowSections] = useState(false)
@@ -156,12 +155,6 @@ export default function UnivExamCenterRoomsPage() {
     if (!q) return vacancyRooms
     return vacancyRooms.filter((r) => txt(r.roomName ?? r.roomCode ?? r.room).toLowerCase().includes(q))
   }, [vacancyRooms, vacancySearch])
-
-  const filteredExistingRooms = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase()
-    if (!q) return existingRooms
-    return existingRooms.filter((r) => JSON.stringify(r).toLowerCase().includes(q))
-  }, [existingRooms, tableSearch])
 
   const headingText = useMemo(() => {
     const center = centers.find((c) => num(c.univExamcenterId ?? c.univExamCenterId) === Number(form.univExamcenterId))
@@ -399,7 +392,7 @@ export default function UnivExamCenterRoomsPage() {
   return (
     <PageContainer className="space-y-4">
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
           <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
           <h2 className="text-[14px] font-semibold text-[hsl(var(--card-title))]">Exam Center Rooms</h2>
         </div>
@@ -423,7 +416,7 @@ export default function UnivExamCenterRoomsPage() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <div className="md:col-span-5 border rounded bg-white">
               <div className="p-2 flex items-center justify-between gap-2">
-                <SearchInput value={vacancySearch} onChange={setVacancySearch} placeholder="Search..." className="w-full max-w-xs" />
+                <SearchInput value={vacancySearch} onChange={setVacancySearch} placeholder="Search…" className="w-full max-w-sm" />
                 <span className="text-xs text-blue-700 font-semibold">Selected : {selectedRooms.length}</span>
               </div>
               <div className="max-h-72 overflow-auto border-t">
@@ -484,14 +477,23 @@ export default function UnivExamCenterRoomsPage() {
 
       {showSections && existingRooms.length > 0 && (
         <div className="app-card overflow-hidden">
-          <div className="px-3 py-2 border-b border-border">
-            <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))] mb-2">
+          <div className="p-3 pb-0">
+            <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))] mb-3">
               Exam Center Rooms - {headingText}
             </h3>
-            <SearchInput value={tableSearch} onChange={setTableSearch} placeholder="Search" className="w-full sm:max-w-xs" />
           </div>
-          <div className="p-2">
-            <DataTable rowData={filteredExistingRooms} columnDefs={columnDefs} loading={loading} pagination />
+          <div className="p-2 pt-0">
+            <DataTable
+              rowData={existingRooms}
+              columnDefs={columnDefs}
+              loading={loading}
+              pagination
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search…',
+                pdfDocumentTitle: 'Exam Center Rooms',
+              }}
+            />
           </div>
         </div>
       )}

@@ -26,7 +26,6 @@ type AnyRow = Record<string, unknown>
 export default function MultiEvaluatorAssignPage() {
   const [loading, setLoading] = useState(false)
   const [filterOpen, setFilterOpen] = useState(true)
-  const [search, setSearch] = useState('')
   const [omrSearch, setOmrSearch] = useState('')
   const [detailSearch, setDetailSearch] = useState('')
   const [detailOpen, setDetailOpen] = useState(false)
@@ -162,12 +161,6 @@ export default function MultiEvaluatorAssignPage() {
   const uploaded = num(totals.NoOfAnswerpapersUploaded)
   const unassigned = num(totals.UnAssinged)
   const assigned = Math.max(uploaded - unassigned, 0)
-
-  const filteredEvaluatorRows = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return evaluatorRows
-    return evaluatorRows.filter((r) => Object.values(r).some((v) => txt(v).toLowerCase().includes(q)))
-  }, [evaluatorRows, search])
 
   function evaluatorProfileId(row: AnyRow): number {
     return num(row.pk_exam_evaluator_profile_id || row.fk_exam_evaluator_profile_id || row.exam_evaluator_profile_id)
@@ -318,10 +311,10 @@ export default function MultiEvaluatorAssignPage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <div className="md:col-span-2 space-y-1"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((r) => <SelectItem key={String(num(r.fk_course_id))} value={String(num(r.fk_course_id))}>{txt(r.course_code)}</SelectItem>)}</SelectContent></Select></div>
               <div className="md:col-span-2 space-y-1"><Label>Academic Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((r) => <SelectItem key={String(num(r.fk_academic_year_id))} value={String(num(r.fk_academic_year_id))}>{txt(r.academic_year)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Exam</Label><SearchableSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Search exam..." searchable /></div>
+              <div className="md:col-span-4 space-y-1"><Label>Exam</Label><SearchableSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Search exam…" searchable /></div>
               <div className="md:col-span-2 space-y-1"><Label>Course Year</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((r) => <SelectItem key={String(num(r.fk_course_year_id))} value={String(num(r.fk_course_year_id))}>{txt(r.course_year_code)}</SelectItem>)}</SelectContent></Select></div>
               <div className="md:col-span-2 space-y-1"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((r) => <SelectItem key={String(num(r.fk_regulation_id))} value={String(num(r.fk_regulation_id))}>{txt(r.regulation_code)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Subject</Label><SearchableSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(num(v) || null)} options={subjectOptions} placeholder="Search subjects..." searchable /></div>
+              <div className="md:col-span-4 space-y-1"><Label>Subject</Label><SearchableSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(num(v) || null)} options={subjectOptions} placeholder="Search subjects…" searchable /></div>
               <div className="md:col-span-2 flex justify-end"><Button type="button" onClick={getList} disabled={loading}>Get List</Button></div>
             </div>
           </div>
@@ -357,7 +350,7 @@ export default function MultiEvaluatorAssignPage() {
 
               <div className="md:col-span-5 border rounded-md p-2">
                 <div className="flex items-center justify-between mb-2 gap-2">
-                  <SearchInput value={omrSearch} onChange={setOmrSearch} placeholder="Search..." className="max-w-xs" />
+                  <SearchInput value={omrSearch} onChange={setOmrSearch} placeholder="Search…" className="w-full max-w-sm" />
                   <span className="text-[12px] text-blue-700 font-semibold">Selected: {selectedCount}</span>
                 </div>
                 <table className="w-full text-[12px] border rounded">
@@ -407,13 +400,19 @@ export default function MultiEvaluatorAssignPage() {
           </div>
 
           <div className="app-card overflow-hidden">
-            <div className="p-4 border-b border-slate-200 bg-white">
-              <div className="w-full max-w-sm">
-                <SearchInput className="w-full" placeholder="Search" value={search} onChange={setSearch} />
-              </div>
-            </div>
             <div className="p-4">
-              <DataTable rowData={filteredEvaluatorRows} columnDefs={columns} pagination loading={loading} onCellClicked={handleTableCellClick} />
+              <DataTable
+                rowData={evaluatorRows}
+                columnDefs={columns}
+                pagination
+                loading={loading}
+                onCellClicked={handleTableCellClick}
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Multi Evaluator Assign',
+                }}
+              />
             </div>
           </div>
         </>
@@ -425,7 +424,7 @@ export default function MultiEvaluatorAssignPage() {
             <DialogTitle className="text-[15px] font-semibold text-blue-700">{detailTitle}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <SearchInput value={detailSearch} onChange={setDetailSearch} placeholder="Search OMR..." />
+            <SearchInput className="w-full max-w-sm" value={detailSearch} onChange={setDetailSearch} placeholder="Search OMR…" />
             <div className="max-h-[420px] overflow-auto rounded border">
               <table className="w-full text-[12px]">
                 <thead className="bg-slate-50">

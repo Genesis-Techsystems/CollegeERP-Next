@@ -10,19 +10,18 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
 import { distinct } from '@/lib/utils'
-import { buildQuery } from '@/services/crud'
 import { useSearchParams } from 'next/navigation'
 import { Trash2 } from 'lucide-react'
 import {
-	getCollegeFilters,
+	getUnivExamFiltersAll,
+	resolveExamLoginEmpId,
 	listCourseYears,
-	listExamMasters,
 	getExamSubjectsForSchedule,
 	getUnivExamSubjectFilters,
+	listExamFeeTypeGeneralDetails,
 } from '@/services/examination'
+import { useSessionContext } from '@/context/SessionContext'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { toastSuccess } from '@/lib/toast'
 
@@ -36,10 +35,10 @@ type Slot = {
 
 export default function CreateExamTimetablePage() {
 	const searchParams = useSearchParams()
+	const { user } = useSessionContext()
 	// Filters
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [filtersData, setFiltersData] = useState<any[]>([])
-	const [academicData, setAcademicData] = useState<any[]>([])
 
 	const [courses, setCourses] = useState<any[]>([])
 	const [academicYears, setAcademicYears] = useState<any[]>([])
@@ -66,7 +65,9 @@ export default function CreateExamTimetablePage() {
 
 	// Subjects
 	const [subjects, setSubjects] = useState<{ code: string; name?: string }[]>([])
+	/** EXMFEETYP general-detail code (shown as "Exam fee type"). */
 	const [selectedRegulation, setSelectedRegulation] = useState<string | null>(null)
+	const [examFeeTypes, setExamFeeTypes] = useState<{ id: number; code: string; name: string }[]>([])
 	const [selectedSubjectCode, setSelectedSubjectCode] = useState<string | null>(null)
 
 	// Timetable slots
@@ -105,18 +106,27 @@ export default function CreateExamTimetablePage() {
 	const fetchFilters = useCallback(async () => {
 		setLoadingFilters(true)
 		try {
-			const { filtersData: f, academicData: ay } = await getCollegeFilters(0, 0)
-			setFiltersData(f ?? [])
-			setAcademicData(ay ?? [])
+			const empId = resolveExamLoginEmpId(user?.employeeId)
+			const flat = await getUnivExamFiltersAll(empId)
+			const f = flat.filter((r: any) => !r.flag || r.flag === 'univ_exam_filters')
+			setFiltersData(f)
 			const distinctCourses = distinct(f ?? [], (r) => r.fk_course_id)
 			setCourses(distinctCourses)
 			if (distinctCourses.length > 0) {
-				handleCourseChange(distinctCourses[0].fk_course_id, f, ay)
+				handleCourseChange(distinctCourses[0].fk_course_id, f)
 			}
+			const gd = await listExamFeeTypeGeneralDetails().catch(() => [])
+			setExamFeeTypes(
+				(Array.isArray(gd) ? gd : []).map((d: any) => ({
+					id: Number(d.generalDetailId ?? d.id ?? 0),
+					code: String(d.generalDetailCode ?? d.code ?? ''),
+					name: String(d.generalDetailName ?? d.name ?? ''),
+				})).filter((d) => d.code),
+			)
 		} finally {
 			setLoadingFilters(false)
 		}
-	}, [])
+	}, [user?.employeeId])
 
 	useEffect(() => {
 		setParamCourseId(searchParams?.get('courseId') ? Number(searchParams?.get('courseId')) : null)
@@ -131,7 +141,7 @@ export default function CreateExamTimetablePage() {
 		fetchFilters()
 	}, [fetchFilters, searchParams])
 
-	async function handleCourseChange(courseId: number, fRef = filtersData, ayRef = academicData) {
+	async function handleCourseChange(courseId: number, fRef = filtersData) {
 		setSelectedCourseId(courseId)
 		setSelectedAcademicYearId(null)
 		setSelectedExamId(null)
@@ -142,7 +152,12 @@ export default function CreateExamTimetablePage() {
 		setSubjects([])
 		setSelectedSubjectCode(null)
 
-		const years = distinct(ayRef ?? [], (a: any) => a.fk_academic_year_id)
+		const filtered = (fRef ?? []).filter((r: any) => Number(r.fk_course_id) === Number(courseId))
+		const years = distinct(filtered, (r: any) => r.fk_academic_year_id).sort(
+			(a: any, b: any) =>
+				Number(String(b.academic_year ?? '').split('-')[0] || 0) -
+				Number(String(a.academic_year ?? '').split('-')[0] || 0),
+		)
 		setAcademicYears(years)
 
 		const yrs = await listCourseYears(courseId).catch(() => [])
@@ -162,29 +177,30 @@ export default function CreateExamTimetablePage() {
 	}
 
 	useEffect(() => {
-		async function loadExamMasters() {
-			setExamMasters([])
-			setSelectedExamId(null)
-			if (!selectedCourseId || !selectedAcademicYearId) return
-			const q = buildQuery({
-				'Course.courseId': selectedCourseId,
-				'AcademicYear.academicYearId': selectedAcademicYearId,
-				isActive: true,
-			})
-			const exams = await listExamMasters(q).catch(() => [])
-			const list = Array.isArray(exams) ? exams : []
-			setExamMasters(list)
-			if (list.length > 0) setSelectedExamId(list[0].examId ?? list[0].id ?? null)
-		}
-		loadExamMasters()
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [selectedCourseId, selectedAcademicYearId])
+		setExamMasters([])
+		setSelectedExamId(null)
+		if (!selectedCourseId || !selectedAcademicYearId) return
+		const rows = filtersData.filter(
+			(r: any) =>
+				Number(r.fk_course_id) === Number(selectedCourseId) &&
+				Number(r.fk_academic_year_id) === Number(selectedAcademicYearId),
+		)
+		const uniqByExam = distinct(rows, (r: any) => Number(r.fk_exam_id ?? r.exam_id ?? r.examId ?? 0))
+		const list = uniqByExam
+			.map((r: any) => ({
+				examId: Number(r.fk_exam_id ?? r.exam_id ?? r.examId ?? 0),
+				examName: String(r.exam_name ?? r.exam_Name ?? r.exam_short_name ?? r.short_name ?? '—'),
+			}))
+			.filter((e: { examId: number }) => e.examId > 0)
+		setExamMasters(list)
+		if (list.length > 0) setSelectedExamId(list[0].examId)
+	}, [selectedCourseId, selectedAcademicYearId, filtersData])
 
 	useEffect(() => {
 		if (loadingFilters || courses.length === 0 || !paramCourseId) return
 		if (selectedCourseId === paramCourseId) return
 		if (courses.some((c: any) => c.fk_course_id === paramCourseId)) {
-			handleCourseChange(paramCourseId, filtersData, academicData)
+			handleCourseChange(paramCourseId, filtersData)
 		}
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [loadingFilters, paramCourseId, courses, selectedCourseId])
@@ -213,21 +229,22 @@ export default function CreateExamTimetablePage() {
 			setSubjects([])
 			setSelectedSubjectCode(null)
 			if (!selectedCourseId || !selectedAcademicYearId || !selectedExamId || !selectedCourseYearId) return
+			const empId = resolveExamLoginEmpId(user?.employeeId)
 			let rows: any[] = []
-			// Primary
 			rows = await getUnivExamSubjectFilters({
 				courseId: selectedCourseId,
 				examId: selectedExamId,
 				academicYearId: selectedAcademicYearId,
 				courseYearId: selectedCourseYearId,
+				employeeId: empId,
 			}).catch(() => [])
-			// Fallback
 			if (!rows || (Array.isArray(rows) && rows.length === 0)) {
 				rows = await getExamSubjectsForSchedule({
 					courseId: selectedCourseId,
 					examId: selectedExamId,
 					academicYearId: selectedAcademicYearId,
 					courseYearId: selectedCourseYearId,
+					employeeId: empId,
 				}).catch(() => [])
 			}
 			const mapped = (rows ?? []).map((r: any) => {
@@ -251,7 +268,7 @@ export default function CreateExamTimetablePage() {
 			setSubjects(uniq)
 		}
 		loadSubjects()
-	}, [selectedCourseId, selectedAcademicYearId, selectedExamId, selectedCourseYearId])
+	}, [selectedCourseId, selectedAcademicYearId, selectedExamId, selectedCourseYearId, user?.employeeId])
 
 	function toggleCourseYear(id: number) {
 		setSelectedCourseYearIds((s) => {
@@ -349,14 +366,17 @@ export default function CreateExamTimetablePage() {
 							</Select>
 						</div>
 						<div className="space-y-1 md:col-span-3">
-							<Label>Regulation *</Label>
+							<Label>Exam fee type *</Label>
 							<Select value={selectedRegulation ?? undefined} onValueChange={(v) => setSelectedRegulation(v)}>
 								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder="Select Regulation" />
+									<SelectValue placeholder={examFeeTypes.length === 0 ? 'Loading…' : 'Select type'} />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="R25">R25</SelectItem>
-									<SelectItem value="R20">R20</SelectItem>
+									{examFeeTypes.map((t) => (
+										<SelectItem key={t.id || t.code} value={t.code}>
+											{t.code}{t.name ? ` — ${t.name}` : ''}
+										</SelectItem>
+									))}
 								</SelectContent>
 							</Select>
 						</div>

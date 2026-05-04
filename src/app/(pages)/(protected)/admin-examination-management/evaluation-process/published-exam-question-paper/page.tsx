@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -96,7 +95,6 @@ export default function PublishedExamQuestionPaperPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
-  const [search, setSearch] = useState('')
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnyRow[]>([])
   const [courseId, setCourseId] = useState<number | null>(null)
@@ -237,12 +235,6 @@ export default function PublishedExamQuestionPaperPage() {
     }
   }
 
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
-
   const cols = useMemo<ColDef[]>(
     () => [
       { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 68, minWidth: 68, maxWidth: 74, flex: 0 },
@@ -319,15 +311,18 @@ export default function PublishedExamQuestionPaperPage() {
       </div>
 
       {hasFetched && (
-        <div className="app-card overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-white">
-            <div className="w-full max-w-sm">
-              <SearchInput className="w-full" placeholder="Search" value={search} onChange={setSearch} />
-            </div>
-          </div>
-          <div className="p-4">
-            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
-          </div>
+        <div className="app-card overflow-hidden p-4">
+          <DataTable
+            rowData={rows}
+            columnDefs={cols}
+            pagination
+            loading={loading}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search by subject, paper, course group…',
+              pdfDocumentTitle: 'Published Exam Question Paper',
+            }}
+          />
         </div>
       )}
 

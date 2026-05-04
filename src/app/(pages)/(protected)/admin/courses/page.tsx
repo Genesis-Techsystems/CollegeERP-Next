@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
@@ -15,26 +14,24 @@ import type { Course } from '@/types/course'
 import CourseModal from './CourseModal'
 
 const COLS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<Course>,
-  univ: { field: 'universityCode', headerName: 'University', minWidth: 120, flex: 0.9 } as ColDef<Course>,
-  code: { field: 'courseCode', headerName: 'Subject Code', minWidth: 110, flex: 0.8 } as ColDef<Course>,
-  name: { field: 'courseName', headerName: 'Subject Name', minWidth: 160, flex: 1.2 } as ColDef<Course>,
-  short: { field: 'courseShortName', headerName: 'Short Name', minWidth: 110, flex: 0.8 } as ColDef<Course>,
-  duration: { field: 'duration', headerName: 'Duration', minWidth: 90, flex: 0.6 } as ColDef<Course>,
-  inTake: { field: 'inTake', headerName: 'Intake', minWidth: 90, flex: 0.6 } as ColDef<Course>,
-  type: { field: 'courseTypeName', headerName: 'Subject Type', minWidth: 130, flex: 0.9 } as ColDef<Course>,
-  isActive: { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<Course>,
-  actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<Course>,
+  siNo: { colId: 'siNo', headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<Course>,
+  univ: { colId: 'universityCode', field: 'universityCode', headerName: 'University', minWidth: 120, flex: 0.9 } as ColDef<Course>,
+  code: { colId: 'courseCode', field: 'courseCode', headerName: 'Subject Code', minWidth: 110, flex: 0.8 } as ColDef<Course>,
+  name: { colId: 'courseName', field: 'courseName', headerName: 'Subject Name', minWidth: 160, flex: 1.2 } as ColDef<Course>,
+  short: { colId: 'courseShortName', field: 'courseShortName', headerName: 'Short Name', minWidth: 110, flex: 0.8 } as ColDef<Course>,
+  duration: { colId: 'duration', field: 'duration', headerName: 'Duration', minWidth: 90, flex: 0.6 } as ColDef<Course>,
+  inTake: { colId: 'inTake', field: 'inTake', headerName: 'Intake', minWidth: 90, flex: 0.6 } as ColDef<Course>,
+  type: { colId: 'courseTypeName', field: 'courseTypeName', headerName: 'Subject Type', minWidth: 130, flex: 0.9 } as ColDef<Course>,
+  isActive: { colId: 'isActive', field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<Course>,
+  actions: { colId: 'actions', headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<Course>,
 }
 function statusRenderer(p: ICellRendererParams<Course>) { return <StatusBadge status={p.data?.isActive ?? false} /> }
 function actionRenderer(setRow: (r: Course | null) => void, setOpen: (b: boolean) => void) { return (p: ICellRendererParams<Course>) => <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setRow(p.data ?? null); setOpen(true) }}><PencilIcon className="h-3.5 w-3.5" /></Button> }
 
 export default function CoursesPage() {
-  const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const [row, setRow] = useState<Course | null>(null)
   const { data, isLoading, invalidate } = useCrudList({ queryKey: QK.courses.list(), queryFn: listCourses })
-  const filtered = useMemo(() => !search.trim() ? data : data.filter((r) => Object.values(r).some((v) => String(v ?? '').toLowerCase().includes(search.toLowerCase()))), [data, search])
   const colDefs = useMemo<ColDef<Course>[]>(() => [COLS.siNo, COLS.univ, COLS.code, COLS.name, COLS.short, COLS.duration, COLS.inTake, COLS.type, { ...COLS.isActive, cellRenderer: statusRenderer }, { ...COLS.actions, cellRenderer: actionRenderer(setRow, setOpen) }], [])
   return (
     <PageContainer className="space-y-5">
@@ -43,8 +40,15 @@ export default function CoursesPage() {
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Subjects</h2>
           <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}><PlusIcon className="h-4 w-4 mr-1" />Add Subject</Button>
         </div>
-        <div className="p-3"><SearchInput className="max-w-sm" placeholder="Search subjects..." value={search} onChange={setSearch} /></div>
-        <div className="px-3 pb-3"><DataTable rowData={filtered} columnDefs={colDefs} loading={isLoading} pagination /></div>
+        <div className="px-3 pb-3 pt-2">
+          <DataTable
+            rowData={data}
+            columnDefs={colDefs}
+            loading={isLoading}
+            pagination
+            toolbar={{ search: true, searchPlaceholder: 'Search subjects…', pdfDocumentTitle: 'Subjects' }}
+          />
+        </div>
       </div>
       <CourseModal open={open} onClose={() => { setOpen(false); setRow(null) }} row={row} onSaved={invalidate} />
     </PageContainer>

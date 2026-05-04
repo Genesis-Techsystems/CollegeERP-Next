@@ -109,8 +109,8 @@ export default function FloorsPage() {
         </div>
         <div className="flex items-center justify-between gap-3 p-3">
           <SearchInput
-            className="max-w-sm w-full"
-            placeholder="Search floors..."
+            className="w-full max-w-sm"
+            placeholder="Search floors…"
             value={searchValue}
             onChange={setSearchValue}
           />

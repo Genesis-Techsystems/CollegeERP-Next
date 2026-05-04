@@ -86,7 +86,6 @@ export default function InternalExamAttendanceMarkingPage() {
   const [saving, setSaving] = useState(false)
   const [filterOpen, setFilterOpen] = useState(true)
   const [hasFetched, setHasFetched] = useState(false)
-  const [search, setSearch] = useState('')
 
   const [allFilters, setAllFilters] = useState<AnyRow[]>([])
   const [restFilters, setRestFilters] = useState<AnyRow[]>([])
@@ -334,13 +333,6 @@ export default function InternalExamAttendanceMarkingPage() {
 
   const allMarkedPresent = useMemo(() => rows.length > 0 && rows.every((r) => r.isPresent), [rows])
   const absentees = useMemo(() => rows.filter((r) => !r.isPresent), [rows])
-  const filteredRows = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) =>
-      `${r.hallticketNumber} ${r.firstName} ${r.groupCode} ${r.subjectCode}`.toLowerCase().includes(q),
-    )
-  }, [rows, search])
 
   const columnDefs = useMemo<ColDef<AttendanceRow>[]>(
     () => [
@@ -474,17 +466,40 @@ export default function InternalExamAttendanceMarkingPage() {
               <p>Room: {rooms.find((x) => Number(x.fk_room_id ?? 0) === Number(roomId))?.room_name ?? 'All'}</p>
             </div>
           </div>
-          <TableCard
-            headerLeft={<Input className="h-8 text-[12px] max-w-sm" placeholder="Search" value={search} onChange={(e) => setSearch(e.target.value)} />}
-            headerRight={
-              <div className="flex items-center gap-3 text-[12px]">
-                <label className="inline-flex items-center gap-2"><Checkbox checked={allMarkedPresent} onCheckedChange={(v) => setRows((prev) => prev.map((r) => ({ ...r, isPresent: Boolean(v) })))} /><span>{allMarkedPresent ? 'Unmark All' : 'Mark All'}</span></label>
-                <span className="text-slate-600">Absentees: <span className="font-semibold text-[hsl(var(--primary))]">{absentees.length}</span></span>
-                <Button className="h-8 text-[12px]" onClick={onSaveAttendance} disabled={saving || rows.length === 0}>{saving ? 'Saving...' : 'Save Attendance'}</Button>
-              </div>
-            }
-          >
-            <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loadingList} pagination />
+          <TableCard withHeaderBorder={false}>
+            <DataTable
+              rowData={rows}
+              columnDefs={columnDefs}
+              loading={loadingList}
+              pagination
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search…',
+                pdfDocumentTitle: 'Internal Exam Attendance',
+              }}
+              toolbarTrailing={
+                <>
+                  <label className="inline-flex items-center gap-2 text-[12px] shrink-0">
+                    <Checkbox
+                      checked={allMarkedPresent}
+                      onCheckedChange={(v) => setRows((prev) => prev.map((r) => ({ ...r, isPresent: Boolean(v) })))}
+                    />
+                    <span>{allMarkedPresent ? 'Unmark All' : 'Mark All'}</span>
+                  </label>
+                  <span className="hidden text-[12px] text-slate-600 sm:inline shrink-0">
+                    Absentees:{' '}
+                    <span className="font-semibold text-[hsl(var(--primary))]">{absentees.length}</span>
+                  </span>
+                  <Button
+                    className="h-[30px] text-[12px]"
+                    onClick={onSaveAttendance}
+                    disabled={saving || rows.length === 0}
+                  >
+                    {saving ? 'Saving...' : 'Save Attendance'}
+                  </Button>
+                </>
+              }
+            />
           </TableCard>
         </div>
       )}

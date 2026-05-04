@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ColDef } from 'ag-grid-community'
 import { Filter } from 'lucide-react'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Select as SearchableSelect } from '@/common/components/select'
 import type { SelectOption } from '@/common/components/select'
@@ -27,7 +26,6 @@ export default function AssignQuestionPaperTemplatePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [filterOpen, setFilterOpen] = useState(true)
-  const [search, setSearch] = useState('')
   const [hasFetched, setHasFetched] = useState(false)
   const [rows, setRows] = useState<AnyRow[]>([])
   const [templateOpen, setTemplateOpen] = useState(false)
@@ -142,12 +140,6 @@ export default function AssignQuestionPaperTemplatePage() {
     setTemplateOpen(true)
   }
 
-  const filteredRows = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) => Object.values(r).some((v) => txt(v).toLowerCase().includes(q)))
-  }, [rows, search])
-
   const cols = useMemo<ColDef[]>(
     () => [
       { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 72 },
@@ -199,7 +191,7 @@ export default function AssignQuestionPaperTemplatePage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <div className="md:col-span-2 space-y-1"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((r) => <SelectItem key={String(num(r.fk_course_id))} value={String(num(r.fk_course_id))}>{txt(r.course_code)}</SelectItem>)}</SelectContent></Select></div>
               <div className="md:col-span-2 space-y-1"><Label>Exam Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger><SelectContent>{academicYears.map((r) => <SelectItem key={String(num(r.fk_academic_year_id))} value={String(num(r.fk_academic_year_id))}>{txt(r.academic_year)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Exam Master</Label><SearchableSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Search exam..." searchable /></div>
+              <div className="md:col-span-4 space-y-1"><Label>Exam Master</Label><SearchableSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Search exam…" searchable /></div>
               <div className="md:col-span-2 space-y-1"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((r) => <SelectItem key={String(num(r.fk_regulation_id || r.regulationId))} value={String(num(r.fk_regulation_id || r.regulationId))}>{txt(r.regulation_code || r.regulationCode)}</SelectItem>)}</SelectContent></Select></div>
               <div className="md:col-span-2 space-y-1"><Label>Course Years</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((r) => <SelectItem key={String(num(r.fk_course_year_id))} value={String(num(r.fk_course_year_id))}>{txt(r.course_year_code)}</SelectItem>)}</SelectContent></Select></div>
               <div className="md:col-span-12 flex justify-end"><Button type="button" onClick={getList} disabled={loading}>Get List</Button></div>
@@ -209,16 +201,22 @@ export default function AssignQuestionPaperTemplatePage() {
       </div>
 
       {hasFetched && (
-      <div className="app-card overflow-hidden">
-        <div className="p-4 border-b border-slate-200 bg-white">
-          <div className="w-full max-w-sm">
-            <SearchInput className="w-full" placeholder="Search" value={search} onChange={setSearch} />
+        <div className="app-card overflow-hidden">
+          <div className="p-4">
+            <DataTable
+              rowData={rows}
+              columnDefs={cols}
+              pagination
+              loading={loading}
+              onCellClicked={onCellClicked}
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search…',
+                pdfDocumentTitle: 'Assign Question Paper Template',
+              }}
+            />
           </div>
         </div>
-        <div className="p-4">
-          <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} onCellClicked={onCellClicked} />
-        </div>
-      </div>
       )}
 
       <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>

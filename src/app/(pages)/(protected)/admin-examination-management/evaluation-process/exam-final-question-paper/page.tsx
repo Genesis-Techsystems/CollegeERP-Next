@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -57,7 +56,6 @@ function questionPaperStatusRenderer(p: { value?: string }) {
 export default function ExamFinalQuestionPaperPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
   const [hasFetched, setHasFetched] = useState(false)
   const [rows, setRows] = useState<AnyRow[]>([])
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
@@ -223,12 +221,6 @@ export default function ExamFinalQuestionPaperPage() {
     }
   }
 
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
-
   const cols = useMemo<ColDef[]>(
     () => [
       { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
@@ -336,31 +328,40 @@ export default function ExamFinalQuestionPaperPage() {
       </div>
 
       {hasFetched && (
-        <div className="app-card overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="w-full max-w-sm">
-                <SearchInput
-                  className="w-full"
-                  placeholder="Search"
-                  value={search}
-                  onChange={setSearch}
-                />
-              </div>
-              {isFinalized ? (
-                <Button size="sm" disabled className="bg-slate-500 hover:bg-slate-500 text-white">
+        <div className="app-card overflow-hidden p-4">
+          <DataTable
+            rowData={rows}
+            columnDefs={cols}
+            pagination
+            loading={loading}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search…',
+              pdfDocumentTitle: 'Finalize exam question paper',
+            }}
+            toolbarTrailing={
+              isFinalized ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled
+                  className="h-[30px] px-3 text-[12px] bg-slate-500 hover:bg-slate-500 text-white"
+                >
                   Finalized
                 </Button>
               ) : (
-                <Button size="sm" onClick={() => void onFinalize()} disabled={loading || rows.length === 0}>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-[30px] px-3 text-[12px]"
+                  onClick={() => void onFinalize()}
+                  disabled={loading || rows.length === 0}
+                >
                   Finalize
                 </Button>
-              )}
-            </div>
-          </div>
-          <div className="p-4">
-            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
-          </div>
+              )
+            }
+          />
         </div>
       )}
     </PageContainer>

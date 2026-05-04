@@ -51,6 +51,10 @@ export function Sidebar() {
 
   const isExpanded = !mounted ? true : !isSidebarCollapsed || isSidebarHovered
 
+  // Persist rehydrates before React hydration can finish; SSR always uses defaults.
+  const collapsedForChrome = mounted && isSidebarCollapsed
+  const isRightPositioned = mounted && sidebarPosition === 'right'
+
   // ── Nav search filter ────────────────────────────────────────────────────
   function filterBySearch(items: NavItemType[], term: string): NavItemType[] {
     const lower = term.toLowerCase()
@@ -161,8 +165,6 @@ export function Sidebar() {
     window.location.href = '/login'
   }
 
-  const isRightPositioned = sidebarPosition === 'right'
-
   return (
     <aside
       className={cn(
@@ -180,21 +182,21 @@ export function Sidebar() {
           isExpanded ? 'gap-3 px-4' : 'justify-center px-2',
         )}
       >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/10">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/10">
           <Image
             src={smartLogo}
             alt="Campus Connect"
-            width={28}
-            height={28}
-            className="h-7 w-7 object-contain"
+            width={24}
+            height={24}
+            className="h-6 w-6 object-contain"
           />
         </div>
         {isExpanded && (
           <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-semibold text-white leading-tight truncate">
+            <p className="text-[12px] font-semibold text-white leading-tight whitespace-nowrap">
               {user?.collegeName ?? 'Smart Campus'}
             </p>
-            <p className="mt-0.5 text-[11px] text-[hsl(var(--sidebar-foreground))] leading-tight truncate">
+            <p className="mt-0.5 text-[11px] text-[hsl(var(--sidebar-foreground))] leading-tight whitespace-nowrap">
               Connect ERP
             </p>
           </div>
@@ -205,17 +207,17 @@ export function Sidebar() {
           <button
             type="button"
             onClick={toggleSidebarCollapsed}
-            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-surface))] hover:text-[hsl(var(--sidebar-foreground-active))] transition-colors duration-150"
+            title={collapsedForChrome ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="ml-2 mt-3 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-surface))] hover:text-[hsl(var(--sidebar-foreground-active))] transition-colors duration-150"
           >
             {isRightPositioned ? (
-              isSidebarCollapsed
-                ? <PanelRightOpen className="h-4 w-4" aria-hidden="true" />
-                : <PanelRightClose className="h-4 w-4" aria-hidden="true" />
+              collapsedForChrome
+                ? <PanelRightOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                : <PanelRightClose className="h-3.5 w-3.5" aria-hidden="true" />
             ) : (
-              isSidebarCollapsed
-                ? <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
-                : <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+              collapsedForChrome
+                ? <PanelLeftOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                : <PanelLeftClose className="h-3.5 w-3.5" aria-hidden="true" />
             )}
           </button>
         )}
@@ -259,10 +261,10 @@ export function Sidebar() {
           paddingRight: isExpanded ? undefined : '0.25rem',
         }}
       >
-        <ul className="space-y-0">
+        <ul className="space-y-1">
           {displayedItems.map((item) => (
             <li key={item.id}>
-              <NavItem item={item} depth={0} />
+              <NavItem item={item} depth={0} layoutHydrated={mounted} />
             </li>
           ))}
         </ul>

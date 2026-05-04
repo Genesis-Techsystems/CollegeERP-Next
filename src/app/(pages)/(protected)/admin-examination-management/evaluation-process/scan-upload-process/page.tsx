@@ -6,6 +6,7 @@ import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SearchInput } from '@/common/components/search'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { runEvaluationProc, uploadExamOmr } from '@/services/evaluation-process-admin'
 import { MINIO_URL } from '@/config/constants/api'
@@ -417,7 +418,7 @@ export default function ScanUploadProcessPage() {
         <div className="app-card p-3 space-y-3">
           <div className="px-1 text-[14px] font-semibold text-[hsl(var(--primary))]">Scanned Files - {detailsLabel || '-'}</div>
           <div className="w-full max-w-sm">
-            <Input value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Search" className="h-8 text-[12px]" />
+            <SearchInput value={searchText} onChange={setSearchText} placeholder="Search…" className="w-full max-w-sm" />
           </div>
 
           <div className="overflow-auto rounded border">

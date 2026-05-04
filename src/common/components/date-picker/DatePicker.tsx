@@ -58,7 +58,7 @@ export function DatePicker({
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       {label && (
-        <label htmlFor={id} className="text-sm font-medium">
+        <label htmlFor={id} className="text-[12px] font-medium">
           {label}
           {required && <span className="text-destructive ml-0.5">*</span>}
         </label>
@@ -72,18 +72,18 @@ export function DatePicker({
             disabled={disabled}
             aria-required={required || undefined}
             className={cn(
-              'w-full justify-start text-left font-normal',
+              'h-8 w-full justify-start text-left text-[12px] font-normal',
               !value && 'text-muted-foreground',
               error && 'border-destructive focus-visible:ring-destructive',
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+            <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0" />
             <span className="flex-1 truncate">
               {value ? format(value, 'PPP') : placeholder}
             </span>
             {clearable && value && (
               <X
-                className="ml-auto h-4 w-4 shrink-0 opacity-60 hover:opacity-100"
+                className="ml-auto h-3.5 w-3.5 shrink-0 opacity-60 hover:opacity-100"
                 onClick={handleClear}
               />
             )}
@@ -98,13 +98,23 @@ export function DatePicker({
             disabled={isDisabled}
             startMonth={minDate}
             endMonth={maxDate}
+            captionLayout="dropdown"
+            className="p-2"
+            classNames={{
+              month_caption: 'flex justify-center pt-1 relative items-center text-xs font-medium',
+              button_previous: 'absolute left-1 h-6 w-6 bg-transparent p-0 opacity-60 hover:opacity-100',
+              button_next: 'absolute right-1 h-6 w-6 bg-transparent p-0 opacity-60 hover:opacity-100',
+              weekday: 'text-muted-foreground rounded-md w-7 font-normal text-[10px]',
+              day: 'relative p-0 text-center text-xs focus-within:relative focus-within:z-20',
+              day_button: 'h-7 w-7 p-0 text-[11px] font-normal aria-selected:opacity-100',
+            }}
             autoFocus
           />
         </PopoverContent>
       </Popover>
 
       {error && (
-        <p className="text-sm text-destructive mt-1">{error}</p>
+        <p className="mt-1 text-[11px] text-destructive">{error}</p>
       )}
     </div>
   )

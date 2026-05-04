@@ -1,8 +1,122 @@
-import { buildQuery, domainCreate, domainList, domainUpdate, uploadFile } from '@/services/crud'
+import { buildQuery, domainCreate, domainList, domainUpdate, getAllRecords, uploadFile } from '@/services/crud'
 import { ENTITIES } from '@/config/constants/entities'
 import { EXAM_API, NEXT_API } from '@/config/constants/api'
 import type { ExamMaster, ExamMasterDetails, GeneralDetail, Regulation, CourseGroup, CourseYear } from '@/types/exam-master'
 import { GM_CODES } from '@/config/constants/ui'
+
+/** Employee id for `in_loginuser_empid` on exam filter procs (client pages: localStorage + session, same as exam-master). */
+export function resolveExamLoginEmpId(sessionEmployeeId?: number | null): number {
+	const fromStorage =
+		typeof globalThis.localStorage !== 'undefined'
+			? Number(globalThis.localStorage.getItem('employeeId') ?? 0)
+			: 0
+	const fromSession = Number(sessionEmployeeId ?? 0)
+	return fromStorage || fromSession || 31754
+}
+
+/**
+ * Angular `s_get_exam_filters_bycode` with `univ_exam_filters` + `ALL` (initial course / year / exam cascade).
+ * Same parameter shape as lab exam timetable filters.
+ */
+export async function getUnivExamFiltersAll(employeeId: number): Promise<any[]> {
+	const data = await getAllRecords<{ result?: any[][] }>('s_get_exam_filters_bycode', {
+		in_flag: 'univ_exam_filters',
+		in_flag_type: 'ALL',
+		in_university_id: 0,
+		in_college_id: 0,
+		in_course_id: 0,
+		in_course_group_id: 0,
+		in_course_year_id: 0,
+		in_exam_id: 0,
+		in_academic_year_id: 0,
+		in_regulation_id: 0,
+		in_subject_id: 0,
+		in_loginuser_empid: employeeId || 0,
+		in_loginuser_roleid: 0,
+		in_sub_flag_type: 'ALL',
+		in_param1: 0,
+		in_param2: 0,
+	})
+	const result = (data?.result ?? []) as any[][]
+	return Array.isArray(result) ? result.flat() : []
+}
+
+/**
+ * Angular exam fee structure (`exam-fee-structure.component.ts` `getFiltersList`):
+ * same proc as {@link getUnivExamFiltersAll} but **`in_sub_flag_type: 0`** (not `'ALL'`),
+ * and uses the result group whose first row has `flag === 'univ_exam_filters'` (`CollegesListDetails`).
+ */
+export async function getUnivExamFiltersForExamFeeSetup(employeeId: number): Promise<any[]> {
+	const data = await getAllRecords<{ result?: any[][] }>('s_get_exam_filters_bycode', {
+		in_flag: 'univ_exam_filters',
+		in_flag_type: 'ALL',
+		in_university_id: 0,
+		in_college_id: 0,
+		in_course_id: 0,
+		in_course_group_id: 0,
+		in_course_year_id: 0,
+		in_exam_id: 0,
+		in_academic_year_id: 0,
+		in_regulation_id: 0,
+		in_subject_id: 0,
+		in_loginuser_empid: employeeId || 0,
+		in_loginuser_roleid: 0,
+		in_sub_flag_type: 0,
+		in_param1: 0,
+		in_param2: 0,
+	})
+	const groups = (data?.result ?? []) as any[][]
+	for (const g of groups) {
+		if (!Array.isArray(g) || g.length === 0) continue
+		const head = g[0] as Record<string, unknown>
+		if (String(head?.flag ?? head?.FLAG ?? '') === 'univ_exam_filters') {
+			return [...g]
+		}
+	}
+	return groups.flatMap((g) => (Array.isArray(g) ? g : []))
+}
+
+/**
+ * Angular `ExamReValuationFeeSetupComponent.selectedExam`: colleges for re-valuation fee
+ * after exam is chosen (`univ_exam_rest_in_regexamstd` + group `univ_exam_rest_filters`).
+ */
+export async function getUnivExamRestCollegesForRevaluationFee(args: {
+	employeeId: number
+	universityId: number
+	courseId: number
+	examId: number
+	academicYearId: number
+}): Promise<any[]> {
+	const data = await getAllRecords<{ result?: any[][] }>('s_get_exam_filters_bycode', {
+		in_flag: 'univ_exam_rest_in_regexamstd',
+		in_flag_type: 'ALL',
+		in_university_id: args.universityId,
+		in_college_id: 0,
+		in_course_id: args.courseId,
+		in_course_group_id: 0,
+		in_course_year_id: 0,
+		in_exam_id: args.examId,
+		in_academic_year_id: args.academicYearId,
+		in_regulation_id: 0,
+		in_subject_id: 0,
+		in_loginuser_empid: args.employeeId || 0,
+		in_loginuser_roleid: 0,
+		in_sub_flag_type: 0,
+		in_param1: 0,
+		in_param2: 0,
+	})
+	const groups = (data?.result ?? []) as any[][]
+	for (const g of groups) {
+		if (!Array.isArray(g) || g.length === 0) continue
+		const head = g[0] as Record<string, unknown>
+		if (String(head?.flag ?? head?.FLAG ?? '') === 'univ_exam_rest_filters') {
+			return g.filter((r) => r && (r as Record<string, unknown>).fk_college_id != null)
+		}
+	}
+	return groups
+		.flatMap((g) => (Array.isArray(g) ? g : []))
+		.filter((r) => r && (r as Record<string, unknown>).fk_college_id != null)
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // College filters (University → Course → Regulation) used across exam pages
@@ -158,6 +272,11 @@ export async function listGeneralDetailsByMaster(code: string) {
 	return domainList<GeneralDetail>(ENTITIES.GENERAL_DETAIL.name, buildQuery({ 'GeneralMaster.generalMasterCode': code, isActive: true }))
 }
 
+/** GeneralMaster exam fee types — `GeneralDetail` filtered by {@link GM_CODES.EXAM_FEE_TYPE}. */
+export async function listExamFeeTypeGeneralDetails(): Promise<GeneralDetail[]> {
+	return listGeneralDetailsByMaster(GM_CODES.EXAM_FEE_TYPE)
+}
+
 export async function listRegulations(courseId: number) {
 	return domainList<Regulation>(ENTITIES.REGULATION.name, buildQuery({ 'Course.courseId': courseId, isActive: true }))
 }
@@ -191,45 +310,39 @@ export async function getExamTimetableDetails(courseYearId: number, courseId: nu
 }
 
 /**
- * Fetches exam filters for timetable (no existing timetable) using s_get_exam_filters_bycode
- * with in_flag=univ_exam_rest_no_tt. Returns a flattened array of rows.
+ * Branches/groups before timetable rows — `univ_exam_rest_no_tt` → `univ_exam_rest_filters` group.
  */
 export async function getExamFiltersNoTimetable(params: {
 	courseId: number
 	examId: number
 	academicYearId: number
 	courseYearId?: number
+	employeeId?: number
 }): Promise<any[]> {
-	const { NEXT_API } = await import('@/config/constants/api')
-	const search = new URLSearchParams({
+	const data = await getAllRecords<{ result?: any[][] }>('s_get_exam_filters_bycode', {
 		in_flag: 'univ_exam_rest_no_tt',
 		in_flag_type: 'ALL',
-		in_university_id: String(0),
-		in_college_id: String(0),
-		in_course_id: String(params.courseId),
-		in_course_group_id: String(0),
-		in_course_year_id: String(params.courseYearId ?? 0),
-		in_exam_id: String(params.examId),
-		in_academic_year_id: String(params.academicYearId),
-		in_regulation_id: String(0),
-		in_subject_id: String(0),
-		in_loginuser_empid: String(0),
-		in_loginuser_roleid: String(0),
+		in_university_id: 0,
+		in_college_id: 0,
+		in_course_id: params.courseId,
+		in_course_group_id: 0,
+		in_course_year_id: params.courseYearId ?? 0,
+		in_exam_id: params.examId,
+		in_academic_year_id: params.academicYearId,
+		in_regulation_id: 0,
+		in_subject_id: 0,
+		in_loginuser_empid: params.employeeId ?? 0,
+		in_loginuser_roleid: 0,
 		in_sub_flag_type: 'ALL',
-		in_param1: String(0),
-		in_param2: String(0),
+		in_param1: 0,
+		in_param2: 0,
 	})
-	const url = `/getAllRecords/s_get_exam_filters_bycode?${search.toString()}`
-	const res = await fetch(NEXT_API.PROXY(url))
-	const body = await res.json().catch(() => null)
-	// body?.data?.result is commonly an array of arrays; flatten
-	const result = (body?.result ?? body?.data?.result ?? []) as any[]
-	if (Array.isArray(result)) {
-		const out: any[] = []
-		for (const arr of result) if (Array.isArray(arr)) out.push(...arr)
-		return out
-	}
-	return []
+	const groups = data?.result ?? []
+	const rest = groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_rest_filters') ?? []
+	if (Array.isArray(rest) && rest.length > 0) return rest
+	const out: any[] = []
+	for (const arr of groups) if (Array.isArray(arr)) out.push(...arr)
+	return out
 }
 
 /**
@@ -241,36 +354,35 @@ export async function getExamSubjectsForSchedule(params: {
   examId: number
   academicYearId: number
   courseYearId?: number
+  employeeId?: number
 }): Promise<any[]> {
-  const { NEXT_API } = await import('@/config/constants/api')
-  const search = new URLSearchParams({
+  const data = await getAllRecords<{ result?: any[][] }>('s_get_exam_filters_bycode', {
     in_flag: 'univ_exam_rest_in_regexamstd',
     in_flag_type: 'ALL',
-    in_university_id: String(0),
-    in_college_id: String(0),
-    in_course_id: String(params.courseId),
-    in_course_group_id: String(0),
-    in_course_year_id: String(params.courseYearId ?? 0),
-    in_exam_id: String(params.examId),
-    in_academic_year_id: String(params.academicYearId),
-    in_regulation_id: String(0),
-    in_subject_id: String(0),
-    in_loginuser_empid: String(0),
-    in_loginuser_roleid: String(0),
-    in_sub_flag_type: String(0),
-    in_param1: String(0),
-    in_param2: String(0),
+    in_university_id: 0,
+    in_college_id: 0,
+    in_course_id: params.courseId,
+    in_course_group_id: 0,
+    in_course_year_id: params.courseYearId ?? 0,
+    in_exam_id: params.examId,
+    in_academic_year_id: params.academicYearId,
+    in_regulation_id: 0,
+    in_subject_id: 0,
+    in_loginuser_empid: params.employeeId ?? 0,
+    in_loginuser_roleid: 0,
+    in_sub_flag_type: 'ALL',
+    in_param1: 0,
+    in_param2: 0,
   })
-  const url = `/getAllRecords/s_get_exam_filters_bycode?${search.toString()}`
-  const res = await fetch(NEXT_API.PROXY(url))
-  const body = await res.json().catch(() => null)
-  const result = (body?.result ?? body?.data?.result ?? []) as any[]
-  if (Array.isArray(result)) {
-    const out: any[] = []
-    for (const arr of result) if (Array.isArray(arr)) out.push(...arr)
-    return out
-  }
-  return []
+  const groups = data?.result ?? []
+  const picked =
+    groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_rest_filters') ??
+    groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_sub_regexamstd') ??
+    []
+  if (Array.isArray(picked) && picked.length > 0) return picked
+  const out: any[] = []
+  for (const arr of groups) if (Array.isArray(arr)) out.push(...arr)
+  return out
 }
 
 /**
@@ -281,29 +393,27 @@ export async function getUnivExamSubjectFilters(params: {
   examId: number
   academicYearId: number
   courseYearId: number
+  employeeId?: number
 }): Promise<any[]> {
-  const { NEXT_API } = await import('@/config/constants/api')
-  const search = new URLSearchParams({
+  const data = await getAllRecords<{ result?: any[][] }>('s_get_univ_exam_details', {
     in_flag: 'clg_exam_subject_filters',
     in_flag_type: '',
-    in_university_id: String(0),
-    in_college_id: String(0),
-    in_course_id: String(params.courseId),
-    in_course_group_id: String(0),
-    in_course_year_id: String(params.courseYearId),
-    in_academic_year_id: String(params.academicYearId),
-    in_exam_id: String(params.examId),
-    in_regulation_id: String(0),
-    in_subject_id: String(0),
+    in_university_id: 0,
+    in_college_id: 0,
+    in_course_id: params.courseId,
+    in_course_group_id: 0,
+    in_course_year_id: params.courseYearId,
+    in_academic_year_id: params.academicYearId,
+    in_exam_id: params.examId,
+    in_regulation_id: 0,
+    in_subject_id: 0,
     in_sub_flag_type: '',
-    in_loginuser_empid: String(0),
-    in_loginuser_roleid: String(0),
-    in_param1: String(0),
+    in_loginuser_empid: params.employeeId ?? 0,
+    in_loginuser_roleid: 0,
+    in_param1: 0,
     in_param2: '',
   })
-  const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_get_univ_exam_details?${search.toString()}`))
-  const body = await res.json().catch(() => null)
-  const result = (body?.result ?? body?.data?.result ?? []) as any[]
+  const result = (data?.result ?? []) as any[][]
   if (Array.isArray(result)) {
     const out: any[] = []
     for (const arr of result) if (Array.isArray(arr)) out.push(...arr)

@@ -404,7 +404,7 @@ export default function ExamRegistrationManualFeelessPage() {
                   value={subjectSearch}
                   onChange={(e) => setSubjectSearch(e.target.value)}
                   className="h-8 text-[12px]"
-                  placeholder="Search subject..."
+                  placeholder="Search subject…"
                 />
               </div>
               <div className="px-3 py-2 text-[12px] border-b">

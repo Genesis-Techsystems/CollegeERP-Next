@@ -1,327 +1,454 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select as CommonSelect, type SelectOption } from '@/common/components/select'
+import { DataTable, TableCard } from '@/common/components/table'
+import { StatusBadge } from '@/common/components/data-display'
 import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogFooter,
 } from '@/components/ui/dialog'
 import {
-  createRevisionMaster,
-  listCollegesActive,
-  listCoursesByUniversity,
-  listRevisionMastersByCourse,
-  listRevisionTypes,
-  updateRevisionMaster,
+	createRevisionMaster,
+	listCollegesActive,
+	listCoursesByUniversity,
+	listRevisionMastersByCourse,
+	listRevisionTypes,
+	updateRevisionMaster,
 } from '@/services/revision-master'
-import { ChevronDown, Filter } from 'lucide-react'
+import { ChevronDown, ClipboardList, Filter, PencilIcon, PlusIcon } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 
-export default function RevisionMasterPage() {
-  const [colleges, setColleges] = useState<any[]>([])
-  const [courses, setCourses] = useState<any[]>([])
-  const [rows, setRows] = useState<any[]>([])
-  const [revisionTypes, setRevisionTypes] = useState<any[]>([])
-
-  const [collegeId, setCollegeId] = useState<number | null>(null)
-  const [courseId, setCourseId] = useState<number | null>(null)
-  const [q, setQ] = useState('')
-
-  const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<any | null>(null)
-  const [examRevisionTypeId, setExamRevisionTypeId] = useState<number | null>(null)
-  const [fromDate, setFromDate] = useState('')
-  const [toDate, setToDate] = useState('')
-  const [amount, setAmount] = useState('0')
-  const [isActive, setIsActive] = useState(true)
-  const [reason, setReason] = useState('active')
-  const [filterOpen, setFilterOpen] = useState(true)
-  const [saveError, setSaveError] = useState('')
-  const [isSaving, setIsSaving] = useState(false)
-
-  useEffect(() => {
-    async function loadBase() {
-      const [clgs, revTypes] = await Promise.all([
-        listCollegesActive().catch(() => []),
-        listRevisionTypes().catch(() => []),
-      ])
-      setColleges(Array.isArray(clgs) ? clgs : [])
-      setRevisionTypes(Array.isArray(revTypes) ? revTypes : [])
-      const firstCollege = (clgs as any[])[0]
-      if (firstCollege?.collegeId) setCollegeId(Number(firstCollege.collegeId))
-    }
-    loadBase()
-  }, [])
-
-  useEffect(() => {
-    async function loadCourses() {
-      setCourses([])
-      setCourseId(null)
-      setRows([])
-      if (!collegeId) return
-      const college = colleges.find((c) => Number(c.collegeId) === Number(collegeId))
-      const universityId = Number(college?.universityId ?? college?.fk_university_id ?? 0)
-      let arr: any[] = []
-      if (universityId) {
-        const list = await listCoursesByUniversity(universityId).catch(() => [])
-        arr = Array.isArray(list) ? list : []
-      }
-      // Fallback: if university-scoped list is empty, pull active courses and show all.
-      if (arr.length === 0) {
-        const { domainList, buildQuery } = await import('@/services/crud')
-        const all = await domainList<any>('Course', buildQuery({ isActive: true })).catch(() => [])
-        arr = Array.isArray(all) ? all : []
-      }
-      setCourses(arr)
-    }
-    loadCourses()
-  }, [collegeId, colleges])
-
-  useEffect(() => {
-    async function loadRows() {
-      setRows([])
-      if (!courseId) return
-      const list = await listRevisionMastersByCourse(courseId).catch(() => [])
-      setRows(Array.isArray(list) ? list : [])
-    }
-    loadRows()
-  }, [courseId])
-
-  const filteredRows = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    if (!s) return rows
-    return rows.filter((r) =>
-      `${r.examRevisionTypeName ?? ''} ${r.amount ?? ''}`.toLowerCase().includes(s),
-    )
-  }, [rows, q])
-
-  function openAdd() {
-    setEditing(null)
-    setSaveError('')
-    setExamRevisionTypeId(revisionTypes[0]?.generalDetailId ?? null)
-    const today = toDateOnlyISO(new Date())
-    setFromDate(today)
-    setToDate(today)
-    setAmount('0')
-    setIsActive(true)
-    setReason('active')
-    setOpen(true)
-  }
-
-  function openEdit(row: any) {
-    setSaveError('')
-    setEditing(row)
-    setExamRevisionTypeId(Number(row.examRevisionTypeId ?? null))
-    setFromDate(toDateStr(row.fromDate))
-    setToDate(toDateStr(row.toDate))
-    setAmount(String(row.amount ?? 0))
-    setIsActive(Boolean(row.isActive))
-    setReason(String(row.reason ?? ''))
-    setOpen(true)
-  }
-
-  async function save() {
-    setSaveError('')
-    if (!collegeId || !courseId || !examRevisionTypeId || !fromDate || !toDate) return
-    if (fromDate > toDate) {
-      setSaveError('From Date should be less than or equal to To Date.')
-      return
-    }
-    setIsSaving(true)
-    const payload = {
-      // Backend persists relation reliably when flat ids are present.
-      collegeId,
-      courseId,
-      examRevisionTypeId,
-      fromDate,
-      toDate,
-      amount: Number(amount || 0),
-      isActive,
-      reason,
-    }
-    try {
-      if (editing?.revisionMasterId) {
-        const updatePayload = { ...payload, createdDt: editing.createdDt }
-        await updateRevisionMaster(Number(editing.revisionMasterId), updatePayload)
-      } else {
-        await createRevisionMaster(payload)
-      }
-      setOpen(false)
-      const list = await listRevisionMastersByCourse(courseId).catch(() => [])
-      setRows(Array.isArray(list) ? list : [])
-    } catch (err: any) {
-      setSaveError(err?.message || 'Unable to process your request at this time, please try again!')
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  return (
-    <PageContainer className="space-y-5">
-      <PageHeader title="Exam Revision Master" subtitle="Manage revision types and rules" />
-      <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Revision Master</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-        {filterOpen && (
-        <div className="px-3 py-3 grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2">
-            <Label>College</Label>
-            <Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}>
-              <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger>
-              <SelectContent>
-                {colleges.map((c: any, i: number) => (
-                  <SelectItem key={`c-${c.collegeId ?? i}`} value={String(c.collegeId)}>
-                    {c.collegeCode}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course</Label>
-            <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
-              <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger>
-              <SelectContent>
-                {courses.map((c: any, i: number) => (
-                  <SelectItem key={`co-${c.courseId ?? i}`} value={String(c.courseId)}>
-                    {c.courseCode}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        )}
-      </div>
-
-      {courseId && (
-        <div className="app-card p-3 space-y-2">
-          <div className="flex items-center gap-3">
-            <Input className="h-8 text-[12px] max-w-sm" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
-            <div className="ml-auto">
-              <Button className="h-8 text-[12px]" onClick={openAdd}>+ Add Revision Master</Button>
-            </div>
-          </div>
-          <div className="rounded-md border overflow-auto">
-            <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-2 py-1 text-left">SI.No</th>
-                  <th className="px-2 py-1 text-left">Exam Revision Type</th>
-                  <th className="px-2 py-1 text-left">From Date</th>
-                  <th className="px-2 py-1 text-left">To Date</th>
-                  <th className="px-2 py-1 text-left">Amount</th>
-                  <th className="px-2 py-1 text-left">Status</th>
-                  <th className="px-2 py-1 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((r: any, i: number) => (
-                  <tr key={`r-${r.revisionMasterId ?? i}`}>
-                    <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">{r.examRevisionTypeName}</td>
-                    <td className="px-2 py-1">{toDateStr(r.fromDate)}</td>
-                    <td className="px-2 py-1">{toDateStr(r.toDate)}</td>
-                    <td className="px-2 py-1">{r.amount}</td>
-                    <td className="px-2 py-1">{r.isActive ? 'Active' : 'InActive'}</td>
-                    <td className="px-2 py-1"><Button variant="ghost" size="sm" onClick={() => openEdit(r)}>Edit</Button></td>
-                  </tr>
-                ))}
-                {filteredRows.length === 0 && (
-                  <tr>
-                    <td className="px-2 py-2 text-muted-foreground" colSpan={7}>No records</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-[hsl(var(--primary))]">
-              {editing ? 'Edit Exam Revision Master' : 'Add Exam Revision Master'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="space-y-1 md:col-span-2">
-              <Label>Exam Revision Type</Label>
-              <Select value={examRevisionTypeId ? String(examRevisionTypeId) : undefined} onValueChange={(v) => setExamRevisionTypeId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Revision Type" /></SelectTrigger>
-                <SelectContent>
-                  {revisionTypes.map((t: any, i: number) => (
-                    <SelectItem key={`t-${t.generalDetailId ?? i}`} value={String(t.generalDetailId)}>
-                      {t.generalDetailDisplayName ?? t.generalDetailCode}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Amount</Label>
-              <Input className="h-8 text-[12px]" type="number" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>From Date</Label>
-              <Input className="h-8 text-[12px]" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>To Date</Label>
-              <Input className="h-8 text-[12px]" type="date" min={fromDate || undefined} value={toDate} onChange={(e) => setToDate(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Status</Label>
-              <Select value={isActive ? '1' : '0'} onValueChange={(v) => setIsActive(v === '1')}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Active</SelectItem>
-                  <SelectItem value="0">InActive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {!isActive && (
-              <div className="space-y-1 md:col-span-2">
-                <Label>Reason</Label>
-                <Input className="h-8 text-[12px]" value={reason} onChange={(e) => setReason(e.target.value)} />
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            {saveError ? <p className="mr-auto text-[12px] text-red-600">{saveError}</p> : null}
-            <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
-            <Button onClick={save} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </PageContainer>
-  )
+type RevisionRow = Record<string, unknown> & {
+	revisionMasterId?: number
+	examRevisionTypeName?: string
+	fromDate?: string
+	toDate?: string
+	amount?: number
+	isActive?: boolean
+	reason?: string
+	__collegeCode?: string
+	__courseCode?: string
 }
 
+const COL_DEFS = {
+	siNo: {
+		colId: 'siNo',
+		headerName: 'SI.No',
+		valueGetter: (p: { node?: { rowIndex?: number } }) => (p.node?.rowIndex ?? 0) + 1,
+		width: 72,
+		flex: 0,
+	} as ColDef<RevisionRow>,
+	id: {
+		colId: 'revisionMasterId',
+		field: 'revisionMasterId',
+		headerName: 'Revision ID',
+		minWidth: 100,
+	} as ColDef<RevisionRow>,
+	college: { field: '__collegeCode', headerName: 'College', minWidth: 110 } as ColDef<RevisionRow>,
+	course: { field: '__courseCode', headerName: 'Course', minWidth: 110 } as ColDef<RevisionRow>,
+	type: { field: 'examRevisionTypeName', headerName: 'Exam Revision Type', minWidth: 180 } as ColDef<RevisionRow>,
+	fromDate: {
+		field: 'fromDate',
+		headerName: 'From Date',
+		minWidth: 120,
+		valueFormatter: (p: { value?: unknown }) => toDateStr(String(p.value ?? '')),
+	} as ColDef<RevisionRow>,
+	toDate: {
+		field: 'toDate',
+		headerName: 'To Date',
+		minWidth: 120,
+		valueFormatter: (p: { value?: unknown }) => toDateStr(String(p.value ?? '')),
+	} as ColDef<RevisionRow>,
+	amount: { field: 'amount', headerName: 'Amount', width: 100, flex: 0 } as ColDef<RevisionRow>,
+	reason: {
+		field: 'reason',
+		headerName: 'Reason',
+		minWidth: 120,
+		valueFormatter: (p: { value?: unknown }) => {
+			const s = String(p.value ?? '').trim()
+			return s || '—'
+		},
+	} as ColDef<RevisionRow>,
+	isActive: { field: 'isActive', headerName: 'Status', width: 110, flex: 0 } as ColDef<RevisionRow>,
+	actions: { colId: 'actions', headerName: 'Actions', width: 100, flex: 0, sortable: false } as ColDef<RevisionRow>,
+}
+
+function statusRenderer(p: ICellRendererParams<RevisionRow>) {
+	return <StatusBadge status={Boolean(p.data?.isActive)} />
+}
+
+function makeActionsRenderer(onEdit: (row: RevisionRow) => void) {
+	return (p: ICellRendererParams<RevisionRow>) => (
+		<Button
+			type="button"
+			variant="ghost"
+			size="sm"
+			className="h-8 w-8 p-0"
+			aria-label="Edit revision master"
+			onClick={() => p.data && onEdit(p.data)}
+		>
+			<PencilIcon className="h-3.5 w-3.5" />
+		</Button>
+	)
+}
+
+export default function RevisionMasterPage() {
+	const [colleges, setColleges] = useState<any[]>([])
+	const [courses, setCourses] = useState<any[]>([])
+	const [rows, setRows] = useState<RevisionRow[]>([])
+	const [revisionTypes, setRevisionTypes] = useState<any[]>([])
+
+	const [collegeId, setCollegeId] = useState<number | null>(null)
+	const [courseId, setCourseId] = useState<number | null>(null)
+	const [loadingCourses, setLoadingCourses] = useState(false)
+	const [loadingRows, setLoadingRows] = useState(false)
+
+	const [open, setOpen] = useState(false)
+	const [editing, setEditing] = useState<RevisionRow | null>(null)
+	const [examRevisionTypeId, setExamRevisionTypeId] = useState<number | null>(null)
+	const [fromDate, setFromDate] = useState('')
+	const [toDate, setToDate] = useState('')
+	const [amount, setAmount] = useState('0')
+	const [isActive, setIsActive] = useState(true)
+	const [reason, setReason] = useState('active')
+	const [filterOpen, setFilterOpen] = useState(true)
+	const [saveError, setSaveError] = useState('')
+	const [isSaving, setIsSaving] = useState(false)
+
+	const collegeOptions = useMemo<SelectOption[]>(
+		() =>
+			colleges.map((c: any, i: number) => ({
+				value: String(c.collegeId ?? c.fk_college_id ?? i),
+				label: String(c.collegeCode ?? c.collegeName ?? c.college_id ?? '-'),
+			})),
+		[colleges],
+	)
+
+	const courseOptions = useMemo<SelectOption[]>(
+		() =>
+			courses.map((c: any, i: number) => ({
+				value: String(c.courseId ?? c.fk_course_id ?? c.id ?? i),
+				label: String(c.courseCode ?? c.courseName ?? c.course_code ?? '-'),
+			})),
+		[courses],
+	)
+
+	const revisionTypeModalOptions = useMemo<SelectOption[]>(
+		() =>
+			revisionTypes.map((t: any, i: number) => ({
+				value: String(t.generalDetailId ?? i),
+				label: String(t.generalDetailDisplayName ?? t.generalDetailCode ?? '-'),
+			})),
+		[revisionTypes],
+	)
+
+	const statusModalOptions = useMemo<SelectOption[]>(
+		() => [
+			{ value: '1', label: 'Active' },
+			{ value: '0', label: 'InActive' },
+		],
+		[],
+	)
+
+	const gridRows = useMemo<RevisionRow[]>(() => {
+		const coll = colleges.find((c) => Number(c.collegeId ?? c.fk_college_id) === Number(collegeId))
+		const cou = courses.find((c) => Number(c.courseId ?? c.fk_course_id ?? c.id) === Number(courseId))
+		const __collegeCode = String(coll?.collegeCode ?? coll?.collegeName ?? '')
+		const __courseCode = String(cou?.courseCode ?? cou?.courseName ?? '')
+		return rows.map((r) => ({ ...r, __collegeCode, __courseCode }))
+	}, [rows, colleges, courses, collegeId, courseId])
+
+	const openEdit = useCallback((row: RevisionRow) => {
+		setSaveError('')
+		setEditing(row)
+		setExamRevisionTypeId(Number(row.examRevisionTypeId ?? 0) || null)
+		setFromDate(toDateStr(String(row.fromDate ?? '')))
+		setToDate(toDateStr(String(row.toDate ?? '')))
+		setAmount(String(row.amount ?? 0))
+		setIsActive(Boolean(row.isActive))
+		setReason(String(row.reason ?? ''))
+		setOpen(true)
+	}, [])
+
+	const columnDefs = useMemo<ColDef<RevisionRow>[]>(
+		() => [
+			COL_DEFS.siNo,
+			COL_DEFS.id,
+			COL_DEFS.college,
+			COL_DEFS.course,
+			COL_DEFS.type,
+			COL_DEFS.fromDate,
+			COL_DEFS.toDate,
+			COL_DEFS.amount,
+			COL_DEFS.reason,
+			{ ...COL_DEFS.isActive, cellRenderer: statusRenderer },
+			{ ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(openEdit) },
+		],
+		[openEdit],
+	)
+
+	useEffect(() => {
+		async function loadBase() {
+			const [clgs, revTypes] = await Promise.all([
+				listCollegesActive().catch(() => []),
+				listRevisionTypes().catch(() => []),
+			])
+			setColleges(Array.isArray(clgs) ? clgs : [])
+			setRevisionTypes(Array.isArray(revTypes) ? revTypes : [])
+			const firstCollege = (clgs as any[])[0]
+			if (firstCollege?.collegeId) setCollegeId(Number(firstCollege.collegeId))
+		}
+		void loadBase()
+	}, [])
+
+	useEffect(() => {
+		async function loadCourses() {
+			setLoadingCourses(true)
+			setCourses([])
+			setCourseId(null)
+			setRows([])
+			try {
+				if (!collegeId) return
+				const college = colleges.find((c) => Number(c.collegeId) === Number(collegeId))
+				const universityId = Number(college?.universityId ?? college?.fk_university_id ?? 0)
+				let arr: any[] = []
+				if (universityId) {
+					const list = await listCoursesByUniversity(universityId).catch(() => [])
+					arr = Array.isArray(list) ? list : []
+				}
+				if (arr.length === 0) {
+					const { domainList, buildQuery } = await import('@/services/crud')
+					const all = await domainList<any>('Course', buildQuery({ isActive: true })).catch(() => [])
+					arr = Array.isArray(all) ? all : []
+				}
+				setCourses(arr)
+			} finally {
+				setLoadingCourses(false)
+			}
+		}
+		void loadCourses()
+	}, [collegeId, colleges])
+
+	useEffect(() => {
+		async function loadRows() {
+			setLoadingRows(true)
+			setRows([])
+			try {
+				if (!courseId) return
+				const list = await listRevisionMastersByCourse(courseId).catch(() => [])
+				setRows(Array.isArray(list) ? (list as RevisionRow[]) : [])
+			} finally {
+				setLoadingRows(false)
+			}
+		}
+		void loadRows()
+	}, [courseId])
+
+	function openAdd() {
+		setEditing(null)
+		setSaveError('')
+		setExamRevisionTypeId(revisionTypes[0]?.generalDetailId ?? null)
+		const today = toDateOnlyISO(new Date())
+		setFromDate(today)
+		setToDate(today)
+		setAmount('0')
+		setIsActive(true)
+		setReason('active')
+		setOpen(true)
+	}
+
+	async function save() {
+		setSaveError('')
+		if (!collegeId || !courseId || !examRevisionTypeId || !fromDate || !toDate) return
+		if (fromDate > toDate) {
+			setSaveError('From Date should be less than or equal to To Date.')
+			return
+		}
+		setIsSaving(true)
+		const payload = {
+			collegeId,
+			courseId,
+			examRevisionTypeId,
+			fromDate,
+			toDate,
+			amount: Number(amount || 0),
+			isActive,
+			reason,
+		}
+		try {
+			if (editing?.revisionMasterId) {
+				const updatePayload = { ...payload, createdDt: editing.createdDt }
+				await updateRevisionMaster(Number(editing.revisionMasterId), updatePayload)
+			} else {
+				await createRevisionMaster(payload)
+			}
+			setOpen(false)
+			const list = await listRevisionMastersByCourse(courseId).catch(() => [])
+			setRows(Array.isArray(list) ? (list as RevisionRow[]) : [])
+		} catch (err: any) {
+			setSaveError(err?.message || 'Unable to process your request at this time, please try again!')
+		} finally {
+			setIsSaving(false)
+		}
+	}
+
+	return (
+		<PageContainer className="space-y-5">
+			<PageHeader title="Exam Revision Master" subtitle="Manage revision types and rules" />
+			<div className="app-card space-y-0 overflow-hidden">
+				<div className="px-4 py-2 border-b border-slate-200 bg-slate-50/60">
+					<div className="flex items-center justify-between gap-2">
+						<h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Exam Revision Master</h2>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							className="h-6 px-2.5 text-[12px]"
+							onClick={() => setFilterOpen((v) => !v)}
+							aria-expanded={filterOpen}
+						>
+							<Filter className="mr-1.5 h-3.5 w-3.5" />
+							Filter
+							<ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+						</Button>
+					</div>
+				</div>
+				{filterOpen && (
+					<div className="px-4 py-3 flex flex-wrap items-end gap-3">
+						<div className="min-w-[200px] flex-1 max-w-xs">
+							<CommonSelect
+								label="College"
+								placeholder="College"
+								value={collegeId != null ? String(collegeId) : null}
+								onChange={(v) => setCollegeId(v ? Number(v) : null)}
+								options={collegeOptions}
+								disabled={collegeOptions.length === 0}
+							/>
+						</div>
+						<div className="min-w-[200px] flex-1 max-w-xs">
+							<CommonSelect
+								label="Course"
+								placeholder="Course"
+								value={courseId != null ? String(courseId) : null}
+								onChange={(v) => setCourseId(v ? Number(v) : null)}
+								options={courseOptions}
+								disabled={loadingCourses || courseOptions.length === 0}
+							/>
+						</div>
+					</div>
+				)}
+			</div>
+
+			{courseId != null && (
+				<TableCard withHeaderBorder={false}>
+					{!loadingRows && gridRows.length === 0 ? (
+						<div className="flex flex-col items-center justify-center py-16 text-slate-400">
+							<ClipboardList className="h-10 w-10 mb-3 opacity-40" />
+							<p className="text-sm">No records found</p>
+						</div>
+					) : (
+						<DataTable<RevisionRow>
+							rowData={gridRows}
+							columnDefs={columnDefs}
+							loading={loadingRows}
+							pagination
+							getRowId={(p) =>
+								String(
+									p.data.revisionMasterId ??
+										`row-${String(p.data.examRevisionTypeId)}-${String(p.data.fromDate)}-${String(p.data.toDate)}`,
+								)
+							}
+							toolbar={{
+								search: true,
+								searchPlaceholder: 'Search revision masters…',
+								columnPicker: true,
+								exportPdf: true,
+								pdfDocumentTitle: 'Exam Revision Master',
+								lockColumnIds: ['siNo', 'actions'],
+							}}
+							exportCsv
+							toolbarTrailing={(
+								<Button type="button" size="sm" className="h-[30px] px-3 text-[12px]" onClick={openAdd}>
+									<PlusIcon className="mr-1 h-3.5 w-3.5" />
+									Add Revision Master
+								</Button>
+							)}
+						/>
+					)}
+				</TableCard>
+			)}
+
+			<Dialog open={open} onOpenChange={setOpen}>
+				<DialogContent className="max-w-2xl">
+					<DialogHeader>
+						<DialogTitle className="text-[hsl(var(--primary))]">
+							{editing ? 'Edit Exam Revision Master' : 'Add Exam Revision Master'}
+						</DialogTitle>
+					</DialogHeader>
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+						<div className="space-y-1 md:col-span-2">
+							<CommonSelect
+								label="Exam Revision Type"
+								placeholder="Revision Type"
+								value={examRevisionTypeId != null ? String(examRevisionTypeId) : null}
+								onChange={(v) => setExamRevisionTypeId(v ? Number(v) : null)}
+								options={revisionTypeModalOptions}
+							/>
+						</div>
+						<div className="space-y-1">
+							<Label>Amount</Label>
+							<Input className="h-8 text-[12px]" type="number" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} />
+						</div>
+						<div className="space-y-1">
+							<Label>From Date</Label>
+							<Input className="h-8 text-[12px]" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+						</div>
+						<div className="space-y-1">
+							<Label>To Date</Label>
+							<Input
+								className="h-8 text-[12px]"
+								type="date"
+								min={fromDate || undefined}
+								value={toDate}
+								onChange={(e) => setToDate(e.target.value)}
+							/>
+						</div>
+						<div className="space-y-1">
+							<CommonSelect
+								label="Status"
+								placeholder="Status"
+								value={isActive ? '1' : '0'}
+								onChange={(v) => setIsActive(v === '1')}
+								options={statusModalOptions}
+							/>
+						</div>
+						{!isActive && (
+							<div className="space-y-1 md:col-span-2">
+								<Label>Reason</Label>
+								<Input className="h-8 text-[12px]" value={reason} onChange={(e) => setReason(e.target.value)} />
+							</div>
+						)}
+					</div>
+					<DialogFooter>
+						{saveError ? <p className="mr-auto text-[12px] text-red-600">{saveError}</p> : null}
+						<Button variant="outline" onClick={() => setOpen(false)}>
+							Close
+						</Button>
+						<Button onClick={() => void save()} disabled={isSaving}>
+							{isSaving ? 'Saving...' : 'Save'}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+		</PageContainer>
+	)
+}

@@ -17,6 +17,8 @@ export const ENTITIES = {
   EXAM_MASTER:            { name: 'ExamMaster',                pk: 'examId'                      },
   EXAM_MASTER_DETAILS:    { name: 'ExamMasterDetails',         pk: 'examMasterDetailsId'         },
   EXAM_FEE_STRUCTURE:     { name: 'ExamFeeStructure',          pk: 'examFeeStructureId'          },
+  /** FCAR exam setup master (marks setup name, regulations, result validation) — Angular `ExamFCARSetupMaster`. */
+  EXAM_FCAR_SETUP_MASTER: { name: 'ExamFCARSetupMaster',     pk: 'examFCARSetMasterId'         },
   EXAM_ROOM_ALLOTMENT:    { name: 'ExamRoomAllotment',         pk: 'examRoomAllotmentId'         },
   SEATING_PLAN:           { name: 'SeatingPlan',               pk: 'seatingPlanId'               },
   INVIGILATOR:            { name: 'InvigilatorRemuneration',   pk: 'invigilatorRemunerationId'   },
@@ -53,6 +55,8 @@ export const ENTITIES = {
   FINANCIAL_YEAR:         { name: 'FinancialYear',             pk: 'financialYearId'             },
   SUBJECT:                { name: 'Subject',                   pk: 'subjectId'                   },
   ROOM:                   { name: 'Room',                      pk: 'roomId'                      },
+  BANK:                   { name: 'Bank',                      pk: 'bankId'                      },
+  CASTE:                  { name: 'Caste',                     pk: 'casteId'                     },
 } as const
 
 export type EntityKey = keyof typeof ENTITIES

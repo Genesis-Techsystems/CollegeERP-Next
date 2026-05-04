@@ -1,12 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
+import { use, useMemo } from 'react'
 
 type CatchAllPageProps = {
-  params: {
+  params: Promise<{
     slug?: string[]
-  }
+  }>
 }
 
 function toTitle(parts: string[]) {
@@ -22,7 +22,8 @@ function toTitle(parts: string[]) {
 }
 
 export default function EvaluationProcessCatchAllPage({ params }: CatchAllPageProps) {
-  const slug = params.slug ?? []
+  const { slug: slugParam } = use(params)
+  const slug = slugParam ?? []
   const label = useMemo(() => toTitle(slug), [slug])
 
   return (

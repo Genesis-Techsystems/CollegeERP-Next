@@ -5,7 +5,6 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { BookMarked, Pencil, Plus } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
 import { FormModal } from '@/common/components/feedback'
 import { ActiveStatusField } from '@/common/components/forms'
 import { StatusBadge } from '@/common/components/data-display'
@@ -59,8 +58,6 @@ export default function UnivExamAnswerPaperBagsPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [rows, setRows] = useState<Row[]>([])
-  const [tableSearch, setTableSearch] = useState('')
-
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Row | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -74,12 +71,6 @@ export default function UnivExamAnswerPaperBagsPage() {
     isActive: true,
     reason: '',
   })
-
-  const filteredRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(q))
-  }, [rows, tableSearch])
 
   const columnDefs = useMemo<ColDef<Row>[]>(
     () => [
@@ -214,23 +205,32 @@ export default function UnivExamAnswerPaperBagsPage() {
     <PageContainer className="space-y-5">
       <PageHeader title="Exam answer paper bags" subtitle="Exam papers delivery process · Answer paper bags" />
 
-      <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center gap-2">
+      <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-slate-200">
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
           <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
           <h2 className="text-[14px] font-semibold text-[hsl(var(--card-title))]">Exam Answer Paper Bags</h2>
         </div>
       </div>
 
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
-          <SearchInput value={tableSearch} onChange={setTableSearch} placeholder="Search" className="w-full sm:max-w-xs" />
-          <Button type="button" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1" />
-            Add Exam Answer Paper Bag
-          </Button>
-        </div>
         <div className="p-2">
-          <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loading} pagination />
+          <DataTable
+            rowData={rows}
+            columnDefs={columnDefs}
+            loading={loading}
+            pagination
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search…',
+              pdfDocumentTitle: 'Exam Answer Paper Bags',
+            }}
+            toolbarTrailing={
+              <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Add Exam Answer Paper Bag
+              </Button>
+            }
+          />
         </div>
       </div>
 

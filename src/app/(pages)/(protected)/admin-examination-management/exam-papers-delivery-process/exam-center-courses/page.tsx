@@ -70,7 +70,6 @@ export default function ExamCenterCoursesPage() {
 
   const [candidateSearch, setCandidateSearch] = useState('')
   const [yearSearch, setYearSearch] = useState('')
-  const [tableSearch, setTableSearch] = useState('')
   const [showSections, setShowSections] = useState(false)
 
   const [form, setForm] = useState({
@@ -176,12 +175,6 @@ export default function ExamCenterCoursesPage() {
     if (!q) return courseYears
     return courseYears.filter((y) => txt(y.course_year_code).toLowerCase().includes(q))
   }, [courseYears, yearSearch])
-  const filteredExistsRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase()
-    if (!q) return existsRows
-    return existsRows.filter((r) => JSON.stringify(r).toLowerCase().includes(q))
-  }, [existsRows, tableSearch])
-
   const headerText = useMemo(() => {
     const c = courses.find((x) => num(x.fk_course_id) === Number(form.courseId))
     const ay = academicYears.find((x) => num(x.fk_academic_year_id) === Number(form.academicYearId))
@@ -401,7 +394,7 @@ export default function ExamCenterCoursesPage() {
       <PageHeader title="Exam center courses" subtitle="Exam papers delivery process · Exam center courses/groups/years/subjects" />
 
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="pb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2 min-w-0">
             <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
             <h2 className="text-[13px] font-semibold leading-tight text-[hsl(var(--card-title))] truncate">
@@ -430,16 +423,16 @@ export default function ExamCenterCoursesPage() {
 
       {showSections && (
         <>
-          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300"><h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">Exam Center Colleges - {headerText}</h3></div>
+          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-slate-200"><h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">Exam Center Colleges - {headerText}</h3></div>
           <div className="app-card p-2.5">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
               <div className="md:col-span-3 border rounded-md p-2">
-                <SearchInput value={candidateSearch} onChange={setCandidateSearch} placeholder="Search..." className="w-full mb-2" />
+                <SearchInput value={candidateSearch} onChange={setCandidateSearch} placeholder="Search…" className="w-full max-w-sm mb-2" />
                 <Label className="text-[12px]">Course Group</Label>
                 <Select options={courseGroupOptions} value={form.courseGroupId} onChange={onSelectCourseGroup} />
               </div>
               <div className="md:col-span-3 border rounded-md p-2">
-                <SearchInput value={yearSearch} onChange={setYearSearch} placeholder="Search..." className="w-full mb-2" />
+                <SearchInput value={yearSearch} onChange={setYearSearch} placeholder="Search…" className="w-full max-w-sm mb-2" />
                 <Label className="text-[12px]">Course Year</Label>
                 <Select
                   options={filteredCourseYears.map((y) => ({ value: String(num(y.fk_course_year_id)), label: txt(y.course_year_code) }))}
@@ -448,7 +441,7 @@ export default function ExamCenterCoursesPage() {
                 />
               </div>
               <div className="md:col-span-5 border rounded-md p-2">
-                <SearchInput value={candidateSearch} onChange={setCandidateSearch} placeholder="Search..." className="w-full mb-2" />
+                <SearchInput value={candidateSearch} onChange={setCandidateSearch} placeholder="Search…" className="w-full max-w-sm mb-2" />
                 <div className="max-h-[300px] overflow-auto">
                   <table className="w-full text-[12px]">
                     <thead><tr className="border-b"><th className="text-left py-1 w-[56px]">Select</th><th className="text-left py-1">Subject</th></tr></thead>
@@ -472,10 +465,21 @@ export default function ExamCenterCoursesPage() {
             </div>
           </div>
 
-          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300"><h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">Exam Center Colleges - {headerText}</h3></div>
+          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-slate-200"><h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">Exam Center Colleges - {headerText}</h3></div>
           <div className="app-card overflow-hidden">
-            <div className="px-3 py-2 border-b border-border"><SearchInput value={tableSearch} onChange={setTableSearch} placeholder="Search" className="w-full sm:max-w-xs" /></div>
-            <div className="p-2"><DataTable rowData={filteredExistsRows} columnDefs={tableColumnDefs} loading={loadingList} pagination /></div>
+            <div className="p-2">
+              <DataTable
+                rowData={existsRows}
+                columnDefs={tableColumnDefs}
+                loading={loadingList}
+                pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Exam Center Courses',
+                }}
+              />
+            </div>
           </div>
         </>
       )}

@@ -42,7 +42,7 @@ const COL_DEFS = {
   createdDt:   { field: 'createdDt',           headerName: 'Created On',     valueFormatter: (p) => formatDate(p.value), width: 130, flex: 0             } as ColDef<Assessment>,
   isActive:    { field: 'isActive',            headerName: 'Status',                                                               width: 90,  flex: 0 } as ColDef<Assessment>,
   questions:   { headerName: 'Questions',                                                                                          width: 115, flex: 0 } as ColDef<Assessment>,
-  actions:     { headerName: 'Actions',                                                                                            width: 220, flex: 0 } as ColDef<Assessment>,
+  actions:     { headerName: 'Actions',                                                                                            width: 200, flex: 0 } as ColDef<Assessment>,
 }
 
 // ─── Pure renderers ───────────────────────────────────────────────────────────
@@ -78,11 +78,12 @@ function makeActionsRenderer(
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => { setEditing(p.data ?? null); setModalOpen(true) }}
+        className="h-8 w-8 p-0"
+        aria-label="Edit question bank"
         title="Edit question bank"
+        onClick={() => { setEditing(p.data ?? null); setModalOpen(true) }}
       >
-        <PencilIcon className="h-3.5 w-3.5 mr-1" />
-        Edit
+        <PencilIcon className="h-3.5 w-3.5" />
       </Button>
       <Button
         size="sm"
@@ -229,7 +230,7 @@ export default function QuestionBankPage() {
       />
 
       <SearchInput
-        className="max-w-sm"
+        className="w-full max-w-sm"
         placeholder="Search question banks…"
         value={searchValue}
         onChange={setSearchValue}

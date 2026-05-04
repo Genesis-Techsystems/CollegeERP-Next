@@ -4,8 +4,10 @@ import type { Module, SubModule, Page, NavItem } from '@/types/navigation'
  * Removes any doubled leading segment from a URL path.
  * e.g. "a/b/a/b/c" → "/a/b/c"
  * Also ensures the result always starts with "/".
+ *
+ * Maps legacy Angular nav paths (e.g. admin-post-examination) onto App Router routes.
  */
-function normalizeHref(path: string): string {
+export function normalizeHref(path: string): string {
   let raw = (path ?? '').trim()
 
   // Convert Angular/hash URLs to app-router paths.
@@ -58,6 +60,33 @@ function normalizeHref(path: string): string {
       /\/admin-examination-management\/pre-examination\/exam-hall-ticket$/i,
       '/admin-examination-management/pre-examination/exam-hallticket',
     )
+    // Legacy post-examination module segment (singular + typo plural) → post-examination.
+    .replace(
+      /\/admin-examination-management\/admin-post-examinations\//i,
+      '/admin-examination-management/post-examination/',
+    )
+    .replace(
+      /\/admin-examination-management\/admin-post-examination\//i,
+      '/admin-examination-management/post-examination/',
+    )
+    // Angular source folder `exam-re-valuation-fee-setup` vs route `revaluation-fee-setup` — canonical Next slug.
+    .replace(
+      /\/admin-examination-management\/admin-exam-masters\/exam-re-valuation-fee-setup/gi,
+      '/admin-examination-management/admin-exam-masters/re-valuation-fee-setup',
+    )
+    // Legacy post-examination attendance slugs → canonical App Router paths (sidebar active state + links).
+    .replace(
+      /\/admin-examination-management\/post-examination\/staff-internal-attendance-marking(?=\/|$)/i,
+      '/admin-examination-management/post-examination/internal-exam-attendance-marking',
+    )
+    .replace(
+      /\/admin-examination-management\/post-examination\/exam-attendance-marking(?=\/|$)/i,
+      '/admin-examination-management/post-examination/internal-exam-attendance-marking',
+    )
+    .replace(
+      /\/admin-examination-management\/post-examination\/internal-exams-avg(?=\/|$)/i,
+      '/admin-examination-management/post-examination/internal-exams-average',
+    )
 
   // Normalize slashes and trim trailing slash.
   raw = raw.replace(/\/{2,}/g, '/').replace(/\/$/, '')
@@ -101,6 +130,46 @@ function overrideLegacyPreExamHref(href: string, label: string): string {
   if (lower.includes('manual') && lower.includes('fee')) return `${base}/exam-registration-manual-feeless`
 
   return href
+}
+
+/** Backend page.url often keeps Angular slugs; map by label to Next routes under post-examination. */
+function overrideLegacyPostExamHref(href: string, label: string): string {
+  const lower = (label ?? '').toLowerCase()
+  const base = '/admin-examination-management/post-examination'
+
+  const isInternalAttendance =
+    lower.includes('internal') &&
+    lower.includes('exam') &&
+    lower.includes('attendance') &&
+    (lower.includes('marking') || lower.includes('attendance marking')) &&
+    !lower.includes('external')
+  if (isInternalAttendance) {
+    return `${base}/internal-exam-attendance-marking`
+  }
+
+  const isExternalAttendance =
+    lower.includes('external') &&
+    lower.includes('exam') &&
+    lower.includes('attendance') &&
+    (lower.includes('marking') || lower.includes('attendance marking'))
+  if (isExternalAttendance) {
+    return `${base}/external-exam-attendance-marking`
+  }
+
+  if (
+    lower.includes('internal') &&
+    (lower.includes('exams average') || lower.includes('exam average') || lower.includes('internal exams avg'))
+  ) {
+    return `${base}/internal-exams-average`
+  }
+
+  return href
+}
+
+function normalizePageHref(href: string, pageLabel: string): string {
+  return normalizeHref(
+    overrideLegacyPostExamHref(overrideLegacyPreExamHref(href, pageLabel), pageLabel),
+  )
 }
 
 /**
@@ -163,7 +232,7 @@ function buildStandalonePages(pages: Page[]): NavItem[] {
         : `${subModuleUrl}/${rawUrl}`
     }
 
-    const normalizedHref = normalizeHref(overrideLegacyPreExamHref(href, page.displayName))
+    const normalizedHref = normalizePageHref(href, page.displayName)
 
     return {
       id: `page_${page.pageId}`,
@@ -214,7 +283,7 @@ function buildModuleTree(modules: Module[], pages: Page[]): NavItem[] {
           const href = rawUrl.startsWith(moduleUrl + '/') || rawUrl === moduleUrl
             ? rawUrl
             : `${moduleUrl}/${rawUrl}`
-          const normalizedHref = normalizeHref(overrideLegacyPreExamHref(href, page.displayName))
+          const normalizedHref = normalizePageHref(href, page.displayName)
           children.push({
             id: `page_${page.pageId}`,
             label: page.displayName,
@@ -259,7 +328,7 @@ function buildSubModuleItem(subModule: SubModule, moduleUrl: string): NavItem {
       const href = rawUrl.startsWith(fullPrefix + '/') || rawUrl === fullPrefix
         ? rawUrl
         : `${fullPrefix}/${rawUrl}`
-      const normalizedHref = normalizeHref(overrideLegacyPreExamHref(href, page.displayName))
+      const normalizedHref = normalizePageHref(href, page.displayName)
       subChildren.push({
         id: `page_${page.pageId}`,
         label: page.displayName,

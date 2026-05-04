@@ -5,7 +5,6 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { BookMarked, ChevronDown, Filter, Pencil, Plus } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
@@ -97,7 +96,6 @@ export default function UnivExamRegionalCentersPage() {
 
   const [loadingList, setLoadingList] = useState(false)
   const [rows, setRows] = useState<RegionalRow[]>([])
-  const [tableSearch, setTableSearch] = useState('')
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<RegionalRow | null>(null)
@@ -235,26 +233,6 @@ export default function UnivExamRegionalCentersPage() {
     [handleEditRow],
   )
 
-  const filteredRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) =>
-      [
-        pickCode(r),
-        r.longitude,
-        r.latitude,
-        r.addressLine1,
-        r.addressLine2,
-        pickCityCode(r),
-        r.pincode,
-        r.isActive,
-      ]
-        .join(' ')
-        .toLowerCase()
-        .includes(q),
-    )
-  }, [rows, tableSearch])
-
   function openCreate() {
     if (!universityId) {
       toastError('Please select a university.')
@@ -333,7 +311,7 @@ export default function UnivExamRegionalCentersPage() {
       />
 
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="pb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2 min-w-0">
             <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
             <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))] truncate">
@@ -375,27 +353,31 @@ export default function UnivExamRegionalCentersPage() {
 
       {universityId != null && (
         <>
-          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300">
+          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-slate-200">
             <h3 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">
               Exam Regional Centers - {selectedUniversityCode || '-'}
             </h3>
           </div>
 
           <div className="app-card overflow-hidden">
-            <div className="px-3 py-2 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <SearchInput
-                placeholder="Search"
-                value={tableSearch}
-                onChange={(v) => setTableSearch(v)}
-                className="w-full sm:max-w-xs"
-              />
-              <Button type="button" onClick={openCreate}>
-                <Plus className="h-4 w-4 mr-1" />
-                Add Exam Regional Centers
-              </Button>
-            </div>
             <div className="p-2">
-              <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loadingList} pagination />
+              <DataTable
+                rowData={rows}
+                columnDefs={columnDefs}
+                loading={loadingList}
+                pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Exam Regional Centers',
+                }}
+                toolbarTrailing={
+                  <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Add Exam Regional Centers
+                  </Button>
+                }
+              />
             </div>
           </div>
         </>

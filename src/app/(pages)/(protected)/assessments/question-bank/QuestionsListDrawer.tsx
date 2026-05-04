@@ -123,9 +123,8 @@ function QuestionItem({ aq, index, onEdit, onDelete, deleting }: QuestionItemPro
 
           {/* Actions */}
           <div className="flex items-center gap-2 pt-1">
-            <Button size="sm" variant="outline" onClick={onEdit}>
-              <PencilIcon className="h-3.5 w-3.5 mr-1" />
-              Edit
+            <Button size="sm" variant="outline" className="h-8 w-8 p-0" aria-label="Edit question" title="Edit" onClick={onEdit}>
+              <PencilIcon className="h-3.5 w-3.5" />
             </Button>
             <Button
               size="sm"

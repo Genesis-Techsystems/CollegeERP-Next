@@ -84,7 +84,6 @@ export default function UnivExamcenterStudentsPage() {
   const [examCenterColleges, setExamCenterColleges] = useState<Row[]>([])
   const [selectedStudents, setSelectedStudents] = useState<Row[]>([])
   const [searchCandidates, setSearchCandidates] = useState('')
-  const [searchAssigned, setSearchAssigned] = useState('')
   const [selectAll, setSelectAll] = useState(false)
   const [employeeId, setEmployeeId] = useState(0)
   const [orgId, setOrgId] = useState(0)
@@ -181,12 +180,6 @@ export default function UnivExamcenterStudentsPage() {
     if (!q) return candidateRows
     return candidateRows.filter((r) => `${txt(r.hallticket_number)} ${txt(r.omr_serial_no)}`.toLowerCase().includes(q))
   }, [candidateRows, searchCandidates])
-
-  const filteredAssigned = useMemo(() => {
-    const q = searchAssigned.trim().toLowerCase()
-    if (!q) return assignedRows
-    return assignedRows.filter((r) => JSON.stringify(r).toLowerCase().includes(q))
-  }, [assignedRows, searchAssigned])
 
   const assignedColumnDefs = useMemo<ColDef<Row>[]>(
     () => [
@@ -384,7 +377,7 @@ export default function UnivExamcenterStudentsPage() {
       <PageHeader title="Exam center students" subtitle="Exam papers delivery process · Exam center students" />
 
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="pb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2 min-w-0">
             <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
             <h2 className="text-[14px] font-semibold leading-tight text-[hsl(var(--card-title))] truncate">
@@ -399,7 +392,7 @@ export default function UnivExamcenterStudentsPage() {
         </div>
 
         {filterOpen && (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
             <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courses.map((r) => ({ value: String(pickCourseId(r)), label: txt(r.course_code) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v }))} disabled={loading} /></div>
             <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={academicYears.map((r) => ({ value: String(pickAyId(r)), label: txt(r.academic_year) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v }))} /></div>
             <div className="space-y-1 md:col-span-4"><Label>Exam</Label><Select options={exams.map((r) => ({ value: String(pickExamId(r)), label: txt(r.exam_name) }))} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v }))} /></div>
@@ -419,7 +412,7 @@ export default function UnivExamcenterStudentsPage() {
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
               <div className="md:col-span-5 border rounded-md p-2">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <SearchInput value={searchCandidates} onChange={onSearchOmr} placeholder="Search..." className="w-full" />
+                  <SearchInput value={searchCandidates} onChange={onSearchOmr} placeholder="Search…" className="w-full max-w-sm" />
                   <span className="text-[13px] text-blue-700 font-semibold whitespace-nowrap">Selected: {selectedStudents.length}</span>
                 </div>
                 <div className="max-h-[320px] overflow-auto">
@@ -471,11 +464,18 @@ export default function UnivExamcenterStudentsPage() {
           </div>
 
           <div className="app-card overflow-hidden">
-            <div className="px-3 py-2 border-b border-border">
-              <SearchInput value={searchAssigned} onChange={setSearchAssigned} placeholder="Search" className="w-full sm:max-w-xs" />
-            </div>
             <div className="p-2">
-              <DataTable rowData={filteredAssigned} columnDefs={assignedColumnDefs} loading={loadingList} pagination />
+              <DataTable
+                rowData={assignedRows}
+                columnDefs={assignedColumnDefs}
+                loading={loadingList}
+                pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Examcenter Students — Assigned',
+                }}
+              />
             </div>
           </div>
         </>

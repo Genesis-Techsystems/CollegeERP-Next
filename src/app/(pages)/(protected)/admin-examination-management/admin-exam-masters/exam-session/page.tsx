@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { Pencil } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -14,11 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table'
+import { DataTable, TableCard } from '@/common/components/table'
+import { TimePicker } from '@/common/components'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer } from '@/components/layout'
+import { useSessionContext } from '@/context/SessionContext'
 import { listExamSessions, createExamSession, updateExamSession, getCollegeFilters } from '@/services/examination'
 import { distinct } from '@/lib/utils'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -53,6 +54,7 @@ function makeActionsRenderer(
 ) {
   return (p: ICellRendererParams) => (
     <Button
+      type="button"
       size="sm"
       variant="ghost"
       aria-label="Edit exam session"
@@ -76,12 +78,13 @@ function makeActionsRenderer(
 }
 
 export default function ExamSessionPage() {
+  const { user } = useSessionContext()
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
   const [universityOptions, setUniversityOptions] = useState<{ code: string; name?: string }[]>([])
+  const [universityOptionsLoaded, setUniversityOptionsLoaded] = useState(false)
 
   const [form, setForm] = useState({
     examSessionName: '',
@@ -107,26 +110,31 @@ export default function ExamSessionPage() {
     refresh()
   }, [])
 
-  useEffect(() => {
-    async function loadUniversities() {
-      const { filtersData } = await getCollegeFilters(0, 0).catch(() => ({ filtersData: [] as any[] }))
-      const uniRows = distinct(filtersData ?? [], (r: any) => r.fk_university_id)
-      const options = uniRows
-        .map((u: any) => ({
-          code: String(u.university_code ?? '').trim(),
-          name: String(u.university_name ?? '').trim(),
-        }))
-        .filter((u: any) => u.code)
-      setUniversityOptions(options)
-    }
-    loadUniversities()
-  }, [])
+  const ensureUniversityOptionsLoaded = useCallback(async () => {
+    if (universityOptionsLoaded) return
+    const orgIdFromStorage = Number(globalThis.localStorage?.getItem('organizationId') ?? 0)
+    const empIdFromStorage = Number(globalThis.localStorage?.getItem('employeeId') ?? 0)
+    const orgIdFromSession = Number(user?.organizationId ?? 0)
+    const empIdFromSession = Number(user?.employeeId ?? 0)
+    const orgId = orgIdFromStorage || orgIdFromSession || 1
+    const empId = empIdFromStorage || empIdFromSession || 31754
+    const { filtersData } = await getCollegeFilters(orgId, empId).catch(() => ({ filtersData: [] as any[] }))
+    const uniRows = distinct(filtersData ?? [], (r: any) => r.fk_university_id)
+    const options = uniRows
+      .map((u: any) => ({
+        code: String(u.university_code ?? '').trim(),
+        name: String(u.university_name ?? '').trim(),
+      }))
+      .filter((u: any) => u.code)
+    setUniversityOptions(options)
+    setUniversityOptionsLoaded(true)
+  }, [universityOptionsLoaded, user?.employeeId, user?.organizationId])
 
-  const filtered = useMemo(() => {
-    if (!q.trim()) return rows
-    const lower = q.toLowerCase()
-    return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(lower))
-  }, [q, rows])
+  useEffect(() => {
+    if (!open) return
+    void ensureUniversityOptionsLoaded()
+  }, [ensureUniversityOptionsLoaded, open])
+
   function formatTime12h(value?: string) {
     if (!value) return ''
     const raw = String(value).trim()
@@ -194,37 +202,41 @@ export default function ExamSessionPage() {
         </h1>
       </div>
 
-      <TableCard
-        headerLeft={
-          <Input
-            className="h-9 max-w-sm text-[12px]"
-            placeholder="Search…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        }
-        headerRight={
-          <Button
-            size="sm"
-            onClick={() => {
-              setEditing(null)
-              setForm({
-                examSessionName: '',
-                examsessioninCatCode: '',
-                universityCode: '',
-                sessionStartTime: '',
-                sessionEndTime: '',
-                isActive: true,
-                reason: 'active',
-              })
-              setOpen(true)
-            }}
-          >
-            Add Exam Session
-          </Button>
-        }
-      >
-        <DataTable rowData={filtered} columnDefs={columnDefs} loading={loading} pagination />
+      <TableCard withHeaderBorder={false}>
+        <DataTable
+          rowData={rows}
+          columnDefs={columnDefs}
+          loading={loading}
+          pagination
+          toolbar={{
+            search: true,
+            searchPlaceholder: 'Search exam sessions…',
+            pdfDocumentTitle: 'Exam Sessions',
+          }}
+          toolbarTrailing={(
+            <Button
+              type="button"
+              size="sm"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={() => {
+                setEditing(null)
+                setForm({
+                  examSessionName: '',
+                  examsessioninCatCode: '',
+                  universityCode: '',
+                  sessionStartTime: '',
+                  sessionEndTime: '',
+                  isActive: true,
+                  reason: 'active',
+                })
+                setOpen(true)
+              }}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Add Exam Session
+            </Button>
+          )}
+        />
       </TableCard>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) { setOpen(false); setEditing(null) } }}>
@@ -235,16 +247,16 @@ export default function ExamSessionPage() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1">
+          <div className="grid min-w-0 grid-cols-1 gap-3 p-4 md:grid-cols-2">
+            <div className="min-w-0 space-y-1">
               <Label className="text-[12px]">Exam Session Name</Label>
               <Input className="h-9 text-[12px]" value={form.examSessionName} onChange={(e) => setForm((s) => ({ ...s, examSessionName: e.target.value }))} />
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <Label className="text-[12px]">Session In (Code)</Label>
               <Input className="h-9 text-[12px]" value={form.examsessioninCatCode} onChange={(e) => setForm((s) => ({ ...s, examsessioninCatCode: e.target.value }))} />
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <Label className="text-[12px]">University Code</Label>
               <Select
                 value={form.universityCode || undefined}
@@ -262,20 +274,26 @@ export default function ExamSessionPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[12px]">Start Time</Label>
-              <Input type="time" step="1" className="h-9 text-[12px]" value={form.sessionStartTime} onChange={(e) => setForm((s) => ({ ...s, sessionStartTime: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[12px]">End Time</Label>
-              <Input type="time" step="1" className="h-9 text-[12px]" value={form.sessionEndTime} onChange={(e) => setForm((s) => ({ ...s, sessionEndTime: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[12px]">&nbsp;</Label>
-              <label className="flex h-9 items-center gap-2 rounded-md border border-slate-200 px-2">
+            <div className="min-w-0 space-y-1">
+              <Label className="text-[12px]">Active</Label>
+              <label className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-slate-200 bg-white px-2">
                 <Checkbox checked={form.isActive} onCheckedChange={(v) => setForm((s) => ({ ...s, isActive: !!v }))} />
-                <span className="text-[12px] text-slate-700">Active</span>
+                <span className="text-[12px] text-slate-700">Session is active</span>
               </label>
+            </div>
+            <div className="min-w-0 space-y-1">
+              <TimePicker
+                value={form.sessionStartTime}
+                onChange={(next) => setForm((s) => ({ ...s, sessionStartTime: next }))}
+                label="Start Time"
+              />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <TimePicker
+                value={form.sessionEndTime}
+                onChange={(next) => setForm((s) => ({ ...s, sessionEndTime: next }))}
+                label="End Time"
+              />
             </div>
             {!form.isActive && (
               <div className="space-y-1 md:col-span-2">
@@ -286,8 +304,8 @@ export default function ExamSessionPage() {
           </div>
 
           <DialogFooter className="px-4 pb-4">
-            <Button variant="outline" onClick={() => { setOpen(false); setEditing(null) }}>Close</Button>
-            <Button onClick={save}>Save</Button>
+            <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditing(null) }}>Close</Button>
+            <Button type="button" onClick={save}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

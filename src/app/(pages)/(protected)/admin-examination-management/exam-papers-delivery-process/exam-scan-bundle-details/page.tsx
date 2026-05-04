@@ -220,19 +220,8 @@ export default function ExamScanBundleDetailsPage() {
 
   return (
     <PageContainer className="space-y-5">
-      <div className="flex items-center gap-10 px-1 text-sm">
-        <label className="flex items-center gap-2">
-          <input type="radio" checked={captureMode === 'manual'} onChange={() => setCaptureMode('manual')} />
-          Manual bundle Capture
-        </label>
-        <label className="flex items-center gap-2">
-          <input type="radio" checked={captureMode === 'auto'} onChange={() => setCaptureMode('auto')} />
-          Auto bundle Capture
-        </label>
-      </div>
-
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="pb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-3">
           <div className="flex items-center gap-2 min-w-0">
             <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
             <h2 className="text-[14px] font-semibold leading-tight text-[hsl(var(--card-title))] truncate">
@@ -249,6 +238,17 @@ export default function ExamScanBundleDetailsPage() {
             <Filter className="h-4 w-4" aria-hidden />
             <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
           </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-10 gap-y-2 pt-3 text-[12px]">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="radio" checked={captureMode === 'manual'} onChange={() => setCaptureMode('manual')} />
+            Manual bundle Capture
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input type="radio" checked={captureMode === 'auto'} onChange={() => setCaptureMode('auto')} />
+            Auto bundle Capture
+          </label>
         </div>
 
         {filtersOpen && (

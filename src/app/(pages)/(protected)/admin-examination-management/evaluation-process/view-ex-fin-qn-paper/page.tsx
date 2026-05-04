@@ -2,14 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, type SelectOption } from '@/common/components/select'
-import { ChevronDown, Filter } from 'lucide-react'
+import { ChevronDown, Eye, Filter } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
 import {
@@ -67,8 +66,14 @@ function makeQuestionPaperPathRenderer(minio: string) {
     const path = pickText(p.data, ['questionpaper_path', 'questionPaperPath'])
     if (!path) return <span>-</span>
     return (
-      <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => window.open(`${minio}${path}`, '_blank')}>
-        View
+      <button
+        type="button"
+        aria-label="View question paper"
+        title="View"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-blue-700 transition-colors hover:bg-blue-50 hover:text-blue-900"
+        onClick={() => window.open(`${minio}${path}`, '_blank')}
+      >
+        <Eye className="h-4 w-4" strokeWidth={2} aria-hidden />
       </button>
     )
   }
@@ -81,11 +86,24 @@ function makeActionsRenderer(
 ) {
   return (p: { data?: AnyRow }) =>
     isPublishedValue(p.data) ? (
-      <Button size="sm" variant="outline" className="h-7" disabled={loading} onClick={() => void onSecurePublish(p.data ?? {})}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-5 min-h-5 rounded-md px-1.5 py-0 text-[9px] leading-none font-medium"
+        disabled={loading}
+        onClick={() => void onSecurePublish(p.data ?? {})}
+      >
         Secure Publish
       </Button>
     ) : (
-      <Button size="sm" className="h-7" disabled={loading} onClick={() => openPublishModal(p.data ?? {})}>
+      <Button
+        type="button"
+        size="sm"
+        className="h-5 min-h-5 rounded-md px-1.5 py-0 text-[9px] leading-none font-medium"
+        disabled={loading}
+        onClick={() => openPublishModal(p.data ?? {})}
+      >
         Publish
       </Button>
     )
@@ -93,7 +111,6 @@ function makeActionsRenderer(
 
 export default function ViewFinalExamQuestionPaperPage() {
   const [filterOpen, setFilterOpen] = useState(true)
-  const [search, setSearch] = useState('')
   const [hasFetched, setHasFetched] = useState(false)
   const [loading, setLoading] = useState(false)
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
@@ -242,12 +259,6 @@ export default function ViewFinalExamQuestionPaperPage() {
     }
   }
 
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
-
   const cols = useMemo<ColDef[]>(
     () => [
       { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70, minWidth: 70, maxWidth: 80, flex: 0 },
@@ -332,20 +343,18 @@ export default function ViewFinalExamQuestionPaperPage() {
       </div>
 
       {hasFetched && (
-        <div className="app-card overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-white">
-            <div className="w-full max-w-sm">
-              <SearchInput
-                className="w-full"
-                placeholder="Search"
-                value={search}
-                onChange={setSearch}
-              />
-            </div>
-          </div>
-          <div className="p-4">
-            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
-          </div>
+        <div className="app-card overflow-hidden p-4">
+          <DataTable
+            rowData={rows}
+            columnDefs={cols}
+            pagination
+            loading={loading}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search…',
+              pdfDocumentTitle: 'Publish exam question paper',
+            }}
+          />
         </div>
       )}
 

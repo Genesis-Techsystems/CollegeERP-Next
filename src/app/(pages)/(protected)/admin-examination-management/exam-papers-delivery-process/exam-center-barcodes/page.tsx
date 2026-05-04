@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronDown, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -20,8 +20,57 @@ import {
 } from '@/services/pre-examination'
 import { listUnivExamCentersByUniversity, listUniversitiesForExamGroup } from '@/services/exam-papers-delivery'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { DataTable, TableCard } from '@/common/components/table'
+import type { ColDef } from 'ag-grid-community'
 
 type AnyRow = Record<string, any>
+
+const BARCODE_COL_ORDER = ['siNo', 'student', 'barcodeNo', 'subject'] as const
+type BarcodeColKey = (typeof BARCODE_COL_ORDER)[number]
+
+const BARCODE_COL_DEFS: Record<BarcodeColKey, ColDef<AnyRow>> = {
+  siNo: {
+    colId: 'siNo',
+    headerName: 'S.No',
+    valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+    width: 80,
+    minWidth: 70,
+    flex: 0,
+  },
+  student: {
+    colId: 'student',
+    headerName: 'Student',
+    minWidth: 200,
+    flex: 1,
+    valueGetter: (p) => {
+      const r = p.data
+      if (!r) return '—'
+      const name = r.student_name ?? '—'
+      const ht = r.hallticket_number ?? '-'
+      return `${name} (${ht})`
+    },
+  },
+  barcodeNo: {
+    colId: 'barcodeNo',
+    headerName: 'Barcode No',
+    minWidth: 140,
+    flex: 0,
+    valueGetter: (p) => p.data?.omr_serial_no ?? '—',
+  },
+  subject: {
+    colId: 'subject',
+    headerName: 'Subject',
+    minWidth: 220,
+    flex: 1,
+    valueGetter: (p) => {
+      const r = p.data
+      if (!r) return '—'
+      const sn = r.subject_name ?? '-'
+      const sc = r.subject_code ?? '-'
+      return `${sn} (${sc})`
+    },
+  },
+}
 
 const REG_ID_KEYS = [
   'fk_regulation_id',
@@ -303,6 +352,18 @@ export default function ExamCenterBarcodesPage() {
     void loadSubjects(regulationId)
   }, [regulationId])
 
+  const columnDefs = useMemo(() => BARCODE_COL_ORDER.map((k) => BARCODE_COL_DEFS[k]), [])
+
+  const getRowId = useCallback((p: { data?: AnyRow }) => {
+    const d = p.data
+    if (!d) return ''
+    const det = Number(d.fk_exam_std_det_id ?? d.examStdDetId ?? d.exam_std_det_id ?? 0)
+    if (det > 0) return String(det)
+    const sid = Number(d.student_id ?? d.studentId ?? d.fk_student_id ?? 0)
+    const sub = Number(d.fk_subject_id ?? d.subjectId ?? 0)
+    return `row-${sid}-${sub}-${String(d.omr_serial_no ?? d.hallticket_number ?? '')}`
+  }, [])
+
   async function getList() {
     if (!examId || !collegeId || !courseGroupId || !courseYearId || !subjectId) return
     const selectedRegRow = regulations.find((r) => pickRegValue(r) === Number(regulationId ?? 0)) ?? null
@@ -348,48 +409,38 @@ export default function ExamCenterBarcodesPage() {
         {filterOpen && (
           <div className="p-3 space-y-2">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1"><Label>Academic Year *</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((a, i) => <SelectItem key={`ay-${i}`} value={String(pickNum(a, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']))}>{pickText(a, ['academic_year', 'academicYear']) || '-'}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-7 space-y-1"><Label>Exam Group *</Label><Select value={examId ? String(examId) : undefined} onValueChange={async (v) => { const eid = Number(v); setExamId(eid); if (courseId && academicYearId) await onExamLoad(courseId, academicYearId, eid) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Group" /></SelectTrigger><SelectContent>{exams.map((e, i) => <SelectItem key={`e-${i}`} value={String(pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']))}>{pickText(e, ['exam_name', 'examName']) || '-'}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-3 space-y-1"><Label>Exam Center *</Label><Select value={examCenterId ? String(examCenterId) : undefined} onValueChange={(v) => setExamCenterId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Center" /></SelectTrigger><SelectContent>{examCenters.map((c, i) => <SelectItem key={`ec-${i}`} value={String(Number(c.univExamcenterId ?? c.univExamCenterId ?? c.univ_examcenter_id ?? 0))}>{String(c.examcenterCode ?? c.examCenterCode ?? '-')}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-3 space-y-1"><Label>Academic Year *</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((a, i) => <SelectItem key={`ay-${i}`} value={String(pickNum(a, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']))}>{pickText(a, ['academic_year', 'academicYear']) || '-'}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-4 space-y-1"><Label>Exam Group *</Label><Select value={examId ? String(examId) : undefined} onValueChange={async (v) => { const eid = Number(v); setExamId(eid); if (courseId && academicYearId) await onExamLoad(courseId, academicYearId, eid) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Group" /></SelectTrigger><SelectContent>{exams.map((e, i) => <SelectItem key={`e-${i}`} value={String(pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']))}>{pickText(e, ['exam_name', 'examName']) || '-'}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-5 space-y-1"><Label>Exam Center *</Label><Select value={examCenterId ? String(examCenterId) : undefined} onValueChange={(v) => setExamCenterId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Center" /></SelectTrigger><SelectContent>{examCenters.map((c, i) => <SelectItem key={`ec-${i}`} value={String(Number(c.univExamcenterId ?? c.univExamCenterId ?? c.univ_examcenter_id ?? 0))}>{String(c.examcenterCode ?? c.examCenterCode ?? '-')}</SelectItem>)}</SelectContent></Select></div>
               <div className="md:col-span-3 space-y-1"><Label>Course Group</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{groups.map((g, i) => <SelectItem key={`g-${i}`} value={String(pickNum(g, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']))}>{pickText(g, ['group_code', 'groupCode']) || '-'}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-3 space-y-1"><Label>Course Years *</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{years.map((y, i) => <SelectItem key={`y-${i}`} value={String(pickNum(y, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']))}>{pickText(y, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) || '-'}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-6 space-y-1"><Label>Subjects</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{subjects.map((s, i) => <SelectItem key={`s-${i}`} value={String(pickNum(s, SUBJECT_ID_KEYS))}>{(pickText(s, ['subject_name', 'subjectName']) || '-') + ' (' + (pickText(s, ['subject_code', 'subjectCode']) || '-') + ')'}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-3"><Button type="button" onClick={getList} disabled={loading} className="h-8 px-3 text-[12px] w-full">Get Students</Button></div>
+              <div className="md:col-span-4 space-y-1"><Label>Course Years *</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{years.map((y, i) => <SelectItem key={`y-${i}`} value={String(pickNum(y, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']))}>{pickText(y, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) || '-'}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-3 space-y-1"><Label>Subjects</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{subjects.map((s, i) => <SelectItem key={`s-${i}`} value={String(pickNum(s, SUBJECT_ID_KEYS))}>{(pickText(s, ['subject_name', 'subjectName']) || '-') + ' (' + (pickText(s, ['subject_code', 'subjectCode']) || '-') + ')'}</SelectItem>)}</SelectContent></Select></div>
+              <div className="md:col-span-2 flex flex-col justify-end md:items-end">
+                <Button type="button" onClick={getList} disabled={loading} className="h-8 shrink-0 px-2.5 text-[12px] w-full md:w-auto">
+                  Get Students
+                </Button>
+              </div>
             </div>
           </div>
         )}
       </div>
 
       {hasFetched && (
-        <div className="app-card p-3 space-y-2">
-          <div className="overflow-auto rounded border">
-            <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-2 py-1 text-left">S.No</th>
-                  <th className="px-2 py-1 text-left">Student</th>
-                  <th className="px-2 py-1 text-left">Barcode No</th>
-                  <th className="px-2 py-1 text-left">Subject</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr key={`r-${i}`} className="border-t">
-                    <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">{r.student_name ?? '-'} ({r.hallticket_number ?? '-'})</td>
-                    <td className="px-2 py-1">{r.omr_serial_no ?? '-'}</td>
-                    <td className="px-2 py-1">{r.subject_name ?? '-'} ({r.subject_code ?? '-'})</td>
-                  </tr>
-                ))}
-                {!loading && rows.length === 0 && (
-                  <tr className="border-t">
-                    <td colSpan={4} className="px-2 py-6 text-center text-muted-foreground">No records found.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <TableCard withHeaderBorder={false}>
+          <DataTable
+            rowData={rows}
+            columnDefs={columnDefs}
+            loading={loading}
+            pagination
+            paginationPageSize={10}
+            getRowId={getRowId}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search students…',
+              pdfDocumentTitle: 'Exam Center Barcodes',
+            }}
+          />
+        </TableCard>
       )}
     </PageContainer>
   )

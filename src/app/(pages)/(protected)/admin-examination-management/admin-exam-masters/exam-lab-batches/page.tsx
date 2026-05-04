@@ -31,7 +31,7 @@ import {
   createExamLabBatch,
   updateExamLabBatch,
 } from '@/services/exam-lab-batches'
-import { ChevronDown, Filter, PencilIcon } from 'lucide-react'
+import { ChevronDown, Filter, PencilIcon, Plus } from 'lucide-react'
 
 type Row = Record<string, any>
 
@@ -74,7 +74,6 @@ export default function ExamLabBatchesPage() {
   const [restFilters, setRestFilters] = useState<Row[]>([])
   const [subjects, setSubjects] = useState<Row[]>([])
   const [rows, setRows] = useState<Row[]>([])
-  const [q, setQ] = useState('')
   const [loading, setLoading] = useState(true)
   const [filterOpen, setFilterOpen] = useState(true)
   const [hasFetched, setHasFetched] = useState(false)
@@ -276,12 +275,6 @@ export default function ExamLabBatchesPage() {
     }
   }
 
-  const filteredRows = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    if (!s) return rows
-    return rows.filter((r) => `${r.batchName ?? ''} ${r.examtypeCatdetCode ?? ''} ${r.capacity ?? ''}`.toLowerCase().includes(s))
-  }, [rows, q])
-
   const canManageBatches = Boolean(
     collegeId && examId && courseYearId && courseGroupId && regulationId && subjectId,
   )
@@ -336,17 +329,30 @@ export default function ExamLabBatchesPage() {
       </div>
 
       {hasFetched && (
-        <TableCard
-          headerLeft={
-            <Input className="h-8 text-[12px] max-w-sm" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
-          }
-          headerRight={
-            <Button className="h-8 text-[12px]" onClick={openAdd} disabled={!canManageBatches}>
-              + Add Exam Batch
-            </Button>
-          }
-        >
-          <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loading} pagination />
+        <TableCard withHeaderBorder={false}>
+          <DataTable
+            rowData={rows}
+            columnDefs={columnDefs}
+            loading={loading}
+            pagination
+            paginationPageSize={10}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search exam batches…',
+              pdfDocumentTitle: 'Exam Lab Batches',
+            }}
+            toolbarTrailing={(
+              <Button
+                size="sm"
+                onClick={openAdd}
+                disabled={!canManageBatches}
+                className="h-[30px] px-3 text-[12px]"
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Add Exam Batch
+              </Button>
+            )}
+          />
         </TableCard>
       )}
 

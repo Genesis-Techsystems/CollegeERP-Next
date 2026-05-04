@@ -114,8 +114,8 @@ export default function FinancialYearsPage() {
         </div>
         <div className="flex items-center justify-between gap-3 p-3">
           <SearchInput
-            className="max-w-sm w-full"
-            placeholder="Search financial years..."
+            className="w-full max-w-sm"
+            placeholder="Search financial years…"
             value={searchValue}
             onChange={setSearchValue}
           />

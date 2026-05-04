@@ -4,16 +4,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { SearchInput } from '@/common/components/search'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select } from '@/common/components/select'
 import {
   addExamAdditionalFeeReceipt,
-  getStudentExamFeeStructure,
+  fetchStudentExamFeeRegistrationGridData,
   getUnivExamFiltersRegSup,
   listAdditionalExamFeeTypes,
-  listExamFeeReceipts,
-  listRegisteredExamSubjects,
-  listStudentExamFeeRegistrations,
   listStudents,
   listStudentSubjects,
   saveRegisteredExamSubjects,
@@ -205,13 +203,18 @@ export default function StudentExamFeeRegistrationPage() {
     if (!collegeId) return
     setLoading(true)
     try {
-      const [receipts, regs, regSubs] = await Promise.all([
-        listExamFeeReceipts({ studentId: selectedStudentId, examId }).catch(() => []),
-        listStudentExamFeeRegistrations({ collegeId, examId, studentId: selectedStudentId }).catch(() => []),
-        listRegisteredExamSubjects(selectedStudentId, examId).catch(() => []),
-      ])
-      const receiptRows = Array.isArray(receipts) ? receipts : []
-      const regRows = Array.isArray(regs) ? regs : []
+      const bundle = await fetchStudentExamFeeRegistrationGridData({
+        collegeId,
+        examId,
+        studentId: selectedStudentId,
+      }).catch(() => ({
+        receipts: [] as AnyRow[],
+        registrations: [] as AnyRow[],
+        registeredSubjects: [] as AnyRow[],
+      }))
+      const receiptRows = Array.isArray(bundle.receipts) ? bundle.receipts : []
+      const regRows = Array.isArray(bundle.registrations) ? bundle.registrations : []
+      const regSubs = Array.isArray(bundle.registeredSubjects) ? bundle.registeredSubjects : []
 
       if (receiptRows.length > 0) {
         setRows(receiptRows)
@@ -230,22 +233,29 @@ export default function StudentExamFeeRegistrationPage() {
         )
       }
 
-      setRegisteredSubjects(Array.isArray(regSubs) ? regSubs : [])
+      setRegisteredSubjects(regSubs)
       setHasFetched(true)
 
-      const firstSem = pickNum((Array.isArray(receiptRows) && receiptRows[0]) || (regRows[0] ?? {}), [
+      const firstSem = pickNum((receiptRows[0] ?? regRows[0] ?? {}) as AnyRow, [
         'courseYearId',
         'course_year_id',
         'fk_course_year_id',
         'fromCourseYearId',
       ])
-      if (firstSem > 0) setSemesterId(firstSem)
+      if (firstSem > 0) {
+        setSemesterId(firstSem)
+        await loadSemesterSubjects(firstSem, regSubs)
+      } else {
+        setSemesterId(null)
+        setSubjects([])
+        setCheckedSubjectIds(new Set())
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  async function loadSemesterSubjects(nextSemesterId: number) {
+  async function loadSemesterSubjects(nextSemesterId: number, registeredOverride?: AnyRow[]) {
     if (!studentInfo || !examId || !nextSemesterId) return
     const collegeId = pickNum(studentInfo, ['collegeId', 'fk_college_id'])
     const academicYearId = pickNum(studentInfo, ['academicYearId', 'fk_academic_year_id'])
@@ -260,8 +270,9 @@ export default function StudentExamFeeRegistrationPage() {
     const list = Array.isArray(subRows) ? subRows : []
     setSubjects(list)
 
+    const regSource = registeredOverride ?? registeredSubjects
     const already = new Set(
-      registeredSubjects.map((r) => pickNum(r, ['fk_subject_id', 'subjectId', 'subject_id'])).filter((x) => x > 0),
+      regSource.map((r) => pickNum(r, ['fk_subject_id', 'subjectId', 'subject_id'])).filter((x) => x > 0),
     )
     setCheckedSubjectIds(
       new Set(
@@ -375,12 +386,6 @@ export default function StudentExamFeeRegistrationPage() {
   }
 
   useEffect(() => {
-    if (!semesterId) return
-    void loadSemesterSubjects(semesterId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [semesterId, examId, studentInfo?.studentId, registeredSubjects.length])
-
-  useEffect(() => {
     if (!feeTypeId) {
       setFeePreviewAmount(0)
       return
@@ -415,7 +420,7 @@ export default function StudentExamFeeRegistrationPage() {
                   setExamId(null)
                 }}
                 options={students.map((s, i) => ({ value: String(getStudentRowId(s, i + 1)), label: `${s.hallticketNumber ?? s.rollNumber ?? '-'} - ${s.firstName ?? s.studentName ?? '-'}` }))}
-                placeholder="Search student name / hallticket"
+                placeholder="Search student name or hallticket…"
                 searchable
                 onSearch={onSearchStudents}
               />
@@ -491,7 +496,11 @@ export default function StudentExamFeeRegistrationPage() {
                   <Label>Semester *</Label>
                   <Select
                     value={semesterId ? String(semesterId) : null}
-                    onChange={(v) => setSemesterId(v ? Number(v) : null)}
+                    onChange={(v) => {
+                      const id = v ? Number(v) : null
+                      setSemesterId(id)
+                      if (id) void loadSemesterSubjects(id)
+                    }}
                     options={semesters.map((s) => ({
                       value: String(pickNum(s, ['courseYearId', 'course_year_id', 'fk_course_year_id', 'fromCourseYearId'])),
                       label:
@@ -503,12 +512,12 @@ export default function StudentExamFeeRegistrationPage() {
                 </div>
 
                 <div className="md:col-span-4 rounded border overflow-hidden">
-                  <div className="p-2 border-b bg-slate-50 flex items-center justify-between gap-2">
-                    <Input
-                      className="h-8 text-[12px] max-w-[220px]"
-                      placeholder="Search..."
+                  <div className="flex items-center justify-between gap-2 border-b bg-slate-50 p-2">
+                    <SearchInput
+                      className="w-full max-w-sm min-w-0"
+                      placeholder="Search subjects…"
                       value={subjectSearch}
-                      onChange={(e) => setSubjectSearch(e.target.value)}
+                      onChange={setSubjectSearch}
                     />
                     <div className="text-[12px]">Courses: {filteredSubjects.length}</div>
                   </div>
