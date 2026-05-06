@@ -55,9 +55,13 @@ export default function BatchModal({
 
   return (
     <Dialog open={open} onOpenChange={(n) => { if (!n) onClose() }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader><DialogTitle>{isEditing ? 'Edit Batch' : 'Add Batch'}</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
+            {isEditing ? 'Edit Batch' : 'Add Batch'}
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
           <Controller name="collegeId" control={control} render={({ field }) => (
             <Select label="College" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)}
               options={colleges.map((c) => ({ value: String(c.collegeId), label: c.collegeCode ?? c.collegeName }))} placeholder="Select college" searchable error={errors.collegeId?.message} />
@@ -66,11 +70,13 @@ export default function BatchModal({
             <div><Label htmlFor="bn">Batch Name *</Label><Input id="bn" {...register('batchName')} />{errors.batchName && <p className="text-xs text-red-500">{errors.batchName.message}</p>}</div>
             <div><Label htmlFor="bc">Batch Code *</Label><Input id="bc" {...register('batchCode')} />{errors.batchCode && <p className="text-xs text-red-500">{errors.batchCode.message}</p>}</div>
           </div>
-          <Controller name="isActive" control={control} render={({ field }) => (
-            <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />
-          )} />
+          {isEditing && (
+            <Controller name="isActive" control={control} render={({ field }) => (
+              <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />
+            )} />
+          )}
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-          <DialogFooter><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
+          <DialogFooter className="pt-1"><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

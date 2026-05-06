@@ -28,11 +28,6 @@ const COLS = {
 }
 
 function statusRenderer(p: ICellRendererParams<Bank>) { return <StatusBadge status={p.data?.isActive ?? false} /> }
-function compactAccount(value?: string) {
-  const raw = String(value ?? '')
-  if (raw.length <= 10) return raw
-  return `${raw.slice(0, 4)}...${raw.slice(-4)}`
-}
 function actionRenderer(setRow: (r: Bank | null) => void, setOpen: (b: boolean) => void) {
   return (p: ICellRendererParams<Bank>) => (
     <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setRow(p.data ?? null); setOpen(true) }}>
@@ -52,11 +47,7 @@ export default function BanksPage() {
     COLS.bankName,
     COLS.branchCode,
     COLS.bankCode,
-    {
-      ...COLS.accountNo,
-      valueGetter: (p) => compactAccount(p.data?.accountNo),
-      tooltipValueGetter: (p) => p.data?.accountNo ?? '',
-    },
+    COLS.accountNo,
     COLS.ifscCode,
     {
       ...COLS.address,
@@ -74,11 +65,8 @@ export default function BanksPage() {
   return (
     <PageContainer className="space-y-5">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Banks</h2>
-          <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
-            <PlusIcon className="h-4 w-4 mr-1" />Add Bank
-          </Button>
         </div>
         <div className="px-3 pb-3 pt-2">
           <DataTable
@@ -86,6 +74,12 @@ export default function BanksPage() {
             columnDefs={columnDefs}
             loading={isLoading}
             pagination
+            toolbarTrailing={
+              <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
+                <PlusIcon className="h-4 w-4 mr-1" />
+                Add Bank
+              </Button>
+            }
             toolbar={{ search: true, searchPlaceholder: 'Search banks…', pdfDocumentTitle: 'Banks' }}
           />
         </div>

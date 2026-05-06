@@ -26,6 +26,20 @@ const schema = z.object({
 })
 type FormValues = z.infer<typeof schema>
 function num(v: unknown) { const n = Number(v); return Number.isFinite(n) ? n : 0 }
+function pickNum(row: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = num(row[key])
+    if (value > 0) return value
+  }
+  return 0
+}
+function pickText(row: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = row[key]
+    if (typeof value === 'string' && value.trim()) return value
+  }
+  return ''
+}
 
 export default function StudentBatchModal({
   open, onClose, row, onSaved,
@@ -53,12 +67,16 @@ export default function StudentBatchModal({
 
   async function onSubmit(data: FormValues) {
     setSubmitError(null)
-    const selectedSection = sections.find((s) => num((s as unknown as Record<string, unknown>).groupSectionId) === data.groupSectionId)
+    const selectedSection = sections.find((s) => {
+      const rowData = s as unknown as Record<string, unknown>
+      return pickNum(rowData, ['groupSectionId', 'group_section_id', 'pk_group_section_id']) === data.groupSectionId
+    })
+    const selectedSectionRow = (selectedSection ?? {}) as unknown as Record<string, unknown>
     const payload = {
       ...data,
-      collegeId: num((selectedSection as unknown as Record<string, unknown>)?.collegeId),
-      courseGroupId: num((selectedSection as unknown as Record<string, unknown>)?.courseGroupId),
-      courseYearId: num((selectedSection as unknown as Record<string, unknown>)?.courseYearId),
+      collegeId: pickNum(selectedSectionRow, ['collegeId', 'fk_college_id', 'college_id']),
+      courseGroupId: pickNum(selectedSectionRow, ['courseGroupId', 'fk_course_group_id', 'course_group_id']),
+      courseYearId: pickNum(selectedSectionRow, ['courseYearId', 'fk_course_year_id', 'course_year_id']),
     }
     try {
       if (isEditing) await updateStudentBatch(num(row?.studentAcademicbatchId ?? row?.studentAcademicBatchId), payload)
@@ -72,22 +90,39 @@ export default function StudentBatchModal({
 
   return (
     <Dialog open={open} onOpenChange={(n) => { if (!n) onClose() }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader><DialogTitle>{isEditing ? 'Edit Student Batch' : 'Add Student Batch'}</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
+            {isEditing ? 'Edit Student Batch' : 'Add Student Batch'}
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
           <Controller name="groupSectionId" control={control} render={({ field }) => (
             <Select label="Section" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-              options={sections.map((s) => ({ value: String(s.groupSectionId), label: `${s.groupSectionCode} - ${s.groupSectionName}` }))} placeholder="Select section" searchable error={errors.groupSectionId?.message} />
+              options={sections.map((s) => {
+                const rowData = s as unknown as Record<string, unknown>
+                const sectionId = pickNum(rowData, ['groupSectionId', 'group_section_id', 'pk_group_section_id'])
+                const sectionCode = pickText(rowData, ['groupSectionCode', 'group_section_code', 'sectionCode', 'section_code'])
+                const sectionName = pickText(rowData, ['groupSectionName', 'group_section_name', 'sectionName', 'section_name'])
+                const baseLabel = sectionCode || sectionName || 'Section'
+                const finalLabel = sectionCode && sectionName ? `${baseLabel} - ${sectionName}` : baseLabel
+                return {
+                  value: String(sectionId),
+                  label: finalLabel,
+                }
+              })} placeholder="Select section" searchable error={errors.groupSectionId?.message} />
           )} />
           <Controller name="batchId" control={control} render={({ field }) => (
             <Select label="Batch" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)}
               options={batches.map((b) => ({ value: String(b.batchId), label: `${b.batchCode} - ${b.batchName}` }))} placeholder="Select batch" searchable error={errors.batchId?.message} />
           )} />
-          <Controller name="isActive" control={control} render={({ field }) => (
-            <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />
-          )} />
+          {isEditing && (
+            <Controller name="isActive" control={control} render={({ field }) => (
+              <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />
+            )} />
+          )}
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-          <DialogFooter><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
+          <DialogFooter className="pt-1"><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

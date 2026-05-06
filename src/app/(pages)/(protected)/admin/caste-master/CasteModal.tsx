@@ -77,9 +77,13 @@ export default function CasteModal({
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader><DialogTitle>{isEditing ? 'Edit Caste' : 'Add Caste'}</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
+            {isEditing ? 'Edit Caste' : 'Add Caste'}
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
           <Controller
             name="organizationId"
             control={control}
@@ -110,21 +114,23 @@ export default function CasteModal({
               </div>
             )}
           />
-          <Controller
-            name="isActive"
-            control={control}
-            render={({ field }) => (
-              <ActiveStatusField
-                isActive={field.value}
-                reason={watch('reason') ?? ''}
-                onActiveChange={field.onChange}
-                onReasonChange={(value) => setValue('reason', value)}
-                reasonError={errors.reason?.message}
-              />
-            )}
-          />
+          {isEditing && (
+            <Controller
+              name="isActive"
+              control={control}
+              render={({ field }) => (
+                <ActiveStatusField
+                  isActive={field.value}
+                  reason={watch('reason') ?? ''}
+                  onActiveChange={field.onChange}
+                  onReasonChange={(value) => setValue('reason', value)}
+                  reasonError={errors.reason?.message}
+                />
+              )}
+            />
+          )}
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-          <DialogFooter>
+          <DialogFooter className="pt-1">
             <Button variant="outline" type="button" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button>
           </DialogFooter>

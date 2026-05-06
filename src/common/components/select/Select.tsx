@@ -148,15 +148,15 @@ export function Select({
             aria-haspopup="listbox"
             disabled={disabled}
             className={cn(
-              'flex h-9 w-full items-center justify-between rounded-md border bg-white px-3 py-2 text-sm shadow-sm transition-colors',
-              'focus-visible:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/20',
+              'app-control flex w-full items-center justify-between rounded-md border bg-white px-3 py-1.5 text-[length:var(--app-control-font-size)] text-slate-900 shadow-sm transition-colors',
+              'focus-visible:outline-none focus:ring-0 focus-visible:ring-0',
               'disabled:cursor-not-allowed disabled:opacity-50',
-              open && 'border-indigo-500 ring-2 ring-indigo-500/20',
+              open && 'border-[hsl(var(--ring))]',
               error
-                ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20'
+                ? 'border-destructive focus-visible:border-destructive'
                 : 'border-slate-300',
+              !error && 'focus-visible:border-[hsl(var(--ring))]',
             )}
-            style={{ fontSize: '11px' }}
           >
             {/* Label / placeholder */}
             <span

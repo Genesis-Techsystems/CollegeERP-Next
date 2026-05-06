@@ -211,27 +211,33 @@ export default function CollegeCourseGroupModal({
 
   return (
     <Dialog open={open} onOpenChange={(n) => { if (!n) onClose() }}>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader><DialogTitle>Add Course Group Detail</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit(addRow)} className="space-y-2">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
+            Add Course Group Detail
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(addRow)} className="space-y-2 py-1">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             <Controller name="univCollegeWiseCourseId" control={control} render={({ field }) => (
-              <Select label="Course" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)} options={courseOptions} placeholder="Select course" searchable />
+              <Select className="[&>label]:text-xs" label="Course" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)} options={courseOptions} placeholder="Select course" searchable />
             )} />
             <Controller name="courseGroupId" control={control} render={({ field }) => (
-              <Select label="Course Group" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)} options={groupOptions} placeholder="Select group" searchable />
+              <Select className="[&>label]:text-xs" label="Course Group" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)} options={groupOptions} placeholder="Select group" searchable />
             )} />
             <Controller name="courseYearId" control={control} render={({ field }) => (
-              <Select label="Course Year" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)} options={yearOptions} placeholder="Select year" searchable />
+              <Select className="[&>label]:text-xs" label="Course Year" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)} options={yearOptions} placeholder="Select year" searchable />
             )} />
             <div className="flex items-end">
               <Button type="submit" size="sm">Add</Button>
             </div>
           </div>
         </form>
-        <DataTable rowData={rows} columnDefs={COLS} loading={false} />
+        <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+          <DataTable rowData={rows} columnDefs={COLS} loading={false} toolbar={false} />
+        </div>
         {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-        <DialogFooter>
+        <DialogFooter className="pt-1">
           <Button variant="outline" onClick={onClose}>Close</Button>
           <Button onClick={saveRows} disabled={!rows.length}>Save</Button>
         </DialogFooter>

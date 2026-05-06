@@ -141,19 +141,32 @@ export default function CollegeCoursesGroupsPage() {
 
       {showList && (
         <div className="app-card overflow-hidden">
-          <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between">
+          <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
             <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">College Courses & Groups</h2>
-            <Button size="sm" onClick={() => setModalOpen(true)}><PlusIcon className="h-4 w-4 mr-1" />Add Course / Groups</Button>
           </div>
-          <div className="px-3 py-3">
-            {rows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                <BookOpen className="h-10 w-10 mb-2 opacity-40" />
-                <p className="text-sm">No records found</p>
-              </div>
-            ) : (
-              <DataTable rowData={rows} columnDefs={columnDefs} loading={false} pagination />
-            )}
+          <div className="px-3 pb-3 pt-2">
+            <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+              {rows.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <BookOpen className="h-10 w-10 mb-2 opacity-40" />
+                  <p className="text-sm">No records found</p>
+                </div>
+              ) : (
+                <DataTable
+                  rowData={rows}
+                  columnDefs={columnDefs}
+                  loading={false}
+                  pagination
+                  toolbar={{ search: true, searchPlaceholder: 'Search college courses & groups…', pdfDocumentTitle: 'College Courses & Groups' }}
+                  toolbarTrailing={
+                    <Button size="sm" onClick={() => setModalOpen(true)}>
+                      <PlusIcon className="h-4 w-4 mr-1" />
+                      Add Course / Groups
+                    </Button>
+                  }
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

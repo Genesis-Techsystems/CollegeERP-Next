@@ -28,6 +28,8 @@ export const ENTITIES = {
   CAMPUS:                 { name: 'Campus',                    pk: 'campusId'                    },
   UNIVERSITIES:           { name: 'Universities',              pk: 'universityId'                },
   COLLEGE:                { name: 'College',                   pk: 'collegeId'                   },
+  DEPARTMENT:             { name: 'Department',                pk: 'departmentId'                },
+  DESIGNATION:            { name: 'Designation',               pk: 'designationId'               },
   BUILDING:               { name: 'Building',                  pk: 'buildingId'                  },
   BLOCK:                  { name: 'Block',                     pk: 'blockId'                     },
   FLOOR:                  { name: 'Floor',                     pk: 'floorId'                     },
@@ -56,7 +58,18 @@ export const ENTITIES = {
   SUBJECT:                { name: 'Subject',                   pk: 'subjectId'                   },
   ROOM:                   { name: 'Room',                      pk: 'roomId'                      },
   BANK:                   { name: 'Bank',                      pk: 'bankId'                      },
+  GENERAL_MASTER:         { name: 'GeneralMaster',             pk: 'generalMasterId'             },
   CASTE:                  { name: 'Caste',                     pk: 'casteId'                     },
+  SUB_CASTE:              { name: 'SubCaste',                  pk: 'subCasteId'                  },
+  QUALIFICATION:          { name: 'Qualification',             pk: 'qualificationId'             },
+  QUALIFICATION_GROUP:    { name: 'QualificationGroup',        pk: 'qualificationGroupId'        },
+  COLLEGE_CALENDAR:       { name: 'CollegeCalendar',           pk: 'collegeCalendarId'           },
+  WORKFLOW_STAGE:         { name: 'WorkflowStage',             pk: 'workflowStageId'             },
+  STUDENT_CATEGORY:       { name: 'StudentCategory',           pk: 'studentCatId'                },
+  WORKFLOW_MEMBER_AUTHORIZATION: { name: 'WorkflowMemberAuthorization', pk: 'wfMemberAuthorizationId' },
+  COLLEGE_CERTIFICATE:    { name: 'CollegeCertificate',        pk: 'collegeCertificateId'        },
+  DOCUMENT_REPOSITORY:    { name: 'DocumentRepository',        pk: 'documentRepositoryId'        },
+  WEEKDAY:                { name: 'Weekday',                   pk: 'weekdayId'                   },
 } as const
 
 export type EntityKey = keyof typeof ENTITIES

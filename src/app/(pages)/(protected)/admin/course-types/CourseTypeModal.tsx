@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -55,9 +55,13 @@ export default function CourseTypeModal({
 
   return (
     <Dialog open={open} onOpenChange={(n) => { if (!n) onClose() }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader><DialogTitle>{isEditing ? 'Edit Course Type' : 'Add Course Type'}</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
+            {isEditing ? 'Edit Course Type' : 'Add Course Type'}
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
           <Controller name="universityId" control={control} render={({ field }) => (
             <Select label="University" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)}
               options={universities.map((u) => ({ value: String(u.universityId), label: u.universityCode ?? u.universityName }))} placeholder="Select university" searchable error={errors.universityId?.message} />
@@ -66,11 +70,13 @@ export default function CourseTypeModal({
             <div><Label htmlFor="ctn">Course Type Name *</Label><Input id="ctn" {...register('courseTypeName')} />{errors.courseTypeName && <p className="text-xs text-red-500">{errors.courseTypeName.message}</p>}</div>
             <div><Label htmlFor="ctc">Course Type Code *</Label><Input id="ctc" {...register('courseTypeCode')} />{errors.courseTypeCode && <p className="text-xs text-red-500">{errors.courseTypeCode.message}</p>}</div>
           </div>
-          <Controller name="isActive" control={control} render={({ field }) => (
-            <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />
-          )} />
+          {isEditing && (
+            <Controller name="isActive" control={control} render={({ field }) => (
+              <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />
+            )} />
+          )}
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-          <DialogFooter><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
+          <DialogFooter className="pt-1"><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

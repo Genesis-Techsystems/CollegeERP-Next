@@ -80,9 +80,13 @@ export default function GroupSectionModal({
 
   return (
     <Dialog open={open} onOpenChange={(n) => { if (!n) onClose() }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader><DialogTitle>{isEditing ? 'Edit Section' : 'Add Section'}</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
+            {isEditing ? 'Edit Section' : 'Add Section'}
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
           <Controller name="collegeId" control={control} render={({ field }) => (
             <Select label="College" required value={field.value ? String(field.value) : null} onChange={(v) => { field.onChange(v ? Number(v) : undefined); setValue('courseGroupId', undefined); setValue('courseYearId', undefined) }}
               options={colleges.map((c) => ({ value: String(c.collegeId), label: c.collegeCode ?? c.collegeName }))} placeholder="Select college" searchable error={errors.collegeId?.message} />
@@ -101,11 +105,13 @@ export default function GroupSectionModal({
             <div><Label htmlFor="gsn">Section Name *</Label><Input id="gsn" {...register('groupSectionName')} />{errors.groupSectionName && <p className="text-xs text-red-500">{errors.groupSectionName.message}</p>}</div>
             <div><Label htmlFor="gsc">Section Code *</Label><Input id="gsc" {...register('groupSectionCode')} />{errors.groupSectionCode && <p className="text-xs text-red-500">{errors.groupSectionCode.message}</p>}</div>
           </div>
-          <Controller name="isActive" control={control} render={({ field }) => (
-            <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />
-          )} />
+          {isEditing && (
+            <Controller name="isActive" control={control} render={({ field }) => (
+              <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />
+            )} />
+          )}
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-          <DialogFooter><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
+          <DialogFooter className="pt-1"><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

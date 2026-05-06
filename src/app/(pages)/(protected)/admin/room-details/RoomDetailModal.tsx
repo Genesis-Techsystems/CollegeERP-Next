@@ -360,12 +360,11 @@ export default function RoomDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto pt-3">
-        <DialogHeader className="space-y-0 pr-8 pt-0">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pr-8">
           <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
             {isEditing ? 'Edit Room Details' : 'Add Room Details'}
           </DialogTitle>
-          <div className="-mx-6 mt-2 border-b border-slate-200" />
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
@@ -491,22 +490,25 @@ export default function RoomDetailModal({
               rowData={selectedRoomDeviceRows}
               columnDefs={DEVICE_COL_DEFS}
               loading={false}
+              toolbar={false}
             />
           </div>
 
-          <Controller
-            name="isActive"
-            control={control}
-            render={({ field }) => (
-              <ActiveStatusField
-                isActive={field.value}
-                reason={watch('reason') ?? ''}
-                onActiveChange={field.onChange}
-                onReasonChange={(value) => setValue('reason', value)}
-                reasonError={errors.reason?.message}
-              />
-            )}
-          />
+          {isEditing && (
+            <Controller
+              name="isActive"
+              control={control}
+              render={({ field }) => (
+                <ActiveStatusField
+                  isActive={field.value}
+                  reason={watch('reason') ?? ''}
+                  onActiveChange={field.onChange}
+                  onReasonChange={(value) => setValue('reason', value)}
+                  reasonError={errors.reason?.message}
+                />
+              )}
+            />
+          )}
 
           {submitError && (
             <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>

@@ -44,9 +44,8 @@ export default function CourseYearsPage() {
   return (
     <PageContainer className="space-y-5">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between">
+        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Semester</h2>
-          <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}><PlusIcon className="h-4 w-4 mr-1" />Add Semester</Button>
         </div>
         <div className="px-3 pb-3 pt-2">
           <DataTable
@@ -54,6 +53,12 @@ export default function CourseYearsPage() {
             columnDefs={columnDefs}
             loading={isLoading}
             pagination
+            toolbarTrailing={
+              <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
+                <PlusIcon className="h-4 w-4 mr-1" />
+                Add Semester
+              </Button>
+            }
             toolbar={{ search: true, searchPlaceholder: 'Search semesters…', pdfDocumentTitle: 'Semesters' }}
           />
         </div>

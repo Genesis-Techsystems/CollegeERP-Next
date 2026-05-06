@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Building2, PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
@@ -24,14 +23,6 @@ const COL_DEFS = {
   campusName: { field: 'campusName', headerName: 'Campus', minWidth: 150, flex: 1 } as ColDef<Building>,
   isActive: { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<Building>,
   actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<Building>,
-}
-
-function toSearchText(value: unknown): string {
-  if (value == null) return ''
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
-  }
-  return ''
 }
 
 function statusRenderer(p: ICellRendererParams<Building>) {
@@ -56,7 +47,6 @@ function makeActionsRenderer(
 }
 
 export default function BuildingsPage() {
-  const [searchValue, setSearchValue] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null)
 
@@ -64,14 +54,6 @@ export default function BuildingsPage() {
     queryKey: QK.buildings.list(),
     queryFn: listBuildings,
   })
-
-  const filteredData = useMemo(() => {
-    if (!searchValue.trim()) return buildings
-    const lower = searchValue.toLowerCase()
-    return buildings.filter((row) =>
-      Object.values(row).some((val) => toSearchText(val).toLowerCase().includes(lower)),
-    )
-  }, [searchValue, buildings])
 
   const columnDefs = useMemo<ColDef<Building>[]>(
     () => [
@@ -93,32 +75,30 @@ export default function BuildingsPage() {
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Buildings</h2>
         </div>
-        <div className="flex items-center justify-between gap-3 p-3">
-          <SearchInput
-            className="w-full max-w-sm"
-            placeholder="Search buildings…"
-            value={searchValue}
-            onChange={setSearchValue}
-          />
-          <Button size="sm" onClick={() => { setEditingBuilding(null); setModalOpen(true) }}>
-            <PlusIcon className="h-4 w-4 mr-1" />
-            Add Building
-          </Button>
-        </div>
-
-        <div className="px-3 pb-3">
+        <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-            {!loading && filteredData.length === 0 ? (
+            {!loading && buildings.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                 <Building2 className="h-10 w-10 mb-3 opacity-40" />
                 <p className="text-sm">No buildings found</p>
               </div>
             ) : (
               <DataTable
-                rowData={filteredData}
+                rowData={buildings}
                 columnDefs={columnDefs}
                 loading={loading}
                 pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search buildings…',
+                  pdfDocumentTitle: 'Buildings',
+                }}
+                toolbarTrailing={
+                  <Button size="sm" onClick={() => { setEditingBuilding(null); setModalOpen(true) }}>
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Add Building
+                  </Button>
+                }
               />
             )}
           </div>

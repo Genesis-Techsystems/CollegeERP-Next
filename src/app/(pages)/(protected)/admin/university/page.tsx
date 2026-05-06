@@ -5,7 +5,6 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Building2, PencilIcon, PlusIcon } from 'lucide-react'
 import { PageContainer } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
 import { StatusBadge } from '@/common/components/data-display'
 import { Button } from '@/components/ui/button'
 import { MINIO_URL } from '@/config/constants/api'
@@ -69,7 +68,6 @@ function makeActionsRenderer(
 }
 
 export default function UniversityPage() {
-  const [searchValue, setSearchValue] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingUniversity, setEditingUniversity] = useState<University | null>(null)
 
@@ -77,14 +75,6 @@ export default function UniversityPage() {
     queryKey: QK.universities.list(),
     queryFn: listUniversities,
   })
-
-  const filteredData = useMemo(() => {
-    if (!searchValue.trim()) return universities
-    const lower = searchValue.toLowerCase()
-    return universities.filter((row) =>
-      Object.values(row).some((val) => toSearchText(val).toLowerCase().includes(lower)),
-    )
-  }, [searchValue, universities])
 
   const columnDefs = useMemo<ColDef<University>[]>(
     () => [
@@ -106,32 +96,26 @@ export default function UniversityPage() {
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">University</h2>
         </div>
-        <div className="flex items-center justify-between gap-3 p-3">
-          <SearchInput
-            className="w-full max-w-sm"
-            placeholder="Search universities…"
-            value={searchValue}
-            onChange={setSearchValue}
-          />
-          <Button size="sm" onClick={() => { setEditingUniversity(null); setModalOpen(true) }}>
-            <PlusIcon className="h-4 w-4 mr-1" />
-            Add University
-          </Button>
-        </div>
-
-        <div className="px-3 pb-3">
+        <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-            {!loading && filteredData.length === 0 ? (
+            {!loading && universities.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                 <Building2 className="h-10 w-10 mb-3 opacity-40" />
                 <p className="text-sm">No universities found</p>
               </div>
             ) : (
               <DataTable
-                rowData={filteredData}
+                rowData={universities}
                 columnDefs={columnDefs}
                 loading={loading}
                 pagination
+                toolbar={{ search: true, searchPlaceholder: 'Search universities…', pdfDocumentTitle: 'University' }}
+                toolbarTrailing={
+                  <Button size="sm" onClick={() => { setEditingUniversity(null); setModalOpen(true) }}>
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Add University
+                  </Button>
+                }
               />
             )}
           </div>

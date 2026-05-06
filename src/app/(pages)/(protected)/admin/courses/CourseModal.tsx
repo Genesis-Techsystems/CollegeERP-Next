@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -56,12 +56,16 @@ export default function CourseModal({ open, onClose, row, onSaved }: Readonly<{ 
   }
   return (
     <Dialog open={open} onOpenChange={(n) => { if (!n) onClose() }}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader><DialogTitle>{isEditing ? 'Edit Subject' : 'Add Subject'}</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
+            {isEditing ? 'Edit Subject' : 'Add Subject'}
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <Controller name="universityId" control={control} render={({ field }) => <Select label="University" required value={field.value ? String(field.value) : null} onChange={(v) => { field.onChange(v ? Number(v) : undefined); setValue('courseTypeId', undefined) }} options={universities.map((u) => ({ value: String(u.universityId), label: u.universityCode ?? u.universityName }))} placeholder="Select university" searchable />} />
-            <Controller name="courseTypeId" control={control} render={({ field }) => <Select label="Subject Type" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)} options={types.map((t) => ({ value: String(t.courseTypeId), label: `${t.courseTypeCode} - ${t.courseTypeName}` }))} placeholder="Select subject type" searchable />} />
+            <Controller name="universityId" control={control} render={({ field }) => <Select className="[&>label]:text-xs" label="University" required value={field.value ? String(field.value) : null} onChange={(v) => { field.onChange(v ? Number(v) : undefined); setValue('courseTypeId', undefined) }} options={universities.map((u) => ({ value: String(u.universityId), label: u.universityCode ?? u.universityName }))} placeholder="Select university" searchable />} />
+            <Controller name="courseTypeId" control={control} render={({ field }) => <Select className="[&>label]:text-xs" label="Subject Type" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)} options={types.map((t) => ({ value: String(t.courseTypeId), label: `${t.courseTypeCode} - ${t.courseTypeName}` }))} placeholder="Select subject type" searchable />} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div><Label htmlFor="cn">Subject Name *</Label><Input id="cn" {...register('courseName')} /></div>
@@ -71,9 +75,11 @@ export default function CourseModal({ open, onClose, row, onSaved }: Readonly<{ 
             <div><Label htmlFor="it">Intake</Label><Input id="it" type="number" {...register('inTake', { valueAsNumber: true })} /></div>
             <div><Label htmlFor="pr">Prefix</Label><Input id="pr" {...register('prefix')} /></div>
           </div>
-          <Controller name="isActive" control={control} render={({ field }) => <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />} />
+          {isEditing && (
+            <Controller name="isActive" control={control} render={({ field }) => <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />} />
+          )}
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-          <DialogFooter><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
+          <DialogFooter className="pt-1"><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

@@ -6,7 +6,6 @@ import { PlusIcon, MapPin, PencilIcon } from 'lucide-react'
 import { PageContainer } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
-import { SearchInput } from '@/common/components/search'
 import { StatusBadge } from '@/common/components/data-display'
 import CampusModal from './CampusModal'
 import { listCampuses } from '@/services/admin/campus'
@@ -53,7 +52,6 @@ function makeActionsRenderer(
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function CampusPage() {
-  const [searchValue, setSearchValue] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingCampus, setEditingCampus] = useState<Campus | null>(null)
 
@@ -62,15 +60,6 @@ export default function CampusPage() {
     queryKey: QK.campuses.list(),
     queryFn: listCampuses,
   })
-
-  // ── Client-side search filter ───────────────────────────────────────────
-  const filteredData = useMemo(() => {
-    if (!searchValue.trim()) return campuses
-    const lower = searchValue.toLowerCase()
-    return campuses.filter((row) =>
-      Object.values(row).some((val) => String(val).toLowerCase().includes(lower))
-    )
-  }, [searchValue, campuses])
 
   // ── Column definitions ──────────────────────────────────────────────────
   const columnDefs = useMemo<ColDef<Campus>[]>(
@@ -93,32 +82,26 @@ export default function CampusPage() {
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Campus</h2>
         </div>
-        <div className="flex items-center justify-between gap-3 p-3">
-          <SearchInput
-            className="w-full max-w-sm"
-            placeholder="Search campuses…"
-            value={searchValue}
-            onChange={setSearchValue}
-          />
-          <Button size="sm" onClick={() => { setEditingCampus(null); setModalOpen(true) }}>
-            <PlusIcon className="h-4 w-4 mr-1" />
-            Add Campus
-          </Button>
-        </div>
-
-        <div className="px-3 pb-3">
+        <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-            {!loading && filteredData.length === 0 ? (
+            {!loading && campuses.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                 <MapPin className="h-10 w-10 mb-3 opacity-40" />
                 <p className="text-sm">No campuses found</p>
               </div>
             ) : (
               <DataTable
-                rowData={filteredData}
+                rowData={campuses}
                 columnDefs={columnDefs}
                 loading={loading}
                 pagination
+                toolbar={{ search: true, searchPlaceholder: 'Search campuses…', pdfDocumentTitle: 'Campus' }}
+                toolbarTrailing={
+                  <Button size="sm" onClick={() => { setEditingCampus(null); setModalOpen(true) }}>
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Add Campus
+                  </Button>
+                }
               />
             )}
           </div>

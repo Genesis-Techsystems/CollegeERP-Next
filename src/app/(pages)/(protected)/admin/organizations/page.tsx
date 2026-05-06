@@ -6,7 +6,6 @@ import { PlusIcon, Building2, PencilIcon } from 'lucide-react'
 import { PageContainer } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
-import { SearchInput } from '@/common/components/search'
 import { StatusBadge } from '@/common/components/data-display'
 import OrganizationModal from './OrganizationModal'
 import { listOrganizations } from '@/services/admin/organization'
@@ -70,21 +69,12 @@ function makeActionsRenderer(
 export default function OrganizationsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null)
-  const [searchValue, setSearchValue] = useState('')
 
   // ── Fetch organizations ─────────────────────────────────────────────────
   const { data: organizations, isLoading: loading, invalidate } = useCrudList({
     queryKey: QK.organizations.list(),
     queryFn: listOrganizations,
   })
-
-  const filteredData = useMemo(() => {
-    if (!searchValue.trim()) return organizations
-    const lower = searchValue.toLowerCase()
-    return organizations.filter((row) =>
-      Object.values(row).some((val) => String(val).toLowerCase().includes(lower))
-    )
-  }, [searchValue, organizations])
 
   // ── Column definitions ──────────────────────────────────────────────────
   const columnDefs = useMemo<ColDef<Organization>[]>(
@@ -109,20 +99,7 @@ export default function OrganizationsPage() {
         <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
           <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Organisation</h2>
         </div>
-        <div className="flex items-center justify-between gap-3 p-3">
-          <SearchInput
-            className="w-full max-w-sm"
-            placeholder="Search organisations…"
-            value={searchValue}
-            onChange={setSearchValue}
-          />
-          <Button size="sm" onClick={() => { setEditingOrg(null); setModalOpen(true) }}>
-            <PlusIcon className="h-4 w-4 mr-1" />
-            Add Organisation
-          </Button>
-        </div>
-
-        <div className="px-3 pb-3">
+        <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
             {!loading && organizations.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-slate-400">
@@ -131,10 +108,17 @@ export default function OrganizationsPage() {
               </div>
             ) : (
               <DataTable
-                rowData={filteredData}
+                rowData={organizations}
                 columnDefs={columnDefs}
                 loading={loading}
                 pagination
+                toolbar={{ search: true, searchPlaceholder: 'Search organisations…', pdfDocumentTitle: 'Organisation' }}
+                toolbarTrailing={
+                  <Button size="sm" onClick={() => { setEditingOrg(null); setModalOpen(true) }}>
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Add Organisation
+                  </Button>
+                }
               />
             )}
           </div>

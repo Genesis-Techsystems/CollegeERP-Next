@@ -106,6 +106,8 @@ export interface DataTableProps<T> {
   toolbarTrailing?: ReactNode
   /** Show an "Export CSV" button in the toolbar */
   exportCsv?: boolean
+  /** Optional callback to access grid API from parent for external controls */
+  onGridApiReady?: (api: GridApi<T>) => void
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -208,6 +210,7 @@ export function DataTable<T>({
   toolbarLeading,
   toolbarTrailing,
   exportCsv = false,
+  onGridApiReady,
 }: DataTableProps<T>) {
   const tb = useMemo(
     () => resolveToolbar(toolbarProp, serverSide),
@@ -286,6 +289,7 @@ export function DataTable<T>({
 
   function handleGridReady(event: GridReadyEvent<T>) {
     setGridApi(event.api)
+    onGridApiReady?.(event.api)
   }
 
   function handleClientPrevPage() {
@@ -352,47 +356,49 @@ export function DataTable<T>({
       exportCsv)
 
   return (
-    <div className="app-data-table flex flex-col gap-2">
-      {showMainToolbar && (
-        <DataTableToolbar
-          leading={toolbarLeading}
-          searchEnabled={tb.search}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchPlaceholder={tb.searchPlaceholder}
-          columnPickerEnabled={tb.columnPicker}
-          exportPdfEnabled={tb.exportPdf}
-          onExportPdf={handleExportPdf}
-          lockColumnIds={tb.lockColumnIds}
-          getColumns={getColumns}
-          applyColumnVisible={applyColumnVisible}
-          endActions={
-            <>
-              {exportCsv ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-[30px] px-3 text-[12px]"
-                  onClick={handleExportCsv}
-                  aria-label="Export to CSV"
-                >
-                  <Download className="mr-1.5 h-3.5 w-3.5" />
-                  Export CSV
-                </Button>
-              ) : null}
-              {toolbarTrailing}
-            </>
-          }
-        />
-      )}
-
-      {!showMainToolbar && exportCsv && (
-        <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={handleExportCsv} aria-label="Export to CSV">
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
+    <div className="app-data-table flex flex-col">
+      {(showMainToolbar || (!showMainToolbar && exportCsv)) && (
+        <div className="border-b border-slate-200 bg-slate-50/60 px-3 py-2">
+          {showMainToolbar ? (
+            <DataTableToolbar
+              leading={toolbarLeading}
+              searchEnabled={tb.search}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder={tb.searchPlaceholder}
+              columnPickerEnabled={tb.columnPicker}
+              exportPdfEnabled={tb.exportPdf}
+              onExportPdf={handleExportPdf}
+              lockColumnIds={tb.lockColumnIds}
+              getColumns={getColumns}
+              applyColumnVisible={applyColumnVisible}
+              endActions={
+                <>
+                  {exportCsv ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-[30px] px-3 text-[12px]"
+                      onClick={handleExportCsv}
+                      aria-label="Export to CSV"
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Export CSV
+                    </Button>
+                  ) : null}
+                  {toolbarTrailing}
+                </>
+              }
+            />
+          ) : (
+            <div className="flex items-center justify-end gap-3">
+              <Button variant="outline" size="sm" onClick={handleExportCsv} aria-label="Export to CSV">
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

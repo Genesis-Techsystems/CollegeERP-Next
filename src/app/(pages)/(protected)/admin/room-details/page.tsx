@@ -514,14 +514,10 @@ export default function RoomDetailsPage() {
 
       {showResults && (
         <div className="app-card overflow-hidden">
-          <div className="flex items-center justify-between gap-3 p-3 border-b border-slate-200 bg-slate-50/60">
-            <h3 className="text-[13px] font-semibold text-[hsl(var(--primary))]">Room Details List</h3>
-            <Button size="sm" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
-              <PlusIcon className="h-4 w-4 mr-1" />
-              Add Room Details
-            </Button>
+          <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+            <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Room Details List</h2>
           </div>
-          <div className="px-3 pb-3 pt-3">
+          <div className="px-3 pb-3 pt-2">
             <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
               {!detailsLoading && filteredData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-400">
@@ -534,6 +530,13 @@ export default function RoomDetailsPage() {
                   columnDefs={columnDefs}
                   loading={detailsLoading}
                   pagination
+                  toolbar={{ search: true, searchPlaceholder: 'Search room details…', pdfDocumentTitle: 'Room Details List' }}
+                  toolbarTrailing={
+                    <Button size="sm" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
+                      <PlusIcon className="h-4 w-4 mr-1" />
+                      Add Room Details
+                    </Button>
+                  }
                 />
               )}
             </div>

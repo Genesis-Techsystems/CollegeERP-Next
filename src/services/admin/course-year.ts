@@ -12,10 +12,20 @@ export async function listCourseYearsAdmin(): Promise<CourseYear[]> {
 
 export async function listActiveCoursesByUniversityForYear(universityId: number): Promise<Course[]> {
   if (!universityId) return []
-  return domainList<Course>(
-    ENTITIES.COURSE.name,
+  const queries = [
+    buildQuery({ 'University.universityId': universityId, isActive: true }),
     buildQuery({ 'university.universityId': universityId, isActive: true }),
-  )
+    buildQuery({ universityId, isActive: true }),
+    buildQuery({ fk_university_id: universityId, isActive: true }),
+  ]
+  for (const query of queries) {
+    try {
+      return await domainList<Course>(ENTITIES.COURSE.name, query)
+    } catch {
+      // Try next query shape for backend compatibility.
+    }
+  }
+  return []
 }
 
 export async function createCourseYear(data: Omit<CourseYear, 'courseYearId'>): Promise<CourseYear> {

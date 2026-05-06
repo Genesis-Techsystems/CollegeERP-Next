@@ -164,6 +164,14 @@ export const QK = {
     all: ['College'] as const,
     list: () => ['College', 'list'] as const,
   },
+  departments: {
+    all: ['Department'] as const,
+    list: () => ['Department', 'list'] as const,
+  },
+  designations: {
+    all: ['Designation'] as const,
+    list: () => ['Designation', 'list'] as const,
+  },
 
   // ── Buildings ──────────────────────────────────────────────────────────
   buildings: {
@@ -206,6 +214,10 @@ export const QK = {
     all: ['GeneralSetting'] as const,
     list: () => ['GeneralSetting', 'list'] as const,
   },
+  generalMasters: {
+    all: ['GeneralMaster'] as const,
+    list: () => ['GeneralMaster', 'list'] as const,
+  },
   banks: {
     all: ['Bank'] as const,
     list: () => ['Bank', 'list'] as const,
@@ -213,6 +225,54 @@ export const QK = {
   castes: {
     all: ['Caste'] as const,
     list: () => ['Caste', 'list'] as const,
+  },
+  subCastes: {
+    all: ['SubCaste'] as const,
+    list: () => ['SubCaste', 'list'] as const,
+  },
+  qualifications: {
+    all: ['Qualification'] as const,
+    list: () => ['Qualification', 'list'] as const,
+  },
+  qualificationGroups: {
+    all: ['QualificationGroup'] as const,
+    list: () => ['QualificationGroup', 'list'] as const,
+  },
+  holidayCalendar: {
+    all: ['CollegeCalendar'] as const,
+    list: (collegeId?: number, academicYearId?: number) =>
+      ['CollegeCalendar', 'list', { collegeId, academicYearId }] as const,
+  },
+  workflowStages: {
+    all: ['WorkflowStage'] as const,
+    list: () => ['WorkflowStage', 'list'] as const,
+  },
+  studentCategories: {
+    all: ['StudentCategory'] as const,
+    list: () => ['StudentCategory', 'list'] as const,
+  },
+  workflowMemberAuthorizations: {
+    all: ['WorkflowMemberAuthorization'] as const,
+    list: () => ['WorkflowMemberAuthorization', 'list'] as const,
+  },
+  collegeCertificates: {
+    all: ['CollegeCertificate'] as const,
+    list: () => ['CollegeCertificate', 'list'] as const,
+  },
+  documentRepositories: {
+    all: ['DocumentRepository'] as const,
+    list: () => ['DocumentRepository', 'list'] as const,
+  },
+  weekdays: {
+    all: ['Weekday'] as const,
+    list: () => ['Weekday', 'list'] as const,
+  },
+  configAutoNumbers: {
+    all: ['ConfigAutoNumber'] as const,
+    organizations: () => ['ConfigAutoNumber', 'organizations'] as const,
+    colleges: (organizationId?: number) => ['ConfigAutoNumber', 'colleges', organizationId] as const,
+    list: (organizationId?: number, collegeId?: number) =>
+      ['ConfigAutoNumber', 'list', { organizationId, collegeId }] as const,
   },
 
   // ── Question Banks ─────────────────────────────────────────────────────

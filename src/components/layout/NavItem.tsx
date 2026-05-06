@@ -675,17 +675,57 @@ const EXAM_MASTERS_PATH = '/admin-examination-management/admin-exam-masters'
 function mapLegacyMasterSettingsHref(href?: string): string | null {
   if (!href) return null
   const normalized = href.toLowerCase().replace(/\/+$/, '')
-  const legacyPrefix = '/admin/master-settings/'
-  if (!normalized.startsWith(legacyPrefix)) return null
+  const marker = 'master-settings/'
+  const markerIndex = normalized.indexOf(marker)
+  if (markerIndex === -1) return null
 
-  const slug = normalized.slice(legacyPrefix.length)
+  const slug = normalized.slice(markerIndex + marker.length)
   if (!slug) return null
 
   const routeMap: Record<string, string> = {
     banks: '/admin/banks',
     'caste-master': '/admin/caste-master',
+    department: '/admin/departments',
+    departments: '/admin/departments',
+    'sub-reservation-categories': '/admin/reservation-sub-categories',
+    'reservation-sub-categories': '/admin/reservation-sub-categories',
+    'student-category': '/admin/student-categories',
+    'student-categories': '/admin/student-categories',
     'subject-type': '/admin/course-types',
+    designation: '/admin/designations',
+    designations: '/admin/designations',
+    'qualification-group': '/admin/qualification-groups',
+    'qualification-groups': '/admin/qualification-groups',
+    'qualification-groups-master': '/admin/qualification-groups',
+    'workflow-stages': '/admin/workflow-stages',
+    'workflow-stage': '/admin/workflow-stages',
+    'holidays-calendar': '/admin/holidays-calendar',
+    'holiday-calendar': '/admin/holidays-calendar',
+    'holidays-calender': '/admin/holidays-calendar',
+    holidayscalendar: '/admin/holidays-calendar',
+    holidaycalendar: '/admin/holidays-calendar',
+    holidays: '/admin/holidays-calendar',
+    holiday: '/admin/holidays-calendar',
+    qualification: '/admin/qualifications',
+    qualifications: '/admin/qualifications',
+    'designation-master': '/admin/designations',
     'general-settings': '/admin/general-settings',
+    'general-master-settings': '/admin/general-master-settings',
+    'general-master-setting': '/admin/general-master-settings',
+    'general-masters': '/admin/general-master-settings',
+    'document-repository': '/admin/document-repository',
+    documentrepository: '/admin/document-repository',
+    'document-repository-settings': '/admin/document-repository',
+    'week-days': '/admin/weekdays',
+    weekdays: '/admin/weekdays',
+    weekday: '/admin/weekdays',
+    'configuration-auto-number': '/admin/configure-auto-numbers',
+    'configuration-auto-numbers': '/admin/configure-auto-numbers',
+    'configure-auto-number': '/admin/configure-auto-numbers',
+    'configure-auto-numbers': '/admin/configure-auto-numbers',
+    'config-auto-number': '/admin/configure-auto-numbers',
+    'config-autonumber': '/admin/configure-auto-numbers',
+    configautonumber: '/admin/configure-auto-numbers',
   }
 
   return routeMap[slug] ?? `/admin/${slug}`
@@ -797,6 +837,29 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const evalProcessBase = '/admin-examination-management/evaluation-process'
   const postExamBase = '/admin-examination-management/post-examination'
   const forcedRoute = (() => {
+    const hrefLower = (item.href ?? '').toLowerCase()
+    const idLower = item.id.toLowerCase()
+    if (
+      labelLower.includes('general master setting') ||
+      labelLower.includes('general master settings') ||
+      labelLower.includes('general masters')
+    ) {
+      return '/admin/general-master-settings'
+    }
+    if (
+      hrefLower.includes('configuration-auto-number') ||
+      hrefLower.includes('configuration-auto-numbers') ||
+      hrefLower.includes('configure-auto-number') ||
+      hrefLower.includes('configure-auto-numbers') ||
+      hrefLower.includes('configautonumber') ||
+      hrefLower.includes('config-auto-number') ||
+      idLower.includes('configuration-auto-number') ||
+      idLower.includes('configure-auto-number') ||
+      (labelLower.includes('auto') && labelLower.includes('number'))
+    ) {
+      return '/admin/configure-auto-numbers'
+    }
+
     const masterSettingsRoute = mapLegacyMasterSettingsHref(item.href)
     if (masterSettingsRoute) return masterSettingsRoute
 
@@ -1002,8 +1065,49 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     if (labelLower === 'general setting' || labelLower === 'general settings') {
       return '/admin/general-settings'
     }
+    if (
+      labelLower.includes('general master setting') ||
+      labelLower.includes('general master settings') ||
+      labelLower.includes('general masters')
+    ) {
+      return '/admin/general-master-settings'
+    }
+    if (labelLower === 'designation' || labelLower === 'designations' || labelLower.includes('designation')) {
+      return '/admin/designations'
+    }
+    if (labelLower.includes('qualification group') || labelLower.includes('qualification groups')) {
+      return '/admin/qualification-groups'
+    }
+    if (labelLower.includes('workflow stage') || labelLower.includes('workflow stages')) {
+      return '/admin/workflow-stages'
+    }
+    if (
+      labelLower.includes('holiday') ||
+      labelLower.includes('holidays') ||
+      labelLower.includes('calendar') ||
+      labelLower.includes('calender')
+    ) {
+      return '/admin/holidays-calendar'
+    }
+    if (labelLower === 'qualification' || labelLower === 'qualifications' || labelLower.includes('qualification')) {
+      return '/admin/qualifications'
+    }
     if (labelLower.includes('digital online sync')) {
       return '/admin/digital-online-sync'
+    }
+    if (labelLower.includes('document repository')) {
+      return '/admin/document-repository'
+    }
+    if (labelLower.includes('week day') || labelLower.includes('weekday') || labelLower.includes('weekdays')) {
+      return '/admin/weekdays'
+    }
+    if (
+      labelLower.includes('configure auto number') ||
+      labelLower.includes('configuration auto number') ||
+      labelLower.includes('auto number configuration') ||
+      (labelLower.includes('auto') && labelLower.includes('number'))
+    ) {
+      return '/admin/configure-auto-numbers'
     }
     if (
       labelLower.includes('student co-curriculum activit') ||

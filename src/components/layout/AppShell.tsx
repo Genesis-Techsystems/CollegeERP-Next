@@ -16,7 +16,7 @@ interface AppShellProps {
   initialNavItems: NavItem[]
 }
 
-export function AppShell({ children, initialNavItems }: AppShellProps) {
+export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>) {
   const {
     isSidebarOpen,
     isSidebarCollapsed,
@@ -50,8 +50,28 @@ export function AppShell({ children, initialNavItems }: AppShellProps) {
     prevPathname.current = pathname
   }, [pathname, autoCollapse, isSidebarHovered, setSidebarCollapsed])
 
-  // Before mount: render as expanded to match server HTML (avoids hydration mismatch)
-  const sidebarIsExpanded = !mounted ? true : !isSidebarCollapsed || isSidebarHovered
+  // Prevent full-tree hydration drift in protected pages (sidebar/topbar are highly
+  // interactive and depend on client-only persisted state and browser environment).
+  // We render a stable shell frame first, then mount the interactive tree on client.
+  if (!mounted) {
+    return (
+      <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
+        <div className="relative z-30 w-[260px] shrink-0" style={{ height: '100vh', position: 'sticky', top: 0 }} />
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="sticky top-0 z-20 h-12 border-b border-border bg-card" />
+          <main className="flex-1 overflow-y-auto bg-[hsl(var(--background))]">
+            <div className="mx-auto w-full max-w-none px-0 py-0">
+              <div className="px-6 pt-1 pb-0.5">
+                <div className="app-card px-4 py-1.5" />
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    )
+  }
+
+  const sidebarIsExpanded = !isSidebarCollapsed || isSidebarHovered
 
   return (
     <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
