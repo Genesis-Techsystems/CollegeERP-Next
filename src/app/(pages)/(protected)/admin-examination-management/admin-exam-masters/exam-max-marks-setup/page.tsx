@@ -16,13 +16,7 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SearchInput } from '@/common/components/search'
-import {
-  getCollegeFilters,
-  listExamMarksSetup,
-  listRegulations,
-  listSubjectCategories,
-  saveExamMarksSetup,
-} from '@/services/examination'
+import { listExamMarksSetup, listSubjectCategories, saveExamMarksSetup, getMarksSetupFilters } from '@/services'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { cn } from '@/lib/utils'
 
@@ -56,6 +50,7 @@ export default function ExamMaxMarksSetupPage() {
   }, [user?.employeeId])
 
   const [filtersData, setFiltersData] = useState<AnyRow[]>([])
+  const [regFilterData, setRegFilterData] = useState<AnyRow[]>([])
   const [subjectCats, setSubjectCats] = useState<AnyRow[]>([])
   const [regulations, setRegulations] = useState<AnyRow[]>([])
 
@@ -72,11 +67,12 @@ export default function ExamMaxMarksSetupPage() {
 
   useEffect(() => {
     async function loadBase() {
-      const [clgFilters, cats] = await Promise.all([
-        getCollegeFilters(orgId, empId).catch(() => ({ filtersData: [], academicData: [] })),
+      const [filtersResult, cats] = await Promise.all([
+        getMarksSetupFilters(orgId, empId).catch(() => ({ filtersData: [], regulationData: [] })),
         listSubjectCategories().catch(() => []),
       ])
-      setFiltersData(Array.isArray(clgFilters.filtersData) ? clgFilters.filtersData : [])
+      setFiltersData(Array.isArray(filtersResult.filtersData) ? filtersResult.filtersData : [])
+      setRegFilterData(Array.isArray(filtersResult.regulationData) ? filtersResult.regulationData : [])
       setSubjectCats(Array.isArray(cats) ? cats : [])
     }
     loadBase()
@@ -101,18 +97,32 @@ export default function ExamMaxMarksSetupPage() {
   }, [courses])
 
   useEffect(() => {
-    async function loadReg() {
-      setRegulations([])
-      setRegulationId(null)
-      setRows([])
-      if (!courseId) return
-      const list = await listRegulations(courseId).catch(() => [])
-      const regs = Array.isArray(list) ? list : []
-      setRegulations(regs)
-      if (regs[0]?.regulationId) setRegulationId(Number(regs[0].regulationId))
+    setRegulations([])
+    setRegulationId(null)
+    setRows([])
+    if (!courseId || !universityId) return
+
+    const raw = regFilterData.filter(
+      (r) =>
+        Number(r.fk_university_id) === Number(universityId) &&
+        Number(r.fk_course_id) === Number(courseId),
+    )
+
+    const seen = new Set<number>()
+    const regs: AnyRow[] = []
+    for (const r of raw) {
+      const id = Number(r.fk_regulation_id ?? 0)
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+      regs.push({
+        regulationId: id,
+        regulationCode: r.regulation_code ?? r.regulationCode ?? '',
+      })
     }
-    loadReg()
-  }, [courseId])
+
+    setRegulations(regs)
+    if (regs[0]?.regulationId) setRegulationId(Number(regs[0].regulationId))
+  }, [courseId, universityId, regFilterData])
 
   async function getDetails() {
     setRows([])

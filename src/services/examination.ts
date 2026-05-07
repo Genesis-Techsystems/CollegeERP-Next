@@ -1,7 +1,15 @@
 import { buildQuery, domainCreate, domainList, domainUpdate, getAllRecords, uploadFile } from '@/services/crud'
 import { ENTITIES } from '@/config/constants/entities'
 import { EXAM_API, NEXT_API } from '@/config/constants/api'
-import type { ExamMaster, ExamMasterDetails, GeneralDetail, Regulation, CourseGroup, CourseYear } from '@/types/exam-master'
+import type {
+	CollegeWiseFilterRow,
+	ExamMaster,
+	ExamMasterDetails,
+	GeneralDetail,
+	Regulation,
+	CourseGroup,
+	CourseYear,
+} from '@/types/exam-master'
 import { GM_CODES } from '@/config/constants/ui'
 
 /** Employee id for `in_loginuser_empid` on exam filter procs (client pages: localStorage + session, same as exam-master). */
@@ -137,6 +145,16 @@ export interface CollegeFiltersResult {
 	}[]
 }
 
+export interface MarksSetupFiltersResult {
+	filtersData: CollegeWiseFilterRow[]
+	regulationData: {
+		fk_regulation_id: number
+		regulation_code: string
+		fk_university_id: number
+		fk_course_id: number
+	}[]
+}
+
 export async function getCollegeFilters(orgId: number, empId: number): Promise<CollegeFiltersResult> {
 	// Using getAllRecords via crud.ts helper; inline import to avoid circulars
 	const { getAllRecords } = await import('@/services/crud')
@@ -169,6 +187,52 @@ export async function getCollegeFilters(orgId: number, empId: number): Promise<C
 	}
 
 	return { filtersData, academicData }
+}
+
+/**
+ * College + regulation filters for Exam Marks Setup page.
+ *
+ * Mirrors Angular `MarksSetupComponent.getfilterDetails`:
+ * - Proc: `s_get_collegewisedetails_bycode`
+ * - `filtersData`: group where first row has `flag === 'clg_filters'`
+ * - `regulationData`: group where first row has `clg_filters_regulation === 'clg_filters_regulation'`
+ */
+export async function getMarksSetupFilters(
+	orgId: number,
+	empId: number,
+): Promise<MarksSetupFiltersResult> {
+	const data = await getAllRecords<{ result: any[][] }>('s_get_collegewisedetails_bycode', {
+		in_flag: 'clg_filters',
+		in_org_id: orgId,
+		in_college_id: 0,
+		in_course_id: 0,
+		in_course_group_id: 0,
+		in_course_year_id: 0,
+		in_group_section_id: 0,
+		in_academic_year_id: 0,
+		in_dept_id: 0,
+		in_isadmin: 0,
+		in_loginuser_empid: empId,
+		in_loginuser_roleid: 0,
+		in_subject: '',
+		in_employee: '',
+		in_gm_codes: '',
+	})
+
+	let filtersData: CollegeWiseFilterRow[] = []
+	let regulationData: MarksSetupFiltersResult['regulationData'] = []
+
+	for (const arr of data?.result ?? []) {
+		if (!Array.isArray(arr) || arr.length === 0) continue
+		const head = arr[0] as { flag?: string; clg_filters_regulation?: string }
+		if (head.flag === 'clg_filters') {
+			filtersData = arr as CollegeWiseFilterRow[]
+		} else if (head.clg_filters_regulation === 'clg_filters_regulation') {
+			regulationData = arr as MarksSetupFiltersResult['regulationData']
+		}
+	}
+
+	return { filtersData, regulationData }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

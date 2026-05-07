@@ -18,12 +18,12 @@ import {
 import {
 	createRevisionMaster,
 	listCollegesActive,
-	listCoursesByUniversity,
+	listCoursesForRevisionFilters,
 	listRevisionMastersByCourse,
 	listRevisionTypes,
 	updateRevisionMaster,
 } from '@/services/revision-master'
-import { ChevronDown, ClipboardList, Filter, PencilIcon, PlusIcon } from 'lucide-react'
+import { ChevronDown, Filter, PencilIcon, PlusIcon } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 
@@ -109,7 +109,6 @@ export default function RevisionMasterPage() {
 
 	const [collegeId, setCollegeId] = useState<number | null>(null)
 	const [courseId, setCourseId] = useState<number | null>(null)
-	const [loadingCourses, setLoadingCourses] = useState(false)
 	const [loadingRows, setLoadingRows] = useState(false)
 
 	const [open, setOpen] = useState(false)
@@ -205,35 +204,31 @@ export default function RevisionMasterPage() {
 			setColleges(Array.isArray(clgs) ? clgs : [])
 			setRevisionTypes(Array.isArray(revTypes) ? revTypes : [])
 			const firstCollege = (clgs as any[])[0]
-			if (firstCollege?.collegeId) setCollegeId(Number(firstCollege.collegeId))
+			const firstCollegeId = Number(firstCollege?.collegeId ?? firstCollege?.fk_college_id ?? 0)
+			if (firstCollegeId > 0) setCollegeId(firstCollegeId)
 		}
 		void loadBase()
 	}, [])
 
 	useEffect(() => {
 		async function loadCourses() {
-			setLoadingCourses(true)
 			setCourses([])
 			setCourseId(null)
 			setRows([])
-			try {
-				if (!collegeId) return
-				const college = colleges.find((c) => Number(c.collegeId) === Number(collegeId))
-				const universityId = Number(college?.universityId ?? college?.fk_university_id ?? 0)
-				let arr: any[] = []
-				if (universityId) {
-					const list = await listCoursesByUniversity(universityId).catch(() => [])
-					arr = Array.isArray(list) ? list : []
-				}
-				if (arr.length === 0) {
-					const { domainList, buildQuery } = await import('@/services/crud')
-					const all = await domainList<any>('Course', buildQuery({ isActive: true })).catch(() => [])
-					arr = Array.isArray(all) ? all : []
-				}
-				setCourses(arr)
-			} finally {
-				setLoadingCourses(false)
-			}
+			if (!collegeId) return
+			const college = colleges.find((c) => Number(c.collegeId ?? c.fk_college_id) === Number(collegeId))
+			const universityId = Number(
+				college?.universityId ??
+					college?.fk_university_id ??
+					college?.fkUniversityId ??
+					college?.university_id ??
+					college?.univId ??
+					college?.['University.universityId'] ??
+					0,
+			)
+			const list = await listCoursesForRevisionFilters({ collegeId, universityId }).catch(() => [])
+			const arr = Array.isArray(list) ? list : []
+			setCourses(arr)
 		}
 		void loadCourses()
 	}, [collegeId, colleges])
@@ -341,7 +336,6 @@ export default function RevisionMasterPage() {
 								value={courseId != null ? String(courseId) : null}
 								onChange={(v) => setCourseId(v ? Number(v) : null)}
 								options={courseOptions}
-								disabled={loadingCourses || courseOptions.length === 0}
 							/>
 						</div>
 					</div>
@@ -350,40 +344,32 @@ export default function RevisionMasterPage() {
 
 			{courseId != null && (
 				<TableCard withHeaderBorder={false}>
-					{!loadingRows && gridRows.length === 0 ? (
-						<div className="flex flex-col items-center justify-center py-16 text-slate-400">
-							<ClipboardList className="h-10 w-10 mb-3 opacity-40" />
-							<p className="text-sm">No records found</p>
-						</div>
-					) : (
-						<DataTable<RevisionRow>
-							rowData={gridRows}
-							columnDefs={columnDefs}
-							loading={loadingRows}
-							pagination
-							getRowId={(p) =>
-								String(
-									p.data.revisionMasterId ??
-										`row-${String(p.data.examRevisionTypeId)}-${String(p.data.fromDate)}-${String(p.data.toDate)}`,
-								)
-							}
-							toolbar={{
-								search: true,
-								searchPlaceholder: 'Search revision masters…',
-								columnPicker: true,
-								exportPdf: true,
-								pdfDocumentTitle: 'Exam Revision Master',
-								lockColumnIds: ['siNo', 'actions'],
-							}}
-							exportCsv
-							toolbarTrailing={(
-								<Button type="button" size="sm" className="h-[30px] px-3 text-[12px]" onClick={openAdd}>
-									<PlusIcon className="mr-1 h-3.5 w-3.5" />
-									Add Revision Master
-								</Button>
-							)}
-						/>
-					)}
+					<DataTable<RevisionRow>
+						rowData={gridRows}
+						columnDefs={columnDefs}
+						loading={loadingRows}
+						pagination
+						getRowId={(p) =>
+							String(
+								p.data.revisionMasterId ??
+									`row-${String(p.data.examRevisionTypeId)}-${String(p.data.fromDate)}-${String(p.data.toDate)}`,
+							)
+						}
+						toolbar={{
+							search: true,
+							searchPlaceholder: 'Search revision masters…',
+							columnPicker: true,
+							exportPdf: true,
+							pdfDocumentTitle: 'Exam Revision Master',
+							lockColumnIds: ['siNo', 'actions'],
+						}}
+						toolbarTrailing={(
+							<Button type="button" size="sm" className="h-[30px] px-3 text-[12px]" onClick={openAdd}>
+								<PlusIcon className="mr-1 h-3.5 w-3.5" />
+								Add Revision Master
+							</Button>
+						)}
+					/>
 				</TableCard>
 			)}
 

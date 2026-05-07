@@ -53,6 +53,7 @@ export {
   getUnivExamFiltersAll,
   getUnivExamFiltersForExamFeeSetup,
   getUnivExamRestCollegesForRevaluationFee,
+  getMarksSetupFilters,
   listExamSessions,
   createExamSession,
   updateExamSession,

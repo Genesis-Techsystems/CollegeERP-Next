@@ -565,7 +565,7 @@ export default function SeatingPlanSetupPage() {
 		void loadExamTimetables()
 		return () => ac.abort()
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- univExamFilterRows read for scope only; avoids extra passes
-	}, [employeeId, selectedCourseId, selectedCourseYearId, selectedExamId, selectedAcademicYearId])
+	}, [employeeId, selectedCourseId, selectedExamId, selectedAcademicYearId])
 
 	useEffect(() => {
 		function mapSelectedSessionRows() {

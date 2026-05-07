@@ -195,9 +195,6 @@ export default function CreateRevaluationFeeStructurePage() {
 			setAcademicData(ay ?? [])
 			const distinctCourses = distinct(f ?? [], (r) => r.fk_course_id)
 			setCourses(distinctCourses)
-			if (distinctCourses.length > 0) {
-				handleCourseChange(distinctCourses[0].fk_course_id, f, ay)
-			}
 		} finally {
 			setLoadingFilters(false)
 		}

@@ -150,12 +150,12 @@ export default function SeatAllotStudentsPage() {
 
 	useEffect(() => {
 		async function load() {
-			const examId = Number(details.examId || 0)
-			const courseId = Number(details.courseId || 0)
-			const examTimetableId = Number(details.examTimetableId || 0)
-			const sessionId = Number(details.sessionId || 0)
+			const routeExamId = Number(details.examId || 0)
+			const routeCourseId = Number(details.courseId || 0)
+			const routeExamTimetableId = Number(details.examTimetableId || 0)
+			const routeSessionId = Number(details.sessionId || 0)
 			const examRoomAllotmentId = Number(details.examRoomAllotmentId || 0)
-			if (!examId || !courseId || !examTimetableId) {
+			if (!routeExamId && !examRoomAllotmentId) {
 				setAttendanceRows([])
 				setSeatRows([])
 				setRoomAllotment(null)
@@ -163,19 +163,54 @@ export default function SeatAllotStudentsPage() {
 			}
 			setLoading(true)
 			try {
-				const [attData, seatsData, allotmentData] = await Promise.all([
-					fetchExamStdAttDetails({ examId, courseId, examTimetableId }),
-					fetchRoomwiseOmrStudents({
-						examId,
-						courseId,
-						examDate: details.examDate,
-						sessionId,
-					}),
-					fetchExamRoomAllotmentById(examRoomAllotmentId),
+				const allotmentData = await fetchExamRoomAllotmentById(examRoomAllotmentId)
+				const allotment = unwrapExamRoomAllotRecord(allotmentData)
+				const examId = routeExamId || num(pick(allotment, ['examId', 'fk_exam_id', 'exam_id'], 0))
+				const courseId =
+					routeCourseId ||
+					num(
+						pick(
+							allotment,
+							['courseId', 'fk_course_id', 'course_id', 'Course.courseId', 'Course.course_id'],
+							0,
+						),
+					)
+				const examTimetableId =
+					routeExamTimetableId ||
+					num(
+						pick(
+							allotment,
+							[
+								'examTimetableId',
+								'fk_exam_timetable_id',
+								'exam_timetable_id',
+								'ExamTimetable.examTimetableId',
+								'ExamTimetable.exam_timetable_id',
+							],
+							0,
+						),
+					)
+				const sessionId =
+					routeSessionId ||
+					num(pick(allotment, ['examSessionId', 'fk_exam_session_id', 'sessionId', 'exam_session_id'], 0))
+				const examDate = details.examDate || String(pick(allotment, ['examDate', 'exam_date'], ''))
+
+				const [attData, seatsData] = await Promise.all([
+					examId > 0 && courseId > 0 && examTimetableId > 0
+						? fetchExamStdAttDetails({ examId, courseId, examTimetableId })
+						: Promise.resolve([]),
+					examId > 0 && courseId > 0
+						? fetchRoomwiseOmrStudents({
+								examId,
+								courseId,
+								examDate,
+								sessionId,
+							})
+						: Promise.resolve([]),
 				])
 				setAttendanceRows(Array.isArray(attData) ? attData : [])
 				setSeatRows(Array.isArray(seatsData) ? seatsData : [])
-				setRoomAllotment(unwrapExamRoomAllotRecord(allotmentData))
+				setRoomAllotment(allotment)
 			} finally {
 				setLoading(false)
 			}

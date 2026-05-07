@@ -240,8 +240,26 @@ export default function ExamFeeSetupPage() {
     { field: 'examFeeStructureName', headerName: 'Exam Fee Structure', minWidth: 170 },
     {
       headerName: 'Exam Master',
-      minWidth: 170,
-      valueGetter: (p) => p.data?.examMaster?.examName ?? p.data?.examMasterName ?? p.data?.examName ?? '—',
+      minWidth: 220,
+      flex: 1,
+      autoHeight: true,
+      cellRenderer: (p: ICellRendererParams) => {
+        const text =
+          p.data?.examMaster?.examName ??
+          p.data?.examMasterName ??
+          p.data?.examName ??
+          '—'
+        return (
+          <span className="whitespace-normal leading-snug line-clamp-2">
+            {text}
+          </span>
+        )
+      },
+      tooltipValueGetter: (p) =>
+        p.data?.examMaster?.examName ??
+        p.data?.examMasterName ??
+        p.data?.examName ??
+        '—',
     },
     {
       headerName: 'Collection Start Date',
@@ -270,8 +288,15 @@ export default function ExamFeeSetupPage() {
     },
     {
       headerName: 'Supple Fee',
-      minWidth: 90,
-      valueGetter: (p) => getSuppleFeeText((p.data ?? {}) as Record<string, unknown>),
+      minWidth: 260,
+      flex: 1,
+      autoHeight: true,
+      cellRenderer: (p: ICellRendererParams) => (
+        <span className="whitespace-normal leading-snug line-clamp-2">
+          {getSuppleFeeText((p.data ?? {}) as Record<string, unknown>)}
+        </span>
+      ),
+      tooltipValueGetter: (p) => getSuppleFeeText((p.data ?? {}) as Record<string, unknown>),
     },
     {
       field: 'isActive',
