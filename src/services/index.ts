@@ -40,6 +40,7 @@ export * from './admin/weekday'
 export * from './admin/config-auto-number'
 export * from './admin/digital-online-sync'
 export * from './admin/question-bank'
+export * from './admin/bulk-upload'
 export * from './evaluation'
 export * from './evaluation-process'
 // pre-examination: listActiveColleges conflicts with invigilator-remuneration; listCoursesByUniversity

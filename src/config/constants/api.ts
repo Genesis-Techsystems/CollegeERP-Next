@@ -284,6 +284,8 @@ export const QUESTION_PAPER_API = {
 export const STUDENT_API = {
   /** POST: import student details */
   IMPORT_DETAILS: 'importStudentDetails',
+  /** POST: import student DOST details */
+  IMPORT_STD_DOST_DETAILS: 'importStdDostDetails',
   /** GET: get staging student details */
   GET_STG_DETAILS: 'getStgStudentDetails',
   /** POST: process staging student details */
@@ -296,6 +298,8 @@ export const STUDENT_API = {
   DETAIL_UPLOAD: 'studentdetailupload',
   /** POST: upload photos */
   UPLOAD_PHOTOS_GENERIC: 'uploadPhotos',
+  /** POST: validate photos before final upload */
+  VALIDATE_PHOTOS: 'validatePhotos',
   /** CRUD: StudentProfile */
   PROFILE: 'StudentProfile',
   /** CRUD: StudentAcademicbatch */
@@ -619,6 +623,14 @@ export const SUBJECT_API = {
   ALL_SUBJECT_RESOURCES_SCHEDULES: 'allsubjectresourcesschedules',
   /** POST: upload subject unit */
   UPLOAD_SUBJECT_UNIT: 'uploadsubjectunit',
+  /** POST: bulk upload unit topics from comma-separated workbook format */
+  UPLOAD_SUBJECT_UNIT_TOPICS_COMMA_SEPARATOR: 'uploadSubjectunitTopicsCommaSeparator',
+  /** POST: bulk upload subject units and topics (college scoped) */
+  UPLOAD_SUBJECT_UNITS_AND_TOPICS: 'uploadSubjectUnitsAndTopics',
+  /** POST: import subject bulk details */
+  IMPORT_SUBJECT_DETAILS: 'importSubjectDetails',
+  /** POST: process staged subject bulk details */
+  PROCESS_STG_SUBJECT_DETAILS: 'processStgsubjectDetails',
 } as const
 
 // ─── Assignments ─────────────────────────────────────────────────────────────

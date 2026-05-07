@@ -644,10 +644,34 @@ interface NavItemProps {
 function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
   if (!item.children) return false
   const normPath = normalizeHref(pathname)
+
+  const mapLabelToRoute = (label?: string): string | null => {
+    const lower = (label ?? '').toLowerCase()
+    if (lower.includes('unit topic bulk upload')) return '/admin/bulk-uploads/unit-topic-bulk-upload'
+    if (lower.includes('photos bulk upload') || lower.includes('photo bulk upload')) {
+      return '/admin/bulk-uploads/photos-bulk-upload'
+    }
+    if (lower.includes('temporary staging tables bulk upload') || lower.includes('temparory staging table bulk upload')) {
+      return '/admin/bulk-uploads/temporary-staging-tables-bulk-upload'
+    }
+    if (lower.includes('dost upload') || lower.includes('student dost upload')) {
+      return '/admin/bulk-uploads/student-dost-upload'
+    }
+    if (lower.includes('student bulk upload') || lower.includes('students upload')) {
+      return '/admin/bulk-uploads/students-upload'
+    }
+    if (lower.includes('books bulk upload') || lower.includes('book bulk upload')) {
+      return '/admin/bulk-uploads/books-bulk-upload'
+    }
+    return null
+  }
+
   return item.children.some((child) => {
     const ch = child.href?.trim()
-    if (ch) {
-      const nh = normalizeHref(ch)
+    const mappedByLabel = mapLabelToRoute(child.label)
+    if (ch || mappedByLabel) {
+      const mappedLegacy = ch ? mapLegacyMasterSettingsHref(ch) : null
+      const nh = normalizeHref(mappedByLabel ?? mappedLegacy ?? ch ?? '')
       if (normPath === nh || normPath.startsWith(`${nh}/`)) return true
     }
     return hasActiveDescendant(child, pathname)
@@ -766,7 +790,12 @@ function navCollapsibleTriggerClasses(
     )
   }
   if (isChildActive && !isSelfActive) {
-    return 'text-white bg-transparent'
+    return cn(
+      'text-[#D4AF37]',
+      'font-semibold',
+      'bg-transparent',
+      'hover:bg-transparent hover:text-[#D4AF37]',
+    )
   }
   if (isActive) {
     return cn(
@@ -858,6 +887,36 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       (labelLower.includes('auto') && labelLower.includes('number'))
     ) {
       return '/admin/configure-auto-numbers'
+    }
+    if (hrefLower.includes('/excel-bulk-uploads/dost-bulk-upload') || hrefLower.includes('dost-bulk-upload')) {
+      return '/admin/bulk-uploads/student-dost-upload'
+    }
+    if (
+      hrefLower.includes('/excel-bulk-uploads/student-bulk-upload') ||
+      hrefLower.includes('/excel-bulk-uploads/students-upload')
+    ) {
+      return '/admin/bulk-uploads/students-upload'
+    }
+    if (hrefLower.includes('/excel-bulk-uploads/employee-bulk-upload') || hrefLower.includes('/excel-bulk-uploads/employee-upload')) {
+      return '/admin/bulk-uploads/employee-upload'
+    }
+    if (hrefLower.includes('/excel-bulk-uploads/subjects-bulk-upload') || hrefLower.includes('/excel-bulk-uploads/subject-bulk-upload')) {
+      return '/admin/bulk-uploads/subjects-bulk-upload'
+    }
+    if (hrefLower.includes('/excel-bulk-uploads/books-bulk-upload') || hrefLower.includes('/excel-bulk-uploads/book-bulk-upload')) {
+      return '/admin/bulk-uploads/books-bulk-upload'
+    }
+    if (hrefLower.includes('/excel-bulk-uploads/unit-topic-bulk-upload')) {
+      return '/admin/bulk-uploads/unit-topic-bulk-upload'
+    }
+    if (hrefLower.includes('/excel-bulk-uploads/photos-bulk-upload')) {
+      return '/admin/bulk-uploads/photos-bulk-upload'
+    }
+    if (
+      hrefLower.includes('/excel-bulk-uploads/temporary-staging-tables-bulk-upload') ||
+      hrefLower.includes('/excel-bulk-uploads/temparory-staging-table-bulk-upload')
+    ) {
+      return '/admin/bulk-uploads/temporary-staging-tables-bulk-upload'
     }
 
     const masterSettingsRoute = mapLegacyMasterSettingsHref(item.href)
@@ -1098,6 +1157,30 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     if (labelLower.includes('document repository')) {
       return '/admin/document-repository'
     }
+    if (labelLower.includes('unit topic bulk upload')) {
+      return '/admin/bulk-uploads/unit-topic-bulk-upload'
+    }
+    if (labelLower.includes('photos bulk upload') || labelLower.includes('photo bulk upload')) {
+      return '/admin/bulk-uploads/photos-bulk-upload'
+    }
+    if (labelLower.includes('temporary staging tables bulk upload') || labelLower.includes('temparory staging table bulk upload')) {
+      return '/admin/bulk-uploads/temporary-staging-tables-bulk-upload'
+    }
+    if (labelLower.includes('dost upload') || labelLower.includes('student dost upload')) {
+      return '/admin/bulk-uploads/student-dost-upload'
+    }
+    if (labelLower.includes('student bulk upload') || labelLower.includes('students upload')) {
+      return '/admin/bulk-uploads/students-upload'
+    }
+    if (labelLower.includes('employee bulk upload') || labelLower.includes('employee upload')) {
+      return '/admin/bulk-uploads/employee-upload'
+    }
+    if (labelLower.includes('subjects bulk upload') || labelLower.includes('subject bulk upload')) {
+      return '/admin/bulk-uploads/subjects-bulk-upload'
+    }
+    if (labelLower.includes('books bulk upload') || labelLower.includes('book bulk upload')) {
+      return '/admin/bulk-uploads/books-bulk-upload'
+    }
     if (labelLower.includes('week day') || labelLower.includes('weekday') || labelLower.includes('weekdays')) {
       return '/admin/weekdays'
     }
@@ -1123,12 +1206,23 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const canonicalHref =
     rawNavTarget && rawNavTarget !== '#' ? normalizeHref(rawNavTarget) : ''
   const normPathname = normalizeHref(pathname)
+  const modulePathActive = (() => {
+    const label = (item.label ?? '').toLowerCase().trim()
+    if (label === 'admin') return normPathname.startsWith('/admin/')
+    if (label.includes('excel bulk uploads') || label.includes('bulk uploads')) {
+      return normPathname.startsWith('/admin/bulk-uploads/')
+    }
+    if (label.includes('affiliated')) return normPathname.startsWith('/affiliated-colleges/')
+    if (label.includes('student information')) return normPathname.startsWith('/admin-student-information-system/')
+    if (label.includes('exam')) return normPathname.startsWith('/admin-examination-management/')
+    return false
+  })()
   const isSelfActive =
     !!canonicalHref &&
     canonicalHref.length > 1 &&
     (normPathname === canonicalHref || normPathname.startsWith(`${canonicalHref}/`))
-  const isChildActive = hasChildren ? hasActiveDescendant(item, pathname) : false
-  const isActive = isSelfActive || isChildActive
+  const isChildActive = (hasChildren ? hasActiveDescendant(item, pathname) : false) || modulePathActive
+  const isActive = isSelfActive || isChildActive || modulePathActive
 
   const isOpen = !collapsedItems.has(item.id)
 
