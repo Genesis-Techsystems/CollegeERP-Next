@@ -74,13 +74,36 @@ export async function getCourseYearsForDigitalSync(params: {
   courseId: number
   courseGroupId: number
 }): Promise<Array<Record<string, unknown>>> {
-  const rows = await fetchDetails<Array<Record<string, unknown>>>('courseyears', {
-    'College.collegeId': params.collegeId,
-    'AcademicYear.academicYearId': params.academicYearId,
-    'Course.courseId': params.courseId,
-    'CourseGroup.courseGroupId': params.courseGroupId,
-  })
-  return Array.isArray(rows) ? rows : []
+  const paramVariants: Array<Record<string, string | number>> = [
+    {
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      courseId: params.courseId,
+      courseGroupId: params.courseGroupId,
+    },
+    {
+      college_id: params.collegeId,
+      academic_year_id: params.academicYearId,
+      course_id: params.courseId,
+      course_group_id: params.courseGroupId,
+    },
+    {
+      'College.collegeId': params.collegeId,
+      'AcademicYear.academicYearId': params.academicYearId,
+      'Course.courseId': params.courseId,
+      'CourseGroup.courseGroupId': params.courseGroupId,
+    },
+  ]
+
+  for (const query of paramVariants) {
+    try {
+      const rows = await fetchDetails<Array<Record<string, unknown>>>('courseyears', query)
+      if (Array.isArray(rows)) return rows
+    } catch {
+      // Try next query shape for backend compatibility.
+    }
+  }
+  return []
 }
 
 export async function syncSubjectRegulationIds(

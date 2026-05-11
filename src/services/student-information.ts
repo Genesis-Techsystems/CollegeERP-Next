@@ -547,6 +547,218 @@ export async function listStudentsForPromotionPreview(params: {
   return listStudentsBySection(groupSectionId)
 }
 
+export async function listStudentsForLabAssignment(params: {
+  collegeId: number
+  courseGroupId: number
+  groupSectionId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, courseGroupId, groupSectionId } = params
+  if (!collegeId || !courseGroupId || !groupSectionId) return []
+  try {
+    const data = await fetchDetails<any>('studentsList', {
+      collegeId,
+      courseGroupId,
+      groupSectionId,
+      statusCode: 'INCOLLEGE',
+    })
+    return asArray<AnyRow>(data).map(normalizeStudentRow)
+  } catch {
+    return []
+  }
+}
+
+export async function listStudentsForModifyStudentBatches(params: {
+  collegeId: number
+  courseGroupId: number
+  groupSectionId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, courseGroupId, groupSectionId } = params
+  if (!collegeId || !courseGroupId || !groupSectionId) return []
+  try {
+    const data = await fetchDetails<any>('studentsList', {
+      collegeId,
+      courseGroupId,
+      groupSectionId,
+    })
+    return asArray<AnyRow>(data).map(normalizeStudentRow)
+  } catch {
+    return []
+  }
+}
+
+export async function listStudentLabBatches(params: {
+  collegeId: number
+  courseId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, courseId } = params
+  if (!collegeId || !courseId) return []
+  const query = buildQuery({
+    'subjecttype.generalDetailId': 5,
+    'College.collegeId': collegeId,
+    isActive: true,
+    'Course.courseId': courseId,
+  })
+  try {
+    return await domainList<AnyRow>('Studentbatch', query)
+  } catch {
+    return []
+  }
+}
+
+export async function listSectionTimetableCurr(params: {
+  collegeId: number
+  academicYearId: number
+  groupSectionId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, groupSectionId } = params
+  if (!collegeId || !academicYearId || !groupSectionId) return []
+  try {
+    const data = await fetchDetails<any>('timetablescurr', {
+      'College.collegeId': collegeId,
+      'AcademicYear.academicYearId': academicYearId,
+      groupSectionId,
+    })
+    return asArray<AnyRow>(data)
+  } catch {
+    return []
+  }
+}
+
+export async function listBatchwiseLabStudents(params: {
+  collegeId: number
+  groupSectionId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, groupSectionId } = params
+  if (!collegeId || !groupSectionId) return []
+  try {
+    const data = await fetchDetails<any>('batchwisestudents', {
+      collegeId,
+      groupSectionId,
+      subjectTypeCode: 'LAB',
+    })
+    return asArray<AnyRow>(data).map((row) => normalizeStudentRow(row))
+  } catch {
+    return []
+  }
+}
+
+export async function listStudentBatchesByCollegeCourse(params: {
+  collegeId: number
+  courseId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, courseId } = params
+  if (!collegeId || !courseId) return []
+  const query = buildQuery({
+    'subjecttype.generalDetailId': 5,
+    'College.collegeId': collegeId,
+    isActive: true,
+    'Course.courseId': courseId,
+  })
+  try {
+    return await domainList<AnyRow>('Studentbatch', query)
+  } catch {
+    return []
+  }
+}
+
+export async function listAcademicBatchesOfStudent(studentId: number): Promise<AnyRow[]> {
+  if (!studentId) return []
+  const query = buildQuery({ 'studentDetail.studentId': studentId })
+  try {
+    return await domainList<AnyRow>('StudentAcademicbatch', query)
+  } catch {
+    return []
+  }
+}
+
+export async function updateAcademicBatchRecord(record: AnyRow): Promise<AnyRow> {
+  const id = num(record, ['studentAcademicbatchId', 'studentAcademicBatchId'])
+  if (!id) throw new Error('Missing academic batch id')
+  try {
+    return await domainUpdate<AnyRow>('StudentAcademicbatch', 'studentAcademicbatchId', id, record)
+  } catch {
+    return domainUpdate<AnyRow>('StudentAcademicbatch', 'studentAcademicBatchId', id, record)
+  }
+}
+
+export async function listCourseGroupsForStudentCourseChange(params: {
+  organizationId: number
+  employeeId: number
+  collegeId: number
+  courseId: number
+}): Promise<AnyRow[]> {
+  const { organizationId, employeeId, collegeId, courseId } = params
+  if (!organizationId || !collegeId || !courseId) return []
+  try {
+    const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_collegewisedetails_bycode', {
+      in_flag: 'clg_filters',
+      in_org_id: organizationId,
+      in_college_id: collegeId,
+      in_course_id: courseId,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_group_section_id: 0,
+      in_academic_year_id: 0,
+      in_dept_id: 0,
+      in_isadmin: 0,
+      in_loginuser_empid: employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_subject: '',
+      in_employee: '',
+      in_gm_codes: '',
+    })
+    const groups = Array.isArray(data?.result) ? data.result : []
+    const filterRows = groups.find((arr) => Array.isArray(arr) && arr[0]?.flag === 'clg_filters') ?? []
+    const unique = new Map<number, AnyRow>()
+    for (const row of filterRows) {
+      const id = num(row, ['fk_course_group_id', 'courseGroupId', 'course_group_id'])
+      if (id <= 0 || unique.has(id)) continue
+      unique.set(id, row)
+    }
+    return [...unique.values()]
+  } catch {
+    return []
+  }
+}
+
+export async function submitStudentCourseGroupChange(payloadRows: Record<string, unknown>[]): Promise<unknown> {
+  if (!payloadRows.length) throw new Error('No students selected for course-group change')
+  const paths = ['addStudentCourseGroups', 'addstudentcoursegroups']
+  let lastError: unknown = null
+  for (const path of paths) {
+    try {
+      return await postDetails<unknown>(path, payloadRows)
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError ?? new Error('Failed to change student course group')
+}
+
+export async function submitStudentBatchChange(payloadRows: Record<string, unknown>[]): Promise<unknown> {
+  if (!payloadRows.length) throw new Error('No students selected for batch change')
+  const paths = ['addStudentBatches', 'addstudentbatches']
+  let lastError: unknown = null
+  for (const path of paths) {
+    try {
+      return await postDetails<unknown>(path, payloadRows)
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError ?? new Error('Failed to change student batch')
+}
+
+export async function submitAssignedStudentSections(rows: AnyRow[]): Promise<unknown> {
+  if (!Array.isArray(rows) || rows.length === 0) throw new Error('No students selected for section assignment')
+  return postDetails<unknown>('addStudentslist', rows)
+}
+
+export async function submitAssignedStudentRegulations(rows: AnyRow[]): Promise<unknown> {
+  if (!Array.isArray(rows) || rows.length === 0) throw new Error('No students selected for regulation assignment')
+  return postDetails<unknown>('addStudentslist', rows)
+}
+
 /** Resolve university id: URL param → student fields → College row (studentdetail often omits universityId). */
 export async function resolveUniversityIdForReadmission(
   student: AnyRow,

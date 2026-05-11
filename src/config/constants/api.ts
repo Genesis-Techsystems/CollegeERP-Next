@@ -611,12 +611,16 @@ export const LEAVE_API = {
 export const SUBJECT_API = {
   /** GET: subject regulations */
   SUBJECT_REGULATIONS: 'subjectregulations',
+  /** GET: subject course years by college/AY/section */
+  SUBJECT_COURSE_YEARS: 'subjectcourseyrs',
   /** GET: group year regulation details */
   GROUP_YR_REGULATION_DETAILS: 'groupyrregulationdetails',
   /** CRUD: GroupyrRegulationDetail */
   GROUP_YR_REGULATION: 'GroupyrRegulationDetail',
   /** CRUD: Subjectregulation */
   SUBJECT_REGULATION: 'Subjectregulation',
+  /** POST: assign/unassign staff for subject course year */
+  STAFF_COURSEYR_SUBJECTS_CHECK: 'staffcourseyrsubjectscheck',
   /** POST: subject regulation data sync */
   SUBJECT_REGULATION_DATA_SYNC: 'subjectregulationDataSync',
   /** GET: all subject resources schedules */

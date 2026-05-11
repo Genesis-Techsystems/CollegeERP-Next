@@ -1051,8 +1051,221 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return '/admin-student-information-system/generate-student-rollno'
     }
+    if (
+      labelLower.includes('course outcomes') ||
+      labelLower.includes('course outcome') ||
+      hrefLower.includes('/subject-mapping/course-outcomes')
+    ) {
+      return '/academics/subject-mapping/course-outcomes'
+    }
+    if (
+      labelLower.includes('allocate student subjects') ||
+      labelLower.includes('allocate student subject') ||
+      (labelLower.includes('allocate') && labelLower.includes('student') && labelLower.includes('subject')) ||
+      hrefLower.includes('/subject-mapping/allocate-student-subject')
+    ) {
+      return '/academics/subject-mapping/allocate-student-subject'
+    }
     if (labelLower.includes('student subjects') || labelLower.includes('student subject')) {
       return '/admin-student-information-system/student-subjects'
+    }
+    if (labelLower.includes('modify subject group') || labelLower.includes('modify course group')) {
+      return '/academics/modify-course-group'
+    }
+    if (
+      labelLower.includes('modify academic batch') ||
+      labelLower.includes('modify acadamic batch') ||
+      labelLower.includes('modify student batch') ||
+      labelLower.includes('modify student batches')
+    ) {
+      return '/academics/modify-student-batches'
+    }
+    if (
+      labelLower === 'regulations' ||
+      hrefLower.includes('/master/regulation') ||
+      hrefLower.endsWith('/regulation')
+    ) {
+      return '/academics/regulations'
+    }
+    if (
+      labelLower.includes('subjects master') ||
+      (labelLower === 'subjects' && hrefLower.includes('/master/subjects')) ||
+      hrefLower.endsWith('/master/subjects')
+    ) {
+      return '/academics/subjects'
+    }
+    if (
+      labelLower.includes('university curriculum') ||
+      hrefLower.includes('/master/university-currriculum') ||
+      hrefLower.includes('/master/university-curriculum')
+    ) {
+      return '/academics/university-curriculum'
+    }
+    if (
+      labelLower.includes('assign semestr subjects')
+      || labelLower.includes('assign semester subjects')
+      || hrefLower.includes('/college-curriculum/subject-allocation')
+    ) {
+      return '/academics/college-curriculum/subject-allocation'
+    }
+    if (
+      labelLower.includes('subject unit topics')
+      || labelLower.includes('subject unit topic')
+      || labelLower.includes('unit topics')
+      || hrefLower.includes('/academics/subject-unit-topics')
+      || hrefLower.includes('/subject-unit-topics')
+    ) {
+      return '/academics/subject-unit-topics'
+    }
+    if (
+      labelLower.includes('subject syllabus plan')
+      || labelLower.includes('syllabus plan')
+      || hrefLower.includes('/subject-mapping/subject-syllabus-plan')
+      || hrefLower.includes('/subject-syllabus-plan')
+    ) {
+      return '/academics/subject-mapping/subject-syllabus-plan'
+    }
+    if (
+      labelLower.includes('elective group mapping')
+      || labelLower.includes('elective-group-mapping')
+      || hrefLower.includes('/subject-mapping/elective-group-mapping')
+      || hrefLower.includes('/elective-group-mapping')
+    ) {
+      return '/academics/subject-mapping/elective-group-mapping'
+    }
+    if (
+      labelLower.includes('student enrollment to elective subject')
+      || labelLower.includes('student enrolment to elective subject')
+      || labelLower.includes('student elective subject enrollment')
+      || labelLower.includes('student elective subject enrolment')
+      || (
+        labelLower.includes('student')
+        && labelLower.includes('elective')
+        && labelLower.includes('subject')
+      )
+      || hrefLower.includes('/subject-mapping/student-enrollment-to-elective-subject')
+      || hrefLower.includes('/subject-mapping/student-enrolment-to-elective-subject')
+      || hrefLower.includes('/subject-mapping/student-enrollment-to-elective-subjects')
+      || hrefLower.includes('/subject-mapping/student-enrolment-to-elective-subjects')
+      || hrefLower.includes('/student-enrollment-to-elective-subject')
+      || hrefLower.includes('/student-enrolment-to-elective-subject')
+      || hrefLower.includes('/student-enrollment-to-elective-subjects')
+      || hrefLower.includes('/student-enrolment-to-elective-subjects')
+    ) {
+      return '/academics/subject-mapping/student-enrollment-to-elective-subject'
+    }
+    if (
+      labelLower.includes('assign regulation to students')
+      || labelLower.includes('assign regulation for students')
+      || labelLower.includes('student regulation assignment')
+      || (
+        labelLower.includes('assign')
+        && labelLower.includes('regulation')
+        && labelLower.includes('student')
+      )
+      || hrefLower.includes('/subject-mapping/assign-regulation-to-students')
+      || hrefLower.includes('/assign-regulation-to-students')
+    ) {
+      return '/academics/subject-mapping/assign-regulation-to-students'
+    }
+    if (
+      labelLower.includes('academic batches of student') ||
+      labelLower.includes('academic batches') ||
+      labelLower.includes('acadamic batches') ||
+      hrefLower.includes('/academics/academic-batches')
+    ) {
+      return '/academics/academic-batches'
+    }
+    if (
+      labelLower.includes('modify elective batch') ||
+      labelLower.includes('modify elective batches') ||
+      (labelLower.includes('modify') && labelLower.includes('elective') && labelLower.includes('batch')) ||
+      hrefLower.includes('/academics/modify-elective-batches')
+    ) {
+      return '/academics/modify-elective-batches'
+    }
+    if (
+      labelLower.includes('modify student section') ||
+      labelLower.includes('modify students section') ||
+      (labelLower.includes('modify') && labelLower.includes('student') && labelLower.includes('section')) ||
+      hrefLower.includes('/academics/modify-student-section')
+    ) {
+      return '/academics/modify-student-section'
+    }
+    if (
+      labelLower.includes('assign students to section')
+      || labelLower.includes('assign student to section')
+      || labelLower.includes('student section assignment')
+      || (
+        labelLower.includes('assign')
+        && labelLower.includes('student')
+        && labelLower.includes('section')
+      )
+      || hrefLower.includes('/subject-mapping/assign-students-to-section')
+      || hrefLower.includes('/assign-students-to-section')
+    ) {
+      return '/academics/subject-mapping/assign-students-to-section'
+    }
+    if (
+      labelLower.includes('assign students to lab batches')
+      || labelLower.includes('assign students to lab batch')
+      || labelLower.includes('assign student to lab batches')
+      || labelLower.includes('student lab batch assignment')
+      || (
+        labelLower.includes('assign')
+        && labelLower.includes('student')
+        && labelLower.includes('lab')
+        && labelLower.includes('batch')
+      )
+      || hrefLower.includes('/subject-mapping/assign-students-to-lab-batches')
+      || hrefLower.includes('/assign-students-to-lab-batches')
+    ) {
+      return '/academics/subject-mapping/assign-students-to-lab-batches'
+    }
+    if (
+      labelLower.includes('assign subject books')
+      || labelLower.includes('subject books assign')
+      || labelLower.includes('subject book assign')
+      || hrefLower.includes('/subject-mapping/assign-subject-books')
+      || hrefLower.includes('/subject-mapping/subject-books')
+    ) {
+      return '/academics/subject-mapping/assign-subject-books'
+    }
+    if (
+      labelLower.includes('add subject units')
+      || labelLower.includes('subjects units')
+      || labelLower.includes('subject units')
+      || hrefLower.includes('/subject-mapping/add-subject-units')
+    ) {
+      return '/academics/subject-mapping/add-subject-units'
+    }
+    if (
+      labelLower.includes('staff subject unmapping')
+      || labelLower.includes('staff subject un-mapping')
+      || labelLower.includes('staff subject disassociation')
+      || hrefLower.includes('/subject-mapping/staff-subject-unmapping')
+      || hrefLower.includes('/subject-mapping/staff-subject-disassociation')
+    ) {
+      return '/academics/subject-mapping/staff-subject-unmapping'
+    }
+    if (
+      labelLower.includes('staff subject mapping')
+      || labelLower.includes('staff subject association')
+      || hrefLower.includes('/subject-mapping/course-group-subjects-list')
+      || hrefLower.includes('/subject-mapping/staff-subject-mapping')
+      || hrefLower.includes('/subject-mapping/staff-subject-association')
+    ) {
+      return '/academics/subject-mapping/course-group-subjects-list'
+    }
+    if (
+      labelLower.includes('view semester subjects')
+      || labelLower.includes('view semestr subjects')
+      || (
+        hrefLower.includes('/college-curriculum/course-year-subjects')
+        && !labelLower.includes('staff subject')
+      )
+    ) {
+      return '/academics/college-curriculum/course-year-subjects'
     }
     if (labelLower === 'college' || labelLower === 'colleges') {
       return '/admin/colleges'
@@ -1209,6 +1422,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const modulePathActive = (() => {
     const label = (item.label ?? '').toLowerCase().trim()
     if (label === 'admin') return normPathname.startsWith('/admin/')
+    if (label === 'academics') return normPathname.startsWith('/academics/')
     if (label.includes('excel bulk uploads') || label.includes('bulk uploads')) {
       return normPathname.startsWith('/admin/bulk-uploads/')
     }
