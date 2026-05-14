@@ -72,7 +72,7 @@ function mergeRowsAfterSave(server: LocalUnitRow[], saved: AnyRow, editingPk: nu
       }
       return r
     })
-    if (!hit) return order([...server, saved])
+    if (!hit) return order([...server, { ...saved, __dirty: false, __rowKey: makeRowKey() } as LocalUnitRow])
     return order(mapped)
   }
 
@@ -85,7 +85,7 @@ function mergeRowsAfterSave(server: LocalUnitRow[], saved: AnyRow, editingPk: nu
       }
       return r
     })
-    if (!hit) return order([...server, saved])
+    if (!hit) return order([...server, { ...saved, __dirty: false, __rowKey: makeRowKey() } as LocalUnitRow])
     return order(mapped)
   }
 

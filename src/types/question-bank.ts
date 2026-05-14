@@ -35,6 +35,8 @@ export interface Assessment {
   assessmentDescription: string
   isActive: boolean
   isForQuestionbank: boolean
+  isForPractice?: boolean
+  isCertification?: boolean
   isPublic: boolean
   isOnlineCourse: boolean
   onlineCourseId: number | null
@@ -45,6 +47,11 @@ export interface Assessment {
   userId: number
   preparedbyUserId: number
   createdDt?: string
+  duration?: string | null
+  noOfMaxAttempts?: number | null
+  totalQuestions?: number | null
+  minMarksToPass?: number | null
+  minMarksPercentage?: number | null
   reason?: string
   assessmentQuestionDTOs: AssessmentQuestion[]
 }

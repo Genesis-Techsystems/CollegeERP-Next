@@ -27,6 +27,7 @@ import {
 } from '@/services/exam-master'
 import { GM_CODES } from '@/config/constants/ui'
 import { PageContainer } from '@/components/layout'
+import { scheduleNavigation } from '@/lib/schedule-navigation'
 
 function PageSkeleton() {
   return (
@@ -54,8 +55,9 @@ function ExamMasterDetailsInner() {
 
   useEffect(() => {
     if (!examId || Number.isNaN(examId)) {
-      router.replace('/admin-examination-management/admin-exam-masters/exam-master')
-      return
+      return scheduleNavigation(() => {
+        router.replace('/admin-examination-management/admin-exam-masters/exam-master')
+      })
     }
     const stored = sessionStorage.getItem('examMasterDetails')
     if (stored) {

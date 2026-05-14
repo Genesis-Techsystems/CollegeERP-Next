@@ -663,6 +663,90 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
     if (lower.includes('books bulk upload') || lower.includes('book bulk upload')) {
       return '/admin/bulk-uploads/books-bulk-upload'
     }
+    if (lower.includes('send login detail')) {
+      return '/email-sms/send-login-details'
+    }
+    if (
+      lower.includes('email log') ||
+      lower.includes('email-log') ||
+      lower.includes('emaillog') ||
+      lower.includes('email logs')
+    ) {
+      return '/email-sms/email-logs'
+    }
+    if (
+      (lower.includes('principal') && lower.includes('staff') && lower.includes('admin') && lower.includes('email')) ||
+      lower.includes('principal-staff-to-admin') ||
+      lower.includes('principal and staff to admin')
+    ) {
+      return '/email-sms/principal-staff-to-admin-email'
+    }
+    if (
+      lower.includes('send email to admin') ||
+      lower.includes('principal-to-staff-email') ||
+      (lower.includes('email to admin') &&
+        !lower.includes('principal') &&
+        !lower.includes('staff') &&
+        !lower.includes('department'))
+    ) {
+      return '/email-sms/principal-to-staff-email'
+    }
+    if (
+      lower.includes('staff-to-student-email') ||
+      (lower.includes('staff') && lower.includes('student') && lower.includes('email')) ||
+      (lower.includes('send email') && lower.includes('student') && !lower.includes('sms') && !lower.includes('login'))
+    ) {
+      return '/email-sms/staff-to-student-email'
+    }
+    if (
+      lower.includes('depart-wise') ||
+      lower.includes('dept-wise') ||
+      lower.includes('department-wise-email') ||
+      lower.includes('department-wise-emial') ||
+      (lower.includes('department') && lower.includes('wise') && lower.includes('email'))
+    ) {
+      return '/email-sms/department-wise-email'
+    }
+    if (
+      lower.includes('principal-to-dept') ||
+      lower.includes('principal-to-dpt') ||
+      (lower.includes('send email') &&
+        lower.includes('department') &&
+        lower.includes('email') &&
+        !lower.includes('wise') &&
+        !lower.includes('student'))
+    ) {
+      return '/email-sms/principal-to-dept-email'
+    }
+    if (
+      (lower.includes('absent') || lower.includes('absentee'))
+      && (lower.includes('sms') || lower.includes('message'))
+    ) {
+      return '/email-sms/send-sms-to-absents'
+    }
+    if (
+      lower.includes('staff')
+      && lower.includes('sms')
+      && (lower.includes('attendance') || lower.includes('not marked') || lower.includes('not taken'))
+      && !lower.includes('absent')
+      && !lower.includes('absentee')
+    ) {
+      return '/email-sms/send-sms-to-staff-attendance'
+    }
+    if (
+      (lower.includes('send sms') && lower.includes('student') && !lower.includes('staff') && !lower.includes('absent'))
+      || lower.includes('send-student-sms')
+      || lower.includes('send sms to student')
+    ) {
+      return '/email-sms/send-sms-to-students'
+    }
+    if (
+      lower.includes('question bank')
+      && !lower.includes('exam question')
+      && !lower.includes('question paper')
+    ) {
+      return '/assessments/question-bank'
+    }
     return null
   }
 
@@ -917,6 +1001,95 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       hrefLower.includes('/excel-bulk-uploads/temparory-staging-table-bulk-upload')
     ) {
       return '/admin/bulk-uploads/temporary-staging-tables-bulk-upload'
+    }
+    if (
+      hrefLower.includes('send-student-sms') ||
+      hrefLower.includes('send-sms-to-student') ||
+      (labelLower.includes('send sms') && labelLower.includes('student') && !labelLower.includes('staff') && !labelLower.includes('absent'))
+    ) {
+      return '/email-sms/send-sms-to-students'
+    }
+    if (
+      hrefLower.includes('send-absent-sms') ||
+      hrefLower.includes('send-sms-to-absent') ||
+      ((labelLower.includes('absent') || labelLower.includes('absentee')) && labelLower.includes('sms'))
+    ) {
+      return '/email-sms/send-sms-to-absents'
+    }
+    if (
+      hrefLower.includes('send-staff-sms') ||
+      hrefLower.includes('send-sms-to-staff-attendance') ||
+      (labelLower.includes('staff') &&
+        labelLower.includes('sms') &&
+        (labelLower.includes('attendance') || labelLower.includes('not marked') || labelLower.includes('not taken')))
+    ) {
+      return '/email-sms/send-sms-to-staff-attendance'
+    }
+    if (hrefLower.includes('send-login-detail') || labelLower.includes('send login detail')) {
+      return '/email-sms/send-login-details'
+    }
+    if (
+      hrefLower.includes('email-log') ||
+      hrefLower.includes('emaillog') ||
+      labelLower.includes('email log') ||
+      labelLower.includes('email logs')
+    ) {
+      return '/email-sms/email-logs'
+    }
+    if (
+      hrefLower.includes('principal-staff-to-admin-email') ||
+      hrefLower.includes('principal-staff-to-admin') ||
+      hrefLower.includes('principal-and-staff-to-admin') ||
+      (labelLower.includes('principal') &&
+        labelLower.includes('staff') &&
+        labelLower.includes('admin') &&
+        labelLower.includes('email'))
+    ) {
+      return '/email-sms/principal-staff-to-admin-email'
+    }
+    if (
+      hrefLower.includes('principal-to-staff-email') ||
+      hrefLower.includes('send-email-to-admin') ||
+      labelLower.includes('send email to admin')
+    ) {
+      return '/email-sms/principal-to-staff-email'
+    }
+    if (
+      hrefLower.includes('staff-to-student-email') ||
+      (labelLower.includes('staff') && labelLower.includes('student') && labelLower.includes('email')) ||
+      (labelLower.includes('send email') &&
+        labelLower.includes('student') &&
+        !labelLower.includes('sms') &&
+        !labelLower.includes('login'))
+    ) {
+      return '/email-sms/staff-to-student-email'
+    }
+    if (
+      hrefLower.includes('depart-wise-email') ||
+      hrefLower.includes('dept-wise-email') ||
+      hrefLower.includes('department-wise-email') ||
+      hrefLower.includes('department-wise-emial')
+    ) {
+      return '/email-sms/department-wise-email'
+    }
+    if (hrefLower.includes('principal-to-dept-email') || hrefLower.includes('principal-to-dpt-email')) {
+      return '/email-sms/principal-to-dept-email'
+    }
+    if (labelLower.includes('department') && labelLower.includes('wise') && labelLower.includes('email')) {
+      return '/email-sms/department-wise-email'
+    }
+    if (
+      (labelLower.includes('principal') &&
+        labelLower.includes('department') &&
+        labelLower.includes('email') &&
+        !labelLower.includes('wise')) ||
+      (labelLower.includes('send email') &&
+        labelLower.includes('department') &&
+        labelLower.includes('email') &&
+        !labelLower.includes('wise') &&
+        !labelLower.includes('student'))
+    ) {
+      return '/email-sms/principal-to-dept-email'
     }
 
     const masterSettingsRoute = mapLegacyMasterSettingsHref(item.href)
@@ -1412,6 +1585,86 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return '/admin-student-information-system/student-cc-activities'
     }
+    if (
+      labelLower.includes('general user accounts')
+      || labelLower.includes('general users accounts')
+      || hrefLower.includes('/admin-user-management/general-users-accounts')
+      || hrefLower.includes('/admin-user-management/general-user-accounts')
+    ) {
+      return '/user-management/general-user-accounts'
+    }
+    if (
+      labelLower.includes('staff accounts')
+      || labelLower.includes('staff account')
+      || hrefLower.includes('/admin-user-management/staff-accounts')
+      || hrefLower.includes('/admin-user-management/staff-account')
+    ) {
+      return '/user-management/staff-accounts'
+    }
+    if (
+      labelLower.includes('examination accounts')
+      || labelLower.includes('examination account')
+      || labelLower.includes('exam controller account')
+      || hrefLower.includes('/admin-user-management/examination-accounts')
+      || hrefLower.includes('/admin-user-management/examination-account')
+    ) {
+      return '/user-management/examination-accounts'
+    }
+    if (
+      labelLower.includes('parent accounts')
+      || labelLower.includes('parent account')
+      || hrefLower.includes('/admin-user-management/parent-accounts')
+      || hrefLower.includes('/admin-user-management/parent/manage')
+    ) {
+      if (hrefLower.includes('add-sibling')) {
+        return '/user-management/parent-accounts/add-sibling'
+      }
+      if (hrefLower.includes('parent/manage') || labelLower.includes('add parent')) {
+        return '/user-management/parent-accounts/manage'
+      }
+      return '/user-management/parent-accounts'
+    }
+    if (
+      labelLower.includes('student accounts')
+      || labelLower.includes('student account')
+      || labelLower.includes('add student')
+      || hrefLower.includes('/admin-user-management/student-accounts')
+      || hrefLower.includes('/admin-user-management/student-account')
+      || hrefLower.includes('/admin-user-management/student/manage')
+      || hrefLower.includes('/user-management/student/manage')
+    ) {
+      if (hrefLower.includes('student/manage') || labelLower.includes('add student')) {
+        return '/user-management/student-accounts?add=1'
+      }
+      return '/user-management/student-accounts'
+    }
+    // Assessments — Question Bank (Angular: `question-bank-list`; module folder `assissments` typo).
+    if (
+      hrefLower.includes('question-bank-list')
+      || hrefLower.includes('/apps/assissments/')
+      || (hrefLower.includes('assissments') && hrefLower.includes('question-bank'))
+      || (hrefLower.includes('/assessments/question-bank') && !hrefLower.includes('add-question'))
+      || (
+        labelLower.includes('question bank')
+        && !labelLower.includes('exam question')
+        && !labelLower.includes('question paper')
+        && !hrefLower.includes('admin-examination-management')
+        && !hrefLower.includes('evaluation-process')
+      )
+    ) {
+      return '/assessments/question-bank'
+    }
+    if (hrefLower.includes('/assessments/question-bank/add-question')) {
+      return '/assessments/question-bank/add-question'
+    }
+    if (
+      hrefLower.includes('/assessments/test')
+      || hrefLower.includes('/apps/assissments/test')
+      || (labelLower === 'test' && !hrefLower.includes('question-paper'))
+      || labelLower.includes('test list')
+    ) {
+      return '/assessments/test'
+    }
     return null
   })()
 
@@ -1428,7 +1681,13 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     }
     if (label.includes('affiliated')) return normPathname.startsWith('/affiliated-colleges/')
     if (label.includes('student information')) return normPathname.startsWith('/admin-student-information-system/')
+    if (label.includes('user management')) return normPathname.startsWith('/user-management/')
+    if (label.trim() === 'security') return normPathname.startsWith('/user-management/')
+    if ((label.includes('email') && label.includes('sms')) || label.includes('email-sms')) {
+      return normPathname.startsWith('/email-sms/')
+    }
     if (label.includes('exam')) return normPathname.startsWith('/admin-examination-management/')
+    if (label.includes('assessment')) return normPathname.startsWith('/assessments/')
     return false
   })()
   const isSelfActive =

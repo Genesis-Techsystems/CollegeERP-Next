@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { ColDef } from 'ag-grid-community'
 import { Filter, Plus, Search, Target } from 'lucide-react'
 import { FormModal } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
+import { DataTable } from '@/common/components/table'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,6 +60,7 @@ export default function CourseOutcomesPage() {
   const [coDescription, setCoDescription] = useState('')
   const [coActive, setCoActive] = useState(true)
   const [poCategoryRows, setPoCategoryRows] = useState<AnyRow[]>([])
+  const [searchText, setSearchText] = useState('')
 
   useEffect(() => {
     const orgId = Number(localStorage.getItem('organizationId') ?? 0)
@@ -134,6 +137,28 @@ export default function CourseOutcomesPage() {
       { value: 'PO12', label: 'Life-long Learning' },
     ]
   }, [poCategoryRows])
+  const tableColumns = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      { headerName: 'No.', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70, flex: 0 },
+      { field: 'code', headerName: 'Code', minWidth: 120 },
+      { field: 'category', headerName: 'Program Outcomes Category', minWidth: 220, flex: 1 },
+      { field: 'description', headerName: 'Description', minWidth: 260, flex: 1 },
+      { field: 'credits', headerName: 'Credits', width: 100, flex: 0 },
+      { field: 'actions', headerName: 'Actions', width: 120, flex: 0 },
+    ],
+    [],
+  )
+  const tableRows = useMemo<AnyRow[]>(() => [], [])
+  const filteredRows = useMemo(
+    () =>
+      !searchText.trim()
+        ? tableRows
+        : tableRows.filter((r) =>
+            [r.code, r.category, r.description, r.credits]
+              .some((v) => String(v ?? '').toLowerCase().includes(searchText.toLowerCase())),
+          ),
+    [searchText, tableRows],
+  )
 
   useEffect(() => { if (!collegeId && colleges.length) setCollegeId(n(colleges[0].fk_college_id)) }, [colleges, collegeId])
   useEffect(() => { setCourseId(null); setCourseGroupId(null); setCourseYearId(null); setAcademicYearId(null); setRegulationId(null) }, [collegeId])
@@ -211,35 +236,29 @@ export default function CourseOutcomesPage() {
           <div className="p-3 flex items-center justify-between gap-3 border-b">
             <div className="relative w-full max-w-[280px]">
               <Search className="h-4 w-4 text-muted-foreground absolute left-2 top-2" />
-              <input
-                type="text"
-                placeholder="Search"
-                className="h-8 w-full rounded border border-input bg-background pl-8 pr-2 text-xs"
-              />
+              <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Search" className="h-8 w-full rounded border border-input bg-background pl-8 pr-2 text-xs" />
             </div>
-            <Button type="button" className="h-8 rounded-full px-4 text-xs inline-flex items-center gap-1" onClick={onOpenAddModal}>
-              <Plus className="h-3.5 w-3.5" />
-              Add Program Outcomes
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" className="h-[30px] px-3 text-[12px]">
+                Columns
+              </Button>
+              <Button type="button" variant="outline" className="h-[30px] px-3 text-[12px]">
+                Export PDF
+              </Button>
+              <Button type="button" className="h-[30px] rounded-full px-4 text-xs inline-flex items-center gap-1" onClick={onOpenAddModal}>
+                <Plus className="h-3.5 w-3.5" />
+                Add Program Outcomes
+              </Button>
+            </div>
           </div>
-          <div className="overflow-auto">
-            <table className="w-full text-xs">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-2 py-2 text-left">No.</th>
-                  <th className="px-2 py-2 text-left">Code</th>
-                  <th className="px-2 py-2 text-left">Program Outcomes Category</th>
-                  <th className="px-2 py-2 text-left">Description</th>
-                  <th className="px-2 py-2 text-left">Credits</th>
-                  <th className="px-2 py-2 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-t">
-                  <td className="px-2 py-3 text-muted-foreground" colSpan={6}>No records found.</td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="overflow-hidden">
+            <DataTable
+              rowData={filteredRows}
+              columnDefs={tableColumns}
+              loading={false}
+              pagination
+              toolbar={false}
+            />
           </div>
         </div>
       ) : null}
@@ -249,7 +268,7 @@ export default function CourseOutcomesPage() {
         title="Add Program Outcomes"
         titleClassName="text-teal-600"
         onSubmit={onSaveAdd}
-        submitText="Save"
+        submitLabel="Save"
         cancelLabel="Cancel"
         size="xl"
         contentClassName="sm:max-w-4xl max-h-none overflow-visible [&_button[type='submit']]:bg-teal-600 [&_button[type='submit']]:hover:bg-teal-700 [&_button[type='submit']]:px-6 [&_button[type='submit']]:h-10 [&_button[type='submit']]:shadow-sm [&_button[type='button']]:h-10 [&_button[type='button']]:px-6"

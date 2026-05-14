@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Filter, List, Pencil } from 'lucide-react'
+import { DataTable } from '@/common/components/table'
+import { StatusBadge } from '@/common/components/data-display'
 import { FormModal } from '@/common/components/feedback'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select } from '@/common/components/select'
@@ -129,6 +132,47 @@ export default function AcademicBatchesPage() {
       return course.includes(q) || fromYear.includes(q) || toYear.includes(q) || reason.includes(q)
     })
   }, [studentHistoryRows, tableSearch])
+  const historyColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      { headerName: 'SI.No', width: 70, flex: 0, valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1 },
+      { headerName: 'Course', minWidth: 170, valueGetter: (p) => s(p.data?.courseName ?? p.data?.course_name ?? p.data?.courseCode ?? p.data?.course_code) || '-' },
+      { headerName: 'From Course Year', minWidth: 150, valueGetter: (p) => s(p.data?.fromCourseYearName ?? p.data?.from_course_year_name ?? p.data?.courseYearName) || '-' },
+      { headerName: 'From Section', minWidth: 120, valueGetter: (p) => sectionText((p.data ?? {}) as AnyRow, 'from') || '-' },
+      { headerName: 'To Course Year', minWidth: 150, valueGetter: (p) => s(p.data?.toCourseYearName ?? p.data?.to_course_year_name ?? p.data?.courseYearName) || '-' },
+      { headerName: 'To Section', minWidth: 120, valueGetter: (p) => sectionText((p.data ?? {}) as AnyRow, 'to') || '-' },
+      { headerName: 'From Date', minWidth: 170, valueGetter: (p) => formatDateText(p.data?.fromDate ?? p.data?.from_date) },
+      { headerName: 'To Date', minWidth: 170, valueGetter: (p) => formatDateText(p.data?.toDate ?? p.data?.to_date) },
+      {
+        headerName: 'Student Status',
+        minWidth: 130,
+        cellRenderer: (p: ICellRendererParams<AnyRow>) => (
+          <span className="font-semibold text-green-700">
+            {s(p.data?.studentStatusCode ?? p.data?.student_status_code ?? p.data?.studentStatus) || '-'}
+          </span>
+        ),
+      },
+      {
+        headerName: 'Status',
+        width: 100,
+        flex: 0,
+        cellRenderer: (p: ICellRendererParams<AnyRow>) => (
+          <StatusBadge status={p.data?.isActive !== false} />
+        ),
+      },
+      { headerName: 'Reason', minWidth: 130, valueGetter: (p) => s(p.data?.reason ?? p.data?.changeReason) || '-' },
+      {
+        headerName: 'Actions',
+        width: 80,
+        flex: 0,
+        cellRenderer: (p: ICellRendererParams<AnyRow>) => (
+          <button type="button" className="text-primary" aria-label="Edit record" onClick={() => openEdit((p.data ?? {}) as AnyRow)}>
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        ),
+      },
+    ],
+    [],
+  )
 
   function sectionText(row: AnyRow, kind: 'from' | 'to') {
     return kind === 'from'
@@ -371,52 +415,13 @@ export default function AcademicBatchesPage() {
               <Input value={tableSearch} onChange={(e) => setTableSearch(e.target.value)} placeholder="Search" className="h-8" />
             </div>
             <div className="rounded border overflow-hidden">
-              <table className="w-full text-xs">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-2 py-2 text-left w-14">SI.No</th>
-                    <th className="px-2 py-2 text-left">Course</th>
-                    <th className="px-2 py-2 text-left">From Course Year</th>
-                    <th className="px-2 py-2 text-left">From Section</th>
-                    <th className="px-2 py-2 text-left">To Course Year</th>
-                    <th className="px-2 py-2 text-left">To Section</th>
-                    <th className="px-2 py-2 text-left">From Date</th>
-                    <th className="px-2 py-2 text-left">To Date</th>
-                    <th className="px-2 py-2 text-left">Student Status</th>
-                    <th className="px-2 py-2 text-left">Status</th>
-                    <th className="px-2 py-2 text-left">Reason</th>
-                    <th className="px-2 py-2 text-left w-16">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loadingHistory ? (
-                    <tr><td className="px-2 py-3 text-muted-foreground" colSpan={12}>Loading records...</td></tr>
-                  ) : filteredHistoryRows.length === 0 ? (
-                    <tr><td className="px-2 py-3 text-muted-foreground" colSpan={12}>No records found</td></tr>
-                  ) : (
-                    filteredHistoryRows.map((row, idx) => (
-                      <tr key={`${n(row.studentAcademicbatchId ?? row.studentAcademicBatchId) || idx}`} className="border-t">
-                        <td className="px-2 py-2">{idx + 1}</td>
-                        <td className="px-2 py-2">{s(row.courseName ?? row.course_name ?? row.courseCode ?? row.course_code) || '-'}</td>
-                        <td className="px-2 py-2">{s(row.fromCourseYearName ?? row.from_course_year_name ?? row.courseYearName) || '-'}</td>
-                        <td className="px-2 py-2">{sectionText(row, 'from') || '-'}</td>
-                        <td className="px-2 py-2">{s(row.toCourseYearName ?? row.to_course_year_name ?? row.courseYearName) || '-'}</td>
-                        <td className="px-2 py-2">{sectionText(row, 'to') || '-'}</td>
-                        <td className="px-2 py-2">{formatDateText(row.fromDate ?? row.from_date)}</td>
-                        <td className="px-2 py-2">{formatDateText(row.toDate ?? row.to_date)}</td>
-                        <td className="px-2 py-2 text-green-700 font-semibold">{s(row.studentStatusCode ?? row.student_status_code ?? row.studentStatus) || '-'}</td>
-                        <td className="px-2 py-2">{row.isActive === false ? 'Inactive' : 'Active'}</td>
-                        <td className="px-2 py-2">{s(row.reason ?? row.changeReason) || '-'}</td>
-                        <td className="px-2 py-2">
-                          <button type="button" className="text-primary" aria-label="Edit record" onClick={() => openEdit(row)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+              <DataTable
+                rowData={filteredHistoryRows}
+                columnDefs={historyColumnDefs}
+                loading={loadingHistory}
+                pagination
+                toolbar={false}
+              />
             </div>
           </div>
         </div>
@@ -426,7 +431,7 @@ export default function AcademicBatchesPage() {
         onClose={() => setEditOpen(false)}
         title="Edit Academic Batch"
         onSubmit={() => { void onSaveEdit() }}
-        submitText={savingEdit ? 'Saving...' : 'Save'}
+        submitLabel={savingEdit ? 'Saving...' : 'Save'}
         size="xl"
         contentClassName="sm:max-w-5xl"
         titleClassName="text-teal-600"

@@ -24,13 +24,6 @@ import {
 } from 'ag-grid-community'
 import { Download, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { DataTableToolbar } from './DataTableToolbar'
 
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -240,7 +233,10 @@ export function DataTable<T>({
   }, [rowData, searchQuery])
 
   // ── Server-side pagination state ─────────────────────────────────────────────
-  const [serverPageSize, setServerPageSize] = useState<PageSizeOption>(10)
+  const [serverPageSize, setServerPageSize] = useState<PageSizeOption>(() => {
+    const n = Number(paginationPageSize)
+    return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n) ? (n as PageSizeOption) : 10
+  })
 
   const defaultColDef = useMemo<ColDef>(() => DEFAULT_COL_DEF, [])
 
@@ -432,18 +428,18 @@ export function DataTable<T>({
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="whitespace-nowrap">Rows per page</span>
-              <Select value={String(clientPageSize)} onValueChange={handleClientPageSizeChange}>
-                <SelectTrigger className="h-7 w-20 text-[11px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <SelectItem key={size} value={String(size)}>
-                      {size}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                aria-label="Rows per page"
+                className="h-7 w-20 rounded-md border border-input bg-background px-2 text-[11px]"
+                value={String(clientPageSize)}
+                onChange={(e) => handleClientPageSizeChange(e.target.value)}
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={String(size)}>
+                    {size}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <span className="whitespace-nowrap">
@@ -487,18 +483,18 @@ export function DataTable<T>({
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="whitespace-nowrap">Rows per page</span>
-              <Select value={String(serverPageSize)} onValueChange={handlePageSizeChange}>
-                <SelectTrigger className="h-7 w-20 text-[11px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <SelectItem key={size} value={String(size)}>
-                      {size}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                aria-label="Rows per page"
+                className="h-7 w-20 rounded-md border border-input bg-background px-2 text-[11px]"
+                value={String(serverPageSize)}
+                onChange={(e) => handlePageSizeChange(e.target.value)}
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={String(size)}>
+                    {size}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <span className="whitespace-nowrap">

@@ -1,8 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import type { ColDef } from 'ag-grid-community'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select } from '@/common/components/select'
+import { DataTable } from '@/common/components/table'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useSessionContext } from '@/context/SessionContext'
@@ -64,6 +66,17 @@ export default function ModifySubjectGroupsPage() {
         label: pickText(row, ['group_code', 'groupCode', 'group_name', 'groupName']) || 'Course Group',
       })),
     [groupRows],
+  )
+  const studentDetailsRows = useMemo(() => (student ? [student] : []), [student])
+  const studentDetailsColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      { headerName: 'SI.No', width: 80, flex: 0, valueGetter: () => 1 },
+      { headerName: 'Hallticket No.', minWidth: 160, valueGetter: (p) => pickText(p.data, ['hallticketNumber', 'rollNumber']) || '-' },
+      { headerName: 'Student Name', minWidth: 220, valueGetter: (p) => pickText(p.data, ['firstName', 'studentName']) || '-' },
+      { headerName: 'Course Name', minWidth: 220, valueGetter: (p) => pickText(p.data, ['courseCode', 'courseName']) || '-' },
+      { headerName: 'Course Group', minWidth: 180, valueGetter: (p) => pickText(p.data, ['groupCode', 'groupName']) || '-' },
+    ],
+    [],
   )
 
   async function onSearchStudents(term: string) {
@@ -179,26 +192,12 @@ export default function ModifySubjectGroupsPage() {
             </div>
             <div className="p-3 overflow-auto flex-1">
               <div className="rounded-md border border-slate-200 overflow-hidden">
-                <table className="w-full text-[12px]">
-                  <thead className="bg-[#f8fafc]">
-                  <tr>
-                    <th className="px-2 py-1.5 text-left text-slate-800 font-semibold bg-[#f7f7f2] border-b border-r border-slate-100">SI.No</th>
-                    <th className="px-2 py-1.5 text-left text-slate-800 font-semibold bg-[#f7f7f2] border-b border-r border-slate-100">Hallticket No.</th>
-                    <th className="px-2 py-1.5 text-left text-slate-800 font-semibold bg-[#f7f7f2] border-b border-r border-slate-100">Student Name</th>
-                    <th className="px-2 py-1.5 text-left text-slate-800 font-semibold bg-[#f7f7f2] border-b border-r border-slate-100">Course Name</th>
-                    <th className="px-2 py-1.5 text-left text-slate-800 font-semibold bg-[#f7f7f2] border-b border-slate-100">Course Group</th>
-                  </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="bg-white">
-                      <td className="px-2 py-1.5 border-r border-slate-100">1</td>
-                      <td className="px-2 py-1.5 border-r border-slate-100">{pickText(student, ['hallticketNumber', 'rollNumber']) || '-'}</td>
-                      <td className="px-2 py-1.5 border-r border-slate-100">{pickText(student, ['firstName', 'studentName']) || '-'}</td>
-                      <td className="px-2 py-1.5 border-r border-slate-100">{pickText(student, ['courseCode', 'courseName']) || '-'}</td>
-                      <td className="px-2 py-1.5">{pickText(student, ['groupCode', 'groupName']) || '-'}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                <DataTable
+                  rowData={studentDetailsRows}
+                  columnDefs={studentDetailsColumnDefs}
+                  toolbar={false}
+                  pagination={false}
+                />
               </div>
             </div>
           </div>

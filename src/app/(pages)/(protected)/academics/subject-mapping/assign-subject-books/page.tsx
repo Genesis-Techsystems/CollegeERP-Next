@@ -388,63 +388,71 @@ export default function AssignSubjectBooksPage() {
   const pageStart = (safePage - 1) * booksPageSize
   const pageEnd = Math.min(pageStart + booksPageSize, totalBooks)
 
-  const booksTableRows = useMemo(() => {
-    if (booksLoading) return <tr><td className="p-3 text-muted-foreground" colSpan={7}>Loading books...</td></tr>
-    if (books.length === 0) return <tr><td className="p-3 text-muted-foreground" colSpan={7}>No books found.</td></tr>
-    return books.map((book, index) => {
-      const id = getBookId(book)
-      const title = getBookTitle(book)
-      const code = getBookCode(book)
-      const author = getBookAuthor(book)
-      const bookNumber = getBookNumber(book)
-      const isbn = getIsbn(book) || getBookCode(book)
-      const flags = bookTypeById[id] ?? extractBookFlags(book)
-      return (
-        <tr key={`${id || index}`} className="border-b">
-          <td className="px-2 py-1 align-top">
-            <input
-              type="checkbox"
-              checked={selectedBookId === id}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setSelectedBookId(id)
-                  setBookTitle(title)
-                  setBookCode(code)
-                  setAuthorName(author)
-                } else {
-                  setSelectedBookId(null)
-                }
-              }}
-            />
-          </td>
-          <td className="px-2 py-1 leading-4">{bookNumber || '-'}</td>
-          <td className="px-2 py-1 leading-4">{title || '-'}</td>
-          <td className="px-2 py-1 leading-4">{isbn || '-'}</td>
-          <td className="px-2 py-1 text-center">
-            <input
-              type="checkbox"
-              checked={flags.textBook}
-              onChange={(e) => updateBookTypeFlag(id, flags, 'textBook', e.target.checked)}
-            />
-          </td>
-          <td className="px-2 py-1 text-center">
-            <input
-              type="checkbox"
-              checked={flags.onlineCourse}
-              onChange={(e) => updateBookTypeFlag(id, flags, 'onlineCourse', e.target.checked)}
-            />
-          </td>
-          <td className="px-2 py-1 text-center">
-            <input
-              type="checkbox"
-              checked={flags.reference}
-              onChange={(e) => updateBookTypeFlag(id, flags, 'reference', e.target.checked)}
-            />
-          </td>
-        </tr>
-      )
-    })
-  }, [booksLoading, books, selectedBookId, bookTypeById])
+  const bookModalColumnDefs = useMemo<ColDef<AnyRow>[]>(() => [
+    {
+      headerName: '#',
+      width: 70,
+      flex: 0,
+      cellRenderer: (p: any) => {
+        const id = getBookId(p.data ?? {})
+        const title = getBookTitle(p.data ?? {})
+        const code = getBookCode(p.data ?? {})
+        const author = getBookAuthor(p.data ?? {})
+        return (
+          <input
+            type="checkbox"
+            checked={selectedBookId === id}
+            onChange={(e) => {
+              if (e.target.checked) {
+                setSelectedBookId(id)
+                setBookTitle(title)
+                setBookCode(code)
+                setAuthorName(author)
+              } else {
+                setSelectedBookId(null)
+              }
+            }}
+          />
+        )
+      },
+    },
+    { headerName: 'Book Number', minWidth: 140, valueGetter: (p: any) => getBookNumber(p.data ?? {}) || '-' },
+    { headerName: 'Title', minWidth: 280, flex: 1.2, valueGetter: (p: any) => getBookTitle(p.data ?? {}) || '-' },
+    { headerName: 'ISBN', minWidth: 140, valueGetter: (p: any) => getIsbn(p.data ?? {}) || getBookCode(p.data ?? {}) || '-' },
+    {
+      headerName: 'TextBook',
+      minWidth: 120,
+      maxWidth: 130,
+      flex: 0,
+      cellRenderer: (p: any) => {
+        const id = getBookId(p.data ?? {})
+        const flags = bookTypeById[id] ?? extractBookFlags(p.data ?? {})
+        return <input type="checkbox" checked={flags.textBook} onChange={(e) => updateBookTypeFlag(id, flags, 'textBook', e.target.checked)} />
+      },
+    },
+    {
+      headerName: 'Online Course',
+      minWidth: 140,
+      maxWidth: 150,
+      flex: 0,
+      cellRenderer: (p: any) => {
+        const id = getBookId(p.data ?? {})
+        const flags = bookTypeById[id] ?? extractBookFlags(p.data ?? {})
+        return <input type="checkbox" checked={flags.onlineCourse} onChange={(e) => updateBookTypeFlag(id, flags, 'onlineCourse', e.target.checked)} />
+      },
+    },
+    {
+      headerName: 'Reference',
+      minWidth: 120,
+      maxWidth: 130,
+      flex: 0,
+      cellRenderer: (p: any) => {
+        const id = getBookId(p.data ?? {})
+        const flags = bookTypeById[id] ?? extractBookFlags(p.data ?? {})
+        return <input type="checkbox" checked={flags.reference} onChange={(e) => updateBookTypeFlag(id, flags, 'reference', e.target.checked)} />
+      },
+    },
+  ], [selectedBookId, bookTypeById])
 
   return (
     <PageContainer>
@@ -483,22 +491,13 @@ export default function AssignSubjectBooksPage() {
               className="h-8 text-xs"
             />
             <div className="max-h-[330px] overflow-auto rounded-md border">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-muted/60">
-                  <tr className="border-b">
-                    <th className="w-12 px-2 py-1 text-left">#</th>
-                    <th className="w-28 px-2 py-1 text-left">Book Number</th>
-                    <th className="px-2 py-1 text-left">Title</th>
-                    <th className="w-20 px-2 py-1 text-left">ISBN</th>
-                    <th className="w-24 px-2 py-1 text-left">TextBook</th>
-                    <th className="w-24 px-2 py-1 text-left">Online Course</th>
-                    <th className="w-24 px-2 py-1 text-left">Reference</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {booksTableRows}
-                </tbody>
-              </table>
+              <DataTable
+                rowData={books}
+                columnDefs={bookModalColumnDefs}
+                loading={booksLoading}
+                toolbar={false}
+                pagination={false}
+              />
             </div>
             <div className="flex items-center justify-end gap-4 text-xs text-muted-foreground">
               <span>Items per page: {booksPageSize}</span>

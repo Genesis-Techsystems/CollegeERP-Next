@@ -27,8 +27,10 @@ export interface SelectProps {
   disabled?: boolean
   /** Show a search input inside the dropdown. Never auto-shown — must be explicit. */
   searchable?: boolean
-  /** Called on every search input change (debounced 300 ms). Use for server-side filtering. */
+  /** Called with the (debounced) search term; also called with '' when the dropdown closes. */
   onSearch?: (term: string) => void
+  /** Fires when the popover opens or closes (after internal state updates). */
+  onOpenChange?: (open: boolean) => void
   /** Shows a centred spinner in the list area instead of options. */
   isLoading?: boolean
   /** Render a × button in the trigger to clear the current value. */
@@ -40,15 +42,27 @@ export interface SelectProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function useDebounce(fn: (v: string) => void, delay: number) {
+const SEARCH_DEBOUNCE_MS = 300
+
+function useDebouncedCallback(fn: (v: string) => void, delay: number) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  return useCallback(
+  const cancel = useCallback(() => {
+    if (timer.current !== null) {
+      clearTimeout(timer.current)
+      timer.current = null
+    }
+  }, [])
+  const run = useCallback(
     (v: string) => {
-      if (timer.current !== null) clearTimeout(timer.current)
-      timer.current = setTimeout(() => fn(v), delay)
+      cancel()
+      timer.current = setTimeout(() => {
+        timer.current = null
+        fn(v)
+      }, delay)
     },
-    [fn, delay],
+    [fn, delay, cancel],
   )
+  return { run, cancel }
 }
 
 // ---------------------------------------------------------------------------
@@ -66,6 +80,7 @@ export function Select({
   disabled = false,
   searchable = false,
   onSearch,
+  onOpenChange,
   isLoading = false,
   clearable = false,
   className,
@@ -80,8 +95,16 @@ export function Select({
 
   const selectedOption = options.find((o) => o.value === value) ?? null
 
-  // Debounced server-side search callback
-  const debouncedOnSearch = useDebounce(onSearch ?? (() => undefined), 300)
+  const searchNotify = useCallback(
+    (term: string) => {
+      onSearch?.(term)
+    },
+    [onSearch],
+  )
+  const { run: scheduleSearchNotify, cancel: cancelSearchNotify } = useDebouncedCallback(
+    searchNotify,
+    SEARCH_DEBOUNCE_MS,
+  )
 
   // Focus search input when popover opens
   useEffect(() => {
@@ -92,19 +115,29 @@ export function Select({
     }
   }, [open, searchable])
 
-  // Reset local search when closing
-  useEffect(() => {
-    if (!open) setSearchTerm('')
-  }, [open])
-
-  const filteredOptions = searchTerm
-    ? options.filter((o) => o.label.toLowerCase().includes(searchTerm.toLowerCase()))
+  const needle = searchTerm.trim().toLowerCase()
+  const filteredOptions = needle
+    ? options.filter((o) => {
+        const l = o.label.toLowerCase()
+        const v = String(o.value).toLowerCase()
+        return l.includes(needle) || v.includes(needle)
+      })
     : options
 
   function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     const term = e.target.value
     setSearchTerm(term)
-    if (onSearch) debouncedOnSearch(term)
+    if (onSearch) scheduleSearchNotify(term)
+  }
+
+  function handlePopoverOpenChange(next: boolean) {
+    if (!next) {
+      cancelSearchNotify()
+      setSearchTerm('')
+      onSearch?.('')
+    }
+    setOpen(next)
+    onOpenChange?.(next)
   }
 
   function handleSelect(optValue: string) {
@@ -135,7 +168,7 @@ export function Select({
       )}
 
       {/* Popover wrapper */}
-      <Popover open={open} onOpenChange={disabled ? undefined : setOpen}>
+      <Popover open={open} onOpenChange={disabled ? undefined : handlePopoverOpenChange}>
         <PopoverTrigger asChild>
           {/* Trigger button */}
           <button

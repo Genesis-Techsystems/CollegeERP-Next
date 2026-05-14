@@ -20,6 +20,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryKey } from '@tanstack/react-query'
 import { APP_CONFIG } from '@/config/constants/app'
 
+const EMPTY_LIST: readonly unknown[] = []
+
 interface UseCrudListOptions<T> {
   queryKey: QueryKey
   queryFn: () => Promise<T[]>
@@ -50,7 +52,7 @@ export function useCrudList<T>({
 
   return {
     ...query,
-    data: query.data ?? ([] as T[]),
+    data: (query.data ?? EMPTY_LIST) as T[],
     invalidate,
   }
 }

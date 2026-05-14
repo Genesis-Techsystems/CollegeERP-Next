@@ -164,6 +164,26 @@ export const QK = {
     all: ['College'] as const,
     list: () => ['College', 'list'] as const,
   },
+  generalUserAccounts: {
+    all: ['GeneralUserAccounts'] as const,
+    list: (collegeId?: number) => ['GeneralUserAccounts', 'list', { collegeId }] as const,
+  },
+  staffAccounts: {
+    all: ['StaffAccounts'] as const,
+    list: (collegeId?: number) => ['StaffAccounts', 'list', { collegeId }] as const,
+  },
+  examinationAccounts: {
+    all: ['ExaminationAccounts'] as const,
+    list: (collegeId?: number) => ['ExaminationAccounts', 'list', { collegeId }] as const,
+  },
+  parentAccounts: {
+    all: ['ParentAccounts'] as const,
+    list: (page: number, pageSize: number) => ['ParentAccounts', 'list', { page, pageSize }] as const,
+  },
+  studentAccounts: {
+    all: ['StudentAccounts'] as const,
+    list: (page: number, pageSize: number) => ['StudentAccounts', 'list', { page, pageSize }] as const,
+  },
   departments: {
     all: ['Department'] as const,
     list: () => ['Department', 'list'] as const,
@@ -301,5 +321,20 @@ export const QK = {
       ['collegeFilters', 'courseYears', courseId] as const,
     subjects: (courseYearId: number) =>
       ['collegeFilters', 'subjects', courseYearId] as const,
+  },
+
+  /** Email & SMS pages — reference data for filters */
+  emailSms: {
+    all: ['EmailSms'] as const,
+    sendLoginDetailsColleges: () => ['EmailSms', 'sendLoginDetails', 'colleges'] as const,
+    sendLoginDetailsRoles: (organizationId: number) =>
+      ['EmailSms', 'sendLoginDetails', 'roles', organizationId] as const,
+    /** `domain/list/SmsPattern` — `messagepatternfor==ABSENT` (Angular send-absent-sms). */
+    smsPatternsAbsent: () => ['EmailSms', 'smsPatterns', 'ABSENT'] as const,
+    /** Email logs grid — college + optional yyyy-MM-dd range. */
+    emailLogs: (collegeId: number, fromDate: string, toDate: string) =>
+      ['EmailSms', 'emailLogs', collegeId, fromDate, toDate] as const,
+    /** Active colleges for email logs filter (same source as department-wise email). */
+    emailLogsColleges: () => ['EmailSms', 'emailLogs', 'colleges'] as const,
   },
 } as const

@@ -95,13 +95,14 @@ class CrudService {
   /**
    * Fetch all records for an entity, optionally filtered.
    *
+   * @param listPath - e.g. {@link DOMAIN.LIST} or {@link DOMAIN.CMS_LIST}
    * @param entity - entity class name (e.g. 'ExamSession')
    * @param query  - optional filter/sort string, built with {@link buildQuery}
    */
-  async list<T>(entity: string, query?: string): Promise<T[]> {
+  private async listAtPath<T>(listPath: string, entity: string, query?: string): Promise<T[]> {
     const url = query
-      ? `${this.base}/${DOMAIN.LIST}/${entity}?size=99999&query=${encodeURIComponent(query)}`
-      : `${this.base}/${DOMAIN.LIST}/${entity}?size=99999`
+      ? `${this.base}/${listPath}/${entity}?size=99999&query=${encodeURIComponent(query)}`
+      : `${this.base}/${listPath}/${entity}?size=99999`
 
     let inflight = this.listInflight.get(url) as Promise<T[]> | undefined
     if (!inflight) {
@@ -135,6 +136,23 @@ class CrudService {
     return inflight
   }
 
+  /**
+   * Fetch all records for an entity, optionally filtered.
+   *
+   * @param entity - entity class name (e.g. 'ExamSession')
+   * @param query  - optional filter/sort string, built with {@link buildQuery}
+   */
+  async list<T>(entity: string, query?: string): Promise<T[]> {
+    return this.listAtPath<T>(DOMAIN.LIST, entity, query)
+  }
+
+  /**
+   * CMS-prefixed domain list (`/cms/domain/list/{Entity}`) — matches Spring paths like staff User listing.
+   */
+  async listCms<T>(entity: string, query?: string): Promise<T[]> {
+    return this.listAtPath<T>(DOMAIN.CMS_LIST, entity, query)
+  }
+
   // ── Create ────────────────────────────────────────────────────────────────
 
   /**
@@ -159,6 +177,28 @@ class CrudService {
 
     if (!body.success) {
       throw new AppError('API_ERROR', body.message ?? `Failed to create ${entity}`)
+    }
+
+    return body.data as T
+  }
+
+  /** POST `cms/domain/create/{Entity}` — mirrors {@link create} for CMS-prefixed Spring apps. */
+  async createCms<T>(entity: string, data: unknown): Promise<T> {
+    const res = await fetch(`${this.base}/${DOMAIN.CMS_CREATE}/${entity}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      throw parseApiError(res, body)
+    }
+
+    const body: ApiResponse<T> = await res.json()
+
+    if (!body.success) {
+      throw new AppError('API_ERROR', body.message ?? `Failed to create ${entity} (cms)`)
     }
 
     return body.data as T
@@ -198,6 +238,36 @@ class CrudService {
 
     if (!body.success) {
       throw new AppError('API_ERROR', body.message ?? `Failed to update ${entity}`)
+    }
+
+    return body.data as T
+  }
+
+  /** PUT `cms/domain/update/{Entity}?query={pkField}=={pkValue}` — same contract as {@link update}. */
+  async updateCms<T>(
+    entity: string,
+    pkField: string,
+    pkValue: string | number,
+    data: unknown,
+  ): Promise<T> {
+    const res = await fetch(
+      `${this.base}/${DOMAIN.CMS_UPDATE}/${entity}?query=${pkField}==${pkValue}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      },
+    )
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      throw parseApiError(res, body)
+    }
+
+    const body: ApiResponse<T> = await res.json()
+
+    if (!body.success) {
+      throw new AppError('API_ERROR', body.message ?? `Failed to update ${entity} (cms)`)
     }
 
     return body.data as T
@@ -423,8 +493,14 @@ export const crud = new CrudService()
 export const domainList = <T>(entity: string, query?: string): Promise<T[]> =>
   crud.list<T>(entity, query)
 
+export const cmsDomainList = <T>(entity: string, query?: string): Promise<T[]> =>
+  crud.listCms<T>(entity, query)
+
 export const domainCreate = <T>(entity: string, data: unknown): Promise<T> =>
   crud.create<T>(entity, data)
+
+export const cmsDomainCreate = <T>(entity: string, data: unknown): Promise<T> =>
+  crud.createCms<T>(entity, data)
 
 export const domainUpdate = <T>(
   entity: string,
@@ -432,6 +508,13 @@ export const domainUpdate = <T>(
   pkValue: string | number,
   data: unknown,
 ): Promise<T> => crud.update<T>(entity, pkField, pkValue, data)
+
+export const cmsDomainUpdate = <T>(
+  entity: string,
+  pkField: string,
+  pkValue: string | number,
+  data: unknown,
+): Promise<T> => crud.updateCms<T>(entity, pkField, pkValue, data)
 
 export const domainSoftDelete = (
   entity: string,

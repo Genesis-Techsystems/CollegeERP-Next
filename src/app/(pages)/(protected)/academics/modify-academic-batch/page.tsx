@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Filter, Users } from 'lucide-react'
 import { Select } from '@/common/components/select'
+import { DataTable } from '@/common/components/table'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -200,6 +202,26 @@ export default function ModifyAcademicBatchPage() {
       return next
     })
   }
+  const studentColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      { headerName: '#', width: 70, flex: 0, valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1 },
+      { headerName: 'Student Name', minWidth: 220, flex: 1, valueGetter: (p) => s(p.data?.studentName ?? p.data?.student_name ?? p.data?.firstName) || '-' },
+      { headerName: 'Register No', minWidth: 170, valueGetter: (p) => s(p.data?.registerNo ?? p.data?.register_number ?? p.data?.rollNumber ?? p.data?.hallticketNumber) || '-' },
+      {
+        headerName: 'Select',
+        width: 90,
+        flex: 0,
+        cellRenderer: (p: ICellRendererParams<AnyRow>) => (
+          <input
+            type="checkbox"
+            checked={selectedIds.has(s(p.data?.__rowKey))}
+            onChange={(e) => toggleRow(s(p.data?.__rowKey), e.target.checked)}
+          />
+        ),
+      },
+    ],
+    [selectedIds],
+  )
 
   async function onSave() {
     if (!studentBatchId) {
@@ -269,38 +291,13 @@ export default function ModifyAcademicBatchPage() {
           <div className="px-4 py-2 border-b text-sm font-semibold text-primary">Students</div>
           <div className="p-3">
             <div className="rounded border overflow-hidden">
-              <table className="w-full text-xs">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-2 py-2 text-left w-10">#</th>
-                    <th className="px-2 py-2 text-left">Student Name</th>
-                    <th className="px-2 py-2 text-left">Register No</th>
-                    <th className="px-2 py-2 text-left w-20">Select</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr><td className="px-2 py-3 text-muted-foreground" colSpan={4}>Loading students...</td></tr>
-                  ) : rows.length === 0 ? (
-                    <tr><td className="px-2 py-3 text-muted-foreground" colSpan={4}>No students found</td></tr>
-                  ) : (
-                    rows.map((row, idx) => (
-                      <tr key={s(row.__rowKey)} className="border-t">
-                        <td className="px-2 py-2">{idx + 1}</td>
-                        <td className="px-2 py-2">{s(row.studentName ?? row.student_name ?? row.firstName) || '-'}</td>
-                        <td className="px-2 py-2">{s(row.registerNo ?? row.register_number ?? row.rollNumber ?? row.hallticketNumber) || '-'}</td>
-                        <td className="px-2 py-2">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(s(row.__rowKey))}
-                            onChange={(e) => toggleRow(s(row.__rowKey), e.target.checked)}
-                          />
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+              <DataTable
+                rowData={rows}
+                columnDefs={studentColumnDefs}
+                loading={loading}
+                pagination
+                toolbar={false}
+              />
             </div>
             <div className="mt-3 flex justify-end">
               <Button type="button" className="h-9" onClick={() => { void onSave() }} disabled={saving || !studentBatchId}>

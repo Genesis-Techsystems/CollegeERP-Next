@@ -87,6 +87,129 @@ export function normalizeHref(path: string): string {
       /\/admin-examination-management\/post-examination\/internal-exams-avg(?=\/|$)/i,
       '/admin-examination-management/post-examination/internal-exams-average',
     )
+    // Angular Assessments module folder typo `assissments` → canonical `assessments`.
+    .replace(/\/apps\/assissments\//gi, '/assessments/')
+    .replace(/\/assissments\//gi, '/assessments/')
+    // Angular module prefix `/apps/user-management/` → App Router path.
+    .replace(/\/apps\/user-management\//gi, '/user-management/')
+    // Angular Email & SMS app folder → Next routes.
+    .replace(/\/apps\/email-sms\//gi, '/email-sms/')
+    /** SKOLO / some builds: module segment `email-&-sms` (ampersand) e.g. `#/email-&-sms/principal-to-Dept-email`. */
+    .replace(/\/email-&-sms\//gi, '/email-sms/')
+    .replace(/\/email-%26-sms\//gi, '/email-sms/')
+    /** Canonical department-wise email; typo `depart-wise-email` (`ment` omitted). */
+    .replace(/\/email-sms\/depart(?:ment)?-wise-email(?=\/|$)/gi, '/email-sms/department-wise-email')
+    /** Shorthand slug sometimes used in menus. */
+    .replace(/\/email-sms\/dept-wise-email(?=\/|$)/gi, '/email-sms/department-wise-email')
+    /** Angular source folder `principal-to-dpt-email` (abbrev.) → App Router slug. */
+    .replace(/\/email-sms\/principal-to-dpt-email(?=\/|$)/gi, '/email-sms/principal-to-dept-email')
+    /** Legacy casing `principal-to-Dept-email` → canonical segment. */
+    .replace(/\/email-sms\/principal-to-dept-email(?=\/|$)/gi, '/email-sms/principal-to-dept-email')
+    /** Common menu typo `emial` → `email`. */
+    .replace(/\/email-sms\/department-wise-emial(?=\/|$)/gi, '/email-sms/department-wise-email')
+    .replace(/\/email-sms\/send-student-sms(?=\/|$)/gi, '/email-sms/send-sms-to-students')
+    .replace(/\/email-sms\/send-login-details(?=\/|$)/gi, '/email-sms/send-login-details')
+    .replace(/\/email-sms\/send-absent-sms(?=\/|$)/gi, '/email-sms/send-sms-to-absents')
+    .replace(/\/email-sms\/send-staff-sms(?=\/|$)/gi, '/email-sms/send-sms-to-staff-attendance')
+    /** Email & SMS — sent email audit trail. */
+    .replace(/\/email-sms\/email-log(?=\/|$)/gi, '/email-sms/email-logs')
+    .replace(/\/email-sms\/emaillogs(?=\/|$)/gi, '/email-sms/email-logs')
+    /** Angular `principal-staff-to-admin-email` (folder variants) → App Router slug. */
+    .replace(/\/email-sms\/principal-and-staff-to-admin-email(?=\/|$)/gi, '/email-sms/principal-staff-to-admin-email')
+    .replace(/\/email-sms\/principal-staff-to-admin-emial(?=\/|$)/gi, '/email-sms/principal-staff-to-admin-email')
+    .replace(/\/email-sms\/staff-principal-to-admin-email(?=\/|$)/gi, '/email-sms/principal-staff-to-admin-email')
+    /** Angular `principal-to-staff-email` — minimal "Send Email To Admin" screen. */
+    .replace(/\/email-sms\/send-email-to-admin(?=\/|$)/gi, '/email-sms/principal-to-staff-email')
+    .replace(/\/email-sms\/principal-to-staff-emial(?=\/|$)/gi, '/email-sms/principal-to-staff-email')
+    // Security/User Management legacy routes.
+    .replace(
+      /\/admin-user-management\/general-users-accounts(?=\/|$)/i,
+      '/user-management/general-user-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/general-user-accounts(?=\/|$)/i,
+      '/user-management/general-user-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/general-user-account(?=\/|$)/i,
+      '/user-management/general-user-accounts',
+    )
+    .replace(
+      /\/user-management\/general-users-accounts(?=\/|$)/i,
+      '/user-management/general-user-accounts',
+    )
+    .replace(
+      /\/user-management\/general-user-account(?=\/|$)/i,
+      '/user-management/general-user-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/staff-accounts(?=\/|$)/i,
+      '/user-management/staff-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/staff-account(?=\/|$)/i,
+      '/user-management/staff-accounts',
+    )
+    .replace(
+      /\/user-management\/staff-account(?=\/|$)/i,
+      '/user-management/staff-accounts',
+    )
+    .replace(
+      /\/user-management\/staff-accounts-list(?=\/|$)/i,
+      '/user-management/staff-accounts',
+    )
+    .replace(
+      /\/user-management\/staffs(?=\/|$)/i,
+      '/user-management/staff-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/parent-accounts(?=\/|$)/i,
+      '/user-management/parent-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/parent\/manage(?=\/|$)/i,
+      '/user-management/parent-accounts/manage',
+    )
+    .replace(
+      /\/user-management\/parent\/manage(?=\/|$)/i,
+      '/user-management/parent-accounts/manage',
+    )
+    .replace(
+      /\/admin-user-management\/parent-accounts\/add-sibling(?=\/|$)/i,
+      '/user-management/parent-accounts/add-sibling',
+    )
+    .replace(
+      /\/admin-user-management\/student-accounts(?=\/|$)/i,
+      '/user-management/student-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/student-account(?=\/|$)/i,
+      '/user-management/student-accounts',
+    )
+    .replace(
+      /\/user-management\/student-account(?=\/|$)/i,
+      '/user-management/student-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/student\/manage(?=\/|$)/i,
+      '/user-management/student-accounts?add=1',
+    )
+    .replace(
+      /\/user-management\/student\/manage(?=\/|$)/i,
+      '/user-management/student-accounts?add=1',
+    )
+    .replace(
+      /\/admin-user-management\/examination-accounts(?=\/|$)/i,
+      '/user-management/examination-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/examination-account(?=\/|$)/i,
+      '/user-management/examination-accounts',
+    )
+    .replace(
+      /\/user-management\/examination-account(?=\/|$)/i,
+      '/user-management/examination-accounts',
+    )
 
   // Normalize slashes and trim trailing slash.
   raw = raw.replace(/\/{2,}/g, '/').replace(/\/$/, '')

@@ -26,6 +26,7 @@ import {
 import { useSessionContext } from '@/context/SessionContext'
 import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
+import { normalizeHref } from '@/lib/navigation'
 import { getUserAccess, logout } from '@/services/auth'
 
 // ---------------------------------------------------------------------------
@@ -193,7 +194,7 @@ export function Topbar() {
   }
 
   function navigateTo(page: SearchPage) {
-    router.push('/' + page.url)
+    router.push(normalizeHref(page.url))
     setSearchTerm('')
     setIsSearchOpen(false)
     setActiveResultIndex(-1)

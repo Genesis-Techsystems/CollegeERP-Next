@@ -26,14 +26,37 @@ export async function listActiveColleges(): Promise<AnyRow[]> {
 }
 
 export async function listAcademicYearsByUniversity(universityId: number): Promise<AnyRow[]> {
-  return domainList<AnyRow>(
-    'AcademicYear',
+  if (!universityId) return []
+  const queries = [
+    buildQuery({ 'Universities.universityId': universityId, isActive: true }, { field: 'fromDate', direction: 'DESC' }),
     buildQuery({ 'University.universityId': universityId, isActive: true }, { field: 'fromDate', direction: 'DESC' }),
-  )
+  ]
+  for (const query of queries) {
+    try {
+      const rows = await domainList<AnyRow>('AcademicYear', query)
+      if (Array.isArray(rows) && rows.length > 0) return rows
+    } catch {
+      // try next query shape
+    }
+  }
+  return []
 }
 
 export async function listCoursesByUniversity(universityId: number): Promise<AnyRow[]> {
-  return domainList<AnyRow>('Course', buildQuery({ 'University.universityId': universityId, isActive: true }))
+  if (!universityId) return []
+  const queries = [
+    buildQuery({ 'Universities.universityId': universityId, isActive: true }),
+    buildQuery({ 'University.universityId': universityId, isActive: true }),
+  ]
+  for (const query of queries) {
+    try {
+      const rows = await domainList<AnyRow>('Course', query)
+      if (Array.isArray(rows) && rows.length > 0) return rows
+    } catch {
+      // try next query shape
+    }
+  }
+  return []
 }
 
 export async function listExamMastersByCourseAndAy(courseId: number, academicYearId: number): Promise<AnyRow[]> {

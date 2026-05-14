@@ -10,6 +10,11 @@ export async function listDepartments(): Promise<Department[]> {
   )
 }
 
+/** Active departments only — mirrors Angular `listDetailsById(Department, 'true', isActive)`. */
+export async function listActiveDepartments(): Promise<Department[]> {
+  return domainList<Department>(ENTITIES.DEPARTMENT.name, buildQuery({ isActive: true }))
+}
+
 export async function createDepartment(data: Omit<Department, 'departmentId'>): Promise<Department> {
   return domainCreate<Department>(ENTITIES.DEPARTMENT.name, data)
 }
@@ -26,4 +31,11 @@ export async function updateDepartment(
 
 export async function listActiveCollegesForDepartments(): Promise<College[]> {
   return domainList<College>(ENTITIES.COLLEGE.name, buildQuery({ isActive: true }))
+}
+
+export async function listDepartmentsByCollege(collegeId: number): Promise<Department[]> {
+  return domainList<Department>(
+    ENTITIES.DEPARTMENT.name,
+    buildQuery({ 'College.collegeId': collegeId, isActive: true }),
+  )
 }

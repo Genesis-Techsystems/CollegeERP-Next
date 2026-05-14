@@ -12,8 +12,14 @@
 
 export const DOMAIN = {
   LIST:   'domain/list',
+  /** Spring CMS-prefixed domain list (e.g. staff users by college + user type code). */
+  CMS_LIST: 'cms/domain/list',
   CREATE: 'domain/create',
+  /** CMS-prefixed domain create — some deployments require this for `User` writes. */
+  CMS_CREATE: 'cms/domain/create',
   UPDATE: 'domain/update',
+  /** CMS-prefixed domain update — pairs with {@link CMS_LIST} / {@link CMS_CREATE} on CMS apps. */
+  CMS_UPDATE: 'cms/domain/update',
   PROC:   'getAllRecords',
 } as const
 
@@ -37,6 +43,65 @@ export const AUTH_API = {
   USER_ACCESS: 'useraccess',
   /** GET: user pages */
   USER_PAGES: 'userpages',
+} as const
+
+// ─── User management (non-domain helpers) ────────────────────────────────────
+
+export const USER_MANAGEMENT_API = {
+  /**
+   * GET paginated users by type code (Angular `listByTypeCodeWithPageNation`).
+   * Query: `userTypeCode`, `page`, `size`.
+   */
+  USER_DETAILS_BY_TYPE: 'api/userdetailsbytype',
+  /**
+   * GET CMS student typeahead (Angular add-student-account modal).
+   * Query: `collegeId`, `q` — e.g. `/cms/studentsearch?collegeId=16&q=Shrav`
+   */
+  STUDENT_SEARCH: 'cms/studentsearch',
+  /**
+   * POST CMS student **User** create (Spring: `/cms/api/createuser`).
+   * Proxied as `/api/proxy/cms/api/createuser`.
+   */
+  CREATE_USER_CMS: 'cms/api/createuser',
+} as const
+
+// ─── Email / SMS (legacy Spring paths — proxied via `NEXT_API.PROXY`) ────────
+
+export const COMMUNICATION_API = {
+  /** Angular `sendBulkSms` — POST bulk SMS with filter fields + `numbers[]` (student mobiles). */
+  SEND_BULK_SMS: 'sendBulkSms',
+  /** Angular `sendBulkSmsToMultiUsers` — POST enriched absent-student rows to send SMS. */
+  SEND_BULK_SMS_TO_MULTI_USERS: 'sendBulkSmsToMultiUsers',
+  /** Angular `getSmsToSbsentStudentsUrl` — POST college/year/date (+ null course fields) → absent student rows with message. */
+  GET_SMS_TO_ABSENT_STUDENTS: 'getsmstoabsentstudents',
+  /** Angular `smsHistoryUrl` — GET `?date=&collegeId=&patternId=` for absent SMS history. */
+  SMS_HISTORY: 'smshistory',
+  /**
+   * Angular email log / history list — GET `?collegeId=` with optional `fromDate`, `toDate` (yyyy-MM-dd).
+   * Falls back in the client to `domain/list/EmailLog` when this path is unavailable.
+   */
+  EMAIL_HISTORY: 'emailhistory',
+  /** Angular `smslogindetail` — POST selected user rows to send login credentials via SMS. */
+  SMS_LOGIN_DETAIL: 'smslogindetail',
+  /** Spring `getAllRecords/s_rep_attendance_not_taken_staff` — staff with attendance not marked (Angular send-staff-sms). */
+  S_REP_ATTENDANCE_NOT_TAKEN_STAFF: 's_rep_attendance_not_taken_staff',
+  /** Angular `sendBulkEmailtoEmployeesForAttendanceUrl` — POST bulk email after staff attendance SMS. */
+  SEND_BULK_EMAIL_EMPLOYEES_ATTENDANCE: 'sendBulkEmailtoEmployeesForAttendance',
+  /** Angular `uploadFileForEmailUrl` — multipart POST; response `data` is stored path. */
+  UPLOAD_FILE_FOR_EMAIL: 'uploadFileForEmail',
+  /** Angular `sendBulkEmailtoStudentsUrl` — POST selected student ids + email fields. */
+  SEND_BULK_EMAIL_TO_STUDENTS: 'sendBulkEmailtoStudents',
+  /** Angular `sendBulkEmailtoSectionStudentsUrl` — POST filter fields + `sectionIds[]`. */
+  SEND_BULK_EMAIL_TO_SECTION_STUDENTS: 'sendBulkEmailtoSectionStudents',
+  /** Angular `sendBulkEmailtoStudentsByCYurl` — department-wise email, student mode + `courseYearIds[]`. */
+  SEND_BULK_EMAIL_TO_STUDENTS_BY_CY: 'sendBulkEmailtoStudentsByCY',
+  /** Angular `sendBulkEmailtoEmployeesUrl` — department-wise email, employee mode + `departmentIds[]`. */
+  SEND_BULK_EMAIL_TO_EMPLOYEES: 'sendBulkEmailtoEmployees',
+  /**
+   * Angular principal / staff → admin email — `addMasterDetails(sendBulkEmailtoAdminUrl, email)` (or equivalent).
+   * POST body mirrors department-wise employee email with `userIds[]` instead of `departmentIds[]`.
+   */
+  SEND_BULK_EMAIL_TO_ADMIN: 'sendBulkEmailtoAdmin',
 } as const
 
 // ─── Examination Management ──────────────────────────────────────────────────

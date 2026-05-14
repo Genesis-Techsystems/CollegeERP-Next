@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Filter, Users } from 'lucide-react'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select } from '@/common/components/select'
+import { DataTable } from '@/common/components/table'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -176,6 +178,26 @@ export default function ModifyStudentSectionPage() {
       return next
     })
   }
+  const studentColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      { headerName: 'SI.No', width: 70, flex: 0, valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1 },
+      { headerName: 'Roll No.', minWidth: 180, valueGetter: (p) => s(p.data?.registerNo ?? p.data?.register_number ?? p.data?.rollNumber ?? p.data?.hallticketNumber) || '-' },
+      { headerName: 'Student Name', minWidth: 220, flex: 1, valueGetter: (p) => s(p.data?.studentName ?? p.data?.student_name ?? p.data?.firstName) || '-' },
+      {
+        headerName: 'Select',
+        width: 90,
+        flex: 0,
+        cellRenderer: (p: ICellRendererParams<AnyRow>) => (
+          <input
+            type="checkbox"
+            checked={selectedIds.has(s(p.data?.__rowKey))}
+            onChange={(e) => toggleRow(s(p.data?.__rowKey), e.target.checked)}
+          />
+        ),
+      },
+    ],
+    [selectedIds],
+  )
 
   async function onSave() {
     if (!targetSectionId) {
@@ -239,44 +261,23 @@ export default function ModifyStudentSectionPage() {
               <div className="mb-2 max-w-[220px]">
                 <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" className="h-8" />
               </div>
+              <div className="mb-2 flex items-center gap-3 text-xs text-muted-foreground">
+                <label className="inline-flex items-center gap-2">
+                  <input type="checkbox" checked={allFilteredSelected} onChange={(e) => toggleAllFiltered(e.target.checked)} />
+                  Select All
+                </label>
+                <button type="button" onClick={() => setSelectedIds(new Set())}>
+                  UnMark All
+                </button>
+              </div>
               <div className="rounded border overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-2 py-2 text-left w-10">SI.No</th>
-                      <th className="px-2 py-2 text-left">Roll No.</th>
-                      <th className="px-2 py-2 text-left">Student Name</th>
-                      <th className="px-2 py-2 text-left w-[170px]">
-                        <div className="inline-flex items-center gap-2">
-                          <input type="checkbox" checked={allFilteredSelected} onChange={(e) => toggleAllFiltered(e.target.checked)} />
-                          <button type="button" className="text-xs text-muted-foreground" onClick={() => setSelectedIds(new Set())}>UnMark All</button>
-                        </div>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading ? (
-                      <tr><td className="px-2 py-3 text-muted-foreground" colSpan={4}>Loading students...</td></tr>
-                    ) : filteredRows.length === 0 ? (
-                      <tr><td className="px-2 py-3 text-muted-foreground" colSpan={4}>No students found</td></tr>
-                    ) : (
-                      filteredRows.map((row, idx) => (
-                        <tr key={s(row.__rowKey)} className="border-t">
-                          <td className="px-2 py-2">{idx + 1}</td>
-                          <td className="px-2 py-2">{s(row.registerNo ?? row.register_number ?? row.rollNumber ?? row.hallticketNumber) || '-'}</td>
-                          <td className="px-2 py-2">{s(row.studentName ?? row.student_name ?? row.firstName) || '-'}</td>
-                          <td className="px-2 py-2">
-                            <input
-                              type="checkbox"
-                              checked={selectedIds.has(s(row.__rowKey))}
-                              onChange={(e) => toggleRow(s(row.__rowKey), e.target.checked)}
-                            />
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                <DataTable
+                  rowData={filteredRows}
+                  columnDefs={studentColumnDefs}
+                  loading={loading}
+                  pagination
+                  toolbar={false}
+                />
               </div>
             </div>
             <div className="md:col-span-4">

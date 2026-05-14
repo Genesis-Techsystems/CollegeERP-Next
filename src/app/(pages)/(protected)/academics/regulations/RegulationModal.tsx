@@ -231,7 +231,7 @@ export default function RegulationModal({
                   value={field.value ? String(field.value) : null}
                   onChange={(v) => {
                     field.onChange(v ? Number(v) : undefined)
-                    setValue('courseId', undefined)
+                    setValue('courseId', 0)
                   }}
                   options={universityOptions}
                   placeholder="Select university"
