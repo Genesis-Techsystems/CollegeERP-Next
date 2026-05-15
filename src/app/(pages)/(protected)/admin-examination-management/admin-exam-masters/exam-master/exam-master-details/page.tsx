@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, ClipboardList, Pencil, Trash2 } from 'lucide-react'
-import { Alert } from 'antd'
+import { NoticeAlert } from '@/common/components/feedback'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -261,7 +261,7 @@ function ExamMasterDetailsInner() {
       </div>
 
       {toast && (
-        <Alert
+        <NoticeAlert
           type={toast.type}
           title={toast.message}
           showIcon

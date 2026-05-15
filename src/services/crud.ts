@@ -142,7 +142,7 @@ class CrudService {
    * @param entity - entity class name (e.g. 'ExamSession')
    * @param query  - optional filter/sort string, built with {@link buildQuery}
    */
-  async list<T>(entity: string, query?: string): Promise<T[]> {
+  async list<T = Record<string, unknown>>(entity: string, query?: string): Promise<T[]> {
     return this.listAtPath<T>(DOMAIN.LIST, entity, query)
   }
 
@@ -490,7 +490,7 @@ export const crud = new CrudService()
 
 // ─── Backward-compatible standalone exports ───────────────────────────────────
 
-export const domainList = <T>(entity: string, query?: string): Promise<T[]> =>
+export const domainList = <T = Record<string, unknown>>(entity: string, query?: string): Promise<T[]> =>
   crud.list<T>(entity, query)
 
 export const cmsDomainList = <T>(entity: string, query?: string): Promise<T[]> =>

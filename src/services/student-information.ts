@@ -1178,7 +1178,7 @@ export async function fetchStudentDetail(studentId: number): Promise<AnyRow | nu
   return null
 }
 
-export async function listRegulationsByCourse(courseId: number): Promise<AnyRow[]> {
+export async function listStudentRegulationsByCourse(courseId: number): Promise<AnyRow[]> {
   if (!courseId) return []
   const queries = [
     buildQuery({ 'Course.courseId': courseId, isActive: true }, { field: 'regulationCode', direction: 'DESC' }),
@@ -1195,7 +1195,7 @@ export async function listRegulationsByCourse(courseId: number): Promise<AnyRow[
   return []
 }
 
-export async function listCourseYearsByCourse(courseId: number): Promise<AnyRow[]> {
+export async function listStudentCourseYearsByCourse(courseId: number): Promise<AnyRow[]> {
   if (!courseId) return []
   const queries = [
     buildQuery({ 'Course.courseId': courseId, isActive: true }, { field: 'yearNo', direction: 'ASC' }),

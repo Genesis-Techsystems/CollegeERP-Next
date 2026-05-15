@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { FileSpreadsheet, UploadIcon, X } from 'lucide-react'
-import { Upload, type UploadFile, type UploadProps } from 'antd'
+import { FileDropzone } from '@/common/components/forms'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -10,16 +10,16 @@ import { uploadUnitTopicsFile } from '@/services'
 
 export default function UnitTopicBulkUploadPage() {
   const [uploading, setUploading] = useState(false)
-  const [selectedFileName, setSelectedFileName] = useState('')
-  const [fileList, setFileList] = useState<UploadFile[]>([])
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+
+  const selectedFileName = selectedFile?.name ?? ''
 
   function clearSelectedFile() {
-    setSelectedFileName('')
-    setFileList([])
+    setSelectedFile(null)
   }
 
   async function onUpload() {
-    const file = fileList[0]?.originFileObj
+    const file = selectedFile
     if (!file) {
       toastError(new Error('Please choose a file.'), 'Unit Topic Bulk Upload')
       return
@@ -37,22 +37,6 @@ export default function UnitTopicBulkUploadPage() {
     } finally {
       setUploading(false)
     }
-  }
-
-  const uploadProps: UploadProps = {
-    accept: '.xls,.xlsx',
-    multiple: false,
-    fileList,
-    showUploadList: false,
-    beforeUpload: () => false,
-    onChange: ({ fileList: nextFileList }) => {
-      const single = nextFileList.slice(-1)
-      setFileList(single)
-      setSelectedFileName(single[0]?.name ?? '')
-    },
-    onRemove: () => {
-      clearSelectedFile()
-    },
   }
 
   return (
@@ -77,12 +61,12 @@ export default function UnitTopicBulkUploadPage() {
               </a>
             </div>
             <div className="space-y-3">
-              <Upload.Dragger
-                {...uploadProps}
-                className="max-w-[760px] !p-0 !mb-0 [&_.ant-upload]:!p-3 [&_.ant-upload]:!min-h-[44px] [&_.ant-upload]:!rounded-md [&_.ant-upload-drag-container]:!p-0 [&_.ant-upload-text]:!m-0 [&_.ant-upload-hint]:!m-0"
+              <FileDropzone
+                accept=".xls,.xlsx"
+                onFilesChange={(files) => setSelectedFile(files[0] ?? null)}
               >
                 <p className="text-xs text-slate-700">Drag and drop XLS/XLSX file here, or click to select</p>
-              </Upload.Dragger>
+              </FileDropzone>
               {selectedFileName ? (
                 <div className="mt-2 inline-flex max-w-full items-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-2.5 py-1.5">
                   <div className="min-w-0 inline-flex items-center gap-1.5">

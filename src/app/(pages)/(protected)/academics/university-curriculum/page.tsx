@@ -233,12 +233,9 @@ export default function UniversityCurriculumPage() {
             rowData={courseYears}
             columnDefs={columnDefs}
             loading={loading}
-            quickFilter
-            quickFilterPlaceholder="Search course years..."
+            toolbar={{ search: true, searchPlaceholder: 'Search course years...' }}
             pagination
             paginationPageSize={10}
-            rowSelection="single"
-            suppressRowClickSelection
           />
         </div>
       )}

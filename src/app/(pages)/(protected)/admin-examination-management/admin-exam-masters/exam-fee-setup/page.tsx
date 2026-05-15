@@ -30,7 +30,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { ChevronDown, Filter, Pencil, Plus } from 'lucide-react'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
-import { Alert } from 'antd'
+import { NoticeAlert } from '@/common/components/feedback'
 import { getErrorMessage } from '@/lib/errors'
 
 // ── Pure renderer ─────────────────────────────────────────────────────────────
@@ -429,7 +429,7 @@ export default function ExamFeeSetupPage() {
     <PageContainer className="space-y-5">
       <PageHeader title="Exam Fee Structures" subtitle="Configure fee structures per exam" />
       {notice && (
-        <Alert
+        <NoticeAlert
           type={notice.type}
           title={notice.message}
           showIcon

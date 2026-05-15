@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DatePicker } from '@/common/components/date-picker'
+import { asRecordArray } from '@/common/generic-functions'
 import { distinct } from '@/lib/utils'
 import { buildQuery } from '@/services/crud'
 import { format } from 'date-fns'
@@ -377,15 +378,15 @@ export default function CreateExamFeeStructurePage() {
 				isActive: row.isActive !== undefined ? Boolean(row.isActive) : true,
 			}))
 
-			const activeCourseYears = (row.examFeeStructureCourseyr ?? [])
-				.filter((x: any) => x?.isActive !== false)
-				.map((x: any) => Number(x.courseYearId))
-				.filter((x: number) => Number.isFinite(x) && x > 0)
+			const activeCourseYears = asRecordArray(row.examFeeStructureCourseyr)
+				.filter((x) => x.isActive !== false)
+				.map((x) => Number(x.courseYearId))
+				.filter((x) => Number.isFinite(x) && x > 0)
 			setSelectedCourseYearIds(new Set(activeCourseYears))
 
-			const fineRows = (row.examFeeFine ?? [])
-				.filter((x: any) => x?.isActive !== false)
-				.map((x: any) => ({
+			const fineRows = asRecordArray(row.examFeeFine)
+				.filter((x) => x.isActive !== false)
+				.map((x) => ({
 					fineName: String(x.fineName ?? ''),
 					fineFromDate: toDateString(parseDateValue(String(x.fineFromDate ?? ''))),
 					fineToDate: toDateString(parseDateValue(String(x.fineToDate ?? ''))),
@@ -394,9 +395,9 @@ export default function CreateExamFeeStructurePage() {
 				}))
 			setFines(fineRows)
 
-			const addRows = (row.examFeeAdditionalStructure ?? [])
-				.filter((x: any) => x?.isActive !== false)
-				.map((x: any) => ({
+			const addRows = asRecordArray(row.examFeeAdditionalStructure)
+				.filter((x) => x.isActive !== false)
+				.map((x) => ({
 					typeId: String(x.adtExamfeetypeCatId ?? ''),
 					typeName: String(x.adtExamfeetypeCatDisplayName ?? x.type ?? ''),
 					examType: String(x.type ?? '').toLowerCase().includes('supp') ? 'SUPPLE' as const : 'REG' as const,

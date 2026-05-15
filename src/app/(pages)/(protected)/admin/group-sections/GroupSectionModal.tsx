@@ -14,7 +14,7 @@ import {
   createGroupSection,
   listActiveCollegesForSections,
   listActiveCourseGroupsByCollege,
-  listActiveCourseYearsByCourse,
+  listActiveCourseYearsByCourseForGroupSection,
   updateGroupSection,
 } from '@/services'
 import type { College } from '@/types/college'
@@ -54,7 +54,7 @@ export default function GroupSectionModal({
   useEffect(() => {
     const selected = groups.find((g) => g.courseGroupId === selectedGroupId)
     const courseId = num((selected as unknown as Record<string, unknown>)?.courseId)
-    if (courseId) listActiveCourseYearsByCourse(courseId).then(setYears).catch(console.error)
+    if (courseId) listActiveCourseYearsByCourseForGroupSection(courseId).then(setYears).catch(console.error)
     else setYears([])
   }, [selectedGroupId, groups])
   useEffect(() => {

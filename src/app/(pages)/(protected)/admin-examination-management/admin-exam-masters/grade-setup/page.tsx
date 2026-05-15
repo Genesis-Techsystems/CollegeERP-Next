@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert } from 'antd'
+import { NoticeAlert } from '@/common/components/feedback'
 import { useSessionContext } from '@/context/SessionContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -323,7 +323,7 @@ export default function GradeSetupPage() {
 		<PageContainer className="space-y-5">
       <PageHeader title="Grade Setup" subtitle="Configure examination grade bands" />
       {notice && (
-        <Alert
+        <NoticeAlert
           type={notice.type}
           title={notice.message}
           showIcon

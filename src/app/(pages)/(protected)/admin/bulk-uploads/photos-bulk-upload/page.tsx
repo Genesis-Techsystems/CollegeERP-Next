@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { Upload, type UploadFile, type UploadProps } from 'antd'
 import { FileImage, ImageIcon, UploadIcon, X } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
+import { FileDropzone } from '@/common/components/forms'
 import { Select } from '@/common/components/select'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
@@ -69,7 +69,7 @@ const VERIFIED_COLS: ColDef<VerifyPhotoRow>[] = [
 export default function PhotosBulkUploadPage() {
   const [universityCode, setUniversityCode] = useState<string | null>(null)
   const [photoPerson, setPhotoPerson] = useState<PersonType>('student')
-  const [fileList, setFileList] = useState<UploadFile[]>([])
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [uploadedRows, setUploadedRows] = useState<UploadRow[]>([])
   const [verifiedRows, setVerifiedRows] = useState<VerifyPhotoRow[]>([])
   const [verifying, setVerifying] = useState(false)
@@ -97,34 +97,24 @@ export default function PhotosBulkUploadPage() {
     [],
   )
 
-  const uploadProps: UploadProps = {
-    multiple: true,
-    accept: 'image/*',
-    beforeUpload: () => false,
-    fileList,
-    showUploadList: false,
-    onChange: async ({ fileList: nextFileList }) => {
-      setVerifiedRows([])
-      setFileList(nextFileList)
+  async function handleFilesChange(files: File[]) {
+    setVerifiedRows([])
+    setSelectedFiles(files)
 
-      const rows = await Promise.all(
-        nextFileList.map(async (f) => {
-          let previewUrl = ''
-          if (f.originFileObj) {
-            previewUrl = await fileToDataUrl(f.originFileObj as File)
-          }
-          const fileName = f.name
-          const fileBase = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName
-          return { fileName, fileBase, status: 'Pending', previewUrl }
-        }),
-      )
-      setUploadedRows(rows)
-    },
+    const rows = await Promise.all(
+      files.map(async (file) => {
+        const previewUrl = await fileToDataUrl(file)
+        const fileName = file.name
+        const fileBase = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName
+        return { fileName, fileBase, status: 'Pending', previewUrl }
+      }),
+    )
+    setUploadedRows(rows)
   }
 
   function removeSelectedFile(fileName: string) {
-    const next = fileList.filter((f) => f.name !== fileName)
-    setFileList(next)
+    const next = selectedFiles.filter((f) => f.name !== fileName)
+    setSelectedFiles(next)
     setUploadedRows((prev) => prev.filter((r) => r.fileName !== fileName))
     setVerifiedRows([])
   }
@@ -134,13 +124,13 @@ export default function PhotosBulkUploadPage() {
       toastError(new Error('Please select university.'), 'Photos Bulk Upload')
       return null
     }
-    if (fileList.length === 0) {
+    if (selectedFiles.length === 0) {
       toastError(new Error('Please choose photos.'), 'Photos Bulk Upload')
       return null
     }
     const formData = new FormData()
-    for (const f of fileList) {
-      if (f.originFileObj) formData.append('file', f.originFileObj, f.name)
+    for (const file of selectedFiles) {
+      formData.append('file', file, file.name)
     }
     formData.append('photoPerson', photoPerson)
     formData.append('universityCode', universityCode)
@@ -172,7 +162,7 @@ export default function PhotosBulkUploadPage() {
       const withMinio = res.files.map((r) => ({ ...r, previewUrl: '', fileBase: r.fileName }))
       setUploadedRows(withMinio)
       setVerifiedRows([])
-      setFileList([])
+      setSelectedFiles([])
     } catch (err) {
       toastError(err, 'Upload photos failed')
     } finally {
@@ -214,26 +204,27 @@ export default function PhotosBulkUploadPage() {
 
           <div className="border border-slate-200 rounded-lg p-3 space-y-3">
             <h3 className="text-sm font-semibold text-slate-700">Upload Students Photos</h3>
-            <Upload.Dragger
-              {...uploadProps}
-              className="!p-0 [&_.ant-upload]:!p-3 [&_.ant-upload]:!min-h-[44px] [&_.ant-upload-text]:!m-0"
+            <FileDropzone
+              accept="image/*"
+              multiple
+              onFilesChange={(files) => void handleFilesChange(files)}
             >
               <p className="text-xs text-slate-700">Drag and drop photos here, or click to select</p>
-            </Upload.Dragger>
-            {fileList.length > 0 && (
+            </FileDropzone>
+            {selectedFiles.length > 0 && (
               <div className="pt-2 flex flex-wrap gap-2">
-                {fileList.map((f) => (
+                {selectedFiles.map((file, index) => (
                   <div
-                    key={f.uid}
+                    key={`${file.name}-${index}`}
                     className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-dashed border-slate-300 bg-slate-50 px-2.5 py-1.5"
                   >
                     <FileImage className="h-4 w-4 text-sky-600 shrink-0" />
-                    <span className="text-xs text-slate-700 max-w-[220px] truncate">{f.name}</span>
+                    <span className="text-xs text-slate-700 max-w-[220px] truncate">{file.name}</span>
                     <button
                       type="button"
-                      onClick={() => removeSelectedFile(f.name)}
+                      onClick={() => removeSelectedFile(file.name)}
                       className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-200 hover:text-slate-700 shrink-0"
-                      aria-label={`Remove ${f.name}`}
+                      aria-label={`Remove ${file.name}`}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -242,7 +233,7 @@ export default function PhotosBulkUploadPage() {
               </div>
             )}
             <div className="pt-2 flex flex-wrap gap-2 justify-end">
-              <Button type="button" onClick={() => void onUpload()} disabled={fileList.length === 0 || uploading}>
+              <Button type="button" onClick={() => void onUpload()} disabled={selectedFiles.length === 0 || uploading}>
                 <UploadIcon className="h-4 w-4 mr-1.5" />
                 {uploading ? 'Uploading...' : 'Upload File'}
               </Button>

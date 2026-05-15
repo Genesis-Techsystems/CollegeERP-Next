@@ -61,6 +61,7 @@ export interface SearchInputProps {
    * value collapses back to the icon.
    */
   collapsible?: boolean
+  disabled?: boolean
 }
 
 /**
@@ -83,6 +84,7 @@ export function SearchInput({
   className,
   autoFocus = false,
   collapsible = false,
+  disabled = false,
 }: SearchInputProps) {
   const resolvedDebounceMs = serverSearch ? 300 : (debounceMs ?? 0)
   const isControlled = value !== undefined
@@ -177,6 +179,7 @@ export function SearchInput({
         onChange={handleChange}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
+        disabled={disabled}
         placeholder={placeholder}
         autoComplete="off"
         inputMode="search"

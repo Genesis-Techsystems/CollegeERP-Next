@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { FileSpreadsheet, Upload, X } from 'lucide-react'
-import { Upload as AntUpload, type UploadFile, type UploadProps } from 'antd'
+import { FileDropzone } from '@/common/components/forms'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,16 +12,16 @@ import { uploadTemporaryStagingTable } from '@/services'
 export default function TemporaryStagingTablesBulkUploadPage() {
   const [tableName, setTableName] = useState('')
   const [uploading, setUploading] = useState(false)
-  const [fileList, setFileList] = useState<UploadFile[]>([])
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
-  const fileName = fileList[0]?.name ?? ''
+  const fileName = selectedFile?.name ?? ''
 
   function clearSelectedFile() {
-    setFileList([])
+    setSelectedFile(null)
   }
 
   async function onUpload() {
-    const file = fileList[0]?.originFileObj
+    const file = selectedFile
     if (!tableName.trim()) {
       toastError(new Error('Please enter table name.'), 'Temporary Staging Tables')
       return
@@ -42,16 +42,6 @@ export default function TemporaryStagingTablesBulkUploadPage() {
     } finally {
       setUploading(false)
     }
-  }
-
-  const uploadProps: UploadProps = {
-    accept: '.xls,.xlsx',
-    multiple: false,
-    fileList,
-    showUploadList: false,
-    beforeUpload: () => false,
-    onChange: ({ fileList: next }) => setFileList(next.slice(-1)),
-    onRemove: () => clearSelectedFile(),
   }
 
   return (
@@ -91,12 +81,12 @@ export default function TemporaryStagingTablesBulkUploadPage() {
 
             <p className="text-xs font-medium text-slate-700">Upload Tables :</p>
             <div className="space-y-3">
-              <AntUpload.Dragger
-                {...uploadProps}
-                className="max-w-[760px] !p-0 !mb-0 [&_.ant-upload]:!p-3 [&_.ant-upload]:!min-h-[44px] [&_.ant-upload]:!rounded-md [&_.ant-upload-text]:!m-0"
+              <FileDropzone
+                accept=".xls,.xlsx"
+                onFilesChange={(files) => setSelectedFile(files[0] ?? null)}
               >
                 <p className="text-xs text-slate-700">Drag and drop XLS/XLSX file here, or click to select</p>
-              </AntUpload.Dragger>
+              </FileDropzone>
 
               {fileName ? (
                 <div className="mt-2 inline-flex max-w-full items-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-2.5 py-1.5">

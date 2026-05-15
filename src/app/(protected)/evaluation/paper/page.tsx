@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { Suspense, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { CheckCircle, Info } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useSessionContext } from '@/context/SessionContext'
 
-export default function EvaluationPaperPage() {
+function EvaluationPaperContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useSessionContext()
@@ -89,5 +89,13 @@ export default function EvaluationPaperPage() {
         </div>
       </div>
     </PageContainer>
+  )
+}
+
+export default function EvaluationPaperPage() {
+  return (
+    <Suspense fallback={<PageContainer className="py-8 text-sm text-muted-foreground">Loading…</PageContainer>}>
+      <EvaluationPaperContent />
+    </Suspense>
   )
 }

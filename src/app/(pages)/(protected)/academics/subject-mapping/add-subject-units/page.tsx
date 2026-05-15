@@ -647,8 +647,8 @@ export default function AddSubjectUnitsPage() {
                 </div>
               </div>
 
-              <div className="mt-2.5">
-                <DataTable rowData={topicsDraft} columnDefs={topicColumnDefs} pagination paginationPageSize={10} className="text-xs" />
+              <div className="mt-2.5 text-xs">
+                <DataTable rowData={topicsDraft} columnDefs={topicColumnDefs} pagination paginationPageSize={10} />
               </div>
               <div className="mt-3 flex justify-end gap-2.5">
                 <Button type="button" size="sm" className="h-8 text-[11px] px-3" variant="outline" onClick={() => setTopicsModalOpen(false)}>Close</Button>

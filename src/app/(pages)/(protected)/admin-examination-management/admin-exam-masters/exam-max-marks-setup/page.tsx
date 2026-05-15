@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSessionContext } from '@/context/SessionContext'
 import { ChevronDown, ChevronUp, Filter } from 'lucide-react'
-import { Alert } from 'antd'
+import { NoticeAlert } from '@/common/components/feedback'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -289,7 +289,7 @@ export default function ExamMaxMarksSetupPage() {
         )}
       </div>
       {notice && (
-        <Alert
+        <NoticeAlert
           type={notice.type}
           title={notice.message}
           showIcon

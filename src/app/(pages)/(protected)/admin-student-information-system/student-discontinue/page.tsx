@@ -17,7 +17,7 @@ import {
   listCollegesByOrganization,
   listCourseGroups,
   listCourseGroupsForCourseCascade,
-  listCourseYearsByCourse,
+  listStudentCourseYearsByCourse,
   listCoursesByUniversity,
   listCoursesForUniversityCascade,
   listDiscontinuedStudents,
@@ -330,7 +330,7 @@ export default function StudentDiscontinuePage() {
         return
       }
       try {
-        const rows = await listCourseYearsByCourse(courseId)
+        const rows = await listStudentCourseYearsByCourse(courseId)
         setCourseYears(Array.isArray(rows) ? rows : [])
         if (rows?.length) {
           setCourseYearId(pickNum(rows[0], ['courseYearId', 'fk_course_year_id']))

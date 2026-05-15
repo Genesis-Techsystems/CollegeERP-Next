@@ -12,9 +12,9 @@ import { useSessionContext } from '@/context/SessionContext'
 import {
   fetchStudentDetail,
   listAcademicYearsForReadmissionWithProcFallback,
-  listCourseYearsByCourse,
+  listStudentCourseYearsByCourse,
   listGroupSectionsForReadmission,
-  listRegulationsByCourse,
+  listStudentRegulationsByCourse,
   resolveUniversityIdForReadmission,
   submitStudentReadmission,
 } from '@/services'
@@ -149,8 +149,8 @@ export function ReadmissionApplicationForm() {
 
         const [ays, regs, cyrs] = await Promise.all([
           listAcademicYearsForReadmissionWithProcFallback(resolvedUniv, collegeId, orgForAy, empForAy),
-          courseId ? listRegulationsByCourse(courseId) : Promise.resolve([] as AnyRow[]),
-          courseId ? listCourseYearsByCourse(courseId) : Promise.resolve([] as AnyRow[]),
+          courseId ? listStudentRegulationsByCourse(courseId) : Promise.resolve([] as AnyRow[]),
+          courseId ? listStudentCourseYearsByCourse(courseId) : Promise.resolve([] as AnyRow[]),
         ])
         setAcademicYears(ays)
         setRegulations(regs)

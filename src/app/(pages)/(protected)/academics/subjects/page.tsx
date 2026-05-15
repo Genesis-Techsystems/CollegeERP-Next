@@ -195,12 +195,9 @@ export default function SubjectsMasterPage() {
             rowData={rows}
             columnDefs={columnDefs}
             loading={loading}
-            quickFilter
-            quickFilterPlaceholder="Search subjects..."
+            toolbar={{ search: true, searchPlaceholder: 'Search subjects...' }}
             pagination
             paginationPageSize={10}
-            rowSelection="single"
-            suppressRowClickSelection
           />
         </div>
       )}

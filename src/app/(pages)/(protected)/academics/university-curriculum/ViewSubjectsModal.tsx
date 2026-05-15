@@ -67,8 +67,7 @@ export default function ViewSubjectsModal({
             rowData={rows}
             columnDefs={COLS}
             loading={loading}
-            quickFilter
-            quickFilterPlaceholder="Search subjects..."
+            toolbar={{ search: true, searchPlaceholder: 'Search subjects...' }}
             pagination
             paginationPageSize={10}
           />

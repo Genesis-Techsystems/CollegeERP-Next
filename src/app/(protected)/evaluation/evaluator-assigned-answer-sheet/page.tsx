@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { ColDef, CellClickedEvent, ICellRendererParams } from 'ag-grid-community'
 import { FileText } from 'lucide-react'
@@ -23,7 +23,7 @@ function evaluatedRenderer(p: ICellRendererParams<AnswerPaper>) {
   return <StatusBadge status={p.data?.isEvaluated ?? false} label={p.data?.isEvaluated ? 'Evaluated' : 'Pending'} />
 }
 
-export default function EvaluatorAssignedAnswerSheetPage() {
+function EvaluatorAssignedAnswerSheetContent() {
   const searchParams = useSearchParams()
   const subjectCode = searchParams.get('subjectCode') ?? ''
   const subjectName = searchParams.get('subjectName') ?? 'Assigned Answer Papers'
@@ -111,5 +111,13 @@ export default function EvaluatorAssignedAnswerSheetPage() {
         )}
       </div>
     </PageContainer>
+  )
+}
+
+export default function EvaluatorAssignedAnswerSheetPage() {
+  return (
+    <Suspense fallback={<PageContainer className="py-8 text-sm text-muted-foreground">Loading…</PageContainer>}>
+      <EvaluatorAssignedAnswerSheetContent />
+    </Suspense>
   )
 }

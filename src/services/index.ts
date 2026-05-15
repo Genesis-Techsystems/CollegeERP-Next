@@ -17,7 +17,14 @@ export * from './admin/subject-book-assignment'
 export * from './admin/subject-unit-topics'
 export * from './admin/course-year'
 export * from './admin/regulation'
-export * from './admin/group-section'
+export {
+  listGroupSectionsAdmin,
+  listActiveCollegesForSections,
+  listActiveCourseGroupsByCollege,
+  listActiveCourseYearsByCourse as listActiveCourseYearsByCourseForGroupSection,
+  createGroupSection,
+  updateGroupSection,
+} from './admin/group-section'
 export * from './admin/batch'
 export * from './admin/student-batch'
 export * from './admin/university'

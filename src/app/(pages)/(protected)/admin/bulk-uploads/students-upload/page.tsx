@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
 import { FileSpreadsheet, Upload, X } from 'lucide-react'
-import { Upload as AntUpload, type UploadFile, type UploadProps } from 'antd'
 import { DataTable } from '@/common/components/table'
+import { FileDropzone } from '@/common/components/forms'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -47,7 +47,7 @@ const STAGING_COLS: ColDef<StudentBulkStagingRow>[] = [
 ]
 
 export default function StudentsUploadPage() {
-  const [fileList, setFileList] = useState<UploadFile[]>([])
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [rows, setRows] = useState<StudentBulkStagingRow[]>([])
   const [showTable, setShowTable] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -55,31 +55,22 @@ export default function StudentsUploadPage() {
   const [clearing, setClearing] = useState(false)
   const [xlsxCount, setXlsxCount] = useState(0)
 
-  const selectedFileName = fileList[0]?.name ?? ''
+  const selectedFileName = selectedFile?.name ?? ''
 
   function clearSelectedFile() {
-    setFileList([])
+    setSelectedFile(null)
     setXlsxCount(0)
   }
 
-  const uploadProps: UploadProps = {
-    accept: '.xls,.xlsx',
-    multiple: false,
-    fileList,
-    showUploadList: false,
-    beforeUpload: () => false,
-    onChange: async ({ fileList: next }) => {
-      const one = next.slice(-1)
-      setFileList(one)
-      const file = one[0]?.originFileObj
-      if (!file) {
-        setXlsxCount(0)
-        return
-      }
-      const text = await file.text().catch(() => '')
-      setXlsxCount(Math.max(0, text.split('\n').length - 1))
-    },
-    onRemove: () => clearSelectedFile(),
+  async function handleFilesChange(files: File[]) {
+    const file = files[0] ?? null
+    setSelectedFile(file)
+    if (!file) {
+      setXlsxCount(0)
+      return
+    }
+    const text = await file.text().catch(() => '')
+    setXlsxCount(Math.max(0, text.split('\n').length - 1))
   }
 
   async function refreshStaging() {
@@ -88,7 +79,7 @@ export default function StudentsUploadPage() {
   }
 
   async function onUpload() {
-    const file = fileList[0]?.originFileObj
+    const file = selectedFile
     if (!file) {
       toastError(new Error('Please choose a file.'), 'Student Bulk Upload')
       return
@@ -157,12 +148,9 @@ export default function StudentsUploadPage() {
               </a>
             </div>
 
-            <AntUpload.Dragger
-              {...uploadProps}
-              className="max-w-[760px] !p-0 !mb-0 [&_.ant-upload]:!p-3 [&_.ant-upload]:!min-h-[44px] [&_.ant-upload]:!rounded-md [&_.ant-upload-text]:!m-0"
-            >
+            <FileDropzone accept=".xls,.xlsx" onFilesChange={(files) => void handleFilesChange(files)}>
               <p className="text-xs text-slate-700">Drag and drop XLS/XLSX file here, or click to select</p>
-            </AntUpload.Dragger>
+            </FileDropzone>
 
             {selectedFileName ? (
               <div className="mt-2 inline-flex max-w-full items-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-2.5 py-1.5">
