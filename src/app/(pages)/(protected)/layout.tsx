@@ -21,7 +21,9 @@ import { AppShell } from '@/components/layout'
 import { getSession } from '@/lib/session'
 import { springGetUserDetails } from '@/integrations/spring-api'
 import { buildNavTree } from '@/lib/navigation'
+import { mergeSessionUserFromDto } from '@/lib/user-context'
 import type { NavItem } from '@/types/navigation'
+import type { SessionUser } from '@/types/user'
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession()
@@ -32,15 +34,17 @@ export default async function ProtectedLayout({ children }: { children: React.Re
 
   // Fetch modules/pages server-side only — build nav tree here, never send raw data to client
   let navItems: NavItem[] = []
+  let initialUser: SessionUser = session.user
   try {
     const userDto = await springGetUserDetails(session.jwt)
     navItems = buildNavTree(userDto.modules ?? [], userDto.pages ?? [])
+    initialUser = mergeSessionUserFromDto(session.user, userDto)
   } catch {
     // nav will be empty but app won't crash
   }
 
   return (
-    <SessionProvider initialUser={session.user}>
+    <SessionProvider initialUser={initialUser}>
       <AppShell initialNavItems={navItems}>{children}</AppShell>
     </SessionProvider>
   )

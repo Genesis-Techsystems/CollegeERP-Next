@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Filter } from 'lucide-react'
+import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { useSessionContext } from '@/context/SessionContext'
@@ -300,53 +300,32 @@ export default function StudentDetainPage() {
         </label>
       </div>
 
-      <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Student Detain</h2>
-          <button
-            type="button"
-            className="inline-flex items-center text-[12px] text-slate-700"
-            onClick={() => setFilterOpen((v) => !v)}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </button>
-        </div>
-
-        {filterOpen && (
-          <div className="p-3">
-            {mode === 'student' ? (
-              <div className="max-w-md">
-                <Select
-                  label="Student"
-                  placeholder="Search student"
-                  value={selectedStudentId ? String(selectedStudentId) : null}
-                  options={studentsSelectOptions}
-                  searchable
-                  clearable
-                  isLoading={loadingStudents}
-                  onSearch={(term) => void onSearchStudents(term)}
-                  onChange={(v) => setSelectedStudentId(v ? Number(v) : null)}
-                  className="[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
-                />
-              </div>
-            ) : (
-              <div className="max-w-md">
-                <Select
-                  label="Section"
-                  placeholder="Select section"
-                  value={selectedSectionId ? String(selectedSectionId) : null}
-                  options={sectionOptions}
-                  searchable
-                  onChange={(v) => setSelectedSectionId(v ? Number(v) : null)}
-                  className="[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
-                />
-              </div>
-            )}
-          </div>
+      <FilterCard title="Student Detain" open={filterOpen} onOpenChange={setFilterOpen} fieldMaxWidth="28rem">
+        {mode === 'student' ? (
+          <Select
+            label="Student"
+            placeholder="Search student"
+            value={selectedStudentId ? String(selectedStudentId) : null}
+            options={studentsSelectOptions}
+            searchable
+            clearable
+            isLoading={loadingStudents}
+            onSearch={(term) => void onSearchStudents(term)}
+            onChange={(v) => setSelectedStudentId(v ? Number(v) : null)}
+            className={FILTER_CARD_SELECT_CLASS}
+          />
+        ) : (
+          <Select
+            label="Section"
+            placeholder="Select section"
+            value={selectedSectionId ? String(selectedSectionId) : null}
+            options={sectionOptions}
+            searchable
+            onChange={(v) => setSelectedSectionId(v ? Number(v) : null)}
+            className={FILTER_CARD_SELECT_CLASS}
+          />
         )}
-      </div>
+      </FilterCard>
 
       {rows.length > 0 && (
         <div className="app-card overflow-hidden">

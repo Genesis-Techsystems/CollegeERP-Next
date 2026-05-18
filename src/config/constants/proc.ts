@@ -15,6 +15,27 @@ export interface ProcParam {
   id: string
 }
 
+/** Parameter definitions for s_get_univwisedetails_bycode (university fee structure filters). */
+export const PROC_UNIV_FILTERS: ProcParam[] = [
+  { paramName: 'in_flag=', paramValue: 'clg_filters', id: 'in_flag' },
+  { paramName: '&in_org_id=', paramValue: 1, id: 'in_org_id' },
+  { paramName: '&in_university_id=', paramValue: 0, id: 'in_university_id' },
+  { paramName: '&in_college_id=', paramValue: 0, id: 'in_college_id' },
+  { paramName: '&in_course_id=', paramValue: 0, id: 'in_course_id' },
+  { paramName: '&in_course_group_id=', paramValue: 0, id: 'in_course_group_id' },
+  { paramName: '&in_course_year_id=', paramValue: 0, id: 'in_course_year_id' },
+  { paramName: '&in_group_section_id=', paramValue: 0, id: 'in_group_section_id' },
+  { paramName: '&in_academic_year_id=', paramValue: 0, id: 'in_academic_year_id' },
+  { paramName: '&in_regulation_id=', paramValue: 0, id: 'in_regulation_id' },
+  { paramName: '&in_dept_id=', paramValue: 0, id: 'in_dept_id' },
+  { paramName: '&in_isadmin=', paramValue: 0, id: 'in_isadmin' },
+  { paramName: '&in_loginuser_empid=', paramValue: 0, id: 'in_loginuser_empid' },
+  { paramName: '&in_loginuser_roleid=', paramValue: 0, id: 'in_loginuser_roleid' },
+  { paramName: '&in_subject=', paramValue: '', id: 'in_subject' },
+  { paramName: '&in_employee=', paramValue: '', id: 'in_employee' },
+  { paramName: '&in_gm_codes=', paramValue: '', id: 'in_gm_codes' },
+]
+
 /** Parameter definitions for s_get_collegewisedetails_bycode */
 export const PROC_COLLEGE_FILTERS: ProcParam[] = [
   { paramName: 'in_flag=', paramValue: 'clg_filters', id: 'in_flag' },

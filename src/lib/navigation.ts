@@ -90,6 +90,9 @@ export function normalizeHref(path: string): string {
     // Angular Assessments module folder typo `assissments` → canonical `assessments`.
     .replace(/\/apps\/assissments\//gi, '/assessments/')
     .replace(/\/assissments\//gi, '/assessments/')
+    // Angular Accounts & Fees module (`accounts-fees` in router) → App Router path.
+    .replace(/\/accounts-fees\//gi, '/accounts-and-fees/')
+    .replace(/\/apps\/accounts-and-fees\//gi, '/accounts-and-fees/')
     // Angular module prefix `/apps/user-management/` → App Router path.
     .replace(/\/apps\/user-management\//gi, '/user-management/')
     // Angular Email & SMS app folder → Next routes.

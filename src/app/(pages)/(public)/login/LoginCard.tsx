@@ -8,7 +8,8 @@ import { z } from 'zod'
 import Image from 'next/image'
 import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react'
 import logo from '@/assets/images/logo.jpg'
-import { login } from '@/services/auth'
+import { syncSessionUserToStorage } from '@/lib/user-context'
+import { getEmployeeIdByUserId, login } from '@/services/auth'
 
 const loginSchema = z.object({
   usernameOrEmail: z.string().min(1, 'Username is required'),
@@ -31,6 +32,11 @@ export function LoginCard() {
     setError(null)
     try {
       const { user } = await login({ usernameOrEmail: data.usernameOrEmail, password: data.password })
+      let employeeId = user.employeeId
+      if (!employeeId && user.userId) {
+        employeeId = await getEmployeeIdByUserId(user.userId)
+      }
+      syncSessionUserToStorage({ ...user, employeeId: employeeId || user.employeeId })
       setIsPending(true)
       router.push(user.defaultDashboardPath || '/dashboard')
     } catch (err) {

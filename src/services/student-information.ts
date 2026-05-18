@@ -8,6 +8,7 @@ import {
   postDetails,
   putDetails,
 } from '@/services/crud'
+import { fetchStudentTimetableRows } from '@/services/student-timetable'
 
 type AnyRow = Record<string, any>
 
@@ -40,7 +41,16 @@ function num(row: AnyRow, keys: string[]): number {
 export function normalizeStudentRow(row: AnyRow): AnyRow {
   return {
     ...row,
-    studentId: num(row, ['studentId', 'fk_student_id', 'student_id', 'id', 'studentDetailId']),
+    /** Prefer academic FK (`studentDetailId`) over generic `id` — wrong order breaks timetable/fee/attendance APIs. */
+    studentId: num(row, [
+      'studentId',
+      'fk_student_id',
+      'student_id',
+      'studentDetailId',
+      'student_detail_id',
+      'pk_student_detail_id',
+      'id',
+    ]),
     hallticketNumber: text(row, ['hallticketNumber', 'hallticket_number', 'rollNumber', 'roll_number', 'admissionNumber', 'admission_no']),
     studentName: text(row, ['studentName', 'student_name', 'firstName', 'fullName', 'name']),
     courseName: text(row, ['courseName', 'course_name', 'course_code']),
@@ -373,6 +383,55 @@ export async function listStudentSubjectsForStudent(params: {
   return []
 }
 
+/**
+ * Angular students-profile curriculum: one semester tab → StudentSubject for that course year.
+ * Tries with academic year first, then without (historical semesters may use a different AY id).
+ */
+export async function listStudentSubjectsForStudentSemester(params: {
+  collegeId: number
+  studentId: number
+  courseYearId: number
+  academicYearId?: number
+}): Promise<AnyRow[]> {
+  const { collegeId, studentId, courseYearId, academicYearId } = params
+  if (!collegeId || !studentId || !courseYearId) return []
+
+  if (academicYearId) {
+    const withAy = await listStudentSubjectsForStudent({
+      collegeId,
+      academicYearId,
+      studentId,
+      courseYearId,
+    })
+    if (withAy.length > 0) return withAy
+  }
+
+  const queryVariants = [
+    buildQuery({
+      'studentDetail.studentId': studentId,
+      'courseYear.courseYearId': courseYearId,
+      isActive: true,
+    }),
+    buildQuery({
+      'StudentDetail.studentId': studentId,
+      'CourseYear.courseYearId': courseYearId,
+      isActive: true,
+    }),
+    buildQuery({ studentId, courseYearId, isActive: true }),
+  ]
+
+  for (const q of queryVariants) {
+    try {
+      const rows = await domainList<AnyRow>('StudentSubject', q)
+      if (rows.length > 0) return rows
+    } catch {
+      // try next
+    }
+  }
+
+  return []
+}
+
 /** Student Co-Curriculum activity list by student id (StdCCActivitiesDetails). */
 export async function listStudentCcActivities(studentId: number): Promise<AnyRow[]> {
   if (!studentId) return []
@@ -664,19 +723,11 @@ export async function listSectionTimetableCurr(params: {
   collegeId: number
   academicYearId: number
   groupSectionId: number
+  courseGroupId?: number
+  courseYearId?: number
+  studentId?: number
 }): Promise<AnyRow[]> {
-  const { collegeId, academicYearId, groupSectionId } = params
-  if (!collegeId || !academicYearId || !groupSectionId) return []
-  try {
-    const data = await fetchDetails<any>('timetablescurr', {
-      'College.collegeId': collegeId,
-      'AcademicYear.academicYearId': academicYearId,
-      groupSectionId,
-    })
-    return asArray<AnyRow>(data)
-  } catch {
-    return []
-  }
+  return fetchStudentTimetableRows(params)
 }
 
 export async function listBatchwiseLabStudents(params: {
@@ -1165,11 +1216,16 @@ export async function listCollegesByOrganization(organizationId: number): Promis
   return []
 }
 
-/** Legacy GET: /studentdetail?studentId= */
-export async function fetchStudentDetail(studentId: number): Promise<AnyRow | null> {
+/** Legacy GET: /studentdetail?studentId=&check= (check=1 view-only, Angular students-profile). */
+export async function fetchStudentDetail(
+  studentId: number,
+  options?: { check?: number },
+): Promise<AnyRow | null> {
   if (!studentId) return null
+  const params: Record<string, string | number> = { studentId }
+  if (options?.check != null) params.check = options.check
   try {
-    const data = await fetchDetails<any>('studentdetail', { studentId })
+    const data = await fetchDetails<any>('studentdetail', params)
     if (data && typeof data === 'object' && !Array.isArray(data)) return data as AnyRow
     if (Array.isArray(data) && data.length > 0) return data[0] as AnyRow
   } catch {
@@ -1285,4 +1341,44 @@ export async function listDiscontinuedStudents(collegeId: number, academicYearId
 export async function submitStudentDiscontinue(rows: Record<string, unknown>[]): Promise<unknown> {
   if (!rows.length) throw new Error('No rows to submit')
   return postDetails<unknown>('discontinue', rows)
+}
+
+/** Angular edit-student: active colleges for hierarchy dropdown. */
+export async function listActiveCollegesForStudentEdit(): Promise<AnyRow[]> {
+  const queries = [
+    buildQuery({ isActive: true }, { field: 'collegeCode', direction: 'ASC' }),
+    buildQuery({ isActive: true }),
+  ]
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>('College', q)
+      if (rows.length > 0) return rows
+    } catch {
+      // next query
+    }
+  }
+  return []
+}
+
+/** Angular edit-student: batches filtered by course. */
+export async function listBatchesByCourse(courseId: number): Promise<AnyRow[]> {
+  if (!courseId) return []
+  const queries = [
+    buildQuery({ 'Course.courseId': courseId, isActive: true }, { field: 'batchName', direction: 'DESC' }),
+    buildQuery({ courseId, isActive: true }, { field: 'batchName', direction: 'DESC' }),
+  ]
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>('Batch', q)
+      if (rows.length > 0) return rows
+    } catch {
+      // next query
+    }
+  }
+  return []
+}
+
+/** Angular `crudService.add(studentdetailUrl, application)` on save. */
+export async function submitStudentDetail(payload: Record<string, unknown>): Promise<AnyRow> {
+  return postDetails<AnyRow>('studentdetail', payload)
 }

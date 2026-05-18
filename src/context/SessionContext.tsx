@@ -1,9 +1,11 @@
 'use client'
 
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { SessionUser } from '@/types/user'
 import { useSession } from '@/hooks/useSession'
+import { resolveLoginEmployeeId, syncSessionUserToStorage } from '@/lib/user-context'
+import { getEmployeeIdByUserId } from '@/services/auth'
 
 interface SessionContextValue {
   user: SessionUser | null
@@ -30,6 +32,19 @@ function SessionProviderInner({
   // Use initialUser from server-side props to avoid loading flash
   const user = session.user ?? initialUser ?? null
   const isLoading = session.isLoading && !initialUser
+
+  useEffect(() => {
+    if (!user) return
+    void (async () => {
+      let employeeId = resolveLoginEmployeeId(user)
+      if (!employeeId && user.userId) {
+        employeeId = await getEmployeeIdByUserId(user.userId)
+      }
+      syncSessionUserToStorage(
+        employeeId > 0 ? { ...user, employeeId } : user,
+      )
+    })()
+  }, [user])
 
   return (
     <SessionContext.Provider value={{ user, isLoading, refetch: session.refetch }}>

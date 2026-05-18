@@ -118,6 +118,12 @@ export * from './exam-fcar-setup-master'
 export * from './exam-lab-batches'
 export * from './exam-lab-timetable'
 export * from './student-information'
+export * from './student-profile'
+export * from './student-timetable'
+export * from './student-attendance'
+export * from './student-fee'
+export * from './fee-masters'
+export * from './fees-collection'
 export * from './email-sms'
 // invigilator-remuneration: listActiveColleges conflicts with pre-examination.
 export {

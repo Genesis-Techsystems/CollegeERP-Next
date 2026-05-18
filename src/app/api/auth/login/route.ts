@@ -20,6 +20,7 @@ import { cookies } from 'next/headers'
 import { z } from 'zod'
 import { sessionOptions } from '@/lib/session'
 import { springLogin, springGetUserDetails } from '@/integrations/spring-api'
+import { pickEmployeeIdFromUserDto } from '@/lib/user-context'
 import type { IronSessionData, SessionUser } from '@/types/user'
 import { APP_CONFIG } from '@/config/constants/app'
 
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
       collegeName: userDto.collegeName,
       academicYearId: userDto.academicYearId,
       academicYear: userDto.academicYear,
-      employeeId: userDto.employeeId,
+      employeeId: pickEmployeeIdFromUserDto(userDto),
       studentId: userDto.studentId,
       organizationId: userDto.organizationId,
       universityId: userDto.universityId,

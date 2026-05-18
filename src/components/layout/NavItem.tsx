@@ -1205,6 +1205,22 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     if (labelLower.includes('scan bundles') || labelLower.includes('exam scan bundle')) {
       return '/admin-examination-management/exam-papers-delivery-process/scan-bundles'
     }
+    if (
+      labelLower.includes('students profile') ||
+      labelLower.includes('student profile') ||
+      hrefLower.includes('/students-profile')
+    ) {
+      return '/admin-student-information-system/students-profile'
+    }
+    if (
+      labelLower.includes('students list') ||
+      labelLower.includes('student details') ||
+      labelLower.includes('student detail') ||
+      hrefLower.includes('/students-list') ||
+      hrefLower.includes('/student-details')
+    ) {
+      return '/admin-student-information-system/students-list'
+    }
     if (labelLower.includes('student re-admission') || labelLower.includes('student readmission')) {
       return '/admin-student-information-system/student-re-admission'
     }
@@ -1665,6 +1681,98 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return '/assessments/test'
     }
+
+    const feeMastersBase = '/accounts-and-fees/fee-masters'
+    if (
+      labelLower.includes('fee categor')
+      || hrefLower.includes('fee-categories')
+      || hrefLower.includes('fee-category')
+    ) {
+      return `${feeMastersBase}/fee-categories`
+    }
+    if (
+      labelLower.includes('fee particular')
+      || hrefLower.includes('fee-particular')
+    ) {
+      return `${feeMastersBase}/fee-particular`
+    }
+    if (
+      labelLower.includes('fee structure')
+      && !labelLower.includes('university')
+      && !labelLower.includes('course')
+    ) {
+      return `${feeMastersBase}/fee-structure`
+    }
+    if (labelLower.includes('view course') && labelLower.includes('fee')) {
+      return `${feeMastersBase}/view-course-feestructures`
+    }
+    if (labelLower.includes('university fee structure')) {
+      if (labelLower.includes('detail')) {
+        return `${feeMastersBase}/university-fee-structure-details`
+      }
+      return `${feeMastersBase}/university-fee-structure`
+    }
+
+    const feesCollectionBase = '/accounts-and-fees/fees-collection'
+    if (
+      labelLower.includes('student fee collection')
+      || hrefLower.includes('student-fee-collection')
+    ) {
+      return `${feesCollectionBase}/payment/student-fee-collection`
+    }
+    if (
+      (labelLower.includes('fee payment') && !labelLower.includes('bus') && !labelLower.includes('hostel') && !labelLower.includes('library'))
+      || hrefLower.includes('/payment/fee-payment')
+      || (hrefLower.includes('pay-fees') && hrefLower.includes('fee-payment'))
+    ) {
+      return `${feesCollectionBase}/payment/fee-payment`
+    }
+    if (labelLower.includes('fee receipt') && !labelLower.includes('update')) {
+      return `${feesCollectionBase}/fee-receipts`
+    }
+    if (labelLower.includes('fee receipt') && labelLower.includes('update')) {
+      return `${feesCollectionBase}/fee-receipt-update`
+    }
+    if (labelLower.includes('allocate') && labelLower.includes('student') && labelLower.includes('fee') && !labelLower.includes('structure')) {
+      return `${feesCollectionBase}/allocate-student-fee`
+    }
+    if (labelLower.includes('allocate') && labelLower.includes('structure')) {
+      return `${feesCollectionBase}/allocate-structure-to-student`
+    }
+    if (labelLower.includes('fee refund')) {
+      return `${feesCollectionBase}/fee-refunds`
+    }
+    if (labelLower.includes('fee concession') || labelLower.includes('concession')) {
+      return `${feesCollectionBase}/fee-concession`
+    }
+    if (labelLower.includes('generate') && labelLower.includes('paylink')) {
+      return `${feesCollectionBase}/generate-paylink`
+    }
+    if (labelLower.includes('student fee management')) {
+      return `${feesCollectionBase}/student-fee-management`
+    }
+    if (labelLower.includes('online receipt')) {
+      return `${feesCollectionBase}/update-online-receipt-status`
+    }
+    if (labelLower.includes('re-evaluation fee') || labelLower.includes('reevaluation fee')) {
+      return `${feesCollectionBase}/re-evaluation-fee`
+    }
+    if (labelLower.includes('reevaluation registered')) {
+      return `${feesCollectionBase}/reevaluation-registered-students`
+    }
+    if (labelLower.includes('faculty') && labelLower.includes('transport')) {
+      return `${feesCollectionBase}/faculty-transport-payment`
+    }
+    if (labelLower.includes('library') && labelLower.includes('fee')) {
+      return `${feesCollectionBase}/library-payment/library-pay-list`
+    }
+    if (labelLower.includes('hostel') && labelLower.includes('fee')) {
+      return `${feesCollectionBase}/hostel-payment/hostel-fee-list`
+    }
+    if (labelLower.includes('bus') && labelLower.includes('fee')) {
+      return `${feesCollectionBase}/bus-payment`
+    }
+
     return null
   })()
 
@@ -1688,6 +1796,11 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     }
     if (label.includes('exam')) return normPathname.startsWith('/admin-examination-management/')
     if (label.includes('assessment')) return normPathname.startsWith('/assessments/')
+    if (label.includes('accounts') && label.includes('fees')) {
+      return normPathname.startsWith('/accounts-and-fees/')
+    }
+    if (label.includes('fee masters')) return normPathname.startsWith('/accounts-and-fees/fee-masters/')
+    if (label.includes('fee collection')) return normPathname.startsWith('/accounts-and-fees/fees-collection/')
     return false
   })()
   const isSelfActive =

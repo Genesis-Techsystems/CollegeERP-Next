@@ -398,6 +398,8 @@ export const EMPLOYEE_API = {
   ASSIGN_MANAGER: 'assignemployeemanager',
   /** GET: employee details by course group id */
   DETAILS_BY_COURSE_GROUP: 'employeedetailsbycoursegroupid',
+  /** GET: `employeedetailsbyid?userId=` — Angular login sets localStorage `employeeId`. */
+  DETAILS_BY_USER_ID: 'employeedetailsbyid',
   /** POST: send employee mails */
   SEND_MAILS: 'sendEmployeeMails',
   /** GET: pop profile employees */
@@ -443,8 +445,54 @@ export const FEE_API = {
   CERTIFICATE_ISSUE_AMOUNT: 'feeCertificateIssueAmount',
   /** GET: student certificate details */
   GET_STUDENT_CERT_DETAILS: 'getAllRecords/s_get_student_certificate_details',
+  /** GET: paginated college fee structures (batch or academic year mode) */
+  FEE_STRUCTURES_LIST: 'feestructures',
+  /** GET: paginated student fee due list (batch/academic filters). */
+  STUDENT_FEE_LIST: 'studentfeelist',
+  /** GET: student search for fee payment (`q` query param). */
+  STUDENT_FEE_SEARCH: 'studentsearch',
+  /** GET: fee student data for payment screen (`feestudentdata`). */
+  FEE_STUDENT_DATA: 'feestudentdata',
+  /** GET: financial year for receipt date (`financialYearDate`). */
+  FINANCIAL_YEAR_DATE: 'financialYearDate',
+  /** PUT: recalculate fee transactions after particulars change. */
+  GENERATE_TRANSACTIONS: 'generateTransactions',
+  /** POST: save fee receipt / payment. */
+  FEE_RECEIPTS: 'feereceipts',
+  /** GET: student fee receipt PDF download (`?studentId=`). */
+  STUDENT_FEE_RECEIPT_DOWNLOAD: 'studentFeeReceiptDownload',
+  /** GET: paginated fee concession list. */
+  FEE_CONCESSION_LIST: 'feeconsessionlist',
+  /** POST: add institutional scholarship / student-wise fee discount. */
+  FEE_STUDENT_WISE_DISCOUNT: 'feestudentwisediscounts',
+  /** POST: map fee structure to students. */
+  MAP_FEE_STRUCTURE: 'mapfeestructure',
+  /** GET: pop-up student fee structures proc. */
+  POP_STUDENT_FEE_STRUCTURE: 'getAllRecords/s_pop_student_fee_Structure',
+  /** GET: fee structures by course year for student mapping. */
+  FEE_STRUCTURE_COURSEYR: 'FeeStructureCourseyr',
+  /** GET: fee management student detail. */
+  FEE_MANAGEMENT_STUDENT_DETAIL: 'feeManagmentStudentdDetail',
+  /** GET: fee management student details search. */
+  FEE_MANAGEMENT_SEARCH: 'feeManagementStdDetailSearch',
+  /** POST: save student fee management row(s). */
+  FEE_MANAGEMENT_SAVE: 'feeManagmentStdDetail',
+  /** GET: fee due list for pay-link / notifications. */
+  FEE_DUE_LIST: 'getAllRecords/s_fee_due_list',
+  /** POST: send payment mail with due list. */
+  SEND_PAYMENT_MAIL: 'sendPaymentMailNotification',
+  /** GET: employee search for transport fee (`q`, `empStatus`). */
+  EMPLOYEE_SEARCH: 'employeesearch',
+  /** GET: transport allocation by employee. */
+  TRANSPORT_ALLOCATION: 'TransportAllocation',
+  /** GET: sync initiated online fee payments. */
+  UPDATE_INITIATED_PAYMENTS: 'PayPhi/updateInitiatedPayments',
+  /** GET: sync initiated admission online payments. */
+  UPDATE_INITIATED_PAYMENTS_ADMISSION: 'PayPhi/updateInitiatedPaymentsForAdmission',
   /** GET: fee due notifications */
   GET_FEE_DUE_NOTIFICATIONS: 'getAllRecords/s_get_fee_duenotifications',
+  /** Angular student fee summary tab — `listByIds(..., 'in_std_id')`. */
+  FEE_STD_LEDGER: 'getAllRecords/s_fee_std_ledger',
   /** GET: fee summary */
   FEE_SUMMARY: 'getAllRecords/s_fee_summary',
   /** GET: fee discount summary */
@@ -783,6 +831,13 @@ export const ATTENDANCE_API = {
   GET_DAYWISE_STD_ATTENDANCE: 'getAllRecords/s_get_daywise_std_attendance_summary',
   /** GET: class wise student attendance summary */
   GET_CLASSWISE_STD_ATTENDANCE: 'getAllRecords/s_get_classwise_std_attendance_summary',
+  /** Angular student-profile attendance tab — `listByNineIds` per-subject %. */
+  REP_TT_STD_ATTENDANCE_PER: 'getAllRecords/s_rep_tt_std_attendance_per',
+} as const
+
+/** Angular timetable weekly grid — `listByTwelveIds` on Gold `getTimetableReportsUrl`. */
+export const TIMETABLE_REPORT_API = {
+  REP_TT_GET_TIMETABLE_DETAILS: 'getAllRecords/s_rep_tt_get_timetable_details',
 } as const
 
 // ─── Grievance ───────────────────────────────────────────────────────────────

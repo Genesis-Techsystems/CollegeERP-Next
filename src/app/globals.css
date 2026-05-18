@@ -163,6 +163,45 @@
   border-radius: 0 !important;
 }
 
+/* Student Fee Management — column dividers + multi-line student name */
+.fee-mgmt-data-table .ag-theme-quartz {
+  --ag-row-height: 72px;
+  --ag-cell-horizontal-border: solid 1px #cbd5e1;
+  --ag-header-column-separator-display: block;
+  --ag-header-column-separator-color: #cbd5e1;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-row {
+  min-height: 72px !important;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-header-cell.fee-mgmt-grid-cell,
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-grid-cell {
+  border-right: 1px solid #cbd5e1 !important;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-header-cell.fee-mgmt-grid-cell:last-child,
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-grid-cell:last-child {
+  border-right: none !important;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-student-cell,
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-student-cell .ag-cell-value {
+  align-items: flex-start !important;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  white-space: normal;
+  line-height: 1.35;
+  overflow: visible;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-compact-cell,
+.fee-mgmt-data-table .ag-theme-quartz .ag-header-cell.fee-mgmt-compact-cell {
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  justify-content: center;
+}
+
 .app-data-table .ag-theme-quartz .ag-pinned-right-header,
 .app-data-table .ag-theme-quartz .ag-pinned-left-header {
   border-color: #e2e8f0 !important;
@@ -627,6 +666,46 @@ textarea:focus-visible,
   color: #4F46E5;
 }
 
+
+
+
+/* ---------------------------------------------------------------------------
+   STUDENT TIMETABLE - Angular / Material parity (Roboto, tight metrics)
+   Scoped so the rest of the app stays Inter.
+   --------------------------------------------------------------------------- */
+
+.student-timetable-angular,
+.student-attendance-angular {
+  font-family: var(--font-roboto), "Roboto", "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.3;
+  -webkit-font-smoothing: subpixel-antialiased;
+  -moz-osx-font-smoothing: auto;
+}
+
+.student-timetable-angular table.timetable-grid {
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+/* Angular timetable: no vertical rules — columns read by pastel only */
+.student-timetable-angular table.timetable-grid th,
+.student-timetable-angular table.timetable-grid td {
+  box-sizing: border-box;
+  border-left: none;
+  border-right: none;
+}
+
+.student-timetable-angular table.timetable-grid thead th {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.student-timetable-angular table.timetable-grid tbody tr:not(:first-child) td {
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.student-timetable-angular .timetable-grid p {
+  margin: 0;
+}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    REDUCED MOTION — respect user preference

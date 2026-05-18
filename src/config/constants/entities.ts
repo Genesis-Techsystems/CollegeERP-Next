@@ -70,6 +70,11 @@ export const ENTITIES = {
   COLLEGE_CERTIFICATE:    { name: 'CollegeCertificate',        pk: 'collegeCertificateId'        },
   DOCUMENT_REPOSITORY:    { name: 'DocumentRepository',        pk: 'documentRepositoryId'        },
   WEEKDAY:                { name: 'Weekday',                   pk: 'weekdayId'                   },
+  // ─── Accounts & Fees — Fee Masters ───────────────────────────────────────────
+  FEE_CATEGORY:           { name: 'FeeCategory',               pk: 'feeCategoryId'               },
+  FEE_PARTICULAR:         { name: 'FeeParticular',             pk: 'feeParticularsId'            },
+  UNIV_FEE_STRUCTURE:     { name: 'UnivFeeStructure',          pk: 'univFeeStructureId'          },
+  UNIV_FEE_STRUCTURE_DETAILS: { name: 'UnivFeeStructureDetails', pk: 'univFeeStructureDetId'   },
 } as const
 
 export type EntityKey = keyof typeof ENTITIES

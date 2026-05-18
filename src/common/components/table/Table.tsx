@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import noImgLogo from '@/assets/images/no-img-logo.png'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -44,6 +44,16 @@ export interface TableProps<T = any> {
   density?: 'default' | 'compact'
   /** Extra CSS class for the wrapping element */
   className?: string
+  /** No outer border/radius — use inside `TableCard` / `app-card` (matches DataTable shell) */
+  embedded?: boolean
+  /** Optional class for the title element */
+  titleClassName?: string
+  /** Optional inline style for the title element */
+  titleStyle?: CSSProperties
+  /** Optional class for the empty-state cell (replaces default muted styling when set) */
+  emptyTextClassName?: string
+  /** Optional inline style for the empty-state cell */
+  emptyTextStyle?: CSSProperties
 }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +107,11 @@ export default function Table<T = any>({
   pageSize = 10,
   density = 'default',
   className,
+  embedded = false,
+  titleClassName,
+  titleStyle,
+  emptyTextClassName,
+  emptyTextStyle,
 }: TableProps<T>) {
   const [page, setPage] = useState(0)
   const cellPad = density === 'compact' ? 'px-2 py-0.5' : 'px-3 py-1.5'
@@ -178,12 +193,19 @@ export default function Table<T = any>({
   return (
     <div className={cn('flex flex-col gap-3', className)}>
       {title && (
-        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+        <h2 className={cn('text-base font-semibold text-foreground', titleClassName)} style={titleStyle}>
+          {title}
+        </h2>
       )}
 
-      <div className="rounded-lg border border-border bg-card overflow-auto">
+      <div
+        className={cn(
+          'overflow-auto',
+          embedded ? 'bg-white' : 'rounded-lg border border-border bg-card',
+        )}
+      >
         <table className="min-w-full divide-y divide-border">
-          <thead className="bg-muted/50">
+          <thead className="bg-[var(--color-table-header-bg)]">
             <tr>
               {columns.map((col) => (
                 <th
@@ -213,7 +235,12 @@ export default function Table<T = any>({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className={cn('text-center text-muted-foreground', emptyPad)}
+                  className={cn(
+                    'text-center',
+                    emptyTextClassName ?? 'text-muted-foreground',
+                    emptyTextClassName ? 'py-2' : emptyPad,
+                  )}
+                  style={emptyTextStyle}
                 >
                   {emptyText}
                 </td>

@@ -13,6 +13,7 @@
 export const QK = {
   // ── Session ──────────────────────────────────────────────────────────────
   session: ['session'] as const,
+  loginEmployeeId: (userId: number) => ['loginEmployeeId', userId] as const,
 
   // ── Exam Sessions ─────────────────────────────────────────────────────
   examSessions: {
@@ -203,6 +204,51 @@ export const QK = {
   blocks: {
     all: ['Block'] as const,
     list: () => ['Block', 'list'] as const,
+  },
+
+  // ── Fee Masters ────────────────────────────────────────────────────────
+  feeCategories: {
+    all: ['FeeCategory'] as const,
+    list: () => ['FeeCategory', 'list'] as const,
+  },
+  feeParticulars: {
+    all: ['FeeParticular'] as const,
+    list: () => ['FeeParticular', 'list'] as const,
+  },
+  collegeFeeStructures: {
+    all: ['CollegeFeeStructure'] as const,
+    list: (filters: Record<string, unknown>) => ['CollegeFeeStructure', 'list', filters] as const,
+    filters: (orgId: number, empId: number) => ['CollegeFeeStructure', 'filters', orgId, empId] as const,
+  },
+  univFeeStructures: {
+    all: ['UnivFeeStructure'] as const,
+    list: (filters: Record<string, unknown>) => ['UnivFeeStructure', 'list', filters] as const,
+    filters: (orgId: number, empId: number) => ['UnivFeeStructure', 'filters', orgId, empId] as const,
+    details: (univFeeStructureId: number) => ['UnivFeeStructure', 'details', univFeeStructureId] as const,
+  },
+  feesCollection: {
+    studentDue: (filters: Record<string, unknown>) => ['FeesCollection', 'studentDue', filters] as const,
+    studentStructures: (studentId: number) => ['FeesCollection', 'studentStructures', studentId] as const,
+    studentSearch: (term: string) => ['FeesCollection', 'studentSearch', term] as const,
+    studentSearchCollege: (collegeId: number, term: string) =>
+      ['FeesCollection', 'studentSearchCollege', collegeId, term] as const,
+    feeReceipts: (filters: Record<string, unknown>) => ['FeesCollection', 'feeReceipts', filters] as const,
+    feeReceiptDetails: (filters: Record<string, unknown>) =>
+      ['FeesCollection', 'feeReceiptDetails', filters] as const,
+    feeConcessions: (filters: Record<string, unknown>) => ['FeesCollection', 'feeConcessions', filters] as const,
+    employeeSearch: (term: string) => ['FeesCollection', 'employeeSearch', term] as const,
+    employeeDetails: (employeeId: number) => ['FeesCollection', 'employeeDetails', employeeId] as const,
+    transportAllocations: (employeeId: number) =>
+      ['FeesCollection', 'transportAllocations', employeeId] as const,
+    paylinkFilters: (orgId: number, employeeId: number) =>
+      ['FeesCollection', 'paylinkFilters', orgId, employeeId] as const,
+    feeDueNotifications: (filters: Record<string, unknown>) =>
+      ['FeesCollection', 'feeDueNotifications', filters] as const,
+    feeManagementDetail: (studentId: number) => ['FeesCollection', 'feeManagement', studentId] as const,
+    feeMgmtFilters: (orgId: number, employeeId: number) =>
+      ['FeesCollection', 'feeMgmtFilters', orgId, employeeId] as const,
+    allocateStructures: (filters: Record<string, unknown>) =>
+      ['FeesCollection', 'allocateStructures', filters] as const,
   },
 
   // ── Floors ─────────────────────────────────────────────────────────────
