@@ -61,7 +61,7 @@ export function LoginCard() {
 
       {/* Logo */}
       <div className="flex flex-col items-center px-8 pt-8 pb-6 border-b border-slate-100">
-        <Image src={logo} alt="Campus Connect" height={52} className="h-13 w-auto" priority />
+        <Image src={logo} alt="Campus Connect" height={52} className="h-13 w-auto" style={{ width: 'auto' }} priority />
         <p className="mt-3 text-xs font-medium tracking-widest text-slate-400 uppercase">
           Academic Management System
         </p>
@@ -74,7 +74,7 @@ export function LoginCard() {
           <p className="mt-1 text-sm text-slate-500">Sign in to access your account</p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate suppressHydrationWarning>
 
           {/* Username */}
           <div className="relative">
@@ -141,6 +141,7 @@ export function LoginCard() {
           <button
             type="submit"
             disabled={isLoading}
+            suppressHydrationWarning
             className="w-full h-11 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all duration-150 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 mt-2"
           >
             {isLoading

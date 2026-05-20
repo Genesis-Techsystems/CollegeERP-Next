@@ -50,8 +50,9 @@ bun-debug.log*
 *.key
 *.crt
 
-# ---- Angular reference source (branch-only) ----
-external-src/
+# ---- Angular reference source (local junctions only — full app, not committed) ----
+external-src/angular/
+external-src/goldcollegeerp_2024_dev3/
 
 # ---- Audit docs (branch-only) ----
 docs/audit-admin-examination-management.md

@@ -11,6 +11,13 @@ export async function listBanks(): Promise<Bank[]> {
   )
 }
 
+export async function listBanksByCollege(collegeId: number): Promise<Bank[]> {
+  return domainList<Bank>(
+    ENTITIES.BANK.name,
+    buildQuery({ 'College.collegeId': collegeId, isActive: true }),
+  )
+}
+
 export async function createBank(data: Omit<Bank, 'bankId'>): Promise<Bank> {
   return domainCreate<Bank>(ENTITIES.BANK.name, data)
 }

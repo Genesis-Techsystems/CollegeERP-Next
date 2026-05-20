@@ -44,3 +44,7 @@ Phase 7 of the migration was executed by six parallel agents, each owning a dist
 - `src/common/` is for Angular-parity foundation code. Do not put Next.js-specific abstractions here.
 - Chart components are intentionally thin wrappers — keep Highcharts config assumptions out.
 - The `select/` in `src/common/components/` is a higher-level labeled wrapper; the Shadcn primitive remains at `src/components/ui/select.tsx`.
+
+### Angular reference source (read-only, full application)
+
+The **entire** legacy Angular app is linked at **`external-src/angular/`** (alias: `external-src/goldcollegeerp_2024_dev3/`). All feature modules live under `external-src/angular/src/app/main/apps/` (~129 folders). Only scholarship is migrated in Next.js so far. Not part of the Next.js build. See `external-src/README.md`. Optional: open `CollegeERP-Next.code-workspace` for a two-root IDE view.

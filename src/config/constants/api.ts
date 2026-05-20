@@ -521,6 +521,50 @@ export const FEE_API = {
   STG_ONLINE_EXAM_FEE_RECEIPTS: 'stgOnlineExamFeeReceipts',
 } as const
 
+// ─── Scholarship Management ────────────────────────────────────────────────────
+
+export const SCHOLARSHIP_API = {
+  /** Domain list: student scholarship applications by college + academic year. */
+  SCH_STD_APPLICATION: 'SchStdApplication',
+  /** POST: create scholarship application. */
+  SCHOLARSHIP_APP: 'scholarshipapp',
+  /** Domain CRUD: scholarship types. */
+  SCHOLARSHIP_TYPE: 'ScholarshipType',
+  /** Domain CRUD: scholarship values (legacy modal). */
+  SCHOLARSHIP_VALUE: 'ScholarshipValue',
+  /** Domain list: fee scholarship structures. */
+  FEE_SCH_STRUCTURE: 'FeeSchStructure',
+  /** Domain: proceeding header. */
+  SCH_PRECEEDING: 'SchPreceeding',
+  /** GET paginated: proceedings list. */
+  SCH_PRECEEDINGS: 'schpreceedings',
+  /** Domain: student proceeding lines. */
+  SCH_STD_PRECEEDING: 'schstdpreceeding',
+  /** Domain update: student proceeding payment settlement. */
+  SCH_STD_PRECEEDING_CRUD: 'SchStdPreceeding',
+  /** Domain list: account proceedings. */
+  SCH_ACCOUNTS_PRECEEDING: 'SchAccountsPreceeding',
+  /** GET/POST: account proceedings CRUD. */
+  SCH_ACCOUNTS_PRECEEDINGS: 'schaccountspreceedings',
+  /** GET: proceedings linked to account batch. */
+  SCH_PRECEEDINGS_BY_ACC: 'schPreceedingsByAccPrecedingId',
+  /** POST: upload student proceedings Excel. */
+  UPLOAD_STD_PRECEEDINGS: 'uploadstdpreceedings',
+  /** Domain: staging student proceedings. */
+  SCH_STG_STD_PRECEEDING: 'SchStgStdPreceeding',
+  SCH_STG_STD_PRECEEDINGS: 'schstgstdpreceedings',
+  /** GET: unlinked proceedings for account batch. */
+  GET_NULL_PRECEEDINGS: 'getnullpreceedings',
+  /** GET: scholarship types + values for assign screen. */
+  GET_SCHOLARSHIP_TYPE_AND_VALUES: 'getScholarshipTypeAndValues',
+  /** GET: students with scholarship assignment state. */
+  GET_STUDENTS_SCHOLARSHIP_DETAILS: 'getStudentsScholarshipDetails',
+  /** POST: assign/unassign student scholarship. */
+  UPDATE_STD_STUDENT_SCHOLARSHIP: 'updateStdStudentScholarship',
+  /** GET: college-wise filter proc (same as fee masters). */
+  COLLEGE_WISE_DETAILS: 'collegeWiseDetails',
+} as const
+
 // ─── Payment Gateways ────────────────────────────────────────────────────────
 
 export const PAYMENT_GATEWAY_API = {

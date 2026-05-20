@@ -93,6 +93,9 @@ export function normalizeHref(path: string): string {
     // Angular Accounts & Fees module (`accounts-fees` in router) → App Router path.
     .replace(/\/accounts-fees\//gi, '/accounts-and-fees/')
     .replace(/\/apps\/accounts-and-fees\//gi, '/accounts-and-fees/')
+    // Angular Scholarship Management module → App Router path.
+    .replace(/\/apps\/scholarship-management\//gi, '/scholarship-management/')
+    .replace(/\/scholarship\//gi, '/scholarship-management/')
     // Angular module prefix `/apps/user-management/` → App Router path.
     .replace(/\/apps\/user-management\//gi, '/user-management/')
     // Angular Email & SMS app folder → Next routes.

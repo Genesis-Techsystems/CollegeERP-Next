@@ -369,6 +369,49 @@ export const QK = {
       ['collegeFilters', 'subjects', courseYearId] as const,
   },
 
+  // ── Scholarship Management ───────────────────────────────────────────────
+  scholarshipTypes: {
+    all: ['ScholarshipType'] as const,
+    list: () => ['ScholarshipType', 'list'] as const,
+  },
+  scholarshipApplications: {
+    all: ['SchStdApplication'] as const,
+    list: (collegeId: number, academicYearId: number) =>
+      ['SchStdApplication', 'list', { collegeId, academicYearId }] as const,
+  },
+  schPreceedings: {
+    all: ['SchPreceeding'] as const,
+    list: (filters: { collegeId: number; academicYearId: number; financialYearId: number; page?: number }) =>
+      ['SchPreceeding', 'list', filters] as const,
+  },
+  schAccountsPreceedings: {
+    all: ['SchAccountsPreceeding'] as const,
+    list: (collegeId?: number) => ['SchAccountsPreceeding', 'list', collegeId] as const,
+  },
+  schStdPreceedings: {
+    all: ['SchStdPreceeding'] as const,
+    list: (schPreceedingId: number) => ['SchStdPreceeding', 'list', schPreceedingId] as const,
+  },
+  feeSchStructures: {
+    all: ['FeeSchStructure'] as const,
+    list: (filters: { collegeId: number; academicYearId?: number; courseId?: number; batchId?: number }) =>
+      ['FeeSchStructure', 'list', filters] as const,
+    detail: (feeSchStructureId: number) => ['FeeSchStructure', 'detail', feeSchStructureId] as const,
+    values: (feeSchStructureId: number) => ['ScholarshipValue', 'byStructure', feeSchStructureId] as const,
+  },
+  assignScholarship: {
+    all: ['AssignScholarship'] as const,
+    batches: (courseId: number) => ['AssignScholarship', 'batches', courseId] as const,
+    students: (filters: Record<string, number | undefined>) =>
+      ['AssignScholarship', 'students', filters] as const,
+    types: (filters: Record<string, number | undefined>) =>
+      ['AssignScholarship', 'types', filters] as const,
+  },
+  scholarshipFilters: {
+    all: ['scholarshipFilters'] as const,
+    college: (orgId: number, empId: number) => ['scholarshipFilters', orgId, empId] as const,
+  },
+
   /** Email & SMS pages — reference data for filters */
   emailSms: {
     all: ['EmailSms'] as const,

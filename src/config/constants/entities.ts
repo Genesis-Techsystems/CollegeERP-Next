@@ -75,6 +75,14 @@ export const ENTITIES = {
   FEE_PARTICULAR:         { name: 'FeeParticular',             pk: 'feeParticularsId'            },
   UNIV_FEE_STRUCTURE:     { name: 'UnivFeeStructure',          pk: 'univFeeStructureId'          },
   UNIV_FEE_STRUCTURE_DETAILS: { name: 'UnivFeeStructureDetails', pk: 'univFeeStructureDetId'   },
+  // ─── Scholarship Management ──────────────────────────────────────────────────
+  SCHOLARSHIP_TYPE:       { name: 'ScholarshipType',           pk: 'scholarshipTypeId'           },
+  SCHOLARSHIP_VALUE:      { name: 'ScholarshipValue',          pk: 'scholarshipValueId'          },
+  SCH_STD_APPLICATION:    { name: 'SchStdApplication',         pk: 'schStdApplicationId'         },
+  SCH_PRECEEDING:         { name: 'SchPreceeding',             pk: 'schPreceedingId'             },
+  SCH_STD_PRECEEDING:     { name: 'SchStdPreceeding',          pk: 'schStdPreceedingId'          },
+  SCH_ACCOUNTS_PRECEEDING:{ name: 'SchAccountsPreceeding',     pk: 'schAccountsPreceedingId'     },
+  FEE_SCH_STRUCTURE:      { name: 'FeeSchStructure',           pk: 'feeSchStructureId'           },
 } as const
 
 export type EntityKey = keyof typeof ENTITIES

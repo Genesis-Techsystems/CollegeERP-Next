@@ -1,0 +1,23 @@
+{
+  "folders": [
+    {
+      "name": "Next.js (CollegeERP)",
+      "path": "."
+    },
+    {
+      "name": "Angular reference (full app)",
+      "path": "external-src/angular"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.next": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/.next": true,
+      "**/dist": true
+    }
+  }
+}

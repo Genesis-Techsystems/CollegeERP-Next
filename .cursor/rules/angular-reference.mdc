@@ -1,0 +1,25 @@
+---
+description: Full legacy Angular app paths for migration parity (all modules)
+alwaysApply: true
+---
+
+# Angular reference (entire application)
+
+The **complete** legacy Angular app is linked read-only under:
+
+- `external-src/angular/` (preferred)
+- `external-src/goldcollegeerp_2024_dev3/` (same tree)
+
+## Layout
+
+| Area | Path |
+|---|---|
+| All feature modules (~129) | `external-src/angular/src/app/main/apps/` |
+| Shared UI / constants | `external-src/angular/src/app/main/common/` |
+| Models | `external-src/angular/src/app/main/models/` |
+| Services | `external-src/angular/src/app/main/services/` |
+| Pages | `external-src/angular/src/app/main/pages/` |
+
+Only **scholarship** is migrated in Next.js (`src/app/(pages)/(protected)/scholarship-management/`). For any other feature, read the matching folder under `external-src/angular/src/app/main/apps/<feature>/` before implementing.
+
+Do not import Angular code into Next.js. Use the reference for templates, fields, API calls, and business rules only.

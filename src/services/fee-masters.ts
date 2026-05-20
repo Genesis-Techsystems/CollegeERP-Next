@@ -17,6 +17,24 @@ import { getGeneralDetails } from './exam-master'
 
 type AnyRow = Record<string, unknown>
 
+function pickCourseYearId(row: AnyRow): number {
+  for (const key of [
+    'courseYearId',
+    'fk_course_year_id',
+    'courseyearId',
+    'CourseYear.courseYearId',
+  ]) {
+    const n = Number(row[key])
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  const nested = row.CourseYear as AnyRow | undefined
+  if (nested) {
+    const n = Number(nested.courseYearId ?? nested.fk_course_year_id)
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  return 0
+}
+
 export type FeeMasterCollegeFilters = {
   filtersData: AnyRow[]
   academicData: AnyRow[]
@@ -381,9 +399,9 @@ export async function listCourseYearsForFeeStructure(
     if (tabs.some((t) => t.yearNo === yearNo)) continue
     tabs.push({
       yearNo,
-      courseYearId: Number(row.courseYearId ?? 0),
-      courseYearName: String(row.courseYearName ?? ''),
-      feeLabel: String(row.feeLabel ?? row.courseYearName ?? `Year ${yearNo}`),
+      courseYearId: pickCourseYearId(row),
+      courseYearName: String(row.courseYearName ?? row.course_year_name ?? ''),
+      feeLabel: String(row.feeLabel ?? row.courseYearName ?? row.course_year_name ?? `Year ${yearNo}`),
       sortOrder: Number(row.sortOrder ?? yearNo),
       particulars: [],
     })
