@@ -1,0 +1,292 @@
+<div id="admission-dashboard" class="page-layout simple" id='printNone'>
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" routerLink="{{dashboard}}">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination Management</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Reports</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Re-Evaluation Students Report </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+        <div class="mat-elevation-z8 bkgrd">
+            <form name="examFeeCollectionForm" [formGroup]="examFeeCollectionForm" style="padding-bottom: 1px;" class="form-pad" novalidate>
+                <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                    <i class="material-icons sub-header-icon">money</i>
+                    <span class="sub-header-text">Re-Evaluation Students Report</span>
+                </div>
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd" style="padding: 0px 15px;">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(examFeeCollectionForm.value.collegeId)" required>
+                                <mat-option *ngFor="let college of colleges" [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="18" fxFlex.gt-md="18">
+                            <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(examFeeCollectionForm.value.academicYearId)" required>
+                                <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(examFeeCollectionForm.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="52" fxFlex.gt-md="52">
+                            <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExam(examFeeCollectionForm.value.examId)" required>
+                                <ngx-mat-select-search [placeholderLabel]="'Search Exam...'"
+                                [noEntriesFoundLabel]="'no matching data found'" (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>   
+                                <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id" matTooltip="{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})"
+                                >{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})
+                                    <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                    <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                    <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="examFeeCollectionForm.value.examId">
+                            <input matInput [matDatepicker]="picker" name="examDate" [min]="minDate" [max]="maxDate" (dateChange)="calDays()" formControlName="examDate" placeholder="Choose a exam date">
+                            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                            <mat-datepicker #picker></mat-datepicker>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="Course Group" name="courseGroupId" formControlName="courseGroupId" (selectionChange)="selectedCourseGroup(examFeeCollectionForm.value.courseGroupId)" required>
+                                <mat-option *ngFor="let obcjt of courseGroups" [value]="obcjt.fk_course_group_id">{{obcjt.group_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                            <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId" (selectionChange)="selectedYear(examFeeCollectionForm.value.courseYearId)" required>
+                                <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.fk_course_year_id">{{courseYear.course_year_name}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                            <mat-select placeholder="Section" name="groupSectionId" formControlName="groupSectionId" (selectionChange)="selectedSection(examFeeCollectionForm.value.groupSectionId)" required>
+                                <mat-option *ngFor="let section of sections" [value]="section.groupSectionId">{{section.section}}</mat-option>
+                            </mat-select>
+                        </mat-form-field> -->
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13">
+                            <mat-select placeholder="Subject Type" name="subjectTypeId" formControlName="subjectTypeId" (selectionChange)="selectedSubjectType(examFeeCollectionForm.value.subjectTypeId)">
+                                <!-- <mat-option [value]="0">All</mat-option> -->
+                                <mat-option *ngFor="let objt of subjectTypes; let i = index" [value]="objt.fk_subjecttype_catdet_id">{{objt.subject_type}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <mat-select placeholder="Subject" name="examTimetableDetId" formControlName="examTimetableDetId" (selectionChange)="selectedSubject(examFeeCollectionForm.value.examTimetableDetId, [])">
+                                <mat-option *ngFor="let objt of examTimetableSubjectsList; let i = index" [value]="objt.fk_exam_timetable_det_id">{{objt.subject_name}}
+                                    <span class="rol-no"> - {{objt.subject_code}}</span>
+                                    <span class="rol-no">({{objt.regulation_code}})</span>
+                                    <span>({{objt.ttd_exam_type}})</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                    <div fxLayout="row" style="padding-top: 15px;" *ngIf="examFeeCollectionForm.value.courseYearId != ''">
+                     
+
+                        <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="44" fxFlex.gt-md="44" *ngIf="!staff">
+                            <mat-select placeholder="Employee" name="employeeId" formControlName="employeeId" #singleSelect (selectionChange)="selectedEmployee(examFeeCollectionForm.value.employeeId)">
+                                <ngx-mat-select-search [formControl]="employeeFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" (keyup)="enteredEmployee($event)"></ngx-mat-select-search>
+                                <mat-option *ngFor="let employee of filteredEmployees | async" [value]="employee.employeeId">{{employee.empNumber}}<span class="rol-no" *ngIf="employee.firstName != null">({{employee.firstName}})</span></mat-option>
+                            </mat-select>
+                        </mat-form-field> -->
+                        <!-- <mat-form-field fxLayout="column" *ngIf="roleName=='STAFF' || roleName=='MSTAFF'" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                            <mat-select placeholder="Employee" name="employeeId" formControlName="employeeId"  #singleSelect (selectionChange)="getReportingManagers(examFeeCollectionForm.value.employeeId)">
+                                <mat-option *ngFor="let employee of EmployeeData " [value]="employee.employeeId" style="line-height: 1.5em;height: unset;border-bottom: 1px solid #9e9e9e52;"> 
+                                    {{employee.empNumber}}<span class="rol-no" *ngIf="employee.firstName != null">({{employee.firstName}})</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field> -->
+                         <!-- <mat-form-field fxLayout="column" *ngIf="staff" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                            <mat-select placeholder="Employee" name="employeeId" formControlName="employeeId"  #singleSelect disabled >
+                                <mat-option [value]="empId" style="line-height: 1.5em;height: unset;border-bottom: 1px solid #9e9e9e52;"> 
+                                    {{empNumber}}<span class="rol-no" *ngIf="userName != null">({{userName}})</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field> -->
+                    </div>
+                </div>
+
+                <div fxLayout="row" style="margin-left: 22px;" *ngIf="examFeeCollectionForm.value.subjectId">
+                <div fxLayout="column" class="radio-btn" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start"  >
+                    <mat-radio-group [(ngModel)]="checkUploadType" [ngModelOptions]="{standalone: true}">
+                        <mat-radio-button [value]="1" (click)="clear()" >List Of Marks</mat-radio-button>
+                        <!-- <mat-radio-button style="margin-left: 20px;" [value]="2" (click)="clear()" class="r-btn" >Import Marks</mat-radio-button> -->
+                    </mat-radio-group>
+                </div>
+                </div>
+
+                <div fxLayout="column" style="margin-top: 10px" class="inner-bkgrd std-his" *ngIf="examFeeCollectionForm.value.subjectId">
+                    <div fxLayout="row" class="mar-8">
+                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <img class="img-marks pic" src="assets/images/logos/exam.png">
+                        </div>
+                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="85" fxFlex.gt-md="85" style="padding: 10px 0px;line-height: 0px;">
+                            <p>{{exam}} (<span style="color: blue;">{{examDate}}</span>) </p>
+                            <!-- <p *ngIf="!student.isLateral">{{student.firstName}} (<span style="color: blue;">REGULAR</span>) </p> -->
+                            <p style="color: #8c8c8c !important;" *ngIf="section !== null">{{collegeCode}} / {{course}} / {{courseGroup}} / {{courseyear}} / {{section}}
+                                <span style="color: blue;" *ngIf="academicYear !== null">({{academicYear}})</span></p>
+                            <p style="color: #000000 !important;font-weight: bold;">{{subjectDetails}}
+                                <span class="rol-no">- {{subjectTypCode}}</span> ({{examTypeCatCode}})</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div fxLayout="row" class="fileupload std-his" *ngIf="examFeeCollectionForm.value.subjectId && checkUploadType == 2">
+                    <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                        <input type="file" accept=".png, .jpg, .jpeg">
+                    </mat-form-field> -->
+                    <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="24" fxFlex.gt-md="16">
+                        <span class="upload">Upload Marks :</span>
+                    </div>
+                    <section fxLayout="column" class="p-8 post-rltv" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="20" fxLayoutAlign="center center">
+                        <input type="file" placeholder="Upload file" accept=".xlsx" #uploadXl>
+                    </section>
+                    <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                        <button [disabled]="preStaggings.length > 0 ? true : null" mat-raised-button class="add-btn" color="accent" (click)="uploadFile()">Upload</button>
+                    </div>
+                    <div class="savebtn-align file" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                        <!-- <button mat-raised-button class="add-btn btn-bck" (click)="download()">Download Sample XL</button> -->
+                        <button mat-icon-button class="file" aria-label="Example icon-button with a heart icon" (click)="download()" matTooltip="Download Sample Excel">
+                                <img src="assets/images/logos/download-excel.jpg">
+                              </button>
+                    </div>
+                </div>
+                <!-- <div fxLayout="column" class="inner-bkgrd yar-bordr" style="margin: 12px 24px !important;" *ngIf="examFeeCollectionForm.value.subjectId"> -->
+                    <!-- <h4>Students List</h4> -->
+                    <div fxLayout="column" class="inner-bkgrd yar-bordr" style="margin: 12px 24px !important;" *ngIf="examFeeCollectionForm.value.subjectId">
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="25" fxFlex.gt-md="25" fxLayout="row" fxLayoutAlign="start center">
+                        <span class="roll-no">
+                            Students List
+                        </span>
+                        <div class="search-box">
+                            <i class="fa fa-search" aria-hidden="true"></i>
+                                <i class="fa fa-search" aria-hidden="true"></i>
+                                <input [(ngModel)]="searchText" placeholder="Search..." [ngModelOptions]="{standalone: true}">
+                            </div>
+                        <!-- </div> -->
+                        <div fxFlex.gt-xs="69" fxFlex.gt-md="69" fxLayout="row" fxLayoutAlign="start center" class="buttons">
+                            <button mat-raised-button class="add-btn" color="accent"  (click)="exportAsExcel()">
+                    <i class="fa fa-file-excel-o icon" aria-hidden="true"></i>Export Excel</button>
+                    <button mat-raised-button class="add-btn" color="accent"  (click)="printPage()">
+                        <i class="fa fa-print icon"  matTooltip="Print Final Marks Pre Moderation Report" aria-hidden="true"></i>Print Report</button>
+                        
+                        </div>
+                        <!-- <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="70" fxFlex.gt-md="70" fxLayout="row" class="buttons">Entered Marks Should Less Than : <span class="maxmarks">{{this.maxValue}}</span>   Marks</div> -->
+                    </div>
+                    <div fxLayout="column" fxFlex="100" class="mlr-15 inner-bkgrd">
+                        <div fxLayout="row" class="mar-8 table-bac firstTable marks-entry" #excelTable>
+                            <strong style="display:none">
+                                <p  *ngIf="section !== null">{{collegeCode}} / {{course}} / {{courseGroup}} / {{courseyear}} / {{section}}
+                                    <span style="color: blue;" *ngIf="academicYear !== null">({{academicYear}})</span></p>
+                                <p>{{exam}} (<span style="color: blue;">{{examDate}}</span>) </p>
+                                <p style="color: #000000 !important;font-weight: bold;">{{subjectDetails}}
+                                    <span class="rol-no">- {{subjectTypCode}}</span> ({{examTypeCatCode}})</p>
+                            </strong>  
+                            <table class="table table-striped fee fee_">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 5%;">SI No</th>
+                                        <th style="width: 20%;">Hallticket Number</th>
+                                        <th style="width: 30%;">Student</th>
+                                        <th style="width: 29%;">Omr Serial Number</th>
+                                        <th style="width: 8%;">  Marks
+                                            <!-- <span *ngIf="isInternalExam">Internal </span><span *ngIf="!isInternalExam">External </span> Marks -->
+                                        </th>
+                                        <th style="width: 8%;">  Result</th>
+                                    </tr>
+                                </thead>
+                                <tbody *ngIf="StudentMarksList.length>0">
+                                    <!-- | studentRollnoFilter: searchText; -->
+                                    <tr *ngFor="let object of StudentMarksList[0] | filter: searchText; let i = index" >
+                                            
+                                        <td style="width: 5%;">{{i+1}}</td>
+                                        <td style="text-align: left;width: 20%;">{{object.hallticket_number}}</td>
+                                        <td style="width: 30%;text-align: left;">{{object.student_name}}</td>
+                                        <td style="width: 29%;text-align: left;">{{object.omr_serial_no}}</td>
+                                       
+                                        <td style="text-align: right;width: 8%;" [ngStyle]="{'background':object.color }"> 
+                                           {{object.reevaluation_marks}}
+                                           </td>
+                                           <td style="text-align: center;width: 8%;">
+                                            <span *ngIf="object.isPass === null" class="in-active">Not Posted</span>
+                                            <span *ngIf="object.isPass === true" class="active">P</span>
+                                            <span *ngIf="object.isPass === false" class="in-active">F</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                       
+                    </div>
+                </div>
+
+            </form>
+        </div>
+
+    </div>
+    <!-- / CONTENT -->
+
+</div>
+<div>
+    <div fxLayout="row" >
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"  >
+          <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="clglogo" *ngIf="Logo != null">
+            <img  [src]="Logo" style="height:auto !important;width:1200px !important;" >
+        </div>
+
+        <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100"  *ngIf="Logo == null">
+          <img  src="assets/images/avatars/default_logo.png" style="height:100px;width:500px !important">
+      </div>
+       
+      </div>
+
+      </div>
+            <div class="header">
+                <p class="clgname">{{collegeName}} </p>
+                <p class="title"> Re-Evaluation Student Report</p>
+                <p class="exam"> {{exam }} / / {{courseGroup}} </p>
+              </div>
+              <table>
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">SI No</th>
+                        <th style="width: 20%;">Hallticket Number</th>
+                        <th style="width: 30%;">Student</th>
+                        <th style="width: 29%;">Omr Serial Number</th>
+                        <th style="width: 8%;">  Marks
+                            <!-- <span *ngIf="isInternalExam">Internal </span><span *ngIf="!isInternalExam">External </span> Marks -->
+                        </th>
+                        <th style="width: 8%;">  Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- | studentRollnoFilter: searchText; -->
+                    <tr *ngFor="let object of StudentMarksList[0] | filter: searchText; let i = index" >
+                            
+                        <td style="width: 5%;">{{i+1}}</td>
+                        <td style="text-align: left;width: 20%;">{{object.hallticket_number}}</td>
+                        <td style="width: 30%;text-align: left;">{{object.student_name}}</td>
+                        <td style="width: 29%;text-align: left;">{{object.omr_serial_no}}</td>
+                       
+                        <td style="text-align: left;width: 8%;" [ngStyle]="{'background':object.color }"> 
+                           {{object.reevaluation_marks}}
+                           </td>
+                           <td style="text-align: left;width: 8%;">
+                            <span *ngIf="object.isPass === null" class="in-active">Not Posted</span>
+                            <span *ngIf="object.isPass === true" class="active">P</span>
+                            <span *ngIf="object.isPass === false" class="in-active">F</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        
+        </div>

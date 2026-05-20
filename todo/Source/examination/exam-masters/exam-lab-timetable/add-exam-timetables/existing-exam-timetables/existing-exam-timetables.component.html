@@ -1,0 +1,45 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                              ballot
+                              </i>
+                    <span>Existing Exam Timetable</span>
+                </div>
+            </div>
+        </div>
+        <mat-dialog-content>
+
+            <div class="mat-elevation-z8 " >
+                <div class="example-container ">
+                    <table >
+                            <thead>
+                                <tr >
+                                    <th class="table-th">SI.No</th>
+                                    <th class="table-th">Subject</th>
+                                    <th class="table-th">Course Group</th>
+                                    <th class="table-th">Course Year</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let eTble of data; let i=index">
+                                    <td>{{i+1}}</td>
+                                    <td class="table-td">{{eTble.subjectName}} (<span>{{eTble.subjectCode}}</span>)</td>
+                                    <td class="table-td">{{eTble.courseGroupName}}</td>
+                                    <td class="table-td">{{eTble.courseYearName}}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        </div>
+            </div>
+        </mat-dialog-content>
+        <mat-dialog-actions>
+            <button mat-raised-button class="cls-btn" mat-dialog-close>
+                  Close
+              </button>
+        </mat-dialog-actions>
+
+    </div>
+</div>

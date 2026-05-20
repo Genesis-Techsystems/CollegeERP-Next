@@ -1,0 +1,1288 @@
+import {
+  buildQuery,
+  domainCreate,
+  domainList,
+  domainUpdate,
+  fetchDetails,
+  getAllRecords,
+  postDetails,
+  putDetails,
+} from '@/services/crud'
+
+type AnyRow = Record<string, any>
+
+function asArray<T>(data: any): T[] {
+  if (Array.isArray(data)) return data as T[]
+  if (Array.isArray(data?.resultList)) return data.resultList as T[]
+  if (Array.isArray(data?.result)) return data.result as T[]
+  if (Array.isArray(data?.data)) return data.data as T[]
+  return []
+}
+
+function text(row: AnyRow, keys: string[]): string {
+  for (const key of keys) {
+    const value = row?.[key]
+    if (value === null || value === undefined) continue
+    const out = String(value).trim()
+    if (out) return out
+  }
+  return ''
+}
+
+function num(row: AnyRow, keys: string[]): number {
+  for (const key of keys) {
+    const value = Number(row?.[key] ?? 0)
+    if (Number.isFinite(value) && value > 0) return value
+  }
+  return 0
+}
+
+export function normalizeStudentRow(row: AnyRow): AnyRow {
+  return {
+    ...row,
+    studentId: num(row, ['studentId', 'fk_student_id', 'student_id', 'id', 'studentDetailId']),
+    hallticketNumber: text(row, ['hallticketNumber', 'hallticket_number', 'rollNumber', 'roll_number', 'admissionNumber', 'admission_no']),
+    studentName: text(row, ['studentName', 'student_name', 'firstName', 'fullName', 'name']),
+    courseName: text(row, ['courseName', 'course_name', 'course_code']),
+    sectionName: text(row, ['group_section_name', 'groupSectionName', 'sectionName', 'section']),
+    mobileNumber: text(row, ['mobileNumber', 'mobile_number', 'student_mobile_no', 'phone']),
+    isActive: row?.isActive ?? row?.active ?? true,
+  }
+}
+
+/** Same proc split as `getCollegeFilters` in `examination.ts` — Angular uses both result sets. */
+export interface StudentInfoCollegeFiltersResult {
+  filtersData: AnyRow[]
+  academicData: AnyRow[]
+}
+
+function splitCollegeWiseResult(groups: AnyRow[][]): { filtersData: AnyRow[]; academicData: AnyRow[] } {
+  let filtersData: AnyRow[] = []
+  let academicData: AnyRow[] = []
+  for (const arr of groups) {
+    if (arr.length > 0) {
+      if (arr[0]?.flag === 'clg_filters') filtersData = arr
+      if (arr[0]?.clg_filters_ay === 'clg_filters_ay') academicData = arr
+    }
+  }
+  return { filtersData, academicData }
+}
+
+/** `s_get_collegewisedetails_bycode` with `clg_filters,gm_codes` + STUDENTSTATUS — Angular student-passout initial load. */
+export interface PassoutCollegeFiltersResult {
+  filtersData: AnyRow[]
+  academicData: AnyRow[]
+  studentStatusGmCodes: AnyRow[]
+}
+
+function splitPassoutCollegeWise(groups: AnyRow[][]): {
+  filtersData: AnyRow[]
+  academicData: AnyRow[]
+  studentStatusGmCodes: AnyRow[]
+} {
+  let filtersData: AnyRow[] = []
+  let academicData: AnyRow[] = []
+  let studentStatusGmCodes: AnyRow[] = []
+  for (const arr of groups) {
+    if (arr.length > 0) {
+      const f0 = arr[0]
+      if (f0?.flag === 'clg_filters') filtersData = arr
+      if (f0?.clg_filters_ay === 'clg_filters_ay') academicData = arr
+      if (f0?.flag === 'gm_codes') studentStatusGmCodes = arr
+    }
+  }
+  return { filtersData, academicData, studentStatusGmCodes }
+}
+
+function fallbackFiltersWhenEmpty(groups: AnyRow[][], filtersData: AnyRow[]): AnyRow[] {
+  if (filtersData.length > 0) return filtersData
+  const clgFilters = groups.find(
+    (g) => Array.isArray(g) && g.length > 0 && String(g[0]?.flag ?? '') === 'clg_filters',
+  )
+  if (clgFilters?.length) return clgFilters
+  const flattened = groups.flatMap((g) => (Array.isArray(g) ? g : []))
+  const withCollege = flattened.filter(
+    (r) =>
+      num(r, ['fk_college_id', 'collegeId', 'fk_collegeId']) > 0 &&
+      String(r?.clg_filters_ay ?? '').trim() !== 'clg_filters_ay',
+  )
+  return withCollege.length > 0 ? withCollege : flattened
+}
+
+/**
+ * `s_get_collegewisedetails_bycode` returns multiple arrays: `clg_filters` (college/course/…/section)
+ * and `clg_filters_ay` (academic years). Exam Timetable uses `academicData` for year dropdowns when
+ * years are not repeated on every filter row — student promotion must do the same.
+ */
+export async function getStudentInfoCollegeFilters(
+  orgId: number,
+  employeeId: number,
+): Promise<StudentInfoCollegeFiltersResult> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_collegewisedetails_bycode', {
+    in_flag: 'clg_filters',
+    in_org_id: orgId || 0,
+    in_college_id: 0,
+    in_course_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_group_section_id: 0,
+    in_academic_year_id: 0,
+    in_dept_id: 0,
+    in_isadmin: 0,
+    in_loginuser_empid: employeeId || 0,
+    in_loginuser_roleid: 0,
+    in_subject: '',
+    in_employee: '',
+    in_gm_codes: '',
+  })
+
+  const groups = Array.isArray(data?.result) ? data.result : []
+  const split = splitCollegeWiseResult(groups)
+  const filtersData = fallbackFiltersWhenEmpty(groups, split.filtersData)
+
+  return { filtersData, academicData: split.academicData }
+}
+
+/**
+ * Angular `student-passout`: `in_flag: clg_filters,gm_codes`, `in_gm_codes: STUDENTSTATUS`.
+ * Returns cascade rows + GM codes to resolve PASSEDOUT → `pk_gd_id`.
+ */
+export async function getPassoutCollegeFilters(
+  orgId: number,
+  employeeId: number,
+): Promise<PassoutCollegeFiltersResult> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_collegewisedetails_bycode', {
+    in_flag: 'clg_filters,gm_codes',
+    in_org_id: orgId || 0,
+    in_college_id: 0,
+    in_course_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_group_section_id: 0,
+    in_academic_year_id: 0,
+    in_dept_id: 0,
+    in_isadmin: 0,
+    in_loginuser_empid: employeeId || 0,
+    in_loginuser_roleid: 0,
+    in_subject: '',
+    in_employee: '',
+    in_gm_codes: 'STUDENTSTATUS',
+  })
+
+  const groups = Array.isArray(data?.result) ? data.result : []
+  const split = splitPassoutCollegeWise(groups)
+  const filtersData = fallbackFiltersWhenEmpty(groups, split.filtersData)
+
+  return {
+    filtersData,
+    academicData: split.academicData,
+    studentStatusGmCodes: split.studentStatusGmCodes,
+  }
+}
+
+/** GM row with `gd_code === PASSEDOUT` → status id for PUT `passedout`. */
+export function resolvePassedOutGeneralDetailId(studentStatusGmCodes: AnyRow[]): number {
+  const row = studentStatusGmCodes.find(
+    (r) => String(r.gd_code ?? r.GD_CODE ?? '').trim().toUpperCase() === 'PASSEDOUT',
+  )
+  return num(row ?? {}, ['pk_gd_id', 'gd_id', 'generalDetailId', 'general_detail_id'])
+}
+
+/** Same shape as Angular `listByFourIds` → GET `studentsList`. */
+export async function listStudentsForPassout(params: {
+  collegeId: number
+  academicYearId: number
+  courseGroupId: number
+  courseYearId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, courseGroupId, courseYearId } = params
+  if (!collegeId || !academicYearId || !courseGroupId || !courseYearId) return []
+
+  const paramSets: Record<string, string | number>[] = [
+    { collegeId, academicYearId, courseGroupId, courseYearId },
+    {
+      college_id: collegeId,
+      academic_year_id: academicYearId,
+      course_group_id: courseGroupId,
+      course_year_id: courseYearId,
+    },
+  ]
+
+  for (const p of paramSets) {
+    try {
+      const data = await fetchDetails<any>('studentsList', p)
+      const rows = asArray<AnyRow>(data)
+      if (rows.length > 0) return rows.map((row) => ({ ...normalizeStudentRow(row), ...row }))
+    } catch {
+      // try next shape
+    }
+  }
+
+  return []
+}
+
+/**
+ * Angular `generate-student-rollno`: GET `studentsList` via `listByFourIds` or `listByFiveIds`
+ * when `groupSectionId` is set.
+ */
+export async function listStudentsForRollNumberAssignment(params: {
+  collegeId: number
+  academicYearId: number
+  courseGroupId: number
+  courseYearId: number
+  groupSectionId?: number
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, courseGroupId, courseYearId, groupSectionId = 0 } = params
+  if (!collegeId || !academicYearId || !courseGroupId || !courseYearId) return []
+
+  const useSection = Number(groupSectionId) > 0
+  const g = Number(groupSectionId)
+
+  const four: Record<string, number> = { collegeId, academicYearId, courseGroupId, courseYearId }
+  const fourSnake: Record<string, number> = {
+    college_id: collegeId,
+    academic_year_id: academicYearId,
+    course_group_id: courseGroupId,
+    course_year_id: courseYearId,
+  }
+
+  const paramSets: Record<string, string | number>[] = useSection
+    ? [
+        { ...four, groupSectionId: g },
+        { ...four, group_section_id: g },
+        { ...fourSnake, group_section_id: g },
+      ]
+    : [four, fourSnake]
+
+  for (const p of paramSets) {
+    try {
+      const data = await fetchDetails<any>('studentsList', p)
+      return asArray<AnyRow>(data).map((row) => ({ ...normalizeStudentRow(row), ...row }))
+    } catch {
+      // next variant
+    }
+  }
+
+  return []
+}
+
+/**
+ * Angular **Parent → Manage** (`#/admin-user-management/parent/manage`): student dropdown after
+ * College + Academic Year. Tries legacy `studentsList` query shapes, then `Student` domain list.
+ */
+export async function listStudentsForParentAccountManage(params: {
+  collegeId: number
+  academicYearId: number
+}): Promise<AnyRow[]> {
+  const collegeId = Number(params.collegeId)
+  const academicYearId = Number(params.academicYearId)
+  if (!collegeId || !academicYearId) return []
+
+  const paramSets: Record<string, string | number>[] = [
+    { collegeId, academicYearId },
+    { college_id: collegeId, academic_year_id: academicYearId },
+    { collegeId, academicYearId, statusCode: 'INCOLLEGE' },
+    { college_id: collegeId, academic_year_id: academicYearId, status_code: 'INCOLLEGE' },
+    { collegeId, academicYearId, statusCode: 'ACTIVE' },
+  ]
+
+  for (const p of paramSets) {
+    try {
+      const data = await fetchDetails<any>('studentsList', p)
+      const rows = asArray<AnyRow>(data)
+      if (rows.length > 0) return rows.map((row) => ({ ...normalizeStudentRow(row), ...row }))
+    } catch {
+      // try next shape
+    }
+  }
+
+  const queryVariants = [
+    buildQuery({
+      'College.collegeId': collegeId,
+      'AcademicYear.academicYearId': academicYearId,
+      isActive: true,
+    }),
+    buildQuery({
+      collegeId,
+      academicYearId,
+      isActive: true,
+    }),
+  ]
+
+  for (const query of queryVariants) {
+    try {
+      const rows = await domainList<AnyRow>('Student', query)
+      if (rows.length > 0) return rows.map((row) => normalizeStudentRow(row))
+    } catch {
+      // next variant
+    }
+  }
+
+  return []
+}
+
+/** Angular `addMasterDetails(updateRollnoUrl, students)` — POST batch roll / hallticket updates. */
+export async function submitStudentRollNumbers(rows: AnyRow[]): Promise<unknown> {
+  if (!rows.length) throw new Error('No students to save')
+  return postDetails<unknown>('updateRollno', rows)
+}
+
+/**
+ * Angular student-subjects page:
+ *   domain/list/StudentSubject?query=college+academicYear+student+courseYear
+ */
+export async function listStudentSubjectsForStudent(params: {
+  collegeId: number
+  academicYearId: number
+  studentId: number
+  courseYearId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, studentId, courseYearId } = params
+  if (!collegeId || !academicYearId || !studentId || !courseYearId) return []
+
+  const queryVariants = [
+    buildQuery({
+      'college.collegeId': collegeId,
+      'academicYear.academicYearId': academicYearId,
+      'studentDetail.studentId': studentId,
+      'courseYear.courseYearId': courseYearId,
+    }),
+    buildQuery({
+      'College.collegeId': collegeId,
+      'AcademicYear.academicYearId': academicYearId,
+      'StudentDetail.studentId': studentId,
+      'CourseYear.courseYearId': courseYearId,
+    }),
+    buildQuery({
+      collegeId,
+      academicYearId,
+      studentId,
+      courseYearId,
+    }),
+  ]
+
+  for (const q of queryVariants) {
+    try {
+      const rows = await domainList<AnyRow>('StudentSubject', q)
+      if (Array.isArray(rows) && rows.length > 0) return rows
+    } catch {
+      // try next query shape
+    }
+  }
+
+  return []
+}
+
+/** Student Co-Curriculum activity list by student id (StdCCActivitiesDetails). */
+export async function listStudentCcActivities(studentId: number): Promise<AnyRow[]> {
+  if (!studentId) return []
+  const queries = [
+    buildQuery(
+      { 'studentDetail.studentId': studentId, isActive: true },
+      { field: 'createdDt', direction: 'DESC' },
+    ),
+    buildQuery(
+      { 'StudentDetail.studentId': studentId, isActive: true },
+      { field: 'createdDt', direction: 'DESC' },
+    ),
+    buildQuery({ studentId, isActive: true }, { field: 'createdDt', direction: 'DESC' }),
+  ]
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>('StdCCActivitiesDetails', q)
+      if (Array.isArray(rows) && rows.length > 0) return rows
+    } catch {
+      // next query shape
+    }
+  }
+  return []
+}
+
+/** GeneralDetail rows by general master code (STDCCATYPE / STDCCA etc.). */
+export async function listGeneralDetailsByCode(code: string): Promise<AnyRow[]> {
+  const c = String(code ?? '').trim()
+  if (!c) return []
+  const queries = [
+    buildQuery({ 'GeneralMaster.generalMasterCode': c, isActive: true }),
+    buildQuery({ 'generalMaster.generalMasterCode': c, isActive: true }),
+    buildQuery({ generalMasterCode: c, isActive: true }),
+  ]
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>('GeneralDetail', q)
+      if (Array.isArray(rows) && rows.length > 0) return rows
+    } catch {
+      // next query shape
+    }
+  }
+  return []
+}
+
+/** Create StdCCActivitiesDetails row. */
+export async function createStudentCcActivity(payload: Record<string, unknown>): Promise<AnyRow> {
+  return domainCreate<AnyRow>('StdCCActivitiesDetails', payload)
+}
+
+/** Update StdCCActivitiesDetails by stdCcactivityId. */
+export async function updateStudentCcActivity(
+  stdCcactivityId: number,
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  return domainUpdate<AnyRow>('StdCCActivitiesDetails', 'stdCcactivityId', stdCcactivityId, payload)
+}
+
+/**
+ * Angular passout payload fields — mirrors `changeStudentSections` object push (reason + from/to + status).
+ */
+export function buildStudentPassoutPayload(
+  row: AnyRow,
+  passedOutGdId: number,
+  fromToDateTime: string,
+): Record<string, unknown> {
+  return {
+    academicYearId: num(row, ['academicYearId', 'fk_academic_year_id']),
+    admissionNumber: row.admissionNumber ?? null,
+    applicationNo: row.applicationNo ?? null,
+    batchId: row.batchId ?? null,
+    collegeId: num(row, ['collegeId', 'fk_college_id']),
+    courseGroupId: num(row, ['courseGroupId', 'fk_course_group_id']),
+    courseId: num(row, ['courseId', 'fk_course_id']),
+    courseYearId: num(row, ['courseYearId', 'fk_course_year_id']),
+    dateOfBirth: row.dateOfBirth ?? null,
+    fatherAddress: row.fatherAddress ?? null,
+    fatherEmailId: row.fatherEmailId ?? null,
+    fatherMobileNo: row.fatherMobileNo ?? null,
+    fatherName: row.fatherName ?? null,
+    fatherQualification: row.fatherQualification ?? null,
+    firstName: row.firstName ?? null,
+    genderId: row.genderId ?? null,
+    groupSectionId: num(row, ['groupSectionId', 'fk_group_section_id', 'group_section_id']),
+    guardianAddress: row.guardianAddress ?? null,
+    guardianEmailId: row.guardianEmailId ?? null,
+    guardianMobileNo: row.guardianMobileNo ?? null,
+    guardianName: row.guardianName ?? null,
+    hallticketNumber: row.hallticketNumber ?? null,
+    isActive: row.isActive ?? true,
+    isLateral: row.isLateral ?? null,
+    isMinority: row.isMinority ?? null,
+    isPresent: true,
+    isScholarship: row.isScholarship ?? null,
+    lastName: row.lastName ?? null,
+    middleName: row.middleName ?? null,
+    mobile: row.mobile ?? null,
+    motherEmailId: row.motherEmailId ?? null,
+    motherMobileNo: row.motherMobileNo ?? null,
+    motherName: row.motherName ?? null,
+    permanentAddress: row.permanentAddress ?? null,
+    permanentPincode: row.permanentPincode ?? null,
+    permanentStreet: row.permanentStreet ?? null,
+    premanentMandal: row.premanentMandal ?? null,
+    presentAddress: row.presentAddress ?? null,
+    presentMandal: row.presentMandal ?? null,
+    presentPincode: row.presentPincode ?? null,
+    presentStreet: row.presentStreet ?? null,
+    primaryContact: row.primaryContact ?? null,
+    qualifyingId: row.qualifyingId ?? null,
+    quotaId: row.quotaId ?? null,
+    reason: 'student passedout',
+    regulationId: row.regulationId ?? null,
+    rfid: row.rfid ?? null,
+    rollNumber: row.rollNumber ?? null,
+    sscNo: row.sscNo ?? null,
+    stdEmailId: row.stdEmailId ?? null,
+    studentAppId: row.studentAppId ?? null,
+    studentEmailId: row.studentEmailId ?? null,
+    studentId: num(row, ['studentId', 'fk_student_id']),
+    studentPhotoPath: row.studentPhotoPath ?? null,
+    studentStatusId: passedOutGdId,
+    toDate: fromToDateTime,
+    userId: row.userId ?? null,
+    fromDate: fromToDateTime,
+  }
+}
+
+/** ISO datetime at local noon — aligns with Angular `momentWithTime` for pass-out date. */
+export function passoutDateTimeFromPicker(d: Date | null): string {
+  if (!d) return ''
+  const x = new Date(d)
+  x.setHours(12, 0, 0, 0)
+  return x.toISOString()
+}
+
+/** PUT `passedout` with JSON array — Angular `crudService.update(passedoutUrl, sectionStudents)`. */
+export async function submitStudentPassout(rows: Record<string, unknown>[]): Promise<unknown> {
+  if (!rows.length) throw new Error('No students to pass out')
+  return putDetails<unknown>('passedout', rows)
+}
+
+/** Section / cascade rows only — not the `clg_filters_ay` list (see `getStudentInfoCollegeFilters`). */
+export async function getStudentInfoFilters(orgId: number, employeeId: number): Promise<AnyRow[]> {
+  const { filtersData } = await getStudentInfoCollegeFilters(orgId, employeeId)
+  return filtersData
+}
+
+export async function searchStudentsByKeyword(term: string): Promise<AnyRow[]> {
+  const q = term.trim()
+  if (!q) return []
+  try {
+    const data = await fetchDetails<any>('studentsearch', { isActive: 'true', q })
+    return asArray<AnyRow>(data).map(normalizeStudentRow)
+  } catch {
+    // Some environments expose only domain access. Keep fallback permissive.
+    const rows = await domainList<AnyRow>('StudentProfile', buildQuery({ isActive: true, firstName: q }))
+    return rows.map(normalizeStudentRow)
+  }
+}
+
+export async function listStudentsBySection(sectionId: number): Promise<AnyRow[]> {
+  if (!sectionId) return []
+
+  const endpointVariants = ['studentdetailsbysection', 'studentsbysection', 'studentSectionDetails']
+  for (const path of endpointVariants) {
+    try {
+      const data = await fetchDetails<any>(path, { groupSectionId: sectionId, isActive: 'true' })
+      const rows = asArray<AnyRow>(data)
+      if (rows.length > 0) return rows.map(normalizeStudentRow)
+    } catch {
+      // Try next endpoint variation.
+    }
+  }
+
+  // Fallback using StudentAcademicbatch mapping.
+  const queryVariants = [
+    buildQuery({ 'GroupSection.groupSectionId': sectionId, isActive: true }),
+    buildQuery({ 'groupSection.groupSectionId': sectionId, isActive: true }),
+    buildQuery({ groupSectionId: sectionId, isActive: true }),
+  ]
+
+  for (const query of queryVariants) {
+    try {
+      const rows = await domainList<AnyRow>('StudentAcademicbatch', query)
+      if (!Array.isArray(rows) || rows.length === 0) continue
+      const mapped = rows.map((row) => {
+        const nested = (row.studentDetail ?? row.studentProfile ?? row.StudentDetail ?? {}) as AnyRow
+        return normalizeStudentRow({
+          ...nested,
+          ...row,
+          studentId: nested.studentId ?? row.studentId ?? row.fk_student_id ?? row.student_id,
+          studentName: nested.firstName ?? row.studentName ?? row.student_name,
+          hallticketNumber: nested.hallticketNumber ?? nested.rollNumber ?? row.hallticketNumber ?? row.rollNumber,
+        })
+      })
+      if (mapped.length > 0) return mapped
+    } catch {
+      // Try next query variation.
+    }
+  }
+
+  return []
+}
+
+/** Promotion student list contract: studentsList?collegeId&courseGroupId&groupSectionId */
+export async function listStudentsForPromotionPreview(params: {
+  collegeId: number
+  courseGroupId: number
+  groupSectionId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, courseGroupId, groupSectionId } = params
+  if (!collegeId || !courseGroupId || !groupSectionId) return []
+
+  try {
+    const data = await fetchDetails<any>('studentsList', {
+      collegeId,
+      courseGroupId,
+      groupSectionId,
+    })
+    const rows = asArray<AnyRow>(data)
+    if (rows.length > 0) return rows.map((row) => normalizeStudentRow(row))
+  } catch {
+    // fallback below
+  }
+
+  return listStudentsBySection(groupSectionId)
+}
+
+export async function listStudentsForLabAssignment(params: {
+  collegeId: number
+  courseGroupId: number
+  groupSectionId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, courseGroupId, groupSectionId } = params
+  if (!collegeId || !courseGroupId || !groupSectionId) return []
+  try {
+    const data = await fetchDetails<any>('studentsList', {
+      collegeId,
+      courseGroupId,
+      groupSectionId,
+      statusCode: 'INCOLLEGE',
+    })
+    return asArray<AnyRow>(data).map(normalizeStudentRow)
+  } catch {
+    return []
+  }
+}
+
+export async function listStudentsForModifyStudentBatches(params: {
+  collegeId: number
+  courseGroupId: number
+  groupSectionId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, courseGroupId, groupSectionId } = params
+  if (!collegeId || !courseGroupId || !groupSectionId) return []
+  try {
+    const data = await fetchDetails<any>('studentsList', {
+      collegeId,
+      courseGroupId,
+      groupSectionId,
+    })
+    return asArray<AnyRow>(data).map(normalizeStudentRow)
+  } catch {
+    return []
+  }
+}
+
+export async function listStudentLabBatches(params: {
+  collegeId: number
+  courseId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, courseId } = params
+  if (!collegeId || !courseId) return []
+  const query = buildQuery({
+    'subjecttype.generalDetailId': 5,
+    'College.collegeId': collegeId,
+    isActive: true,
+    'Course.courseId': courseId,
+  })
+  try {
+    return await domainList<AnyRow>('Studentbatch', query)
+  } catch {
+    return []
+  }
+}
+
+export async function listSectionTimetableCurr(params: {
+  collegeId: number
+  academicYearId: number
+  groupSectionId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, groupSectionId } = params
+  if (!collegeId || !academicYearId || !groupSectionId) return []
+  try {
+    const data = await fetchDetails<any>('timetablescurr', {
+      'College.collegeId': collegeId,
+      'AcademicYear.academicYearId': academicYearId,
+      groupSectionId,
+    })
+    return asArray<AnyRow>(data)
+  } catch {
+    return []
+  }
+}
+
+export async function listBatchwiseLabStudents(params: {
+  collegeId: number
+  groupSectionId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, groupSectionId } = params
+  if (!collegeId || !groupSectionId) return []
+  try {
+    const data = await fetchDetails<any>('batchwisestudents', {
+      collegeId,
+      groupSectionId,
+      subjectTypeCode: 'LAB',
+    })
+    return asArray<AnyRow>(data).map((row) => normalizeStudentRow(row))
+  } catch {
+    return []
+  }
+}
+
+export async function listStudentBatchesByCollegeCourse(params: {
+  collegeId: number
+  courseId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, courseId } = params
+  if (!collegeId || !courseId) return []
+  const query = buildQuery({
+    'subjecttype.generalDetailId': 5,
+    'College.collegeId': collegeId,
+    isActive: true,
+    'Course.courseId': courseId,
+  })
+  try {
+    return await domainList<AnyRow>('Studentbatch', query)
+  } catch {
+    return []
+  }
+}
+
+export async function listAcademicBatchesOfStudent(studentId: number): Promise<AnyRow[]> {
+  if (!studentId) return []
+  const query = buildQuery({ 'studentDetail.studentId': studentId })
+  try {
+    return await domainList<AnyRow>('StudentAcademicbatch', query)
+  } catch {
+    return []
+  }
+}
+
+export async function updateAcademicBatchRecord(record: AnyRow): Promise<AnyRow> {
+  const id = num(record, ['studentAcademicbatchId', 'studentAcademicBatchId'])
+  if (!id) throw new Error('Missing academic batch id')
+  try {
+    return await domainUpdate<AnyRow>('StudentAcademicbatch', 'studentAcademicbatchId', id, record)
+  } catch {
+    return domainUpdate<AnyRow>('StudentAcademicbatch', 'studentAcademicBatchId', id, record)
+  }
+}
+
+export async function listCourseGroupsForStudentCourseChange(params: {
+  organizationId: number
+  employeeId: number
+  collegeId: number
+  courseId: number
+}): Promise<AnyRow[]> {
+  const { organizationId, employeeId, collegeId, courseId } = params
+  if (!organizationId || !collegeId || !courseId) return []
+  try {
+    const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_collegewisedetails_bycode', {
+      in_flag: 'clg_filters',
+      in_org_id: organizationId,
+      in_college_id: collegeId,
+      in_course_id: courseId,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_group_section_id: 0,
+      in_academic_year_id: 0,
+      in_dept_id: 0,
+      in_isadmin: 0,
+      in_loginuser_empid: employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_subject: '',
+      in_employee: '',
+      in_gm_codes: '',
+    })
+    const groups = Array.isArray(data?.result) ? data.result : []
+    const filterRows = groups.find((arr) => Array.isArray(arr) && arr[0]?.flag === 'clg_filters') ?? []
+    const unique = new Map<number, AnyRow>()
+    for (const row of filterRows) {
+      const id = num(row, ['fk_course_group_id', 'courseGroupId', 'course_group_id'])
+      if (id <= 0 || unique.has(id)) continue
+      unique.set(id, row)
+    }
+    return [...unique.values()]
+  } catch {
+    return []
+  }
+}
+
+export async function submitStudentCourseGroupChange(payloadRows: Record<string, unknown>[]): Promise<unknown> {
+  if (!payloadRows.length) throw new Error('No students selected for course-group change')
+  const paths = ['addStudentCourseGroups', 'addstudentcoursegroups']
+  let lastError: unknown = null
+  for (const path of paths) {
+    try {
+      return await postDetails<unknown>(path, payloadRows)
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError ?? new Error('Failed to change student course group')
+}
+
+export async function submitStudentBatchChange(payloadRows: Record<string, unknown>[]): Promise<unknown> {
+  if (!payloadRows.length) throw new Error('No students selected for batch change')
+  const paths = ['addStudentBatches', 'addstudentbatches']
+  let lastError: unknown = null
+  for (const path of paths) {
+    try {
+      return await postDetails<unknown>(path, payloadRows)
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError ?? new Error('Failed to change student batch')
+}
+
+export async function submitAssignedStudentSections(rows: AnyRow[]): Promise<unknown> {
+  if (!Array.isArray(rows) || rows.length === 0) throw new Error('No students selected for section assignment')
+  return postDetails<unknown>('addStudentslist', rows)
+}
+
+export async function submitAssignedStudentRegulations(rows: AnyRow[]): Promise<unknown> {
+  if (!Array.isArray(rows) || rows.length === 0) throw new Error('No students selected for regulation assignment')
+  return postDetails<unknown>('addStudentslist', rows)
+}
+
+/** Resolve university id: URL param → student fields → College row (studentdetail often omits universityId). */
+export async function resolveUniversityIdForReadmission(
+  student: AnyRow,
+  universityIdFromUrl: number,
+): Promise<number> {
+  if (universityIdFromUrl > 0) return universityIdFromUrl
+
+  const direct = num(student, [
+    'universityId',
+    'fk_university_id',
+    'fk_universityId',
+    'univId',
+    'univ_id',
+  ])
+  if (direct > 0) return direct
+
+  const nested =
+    student?.university ??
+    student?.University ??
+    student?.college?.university ??
+    student?.College?.university
+  if (nested && typeof nested === 'object') {
+    const nid = num(nested as AnyRow, ['universityId', 'fk_university_id'])
+    if (nid > 0) return nid
+  }
+
+  const collegeId = num(student, ['collegeId', 'fk_college_id'])
+  if (!collegeId) return 0
+
+  const collegeQueries = [
+    buildQuery({ 'College.collegeId': collegeId, isActive: true }),
+    buildQuery({ collegeId, isActive: true }),
+  ]
+  for (const q of collegeQueries) {
+    try {
+      const rows = await domainList<AnyRow>('College', q)
+      const c = rows[0]
+      if (c) {
+        const uid = num(c, ['universityId', 'fk_university_id', 'University.universityId'])
+        if (uid > 0) return uid
+        const univ = c.university ?? c.University
+        if (univ && typeof univ === 'object') {
+          const u2 = num(univ as AnyRow, ['universityId'])
+          if (u2 > 0) return u2
+        }
+      }
+    } catch {
+      // next query
+    }
+  }
+  return 0
+}
+
+const COLLEGE_ID_KEYS = ['collegeId', 'fk_college_id', 'college_id', 'fk_collegeId'] as const
+const AY_ID_KEYS = ['academicYearId', 'fk_academic_year_id', 'academic_year_id', 'acdmYearId'] as const
+
+function dedupeRowsByNumericKey<T extends AnyRow>(rows: T[], keyPick: (r: T) => number): T[] {
+  const seen = new Set<number>()
+  return rows.filter((r) => {
+    const k = keyPick(r)
+    if (!Number.isFinite(k) || k <= 0 || seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
+}
+
+/**
+ * Same academic-year resolution as Student Promotion (`clg_filters` + `clg_filters_ay` from
+ * `s_get_collegewisedetails_bycode`). Domain `AcademicYear` list is often empty in this app; the proc is not.
+ */
+export function academicYearRowsForCollegeFromProc(
+  filtersData: AnyRow[],
+  academicData: AnyRow[],
+  collegeId: number,
+): AnyRow[] {
+  if (!collegeId) return []
+
+  const pickCol = (r: AnyRow) => num(r, [...COLLEGE_ID_KEYS])
+  const pickAy = (r: AnyRow) => num(r, [...AY_ID_KEYS])
+
+  const byFilters = dedupeRowsByNumericKey(
+    filtersData.filter((r) => pickCol(r) === collegeId),
+    pickAy,
+  ).filter((r) => pickAy(r) > 0)
+  if (byFilters.length > 0) return byFilters
+
+  const collegeRow = filtersData.find((r) => pickCol(r) === collegeId)
+  const univFromCollege = num(collegeRow ?? {}, ['fk_university_id', 'universityId', 'univId'])
+
+  return dedupeRowsByNumericKey(
+    academicData.filter((r) => {
+      const cid = pickCol(r)
+      if (cid > 0) return cid === collegeId
+      if (univFromCollege > 0) return num(r, ['fk_university_id', 'universityId']) === univFromCollege
+      return true
+    }),
+    pickAy,
+  ).filter((r) => pickAy(r) > 0)
+}
+
+/**
+ * Academic years for readmission: by university (Angular parity), with fallbacks when API shape differs.
+ */
+export async function listAcademicYearsForReadmission(
+  universityId: number,
+  collegeId: number,
+): Promise<AnyRow[]> {
+  let univ = universityId
+  if (univ <= 0 && collegeId > 0) {
+    univ = await resolveUniversityIdForReadmission({ collegeId }, 0)
+  }
+  if (univ > 0) {
+    const uniQueries: { label: string; q: string }[] = [
+      {
+        label: 'University.universityId',
+        q: buildQuery(
+          { 'University.universityId': univ, isActive: true },
+          { field: 'fromDate', direction: 'DESC' },
+        ),
+      },
+      {
+        label: 'Universities.universityId',
+        q: buildQuery(
+          { 'Universities.universityId': univ, isActive: true },
+          { field: 'fromDate', direction: 'DESC' },
+        ),
+      },
+      {
+        label: 'universityId flat',
+        q: buildQuery({ universityId: univ, isActive: true }, { field: 'fromDate', direction: 'DESC' }),
+      },
+    ]
+    for (const { q } of uniQueries) {
+      try {
+        const rows = await domainList<AnyRow>('AcademicYear', q)
+        if (rows.length > 0) return rows
+      } catch {
+        // try next
+      }
+    }
+  }
+
+  if (collegeId > 0) {
+    const byCollege = [
+      buildQuery(
+        { 'College.collegeId': collegeId, isActive: true },
+        { field: 'fromDate', direction: 'DESC' },
+      ),
+      buildQuery(
+        { 'college.collegeId': collegeId, isActive: true },
+        { field: 'fromDate', direction: 'DESC' },
+      ),
+    ]
+    for (const q of byCollege) {
+      try {
+        const rows = await domainList<AnyRow>('AcademicYear', q)
+        if (rows.length > 0) return rows
+      } catch {
+        // next
+      }
+    }
+  }
+
+  return []
+}
+
+/**
+ * When domain `list/AcademicYear` is empty, use `s_get_collegewisedetails_bycode` (same as Student Promotion).
+ */
+export async function listAcademicYearsForReadmissionWithProcFallback(
+  universityId: number,
+  collegeId: number,
+  organizationId: number,
+  employeeId: number,
+): Promise<AnyRow[]> {
+  const domainRows = await listAcademicYearsForReadmission(universityId, collegeId)
+  if (domainRows.length > 0) return domainRows
+  if (organizationId <= 0) return []
+
+  try {
+    const { filtersData, academicData } = await getStudentInfoCollegeFilters(organizationId, employeeId)
+    return academicYearRowsForCollegeFromProc(
+      Array.isArray(filtersData) ? filtersData : [],
+      Array.isArray(academicData) ? academicData : [],
+      collegeId,
+    )
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Course dropdown for SIS cascades — some DBs only match alternate JPA association paths or flat keys.
+ */
+export async function listCoursesForUniversityCascade(universityId: number): Promise<AnyRow[]> {
+  if (!universityId) return []
+  const queries = [
+    buildQuery({ 'University.universityId': universityId, isActive: true }),
+    buildQuery({ 'Universities.universityId': universityId, isActive: true }),
+    buildQuery({ universityId, isActive: true }),
+  ]
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>('Course', q)
+      if (rows.length > 0) return rows
+    } catch {
+      // next shape
+    }
+  }
+  return []
+}
+
+/** Course group dropdown — alternate query shapes for different Hibernate mappings. */
+export async function listCourseGroupsForCourseCascade(courseId: number): Promise<AnyRow[]> {
+  if (!courseId) return []
+  const queries = [
+    buildQuery({ 'Course.courseId': courseId, isActive: true }),
+    buildQuery({ courseId, isActive: true }),
+  ]
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>('CourseGroup', q)
+      if (rows.length > 0) return rows
+    } catch {
+      // next shape
+    }
+  }
+  return []
+}
+
+/**
+ * Group sections for readmission: prefer **four-field** query when college is known (Student Promotion path);
+ * then three-id query (some Angular screens omit College in the filter).
+ */
+export async function listGroupSectionsForReadmission(params: {
+  courseYearId: number
+  academicYearId: number
+  courseGroupId: number
+  collegeId?: number
+}): Promise<AnyRow[]> {
+  const { courseYearId, academicYearId, courseGroupId, collegeId } = params
+  if (!courseYearId || !academicYearId || !courseGroupId) return []
+
+  if (collegeId) {
+    const byCollege = await listGroupSectionsByFilters({
+      collegeId,
+      academicYearId,
+      courseGroupId,
+      courseYearId,
+    })
+    if (byCollege.length > 0) return byCollege
+  }
+
+  const threeIdQueries = [
+    buildQuery({
+      'CourseYear.courseYearId': courseYearId,
+      'AcademicYear.academicYearId': academicYearId,
+      'CourseGroup.courseGroupId': courseGroupId,
+      isActive: true,
+    }),
+    buildQuery({
+      'CourseYear.courseYearId': courseYearId,
+      'AcademicYear.academicYearId': academicYearId,
+      'CourseGroup.courseGroupId': courseGroupId,
+    }),
+  ]
+
+  for (const q of threeIdQueries) {
+    try {
+      const rows = await domainList<AnyRow>('GroupSection', q)
+      if (rows.length > 0) return rows
+    } catch {
+      // next variant
+    }
+  }
+
+  return []
+}
+
+export async function listGroupSectionsByFilters(params: {
+  collegeId: number
+  academicYearId: number
+  courseGroupId: number
+  courseYearId: number
+}): Promise<AnyRow[]> {
+  const base = {
+    'College.collegeId': params.collegeId,
+    'AcademicYear.academicYearId': params.academicYearId,
+    'CourseGroup.courseGroupId': params.courseGroupId,
+    'CourseYear.courseYearId': params.courseYearId,
+    isActive: true,
+  } as const
+
+  const baseNoActive = {
+    'College.collegeId': params.collegeId,
+    'AcademicYear.academicYearId': params.academicYearId,
+    'CourseGroup.courseGroupId': params.courseGroupId,
+    'CourseYear.courseYearId': params.courseYearId,
+  } as const
+
+  const queryVariants = [
+    buildQuery(base),
+    buildQuery({
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      courseGroupId: params.courseGroupId,
+      courseYearId: params.courseYearId,
+      isActive: true,
+    }),
+    buildQuery(baseNoActive),
+  ]
+
+  for (const query of queryVariants) {
+    try {
+      const rows = await domainList<AnyRow>('GroupSection', query)
+      if (Array.isArray(rows) && rows.length > 0) return rows
+    } catch {
+      // try next variant
+    }
+  }
+
+  return []
+}
+
+export async function promoteStudents(payload: Record<string, unknown>): Promise<AnyRow> {
+  return postDetails<AnyRow>('promotestudent', payload)
+}
+
+export async function submitStudentDetain(payload: Record<string, unknown> | Record<string, unknown>[]): Promise<AnyRow> {
+  return postDetails<AnyRow>('detainrecommended', payload)
+}
+
+export async function listCollegesByOrganization(organizationId: number): Promise<AnyRow[]> {
+  if (!organizationId) return []
+  const queries = [
+    buildQuery({ 'Organization.organizationId': organizationId, isActive: true }),
+    buildQuery({ 'organization.organizationId': organizationId, isActive: true }),
+    buildQuery({ organizationId, isActive: true }),
+  ]
+
+  for (const query of queries) {
+    try {
+      const rows = await domainList<AnyRow>('College', query)
+      if (Array.isArray(rows) && rows.length > 0) return rows
+    } catch {
+      // try next query variant
+    }
+  }
+  return []
+}
+
+/** Legacy GET: /studentdetail?studentId= */
+export async function fetchStudentDetail(studentId: number): Promise<AnyRow | null> {
+  if (!studentId) return null
+  try {
+    const data = await fetchDetails<any>('studentdetail', { studentId })
+    if (data && typeof data === 'object' && !Array.isArray(data)) return data as AnyRow
+    if (Array.isArray(data) && data.length > 0) return data[0] as AnyRow
+  } catch {
+    return null
+  }
+  return null
+}
+
+export async function listStudentRegulationsByCourse(courseId: number): Promise<AnyRow[]> {
+  if (!courseId) return []
+  const queries = [
+    buildQuery({ 'Course.courseId': courseId, isActive: true }, { field: 'regulationCode', direction: 'DESC' }),
+    buildQuery({ courseId, isActive: true }),
+  ]
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>('Regulation', q)
+      if (rows.length > 0) return rows
+    } catch {
+      // next variant
+    }
+  }
+  return []
+}
+
+export async function listStudentCourseYearsByCourse(courseId: number): Promise<AnyRow[]> {
+  if (!courseId) return []
+  const queries = [
+    buildQuery({ 'Course.courseId': courseId, isActive: true }, { field: 'yearNo', direction: 'ASC' }),
+    buildQuery({ 'course.courseId': courseId, isActive: true }, { field: 'yearNo', direction: 'ASC' }),
+  ]
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>('CourseYear', q)
+      if (rows.length > 0) return rows
+    } catch {
+      // next variant
+    }
+  }
+  return []
+}
+
+/** Legacy POST path used by Angular readmission screen */
+export async function submitStudentReadmission(payload: Record<string, unknown>): Promise<AnyRow> {
+  return postDetails<AnyRow>('readmission', payload)
+}
+
+export async function listDetainedStudentsForReadmission(collegeId: number): Promise<AnyRow[]> {
+  if (!collegeId) return []
+
+  const endpointVariants = ['detainstudentslist', 'detainedstudentslist', 'studentdetainlist']
+  for (const path of endpointVariants) {
+    try {
+      const data = await fetchDetails<any>(path, { collegeId, status: 'true' })
+      const rows = asArray<AnyRow>(data)
+      if (rows.length > 0) return rows.map((row) => normalizeStudentRow(row))
+    } catch {
+      // try next endpoint variation
+    }
+  }
+
+  const queryVariants = [
+    buildQuery({
+      'College.collegeId': collegeId,
+      studentStatusCode: 'DETAINRECOMMENDED',
+      isActive: true,
+    }),
+    buildQuery({
+      'College.collegeId': collegeId,
+      studentStatusCode: 'DTND',
+      isActive: true,
+    }),
+  ]
+
+  for (const query of queryVariants) {
+    try {
+      const rows = await domainList<AnyRow>('Student', query)
+      if (rows.length > 0) return rows.map((row) => normalizeStudentRow(row))
+    } catch {
+      // fallback next query
+    }
+  }
+
+  return []
+}
+
+/** Legacy: GET studentsList?collegeId&academicYearId&statusCode=DISCONTINUED — discontinued students list */
+export async function listDiscontinuedStudents(collegeId: number, academicYearId: number): Promise<AnyRow[]> {
+  if (!collegeId || !academicYearId) return []
+
+  const paramSets: Record<string, string | number>[] = [
+    { collegeId, academicYearId, statusCode: 'DISCONTINUED' },
+    { collegeId, academicYearId, status_code: 'DISCONTINUED' },
+  ]
+
+  for (const params of paramSets) {
+    try {
+      const data = await fetchDetails<any>('studentsList', params)
+      const rows = asArray<AnyRow>(data)
+      if (rows.length > 0) return rows.map((row) => ({ ...normalizeStudentRow(row), ...row }))
+    } catch {
+      // try next param shape
+    }
+  }
+
+  return []
+}
+
+/**
+ * Legacy POST used by Angular student-discontinue (`addMasterDetails` → `discontinue`).
+ * Sends an array of discontinue rows (batch).
+ */
+export async function submitStudentDiscontinue(rows: Record<string, unknown>[]): Promise<unknown> {
+  if (!rows.length) throw new Error('No rows to submit')
+  return postDetails<unknown>('discontinue', rows)
+}

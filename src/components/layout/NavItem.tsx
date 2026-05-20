@@ -1,0 +1,1869 @@
+'use client'
+
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import {
+  // Dashboard / Core
+  LayoutDashboard,
+  Home,
+  AppWindow,
+  LayoutGrid,
+  Layers,
+  // People / HR
+  Users,
+  User,
+  UserCog,
+  UserCheck,
+  UserPlus,
+  UsersRound,
+  Contact,
+  BadgeCheck,
+  // Academics
+  GraduationCap,
+  BookOpen,
+  BookMarked,
+  BookCopy,
+  Library,
+  LibraryBig,
+  School,
+  Notebook,
+  NotebookPen,
+  FlaskConical,
+  Microscope,
+  // Exams / Assessment
+  ClipboardCheck,
+  ClipboardList,
+  FileCheck2,
+  FileText,
+  FileBadge,
+  FilePen,
+  FileSearch,
+  // Finance / Fees
+  Receipt,
+  CreditCard,
+  Banknote,
+  Wallet,
+  DollarSign,
+  PiggyBank,
+  Landmark,
+  // Attendance / Biometric
+  ScanFace,
+  Fingerprint,
+  CheckSquare,
+  UserRoundCheck,
+  // Timetable / Calendar
+  CalendarClock,
+  CalendarCheck,
+  CalendarDays,
+  CalendarRange,
+  Calendar,
+  Clock,
+  // Reports / Analytics
+  BarChart3,
+  BarChart2,
+  TrendingUp,
+  PieChart,
+  LineChart,
+  // Settings / Config
+  Settings,
+  Settings2,
+  SlidersHorizontal,
+  Wrench,
+  // Communication
+  Megaphone,
+  Bell,
+  BellRing,
+  Mail,
+  MessageSquare,
+  MessageCircle,
+  Send,
+  // Transport / Location
+  Bus,
+  Car,
+  MapPin,
+  Map,
+  Navigation,
+  // Hostel / Buildings
+  Building2,
+  Building,
+  BedDouble,
+  Hotel,
+  // Library / Files
+  FileUp,
+  FolderOpen,
+  Folder,
+  Download,
+  Upload,
+  Printer,
+  // Admin / Security
+  ShieldCheck,
+  Shield,
+  Lock,
+  Key,
+  // Actions / Misc
+  ChevronRight,
+  ChevronDown,
+  ArrowRight,
+  Star,
+  Award,
+  Trophy,
+  Clipboard,
+  List,
+  ListChecks,
+  Grid3X3,
+  Search,
+  Filter,
+  RefreshCw,
+  Edit,
+  Trash2,
+  Plus,
+  Minus,
+  Check,
+  X,
+  Info,
+  AlertCircle,
+  HelpCircle,
+  Tag,
+  Tags,
+  Hash,
+  Link as LinkIcon,
+  ExternalLink,
+  Image,
+  Video,
+  Music,
+  Globe,
+  Wifi,
+  Cpu,
+  Database,
+  Server,
+  Monitor,
+  Smartphone,
+  Tablet,
+  Laptop,
+  Code,
+  Terminal,
+  GitBranch,
+  Package,
+  Box,
+  Archive,
+  Zap,
+  Activity,
+  Heart,
+  Smile,
+  Sun,
+  Moon,
+  Cloud,
+  Wind,
+} from 'lucide-react'
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible'
+import { normalizeHref } from '@/lib/navigation'
+import { useNavigationStore } from '@/store/navigation-store'
+import { cn } from '@/lib/utils'
+import type { NavItem as NavItemType } from '@/types/navigation'
+
+// ---------------------------------------------------------------------------
+// Icon map: Material Icons (single-word) → Lucide React components
+// Keys match Angular's mat-icon ligature names exactly (snake_case).
+// ---------------------------------------------------------------------------
+
+const ICON_MAP: Record<string, React.ElementType> = {
+  // ── Dashboard / Core ──────────────────────────────────────────────────────
+  dashboard:              LayoutDashboard,
+  home:                   Home,
+  apps:                   AppWindow,
+  grid_view:              LayoutGrid,
+  widgets:                LayoutGrid,
+  layers:                 Layers,
+  menu:                   List,
+  view_module:            LayoutGrid,
+  view_list:              List,
+  view_quilt:             LayoutGrid,
+
+  // ── People / HR ───────────────────────────────────────────────────────────
+  people:                 Users,
+  group:                  UsersRound,
+  groups:                 UsersRound,
+  person:                 User,
+  person_add:             UserPlus,
+  person_outline:         User,
+  contacts:               Contact,
+  account_circle:         User,
+  supervisor_account:     UserCog,
+  manage_accounts:        UserCog,
+  how_to_reg:             UserCheck,
+  badge:                  BadgeCheck,
+  assignment_ind:         UserCheck,
+  face:                   User,
+  emoji_people:           User,
+
+  // ── Academics ─────────────────────────────────────────────────────────────
+  school:                 GraduationCap,
+  book:                   BookOpen,
+  menu_book:              BookOpen,
+  book_online:            BookOpen,
+  library_books:          LibraryBig,
+  local_library:          Library,
+  book_marked:            BookMarked,
+  auto_stories:           BookCopy,
+  class:                  Notebook,
+  subject:                Notebook,
+  edit_note:              NotebookPen,
+  note:                   Notebook,
+  notes:                  NotebookPen,
+  science:                FlaskConical,
+  biotech:                Microscope,
+  calculate:              Cpu,
+  functions:              Cpu,
+  psychology:             Microscope,
+  history_edu:            GraduationCap,
+  model_training:         GraduationCap,
+  cast_for_education:     GraduationCap,
+  import_contacts:        BookOpen,
+  collections_bookmark:   BookMarked,
+
+  // ── Exams / Assessment ────────────────────────────────────────────────────
+  assignment:             ClipboardCheck,
+  assignment_turned_in:   FileCheck2,
+  assignment_return:      FileText,
+  assessment:             FileBadge,
+  fact_check:             ListChecks,
+  quiz:                   FilePen,
+  rule:                   ListChecks,
+  task:                   ClipboardList,
+  task_alt:               ClipboardCheck,
+  checklist:              ListChecks,
+  grading:                FilePen,
+  rate_review:            FilePen,
+  text_snippet:           FileText,
+  description:            FileText,
+  article:                FileText,
+  content_paste:          Clipboard,
+  document_scanner:       FileSearch,
+  find_in_page:           FileSearch,
+  post_add:               FileText,
+  summarize:              FileText,
+  score:                  Trophy,
+  grade:                  Star,
+  stars:                  Star,
+  emoji_events:           Trophy,
+  military_tech:          Award,
+  workspace_premium:      Award,
+  verified:               BadgeCheck,
+
+  // ── Finance / Fees ────────────────────────────────────────────────────────
+  attach_money:           CreditCard,
+  money:                  Banknote,
+  payment:                Receipt,
+  receipt:                Receipt,
+  receipt_long:           Receipt,
+  credit_card:            CreditCard,
+  account_balance:        Landmark,
+  account_balance_wallet: Wallet,
+  savings:                PiggyBank,
+  monetization_on:        DollarSign,
+  currency_rupee:         DollarSign,
+  currency_exchange:      DollarSign,
+  local_atm:              Banknote,
+  price_check:            CheckSquare,
+  sell:                   Tag,
+  price_change:           TrendingUp,
+  paid:                   CreditCard,
+  request_quote:          FileText,
+  point_of_sale:          Landmark,
+
+  // ── Attendance / Biometric ────────────────────────────────────────────────
+  attendance:             ScanFace,
+  fingerprint:            Fingerprint,
+  person_search:          ScanFace,
+  how_to_vote:            CheckSquare,
+  co_present:             UserRoundCheck,
+  present_to_all:         UserRoundCheck,
+  group_add:              UserPlus,
+  transfer_within_a_station: UserCheck,
+  directions_walk:        UserCheck,
+
+  // ── Timetable / Calendar / Schedule ──────────────────────────────────────
+  event:                  CalendarClock,
+  event_note:             CalendarDays,
+  event_available:        CalendarCheck,
+  today:                  CalendarDays,
+  calendar_today:         CalendarCheck,
+  calendar_month:         CalendarDays,
+  date_range:             CalendarRange,
+  schedule:               Clock,
+  alarm:                  Clock,
+  timer:                  Clock,
+  pending_actions:        Clock,
+  watch_later:            Clock,
+  history:                RefreshCw,
+  update:                 RefreshCw,
+  next_plan:              CalendarRange,
+  view_timeline:          CalendarRange,
+
+  // ── Reports / Analytics ───────────────────────────────────────────────────
+  bar_chart:              BarChart3,
+  bar_chart_4_bars:       BarChart2,
+  stacked_bar_chart:      BarChart3,
+  insert_chart:           BarChart3,
+  insert_chart_outlined:  BarChart3,
+  area_chart:             LineChart,
+  show_chart:             LineChart,
+  multiline_chart:        LineChart,
+  trending_up:            TrendingUp,
+  trending_down:          TrendingUp,
+  analytics:              PieChart,
+  donut_large:            PieChart,
+  pie_chart:              PieChart,
+  ssid_chart:             LineChart,
+  leaderboard:            BarChart3,
+  query_stats:            BarChart3,
+  data_usage:             PieChart,
+  table_chart:            Grid3X3,
+  grid_on:                Grid3X3,
+  pivot_table_chart:      Grid3X3,
+
+  // ── Settings / Configuration ──────────────────────────────────────────────
+  settings:               Settings2,
+  settings_applications:  Settings,
+  settings_suggest:       Settings,
+  tune:                   SlidersHorizontal,
+  build:                  Wrench,
+  build_circle:           Wrench,
+  handyman:               Wrench,
+  admin_panel_settings:   ShieldCheck,
+  miscellaneous_services: Settings,
+  display_settings:       Settings,
+  manage_search:          Search,
+  rule_settings:          SlidersHorizontal,
+  format_list_bulleted:   List,
+  filter_list:            Filter,
+  category:               Tag,
+
+  // ── Communication ─────────────────────────────────────────────────────────
+  announcement:           Megaphone,
+  campaign:               Megaphone,
+  notifications:          Bell,
+  notifications_active:   BellRing,
+  notifications_none:     Bell,
+  add_alert:              BellRing,
+  email:                  Mail,
+  mail:                   Mail,
+  inbox:                  Mail,
+  mark_email_read:        Mail,
+  message:                MessageSquare,
+  sms:                    MessageSquare,
+  chat:                   MessageCircle,
+  chat_bubble:            MessageCircle,
+  question_answer:        MessageCircle,
+  forum:                  MessageCircle,
+  send:                   Send,
+  reply:                  Send,
+  share:                  ExternalLink,
+
+  // ── Transport / Location ──────────────────────────────────────────────────
+  directions_bus:         Bus,
+  bus_alert:              Bus,
+  airport_shuttle:        Bus,
+  local_taxi:             Car,
+  drive_eta:              Car,
+  directions_car:         Car,
+  electric_car:           Car,
+  location_on:            MapPin,
+  location_city:          Building2,
+  map:                    Map,
+  navigation:             Navigation,
+  near_me:                Navigation,
+  place:                  MapPin,
+  room:                   MapPin,
+  my_location:            MapPin,
+  explore:                Globe,
+  route:                  Navigation,
+  alt_route:              Navigation,
+  roundabout_right:       Navigation,
+  traffic:                Navigation,
+
+  // ── Hostel / Buildings ────────────────────────────────────────────────────
+  hotel:                  BedDouble,
+  house:                  Home,
+  domain:                 Building2,
+  business:               Building,
+  apartment:              Building,
+  corporate_fare:         Building2,
+  foundation:             Building,
+  villa:                  Home,
+  night_shelter:          Hotel,
+  bungalow:               Home,
+  bedroom_parent:         BedDouble,
+  bedroom_child:          BedDouble,
+  king_bed:               BedDouble,
+  single_bed:             BedDouble,
+  meeting_room:           Building,
+  sensor_door:            Building,
+
+  // ── Library / Files / Documents ───────────────────────────────────────────
+  upload:                 Upload,
+  download:               Download,
+  file_upload:            FileUp,
+  cloud_upload:           Upload,
+  cloud_download:         Download,
+  folder:                 Folder,
+  folder_open:            FolderOpen,
+  folder_shared:          Folder,
+  insert_drive_file:      FileText,
+  file_copy:              BookCopy,
+  copy_all:               BookCopy,
+  print:                  Printer,
+  local_printshop:        Printer,
+  picture_as_pdf:         FileText,
+  image:                  Image,
+  photo:                  Image,
+  collections:            Image,
+  video_library:          Video,
+  music_note:             Music,
+  attachment:             LinkIcon,
+  link:                   LinkIcon,
+  open_in_new:            ExternalLink,
+
+  // ── Admin / Security / Access ─────────────────────────────────────────────
+  security:               Shield,
+  verified_user:          ShieldCheck,
+  gpp_good:               ShieldCheck,
+  lock:                   Lock,
+  lock_open:              Lock,
+  vpn_key:                Key,
+  key:                    Key,
+  password:               Key,
+  no_encryption:          Lock,
+  enhanced_encryption:    ShieldCheck,
+  privacy_tip:            ShieldCheck,
+
+  // ── IT / Tech ─────────────────────────────────────────────────────────────
+  computer:               Monitor,
+  laptop:                 Laptop,
+  phone_android:          Smartphone,
+  tablet:                 Tablet,
+  memory:                 Cpu,
+  developer_board:        Cpu,
+  storage:                Database,
+  dns:                    Server,
+  cloud:                  Cloud,
+  wifi:                   Wifi,
+  code:                   Code,
+  terminal:               Terminal,
+  integration_instructions: Code,
+  developer_mode:         Code,
+  api:                    Code,
+  data_object:            Database,
+  data_array:             Database,
+  schema:                 GitBranch,
+  source:                 GitBranch,
+  inventory:              Package,
+  inventory_2:            Box,
+  archive:                Archive,
+  unarchive:              Archive,
+
+  // ── Misc / General ────────────────────────────────────────────────────────
+  info:                   Info,
+  info_outline:           Info,
+  help:                   HelpCircle,
+  help_outline:           HelpCircle,
+  warning:                AlertCircle,
+  error:                  AlertCircle,
+  error_outline:          AlertCircle,
+  new_releases:           Zap,
+  whatshot:               Zap,
+  bolt:                   Zap,
+  flash_on:               Zap,
+  highlight:              Zap,
+  health_and_safety:      Heart,
+  favorite:               Heart,
+  medical_services:       Heart,
+  local_hospital:         Heart,
+  sentiment_satisfied:    Smile,
+  emoji_emotions:         Smile,
+  light_mode:             Sun,
+  dark_mode:              Moon,
+  wb_sunny:               Sun,
+  nights_stay:            Moon,
+  air:                    Wind,
+  tag:                    Hash,
+  label:                  Tag,
+  label_important:        Tags,
+  new_label:              Tags,
+  work:                   Landmark,
+  work_outline:           Landmark,
+  business_center:        Landmark,
+  cases:                  Box,
+  move_to_inbox:          Mail,
+  outbox:                 Send,
+  pending:                Clock,
+  done:                   Check,
+  done_all:               CheckSquare,
+  check_circle:           Check,
+  check_box:              CheckSquare,
+  close:                  X,
+  delete:                 Trash2,
+  remove_circle:          Minus,
+  add_circle:             Plus,
+  edit:                   Edit,
+  create:                 Edit,
+  search:                 Search,
+  star:                   Star,
+  star_border:            Star,
+  bookmark:               BookMarked,
+  bookmark_border:        BookMarked,
+  flag:                   Activity,
+  arrow_forward:          ArrowRight,
+  arrow_forward_ios:      ChevronRight,
+  chevron_right:          ChevronRight,
+  expand_more:            ChevronDown,
+  more_vert:              List,
+  more_horiz:             List,
+  refresh:                RefreshCw,
+  sync:                   RefreshCw,
+  autorenew:              RefreshCw,
+  swap_horiz:             ArrowRight,
+  swap_vert:              ArrowRight,
+  compare_arrows:         ArrowRight,
+  call_made:              ArrowRight,
+  north_east:             ArrowRight,
+  open_in_browser:        ExternalLink,
+}
+
+// ---------------------------------------------------------------------------
+// Multi-word CSS class icon resolver (e.g. "fa fa-graduation-cap")
+// Strips fa-/icon- prefix, converts dashes to underscores, looks up ICON_MAP.
+// Also tries the dashed form without conversion as a fallback.
+// ---------------------------------------------------------------------------
+
+function resolveIcon(name?: string): React.ElementType | null {
+  if (!name) return null
+  const trimmed = name.trim()
+  if (!trimmed) return null
+
+  // Single-word Material icon (most common)
+  if (!trimmed.includes(' ')) {
+    return ICON_MAP[trimmed] ?? null
+  }
+
+  // Multi-word CSS class icon: "fa fa-graduation-cap", "icon-home", etc.
+  // Try tokens from right to left (last token is usually the most specific)
+  const tokens = trimmed.split(/\s+/)
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const token = tokens[i]
+    // Strip common prefixes
+    const stripped = token.replace(/^fa-/, '').replace(/^icon-/, '').replace(/^glyphicon-/, '')
+    // Try underscore form ("graduation-cap" → "graduation_cap")
+    const underscored = stripped.replace(/-/g, '_')
+    if (ICON_MAP[underscored]) return ICON_MAP[underscored]
+    // Try dashed form as-is ("bar_chart" stored with dashes)
+    if (ICON_MAP[stripped]) return ICON_MAP[stripped]
+    // Try without any transformation
+    if (ICON_MAP[token]) return ICON_MAP[token]
+  }
+
+  return null
+}
+
+function inferIconNameFromLabel(label?: string): string | undefined {
+  if (!label) return undefined
+  const lower = label.toLowerCase()
+
+  // Specific examination flows
+  if (lower.includes('exam masters') || lower.includes('master settings')) return 'settings'
+  if (lower.includes('pre examination')) return 'event_note'
+  if (lower.includes('evaluation process')) return 'fact_check'
+  if (lower.includes('post examination')) return 'assignment_turned_in'
+  if (lower.includes('re-evaluation') || lower.includes('reevaluation')) return 'rate_review'
+  if (lower.includes('delivery process') || lower.includes('papers delivery')) return 'folder_open'
+  if (lower.includes('result processing')) return 'leaderboard'
+
+  // Top-level modules
+  if (lower === 'admin' || lower.includes('admin panel') || lower.includes('administration')) return 'admin_panel_settings'
+  if (lower.includes('admission')) return 'person_add'
+  if (lower.includes('academics') || lower.includes('curriculum')) return 'school'
+  if (lower === 'eoffice' || lower.includes('e-office') || lower.includes('e office')) return 'description'
+  if (lower.includes('affiliated college') || lower.includes('affiliated')) return 'business'
+  if (lower.includes('hr') || lower.includes('human resource') || lower.includes('payroll')) return 'badge'
+  if (lower.includes('time-table') || lower.includes('timetable') || lower.includes('time table')) return 'schedule'
+  if (lower.includes('student information') || lower.includes('sis')) return 'contacts'
+  if (lower.includes('attendance')) return 'task_alt'
+  if (lower.includes('account') || lower.includes('fee') || lower.includes('payment') || lower.includes('bank')) return 'account_balance_wallet'
+  if (lower.includes('scholarship')) return 'workspace_premium'
+  if (lower.includes('mentorship') || lower.includes('mentor')) return 'how_to_reg'
+  if (lower.includes('event')) return 'event'
+  if (lower.includes('library')) return 'local_library'
+  if (lower.includes('hostel') || lower.includes('dormitory')) return 'hotel'
+  if (lower.includes('transport') || lower.includes('bus')) return 'directions_bus'
+  if (lower.includes('communication') || lower.includes('email') || lower.includes('sms')) return 'mail'
+  if (lower.includes('campus maintenance') || lower.includes('maintenance')) return 'build'
+  if (lower.includes('inventory') || lower.includes('stock')) return 'inventory'
+  if (lower.includes('dashboard')) return 'dashboard'
+
+  // Generic categories
+  if (lower.includes('student') || lower.includes('user')) return 'people'
+  if (lower.includes('performance') || lower.includes('analytics') || lower.includes('report')) return 'trending_up'
+  if (lower.includes('exam') || lower.includes('assessment')) return 'fact_check'
+  if (lower.includes('course') || lower.includes('subject') || lower.includes('class')) return 'menu_book'
+  if (lower.includes('setting') || lower.includes('config')) return 'settings'
+  if (lower.includes('notification') || lower.includes('message')) return 'notifications'
+  if (lower.includes('certificate') || lower.includes('document')) return 'description'
+
+  return undefined
+}
+
+// ---------------------------------------------------------------------------
+// NavIcon sub-component
+// kind='module' → fallback LayoutDashboard (top-level module)
+// kind='page'   → fallback ChevronRight (leaf page)
+// ---------------------------------------------------------------------------
+
+function NavIcon({
+  name,
+  active,
+  kind = 'page',
+  /** Solid primary background (Exam masters design-system row) */
+  primarySurface = false,
+}: {
+  name?: string
+  active?: boolean
+  kind?: 'module' | 'page'
+  primarySurface?: boolean
+}) {
+  const resolved = resolveIcon(name)
+  const Icon = resolved ?? (kind === 'module' ? LayoutDashboard : ChevronRight)
+
+  return (
+    <span
+      className={cn(
+        'flex items-center justify-center h-[20px] w-[20px] shrink-0 transition-colors duration-150',
+        primarySurface && 'text-[hsl(var(--primary-foreground))]',
+        !primarySurface && (
+          active
+            ? 'text-[hsl(var(--sidebar-primary))]'
+            : kind === 'module'
+              ? 'text-[hsl(var(--sidebar-foreground))]'
+              : 'text-[hsl(var(--sidebar-foreground))]/80'
+        ),
+      )}
+    >
+      <Icon className="h-[15px] w-[15px]" strokeWidth={1.75} aria-hidden="true" />
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// NavItem component
+// ---------------------------------------------------------------------------
+
+interface NavItemProps {
+  item: NavItemType
+  depth?: number
+  /**
+   * Pass `false` until the sidebar layout finishes client mount so nav markup matches SSR.
+   * Zustand `persist` can rehydrate `isSidebarCollapsed` before hydration; without this guard
+   * the tree flips between expanded links and icon-only buttons and causes hydration errors.
+   */
+  layoutHydrated?: boolean
+}
+
+/** Recursively checks if any descendant has an href matching the current pathname. */
+function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
+  if (!item.children) return false
+  const normPath = normalizeHref(pathname)
+
+  const mapLabelToRoute = (label?: string): string | null => {
+    const lower = (label ?? '').toLowerCase()
+    if (lower.includes('unit topic bulk upload')) return '/admin/bulk-uploads/unit-topic-bulk-upload'
+    if (lower.includes('photos bulk upload') || lower.includes('photo bulk upload')) {
+      return '/admin/bulk-uploads/photos-bulk-upload'
+    }
+    if (lower.includes('temporary staging tables bulk upload') || lower.includes('temparory staging table bulk upload')) {
+      return '/admin/bulk-uploads/temporary-staging-tables-bulk-upload'
+    }
+    if (lower.includes('dost upload') || lower.includes('student dost upload')) {
+      return '/admin/bulk-uploads/student-dost-upload'
+    }
+    if (lower.includes('student bulk upload') || lower.includes('students upload')) {
+      return '/admin/bulk-uploads/students-upload'
+    }
+    if (lower.includes('books bulk upload') || lower.includes('book bulk upload')) {
+      return '/admin/bulk-uploads/books-bulk-upload'
+    }
+    if (lower.includes('send login detail')) {
+      return '/email-sms/send-login-details'
+    }
+    if (
+      lower.includes('email log') ||
+      lower.includes('email-log') ||
+      lower.includes('emaillog') ||
+      lower.includes('email logs')
+    ) {
+      return '/email-sms/email-logs'
+    }
+    if (
+      (lower.includes('principal') && lower.includes('staff') && lower.includes('admin') && lower.includes('email')) ||
+      lower.includes('principal-staff-to-admin') ||
+      lower.includes('principal and staff to admin')
+    ) {
+      return '/email-sms/principal-staff-to-admin-email'
+    }
+    if (
+      lower.includes('send email to admin') ||
+      lower.includes('principal-to-staff-email') ||
+      (lower.includes('email to admin') &&
+        !lower.includes('principal') &&
+        !lower.includes('staff') &&
+        !lower.includes('department'))
+    ) {
+      return '/email-sms/principal-to-staff-email'
+    }
+    if (
+      lower.includes('staff-to-student-email') ||
+      (lower.includes('staff') && lower.includes('student') && lower.includes('email')) ||
+      (lower.includes('send email') && lower.includes('student') && !lower.includes('sms') && !lower.includes('login'))
+    ) {
+      return '/email-sms/staff-to-student-email'
+    }
+    if (
+      lower.includes('depart-wise') ||
+      lower.includes('dept-wise') ||
+      lower.includes('department-wise-email') ||
+      lower.includes('department-wise-emial') ||
+      (lower.includes('department') && lower.includes('wise') && lower.includes('email'))
+    ) {
+      return '/email-sms/department-wise-email'
+    }
+    if (
+      lower.includes('principal-to-dept') ||
+      lower.includes('principal-to-dpt') ||
+      (lower.includes('send email') &&
+        lower.includes('department') &&
+        lower.includes('email') &&
+        !lower.includes('wise') &&
+        !lower.includes('student'))
+    ) {
+      return '/email-sms/principal-to-dept-email'
+    }
+    if (
+      (lower.includes('absent') || lower.includes('absentee'))
+      && (lower.includes('sms') || lower.includes('message'))
+    ) {
+      return '/email-sms/send-sms-to-absents'
+    }
+    if (
+      lower.includes('staff')
+      && lower.includes('sms')
+      && (lower.includes('attendance') || lower.includes('not marked') || lower.includes('not taken'))
+      && !lower.includes('absent')
+      && !lower.includes('absentee')
+    ) {
+      return '/email-sms/send-sms-to-staff-attendance'
+    }
+    if (
+      (lower.includes('send sms') && lower.includes('student') && !lower.includes('staff') && !lower.includes('absent'))
+      || lower.includes('send-student-sms')
+      || lower.includes('send sms to student')
+    ) {
+      return '/email-sms/send-sms-to-students'
+    }
+    if (
+      lower.includes('question bank')
+      && !lower.includes('exam question')
+      && !lower.includes('question paper')
+    ) {
+      return '/assessments/question-bank'
+    }
+    return null
+  }
+
+  return item.children.some((child) => {
+    const ch = child.href?.trim()
+    const mappedByLabel = mapLabelToRoute(child.label)
+    if (ch || mappedByLabel) {
+      const mappedLegacy = ch ? mapLegacyMasterSettingsHref(ch) : null
+      const nh = normalizeHref(mappedByLabel ?? mappedLegacy ?? ch ?? '')
+      if (normPath === nh || normPath.startsWith(`${nh}/`)) return true
+    }
+    return hasActiveDescendant(child, pathname)
+  })
+}
+
+function findSiblingCollapsibleIds(items: NavItemType[], targetId: string): string[] {
+  for (const item of items) {
+    const children = item.children ?? []
+    if (children.some((child) => child.id === targetId)) {
+      return children
+        .filter((child) => child.id !== targetId && child.children && child.children.length > 0)
+        .map((child) => child.id)
+    }
+    if (children.length > 0) {
+      const nested = findSiblingCollapsibleIds(children, targetId)
+      if (nested.length > 0) return nested
+    }
+  }
+  return []
+}
+
+const EXAM_MASTERS_PATH = '/admin-examination-management/admin-exam-masters'
+
+function mapLegacyMasterSettingsHref(href?: string): string | null {
+  if (!href) return null
+  const normalized = href.toLowerCase().replace(/\/+$/, '')
+  const marker = 'master-settings/'
+  const markerIndex = normalized.indexOf(marker)
+  if (markerIndex === -1) return null
+
+  const slug = normalized.slice(markerIndex + marker.length)
+  if (!slug) return null
+
+  const routeMap: Record<string, string> = {
+    banks: '/admin/banks',
+    'caste-master': '/admin/caste-master',
+    department: '/admin/departments',
+    departments: '/admin/departments',
+    'sub-reservation-categories': '/admin/reservation-sub-categories',
+    'reservation-sub-categories': '/admin/reservation-sub-categories',
+    'student-category': '/admin/student-categories',
+    'student-categories': '/admin/student-categories',
+    'subject-type': '/admin/course-types',
+    designation: '/admin/designations',
+    designations: '/admin/designations',
+    'qualification-group': '/admin/qualification-groups',
+    'qualification-groups': '/admin/qualification-groups',
+    'qualification-groups-master': '/admin/qualification-groups',
+    'workflow-stages': '/admin/workflow-stages',
+    'workflow-stage': '/admin/workflow-stages',
+    'holidays-calendar': '/admin/holidays-calendar',
+    'holiday-calendar': '/admin/holidays-calendar',
+    'holidays-calender': '/admin/holidays-calendar',
+    holidayscalendar: '/admin/holidays-calendar',
+    holidaycalendar: '/admin/holidays-calendar',
+    holidays: '/admin/holidays-calendar',
+    holiday: '/admin/holidays-calendar',
+    qualification: '/admin/qualifications',
+    qualifications: '/admin/qualifications',
+    'designation-master': '/admin/designations',
+    'general-settings': '/admin/general-settings',
+    'general-master-settings': '/admin/general-master-settings',
+    'general-master-setting': '/admin/general-master-settings',
+    'general-masters': '/admin/general-master-settings',
+    'document-repository': '/admin/document-repository',
+    documentrepository: '/admin/document-repository',
+    'document-repository-settings': '/admin/document-repository',
+    'week-days': '/admin/weekdays',
+    weekdays: '/admin/weekdays',
+    weekday: '/admin/weekdays',
+    'configuration-auto-number': '/admin/configure-auto-numbers',
+    'configuration-auto-numbers': '/admin/configure-auto-numbers',
+    'configure-auto-number': '/admin/configure-auto-numbers',
+    'configure-auto-numbers': '/admin/configure-auto-numbers',
+    'config-auto-number': '/admin/configure-auto-numbers',
+    'config-autonumber': '/admin/configure-auto-numbers',
+    configautonumber: '/admin/configure-auto-numbers',
+  }
+
+  return routeMap[slug] ?? `/admin/${slug}`
+}
+
+/**
+ * Admin Exam Masters nav branch — primary-tinted active state. Scoped to this subtree only.
+ */
+function usesExamMastersDesign(item: NavItemType): boolean {
+  if (item.href?.includes(EXAM_MASTERS_PATH)) return true
+  if (
+    item.id.startsWith('sub_module_') &&
+    item.children?.some((c) => c.href?.includes(EXAM_MASTERS_PATH))
+  ) {
+    return true
+  }
+  return false
+}
+
+function navCollapsibleTriggerClasses(
+  _examMasters: boolean,
+  isChildActive: boolean,
+  isSelfActive: boolean,
+  isActive: boolean,
+): string {
+  if (isSelfActive) {
+    return cn(
+      'text-[hsl(var(--sidebar-primary))]',
+      'font-semibold',
+      'bg-[hsl(var(--sidebar-active-bg))]',
+      'hover:bg-[hsl(var(--sidebar-active-bg))]',
+    )
+  }
+  if (isChildActive) {
+    return cn(
+      'text-[hsl(var(--sidebar-foreground-active))]',
+      'font-semibold',
+      'bg-transparent',
+      'hover:bg-[hsl(var(--sidebar-hover-bg))]',
+    )
+  }
+  if (isActive) {
+    return cn(
+      'text-[hsl(var(--sidebar-foreground-active))]',
+      'bg-transparent',
+      'hover:bg-[hsl(var(--sidebar-hover-bg))]',
+    )
+  }
+  return cn(
+    'text-[hsl(var(--sidebar-foreground))]',
+    'hover:bg-[hsl(var(--sidebar-hover-bg))]',
+    'hover:text-[hsl(var(--sidebar-foreground-active))]',
+  )
+}
+
+/** Leaf row: teal accent + bg pill on active (matches EduPulse reference). */
+function navLeafClasses(_examMasters: boolean, isSelfActive: boolean): string {
+  if (isSelfActive) {
+    return cn(
+      'text-[hsl(var(--sidebar-primary))]',
+      'font-semibold',
+      'bg-[hsl(var(--sidebar-active-bg))]',
+      'hover:bg-[hsl(var(--sidebar-active-bg))]',
+    )
+  }
+  return cn(
+    'text-[hsl(var(--sidebar-foreground))]',
+    'hover:bg-[hsl(var(--sidebar-hover-bg))]',
+    'hover:text-[hsl(var(--sidebar-foreground-active))]',
+  )
+}
+
+export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const { navItems, collapsedItems, toggleCollapsed, isSidebarCollapsed, isSidebarHovered, setSidebarCollapsed } =
+    useNavigationStore()
+
+  const hasChildren = item.children && item.children.length > 0
+  const showLeftIcon = true
+  const hasGenericArrowIcon =
+    item.icon === 'arrow_forward' || item.icon === 'arrow_forward_ios' || item.icon === 'chevron_right'
+  const inferredIconName = inferIconNameFromLabel(item.label)
+  const providedIconIsResolvable = !!item.icon && !!resolveIcon(item.icon)
+  const shouldPreferInferredIcon = !providedIconIsResolvable || (depth > 0 && hasGenericArrowIcon)
+  const iconName = shouldPreferInferredIcon ? inferredIconName ?? item.icon : item.icon
+  // Always show a meaningful icon (backend value, then label inference). The
+  // NavIcon component handles the final fallback for leaf pages with no
+  // resolvable icon — a subtle dot keeps the icon column rhythm intact.
+  const renderedIconName = iconName ?? inferredIconName
+
+  const labelLower = (item.label ?? '').toLowerCase()
+  const preExamBase = '/admin-examination-management/pre-examination'
+  const reEvalBase = '/admin-examination-management/re-evaluation'
+  const evalProcessBase = '/admin-examination-management/evaluation-process'
+  const postExamBase = '/admin-examination-management/post-examination'
+  const forcedRoute = (() => {
+    const hrefLower = (item.href ?? '').toLowerCase()
+    const idLower = item.id.toLowerCase()
+    if (
+      labelLower.includes('general master setting') ||
+      labelLower.includes('general master settings') ||
+      labelLower.includes('general masters')
+    ) {
+      return '/admin/general-master-settings'
+    }
+    if (
+      hrefLower.includes('configuration-auto-number') ||
+      hrefLower.includes('configuration-auto-numbers') ||
+      hrefLower.includes('configure-auto-number') ||
+      hrefLower.includes('configure-auto-numbers') ||
+      hrefLower.includes('configautonumber') ||
+      hrefLower.includes('config-auto-number') ||
+      idLower.includes('configuration-auto-number') ||
+      idLower.includes('configure-auto-number') ||
+      (labelLower.includes('auto') && labelLower.includes('number'))
+    ) {
+      return '/admin/configure-auto-numbers'
+    }
+    if (hrefLower.includes('/excel-bulk-uploads/dost-bulk-upload') || hrefLower.includes('dost-bulk-upload')) {
+      return '/admin/bulk-uploads/student-dost-upload'
+    }
+    if (
+      hrefLower.includes('/excel-bulk-uploads/student-bulk-upload') ||
+      hrefLower.includes('/excel-bulk-uploads/students-upload')
+    ) {
+      return '/admin/bulk-uploads/students-upload'
+    }
+    if (hrefLower.includes('/excel-bulk-uploads/employee-bulk-upload') || hrefLower.includes('/excel-bulk-uploads/employee-upload')) {
+      return '/admin/bulk-uploads/employee-upload'
+    }
+    if (hrefLower.includes('/excel-bulk-uploads/subjects-bulk-upload') || hrefLower.includes('/excel-bulk-uploads/subject-bulk-upload')) {
+      return '/admin/bulk-uploads/subjects-bulk-upload'
+    }
+    if (hrefLower.includes('/excel-bulk-uploads/books-bulk-upload') || hrefLower.includes('/excel-bulk-uploads/book-bulk-upload')) {
+      return '/admin/bulk-uploads/books-bulk-upload'
+    }
+    if (hrefLower.includes('/excel-bulk-uploads/unit-topic-bulk-upload')) {
+      return '/admin/bulk-uploads/unit-topic-bulk-upload'
+    }
+    if (hrefLower.includes('/excel-bulk-uploads/photos-bulk-upload')) {
+      return '/admin/bulk-uploads/photos-bulk-upload'
+    }
+    if (
+      hrefLower.includes('/excel-bulk-uploads/temporary-staging-tables-bulk-upload') ||
+      hrefLower.includes('/excel-bulk-uploads/temparory-staging-table-bulk-upload')
+    ) {
+      return '/admin/bulk-uploads/temporary-staging-tables-bulk-upload'
+    }
+    if (
+      hrefLower.includes('send-student-sms') ||
+      hrefLower.includes('send-sms-to-student') ||
+      (labelLower.includes('send sms') && labelLower.includes('student') && !labelLower.includes('staff') && !labelLower.includes('absent'))
+    ) {
+      return '/email-sms/send-sms-to-students'
+    }
+    if (
+      hrefLower.includes('send-absent-sms') ||
+      hrefLower.includes('send-sms-to-absent') ||
+      ((labelLower.includes('absent') || labelLower.includes('absentee')) && labelLower.includes('sms'))
+    ) {
+      return '/email-sms/send-sms-to-absents'
+    }
+    if (
+      hrefLower.includes('send-staff-sms') ||
+      hrefLower.includes('send-sms-to-staff-attendance') ||
+      (labelLower.includes('staff') &&
+        labelLower.includes('sms') &&
+        (labelLower.includes('attendance') || labelLower.includes('not marked') || labelLower.includes('not taken')))
+    ) {
+      return '/email-sms/send-sms-to-staff-attendance'
+    }
+    if (hrefLower.includes('send-login-detail') || labelLower.includes('send login detail')) {
+      return '/email-sms/send-login-details'
+    }
+    if (
+      hrefLower.includes('email-log') ||
+      hrefLower.includes('emaillog') ||
+      labelLower.includes('email log') ||
+      labelLower.includes('email logs')
+    ) {
+      return '/email-sms/email-logs'
+    }
+    if (
+      hrefLower.includes('principal-staff-to-admin-email') ||
+      hrefLower.includes('principal-staff-to-admin') ||
+      hrefLower.includes('principal-and-staff-to-admin') ||
+      (labelLower.includes('principal') &&
+        labelLower.includes('staff') &&
+        labelLower.includes('admin') &&
+        labelLower.includes('email'))
+    ) {
+      return '/email-sms/principal-staff-to-admin-email'
+    }
+    if (
+      hrefLower.includes('principal-to-staff-email') ||
+      hrefLower.includes('send-email-to-admin') ||
+      labelLower.includes('send email to admin')
+    ) {
+      return '/email-sms/principal-to-staff-email'
+    }
+    if (
+      hrefLower.includes('staff-to-student-email') ||
+      (labelLower.includes('staff') && labelLower.includes('student') && labelLower.includes('email')) ||
+      (labelLower.includes('send email') &&
+        labelLower.includes('student') &&
+        !labelLower.includes('sms') &&
+        !labelLower.includes('login'))
+    ) {
+      return '/email-sms/staff-to-student-email'
+    }
+    if (
+      hrefLower.includes('depart-wise-email') ||
+      hrefLower.includes('dept-wise-email') ||
+      hrefLower.includes('department-wise-email') ||
+      hrefLower.includes('department-wise-emial')
+    ) {
+      return '/email-sms/department-wise-email'
+    }
+    if (hrefLower.includes('principal-to-dept-email') || hrefLower.includes('principal-to-dpt-email')) {
+      return '/email-sms/principal-to-dept-email'
+    }
+    if (labelLower.includes('department') && labelLower.includes('wise') && labelLower.includes('email')) {
+      return '/email-sms/department-wise-email'
+    }
+    if (
+      (labelLower.includes('principal') &&
+        labelLower.includes('department') &&
+        labelLower.includes('email') &&
+        !labelLower.includes('wise')) ||
+      (labelLower.includes('send email') &&
+        labelLower.includes('department') &&
+        labelLower.includes('email') &&
+        !labelLower.includes('wise') &&
+        !labelLower.includes('student'))
+    ) {
+      return '/email-sms/principal-to-dept-email'
+    }
+
+    const masterSettingsRoute = mapLegacyMasterSettingsHref(item.href)
+    if (masterSettingsRoute) return masterSettingsRoute
+
+    if (labelLower.includes('re-evaluation request') || labelLower.includes('reevaluation request')) {
+      return `${reEvalBase}/re-evaluation-request`
+    }
+    // Exam Master — "Exam Re-Valuation Fee Setup" (Angular); not the re-evaluation module student fee screen.
+    if (
+      labelLower.includes('re-valuation fee setup') ||
+      labelLower.includes('revaluation fee setup') ||
+      (labelLower.includes('fee setup') &&
+        (labelLower.includes('re-valuation') ||
+          labelLower.includes('revaluation') ||
+          labelLower.includes('re valuation')))
+    ) {
+      return '/admin-examination-management/admin-exam-masters/re-valuation-fee-setup'
+    }
+    if (
+      labelLower.includes('re-evaluation fee') ||
+      labelLower.includes('reevaluation fee') ||
+      labelLower.includes('re-valuation fee')
+    ) {
+      return `${reEvalBase}/re-evaluation-fee`
+    }
+    if (labelLower.includes('exam revised marks')) {
+      return `${postExamBase}/re-evaluation-marks-entry`
+    }
+    if (labelLower.includes('re-evaluation assign') || labelLower.includes('reevaluation assign')) {
+      return `${evalProcessBase}/re-evaluation-assign`
+    }
+    if (labelLower.includes('evaluation status tracking')) {
+      return `${evalProcessBase}/update-evaluator-answer-papers-status`
+    }
+    if (labelLower.includes('student exam fee col')) return `${preExamBase}/student-exam-fee-registration`
+    if (labelLower.includes('exam scheduling for')) return `${preExamBase}/exam-scheduling-forms`
+    if (labelLower.includes('exam register subjec')) return `${preExamBase}/exam-register-subjects`
+    if (labelLower.includes('online exam fee regi')) return `${preExamBase}/online-exam-fee-registration`
+    if (labelLower.includes('internal exam registr')) return `${preExamBase}/internal-exam-registration-multiple`
+    if (labelLower.includes('exam hallticket')) return `${preExamBase}/exam-hallticket`
+    if (labelLower.includes('exam subject barcode')) return `${preExamBase}/exam-subject-barcode-generation`
+    if (labelLower.includes('exam forms')) return `${preExamBase}/exam-forms`
+    if (labelLower.includes('exam invigilator allot')) return `${preExamBase}/invigilator-allotment`
+    if (labelLower.includes('additional exam fee')) return `${preExamBase}/additional-exam-fees`
+    if (labelLower.includes('exam attendance-wis') || labelLower.includes('exam attendancewis')) {
+      return `${preExamBase}/exam-attendancewise-subject-barcode`
+    }
+    if (labelLower.includes('student exam lab bat')) return `${preExamBase}/student-exam-lab-batches`
+    if (labelLower.includes('exam registration ma')) return `${preExamBase}/exam-registration-manual-feeless`
+    if (labelLower.includes('college exam timetable view')) return `${preExamBase}/college-exam-timetable-view`
+    if (labelLower.includes('complete exam fee registration') || labelLower.includes('complete examfee registration')) {
+      return `${preExamBase}/complete-exam-fee-registration`
+    }
+    if (labelLower.includes('exam center barcode')) {
+      return '/admin-examination-management/exam-papers-delivery-process/exam-center-barcodes'
+    }
+    if (labelLower.includes('moderation rule setup')) {
+      return '/admin-examination-management/result-processing/moderation-rule-setup'
+    }
+    if (labelLower.includes('grade rule settings') || labelLower.includes('grade rule setup')) {
+      return '/admin-examination-management/result-processing/grade-rule-settings'
+    }
+    if (labelLower.includes('apply moderation rule')) {
+      return '/admin-examination-management/result-processing/apply-moderation-rule'
+    }
+    if (labelLower.includes('t-sheets') || labelLower.includes('t sheets') || labelLower.includes('t-sheet')) {
+      return '/admin-examination-management/result-processing/t-sheets'
+    }
+    if (labelLower.includes('verify exam marks') || labelLower.includes('verify exam status')) {
+      return `${postExamBase}/verify-exam-marks`
+    }
+    if (
+      labelLower.includes('internal') &&
+      labelLower.includes('exam') &&
+      labelLower.includes('attendance') &&
+      (labelLower.includes('marking') || labelLower.includes('attendance marking')) &&
+      !labelLower.includes('external')
+    ) {
+      return `${postExamBase}/internal-exam-attendance-marking`
+    }
+    if (
+      labelLower.includes('external') &&
+      labelLower.includes('exam') &&
+      labelLower.includes('attendance') &&
+      (labelLower.includes('marking') || labelLower.includes('attendance marking'))
+    ) {
+      return `${postExamBase}/external-exam-attendance-marking`
+    }
+    if (
+      labelLower.includes('internal') &&
+      (labelLower.includes('exams average') ||
+        labelLower.includes('exam average') ||
+        labelLower.includes('internal exams avg'))
+    ) {
+      return `${postExamBase}/internal-exams-average`
+    }
+    if (
+      labelLower.includes('complete exam process') ||
+      labelLower.includes('complete examination process')
+    ) {
+      return `${postExamBase}/complete-exam-process`
+    }
+    if (labelLower.includes('answer paper bag')) {
+      return '/admin-examination-management/exam-papers-delivery-process/univ-exam-answer-paper-bags'
+    }
+    if (labelLower.includes('exam scan profile')) {
+      return '/admin-examination-management/exam-papers-delivery-process/exam-scan-profile'
+    }
+    if (labelLower.includes('scan bundle detail')) {
+      return '/admin-examination-management/exam-papers-delivery-process/scan-bundle-details'
+    }
+    if (labelLower.includes('scan bundles') || labelLower.includes('exam scan bundle')) {
+      return '/admin-examination-management/exam-papers-delivery-process/scan-bundles'
+    }
+    if (labelLower.includes('student re-admission') || labelLower.includes('student readmission')) {
+      return '/admin-student-information-system/student-re-admission'
+    }
+    if (labelLower.includes('readmission application') || labelLower.includes('re-admission application')) {
+      return '/admin-student-information-system/readmission-application'
+    }
+    if (labelLower.includes('student discontinue')) {
+      return '/admin-student-information-system/student-discontinue'
+    }
+    if (labelLower.includes('student passout') || labelLower.includes('students passout')) {
+      return '/admin-student-information-system/student-passout'
+    }
+    if (
+      labelLower.includes('assign student roll') ||
+      labelLower.includes('generate student roll') ||
+      labelLower.includes('student roll number')
+    ) {
+      return '/admin-student-information-system/generate-student-rollno'
+    }
+    if (
+      labelLower.includes('course outcomes') ||
+      labelLower.includes('course outcome') ||
+      hrefLower.includes('/subject-mapping/course-outcomes')
+    ) {
+      return '/academics/subject-mapping/course-outcomes'
+    }
+    if (
+      labelLower.includes('allocate student subjects') ||
+      labelLower.includes('allocate student subject') ||
+      (labelLower.includes('allocate') && labelLower.includes('student') && labelLower.includes('subject')) ||
+      hrefLower.includes('/subject-mapping/allocate-student-subject')
+    ) {
+      return '/academics/subject-mapping/allocate-student-subject'
+    }
+    if (labelLower.includes('student subjects') || labelLower.includes('student subject')) {
+      return '/admin-student-information-system/student-subjects'
+    }
+    if (labelLower.includes('modify subject group') || labelLower.includes('modify course group')) {
+      return '/academics/modify-course-group'
+    }
+    if (
+      labelLower.includes('modify academic batch') ||
+      labelLower.includes('modify acadamic batch') ||
+      labelLower.includes('modify student batch') ||
+      labelLower.includes('modify student batches')
+    ) {
+      return '/academics/modify-student-batches'
+    }
+    if (
+      labelLower === 'regulations' ||
+      hrefLower.includes('/master/regulation') ||
+      hrefLower.endsWith('/regulation')
+    ) {
+      return '/academics/regulations'
+    }
+    if (
+      labelLower.includes('subjects master') ||
+      (labelLower === 'subjects' && hrefLower.includes('/master/subjects')) ||
+      hrefLower.endsWith('/master/subjects')
+    ) {
+      return '/academics/subjects'
+    }
+    if (
+      labelLower.includes('university curriculum') ||
+      hrefLower.includes('/master/university-currriculum') ||
+      hrefLower.includes('/master/university-curriculum')
+    ) {
+      return '/academics/university-curriculum'
+    }
+    if (
+      labelLower.includes('assign semestr subjects')
+      || labelLower.includes('assign semester subjects')
+      || hrefLower.includes('/college-curriculum/subject-allocation')
+    ) {
+      return '/academics/college-curriculum/subject-allocation'
+    }
+    if (
+      labelLower.includes('subject unit topics')
+      || labelLower.includes('subject unit topic')
+      || labelLower.includes('unit topics')
+      || hrefLower.includes('/academics/subject-unit-topics')
+      || hrefLower.includes('/subject-unit-topics')
+    ) {
+      return '/academics/subject-unit-topics'
+    }
+    if (
+      labelLower.includes('subject syllabus plan')
+      || labelLower.includes('syllabus plan')
+      || hrefLower.includes('/subject-mapping/subject-syllabus-plan')
+      || hrefLower.includes('/subject-syllabus-plan')
+    ) {
+      return '/academics/subject-mapping/subject-syllabus-plan'
+    }
+    if (
+      labelLower.includes('elective group mapping')
+      || labelLower.includes('elective-group-mapping')
+      || hrefLower.includes('/subject-mapping/elective-group-mapping')
+      || hrefLower.includes('/elective-group-mapping')
+    ) {
+      return '/academics/subject-mapping/elective-group-mapping'
+    }
+    if (
+      labelLower.includes('student enrollment to elective subject')
+      || labelLower.includes('student enrolment to elective subject')
+      || labelLower.includes('student elective subject enrollment')
+      || labelLower.includes('student elective subject enrolment')
+      || (
+        labelLower.includes('student')
+        && labelLower.includes('elective')
+        && labelLower.includes('subject')
+      )
+      || hrefLower.includes('/subject-mapping/student-enrollment-to-elective-subject')
+      || hrefLower.includes('/subject-mapping/student-enrolment-to-elective-subject')
+      || hrefLower.includes('/subject-mapping/student-enrollment-to-elective-subjects')
+      || hrefLower.includes('/subject-mapping/student-enrolment-to-elective-subjects')
+      || hrefLower.includes('/student-enrollment-to-elective-subject')
+      || hrefLower.includes('/student-enrolment-to-elective-subject')
+      || hrefLower.includes('/student-enrollment-to-elective-subjects')
+      || hrefLower.includes('/student-enrolment-to-elective-subjects')
+    ) {
+      return '/academics/subject-mapping/student-enrollment-to-elective-subject'
+    }
+    if (
+      labelLower.includes('assign regulation to students')
+      || labelLower.includes('assign regulation for students')
+      || labelLower.includes('student regulation assignment')
+      || (
+        labelLower.includes('assign')
+        && labelLower.includes('regulation')
+        && labelLower.includes('student')
+      )
+      || hrefLower.includes('/subject-mapping/assign-regulation-to-students')
+      || hrefLower.includes('/assign-regulation-to-students')
+    ) {
+      return '/academics/subject-mapping/assign-regulation-to-students'
+    }
+    if (
+      labelLower.includes('academic batches of student') ||
+      labelLower.includes('academic batches') ||
+      labelLower.includes('acadamic batches') ||
+      hrefLower.includes('/academics/academic-batches')
+    ) {
+      return '/academics/academic-batches'
+    }
+    if (
+      labelLower.includes('modify elective batch') ||
+      labelLower.includes('modify elective batches') ||
+      (labelLower.includes('modify') && labelLower.includes('elective') && labelLower.includes('batch')) ||
+      hrefLower.includes('/academics/modify-elective-batches')
+    ) {
+      return '/academics/modify-elective-batches'
+    }
+    if (
+      labelLower.includes('modify student section') ||
+      labelLower.includes('modify students section') ||
+      (labelLower.includes('modify') && labelLower.includes('student') && labelLower.includes('section')) ||
+      hrefLower.includes('/academics/modify-student-section')
+    ) {
+      return '/academics/modify-student-section'
+    }
+    if (
+      labelLower.includes('assign students to section')
+      || labelLower.includes('assign student to section')
+      || labelLower.includes('student section assignment')
+      || (
+        labelLower.includes('assign')
+        && labelLower.includes('student')
+        && labelLower.includes('section')
+      )
+      || hrefLower.includes('/subject-mapping/assign-students-to-section')
+      || hrefLower.includes('/assign-students-to-section')
+    ) {
+      return '/academics/subject-mapping/assign-students-to-section'
+    }
+    if (
+      labelLower.includes('assign students to lab batches')
+      || labelLower.includes('assign students to lab batch')
+      || labelLower.includes('assign student to lab batches')
+      || labelLower.includes('student lab batch assignment')
+      || (
+        labelLower.includes('assign')
+        && labelLower.includes('student')
+        && labelLower.includes('lab')
+        && labelLower.includes('batch')
+      )
+      || hrefLower.includes('/subject-mapping/assign-students-to-lab-batches')
+      || hrefLower.includes('/assign-students-to-lab-batches')
+    ) {
+      return '/academics/subject-mapping/assign-students-to-lab-batches'
+    }
+    if (
+      labelLower.includes('assign subject books')
+      || labelLower.includes('subject books assign')
+      || labelLower.includes('subject book assign')
+      || hrefLower.includes('/subject-mapping/assign-subject-books')
+      || hrefLower.includes('/subject-mapping/subject-books')
+    ) {
+      return '/academics/subject-mapping/assign-subject-books'
+    }
+    if (
+      labelLower.includes('add subject units')
+      || labelLower.includes('subjects units')
+      || labelLower.includes('subject units')
+      || hrefLower.includes('/subject-mapping/add-subject-units')
+    ) {
+      return '/academics/subject-mapping/add-subject-units'
+    }
+    if (
+      labelLower.includes('staff subject unmapping')
+      || labelLower.includes('staff subject un-mapping')
+      || labelLower.includes('staff subject disassociation')
+      || hrefLower.includes('/subject-mapping/staff-subject-unmapping')
+      || hrefLower.includes('/subject-mapping/staff-subject-disassociation')
+    ) {
+      return '/academics/subject-mapping/staff-subject-unmapping'
+    }
+    if (
+      labelLower.includes('staff subject mapping')
+      || labelLower.includes('staff subject association')
+      || hrefLower.includes('/subject-mapping/course-group-subjects-list')
+      || hrefLower.includes('/subject-mapping/staff-subject-mapping')
+      || hrefLower.includes('/subject-mapping/staff-subject-association')
+    ) {
+      return '/academics/subject-mapping/course-group-subjects-list'
+    }
+    if (
+      labelLower.includes('view semester subjects')
+      || labelLower.includes('view semestr subjects')
+      || (
+        hrefLower.includes('/college-curriculum/course-year-subjects')
+        && !labelLower.includes('staff subject')
+      )
+    ) {
+      return '/academics/college-curriculum/course-year-subjects'
+    }
+    if (labelLower === 'college' || labelLower === 'colleges') {
+      return '/admin/colleges'
+    }
+    if (labelLower.includes('academic year')) {
+      return '/admin/academic-years'
+    }
+    if (labelLower.includes('financial year')) {
+      return '/admin/financial-years'
+    }
+    if (
+      (labelLower.includes('college courses') && labelLower.includes('group'))
+      || (labelLower.includes('college subject') && labelLower.includes('group'))
+    ) {
+      return '/admin/college-courses-groups'
+    }
+    if (
+      labelLower.includes('subject type')
+      || labelLower.includes('subjects type')
+      || labelLower.includes('subject types')
+      || labelLower.includes('course type')
+    ) {
+      return '/admin/course-types'
+    }
+    if (labelLower === 'subjects' || labelLower === 'subject' || labelLower === 'course') {
+      return '/admin/courses'
+    }
+    if (labelLower.includes('subject group') || labelLower.includes('course group')) {
+      return '/admin/course-groups'
+    }
+    if (labelLower.includes('semister') || labelLower.includes('semester') || labelLower.includes('course year')) {
+      return '/admin/course-years'
+    }
+    if (labelLower === 'sections' || labelLower === 'section') {
+      return '/admin/group-sections'
+    }
+    if (labelLower.includes('student batch')) {
+      return '/admin/student-batches'
+    }
+    if (labelLower === 'batches' || labelLower === 'batch') {
+      return '/admin/batches'
+    }
+    if (labelLower === 'building' || labelLower === 'buildings') {
+      return '/admin/buildings'
+    }
+    if (
+      labelLower === 'block' ||
+      labelLower === 'blocks' ||
+      labelLower.includes(' block ') ||
+      labelLower.startsWith('block ') ||
+      labelLower.endsWith(' block') ||
+      labelLower.startsWith('blocks ') ||
+      labelLower.endsWith(' blocks')
+    ) {
+      return '/admin/blocks'
+    }
+    if (labelLower === 'floor' || labelLower === 'floors') {
+      return '/admin/floors'
+    }
+    if (labelLower.includes('room details') || labelLower === 'room detail') {
+      return '/admin/room-details'
+    }
+    if (labelLower === 'room' || labelLower === 'rooms') {
+      return '/admin/rooms'
+    }
+    if (labelLower.includes('room type') || labelLower === 'room types') {
+      return '/admin/room-types'
+    }
+    if (labelLower === 'general setting' || labelLower === 'general settings') {
+      return '/admin/general-settings'
+    }
+    if (
+      labelLower.includes('general master setting') ||
+      labelLower.includes('general master settings') ||
+      labelLower.includes('general masters')
+    ) {
+      return '/admin/general-master-settings'
+    }
+    if (labelLower === 'designation' || labelLower === 'designations' || labelLower.includes('designation')) {
+      return '/admin/designations'
+    }
+    if (labelLower.includes('qualification group') || labelLower.includes('qualification groups')) {
+      return '/admin/qualification-groups'
+    }
+    if (labelLower.includes('workflow stage') || labelLower.includes('workflow stages')) {
+      return '/admin/workflow-stages'
+    }
+    if (
+      labelLower.includes('holiday') ||
+      labelLower.includes('holidays') ||
+      labelLower.includes('calendar') ||
+      labelLower.includes('calender')
+    ) {
+      return '/admin/holidays-calendar'
+    }
+    if (labelLower === 'qualification' || labelLower === 'qualifications' || labelLower.includes('qualification')) {
+      return '/admin/qualifications'
+    }
+    if (labelLower.includes('digital online sync')) {
+      return '/admin/digital-online-sync'
+    }
+    if (labelLower.includes('document repository')) {
+      return '/admin/document-repository'
+    }
+    if (labelLower.includes('unit topic bulk upload')) {
+      return '/admin/bulk-uploads/unit-topic-bulk-upload'
+    }
+    if (labelLower.includes('photos bulk upload') || labelLower.includes('photo bulk upload')) {
+      return '/admin/bulk-uploads/photos-bulk-upload'
+    }
+    if (labelLower.includes('temporary staging tables bulk upload') || labelLower.includes('temparory staging table bulk upload')) {
+      return '/admin/bulk-uploads/temporary-staging-tables-bulk-upload'
+    }
+    if (labelLower.includes('dost upload') || labelLower.includes('student dost upload')) {
+      return '/admin/bulk-uploads/student-dost-upload'
+    }
+    if (labelLower.includes('student bulk upload') || labelLower.includes('students upload')) {
+      return '/admin/bulk-uploads/students-upload'
+    }
+    if (labelLower.includes('employee bulk upload') || labelLower.includes('employee upload')) {
+      return '/admin/bulk-uploads/employee-upload'
+    }
+    if (labelLower.includes('subjects bulk upload') || labelLower.includes('subject bulk upload')) {
+      return '/admin/bulk-uploads/subjects-bulk-upload'
+    }
+    if (labelLower.includes('books bulk upload') || labelLower.includes('book bulk upload')) {
+      return '/admin/bulk-uploads/books-bulk-upload'
+    }
+    if (labelLower.includes('week day') || labelLower.includes('weekday') || labelLower.includes('weekdays')) {
+      return '/admin/weekdays'
+    }
+    if (
+      labelLower.includes('configure auto number') ||
+      labelLower.includes('configuration auto number') ||
+      labelLower.includes('auto number configuration') ||
+      (labelLower.includes('auto') && labelLower.includes('number'))
+    ) {
+      return '/admin/configure-auto-numbers'
+    }
+    if (
+      labelLower.includes('student co-curriculum activit') ||
+      labelLower.includes('student co curricular activit') ||
+      labelLower.includes('student cc activit')
+    ) {
+      return '/admin-student-information-system/student-cc-activities'
+    }
+    if (
+      labelLower.includes('general user accounts')
+      || labelLower.includes('general users accounts')
+      || hrefLower.includes('/admin-user-management/general-users-accounts')
+      || hrefLower.includes('/admin-user-management/general-user-accounts')
+    ) {
+      return '/user-management/general-user-accounts'
+    }
+    if (
+      labelLower.includes('staff accounts')
+      || labelLower.includes('staff account')
+      || hrefLower.includes('/admin-user-management/staff-accounts')
+      || hrefLower.includes('/admin-user-management/staff-account')
+    ) {
+      return '/user-management/staff-accounts'
+    }
+    if (
+      labelLower.includes('examination accounts')
+      || labelLower.includes('examination account')
+      || labelLower.includes('exam controller account')
+      || hrefLower.includes('/admin-user-management/examination-accounts')
+      || hrefLower.includes('/admin-user-management/examination-account')
+    ) {
+      return '/user-management/examination-accounts'
+    }
+    if (
+      labelLower.includes('parent accounts')
+      || labelLower.includes('parent account')
+      || hrefLower.includes('/admin-user-management/parent-accounts')
+      || hrefLower.includes('/admin-user-management/parent/manage')
+    ) {
+      if (hrefLower.includes('add-sibling')) {
+        return '/user-management/parent-accounts/add-sibling'
+      }
+      if (hrefLower.includes('parent/manage') || labelLower.includes('add parent')) {
+        return '/user-management/parent-accounts/manage'
+      }
+      return '/user-management/parent-accounts'
+    }
+    if (
+      labelLower.includes('student accounts')
+      || labelLower.includes('student account')
+      || labelLower.includes('add student')
+      || hrefLower.includes('/admin-user-management/student-accounts')
+      || hrefLower.includes('/admin-user-management/student-account')
+      || hrefLower.includes('/admin-user-management/student/manage')
+      || hrefLower.includes('/user-management/student/manage')
+    ) {
+      if (hrefLower.includes('student/manage') || labelLower.includes('add student')) {
+        return '/user-management/student-accounts?add=1'
+      }
+      return '/user-management/student-accounts'
+    }
+    // Assessments — Question Bank (Angular: `question-bank-list`; module folder `assissments` typo).
+    if (
+      hrefLower.includes('question-bank-list')
+      || hrefLower.includes('/apps/assissments/')
+      || (hrefLower.includes('assissments') && hrefLower.includes('question-bank'))
+      || (hrefLower.includes('/assessments/question-bank') && !hrefLower.includes('add-question'))
+      || (
+        labelLower.includes('question bank')
+        && !labelLower.includes('exam question')
+        && !labelLower.includes('question paper')
+        && !hrefLower.includes('admin-examination-management')
+        && !hrefLower.includes('evaluation-process')
+      )
+    ) {
+      return '/assessments/question-bank'
+    }
+    if (hrefLower.includes('/assessments/question-bank/add-question')) {
+      return '/assessments/question-bank/add-question'
+    }
+    if (
+      hrefLower.includes('/assessments/test')
+      || hrefLower.includes('/apps/assissments/test')
+      || (labelLower === 'test' && !hrefLower.includes('question-paper'))
+      || labelLower.includes('test list')
+    ) {
+      return '/assessments/test'
+    }
+    return null
+  })()
+
+  const rawNavTarget = forcedRoute ?? item.href ?? ''
+  const canonicalHref =
+    rawNavTarget && rawNavTarget !== '#' ? normalizeHref(rawNavTarget) : ''
+  const normPathname = normalizeHref(pathname)
+  const modulePathActive = (() => {
+    const label = (item.label ?? '').toLowerCase().trim()
+    if (label === 'admin') return normPathname.startsWith('/admin/')
+    if (label === 'academics') return normPathname.startsWith('/academics/')
+    if (label.includes('excel bulk uploads') || label.includes('bulk uploads')) {
+      return normPathname.startsWith('/admin/bulk-uploads/')
+    }
+    if (label.includes('affiliated')) return normPathname.startsWith('/affiliated-colleges/')
+    if (label.includes('student information')) return normPathname.startsWith('/admin-student-information-system/')
+    if (label.includes('user management')) return normPathname.startsWith('/user-management/')
+    if (label.trim() === 'security') return normPathname.startsWith('/user-management/')
+    if ((label.includes('email') && label.includes('sms')) || label.includes('email-sms')) {
+      return normPathname.startsWith('/email-sms/')
+    }
+    if (label.includes('exam')) return normPathname.startsWith('/admin-examination-management/')
+    if (label.includes('assessment')) return normPathname.startsWith('/assessments/')
+    return false
+  })()
+  const isSelfActive =
+    !!canonicalHref &&
+    canonicalHref.length > 1 &&
+    (normPathname === canonicalHref || normPathname.startsWith(`${canonicalHref}/`))
+  const isChildActive = (hasChildren ? hasActiveDescendant(item, pathname) : false) || modulePathActive
+  const isActive = isSelfActive || isChildActive || modulePathActive
+
+  const isOpen = !collapsedItems.has(item.id)
+
+  const examMasters = usesExamMastersDesign(item)
+
+  // True only when sidebar is collapsed AND the mouse is not hovering over it
+  const isEffectivelyCollapsed =
+    layoutHydrated === false ? false : isSidebarCollapsed && !isSidebarHovered
+
+  /* ── Icon-only mode: only top-level module icons shown ──────────── */
+  if (isEffectivelyCollapsed) {
+    // Sub-items are hidden — only depth-0 module icons render
+    if (depth > 0) return null
+
+    function handleCollapsedClick() {
+      // Re-open submenu if user had manually closed it
+      if (hasChildren && collapsedItems.has(item.id)) {
+        toggleCollapsed(item.id)
+      }
+      // Permanently expand the sidebar
+      setSidebarCollapsed(false)
+    }
+
+    return (
+      <button
+        type="button"
+        title={item.label}
+        onClick={handleCollapsedClick}
+        className={cn(
+          'group relative flex w-full items-center justify-center rounded-md py-2 px-1',
+          'transition-colors duration-150 ease-out',
+          isActive
+            ? 'text-[hsl(var(--sidebar-foreground-active))] bg-[hsl(var(--sidebar-active-bg))]'
+            : 'text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover-bg))] hover:text-[hsl(var(--sidebar-foreground-active))]',
+        )}
+      >
+        {isActive && (
+          <span
+            className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[2px] rounded-r bg-[hsl(var(--sidebar-primary))]"
+            aria-hidden="true"
+          />
+        )}
+        <NavIcon name={iconName} active={isActive} kind="module" />
+      </button>
+    )
+  }
+
+  /* Indent depth (used in expanded view) */
+  const paddingLeft =
+    depth === 0 ? 'pl-2.5' : depth === 1 ? 'pl-7' : depth === 2 ? 'pl-10' : 'pl-12'
+
+  const baseLinkClasses = cn(
+    'group relative flex items-center gap-2.5 rounded-md py-1.5 nav-item font-medium',
+    'transition-colors duration-150 ease-out',
+    `pr-3 ${paddingLeft}`,
+  )
+
+  /* ── Expanded: parent items (collapsible groups) ─────────────────── */
+  if (hasChildren) {
+    const handleOpenChange = (open: boolean) => {
+      // Accordion behavior at every depth:
+      // opening one group closes its sibling groups.
+      if (open) {
+        const siblingIds =
+          depth === 0
+            ? navItems
+              .filter((topLevelItem) => topLevelItem.id !== item.id && topLevelItem.children?.length)
+              .map((topLevelItem) => topLevelItem.id)
+            : findSiblingCollapsibleIds(navItems, item.id)
+
+        siblingIds.forEach((siblingId) => {
+          if (!collapsedItems.has(siblingId)) {
+            toggleCollapsed(siblingId)
+          }
+        })
+      }
+      toggleCollapsed(item.id)
+    }
+
+    return (
+      <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
+        <CollapsibleTrigger
+          // data attributes let Sidebar's scroll effect target the active parent module
+          {...(depth === 0 ? { 'data-nav-module': '', 'data-active': isActive ? 'true' : undefined } : {})}
+          onClick={(e) => {
+            if (forcedRoute) {
+              e.preventDefault()
+              e.stopPropagation()
+              router.push(normalizeHref(forcedRoute))
+            }
+          }}
+          className={cn(
+            baseLinkClasses,
+            'w-full',
+            navCollapsibleTriggerClasses(examMasters, isChildActive, isSelfActive, isActive),
+          )}
+        >
+          {depth === 0 && isActive && (
+            <span
+              className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r bg-[hsl(var(--sidebar-primary))]"
+              aria-hidden="true"
+            />
+          )}
+          {showLeftIcon && (
+            <NavIcon name={renderedIconName} active={isSelfActive} kind={depth === 0 ? 'module' : 'page'} />
+          )}
+          <span className="flex-1 text-left leading-5 whitespace-normal break-words">
+            {item.label}
+          </span>
+          <span
+            className={cn(
+              'ml-auto shrink-0 text-[hsl(var(--sidebar-foreground))]/60 transition-transform duration-200',
+              isOpen && 'rotate-90',
+            )}
+          >
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <ul className="mt-0.5 space-y-0">
+            {item.children!
+              .slice()
+              .sort((a, b) => a.sortOrder - b.sortOrder)
+              .map((child) => (
+                <li key={child.id}>
+                  <NavItem item={child} depth={depth + 1} layoutHydrated={layoutHydrated} />
+                </li>
+              ))}
+          </ul>
+        </CollapsibleContent>
+      </Collapsible>
+    )
+  }
+
+  /* ── Expanded: leaf items ────────────────────────────────────────── */
+  return (
+    <Link
+      href={canonicalHref || rawNavTarget || '#'}
+      onClick={(e) => {
+        if (forcedRoute) {
+          e.preventDefault()
+          router.push(normalizeHref(forcedRoute))
+        }
+      }}
+      aria-current={isSelfActive ? 'page' : undefined}
+      className={cn(baseLinkClasses, navLeafClasses(examMasters, isSelfActive))}
+    >
+      {depth === 0 && isSelfActive && (
+        <span
+          className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r bg-[hsl(var(--sidebar-primary))]"
+          aria-hidden="true"
+        />
+      )}
+      {showLeftIcon && (
+        <NavIcon name={renderedIconName} active={isSelfActive} kind="page" />
+      )}
+      <span className="flex-1 leading-5 whitespace-normal break-words">
+        {item.label}
+      </span>
+    </Link>
+  )
+}

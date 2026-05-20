@@ -1,0 +1,161 @@
+<div id="admission-dashboard" class="page-layout simple">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination Management</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Post Examination</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Internal Exam Average</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+        <div class="mat-elevation-z8 bkgrd">
+            <form name="internalMarksCalForm" [formGroup]="internalMarksCalForm" style="padding-bottom: 1px;" class="form-pad" novalidate>
+                <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                    <i class="material-icons sub-header-icon">money</i>
+                    <span class="sub-header-text">Internal Exam Average</span>
+                </div>
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd" style="padding: 0px 15px;">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(internalMarksCalForm.value.collegeId)" required>
+                                <mat-option *ngFor="let college of colleges" [value]="college.collegeId">{{college.collegeCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAYear()" required>
+                                <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.academicYearId">{{obcjt.academicYear}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(internalMarksCalForm.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses" [value]="course.courseId">{{course.courseCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Course Group" name="courseGroupId" formControlName="courseGroupId" (selectionChange)="selectedCourseGroup(internalMarksCalForm.value.courseGroupId)" required>
+                                <mat-option *ngFor="let obcjt of courseGroups" [value]="obcjt.courseGroupId">{{obcjt.groupCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId" (selectionChange)="selectedYear(internalMarksCalForm.value.courseYearId)" required>
+                                <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.courseYearId">{{courseYear.courseYearName}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="69" fxFlex.gt-md="69">
+                            <mat-select placeholder="Exam" [formControl]="examsMultiCtrl" [multiple]="true" (selectionChange)="selectedExamsList()">
+                                <mat-option *ngFor="let exam of filteredExamsList | async" [value]="exam.examId"
+                                matTooltip="{{exam.examName}} ({{exam.examFromDate | date:'MMM d, y'}} - {{exam.examToDate | date:'MMM d, y'}})">
+                                    {{exam.examName}} ({{exam.examFromDate | date:'MMM d, y'}} - {{exam.examToDate | date:'MMM d, y'}})
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="18" fxFlex.gt-md="18" *ngIf="selectedExamslist.length>0">
+                            <mat-select placeholder="Marks Calculation Type" name="markcalTypeId" formControlName="markcalTypeId" (selectionChange)="selectedMarksCalType(internalMarksCalForm.value.markcalTypeId)" required>
+                                <mat-option *ngFor="let type of internalExamTypes" [value]="type.generalDetailId">{{type.generalDetailDisplayName}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13" *ngIf="examIntMarkTypeId != null && selectedExamslist.length>0">
+                            <button mat-raised-button class="add-btn" color="accent" (click)="getList()" style="width: 100%;">Get List</button>
+                        </div>
+                    </div>
+                </div>
+                <p *ngIf="examIntMarkTypeId == null && flag" style="color: red;
+                margin: 0 22px;
+                font-weight: 600;">Note: Exam internal marks type is not updated in regulation master.</p> 
+                <p *ngIf="examIntMarkTypeId != null && flag" style="color: red;
+                margin: 0 22px;
+                font-weight: 600;">Note: For Regulation {{regulationCode}} the Exam internal marks type is {{internalType}}.</p>
+            </form>
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" *ngIf="midExamMarks.length>0" style="margin-top: 10px;
+                border-top: 7px solid #eff0f2;">
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <strong class="table-heads" style="font-size: 14px !important">{{selectedData}}</strong> &nbsp;
+                       ( <small style="color: darkgray !important;">{{tempV}}</small>)
+                    </div>
+                </div>
+
+            </div>
+            <mat-card class="pd-card table-align" *ngIf="midExamMarks.length>0" >
+                <mat-card-content>
+                    <div fxLayout="row" fxLayout.xs="column" style="position: relative;" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                            <label for="search" class="mr-8">
+                          <mat-icon class="secondary-text">search</mat-icon>
+                      </label>
+                            <mat-form-field floatLabel="never" fxFlex="1 0
+                          auto">
+                                <input matInput [(ngModel)]="searchText" autocomplete="off" [ngModelOptions]="{standalone: true}" placeholder="Search">
+                            </mat-form-field>
+                        </div>
+                        <!-- <i class="material-icons print" (click)="print()" matTooltip="Print Receipt"> print</i> -->
+    
+                        <!-- <i class="fa fa-print print" (click)="print()" style="position: absolute;right: 35px;" matTooltip="Print Report" aria-hidden="true"></i>
+                        <i class="fa fa-download print" (click)="download()" matTooltip="Download Report" aria-hidden="true"></i> -->
+                    </div>
+                </mat-card-content>
+    
+                <div class="mat-elevation-z8">
+                    <div class="example-container">
+                        <table class="mar">
+                            <thead>
+                                <tr>
+                                    <th class="table-th" rowspan="2">S.No</th>
+                                    <th class="table-th" rowspan="2">Student</th>
+                                    <th class="table-th" style="text-align: center !important;" [colSpan]="examNames.length" *ngFor="let  key of keys; let i=index">
+                                        {{key?.subject_name}}  ({{key?.subject_code}})
+                                        <p *ngIf="examNames.length === 2">
+                                            <span style="color: blue;font-weight: 500;">M-1</span> | <span style="color: blue;font-weight: 500;">T</span>
+                                        </p >
+                                        <p *ngIf="examNames.length === 3">
+                                            <span style="color: blue;font-weight: 500;">M-1</span> | <span style="color: blue;font-weight: 500;">M-2</span> | <span style="color: blue;font-weight: 500;">T</span>
+                                        </p>
+                                        <p *ngIf="examNames.length === 4">
+                                            <span style="color: blue;font-weight: 500;">M-1</span> | <span style="color: blue;font-weight: 500;">M-2</span> | <span style="color: blue;font-weight: 500;">M-3</span> | <span style="color: blue;font-weight: 500;">T</span>
+                                        </p>
+                                    </th>
+                                </tr>
+                                <!-- <tr >
+                                            <th class="table-th" >Male</th>
+                                            <th class="table-th" >Female</th>
+                                        </tr> -->
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let  cs of midExamMarks | studentRollnoFilter: searchText; let i=index">
+                                    <th class="table-td" style="text-align: center !important;"> {{midExamMarks.indexOf(cs) + 1}}</th>
+                                    <th class="table-td">{{cs.firstName}}
+                                        (<span style="color: blue;font-weight: 500;">{{cs.rollNumber}}</span>)</th>
+                                    <td class="table-td" style="text-align: center !important;position: relative;" *ngFor="let att of cs.studentMarksCount">
+                                        {{att.marks}}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+    
+            </mat-card>
+        </div>
+        <div fxLayout="column" style="margin-top: 5px;float: right;" class="mlr-15" *ngIf="midExamMarks.length>0">
+            <div class="savebtn-align">
+                <button mat-raised-button class="add-btn" color="accent" (click)="addInternalAvgMarks()">Save</button>
+            </div>
+        </div>
+    </div>
+    <!-- / CONTENT -->
+
+</div>

@@ -1,0 +1,629 @@
+<div id="dashboard" class="page-layout simple" id="printNone">
+
+    <div class="center" fusePerfectScrollbar>
+ 
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Student Exam Fee Collection</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Fee Receipt</span>
+                </div>
+            </div>
+        </div>
+        <!-- / HEADER -->
+ 
+        <!-- CONTENT -->
+        <div class="content">
+ 
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between">
+                <div fxLayout="row wrap " class="page-table-head" fxFlex="100" fxLayoutAlign="space-between center">
+                    <div fxLayoutAlign="start center" class="mod-head">
+                        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                            <i class="material-icons icon-align ">
+                                ballot
+                            </i>
+                            <strong class="table-heads">Exam Fee-Receipt</strong>
+                        </div>
+                    </div>
+ 
+                </div>
+            </div>
+ 
+            <mat-card class="pd-card table-align">
+ 
+ 
+                <div class="mat-elevation-z8">
+                    <div class="example-container ">
+                        <div style="display: flex; justify-content: center;">
+ 
+                            <div class="First-Border">
+                                <!-- <h2 style="margin-left:8%"> (STUDENT COPY) </h2> -->
+                                <div fxLayout="row">
+                                    <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"
+                                        class="firstborder" style="border-bottom: 2px solid;">
+                                        <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15"
+                                            *ngIf=" studentDetails?.orgLogo != null">
+                                            <img [src]="MINIO + studentDetails?.orgLogo" class="h-logo">
+                                        </div>
+                                        <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15"
+                                            *ngIf=" studentDetails?.orgLogo == null">
+                                            <img src="assets/images/avatars/default_logo.png" class="h-logo">
+                                        </div>
+                                        <div fxLayout="column" fxFlex="85" fxFlex.gt-xs="85" fxFlex.gt-md="85">
+                                            <h2> {{studentDetails?.collegeName}}</h2>
+                                            <h4>{{studentDetails?.address}}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <h3>
+                                    <ul> EXAM FEE-RECEIPT </ul>
+                                </h3>
+                                <div>
+                                    <hr class="line">
+                                </div>
+                                <div fxLayout="row" class="main-card">
+                                    <img class="img-3" [src]="MINIO + studentDetails?.orgLogo" />
+ 
+                                    <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+ 
+                                        <table>
+                                            <tr>
+                                                <th>Receipt No </th>
+                                                <td> : </td>
+                                                <td>
+                                                    {{studentDetails?.feeReceiptNo}}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th>Student Name</th>
+                                                <td class="dots">:</td>
+                                                <td>{{studentDetails?.stdName}}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>HallTicket No </th>
+                                                <td class="dots">:</td>
+                                                <td> {{studentDetails?.stdRollNumber}}</td>
+ 
+                                            </tr>
+ 
+                                            <tr>
+                                                <th>Branch</th>
+                                                <td class="dots">:</td>
+                                                <td>{{studentDetails?.courseCode}}
+                                                    ({{studentDetails?.groupCode}}-{{studentDetails?.section}})</td>
+                                            </tr>
+                                            <!-- <tr>
+                                                <th>Receipt Receipt Date</th>
+                                                <td class="dots">:</td>
+                                                <td>{{studentDetails?.receiptDate | date:'MMM d, y'}}</td>
+                                            </tr> -->
+                                        </table>
+                                    </div>
+                                    <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+ 
+                                        <table>
+                                            <tr>
+                                                <th>Date</th>
+                                                <td> : </td>
+                                                <td> {{studentDetails?.receiptDate | date:'dd/MM/yyyy,hh:mm:ss' }} </td>
+                                            </tr>
+                                            <tr>
+                                                <th>Father Name</th>
+                                                <td class="dots">:</td>
+                                                <td> {{studentDetails?.stdFatherName}} </td>
+                                            </tr>
+                                            <tr>
+                                                <th>Year</th>
+                                                <td class="dots">:</td>
+                                                <td>
+                                                    {{studentDetails?.courseYearName}}
+                                                    <!-- <span *ngFor="let obj of SemisterList">
+                                                        <span
+                                                            *ngIf="obj.id == studentDetails?.course_year_code">{{obj.value}}
+                                                            Year</span>
+                                                    </span> -->
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th>Payment Type</th>
+                                                <td class="dots">:</td>
+                                                <td>{{studentDetails?.paymentModeCatCode}}
+                                                    <span *ngIf="studentDetails?.paymentMode != null && studentDetails?.paymentMode != ''">({{studentDetails?.paymentMode}}<span *ngIf="studentDetails?.cardName != null && studentDetails?.cardName != ''"> -{{studentDetails?.cardName}}</span>)
+                                                    </span> </td>
+                                            </tr>
+                                            <tr>
+                                                <th>Merchant Ref.No</th>
+                                                <td class="dots">:</td>
+                                                <td>
+                                                    <span
+                                                        *ngIf="studentDetails?.transactionNo != null">{{studentDetails?.transactionNo}}</span>
+                                                    <span *ngIf="studentDetails?.transactionNo == null"></span>
+                                                </td>
+                                            </tr>
+ 
+                                        </table>
+ 
+ 
+                                    </div>
+                                </div>
+                                <div fxLayout="row" style="display: flex; justify-content: center;">
+                                    <div fxLayout="column" fxFlex="60" fxFlex.gt-xs="60" fxFlex.gt-md="60">
+                                        <table id="table2">
+                                            <tr>
+                                                <th style="font-weight: 600; text-align: center !important;">
+                                                 Details
+                                                </th>
+                                                <th style="font-weight: 600; text-align: center !important;">
+                                                    Amount
+                                                </th>
+                                            </tr>
+                                            <!-- <ng-container *ngFor="let paymentForfee of feereceiptDetails">
+                                                <tr *ngIf="paymentForfee?.paidAmount != 0">
+                                                    <th style="font-weight: 500 !important;">
+                                                        {{paymentForfee?.particularsName}} </th>
+                                                    <td style="font-weight: 500 !important;">
+                                                        <span *ngIf="paymentForfee.paidAmount==null">
+                                                            ₹{{paymentForfee?.paidAmount | currency:'INR':''}}</span>
+                                                        <span
+                                                            *ngIf="paymentForfee.paidAmount !=null">₹{{currencySymbol(paymentForfee?.paidAmount)}}</span>
+                                                    </td>
+                                                </tr>
+                                            </ng-container> -->
+                                            <tr>
+                                                <th style="font-weight: 600;">Exam Fee
+                                                    <span *ngIf="studentDetails?.examtypeCatDisplayName !=null">({{studentDetails?.examtypeCatDisplayName}}) </span>
+                                                </th>
+                                                <td  *ngIf="studentDetails?.examFeeAmount !=null">{{studentDetails?.examFeeAmount}}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th style="font-weight: 600;">Add. Fee</th>
+                                                <td  *ngIf="studentDetails?.examAddtFee !=null">{{studentDetails?.examAddtFee}}</td>
+                                            </tr>
+                                            <tr>
+                                                <th style="font-weight: 600;">LateFee</th>
+                                                <td  *ngIf="studentDetails?.examFineAmount !=null">{{studentDetails?.examFineAmount}}</td>
+                                            </tr>
+                                            <tr>
+                                                <th style="font-weight: 600;">Amount Paid</th>
+                                                <td>
+                                                    <span *ngIf="studentDetails?.examTotalAmount==null">
+                                                        ₹{{studentDetails?.examTotalAmount | currency:'INR':''}}</span>
+                                                    <span
+                                                        *ngIf="studentDetails?.examTotalAmount !=null">₹{{currencySymbol(studentDetails?.examTotalAmount)}}</span>
+                                                </td>
+ 
+                                            </tr>
+                                            <tr>
+                                                <th style="font-weight: 600;">Amount In Words</th>
+                                                <td  *ngIf="studentDetails?.examTotalAmount !=null">{{numToWords(studentDetails?.examTotalAmount)}} Only</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+ 
+ 
+                                <div fxLayout="row" style="padding: 15px !important;">
+                                    <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"
+                                        class="border ">
+                                        <p style="text-align: left !important;">NOTE: </p>
+                                        <p style="margin-top: -8px !important;text-align: left !important;">1. Please check the receipt before
+                                            leaving the window</p>
+                                             <p style="margin-top: -8px !important;text-align: left !important;">2. This is system generated receipt</p>
+                                    </div>
+                                </div>
+ 
+ 
+                            </div>
+                        </div>
+                        <div class="printbtn">
+                            <button id="printNone" mat-raised-button class="back-btn" (click)="goBack()">
+                                Back</button>
+                            <button id="printNone" mat-raised-button color="accent"
+                                (click)="printSection('printsection')">
+                                Print</button>
+                        </div>
+ 
+ 
+                    </div>
+ 
+                </div>
+ 
+            </mat-card>
+            <!-- / CONTENT -->
+ 
+        </div>
+ 
+    </div>
+ </div>
+ 
+ 
+ 
+ 
+ <div id="print-section" style="width: 100% !important;">
+ 
+    <div style="justify-content: center;">
+ 
+        <div class="First-Border" style="width: 100% !important; ">
+            <!-- <h2 style="margin-left:8%"> (STUDENT COPY) </h2> -->
+            <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"
+                    class="firstborder" style="border-bottom: 2px solid;">
+                    <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15"
+                        *ngIf=" studentDetails?.orgLogo != null">
+                        <img [src]="MINIO + studentDetails?.orgLogo" class="h-logo">
+                    </div>
+                    <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15"
+                        *ngIf=" studentDetails?.orgLogo == null">
+                        <img src="assets/images/avatars/default_logo.png" class="h-logo">
+                    </div>
+                    <div fxLayout="column" fxFlex="85" fxFlex.gt-xs="85" fxFlex.gt-md="85">
+                        <h2> {{studentDetails?.collegeName}}</h2>
+                        <h4>{{studentDetails?.address}}</h4>
+                    </div>
+                </div>
+            </div>
+            <div fxLayout="row">
+                <!-- <img class="img-1" src="assets\images\avatars\SUK_BANNER_NEW.jpg" /> -->
+                <div fxLayout="column" fxFlex="62" fxFlex.gt-xs="62" fxFlex.gt-md="62" style="align-items: end;">
+                    <h3> EXAM FEE-RECEIPT </h3>
+ 
+                </div>
+                <div fxLayout="column" fxFlex="38" fxFlex.gt-xs="38" fxFlex.gt-md="38"
+                    style="align-items: end; padding: 17px;">
+                    <span>Student Copy</span>
+                </div>
+            </div>
+            <div>
+                <hr class="line">
+            </div>
+            <div fxLayout="row" class="main-card">
+                <img class="img-2" [src]="MINIO + studentDetails?.orgLogo" />
+ 
+                <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+ 
+                    <table>
+                        <tr>
+                            <th>Receipt No </th>
+                            <td> : </td>
+                            <td>
+                                {{studentDetails?.feeReceiptNo}}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Student Name</th>
+                            <td class="dots">:</td>
+                            <td>{{studentDetails?.stdName}}</td>
+                        </tr>
+                        <tr>
+                            <th>HallTicket No</th>
+                            <td class="dots">:</td>
+                            <td> {{studentDetails?.stdRollNumber}}</td>
+ 
+                        </tr>
+ 
+                        <tr>
+                            <th>Branch</th>
+                            <td class="dots">:</td>
+                            <td>{{studentDetails?.courseCode}} ({{studentDetails?.groupCode}}-{{studentDetails?.section}})
+                            </td>
+                        </tr>
+                        <!-- <tr>
+                            <th>Receipt Receipt Date</th>
+                            <td class="dots">:</td>
+                            <td>{{studentDetails?.receiptDate | date:'MMM d, y'}}</td>
+                        </tr> -->
+                    </table>
+                </div>
+                <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+ 
+                    <table>
+                        <tr>
+                            <th>Date</th>
+                            <td> : </td>
+                            <td> {{studentDetails?.receiptDate | date:'dd/MM/yyyy,hh:mm:ss'}} </td>
+                        </tr>
+                        <tr>
+                            <th>Father Name</th>
+                            <td class="dots">:</td>
+                            <td> {{studentDetails?.stdFatherName}} </td>
+                        </tr>
+                        <tr>
+                            <th>Year</th>
+                            <td class="dots">:</td>
+                            <td>
+                                {{studentDetails?.courseYearName}}
+                                <!-- <span *ngFor="let obj of SemisterList">
+                                    <span *ngIf="obj.id == studentDetails?.course_year_code">{{obj.value}} Year</span>
+                                </span> -->
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Payment Type</th>
+                            <td class="dots">:</td>
+                            <td>{{studentDetails?.paymentModeCatCode}}
+                                <span *ngIf="studentDetails?.paymentMode != null && studentDetails?.paymentMode != ''">({{studentDetails?.paymentMode}}<span *ngIf="studentDetails?.cardName != null && studentDetails?.cardName != ''"> -{{studentDetails?.cardName}}</span>)
+                                </span> </td>
+                        </tr>
+                        <tr>
+                            <th>Merchant Ref.No</th>
+                            <td class="dots">:</td>
+                            <td>
+                                <span
+                                    *ngIf="studentDetails?.transactionNo != null">{{studentDetails?.transactionNo}}</span>
+                                <span *ngIf="studentDetails?.transactionNo == null"></span>
+                            </td>
+                        </tr>
+ 
+                    </table>
+ 
+ 
+                </div>
+            </div>
+            <div fxLayout="row" style="display: flex; justify-content: center;">
+                <div fxLayout="column" fxFlex="60" fxFlex.gt-xs="60" fxFlex.gt-md="60">
+                    <table id="table2">
+                        <tr>
+                            <th style="font-weight: 600; text-align: center !important;">
+                                Details
+                            </th>
+                            <th style="font-weight: 600; text-align: center !important;">
+                                Amount
+                            </th>
+                        </tr>
+                        <!-- <ng-container *ngFor="let paymentForfee of feereceiptDetails">
+                            <tr *ngIf="paymentForfee?.paidAmount != 0">
+                                <th style="font-weight: 500 !important;">{{paymentForfee?.particularsName}} </th>
+                                <td style="font-weight: 500 !important;">
+                                    <span *ngIf="paymentForfee.paidAmount==null"> ₹{{paymentForfee?.paidAmount |
+                                        currency:'INR':''}}</span>
+                                    <span
+                                        *ngIf="paymentForfee.paidAmount !=null">₹{{currencySymbol(paymentForfee?.paidAmount)}}</span>
+                                </td>
+                            </tr>
+                        </ng-container> -->
+                        <tr>
+                            <th style="font-weight: 600;">Exam Fee
+                                <span *ngIf="studentDetails?.examtypeCatDisplayName !=null">({{studentDetails?.examtypeCatDisplayName}}) </span>
+                            </th>
+                            <td  *ngIf="studentDetails?.examFeeAmount !=null">{{studentDetails?.examFeeAmount}}</td>
+                        </tr>
+                        <tr>
+                            <th style="font-weight: 600;">Add. Fee</th>
+                            <td  *ngIf="studentDetails?.examAddtFee !=null">{{studentDetails?.examAddtFee}}</td>
+                        </tr>
+                        <tr>
+                            <th style="font-weight: 600;">LateFee</th>
+                            <td  *ngIf="studentDetails?.examFineAmount !=null">{{studentDetails?.examFineAmount}}</td>
+                        </tr>
+                        <tr>
+                            <th style="font-weight: 600;">Amount Paid</th>
+                            <td>
+                                <span *ngIf="studentDetails?.examTotalAmount==null"> ₹{{studentDetails?.examTotalAmount |
+                                    currency:'INR':''}}</span>
+                                <span
+                                    *ngIf="studentDetails?.examTotalAmount !=null">₹{{currencySymbol(studentDetails?.examTotalAmount)}}</span>
+                            </td>
+ 
+                        </tr>
+                        <tr>
+                            <th style="font-weight: 600;">Amount In Words</th>
+                            <td  *ngIf="studentDetails?.examTotalAmount !=null">{{numToWords(studentDetails?.examTotalAmount)}} Only</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+ 
+ 
+            <div fxLayout="row" style="padding: 10px !important;">
+                <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="border ">
+                    <p style="text-align: left !important;">NOTE: </p>
+ 
+                    <p style="margin-top: -8px !important; text-align: left !important;">1. Please check the receipt before
+                        leaving the window</p>
+                         <p style="margin-top: -8px !important; text-align: left !important;">2. This is system generated receipt</p>
+                </div>
+            </div>
+ 
+ 
+        </div>
+ 
+        <div fxLayout="row" style="border-top: dashed !important; margin: 10px 0px !important;">
+            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            </div>
+        </div>
+ 
+        <div class="First-Border" style="width: 100% !important;">
+            <!-- <h2 style="margin-left:8%"> (STUDENT COPY) </h2> -->
+            <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"
+                    class="firstborder" style="border-bottom: 2px solid;">
+                    <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15"
+                        *ngIf=" studentDetails?.orgLogo != null">
+                        <img [src]="MINIO + studentDetails?.orgLogo" class="h-logo">
+                    </div>
+                    <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15"
+                        *ngIf=" studentDetails?.orgLogo == null">
+                        <img src="assets/images/avatars/default_logo.png" class="h-logo">
+                    </div>
+                    <div fxLayout="column" fxFlex="85" fxFlex.gt-xs="85" fxFlex.gt-md="85">
+                        <h2> {{studentDetails?.collegeName}}</h2>
+                        <h4>{{studentDetails?.address}}</h4>
+                    </div>
+                </div>
+            </div>
+            <div fxLayout="row">
+                <!-- <img class="img-1" src="assets\images\avatars\SUK_BANNER_NEW.jpg" /> -->
+                <div fxLayout="column" fxFlex="62" fxFlex.gt-xs="62" fxFlex.gt-md="62" style="align-items: end;">
+                    <h3> EXAM FEE-RECEIPT </h3>
+ 
+                </div>
+                <div fxLayout="column" fxFlex="38" fxFlex.gt-xs="38" fxFlex.gt-md="38"
+                    style="align-items: end; padding: 17px;">
+                    <span>Department Copy</span>
+                </div>
+            </div>
+ 
+            <div>
+                <hr class="line">
+            </div>
+            <div fxLayout="row" class="main-card">
+                <img class="img-2" [src]="MINIO + studentDetails?.orgLogo" />
+ 
+                <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+ 
+                    <table>
+                        <tr>
+                            <th>Receipt No </th>
+                            <td> : </td>
+                            <td>
+                                {{studentDetails?.feeReceiptNo}}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Student Name</th>
+                            <td class="dots">:</td>
+                            <td>{{studentDetails?.stdName}}</td>
+                        </tr>
+                        <tr>
+                            <th>HallTicket No</th>
+                            <td class="dots">:</td>
+                            <td> {{studentDetails?.stdRollNumber}}</td>
+ 
+                        </tr>
+ 
+                        <tr>
+                            <th>Branch</th>
+                            <td class="dots">:</td>
+                            <td>{{studentDetails?.courseCode}} ({{studentDetails?.groupCode}}-{{studentDetails?.section}})
+                            </td>
+                        </tr>
+                        <!-- <tr>
+                            <th>Receipt Receipt Date</th>
+                            <td class="dots">:</td>
+                            <td>{{studentDetails?.receiptDate | date:'MMM d, y'}}</td>
+                        </tr> -->
+                    </table>
+                </div>
+                <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+ 
+                    <table>
+                        <tr>
+                            <th> Date</th>
+                            <td> : </td>
+                            <td> {{studentDetails?.receiptDate  | date:'dd/MM/yyyy,hh:mm:ss'}} </td>
+                        </tr>
+                        <tr>
+                            <th>Father Name</th>
+                            <td class="dots">:</td>
+                            <td> {{studentDetails?.stdFatherName}} </td>
+                        </tr>
+                        <tr>
+                            <th>Year</th>
+                            <td class="dots">:</td>
+                            <td>
+                                {{studentDetails?.courseYearName}}
+                                <!-- <span *ngFor="let obj of SemisterList">
+                                    <span *ngIf="obj.id == studentDetails?.course_year_code">{{obj.value}} Year</span>
+                                </span> -->
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Payment Type</th>
+                            <td class="dots">:</td>
+                            <td>{{studentDetails?.paymentModeCatCode}}
+                                 <span *ngIf="studentDetails?.paymentMode != null && studentDetails?.paymentMode != ''">({{studentDetails?.paymentMode}}<span *ngIf="studentDetails?.cardName != null && studentDetails?.cardName != ''"> -{{studentDetails?.cardName}}</span>)
+                                 </span> </td>
+                        </tr>
+                        <tr>
+                            <th>Merchant Ref.No</th>
+                            <td class="dots">:</td>
+                            <td>
+                                <span
+                                    *ngIf="studentDetails?.transactionNo != null">{{studentDetails?.transactionNo}}</span>
+                                <span *ngIf="studentDetails?.transactionNo == null"></span>
+                            </td>
+                        </tr>
+ 
+                    </table>
+ 
+ 
+                </div>
+            </div>
+            <div fxLayout="row" style="display: flex; justify-content: center;">
+                <div fxLayout="column" fxFlex="60" fxFlex.gt-xs="60" fxFlex.gt-md="60">
+                    <table id="table2">
+ 
+                        <tr>
+                            <th style="font-weight: 600; text-align: center !important;">
+                                Details
+                            </th>
+                            <th style="font-weight: 600; text-align: center !important;">
+                                Amount
+                            </th>
+                        </tr>
+                        <!-- <ng-container *ngFor="let paymentForfee of feereceiptDetails">
+                            <tr *ngIf="paymentForfee?.paidAmount != 0">
+                                <th style="font-weight: 500 !important;">{{paymentForfee?.particularsName}} </th>
+                                <td style="font-weight: 500 !important;">
+                                    <span *ngIf="paymentForfee.paidAmount==null"> ₹{{paymentForfee?.paidAmount |
+                                        currency:'INR':''}}</span>
+                                    <span
+                                        *ngIf="paymentForfee.paidAmount !=null">₹{{currencySymbol(paymentForfee?.paidAmount)}}</span>
+                                </td>
+                            </tr>
+                        </ng-container> -->
+                        <tr>
+                            <th style="font-weight: 600;">Exam Fee
+                                <span *ngIf="studentDetails?.examtypeCatDisplayName !=null">({{studentDetails?.examtypeCatDisplayName}}) </span>
+                            </th>
+                            <td  *ngIf="studentDetails?.examFeeAmount !=null">{{studentDetails?.examFeeAmount}}</td>
+                        </tr>
+                        <tr>
+                            <th style="font-weight: 600;">Add. Fee</th>
+                            <td  *ngIf="studentDetails?.examAddtFee !=null">{{studentDetails?.examAddtFee}}</td>
+                        </tr>
+                        <tr>
+                            <th style="font-weight: 600;">LateFee</th>
+                            <td  *ngIf="studentDetails?.examFineAmount !=null">{{studentDetails?.examFineAmount}}</td>
+                        </tr>
+                        <tr>
+                            <th style="font-weight: 600;">Amount Paid</th>
+                            <td>
+                                <span *ngIf="studentDetails?.examTotalAmount==null"> ₹{{studentDetails?.examTotalAmount |
+                                    currency:'INR':''}}</span>
+                                <span
+                                    *ngIf="studentDetails?.examTotalAmount !=null">₹{{currencySymbol(studentDetails?.examTotalAmount)}}</span>
+                            </td>
+ 
+                        </tr>
+                        <tr>
+                            <th style="font-weight: 600;">Amount In Words</th>
+                            <td  *ngIf="studentDetails?.examTotalAmount !=null">{{numToWords(studentDetails?.examTotalAmount)}} Only</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+ 
+ 
+ 
+            <div fxLayout="row" style="padding: 10px !important;">
+                <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="border ">
+                    <p style="text-align: left !important;">NOTE: </p>
+                    <p style="margin-top: -8px !important; text-align: left !important;">1. Please check the receipt before
+                        leaving the window</p>
+                         <p style="margin-top: -8px !important; text-align: left !important;">2. This is system generated receipt</p>
+                </div>
+            </div>
+ 
+ 
+        </div>
+    </div>
+ </div>

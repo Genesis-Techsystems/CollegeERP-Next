@@ -1,0 +1,28 @@
+:host {
+    display: flex;
+  }
+  
+  .textarea-inline-control {
+    flex: 1;
+    border-color: transparent;
+    padding: 7px 7px 8px;
+    line-height: 1.28;
+    resize: none;
+    box-shadow: transparent 0px 0px 0px 1px;
+    transition: background 0.1s ease 0s;
+    overflow: auto;
+    overflow-y: hidden;  
+    border-radius: 3px;
+    appearance: none;
+  
+    &:hover:not(:focus) {  
+      background-color: rgb(235, 236, 240);
+    }
+  
+    &:focus {
+      background-color: rgb(255,255,255);
+      border: 1px solid #4c9aff;
+      box-shadow: 0 0 0 1px #4c9aff;
+      outline: none;
+    }
+  }

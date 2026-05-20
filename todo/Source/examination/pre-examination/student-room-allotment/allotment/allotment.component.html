@@ -1,0 +1,125 @@
+<div id="admission-dashboard" class="page-layout simple">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Student Room Allotment</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Allotment</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+        <div class="mat-elevation-z8 bkgrd" *ngIf="!isEmptyObject(data)">
+            <form name="staffForm" style="padding-bottom: 1px;" class="form-pad" novalidate>
+                <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                    <i class="material-icons sub-header-icon">computer</i>
+                    <span class="sub-header-text"> Exam Room Allotment</span>
+                </div>
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd div-border">
+
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="8" fxFlex.gt-md="8">
+                            <p class="details-off">College  </p>
+                        </div>:
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="rol-no" *ngIf="data.selectedRooms.length > 0"> {{data.selectedRooms[0].collegeCode}}</span></p>
+                        </div>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="8" fxFlex.gt-md="8">
+                            <p class="details-off">Exam  </p>
+                        </div>:
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="rol-no" *ngIf="data.selectedRooms.length > 0"> {{data.selectedRooms[0].examName}}
+                                <span *ngIf="data.selectedCourses.length > 0">({{data.selectedCourses[0].examSessionName}})</span>
+                            </span></p>
+                        </div>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="8" fxFlex.gt-md="8">
+                            <p class="details-off">Exam Date </p>
+                        </div>:
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="rol-no" *ngIf="data.selectedCourses.length > 0"> {{data.selectedCourses[0].examDate | date:dateFormate}} </span></p>
+                        </div>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="8" fxFlex.gt-md="8">
+                            <p class="details-off">Courses </p>
+                        </div>:
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off" *ngFor="let item of data.selectedCourses">{{item.regulationName}} / {{item.groupCode}} / {{item.courseYearName}} / {{item.subjectName}}</p>
+                        </div>
+                    </div>
+                    </div>
+                <div fxLayout="column" style="margin-top: 10px" class="inner-bkgrd yar-bordr" >
+                    <h2 style="margin: 8px 0px;color: blue;">Allotment Order</h2>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8 bordr" fxFlex="50" *ngFor="let room of data.selectedRooms; let i = index;">
+                            <div fxLayout="row" fxLayoutAlign="space-between center">
+                                    <h4>{{room.roomdata}}</h4>
+                                    <span class="roll-no">
+                                            Available Seats: <span style="color: blue;font-weight: 500;">{{room.availableSeats}}</span>
+                                    </span>
+                            </div>
+                            <table class="mar">
+                                <tbody>
+                                    <tr *ngFor="let row of room.array; let i = index;">
+                                        <td class="table-td" style="width: 13% !important;" style="text-align: center !important;position: relative;cursor: pointer;" *ngFor="let col of row.cols; let j = index;" 
+                                        matTooltip='{{col.examseatstatusCatCode}}' [ngClass]="{'blocked': col.examseatstatusCatCode === 'Blocked', 'booked': col.examseatstatusCatCode === 'Booked'}"
+                                            (click)="addSeat(col)">
+                                            <span style="position: absolute;right: 10px;color: #949494;font-size: 12px;">{{col.rowNo}}{{col.columnNo}}</span>
+                                            
+                                            <img *ngIf="col.examseatstatusCatCode === 'Available'" style="height: 50px;" src="assets/images/avatars/chair_outline.png">
+                                            <img *ngIf="col.examseatstatusCatCode === 'Blocked'" style="height: 50px;" src="assets/images/avatars/chair_outline.png">
+                                            <!-- <img *ngIf="col.examseatstatusCatCode === 'Booked'" style="height: 50px;" src="assets/images/avatars/chair.png"> -->
+                                            <p *ngIf="col.examseatstatusCatCode === 'Booked'">{{col.stdRollNumber}}</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- <div fxLayout="column" class="p-8 bordr" style="overflow: scroll;" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <table class="mar">
+                                <tbody>
+                                    <tr>
+                                        <td class="table-td">Total Seats</td>
+                                        <td class="table-td">{{staffForm.value.totalRows*staffForm.value.totalColumns}}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="table-td"> <span style="margin-right: 5px;background: #c5c5c5;"><img style="height: 25px;" src="assets/images/avatars/chair_outline.png"></span>Blocked Seats</td>
+                                        <td class="table-td">{{staffForm.value.blockedSeats}}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="table-td"><span style="margin-right: 5px;"><img style="height: 25px;" src="assets/images/avatars/chair.png"></span>Booked Seats</td>
+                                        <td class="table-td">{{staffForm.value.bookedSeats}}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="table-td"><span style="margin-right: 5px;"><img style="height: 25px;" src="assets/images/avatars/chair_outline.png"></span>Available Seats</td>
+                                        <td class="table-td">{{staffForm.value.availableSeats}}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div> -->
+                    </div>
+                </div>
+                <div class="form-btn">
+                    <button mat-raised-button class="add-btn back-btn" (click)="goBack()">Back</button>
+                    <button mat-raised-button class="add-btn" color="accent" (click)="addExamTable()">
+                    Save
+                </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+    <!-- / CONTENT -->
+
+</div>

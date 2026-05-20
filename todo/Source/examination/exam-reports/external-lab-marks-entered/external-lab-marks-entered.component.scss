@@ -1,0 +1,49 @@
+.icon{
+    color: aliceblue !important;
+    padding: 4px;
+}
+.print-section{
+    display: none;
+  }
+    @media print {
+      @page {
+        margin: 0;
+      }
+      #printNone {
+        display: none !important;
+        visibility: hidden !important;
+      }
+      .print-section{
+  display: block;
+      }
+      header nav, footer {
+        display: none;
+     }
+    }
+    .header{ 
+      justify-content: center;
+      margin-bottom: -16px;
+      p{
+        text-align: center !important;
+      }
+      // display: flex;
+    .clgname{
+      font-size: 30px;  margin-bottom: -20px; font-family: none; text-transform: capitalize !important;
+      justify-content: center;
+    }
+    .title{
+      font-size: 25px;
+      justify-content: center;
+      margin-bottom: -16px;
+      font-family: none;
+    }
+    .exam{
+      font-size: 20px;
+      justify-content: center;
+      font-family: none;
+    }
+  }
+  .buttons{
+    justify-content: end !important;
+    display: flex !important;
+  }

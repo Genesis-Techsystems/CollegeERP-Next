@@ -1,0 +1,139 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                              ballot
+                              </i>
+                    <span> Add Exam Answer Paper</span>
+                </div>
+            </div>
+        </div>
+        <form name="addexamanswerpaper" [formGroup]="examanswerpaper" novalidate>
+            <mat-dialog-content>
+                <div fxLayout="column">
+                    <div fxLayout="row wrap " fxFlex="100">
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(examanswerpaper.value.collegeId)" required>
+                                <mat-option *ngFor="let college of colleges" [value]="college.collegeId">{{college.collegeCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(examanswerpaper.value.academicYearId)" required>
+                                <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.academicYearId">{{obcjt.academicYear}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(examanswerpaper.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses" [value]="course.courseId">{{course.courseCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExam(examanswerpaper.value.examId)" required>
+                                <mat-option *ngFor="let exam of examsList" [value]="exam.examId">{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})
+                                    <span *ngIf="exam.isInternalExam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                    <span *ngIf="exam.isRegularExam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                    <span *ngIf="exam.isSupplyExam" style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25" *ngIf="examanswerpaper.value.examId">
+                            <input matInput [matDatepicker]="picker" name="examDate" [min]="minDate" [max]="maxDate" (dateChange)="calDays()" formControlName="examDate" placeholder="Choose a exam date">
+                            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                            <mat-datepicker #picker></mat-datepicker>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <mat-select placeholder="Course Group" name="courseGroupId" formControlName="courseGroupId" (selectionChange)="selectedCourseGroup(examanswerpaper.value.courseGroupId)" required>
+                                <mat-option *ngFor="let obcjt of courseGroups" [value]="obcjt.courseGroupId">{{obcjt.groupCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId" (selectionChange)="selectedYear(examanswerpaper.value.courseYearId)" required>
+                                <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.courseYearId">{{courseYear.courseYearName}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <mat-select placeholder="Subject Type" name="subjectTypeId" formControlName="subjectTypeId" (selectionChange)="selectedSubjectType(examanswerpaper.value.subjectTypeId)">
+                                <mat-option [value]="0">All</mat-option>
+                                <mat-option *ngFor="let objt of subjectTypes; let i = index" [value]="objt.generalDetailId">{{objt.generalDetailCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <mat-select placeholder="Subject" name="examTimetableDetId" formControlName="examTimetableDetId">
+                                <mat-option *ngFor="let objt of examTimetableSubjectsList; let i = index" [value]="objt.examTimetableDetId">{{objt.subjectName}}
+                                    <span class="rol-no"> - {{objt.subjectCode}}</span>
+                                    <span class="rol-no">({{objt.regulationCode}})</span>
+                                    <span>({{objt.examTypeCatCode}})</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                       
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <mat-select placeholder="Exam Question Paper" name="collegeId" formControlName="examname" required>
+                                <mat-option [value]="1">Question Paper 1</mat-option>
+                                <mat-option [value]="2">Question Paper 1</mat-option>
+                                <mat-option [value]="3">Question Paper 1</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <mat-select placeholder="Exam Students" name="collegeId" formControlName="examname" required>
+                                <mat-option [value]="1">Bhuvana</mat-option>
+                                <mat-option [value]="2">Veena</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput placeholder="Omr Serial No" name="Subject" formControlName="Subject" required>
+                        </mat-form-field>
+
+                        <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="34" fxFlex.gt-md="34">
+                            <input matInput placeholder="Students Assigned" name="Students Assigned" formControlName="StudentsAssigned" required>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput placeholder="Evaluation Completed" name="Evaluation Completed" formControlName="EvaluationCompleted" required>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <input matInput [matDatepicker]="startDate" placeholder="Start Date"  name="startDate" formControlName="startDate">
+                            <mat-datepicker-toggle matSuffix [for]="startDate"></mat-datepicker-toggle>
+                            <mat-datepicker #startDate></mat-datepicker>
+                         </mat-form-field>
+
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="34" fxFlex.gt-md="34">
+                            <input matInput [matDatepicker]="endDate" placeholder="End Date"  name="endDate" formControlName="endDate">
+                            <mat-datepicker-toggle matSuffix [for]="endDate"></mat-datepicker-toggle>
+                            <mat-datepicker #endDate></mat-datepicker>
+                         </mat-form-field> -->
+
+
+
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="25">
+                            <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
+                        </section>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" *ngIf="examanswerpaper.controls.isActive.value === false">
+                            <input matInput placeholder="Reason" name="reason" formControlName="reason">
+                        </mat-form-field>
+                    </div>
+                </div>
+            </mat-dialog-content>
+            <mat-dialog-actions>
+                <button mat-raised-button class="cls-btn" mat-dialog-close>
+                          Close
+                          </button>
+                <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+               Save
+               </button>
+
+            </mat-dialog-actions>
+        </form>
+    </div>
+</div>

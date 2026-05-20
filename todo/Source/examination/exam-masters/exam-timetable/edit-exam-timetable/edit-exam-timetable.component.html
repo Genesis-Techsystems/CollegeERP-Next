@@ -1,0 +1,109 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                                ballot
+                                </i>
+                    <span>  {{dialogTitle}}</span>
+                </div>
+            </div>
+        </div>
+        <form name="examTimetableForm" [formGroup]="examTimetableForm" novalidate>
+            <mat-dialog-content>
+                <div fxLayout="column" class="mlr-15 inner-bkgrd div-border" style="    margin-top: 5px;
+                margin-bottom: 5px;
+                padding: 0px !important;" >
+<!-- *ngIf="!isEmptyObject(this.data[0]?)" -->
+                        <div fxLayout="row wrap " fxFlex="100">
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25" >
+                                <p class="details-off">Course Details:</p>
+                            </div>
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="75" fxFlex.gt-md="75">
+                                <p class="details-off"><span class="rol-no">{{this.data[0]?.groupCode}} / {{this.data[0]?.courseYearName}} / {{this.data[0]?.regulationCode}} </span></p>
+                            </div>
+                        </div>
+                        <div fxLayout="row wrap " fxFlex="100">
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25" >
+                                <p class="details-off">Exam Details:</p>
+                            </div>
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="75" fxFlex.gt-md="75">
+                                <p class="details-off"><span class="rol-no">{{this.data[0]?.examName}} ({{this.data[0]?.fromDate | date:dateFormate}} - {{this.data[0]?.toDate | date:dateFormate}})</span></p>
+                            </div>
+                        </div>
+                        <div fxLayout="row wrap " fxFlex="100">
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25" >
+                                <p class="details-off">Subject Details:</p>
+                            </div>
+                            <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="75" fxFlex.gt-md="75">
+                                <p class="details-off"><span class="rol-no">{{this.data[0]?.subjectName}} ({{this.data[0]?.subjectCode}})</span></p>
+                            </div>
+                        </div>
+                            </div>
+                <div fxLayout="column">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <input matInput [matDatepicker]="fDay" name="fDate" formControlName="fDate" [min]="minDate" [max]="maxDate" placeholder="Exam Date" name="examDate" formControlName="examDate">
+                            <mat-datepicker-toggle matSuffix [for]="fDay"></mat-datepicker-toggle>
+                            <mat-datepicker #fDay></mat-datepicker>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                            <mat-select placeholder="Exam Session" name="examSessionId" formControlName="examSessionId" (selectionChange)="selectedSession(examTimetableForm.value.examSessionId)" required>
+                                <mat-option *ngFor="let examSession of examSessions" [value]="examSession.examSessionId">{{examSession.examSessionName}} <span *ngIf="examSession.sessionStartTime != null">({{tConvert(examSession.sessionStartTime)}} - {{tConvert(examSession.sessionEndTime)}})</span></mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                        fxFlex.gt-md="25">
+                        <mat-select placeholder="Exam Type" name="examTypeCatId"
+                            formControlName="examTypeCatId" required>
+                            <mat-option *ngFor="let examFeeTypes of examFeeTypesList"
+                                [value]="examFeeTypes.generalDetailId">{{examFeeTypes.generalDetailCode}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    
+                    </div>
+                    <!-- <div fxLayout="row wrap " fxFlex="100">
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                        <mat-select placeholder="Regulation" name="regulationId" formControlName="regulationId" disabled (selectionChange)="selectedRegulation(examTimetableForm.value.regulationId)" required>
+                            <mat-option *ngFor="let reg of regulations" [value]="reg.regulationId">{{reg.regulationName}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="70" fxFlex.gt-md="70">
+                            <mat-select placeholder="Subject" name="subjectId" formControlName="subjectId" disabled (selectionChange)="selectedSubject(examTimetableForm.value.subjectId)" required>
+                                <mat-option *ngFor="let subReg of subjects" [value]="subReg.subjectId">{{subReg.subjectName}} ({{subReg.subjectCode}})</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div> -->
+                    <!-- <div fxLayout="row wrap " fxFlex="100">
+                        <section fxLayout="column" fxFlex="100" >
+                            <mat-radio-group name="id" formControlName="id" style="text-align: center;">
+                                <mat-radio-button style="display: flex;margin: 8px;" *ngFor="let objct of courseGroupYears" [value]="objct.id">{{objct.groupName}} 
+                                    <span style="color: blue;">({{objct.reg}})</span>
+                                    <span style="color: blue;" *ngIf="objct.batch">({{objct.batch}})</span>
+                                </mat-radio-button>
+                            </mat-radio-group>
+                        </section>
+                    </div> -->
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="25">
+                            <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
+                        </section>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" *ngIf="examTimetableForm.controls.isActive.value === false">
+                            <input matInput placeholder="Reason" name="reason" formControlName="reason">
+                        </mat-form-field>
+                    </div>
+                </div>
+            </mat-dialog-content>
+            <mat-dialog-actions>
+                <button mat-raised-button class="cls-btn" mat-dialog-close>
+                            Close
+                            </button>
+                <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+                 Save
+                 </button>
+
+            </mat-dialog-actions>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,366 @@
+<div class="layout"  >
+    <div id="dashboard" class="page-layout simple "  id="printsection" >
+        <!-- <div class="sheet" >
+            <h3 style="margin-bottom: -17px !important;"><b>{{data[0].exam_name}}</b> </h3>
+
+            <h2 style="margin-bottom: -17px !important; font-size: 20px !important;"><b>ANDHRA MAHILA SABHA ARTS & SCIENCE COLLEGE FOR WOMEN</b> </h2>
+            <h2 style="margin-bottom: -17px !important; font-size: 20px !important;"><b>(AUTONOMOUS)</b> </h2>
+
+            <h3 style="margin-bottom: 15px !important;"><b>O.U CAMPUS. HYDERABAD</b> </h3>
+
+         </div> -->
+
+         <div fxLayout="row" *ngIf="orgCode == 'MVSR'">
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"  >
+              <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="clglogo" *ngIf="Logo != null">
+            <img src="assets/images/avatars/MVSR_BANNER.png" class="college-banner-2" />                
+            </div>
+    
+            <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100"  *ngIf="Logo == null">
+              <img  src="assets/images/avatars/default_logo.png" style="height:60px;width:500px !important">
+          </div>
+           
+          </div>
+    
+          </div>
+          <div fxLayout="row" *ngIf="orgCode == 'MVSR'" >
+          <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+          <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+              <p class="collegeName"> FORM - A </p>
+              <p class="title"> {{details[0]?.exam_name}}</p>
+              <p class="title2" > Exam Date : {{details[0]?.exam_date | date:'dd/MM/yyyy'}}</p>
+            </div>
+        </div>
+      </div>
+          <div fxLayout="row" *ngIf="orgCode == 'MECS'">
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"  >
+              <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="clglogo" *ngIf="Logo != null">
+                       <img src="assets/images/avatars/MECS_BANNER.png" class="college-banner" />     
+            </div>
+    
+            <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100"  *ngIf="Logo == null">
+              <img  src="assets/images/avatars/default_logo.png" style="height:60px;width:500px !important">
+          </div>
+           
+          </div>
+    
+          </div>
+          <div fxLayout="row" *ngIf="orgCode == 'MECS'" >
+          <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+          <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+              <p class="collegeName"> FORM - A </p>
+              <p class="title"> {{details[0]?.exam_name}}</p>
+              <p class="title2" > Exam Date : {{details[0]?.exam_date | date:'dd/MM/yyyy'}}</p>
+
+            </div>
+        </div>
+      </div>
+
+          <div fxLayout="row" *ngIf="orgCode !== 'SUK' && orgCode !== 'MECS' && orgCode !== 'MVSR'"
+           >
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+              <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15"  *ngIf="Logo != null">
+                <img [src]="Logo" class="portraitLogo"> 
+              </div>
+              <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo == null">
+                <img src="assets/images/avatars/default_logo.png" class="portraitLogo" >
+              </div>
+              <div fxLayout="column" fxFlex="85" fxFlex.gt-xs="85" fxFlex.gt-md="85" class="algn">
+                <p class="collegeName-2" style="text-align:center !important;margin-top:5% !important">FORM - A</p>
+              </div>
+            </div>
+          </div>
+          
+    
+        <div fxLayout="row" *ngIf="orgCode == 'SUK'">
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100"  >
+              <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="clglogo" *ngIf="Logo != null">
+                <img  [src]="Logo" >
+            </div>
+    
+            <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100"  *ngIf="Logo == null">
+              <img  src="assets/images/avatars/default_logo.png" style="height:60px;width:500px !important">
+          </div>
+           
+          </div>
+    
+          </div>
+        <div fxLayout="row" *ngIf="orgCode == 'SUK'" >
+          <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+          <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+              <p class="collegeName"> FORM - A </p>
+              <p class="title"> {{details[0]?.exam_name}}</p>
+              <p class="title2" > Exam Date : {{details[0]?.exam_date | date:'dd/MM/yyyy'}}</p>
+
+            </div>
+        </div>
+      </div>
+          
+         <div fxLayout="row" >
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+                <!-- <table id="table1">
+                    <tr>
+                        <td> Programme: &nbsp;{{groupName[0]?.collegeName}}</td>
+                        <td>Department: &nbsp;{{groupName[0]?.groupName}} </td>
+                        <td>Semester: &nbsp; {{data[0]?.courseYear}}</td>
+                        <td>Course: &nbsp;  {{details[0]?.subject_name}}({{details[0]?.subject_code}})</td>
+                    </tr>
+                  </table> -->
+                    <table id="table" class="mar " style="border-collapse: collapse !important">
+                        <thead>
+                            <tr>
+                                <th class="table-th">College</th>
+                                <th class="table-th">{{details[0]?.college_name}}</th>
+                            </tr>
+                            <tr>
+                              <th class="table-th">Course Group</th>
+                              <th class="table-th">{{details[0]?.group_code}}</th>
+                          </tr>
+                          <tr>
+                            <th class="table-th">Semester</th>
+                            <th class="table-th"> {{data[0]?.courseYear}}</th>
+                        </tr>
+                        <tr>
+                          <th class="table-th">Subject title with Code</th>
+                          <th class="table-th">{{details[0]?.subject_name}}&nbsp;({{details[0]?.subject_code}})</th>
+                      </tr>
+                      <!-- <tr>
+                        <th class="table-th">Exam Date</th>
+                        <th class="table-th">
+                          {{details[0]?.exam_date | date:'dd/MM/yyyy'}}
+                        </th>
+                    </tr> -->
+                        </thead>
+                    </table>     
+
+            </div>
+        </div>
+        <!-- <div fxLayout="row" >
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+                <table id="table1">
+                    <tr>
+                        <td> Exam Date : &nbsp; {{details[0]?.exam_date | date:'MMM d, y'}}</td>
+                        <td> Exam Time :&nbsp;{{details[0]?.sessin_time}}</td>
+                        <td> Exam Session :&nbsp;{{details[0]?.exam_session_name}}&nbsp;</td>
+                       
+                    </tr>
+                  </table>
+                  
+            </div>
+        </div> -->
+        <!-- <div id="line"><hr /></div> -->
+        <!-- <div fxLayout="row" >
+            <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+                <table id="table1">
+                    <tr>
+                        <td>
+                            Subject Name: &nbsp; {{details[0]?.subject_name}}-{{details[0]?.subject_code}}
+                        </td>
+                    </tr>
+                  </table>
+                  
+            </div>
+        </div> -->
+        <!-- <div id="line"><hr /></div> -->
+
+    <div fxLayout="row" style="margin-top: 0.2% !important;" *ngIf="students && students.length > 0">
+
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+          <table id="table2" style="margin: auto !important;padding: 10px 0px !important">
+            <tr>
+                <td *ngFor="let d of students" style="margin:0; float:left; width:16.6%; border: none !important; vertical-align: middle !important;
+                text-align: center !important;">
+                   {{d.hallticket_number}}
+                </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <div fxLayout="row" style="margin-top: 0.2% !important;" *ngIf="presentStudents && presentStudents.length > 0">
+
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+          <table id="table2" style="margin: auto !important;padding: 10px 0px !important">
+            <tr>
+                <td *ngFor="let d of presentStudents" style="margin:0; float:left; width:16.6%; border: none !important; vertical-align: middle !important;
+                text-align: center !important;">
+                   {{d.hallticket_number}}
+                </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+
+      <div id="line"><hr /></div> 
+
+      <div fxLayout="row" >
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+            <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+
+                  <p class="text">HallTicket No of Absentees :  </p>
+                  <p class="text">
+                   <span *ngFor="let d of absentStudents" style="margin:auto; float:left; padding-left:10px ;font-size:14px !important;
+                   font-weight: 400 !important;">
+                    {{d.hallticket_number}}
+                    </span>
+                  </p>
+<!-- 
+                  <p class="text">HallTicket No of Malpractice :  </p>
+                  <p class="text">
+                  </p> -->
+
+                  
+                  <!-- <table id="table1">
+                    <tr>
+                       <td style="width:auto !important;">HallTicket No of Absentees : </td>
+                       <td> <span *ngFor="let d of absentStudents" style="margin:auto; float:left; padding-right:10px;">
+                          {{d.hallticket_number}}
+                          </span>
+                       </td>
+                    </tr>
+                  </table> -->
+                </div>
+              </div>
+        </div>
+      </div>
+
+
+      <!-- <div fxLayout="row" *ngIf="absentStudents && absentStudents.length > 0">
+
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+          <table id="table2" style="margin: auto !important;padding: 10px 0px !important">
+            <tr>
+                <td *ngFor="let d of absentStudents" style="margin:0; float:left; width:16.6%; border: none !important; vertical-align: middle !important;
+                text-align: center !important;">
+                   {{d.hallticket_number}}
+                </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+       -->
+      <!-- <div id="line" *ngIf="absentStudents && absentStudents.length > 0"><hr /></div> -->
+
+      <div fxLayout="row" style="margin-top: -1.5% !important;" >
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+            <div fxLayout="row">
+                <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                  <p class="text">HallTicket No of Malpractice :  </p>
+                  <p class="text">
+                   <span *ngFor="let d of MalpracticeStudents" style="margin:auto; float:left; padding-left:10px ;font-size:14px !important;
+                   font-weight: 400 !important;">
+                    {{d.hallticket_number}}
+                    </span>
+                  </p>
+                  <!-- <table id="table1" >
+                    <tr>
+                        <td>HallTicket No of Malpractice : </td>
+                     </tr>
+                    
+                  </table> -->
+                </div>
+              </div>
+        </div>
+      </div>
+    <div fxLayout="row" >
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+      <table id="table" class="mar" style="border-collapse: collapse !important">
+        <thead>
+            <!-- <tr *ngIf="presentStudents && presentStudents.length === 0 && absentStudents && absentStudents.length === 0">
+                <th class="table-th"> Total number of Students appearing </th>
+                <th class="table-th">{{details.length}}</th>
+            </tr> -->
+            <tr>
+              <th class="table-th"> Total number of students appearance</th>
+              <th class="table-th" >
+                {{details?.length}}
+              </th>
+          </tr>
+            <tr>
+              <th class="table-th"> Total number of students present </th>
+              <th class="table-th" >
+                <span *ngIf="presentStudents?.length > 0">{{presentStudents?.length}}</span>
+              </th>
+          </tr>
+            <tr>
+              <th class="table-th"> Total number of students absent</th>
+              <th class="table-th"> 
+                <span *ngIf="absentStudents?.length > 0"> {{absentStudents?.length}} </span> 
+              </th>
+          </tr>
+          <tr>
+            <th class="table-th"> Malpractice Case </th>
+            <th class="table-th">
+               <span *ngIf="MalpracticeStudents?.length > 0"> {{MalpracticeStudents?.length}} </span>
+            </th>
+        </tr>
+        <tr>
+          <th class="table-th">Total number of answer scripts dispatched </th>
+          <th class="table-th"></th>
+      </tr>
+        </thead>
+    </table>  
+    </div>
+    </div>
+    <div fxLayout="row" style="margin-top:8% !important" *ngIf="orgCode != 'MVSR' && orgCode != 'MECS'"  >
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+              <div fxLayout="row" fxFlex="50" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                <table id="table1">
+                  <tr>
+                     <td>Signature of Chief Superintendent (CS) : </td>
+                  </tr>
+                  <tr>
+                    <td>Name : </td>
+                  </tr>
+                </table>
+              </div>
+              <div fxLayout="row" fxFlex="50" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                <table id="table1">
+                  <tr>
+                     <td>Signature of Dy.Chief Superintendent (DCS) : </td>
+                  </tr>
+                  <tr>
+                    <td>Name : </td>
+                  </tr>
+                </table>
+              </div>
+            </div>
+      </div>
+      <div fxLayout="row" style="margin-top:8% !important" *ngIf="orgCode == 'MVSR' || orgCode == 'MECS'" >
+      <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+              <div fxLayout="row" fxFlex="50" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                <table id="table1">
+                  <tr>
+                     <td> Sign of Controller of Examinations </td>
+                  </tr>
+                  <tr>
+                    <td>Name : </td>
+                  </tr>
+                </table>
+              </div>
+              <div fxLayout="row" fxFlex="50" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                <table id="table1">
+                  <tr>
+                     <td>Signature of Chief Superintendent (CS) :</td>
+                  </tr>
+                  <tr>
+                    <td>Name : </td>
+                  </tr>
+                </table>
+              </div>
+            </div>
+      </div>
+      <div class="printbtn">
+        <button  id="printPageButton" mat-raised-button class="back-btn"  (click)="goBack()">
+          Back</button>
+          <button  id="printPageButton" mat-raised-button color="add-btn" color="accent" (click)="printPage('printsection')">
+              Print</button>
+      </div>
+    </div>
+</div>
+
+          
+   
+

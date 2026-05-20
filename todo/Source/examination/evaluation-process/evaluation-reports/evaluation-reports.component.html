@@ -1,0 +1,162 @@
+<div id="dashboard" class="page-layout simple">
+  <div class="center" fusePerfectScrollbar>
+    <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+      <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+        fxLayoutAlign.gt-xs="center start">
+        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+          <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Examination Management</span>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Evaluation Process</span>
+          <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+          <span>Evaluation Reports</span>
+        </div>
+      </div>
+    </div>
+    <div class="content">
+      <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+        <mat-expansion-panel hideToggle style="margin: 0px 25px;">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                  <mat-icon class="fs  icon-align ">book</mat-icon>
+                  <strong class="table-heads">Evaluation Reports</strong>
+                </div>
+              </div>
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+          <form name="evaluationreportForm" [formGroup]="evaluationreportForm" novalidate>
+            <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+              <div fxLayout="row wrap " fxFlex="100">
+                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30">
+                  <mat-select placeholder="Course" name="Course" formControlName="CourseCode"
+                    (selectionChange)="selectedCourse(evaluationreportForm.value.CourseCode)">
+                    <mat-option *ngFor="let courseCode of courseCode"
+                      [value]="courseCode.course_code">{{courseCode.course_code}}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30">
+                  <mat-select placeholder="academicYear" name="academicYear" formControlName="academicYear"
+                    (selectionChange)="selectedacademicYear(evaluationreportForm.value.academicYear)">
+                    <mat-option *ngFor="let academicYear of academicYear"
+                      [value]="academicYear.academic_year">{{academicYear.academic_year}}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                  <mat-select placeholder="Exam Month Year" name="ExamMonthYear" formControlName="ExamMonthYear"
+                  (changeSelection)="getevaluationreports(evaluationreportForm.value.ExamMonthYear)">
+                    <mat-option *ngFor="let monthYr of monthYear"
+                      [value]="monthYr.exam_month_yr">{{monthYr.exam_month_yr| date: 'dd/MM/yyyy'}}</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+            </div>
+          </form>
+        </mat-expansion-panel>
+      </mat-accordion>
+      <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+        <mat-expansion-panel [expanded]="step === 1" hideToggle style="margin: 0px 25px;">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <strong class="black-fg">{{academicGroupTitle}}</strong>
+              <mat-icon *ngIf="filters" matTooltip="{{filters}}" matTooltipClass="filters">filter_list</mat-icon>
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+          <div style="overflow-x: auto; overflow-y: auto; height: 300px; ">
+            <table #table mat-table [dataSource]="tabledataSource" matSort>
+              <ng-container *ngFor="let header of displayedColumns; let i = index" [matColumnDef]="header">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ header }}</th>
+                <td mat-cell *matCellDef="let row">{{ row[header] }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+            </table>
+          </div>
+        </mat-expansion-panel>
+      </mat-accordion>
+      <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+        <mat-expansion-panel [expanded]="step === 1" hideToggle style="margin: 0px 25px;">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <strong class="black-fg">{{examsubjectTitle}}</strong>
+              <mat-icon *ngIf="filters1" matTooltip="{{filters}}" matTooltipClass="filters">filter_list</mat-icon>
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+          <div style="overflow-x: auto; overflow-y: auto; height: 300px; ">
+            <table #table mat-table [dataSource]="tabledataSource1" matSort>
+              <ng-container *ngFor="let header of displayedColumns1; let i = index" [matColumnDef]="header">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ header }}</th>
+                <td mat-cell *matCellDef="let row">{{ row[header] }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns1"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns1;"></tr>
+            </table>
+          </div>
+        </mat-expansion-panel>
+      </mat-accordion>
+      <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+        <mat-expansion-panel [expanded]="step === 1" hideToggle style="margin: 0px 25px;">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <strong class="black-fg">{{clgwiseTitle}}</strong>
+              <mat-icon *ngIf="filters2" matTooltip="{{filters}}" matTooltipClass="filters">filter_list</mat-icon>
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+          <div style="overflow-x: auto; overflow-y: auto; height: 300px; ">
+            <table #table mat-table [dataSource]="tabledataSource2" matSort>
+              <ng-container *ngFor="let header of displayedColumns2; let i = index" [matColumnDef]="header">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ header }}</th>
+                <td mat-cell *matCellDef="let row">{{ row[header] }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns2"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns2;"></tr>
+            </table>
+          </div>
+        </mat-expansion-panel>
+      </mat-accordion>
+      <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+        <mat-expansion-panel [expanded]="step === 1" hideToggle style="margin: 0px 25px;">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <strong class="black-fg">{{examquestionTitle}}</strong>
+              <mat-icon *ngIf="filters3" matTooltip="{{filters}}" matTooltipClass="filters">filter_list</mat-icon>
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+          <div style="overflow-x: auto; overflow-y: auto; height: 300px; ">
+            <table #table mat-table [dataSource]="tabledataSource3" matSort>
+              <ng-container *ngFor="let header of displayedColumns3; let i = index" [matColumnDef]="header">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ header }}</th>
+                <td mat-cell *matCellDef="let row">{{ row[header] }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns3"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns3;"></tr>
+            </table>
+          </div>
+        </mat-expansion-panel>
+      </mat-accordion>
+      <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+        <mat-expansion-panel [expanded]="step === 1" hideToggle style="margin: 0px 25px;">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <strong class="black-fg">{{scannedanserTitle}}</strong>
+              <mat-icon *ngIf="filters4" matTooltip="{{filters}}" matTooltipClass="filters">filter_list</mat-icon>
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+          <div style="overflow-x: auto; overflow-y: auto; height: 300px; ">
+            <table #table mat-table [dataSource]="tabledataSource4" matSort>
+              <ng-container *ngFor="let header of displayedColumns4; let i = index" [matColumnDef]="header">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ header }}</th>
+                <td mat-cell *matCellDef="let row">{{ row[header] }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns4"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns4;"></tr>
+            </table>
+          </div>
+        </mat-expansion-panel>
+      </mat-accordion>
+    </div>
+  </div>
+</div>

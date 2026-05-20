@@ -1,0 +1,662 @@
+<div id="admission-dashboard" class="page-layout simple" id="printNone">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+            fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination Management</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Post Examination</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Internal Marks Entry</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+        <div class="mat-elevation-z8 bkgrd">
+            <form name="examFeeCollectionForm" [formGroup]="examFeeCollectionForm" style="padding-bottom: 1px;"
+                class="form-pad" novalidate>
+                <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                    <i class="material-icons sub-header-icon">money</i>
+                    <span class="sub-header-text">Internal Marks Entry</span>
+                </div>
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd" style="padding: 0px 15px;">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="18" fxFlex.gt-md="18">
+                            <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                (selectionChange)="selectedCourse(examFeeCollectionForm.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses"
+                                    [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="18" fxFlex.gt-md="18">
+                            <mat-select placeholder="Academic Year" name="academicYearId"
+                                formControlName="academicYearId"
+                                (selectionChange)="selectedAcademicYear(examFeeCollectionForm.value.academicYearId)"
+                                required>
+                                <mat-option *ngFor="let obcjt of academicYears"
+                                    [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="64" fxFlex.gt-md="64">
+                            <mat-select placeholder="Exam" name="examId" formControlName="examId"
+                                (selectionChange)="selectedExam(examFeeCollectionForm.value.examId)" required>
+                                <ngx-mat-select-search [placeholderLabel]="'Search Exam...'"
+                                    [noEntriesFoundLabel]="'no matching data found'"
+                                    (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>
+                                <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                    matTooltip="{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})">{{exam.exam_name}}
+                                    ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})
+                                    <span *ngIf="exam.is_internal_exam"
+                                        style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                    <span *ngIf="exam.is_regular_exam"
+                                        style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                    <span *ngIf="exam.is_supply_exam"
+                                        style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="College" name="collegeId" formControlName="collegeId"
+                                (selectionChange)="selectedCollege(examFeeCollectionForm.value.collegeId)" required>
+                                <mat-option *ngFor="let college of colleges"
+                                    [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13">
+                            <mat-select placeholder="Course Group" name="courseGroupId" formControlName="courseGroupId"
+                                (selectionChange)="selectedCourseGroup(examFeeCollectionForm.value.courseGroupId)"
+                                required>
+                                <mat-option *ngFor="let obcjt of courseGroups"
+                                    [value]="obcjt.fk_course_group_id">{{obcjt.group_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13">
+                            <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId"
+                                (selectionChange)="selectedYear(examFeeCollectionForm.value.courseYearId)" required>
+                                <mat-option *ngFor="let courseYear of courseYears"
+                                    [value]="courseYear.fk_course_year_id">{{courseYear.course_year_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="Regulation" name="regulationId" formControlName="regulationId"
+                                (selectionChange)="selectedRegulation(examFeeCollectionForm.value.regulationId)">
+                                <mat-option *ngFor="let reg of regulations"
+                                    [value]="reg.fk_regulation_id">{{reg.regulation_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                            <mat-select placeholder="Section" name="groupSectionId" formControlName="groupSectionId" (selectionChange)="selectedSection(examFeeCollectionForm.value.groupSectionId)" required>
+                                <mat-option *ngFor="let section of sections" [value]="section.groupSectionId">{{section.section}}</mat-option>
+                            </mat-select>
+                        </mat-form-field> -->
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13">
+                            <mat-select placeholder="Subject Type" name="subjectTypeId" formControlName="subjectTypeId"
+                                (selectionChange)="selectedSubjectType(examFeeCollectionForm.value.subjectTypeId)">
+                                <!-- <mat-option [value]="0">All</mat-option> -->
+                                <mat-option *ngFor="let objt of subjectTypes; let i = index"
+                                    [value]="objt.fk_subjecttype_catdet_id">{{objt.subject_type}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30">
+                            <mat-select placeholder="Subject" name="subjectId" formControlName="subjectId"
+                                (selectionChange)="selectedSubject(examFeeCollectionForm.value.subjectId)">
+                                <ngx-mat-select-search [placeholderLabel]="'Search Subject...'"
+                                    [noEntriesFoundLabel]="'no matching data found'"
+                                    (keyup)="searchsubject($event.target.value)"></ngx-mat-select-search>
+                                <mat-option *ngFor="let objt of examTimetableSubject; let i = index"
+                                    matTooltip="{{objt.subject_name}} - {{objt.subject_code}}({{objt.regulation_code}})({{objt.ttd_exam_type}})"
+                                    [value]="objt.fk_subject_id">{{objt.subject_name}}
+                                    <span class="rol-no"> - {{objt.subject_code}}</span>
+                                    <span class="rol-no">({{objt.regulation_code}})</span>
+                                    <span>({{objt.ttd_exam_type}})</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="12" fxFlex.gt-md="12"
+                            *ngIf="labBatch==true">
+                            <mat-select placeholder="Lab Batch" name="labbtch" formControlName="labBatchId"
+                                (selectionChange)="selectedLab(examFeeCollectionForm.value.labBatchId)">
+                                <mat-option [value]="0">All</mat-option>
+                                <mat-option *ngFor="let objt of labbatchs; let i = index"
+                                    [value]="objt.fk_exam_labbatch_id">{{objt.labbatch_name}}
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15"
+                            *ngIf="examFeeCollectionForm.value.subjectId">
+                            <input matInput [matDatepicker]="picker" name="examDate" [min]="minDate" [max]="maxDate"
+                                (dateChange)="calDays()" formControlName="examDate" placeholder="Choose a exam date"
+                                disabled>
+                            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                            <mat-datepicker #picker></mat-datepicker>
+                        </mat-form-field>
+                    </div>
+                    <div fxLayout="row" style="padding-top: 15px;"
+                        *ngIf="examFeeCollectionForm.value.courseYearId != ''">
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30"
+                            *ngIf="!staff">
+                            <mat-select placeholder="Employee" name="employeeId" formControlName="employeeId"
+                                #singleSelect
+                                (selectionChange)="selectedEmployee(examFeeCollectionForm.value.employeeId)">
+                                <ngx-mat-select-search [formControl]="employeeFilterCtrl"
+                                    [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'"
+                                    (keyup)="enteredEmployee($event)"></ngx-mat-select-search>
+                                <mat-option *ngFor="let employee of filteredEmployees | async"
+                                    [value]="employee.employeeId">{{employee.empNumber}}<span class="rol-no"
+                                        *ngIf="employee.firstName != null">({{employee.firstName}})</span></mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <!-- <mat-form-field fxLayout="column" *ngIf="roleName=='STAFF' || roleName=='MSTAFF'" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                            <mat-select placeholder="Employee" name="employeeId" formControlName="employeeId"  #singleSelect (selectionChange)="getReportingManagers(examFeeCollectionForm.value.employeeId)">
+                                <mat-option *ngFor="let employee of EmployeeData " [value]="employee.employeeId" style="line-height: 1.5em;height: unset;border-bottom: 1px solid #9e9e9e52;"> 
+                                    {{employee.empNumber}}<span class="rol-no" *ngIf="employee.firstName != null">({{employee.firstName}})</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field> -->
+                        <mat-form-field fxLayout="column" *ngIf="staff" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
+                            fxFlex.gt-md="30">
+                            <mat-select placeholder="Employee" name="employeeId" formControlName="employeeId"
+                                #singleSelect disabled>
+                                <mat-option [value]="empId"
+                                    style="line-height: 1.5em;height: unset;border-bottom: 1px solid #9e9e9e52;">
+                                    {{empNumber}}<span class="rol-no" *ngIf="userName != null">({{userName}})</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13"
+                            fxFlex.gt-md="13">
+                            <button mat-raised-button class="add-btn" color="accent" (click)="getStudentsList()">Get
+                                List</button>
+                                      
+                        </div>
+                    </div>
+                </div>
+
+                <div fxLayout="row" style="margin-left: 22px;" *ngIf="examStudentsList.length > 0">
+                    <div fxLayout="column" class="radio-btn" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                        fxLayoutAlign.gt-xs="center start">
+                        <mat-radio-group [(ngModel)]="checkUploadType" [ngModelOptions]="{standalone: true}">
+                            <mat-radio-button [value]="1" >List Of Marks</mat-radio-button>
+                        </mat-radio-group>
+                    </div>
+                </div>
+
+                <div fxLayout="column" style="margin-top: 10px" class="inner-bkgrd std-his"
+                    *ngIf="examStudentsList.length > 0">
+                    <div fxLayout="row" class="mar-8">
+                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <img class="img-marks pic" src="assets/images/logos/exam.png">
+                        </div>
+                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="85" fxFlex.gt-md="85"
+                            style="padding: 10px 0px;line-height: 0px;">
+                            <p>{{exam}} (<span style="color: blue;">{{examDate}}</span>) </p>
+                            <!-- <p *ngIf="!student.isLateral">{{student.firstName}} (<span style="color: blue;">REGULAR</span>) </p> -->
+                            <p style="color: #8c8c8c !important;" *ngIf="section !== null">{{collegeCode}} / {{course}}
+                                / {{courseGroup}} / {{courseyear}} / {{section}}
+                                <span style="color: blue;" *ngIf="academicYear !== null">({{academicYear}})</span>
+                            </p>
+                            <p style="color: #000000 !important;font-weight: bold;">{{subjectDetails}}
+                                <span class="rol-no">- {{subjectTypCode}}</span> ({{examTypeCatCode}})
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div fxLayout="row" class="fileupload std-his"
+                    *ngIf="examStudentsList.length > 0 && checkUploadType == 2">
+                    <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                        <input type="file" accept=".png, .jpg, .jpeg">
+                    </mat-form-field> -->
+                    <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="24" fxFlex.gt-md="16">
+                        <span class="upload">Upload Marks :</span>
+                    </div>
+                    <section fxLayout="column" class="p-8 post-rltv" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="20"
+                        fxLayoutAlign="center center">
+                        <input type="file" placeholder="Upload file" accept=".xlsx" #uploadXl>
+                    </section>
+                    <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10"
+                        fxFlex.gt-md="10">
+                        <button [disabled]="preStaggings.length > 0 ? true : null" mat-raised-button class="add-btn"
+                            color="accent" (click)="uploadFile()">Upload</button>
+                    </div>
+                    <div class="savebtn-align file" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                        fxFlex.gt-md="20">
+                        <!-- <button mat-raised-button class="add-btn btn-bck" (click)="download()">Download Sample XL</button> -->
+                        <button mat-icon-button class="file" aria-label="Example icon-button with a heart icon"
+                            (click)="download()" matTooltip="Download Sample Excel">
+                            <img src="assets/images/logos/download-excel.jpg">
+                        </button>
+                    </div>
+                </div>
+                <div fxLayout="column" class="inner-bkgrd yar-bordr" style="margin: 12px 24px !important;"
+                    *ngIf="examStudentsList.length > 0">
+                    <!-- <h4>Students List</h4> -->
+                    <div fxLayout="row">
+                        <span class="roll-no">
+                            Students List
+                        </span>
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="15" fxFlex.gt-md="15"
+                            fxLayout="row">
+                            <div class="search-box">
+                                <i class="fa fa-search" aria-hidden="true"></i>
+                                <input [(ngModel)]="searchText" placeholder="Search..."
+                                    [ngModelOptions]="{standalone: true}">
+                            </div>
+                        </div>
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="70" fxFlex.gt-md="70"
+                            fxLayout="row" class="buttons">Max Marks : <span class="maxmarks">{{this.maxValue}}</span>
+                        </div>
+                    </div>
+                    <div fxLayout="column" fxFlex="100" class="mlr-15 inner-bkgrd">
+                        <div fxLayout="row" class="mar-8 table-bac firstTable marks-entry">
+                            <!-- <table class="table table-striped fee fee_" *ngIf="isLabEntry === false">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 5%;">SI No</th>
+                                        <th style="width: 12%;">Hallticket Number</th>
+                                        <th style="width: 14%;">Student</th>
+                                        <th style="width: 12%;">Attendance Status</th>
+                                        <th style="width: 25%;">Satisfactory / Not Satisfactory </th>
+                                        <th style="width: 10%;">
+                                            <span *ngIf="isInternalExam">Internal </span><span
+                                                *ngIf="!isInternalExam">External </span> Marks
+                                        </th>
+                                        <th style="width: 8%;">Result</th>
+                                        <th style="width: 15%;">Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody *ngIf="examStudentsList.length>0">
+                                    <tr *ngFor="let object of examStudentsList | filter: searchText; let i = index">
+
+                                        <td style="width: 5%;">{{i+1}}</td>
+                                        <td style="text-align: left;width: 12%;">{{object.hallticketNumber}}</td>
+                                        <td style="width: 14%;text-align: left;">{{object.firstName}}</td>
+                                        <td style="width: 12%;text-align: left;">
+                                            <span *ngIf="object.isPresent == true" class="active">Present</span>
+                                            <span *ngIf="object.isPresent == false" class="in-active">Absent</span>
+                                            <span *ngIf="object.isPresent == null" class="in-active">Not Marked</span>
+                                        </td>
+                                        <td style="text-align: left;width: 25%;" *ngIf="this.isDisabled === true">
+                                            <section class="mp-24 mb-24 p-8">
+                                                <mat-radio-group [value]="object?.isAttSatisfied" [disabled]="true">
+                                                    <mat-radio-button
+                                                        [value]="true">Satisfactory</mat-radio-button>&nbsp;
+                                                    <mat-radio-button [value]="false">Not
+                                                        Satisfactory</mat-radio-button>
+                                                </mat-radio-group>
+                                            </section>
+                                        </td>
+                                        <td style="text-align: left;width: 25%;" *ngIf="this.isDisabled === false">
+                                            <section class="mp-24 mb-24 p-8">
+                                                <mat-radio-group [value]="object?.isAttSatisfied"
+                                                    (change)="onSatisfactionChange(object.studentId, $event.value)">
+                                                    <mat-radio-button
+                                                        [value]="true">Satisfactory</mat-radio-button>&nbsp;
+                                                    <mat-radio-button [value]="false">Not
+                                                        Satisfactory</mat-radio-button>
+                                                </mat-radio-group>
+                                            </section>
+                                        </td>
+                                        <td style="text-align: right;width: 10%;"
+                                            [ngStyle]="{'background':object.color }" *ngIf="this.isDisabled === false">
+                                            <mat-form-field appearance="outline" [floatLabel]="'never'"
+                                                *ngIf="!isInternalExam">
+                                                <input matInput placeholder="Marks" type="number" [min]='minvalue'
+                                                    [max]='maxValue' style="text-align: right;" step="any"
+                                                    [(ngModel)]="object.marks" (keyup)="enteredMarks(object)"
+                                                    [disabled]="object.isPresent? false : true"
+                                                    [ngModelOptions]="{standalone: true}" required>
+                                            </mat-form-field>
+                                            <mat-form-field appearance="outline" [floatLabel]="'never'"
+                                                *ngIf="isInternalExam">
+                                                <input matInput placeholder="Marks" type="number" [min]='minvalue'
+                                                    [max]='maxValue' style="text-align: right;" step="any"
+                                                    [(ngModel)]="object.marks" (keyup)="enteredMarks(object)"
+                                                    [ngModelOptions]="{standalone: true}" required>
+                                            </mat-form-field>
+                                        </td>
+                                        <td style="text-align: right;width: 10%;"
+                                            [ngStyle]="{'background':object.color }" *ngIf="this.isDisabled === true">
+                                            <mat-form-field appearance="outline" [floatLabel]="'never'"
+                                                *ngIf="!isInternalExam">
+                                                <input matInput placeholder="Marks" type="number" [min]='minvalue'
+                                                    [max]='maxValue' style="text-align: right;" step="any"
+                                                    [(ngModel)]="object.marks" [disabled]="true"
+                                                    [ngModelOptions]="{standalone: true}" required>
+                                            </mat-form-field>
+                                            <mat-form-field appearance="outline" [floatLabel]="'never'"
+                                                *ngIf="isInternalExam">
+                                                <input matInput placeholder="Marks" type="number" [min]='minvalue'
+                                                    [max]='maxValue' style="text-align: right;" step="any"
+                                                    [(ngModel)]="object.marks" [disabled]="true"
+                                                    [ngModelOptions]="{standalone: true}" required>
+                                            </mat-form-field>
+                                        </td>
+                                        <td style="text-align: center;width: 8%;">
+                                            <span *ngIf="object.isPass === null" class="in-active">Not Posted</span>
+                                            <span *ngIf="object.isPass === true" class="active">P</span>
+                                            <span *ngIf="object.isPass === false" class="in-active">F</span>
+                                        </td>
+                                        <td style="text-align: center;width: 15%;" *ngIf="this.isDisabled === true">
+                                            <mat-form-field appearance="outline" class="custom-input"
+                                                [floatLabel]="'never'">
+                                                <input matInput placeholder="Remarks" [disabled]="true"
+                                                    [(ngModel)]="object.remarks" [ngModelOptions]="{standalone: true}">
+                                            </mat-form-field>
+                                        </td>
+                                        <td style="text-align: center;width: 15%;" *ngIf="this.isDisabled === false">
+                                            <mat-form-field appearance="outline" class="custom-input"
+                                                [floatLabel]="'never'">
+                                                <input matInput placeholder="Remarks" [(ngModel)]="object.remarks"
+                                                    [ngModelOptions]="{standalone: true}">
+                                            </mat-form-field>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table> -->
+                            <table class="table table-striped fee fee_">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 5%;">SI No</th>
+                                        <th style="width: 18%;">Hallticket Number</th>
+                                        <th style="width: 18%;">Student</th>
+                                        <th style="width: 12%;">Attendance Status</th>
+                                        <!-- <th style="width: 25%;">Satisfactory / Not Satisfactory </th> -->
+                                        <th style="width: 11%;" *ngIf="marks1 === true">Exam</th>
+                                        <th style="width: 11%;" *ngIf="marks2 === true">Assignment</th>
+                                        <th style="width: 11%;" *ngIf="marks3 === true">Quiz</th>
+                                        <th style="width: 11%;">
+                                            Total Internal
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody *ngIf="examStudentsList.length>0">
+                                    <!-- | studentRollnoFilter: searchText; -->
+                                    <tr *ngFor="let object of examStudentsList | filter: searchText; let i = index">
+
+                                        <td style="width: 5%;">{{i+1}}</td>
+                                        <td style="text-align: left;width: 18%;">{{object.hallticketNumber}}</td>
+                                        <td style="width: 18%;text-align: left;">{{object.firstName}}</td>
+                                        <td style="width: 12%;text-align: left;">
+                                            <span *ngIf="object.isPresent == true" class="active">Present</span>
+                                            <span *ngIf="object.isPresent == false" class="in-active">Absent</span>
+                                            <span *ngIf="object.isPresent == null" class="in-active">Not Marked</span>
+                                        </td>
+                                        <!-- <td style="text-align: left;width: 25%;" *ngIf="this.isDisabled === true">
+                                            <section class="mp-24 mb-24 p-8">
+                                                <mat-radio-group [value]="object?.isAttSatisfied" [disabled]="true">
+                                                    <mat-radio-button
+                                                        [value]="true">Satisfactory</mat-radio-button>&nbsp;
+                                                    <mat-radio-button [value]="false">Not
+                                                        Satisfactory</mat-radio-button>
+                                                </mat-radio-group>
+                                            </section>
+                                        </td>
+                                        <td style="text-align: left;width: 25%;" *ngIf="this.isDisabled === false">
+                                            <section class="mp-24 mb-24 p-8">
+                                                <mat-radio-group [value]="object?.isAttSatisfied"
+                                                    (change)="onSatisfactionChange(object.studentId, $event.value)">
+                                                    <mat-radio-button
+                                                        [value]="true">Satisfactory</mat-radio-button>&nbsp;
+                                                    <mat-radio-button [value]="false">Not
+                                                        Satisfactory</mat-radio-button>
+                                                </mat-radio-group>
+                                            </section>
+                                        </td> -->
+                                        <td style="text-align: right;width: 11%;"
+                                            [ngStyle]="{'background':object.color }" *ngIf="marks1 === true">
+                                            <mat-form-field appearance="outline" [floatLabel]="'never'">
+                                                <input matInput placeholder="Exam" type="number"
+                                                    style="text-align: right;" step="any"
+                                                    [(ngModel)]="object.internal_exam_marks"
+                                                    (ngModelChange)="updateTotalMarks(object,'marks1')" [min]='minMarks1'
+                                                    [max]='maxMarks1'
+                                                    [disabled]="object.isPresent? false : true"
+                                                    [ngModelOptions]="{standalone: true}" required>
+                                            </mat-form-field>
+                                        </td>
+                                        <td style="text-align: right;width: 11%;"
+                                            [ngStyle]="{'background':object.color }" *ngIf="marks2 === true">
+                                            <mat-form-field appearance="outline" [floatLabel]="'never'">
+                                                <input matInput placeholder="Assignment" type="number"
+                                                    style="text-align: right;" step="any"
+                                                    [(ngModel)]="object.internal_assignment_marks"
+                                                    (ngModelChange)="updateTotalMarks(object,'marks2')" [min]='minMarks2'
+                                                    [max]='maxMarks2'
+                                                    [disabled]="object.isPresent? false : true"
+                                                    [ngModelOptions]="{standalone: true}" required>
+                                            </mat-form-field>
+                                        </td>
+                                        <td style="text-align: right;width: 11%;"
+                                            [ngStyle]="{'background':object.color }" *ngIf="marks3 === true">
+                                            <mat-form-field appearance="outline" [floatLabel]="'never'">
+                                                <input matInput placeholder="Quiz" type="number"
+                                                    style="text-align: right;" step="any"
+                                                    [(ngModel)]="object.internal_quiz_marks"
+                                                    (ngModelChange)="updateTotalMarks(object,'marks3')" [min]='minMarks3'
+                                                    [max]='maxMarks3'
+                                                    [disabled]="object.isPresent? false : true"
+                                                    [ngModelOptions]="{standalone: true}" required>
+                                            </mat-form-field>
+                                        </td>
+                                        <td style="text-align: right;width: 11%;"
+                                            [ngStyle]="{'background':object.color }">
+                                            <!-- <mat-form-field appearance="outline" [floatLabel]="'never'" >
+                                                <input matInput placeholder="Marks"  
+                                                type="number" [min]='minvalue' [max]='maxValue' style="text-align: right;" step="any" 
+                                                [(ngModel)]="object.marks"  
+                                                [disabled]="true" [ngModelOptions]="{standalone: true}" required>
+                                            </mat-form-field> -->
+                                            <mat-form-field appearance="outline" [floatLabel]="'never'">
+                                                <input matInput placeholder="Marks" type="number"
+                                                    [(ngModel)]="object.internal_total_marks" [ngModelOptions]="{standalone: true}"
+                                                    style="text-align: right;" step="any" (keyup)="enteredMarks(object)"
+                                                    [value]="object.internal_total_marks" [min]='minvalue'
+                                                    [max]='maxValue' [disabled]="totalField || !object.isPresent">
+                                            </mat-form-field>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div fxLayout="row" fxFlex="100" fxLayoutAlign="end center" *ngIf="examStudentsList.length > 0">
+                            <div class="form-btn" *ngIf="this.isDisabled === false">
+                                <button mat-raised-button class="add-btn" color="accent" (click)="postExamMarks()">
+                                    Save Marks </button>
+
+                            </div>
+                            <div class="form-btn" >
+                                <button mat-raised-button class="add-btn" color="accent" (click)="Print()">
+                                    Print</button>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- <div class="form-btn">
+                    <button mat-raised-button class="add-btn back-btn" (click)="goBack()">Back</button>
+                </div> -->
+            </form>
+        </div>
+
+    </div>
+    <!-- / CONTENT -->
+
+</div>
+
+<!-- print Section -->
+<div class="layout">
+    <div id="dashboard" id="printsection">
+
+        <div class="layout" *ngIf="this.universityCode === 'SUK'">
+            <img src="assets/images/avatars/SUK_BANNER_NEW.jpg">
+        </div>
+        
+        <div fxLayout="row" *ngIf="this.universityCode === 'MECS'">
+          <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+            <img src="assets/images/avatars/MECS_BANNER.png" class="college-banner" />
+          </div>
+        </div>
+        <div fxLayout="row" *ngIf="this.universityCode === 'MVSR'">
+          <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" >
+            <img src="assets/images/avatars/MVSR_BANNER.png" class="college-banner-2" />
+          </div>
+        </div>
+
+        <div class="layout" *ngIf="this.universityCode === 'SUK'">
+            <p class="p-tag">KALABURAGI-585103, KARNATAKA, INDIA </p>
+        </div>
+
+        <hr width="100%" color="black" size="1px" style="margin: 15px !important;" />
+        <div class="layout">
+            <p class="p-2tag"> {{ext_name}} - MARKS SHEET </p>
+        </div>
+        <div class="faculty-details">
+           <!-- College Name -->
+<div>
+  <span style="font-weight: 550;">College:</span>
+  <span style="font-weight: 400;">{{ examStudentsList[0]?.collegeName }}</span>
+</div>
+
+<!-- Course & Academic Year -->
+<div style="display: flex; justify-content: space-between; margin-top: 5px;">
+  <div style="flex: 1;">
+    <span style="font-weight: 550;">Course:</span>
+    <span style="font-weight: 400;">{{ examStudentsList[0]?.courseCode }} - {{ examStudentsList[0]?.groupName }}</span>
+  </div>
+  
+  <div style="flex: 1; text-align: right;">
+    <span style="font-weight: 550;">Academic Year:</span>
+    <span style="font-weight: 400;">{{ academicYear }}</span>
+  </div>
+</div>
+
+
+<!-- Subject Code & Title -->
+<div style="display: flex; justify-content: space-between; margin-top: 5px;">
+  <!-- Subject Code -->
+  <div style="flex: 1;">
+    <span style="font-weight: 550;">Subject Code:</span>
+    <span style="font-weight: 400;">{{ examStudentsList[0]?.subjectCode }}</span>
+  </div>
+
+  <!-- Subject Title (aligned right) -->
+  <div style="flex: 1; text-align: right;">
+    <span style="font-weight: 550;">Subject Title:</span>
+    <span style="font-weight: 400;">{{ examStudentsList[0]?.subjectName }}</span>
+  </div>
+</div>
+
+<!-- Max Marks & Subject Type -->
+<div style="display: flex; justify-content: space-between; margin-top: 5px;">
+  <div style="flex: 1;">
+    <span style="font-weight: 550;">Max Marks:</span>
+    <span style="font-weight: 400;">{{ maxValue }}</span>
+  </div>
+  
+  <div style="flex: 1; text-align: right;">
+    <span style="font-weight: 550;">Subject Type:</span>
+    <span style="font-weight: 400;">
+      <ng-container *ngIf="examStudentsList[0]?.subjecttypeId === 3 || examStudentsList[0]?.subjecttypeId === 4">THEORY</ng-container>
+      <ng-container *ngIf="examStudentsList[0]?.subjecttypeId === 5 || examStudentsList[0]?.subjecttypeId === 6026">LAB</ng-container>
+    </span>
+  </div>
+</div>
+
+            <table style="width:100% !important;margin-top:1% !important" cellspacing="0" class="course-table " id="pageNumber"
+                *ngIf="examStudentsList[0]?.examTypeCode == 'Internal'">
+                <thead>
+                    <tr>
+                        <th  style="text-align: center !important;">SI.NO</th>
+                        <th   style="text-align: center !important;">USN</th>
+                        <th   style="text-align: center !important;">Student Name </th>
+                        <th style="text-align: center !important;">Attendance</th>
+                        <th   style="text-align: center !important;" *ngIf="marks1 === true">Exam</th>
+                        <th  style="text-align: center !important;" *ngIf="marks2 === true">Assignment</th>
+                        <th  style="text-align: center !important;" *ngIf="marks3 === true">Quiz</th>
+                        <th  style="text-align: center !important;">Total Internal Marks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let object of examStudentsList let i = index">
+                        <td style="text-align: center !important;font-size: 12px !important;">{{i+1}}</td>
+                        <td style="text-align: left !important;font-size: 12px !important;">{{ object?.hallticketNumber}}</td>
+                        <td style="text-align: left !important;font-size: 12px !important;">{{ object?.firstName}}</td>
+                        <td style="text-align: left !important;font-size: 12px !important;">
+                            <span *ngIf="object.isPresent == true" class="active">Present</span>
+                            <span *ngIf="object.isPresent == false" class="in-active">Absent</span>
+                            <span *ngIf="object.isPresent == null" class="in-active">  </span>
+                        </td>
+                        <td style="text-align: left !important;font-size: 12px !important;" *ngIf="marks1 === true">{{ object?.internal_exam_marks}}</td>
+                        <td style="text-align: left !important;font-size: 12px !important;" *ngIf="marks2 === true">{{ object?.internal_assignment_marks}}</td>
+                        <td style="text-align: left !important;font-size: 12px !important;" *ngIf="marks3 === true">{{ object?.internal_quiz_marks}}</td>
+                        <td style="text-align: left !important;font-size: 12px !important;">{{ object?.internal_total_marks}}</td>                        
+                    </tr>
+                </tbody>
+            </table>
+            <table class="course-table " id="pageNumber">
+                <thead>
+                    <tr>
+                        <th style="text-align: center !important"> Date of Submission of IA Marks: </th>
+                    </tr>
+                </thead>
+            </table>
+                        <div style="
+                display: flex; 
+                justify-content: space-between; 
+                margin-top: 10%;
+                padding: 0 40px;
+            ">
+
+                <!-- Left side (HOD) -->
+                <div style="
+                    width: 200px;
+                    text-align: left;
+                    font-weight: 600;
+                ">
+                    Signature of the Faculty
+                </div>
+
+                <!-- Right side (Principal & Chief Superintendent) -->
+                <div style="text-align: right; font-weight: 600; line-height: 20px;">
+
+                <div style="display: inline-block; text-align: right;">
+
+                    <div style="margin-right: 28% !important;">HOD</div>
+
+                    <!-- <div style="text-align: center;">&</div>
+
+                    <div>Chief Superintendent</div> -->
+
+                </div>
+
+                </div>
+
+            </div>
+            <!-- <div style="display: flex; justify-content: space-between; margin-top: 10% !important;">
+                <div style="flex: 1; margin-left:5% !important">
+                    <span style="font-weight: 550;">HOD</span>
+                    <span style="font-weight: 400;"> </span>
+                </div>
+                
+                <div style="flex: 1; text-align: right;margin-right:5% !important">
+                    <span style="font-weight: 550;">Principal <br>
+                                & <br>
+                    Chief Superintendent
+                </span>
+                </div>
+                </div> -->
+        </div>
+    </div>
+</div>

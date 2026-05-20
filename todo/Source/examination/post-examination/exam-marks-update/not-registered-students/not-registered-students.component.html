@@ -1,0 +1,138 @@
+<div class="add-form">
+  <div class="content">
+      <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+          <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+              <div fxLayoutAlign="start center" class="mod-head">
+                  <i class="material-icons icon-align ">
+                            ballot
+                            </i>
+                  <span>Missing Subjects</span>
+              </div>
+          </div>
+      </div>
+      <mat-dialog-content>
+            <!-- <div fxLayout="column" class="div-border">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <p class="details-off">College : </p>
+                        </div>
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="colr"> {{data.collegeCode}} / {{data.academicYear}} </span></p>
+                        </div>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <p class="details-off">Course : </p>
+                        </div>
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="colr"> {{data.courseName}} / {{data.groupName}} / {{data.courseYearName}} / section - {{data.section}}</span></p>
+                        </div>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                      <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                          <p class="details-off">Fee Structure : </p>
+                      </div>
+                      <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                          <p class="details-off"><span class="colr"> {{data.structureName}} </span></p>
+                      </div>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                      <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                          <p class="details-off">Student : </p>
+                      </div>
+                      <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                          <p class="details-off"><span class="colr"> {{data.firstName}} ({{data.rollNo}}) </span></p>
+                      </div>
+                    </div>
+                </div>
+                <div fxLayout="column" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="20">
+                    <mat-form-field fxFlex="20%" floatLabel="never">
+                        <input matInput (keyup)="applyFilter($event.target.value)" placeholder="Search">
+                    </mat-form-field>
+                </div> -->
+        <div fxLayout="column">
+            <div class="mat-elevation-z8 ">
+                <div class="example-container-2">
+                    <table mat-table [dataSource]="dataSource " matSort>
+      
+                        <!-- Actions Column -->
+                        <ng-container matColumnDef="id">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                            <td mat-cell *matCellDef="let row" style="text-align: center;width: 1px">
+                              {{subjects.indexOf(row) + 1}}
+                            </td>
+                        </ng-container>
+      
+                        <!-- Regulation Column -->
+                        <ng-container matColumnDef="subject_code">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject Code</th>
+                            <td mat-cell *matCellDef="let row"> {{row.subject_code}} </td>
+                        </ng-container>
+      
+                        <!-- Semisters Column -->
+                        <ng-container matColumnDef="subject_name">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject</th>
+                            <td mat-cell *matCellDef="let row"> {{row.subject_name}} </td>
+                        </ng-container>
+      
+                        <ng-container matColumnDef="type">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject Type</th>
+                            <td mat-cell *matCellDef="let row; let i = index;">
+                                 <mat-form-field class="p-8"  >
+                                            <mat-select placeholder="Subject Type" name="subjectTypeId-{{i}}" [(ngModel)]="row.subjectTypeId" required>
+                                                <mat-option *ngFor="let subjectTy of subjectTypes" [value]="subjectTy.generalDetailId">{{subjectTy.generalDetailDisplayName}}</mat-option>
+                                            </mat-select>
+                                        </mat-form-field>
+                            </td>
+                        </ng-container>
+
+                        <ng-container matColumnDef="category">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject Category</th>
+                              <td mat-cell *matCellDef="let row; let i = index;"> 
+                                    <mat-form-field class="p-8"  >
+                                            <mat-select placeholder="Subject Category" name="subjectCategoryId-{{i}}" [(ngModel)]="row.subjectCategoryId" required>
+                                                <mat-option *ngFor="let subjectCa of subjectCategorys" [value]="subjectCa.generalDetailId">{{subjectCa.generalDetailDisplayName}}</mat-option>
+                                            </mat-select>
+                                        </mat-form-field>
+                                     </td>
+                          </ng-container>
+
+                          <ng-container matColumnDef="credits">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>Credits</th>
+                              <td mat-cell *matCellDef="let row"> 
+                                    <mat-form-field class="p-8" >
+                                            <input matInput placeholder="Credits" name="credits-{{i}}" [(ngModel)]="row.credits">
+                                        </mat-form-field>
+                              </td>
+                          </ng-container>
+
+                          <ng-container matColumnDef="sub_credit_hrs">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header>Credit Hours</th>
+                              <td mat-cell *matCellDef="let row"> 
+                                    <mat-form-field class="p-8" >
+                                            <input matInput placeholder="Credit Hours" name="sub_credit_hrs-{{i}}" [(ngModel)]="row.sub_credit_hrs">
+                                        </mat-form-field>
+                              </td>
+                          </ng-container>
+      
+                        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                        <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                        </tr>
+                    </table>
+                </div>
+                <mat-paginator [pageSizeOptions]="[5, 10, 25]"></mat-paginator>
+            </div>
+        </div>
+       
+      </mat-dialog-content>
+      <mat-dialog-actions>
+          <button mat-raised-button class="cls-btn" mat-dialog-close>
+                Close
+            </button>
+            <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+                    Save
+                    </button>
+      </mat-dialog-actions>
+
+  </div>
+</div>

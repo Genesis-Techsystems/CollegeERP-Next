@@ -1,0 +1,204 @@
+<div id="dashboard" class="page-layout simple">
+    <div class="center" fusePerfectScrollbar>
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Evaluation Process</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Assign Subjects Evaluator</span>
+                </div>
+            </div>
+        </div>
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                                fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads"> Assign Subjects Evaluator </strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                    </mat-expansion-panel-header>
+                    <form name="addevaluatorform" [formGroup]="addevaluatorform" novalidate>
+                        <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                            <div fxLayout="row wrap " fxFlex="100">
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                        (selectionChange)="selectedCourse(addevaluatorform.value.courseId)">
+                                        <mat-option *ngFor="let course of courses" matTooltip="{{course.course_code}}"
+                                            [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Academic Year" name="academicYearId"
+                                        formControlName="academicYearId"
+                                        (selectionChange)="selectedAcademicYear(addevaluatorform.value.academicYearId)"
+                                        required>
+                                        <mat-option *ngFor="let obcjt of academicYears"
+                                            matTooltip="{{obcjt.academic_year}}"
+                                            [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                                    fxFlex.gt-md="60">
+                                    <mat-select placeholder="Exam " name="examId" formControlName="examId"
+                                        (selectionChange)="selectedExam(addevaluatorform.value.examId)">
+                                        <ngx-mat-select-search [placeholderLabel]="'Search...'"
+                                            [noEntriesFoundLabel]="'no matching data found'"
+                                            (keyup)="searchexam($event.target.value)"></ngx-mat-select-search>
+                                        <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                            matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})">
+                                            {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date |
+                                            date:dateFormate}})
+                                            <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;"
+                                                matTooltip='Internal'>(Internal)</span>
+                                            <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;"
+                                                matTooltip="Regular">(Regular)</span>
+                                            <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;"
+                                                matTooltip="Supple">(Supple)</span>
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Regulation" name="regulationId"
+                                        formControlName="regulationId"
+                                        (selectionChange)="selectedRegulation(addevaluatorform.value.regulationId)">
+                                        <mat-option *ngFor="let reg of regulations" matTooltip="{{reg.regulation_code}}"
+                                            [value]="reg.fk_regulation_id">{{reg.regulation_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
+                                    fxFlex.gt-md="30">
+                                    <mat-select placeholder="Subjects" formControlName="subjectId">
+                                        <ngx-mat-select-search (keyup)="searchdata($event.target.value)"
+                                            [placeholderLabel]="'Search...'"
+                                            [noEntriesFoundLabel]="'no matching data found'"></ngx-mat-select-search>
+                                        <mat-option *ngFor="let subject of subjectsData" [value]="subject.fk_subject_id"
+                                            matTooltip="{{subject.subject_name}}({{subject.subject_code}})">
+                                            {{ subject.subject_name }}
+                                            <span style="color:blue"> ({{subject.subject_code}}) </span>
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxFlex="100" fxLayout="column" class="p-8" fxFlex="100"
+                                    fxFlex.gt-xs="18" fxFlex.gt-md="18">
+                                    <mat-select placeholder="Select Role" formControlName="roleId"
+                                        (selectionChange)="selectedRole(addevaluatorform.value.roleId)">
+                                        <mat-option *ngFor="let role of roles" [value]="role.pk_role_id"
+                                            matTooltip="{{role.role_name}}">
+                                            {{role.role_name}}
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <section fxLayout="column" class="ml-2 mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="12" fxFlex.gt-md="12">
+                                    <mat-checkbox name="isReEvaluation"  formControlName="isReEvaluation">Is Re-Evaluation</mat-checkbox>
+                                </section>
+                                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                    <button mat-raised-button class="add-btn" color="accent" >Get List</button>
+                                </div>
+                            </div>
+                            <div fxLayout="row wrap " fxFlex="100" *ngIf="displayFilters === true">
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="College" name="collegeId" formControlName="collegeId"
+                                        (selectionChange)="selectedCollege(addevaluatorform.value.collegeId)">
+                                        <mat-option *ngFor="let college of colleges"
+                                            [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="course Group " name="courseGroupId"
+                                        formControlName="courseGroupId"
+                                        (selectionChange)="selectedCourseGroup(addevaluatorform.value.courseGroupId)">
+                                        <mat-option *ngFor="let obcjt of courseGroups"
+                                            [value]="obcjt.fk_course_group_id">{{obcjt.group_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Course Year" name="courseYearId"
+                                        formControlName="courseYearId">
+                                        <mat-option *ngFor="let courseYear of courseYears"
+                                            [value]="courseYear.fk_course_year_id">{{courseYear.course_year_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                            </div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+            </mat-accordion>
+            <div class="header  pd-page " fxLayout="column" fxLayoutAlign="space-between"
+                style="width: 100%;padding: 22px 24px 0px 24px;" >
+                <div fxLayout="row wrap " class="page-table-head" fxFlex="100" fxLayoutAlign="space-between center">
+                    <div fxLayoutAlign="start center" class="mod-head">
+                        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                            <i class="material-icons icon-align ">
+                                ballot
+                            </i>
+                            <strong class="table-heads"> Assign Subjects Evaluator </strong>
+                        </div>
+                    </div>
+                    <div fxLayoutAlign="start end" class="mod-head">
+                        <span style="color: blue;
+                        font-weight: 500;">
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="content pd-card" >
+                <div class="mat-elevation-z8">
+                    <div class="example-container">
+                        <div fxLayout="row" class="mar-8 table-bac">
+                        <table class="table table-striped fee fee_">
+                            <thead>
+                            <tr>
+                            <th><input type="checkbox" [checked]="isAllSelected()" (change)="toggleAll($event)"></th>
+                            <th>SI No.</th>
+                            <th>Evaluator Name</th>
+                            <th>Course</th>
+                            <th>Exam</th>
+                            <th>Profile</th>
+                            <th>Subject</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr *ngFor="let row of evaluatorsList; let i = index">
+                            <td><input type="checkbox" [(ngModel)]="row.selected" (change)="onSelectionChange()"></td>
+                            <td>{{ i + 1 }}</td>
+                            <td>{{ row.evaluatorName }}</td>
+                            <td>{{ row.courseName }}</td>
+                            <td>{{ row.examName }}</td>
+                            <td>{{ row.profileName }}</td>
+                            <td>{{ row.subjectName }}</td>
+                            </tr>
+                            </tbody>
+                            </table>
+
+                    </div>
+                    </div>
+                    <div fxLayout="row">
+                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="90" fxFlex.gt-md="90"></div>
+                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                            <button mat-raised-button class="add-btn" color="accent" (click)="submit()">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

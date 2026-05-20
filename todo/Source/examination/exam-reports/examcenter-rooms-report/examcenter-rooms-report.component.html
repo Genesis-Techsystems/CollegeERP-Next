@@ -1,0 +1,256 @@
+<div id="admission-dashboard" class="page-layout simple" id="printNone">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+            fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Reports</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination Reports</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Center Rooms Report</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+        <div class="mat-elevation-z8 bkgrd">
+            <form name="staffForm" [formGroup]="staffForm" style="padding-bottom: 1px;" class="form-pad" novalidate>
+                <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                    <i class="material-icons sub-header-icon">computer</i>
+                    <span class="sub-header-text"> Exam Center Rooms Report</span>
+                </div>
+
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                    <div fxLayout="row">
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Program" name="courseId" formControlName="courseId"
+                                (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                <mat-option *ngFor="let course of courses"
+                                    [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="18" fxFlex.gt-md="18">
+                            <mat-select placeholder="Academic Year" name="academicYearId"
+                                formControlName="academicYearId"
+                                (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)" required>
+                                <mat-option *ngFor="let obcjt of academicYears"
+                                    [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60" fxFlex.gt-md="60">
+                            <mat-select placeholder="Exam" name="examId" formControlName="examId"
+                                (selectionChange)="selectedExam(staffForm.value.examId)">
+                                <ngx-mat-select-search [placeholderLabel]="'Search Exam...'"
+                                    [noEntriesFoundLabel]="'no matching data found'"
+                                    (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>
+                                <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                    matTooltip="{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})">{{exam.exam_name}}
+                                    ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})
+                                    <span *ngIf="exam.is_internal_exam"
+                                        style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                    <span *ngIf="exam.is_regular_exam"
+                                        style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                    <span *ngIf="exam.is_supply_exam"
+                                        style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60" fxFlex.gt-md="60">
+                            <mat-select placeholder="Exam Center" name="univExamcenterId"
+                                formControlName="univExamcenterId" required>
+                                <mat-option *ngFor="let obj of univExamCenters"
+                                    [value]="obj.univExamcenterId">{{obj.examcenterCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                    <div fxLayout="row" fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                            <mat-select placeholder="Campus - Building" name="buildingId" formControlName="buildingId"
+                                (selectionChange)="SelectedBuilding(staffForm.value.buildingId)">
+                                <mat-option [value]="0">All</mat-option>
+                                <mat-option *ngFor="let objct of buildings" [value]="objct.buildingId"
+                                    matTooltip="{{objct.campusName}} - {{objct.buildingCode}}">{{objct.campusName}} -
+                                    {{objct.buildingCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="16" fxFlex.gt-md="16">
+                            <mat-select placeholder="Block" name="blockId" formControlName="blockId"
+                                (selectionChange)="SelectedBlock(staffForm.value.blockId)">
+                                <mat-option [value]="0">All</mat-option>
+                                <mat-option *ngFor="let objct of blocks" [value]="objct.blockId">{{objct.blockCode}}
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                            <mat-select placeholder="Floor - No" name="floorId" formControlName="floorId"
+                                (selectionChange)="SelectedFloor(staffForm.value.floorId)">
+                                <mat-option [value]="0">All</mat-option>
+                                <mat-option *ngFor="let object of floors" [value]="object.floorId">{{object.floorName}}
+                                    - {{object.floorNo}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10"
+                            fxFlex.gt-md="10">
+                            <button mat-raised-button class="add-btn" color="accent" (click)="getList()">Get
+                                List</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="content pd-card mt-15" *ngIf="examCenterRoomsList.length > 0">
+        <div class="mat-elevation-z8 bkgrd">
+            <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                <i class="material-icons sub-header-icon">computer</i>
+                <span class="sub-header-text"> Exam Center Rooms Report - {{examCenterName}} / {{buildingName}} / {{block}} /
+                    {{floorName}}-{{floor}}</span>
+            </div>
+
+            <div fxLayout="row">
+
+                <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                    <mat-card class="pd-card table-align">
+                        <mat-card-content>
+                            <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between"
+                                fxLayoutGap="5">
+                                <div fxFlex.gt-xs="28" fxFlex.gt-md="28" fxLayout="row" fxLayoutAlign="start center"
+                                    class="align-items">
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="exportAsExcel()">
+                                        <i class="fa fa-file-excel-o icon" aria-hidden="true"></i>Export Excel</button>
+                                    <button mat-raised-button class="add-btn ptnbtn" color="accent"
+                                        (click)="printPage()">
+                                        <i class="fa fa-print icon" aria-hidden="true"></i>Print Report</button>
+
+                                </div>
+                                <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="25" fxFlex.gt-md="25"
+                                    fxLayout="row" fxLayoutAlign="start end">
+                                    <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                                        <input matInput (keyup)="applyFilter($event.target.value)" name="search"
+                                            placeholder="Search">
+                                    </mat-form-field>
+                                </div>
+                            </div>
+                        </mat-card-content>
+                        <div class="mat-elevation-z8" #TABLE>
+                            <div class="example-container" #excelTable>
+                                <strong style="display: none !important;">
+                                    Exam Center Students Report - {{courseName}} / {{academicYearName}} /
+                                    {{examsName}} / {{examCenterName}}</strong>
+                                <table mat-table [dataSource]="dataSource" matSort>
+                                    <ng-container matColumnDef="id">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                        <td mat-cell *matCellDef="let row;let i = index"> {{i+ 1}} </td>
+                                    </ng-container>
+                                    k
+                                    <!-- Semisters Column -->
+                                    <ng-container matColumnDef="examCenterName">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Exam Center</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.examCenterName}} </td>
+                                    </ng-container>
+
+                                    <!-- Semisters Column -->
+                                    <ng-container matColumnDef="Building">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Building</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.buildingId}} </td>
+                                    </ng-container>
+
+                                    <ng-container matColumnDef="RoomName">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Room Name</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.roomName}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="RoomCode">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Room Code</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.roomCode}} </td>
+                                    </ng-container>
+
+                                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                                    <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                                    </tr>
+                                </table>
+                            </div>
+                            <!-- <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator> -->
+
+                        </div>
+                    </mat-card>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div style="width: 100% !important;">
+    <div fxLayout="row" *ngIf="orgCode != 'SUK'">
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo != null">
+                <img [src]="MINIO + Logo">
+            </div>
+            <div fxLayout="column" fxFlex="15" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="Logo == null">
+                <img src="assets/images/avatars/default_logo.png" class="portraitLogo">
+            </div>
+            <div fxLayout="column" fxFlex="85" fxFlex.gt-xs="85" fxFlex.gt-md="85" class="algn">
+                <p class="collegeName">Exam Center Rooms Report </p>
+                <p class="title"> {{examCenterName}} / {{buildingName}} / {{block}} / {{floorName}}-{{floor}} </p>
+            </div>
+        </div>
+    </div>
+    <div fxLayout="row" *ngIf="orgCode == 'SUK'">
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="clglogo"
+                *ngIf="Logo != null">
+                <img [src]="MINIO + Logo">
+            </div>
+
+            <div fxLayout="column" fxFlex="50" fxFlex.gt-xs="100" fxFlex.gt-md="100" *ngIf="Logo == null">
+                <img src="assets/images/avatars/default_logo.png" style="height:100px;width:500px !important">
+            </div>
+        </div>
+    </div>
+    <div fxLayout="row" *ngIf="orgCode == 'SUK'">
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                <p class="collegeName">Exam Center Rooms Report </p>
+                <p class="title"> {{examCenterName}} / {{buildingName}} / {{block}} / {{floorName}}-{{floor}} </p>
+            </div>
+        </div>
+    </div>
+    <div fxLayout="row" style="margin-top: 1% !important;">
+        <table mat-table [dataSource]="dataSource" matSort>
+            <ng-container matColumnDef="id">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                <td mat-cell *matCellDef="let row;let i = index"> {{i+ 1}} </td>
+            </ng-container>
+            k
+            <!-- Semisters Column -->
+            <ng-container matColumnDef="examCenterName">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Exam Center</th>
+                <td mat-cell *matCellDef="let row"> {{row.examCenterName}} </td>
+            </ng-container>
+
+            <!-- Semisters Column -->
+            <ng-container matColumnDef="Building">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Building</th>
+                <td mat-cell *matCellDef="let row"> {{row.buildingId}} </td>
+            </ng-container>
+
+            <ng-container matColumnDef="RoomName">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Room Name</th>
+                <td mat-cell *matCellDef="let row"> {{row.roomName}} </td>
+            </ng-container>
+            <ng-container matColumnDef="RoomCode">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>Room Code</th>
+                <td mat-cell *matCellDef="let row"> {{row.roomCode}} </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+            </tr>
+        </table>
+    </div>
+</div>

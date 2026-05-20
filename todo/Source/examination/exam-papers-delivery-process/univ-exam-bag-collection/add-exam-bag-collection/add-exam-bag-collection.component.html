@@ -1,0 +1,81 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div fxLayout="row wrap " fxFlex="100" fxLayoutAlign="space-between center">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <mat-icon>settings</mat-icon>
+                    <span>  {{dialogTitle}} </span>
+                </div>
+                <div fxLayoutAlign="end center" class="mod-head">
+                    <!-- <span>University :</span><span>{{data.universityCode}} - {{data.collegecode}} </span> -->
+                </div>
+            </div>
+        </div>
+        <form name="examBagCollectionForm" [formGroup]="examBagCollectionForm" novalidate>
+            <mat-dialog-content>
+                <div fxLayout="column">
+                        <div fxLayout="row wrap " fxFlex="100">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                <mat-select placeholder="Exam Answer Paper Bags" name="univExamAnswerPaperBagsId" formControlName="univExamAnswerPaperBagsId"  required>
+                                    <mat-option *ngFor="let examAnswerPaperBagsList of examAnswerPaperBagsList" [value]="examAnswerPaperBagsList.univExamAnswerPaperBagId">{{examAnswerPaperBagsList.univExamAnswerPaperBagId}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" >
+                                <input matInput placeholder="Collected By" name="collectedBy" formControlName="collectedBy">
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                                <input matInput [matDatepicker]="startDate" placeholder="Collected Date"  name="collectedDate" formControlName="collectedDate">
+                                <mat-datepicker-toggle matSuffix [for]="startDate"></mat-datepicker-toggle>
+                                <mat-datepicker #startDate></mat-datepicker>
+                             </mat-form-field>
+    
+                        
+                           
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33" >
+                                <input matInput placeholder="Received By" name="receivedBy" formControlName="receivedBy">
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                                <input matInput [matDatepicker]="endDate" placeholder="Received Date"  name="receivedDate" formControlName="receivedDate">
+                                <mat-datepicker-toggle matSuffix [for]="endDate"></mat-datepicker-toggle>
+                                <mat-datepicker #endDate></mat-datepicker>
+                             </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" >
+                                <input matInput placeholder="Address Line1" name="addressLine1" formControlName="addressLine1">
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" >
+                                <input matInput placeholder="Address Line2" name="addressLine2" formControlName="addressLine2">
+                            </mat-form-field>
+                            <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                <mat-select placeholder="City" name="cityId" formControlName="cityId"  required>
+                                    <mat-option *ngFor="let cities of cities" [value]="cities.cityId">{{cities.cityCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field> -->
+                            <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                <mat-select placeholder="City" name="cityId" formControlName="cityId"  required>
+                                    <mat-option  [value]="1">Karminagar</mat-option>
+                                </mat-select>
+                            </mat-form-field> -->
+                            <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <mat-checkbox name="isVerifiedFlag" formControlName="isVerifiedFlag">Is Verified Flag</mat-checkbox>
+                            </section>
+                            <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
+                            </section>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40" *ngIf="examBagCollectionForm.controls.isActive.value === false">
+                                <input matInput placeholder="Reason" name="reason" formControlName="reason">
+                            </mat-form-field>
+                           
+                        </div>
+                    </div>
+            </mat-dialog-content>
+           
+            <mat-dialog-actions>
+                <button mat-raised-button class="cls-btn" mat-dialog-close>
+                            Close
+                            </button>
+                <button mat-raised-button class="add-btn"  color="accent" (click)="submit()">
+                 Save
+                 </button>
+
+            </mat-dialog-actions>
+        </form>

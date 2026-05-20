@@ -1,0 +1,207 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                        ballot
+                    </i>
+                    <span>Published Details</span>
+                </div>
+
+            </div>
+        </div>
+        <form [formGroup]="remunerationForm">
+            <mat-dialog-content>
+                <div fxLayout="column" class="div-border" style="padding:1%;margin-bottom:1%">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <p class="details-off">QuestionPaper Title :
+                        </div>
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="colr"> {{PublishedList[0]?.questionpaper_title }}</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <p class="details-off">Course Code :
+                        </div>
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="colr"> {{PublishedList[0]?.course_code }}</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <p class="details-off">Exam Date : </p>
+                        </div>
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="colr"> {{PublishedList[0]?.exam_date }}
+                                    </span></p>
+                        </div>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <p class="details-off">Subject : </p>
+                        </div>
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="colr"> {{PublishedList[0]?.subjectcode }}
+                                    ({{PublishedList[0]?.subject_name }})</span></p>
+                        </div>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <p class="details-off">Session Time : </p>
+                        </div>
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="colr"> {{PublishedList[0]?.session_start_time }} To
+                                    {{PublishedList[0]?.session_end_time }} </span></p>
+                        </div>
+                    </div>
+                </div>
+                <div fxLayout="column">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="13"
+                            fxFlex.gt-md="13">
+                            <mat-checkbox name="IsRole" formControlName="IsRole">Role Level</mat-checkbox>
+                        </section>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20"
+                            *ngIf="remunerationForm.value.IsRole==true">
+                            <mat-select placeholder="Role Level" name="roleLevel" formControlName="roleLevel">
+                                <mat-option *ngFor="let Levels of Levels"
+                                    [value]="Levels.id">{{Levels.name}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20"
+                            *ngIf="remunerationForm.value.IsRole==true">
+                            <!-- (selectionChange)="selectionRole(remunerationForm.value.role)" -->
+                            <mat-select placeholder="Role" name="role" formControlName="role">
+                                <ngx-mat-select-search [noEntriesFoundLabel]="'no matching data found'" (keyup)="searchRole($event.target.value)"
+                                [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'"></ngx-mat-select-search>
+                                <mat-option *ngFor="let RolesList of RolesListDuplicateList"
+                                    [value]="RolesList.pk_role_id">{{RolesList.role_name}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <button mat-raised-button class="add-btn" color="accent" (click)="selectionRole()" fxFlex="100"
+                            fxFlex.gt-xs="10" fxFlex.gt-md="10" *ngIf="remunerationForm.value.IsRole==true">
+                            Get List</button>
+                        <!-- <button mat-raised-button class="add-btn" color="accent"  fxFlex="100" fxFlex.gt-xs="" fxFlex.gt-md="10" >
+                            Save</button> -->
+
+                    </div>
+                </div>
+                <div fxLayout="row">
+                    <div fxLayout="column" fxFlex="100">
+                        <div class="mat-elevation-z8">
+                            <div class="example-container">
+                                <table mat-table [dataSource]="dataSource" matSort>
+                                    <ng-container matColumnDef="id">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>SI.No</th>
+                                        <td mat-cell *matCellDef="let row; let i = index" style="width: 5%;">
+                                            {{PublishedList.indexOf(row) + 1}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="college_code">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>College</th>
+                                        <td mat-cell *matCellDef="let row"> {{row?.college_code}} </td>
+                                    </ng-container>
+
+                                    <ng-container matColumnDef="group_code">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Group</th>
+                                        <td mat-cell *matCellDef="let row"> {{row?.group_code}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="course_year_code">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Course Year</th>
+                                        <td mat-cell *matCellDef="let row"> {{row?.course_year_code}} </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="is_published">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Publish Status</th>
+                                        <td mat-cell *matCellDef="let row">
+                                            <span *ngIf="row?.is_published==true"> Yes</span>
+                                            <span *ngIf="row?.is_published==false"> No</span>
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="published_date">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Publish Date</th>
+                                        <td mat-cell *matCellDef="let row"> {{row?.published_date | date:'short'}}
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="expiryDate">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Expiry Date</th>
+                                        <td mat-cell *matCellDef="let row">
+                                            {{row?.cp1_secretcode_expirydate | date:'short'}}
+                                            <!-- <mat-form-field fxLayout="column" class="p-8" >
+                                                <input matInput type="date" formControlName="expiryDate">
+                                            </mat-form-field>
+                                            <mat-form-field fxLayout="column" class="p-8" *ngIf="remunerationForm.value.roleLevel =='Level2'">
+                                                <input matInput type="date">
+                                            </mat-form-field> -->
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="Employee">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Profile Name</th>
+                                        <td mat-cell *matCellDef="let row">
+
+                                            <mat-form-field fxLayout="column" class="p-8">
+                                                <mat-select placeholder="" name="role"
+                                                    formControlName="CollectorProfile1Id"
+                                                    [(ngModel)]="row.fk_publishedby_emp_id">
+                                                    <mat-option *ngFor="let EmployeeList of EmployeeList1"
+                                                        [value]="EmployeeList.Pk_emp_id">{{EmployeeList.emp_name}}</mat-option>
+                                                </mat-select>
+                                            </mat-form-field>
+                                            <mat-form-field fxLayout="column" class="p-8"
+                                                *ngIf="remunerationForm.value.roleLevel =='Level2'">
+                                                <mat-select placeholder="" name="role"
+                                                    formControlName="CollectorProfile2Id">
+                                                    <mat-option *ngFor="let EmployeeList of EmployeeList1"
+                                                        [value]="EmployeeList.Pk_emp_id">{{EmployeeList.emp_name}}</mat-option>
+                                                </mat-select>
+                                            </mat-form-field>
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="SecretCode">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Secret Code</th>
+                                        <td mat-cell *matCellDef="let row">
+                                            {{row?.collectorprofile1_secretcode}}
+                                            <!-- <input  type="text" value="" class="form-control inputs" formControlName="SecretCode">
+                                            <input  type="text" value="" class="form-control inputs" *ngIf="remunerationForm.value.roleLevel =='Level2'"> -->
+
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="Actions">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Actions</th>
+                                        <td mat-cell *matCellDef="let row" class="button-icon text-ctr">
+                                            <p style="margin: 5px 0px;">
+                                                <span style="padding-left: 10px !important;">
+                                                    <button mat-raised-button color="accent" style="margin: 0px 5px;"
+                                                        (click)="saveData(row)">
+                                                        Save</button> </span>
+
+                                            </p>
+
+                                        </td>
+                                    </ng-container>
+                                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                                    <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                                    </tr>
+                                </table>
+
+                            </div>
+                            <!-- <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator> -->
+                        </div>
+                    </div>
+                </div>
+            </mat-dialog-content>
+            <mat-dialog-actions>
+                <button mat-raised-button class="cls-btn" style="background:#ffcf46" mat-dialog-close>
+                    Close
+                </button>
+                <!-- <button mat-raised-button class="add-btn" color="accent">
+              Confirm
+               </button> -->
+
+            </mat-dialog-actions>
+        </form>
+    </div>
+</div>

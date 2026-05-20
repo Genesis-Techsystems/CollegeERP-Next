@@ -1,0 +1,241 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                                ballot
+                                </i>
+                    <span>Invigilator Room Allotment</span>
+                </div>
+            </div>
+        </div>
+
+        <div fxLayout="column" class="div-border" *ngIf="data.dataDetails != 'newRoom'">
+            <div fxLayout="row wrap " fxFlex="100">
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                    <p class="details-off">Course :</p>
+                </div>
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <p class="details-off"><span class="colr"> {{data.collegeCode}} / {{data.courseCode}} / {{data.academicYear}} </span></p>
+                </div>
+            </div>
+            <div fxLayout="row wrap " fxFlex="100">
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                    <p class="details-off">Exam : </p>
+                </div>
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <p class="details-off"><span class="colr"> {{data.examName}}</span></p>
+                </div>
+            </div>
+            <div fxLayout="row wrap " fxFlex="100">
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                    <p class="details-off">Exam Timetable : </p>
+                </div>
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <p class="details-off"><span class="colr"> {{data.examName}} - ({{data.examDate}}) </span></p>
+                </div>
+            </div>
+            <div fxLayout="row wrap " fxFlex="100" *ngIf="data.buildingCode != null">
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                    <p class="details-off">Room : </p>
+                </div>
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <p class="details-off"><span class="colr">{{data.buildingCode}} /{{data.blockCode}} / {{data.floorNo}} / {{data.roomName}} - ( {{data.roomCode}} )</span></p>
+                </div>
+            </div>
+        </div>
+
+        <div fxLayout="column" class="div-border" *ngIf="data.dataDetails == 'newRoom'">
+            <div fxLayout="row wrap " fxFlex="100">
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                    <p class="details-off">Course : </p>
+                </div>
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <p class="details-off"><span class="colr"> {{data.collegeCode}} / {{data.courseCode}} / {{data.academicYear}} </span></p>
+                </div>
+            </div>
+            <div fxLayout="row wrap " fxFlex="100">
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                    <p class="details-off">Exam : </p>
+                </div>
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <p class="details-off"><span class="colr"> {{data.exam}}</span></p>
+                </div>
+            </div>
+            <div fxLayout="row wrap " fxFlex="100">
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                    <p class="details-off">Exam Timetable : </p>
+                </div>
+                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                    <p class="details-off"><span class="colr"> {{data.exam}} - ({{data.examTimetable}}) </span></p>
+                </div>
+            </div>
+        </div>
+        <form name="invStaffForm" [formGroup]="invStaffForm" novalidate>
+            <div fxLayout="column" *ngIf="data.dataDetails == 'newRoom'" style="padding: 5px;">
+                <div fxLayout="row" style="margin-top: 15px;">
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                        <mat-select placeholder="Campus - Building" name="buildingId" formControlName="buildingId" (selectionChange)="SelectedBuilding(invStaffForm.value.buildingId)">
+                            <mat-option [value]="''">Select</mat-option>
+                            <mat-option *ngFor="let objct of buildings" [value]="objct.buildingId" matTooltip="{{objct.campusName}} - {{objct.buildingCode}}"
+                            >{{objct.campusName}} - {{objct.buildingCode}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="16" fxFlex.gt-md="16">
+                        <mat-select placeholder="Block" name="blockId" formControlName="blockId" (selectionChange)="SelectedBlock(invStaffForm.value.blockId)">
+                            <mat-option [value]="''">Select</mat-option>
+                            <mat-option *ngFor="let objct of blocks" [value]="objct.blockId">{{objct.blockCode}}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="16">
+                        <mat-select placeholder="Floor - No" name="floorId" formControlName="floorId" (selectionChange)="SelectedFloors(invStaffForm.value.floorId)">
+                            <mat-option [value]="''">Select</mat-option>
+                            <mat-option *ngFor="let object of floors" [value]="object.floorId">{{object.floorName}} - {{object.floorNo}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40">
+                        <mat-select placeholder="Room Search" name="roomId" formControlName="roomId" #singleSelect>
+                            <ngx-mat-select-search [formControl]="roomFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" (keyup)="enteredRoom($event)"></ngx-mat-select-search>
+                            <mat-option *ngFor="let room of filteredRooms | async" [value]="room.roomId" style="height: auto;">
+
+                                <div style="width: 80%;top: 5px;line-height: 30px;">
+                                    <span class="book-title">{{room.roomName}}</span>
+                                    <span class="rol-no1" *ngIf="room.roomType != null">
+                                                <small>( {{room.roomType}})</small>
+                                            </span><br>
+                                    <span class="rol-no">
+                                     <small> {{room.campuName}}</small>
+                                     <small *ngIf= "room.buildingName != null"> / {{room.buildingName}}</small>
+                                     <small *ngIf= "room.blockName != null"> / {{room.blockName}}</small>
+                                     <small *ngIf= "room.floorName != null"> / {{room.floorName}}</small>
+                                     </span>
+                                </div>
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+
+                </div>
+
+            </div>
+        </form>
+        <mat-accordion class="accordion-align">
+            <mat-expansion-panel [expanded]="step === 0" hideToggle>
+                <mat-expansion-panel-header>
+                    <mat-panel-title>
+                        <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center" class="form-header">
+                                <i class="fa fa-plus icon-align" aria-hidden="true"></i>
+                                <!-- <h1 class="secondary-text table-head fs-20">Campus</h1> -->
+                                <strong class="table-heads">Allot Invigilator</strong>
+                            </div>
+                        </div>
+                    </mat-panel-title>
+                    <!-- <span class="new-subjects" (click)="openDialog()">+ New Subject</span> -->
+                </mat-expansion-panel-header>
+                <form name="invStaffForm" [formGroup]="invStaffForm" novalidate>
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                        <mat-select placeholder="Employee" [formControl]="employeeSingleCtrl" (selectionChange)="selectedEmp()" #singleSelect required>
+                            <ngx-mat-select-search [formControl]="employeeFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" (keyup)="enteredEmployee($event)"></ngx-mat-select-search>
+                            <mat-option *ngFor="let employee of filteredEmployees | async" [value]="employee.employeeId">{{employee.empNumber}}<span class="rol-no" *ngIf="employee.firstName != null">({{employee.firstName}})</span></mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                        <mat-select placeholder="Invigilator Designation" name="invgdesignationCatId" formControlName="invgdesignationCatId" required>
+                            <mat-option *ngFor="let objt of invigilatorDisg" [value]="objt.generalDetailId">{{objt.generalDetailCode}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+                    <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                        <input matInput placeholder="Comments" name="comments" formControlName="comments">
+                    </mat-form-field> -->
+                    <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                        <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
+                    </section>
+                    <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                        <button mat-raised-button class="add-btn " color="accent" (click)="addDetails()">Update</button>
+                    </div>
+                    <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                        <button mat-raised-button class="add-btn btn-map" style="margin-top: 12px !important;" (click)="clear()">Clear</button>
+                    </div>
+
+                </form>
+            </mat-expansion-panel>
+            <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+            </mat-expansion-panel>
+        </mat-accordion>
+
+        <!-- <form name="staffForm" [formGroup]="staffForm" novalidate> -->
+
+        <mat-dialog-content>
+            <div fxLayout="column" class="div-border" style="margin-bottom: 20px">
+                <div fxLayout="row wrap " fxFlex="100">
+                    <table mat-table [dataSource]="dataSource" matSort>
+                        <!-- ID Column -->
+                        <ng-container matColumnDef="id">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header> No. </th>
+                            <td mat-cell *matCellDef="let row; let i=index"> {{examInvigilationAllotmentsList.indexOf(row)+1}} </td>
+                        </ng-container>
+
+                        <!-- Invigilator Emp Name Column -->
+                        <ng-container matColumnDef="invigilatorEmpName">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Invigilator Name</th>
+                            <td mat-cell *matCellDef="let row"> {{row.invigilatorEmpName}}
+                                <span class="rol-no" *ngIf="row.invigilatorEmpNumber">({{row.invigilatorEmpNumber}})</span> </td>
+                        </ng-container>
+
+                        <!-- Invigilator Designation Column -->
+                        <ng-container matColumnDef="invgdesignationCatCode">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Invigilator Designation</th>
+                            <td mat-cell *matCellDef="let row"> {{row.invgdesignationCatCode}} </td>
+                        </ng-container>
+
+
+                        <!-- Exam Session Column -->
+                        <!-- <ng-container matColumnDef="roomCode">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Room</th>
+                                <td mat-cell *matCellDef="let row"> {{row.roomCode}} </td>
+                            </ng-container> -->
+
+                        <!-- Is Active Column -->
+                        <ng-container matColumnDef="isActive">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
+                            <td mat-cell *matCellDef="let row">
+                                <span *ngIf="row.isActive==true" class="active">Active</span>
+                                <span *ngIf="row.isActive==false" class="in-active">InActive</span>
+                            </td>
+                        </ng-container>
+
+                        <!-- Actions Column -->
+                        <ng-container matColumnDef="actions">
+                            <th mat-header-cell *matHeaderCellDef mat-sort-header> Actions </th>
+                            <td mat-cell *matCellDef="let row; let i = index;" class="text-ctr">
+                                <!-- <i class="fa fa-times edit" (click)="deleteInvigilator(row,i)" *ngIf="row.examInvgAllotmentId == null"></i> -->
+                                <i class="material-icons edit" matTooltip="Edit" (click)="editEmployee(row,i)" > border_color</i>
+                            </td>
+                        </ng-container>
+
+
+                        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                        <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </mat-dialog-content>
+        <mat-dialog-actions>
+            <button mat-raised-button class="cls-btn" mat-dialog-close>
+                            Close
+                            </button>
+            <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+                 Save
+                 </button>
+
+        </mat-dialog-actions>
+        <!-- </form> -->
+
+    </div>
+</div>

@@ -1,0 +1,68 @@
+<div class="content">
+    <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+        <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+            <div fxLayoutAlign="start center" class="mod-head">
+                <mat-icon class="fs  icon-align ">book</mat-icon>
+                <span>Subjects List</span>
+            </div>
+        </div>
+    </div>
+    <mat-dialog-content class="search-boader">
+        <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+            <mat-form-field fxFlex="50" fxLayout="column">
+                <input matInput (keyup)="applyFilter($event.target.value)" aria-invalid="false" aria-required="false" placeholder="Subject Name / Code">
+            </mat-form-field>
+        </div>
+    </mat-dialog-content>
+
+    <div class="mat-elevation-z8 ">
+        <div class="example-container-2">
+            <table mat-table [dataSource]="dataSource " matSort>
+
+                <!-- ID Column -->
+                <ng-container matColumnDef="id">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                    <td mat-cell *matCellDef="let row; let i=i ndex"> {{subjectsList.indexOf(row) + 1}} </td>
+                </ng-container>
+
+                <!-- Subject Name Column -->
+                <ng-container matColumnDef="subjectName">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject Name</th>
+                    <td mat-cell *matCellDef="let row"> {{row.subject_name}}
+                        <span *ngIf="row.subjectCode !== null" class="rol-no">({{row.subject_code}})</span> </td>
+                </ng-container>
+
+                <!-- Subject Type Column -->
+                <ng-container matColumnDef="subjectTypeCode">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject Type</th>
+                    <td mat-cell *matCellDef="let row"> {{row?.subjectTypeCode}} </td>
+                </ng-container>
+
+                <!-- Credits Column -->
+                <ng-container matColumnDef="subCredits">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header> Credits</th>
+                    <td mat-cell *matCellDef="let row"> {{row?.credits}} </td>
+                </ng-container>
+
+                <!-- Regulation Column -->
+                <ng-container matColumnDef="regulationName">
+                    <th mat-header-cell *matHeaderCellDef mat-sort-header>Regulation</th>
+                    <td mat-cell *matCellDef="let row"> {{row?.regulation_code}} </td>
+                </ng-container>
+
+                <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                </tr>
+            </table>
+        </div>
+    </div>
+    <mat-dialog-actions>
+        <button mat-raised-button class="cls-btn" mat-dialog-close>
+                      Close
+                  </button>
+        <!-- <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+              Assign
+          </button> -->
+
+    </mat-dialog-actions>
+</div>

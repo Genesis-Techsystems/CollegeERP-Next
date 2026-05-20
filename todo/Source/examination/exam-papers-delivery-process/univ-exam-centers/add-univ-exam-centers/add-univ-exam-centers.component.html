@@ -1,0 +1,89 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div fxLayout="row wrap " fxFlex="100" fxLayoutAlign="space-between center">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <mat-icon>settings</mat-icon>
+                    <span>  {{dialogTitle}} <span *ngIf="data.universityCode"> - {{data?.universityCode}} </span></span>
+                </div>
+                <div fxLayoutAlign="end center" class="mod-head">
+                    <!-- <span>University :</span><span>{{data.universityCode}} - {{data.collegecode}} </span> -->
+                </div>
+            </div>
+        </div>
+        <form name="examCenterForm" [formGroup]="examCenterForm" novalidate>
+            <mat-dialog-content>
+                <div fxLayout="column">
+                        <div fxLayout="row wrap " fxFlex="100">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                                <mat-select placeholder="Exam Regional Center" name="ExamRegionalCenter" formControlName="univExamReionalCenterId"  required>
+                                    <mat-option *ngFor="let examlRegionalCenterList  of examlRegionalCenterList " [value]="examlRegionalCenterList .univExamReionalCenterId">{{examlRegionalCenterList .examReionalCenterCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" >
+                                <input matInput placeholder="Exam Center Name" name="examcenterName" formControlName="examcenterName">
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" >
+                                <input matInput placeholder="Exam Center Code" name="examcenterCode" formControlName="examcenterCode">
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" >
+                                <input matInput placeholder="Longitude" name="longitude" formControlName="longitude">
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" >
+                                <input matInput placeholder="Latitude" name="latitude" formControlName="latitude">
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" >
+                                <input matInput placeholder="Address Line1" name="addressLine1" formControlName="addressLine1">
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" >
+                                <input matInput placeholder="Address Line2" name="addressLine2" formControlName="addressLine2">
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                <mat-select placeholder="City" name="cityId" formControlName="cityId"  required>
+                                    <mat-option *ngFor="let cities of cities" [value]="cities.cityId">{{cities.cityCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                <mat-select placeholder="City" name="cityId" formControlName="univExamReionalCenterId"  required>
+                                    <mat-option  [value]="1">Karminagar</mat-option>
+                                </mat-select>
+                            </mat-form-field> -->
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" >
+                                <input matInput placeholder="Pincode" name="pincode" formControlName="pincode">
+                            </mat-form-field>
+                                 <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                <mat-select placeholder="Qp Scanning Center" name="qpScanningCenterId" formControlName="qpScanningCenterId">
+                                    <mat-option  [value]=""></mat-option>
+                                </mat-select>
+                            </mat-form-field> -->
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                <mat-select placeholder="Qp Scanning Center" name="qpScanningCenterId" formControlName="qpScanningCenterId" >
+                                    <ngx-mat-select-search  [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" (keyup)="serachExamCenter($event.target.value)"></ngx-mat-select-search>
+                                    <mat-option *ngFor="let examlCenterList of examlCenterList" [value]="examlCenterList.univExamcenterId">{{examlCenterList.examcenterCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                <mat-checkbox name="isQpScanningCenter" formControlName="isQpScanningCenter">Is Qp ScanningCenter</mat-checkbox>
+                            </section>
+                            <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="15">
+                                <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
+                            </section>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" *ngIf="examCenterForm.controls.isActive.value === false">
+                                <input matInput placeholder="Reason" name="reason" formControlName="reason">
+                            </mat-form-field>
+                           
+                        </div>
+                    </div>
+            </mat-dialog-content>
+           
+            <mat-dialog-actions>
+                <button mat-raised-button class="cls-btn" mat-dialog-close>
+                            Close
+                            </button>
+                <button mat-raised-button class="add-btn"  color="accent" (click)="submit()">
+                 Save
+                 </button>
+
+            </mat-dialog-actions>
+        </form>

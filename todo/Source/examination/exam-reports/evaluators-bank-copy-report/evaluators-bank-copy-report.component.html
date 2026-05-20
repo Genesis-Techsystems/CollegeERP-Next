@@ -1,0 +1,367 @@
+<div id="dashboard" class="page-layout simple" id="printNone">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Reports</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Reports</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Evaluator Remuneration Report</span>
+                </div>
+            </div>
+        </div>
+        <!-- / HEADER -->
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                                fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads"> Evaluator Remuneration Report </strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                    </mat-expansion-panel-header>
+                    <form name="evaluatorForm" [formGroup]="evaluatorForm" novalidate>
+                        <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                            <div fxLayout="row">
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                        (selectionChange)="selectedCourse(evaluatorForm.value.courseId)" required>
+                                        <mat-option *ngFor="let course of courses"
+                                            [value]="course.fk_course_id">{{course.course_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Exam Year" name="academicYearId"
+                                        formControlName="academicYearId"
+                                        (selectionChange)="selectedAcademicYear(evaluatorForm.value.academicYearId)"
+                                        required>
+                                        <mat-option *ngFor="let academicYear of academicYears"
+                                            [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
+                                    fxFlex.gt-md="60">
+                                    <mat-select placeholder="Exam Master" name="examId" formControlName="examId"
+                                        (selectionChange)="selectedExam(evaluatorForm.value.examId)" required>
+                                        <ngx-mat-select-search [placeholderLabel]="'Search...'"
+                                            [noEntriesFoundLabel]="'no matching data found'"
+                                            (keyup)="searchexam($event.target.value)"></ngx-mat-select-search>
+                                        <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
+                                            matTooltip="{{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date | date:dateFormate}})">
+
+                                            {{exam.exam_name}} ({{exam.from_date | date:dateFormate}} - {{exam.to_date |
+                                            date:dateFormate}})
+                                            <span *ngIf="exam.is_internal_exam" style="color: #0014ff;font-weight: 500;"
+                                                matTooltip='Internal'>(Internal)</span>
+                                            <span *ngIf="exam.is_regular_exam" style="color: #0014ff;font-weight: 500;"
+                                                matTooltip="Regular">(Regular)</span>
+                                            <span *ngIf="exam.is_supply_exam" style="color: #0014ff;font-weight: 500;"
+                                                matTooltip="Supple">(Supple)</span>
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                            </div>
+                            <div class="row-wrap">
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="College" name="collegeId" formControlName="collegeId"
+                                        (selectionChange)="selectedCollege(evaluatorForm.value.collegeId)" required>
+                                        <mat-option *ngFor="let college of colleges"
+                                            [value]="college.fk_college_id">{{college.college_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+
+
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Course Group " name="courseGroupId"
+                                        formControlName="courseGroupId"
+                                        (selectionChange)="selectedGroup(evaluatorForm.value.courseGroupId)" required>
+                                        <mat-option [value]="0"> All </mat-option>
+                                        <mat-option *ngFor="let courseGroup of courseGroups"
+                                            [value]="courseGroup.fk_course_group_id">{{courseGroup.group_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15"
+                                    fxFlex.gt-md="15">
+                                    <mat-select placeholder="Course Years" name="courseYearId"
+                                        formControlName="courseYearId"
+                                        (selectionChange)="selectedYear(evaluatorForm.value.courseYearId)" required>
+                                        <mat-option [value]="0"> All </mat-option>
+                                        <mat-option *ngFor="let courseYear of courseYears"
+                                            [value]="courseYear.fk_course_year_id">{{courseYear.course_year_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15"
+                                    fxFlex.gt-md="15">
+                                    <mat-select placeholder="Regulation" name="regulationId"
+                                        formControlName="regulationId"
+                                        (selectionChange)="selectedRegulation(evaluatorForm.value.regulatonId)"
+                                        required>
+                                        <mat-option *ngFor="let obj of regulationList"
+                                            [value]="obj.fk_regulation_id">{{obj.regulation_code}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
+                                    fxFlex.gt-md="30">
+                                    <mat-select placeholder="Subject" name="subjectId" formControlName="subjectId"
+                                        (selectionChange)="selectedsubject(evaluatorForm.value.subjectId)" required>
+                                        <ngx-mat-select-search (keyup)="searchSubject($event.target.value)"
+                                            [placeholderLabel]="'Search Subject...'"
+                                            [noEntriesFoundLabel]="'no matching data found'">
+                                        </ngx-mat-select-search>
+                                        <mat-option [value]="0"> All </mat-option>
+                                        <mat-option *ngFor="let subject of subjectData" [value]="subject.fk_subject_id"
+                                            matTooltip="{{subject.subject_name}} ({{subject.subject_code}})">{{subject.subject_name}}
+                                            ({{subject.subject_code}})
+
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                            </div>
+                            <div class="row-wrap">
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40"
+                                    fxFlex.gt-md="40">
+                                    <mat-select placeholder="Evaluators" name="Evaluators"
+                                        formControlName="inevalutorprofileid" (selectionChange)="selectedEvaluator()"
+                                        required>
+                                        <ngx-mat-select-search [placeholderLabel]="'Search Evaluators...'"
+                                            [noEntriesFoundLabel]="'No Matching Data Found'"></ngx-mat-select-search>
+                                        <mat-option [value]="0"> All </mat-option>
+                                        <mat-option *ngFor="let evaluator of evaluatorsData"
+                                            [value]="evaluator.pk_exam_evaluator_profile_id"
+                                            matTooltip="{{evaluator.evaluator_name}}({{evaluator.user_name}})">
+                                            {{evaluator.evaluator_name}}
+                                            (<span style="color: blue;"> {{evaluator.user_name}} </span>)
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <section fxLayout="column" class="ml-2 mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                    <mat-checkbox name="isReevaluation" (click)="dateChange()" formControlName="isReevaluation">Is Re-Evaluation</mat-checkbox>
+                                </section>
+                                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="getList()">Get
+                                        List</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+            </mat-accordion>
+
+            <div fxLayout="row" *ngIf="evaluatedReport && evaluatedReport.length > 0">
+                <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+                    <mat-card class="pd-card table-align">
+                        <mat-card-content>
+                            <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between"
+                                fxLayoutGap="5">
+                                <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35"
+                                    fxLayout="row" fxLayoutAlign="start center">
+                                    <label for="search" class="mr-8">
+                                        <mat-icon class="secondary-text">search</mat-icon>
+                                    </label>
+                                    <mat-form-field floatLabel="never" fxFlex="1 0 auto" style="margin-left: 10px">
+                                        <input matInput (keyup)="applyFilter($event.target.value)" placeholder="Search">
+                                    </mat-form-field>
+                                </div>
+                                <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="26" fxFlex.gt-md="26"
+                                    fxLayout="row" fxLayoutAlign="start end">
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="exportAsExcel()">
+                                        <i class="fa fa-print icon" aria-hidden="true"></i>Excel Export</button>
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="printPage()">
+                                        <i class="fa fa-print icon" aria-hidden="true"></i>Print Report</button>
+                                </div>
+                            </div>
+                        </mat-card-content>
+                        <div class="mat-elevation-z8 ">
+                            <div class="example-container" style="overflow: hidden !important;">
+                                <strong style="display: none !important;"> Evaluator Remuneration Report </strong>
+                                <table mat-table [dataSource]="dataSource" matSort>
+                                    <strong style="display: none !important;"> Evaluator Remuneration Report -
+                                        {{subjectname}}({{subjectCode}}) </strong>
+                                    <ng-container matColumnDef="id">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                        <td mat-cell *matCellDef="let row; let i = index;"> {{i + 1}} </td>
+                                    </ng-container>
+
+                                    <ng-container matColumnDef="evaluatorName">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Evaluator Name</th>
+                                        <td mat-cell *matCellDef="let row"> {{row?.evaluator_name}} </td>
+                                    </ng-container>
+
+                                    <ng-container matColumnDef="subjectcode">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject Code</th>
+                                        <td mat-cell *matCellDef="let row"> {{row?.subject_code}} </td>
+                                    </ng-container>
+
+                                    <ng-container matColumnDef="examEvaluatorsId">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Assigned Answer Sheets
+                                        </th>
+                                        <td mat-cell *matCellDef="let row">{{row?.no_of_students_assigned}} </td>
+                                    </ng-container>
+
+                                    <ng-container matColumnDef="NumberOfAssignEvaluators">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Evaluated Answer Sheets
+                                        </th>
+                                        <td mat-cell *matCellDef="let row">{{row?.no_of_evaluations_completed}}
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="Amount">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Amount</th>
+                                        <td mat-cell *matCellDef="let row">{{row?.amount}}
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="TotalAmount">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Total Amount</th>
+                                        <td mat-cell *matCellDef="let row">{{row?.final_amount}}
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="AccNo">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Account No.</th>
+                                        <td mat-cell *matCellDef="let row">{{row?.account_number}}
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="IfscCode">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> IFSC Code</th>
+                                        <td mat-cell *matCellDef="let row">{{row?.ifsc_code}}
+                                        </td>
+                                    </ng-container>
+
+                                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                                    <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                                    </tr>
+                                </table>
+                            </div>
+                            <!-- <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator> -->
+                        </div>
+                    </mat-card>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="hall-ticket-wrapper">
+    <div *ngFor="let report of evaluatedReportsByProfile" class="page-align page-break">
+        <div *ngIf="universityCode === 'MECS'">
+            <img src="assets/images/avatars/MECS_BANNER.png" class="college-banner" />
+        </div>
+        <div *ngIf="universityCode === 'MVSR'">
+            <img src="assets/images/avatars/MVSR_BANNER.png" class="college-banner-2" />
+        </div>
+        <div>
+            <p class="collegeName">Evaluator Remuneration Report </p>
+            <p class="title">{{examName}} </p>
+        </div>
+        <div>
+            <div class="exam-header">
+                <div>Evaluator ID : {{report.user_name}}</div>
+                <div>Name of the Evaluator : {{report.evaluator_name}}</div>
+                <div>Mobile : {{report.phonenumber}}</div>
+                <div>Bank Account Number : {{report.account_number}}</div>
+                <div>Bank Name : {{report.bank_name}}</div>
+                <div>IFSC Code : {{report.ifsc_code}}</div>
+                <div>Branch : {{report.bank_address}}</div>
+                <div>PAN Card : {{report.pan_card}}</div>
+            </div>
+            <table class="subject-table-refined">
+                <thead>
+                    <tr>
+                        <th>S.NO</th>
+                        <th>SUBJECT CODE</th>
+                        <th>NAME OF THE SUBJECT</th>
+                        <th>NO. OF SCRIPTS EVALUATED</th>
+                        <th>RATE FOR SCRIPT</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let data of report.subjects; let i = index">
+                        <td>{{i + 1}}</td>
+                        <td>{{data.subject_code}}</td>
+                        <td>{{data.subject_name}}</td>
+                        <td>{{data.no_of_evaluations_completed}}</td>
+                        <td>{{data.amount}}</td>
+                        <td>{{data.final_amount}}</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" style="text-align:right"><b>Grand Total</b></td>
+                        <td>{{report.total_scripts}}</td>
+                        <td> </td>
+                        <td style="text-align:center !important">{{report.total_final_amount}}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div class="exam-header">
+                <div> Total Amount Of : {{ report.total_final_amount > 500 ? report.total_final_amount : 500 }}/- </div>
+                <div class="light-text" style="font-weight:200 !important"> *Note :<br> Remuneration per script is {{report?.amount}}/- and minimum amount to be paid is 500/- </div>
+                <div style="text-align:right !important;margin-top:5% !important"> Controller Of Examinations </div>
+                <div class="light-text" style="font-weight:200 !important"> This is System generated bill,No signature is required</div>
+            </div>
+        </div>
+    </div>
+</div>
+<div style="display : none !important" #TABLE>
+    <div class="page-align page-break" #excelTable>
+        <div>
+            <table class="subject-table-refined">
+                <thead>
+                    <tr>
+                        <th>Exam Name</th>
+                        <th>Evaluator Name</th>
+                        <th>Mobile</th>
+                        <th>Bank Name</th>
+                        <th>Bank Adress</th>
+                        <th>Account Number</th>
+                        <th>IFSC Code</th>
+                        <th>Total Scripts Assigned</th>
+                        <th>Total Evaluations Completed</th>
+                        <th>Total Subjects</th>
+                        <th>Amount Per Evaluation</th>
+                        <th>Final Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let report of evaluatedReportsByProfile" >
+                        <td>{{report.exam_name}}</td>
+                        <td>{{report.evaluator_name}}</td>
+                        <td>{{report.phonenumber}}</td>
+                        <td>{{report.bank_name}}</td>
+                        <td>{{report.bank_address}}</td>
+                        <td>{{report.account_number}}</td>
+                        <td>{{report.ifsc_code}}</td>
+                        <td>{{report.assigned_scripts}}</td>
+                        <td>{{report.total_scripts}}</td>
+                        <td>{{report.subjects.length}}</td>
+                        <td>{{report.amount}}</td>
+                        <td>
+                            <span>
+                                {{ report.total_final_amount > 500 ? report.total_final_amount : 500 }}/-
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

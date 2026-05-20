@@ -1,0 +1,161 @@
+table#PivotView_grid_content_table {
+    width: 100% !important;
+}
+
+table.e-table {
+    width: 100% !important;
+}
+
+.pd-page {
+    padding: 0px 24px 0px 24px !important;
+}
+
+.mar {
+    margin: 0px 0;
+}
+
+.table-td {
+    padding: 8px 8px !important;
+    text-align: left;
+    font-weight: 400;
+}
+
+.mp-5 {
+    margin-top: 5px;
+}
+
+p {
+    margin: 5px 0px;
+    color: #c76d2f;
+}
+
+.table-th {
+    padding: 8px 5px !important;
+    background: #C3D9FF;
+    font-weight: 550;
+}
+
+.back-grnd {
+    border: 1px solid #fff;
+    margin: 1px;
+    background: #eaf2ff;
+}
+
+.txt-uppercase {
+    text-transform: uppercase;
+}
+
+table {
+    border-spacing: 1px !important;
+}
+
+.radio-btn {
+    margin: 10px 0px 12px 5px;
+}
+
+.r-btn {
+    margin-left: 35px;
+}
+
+.e-grid {
+    margin: 0.1%
+}
+
+@media print {
+    #printNone {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    .print-section {
+        display: block;
+        width: 100% !important;
+    }
+
+    header nav,
+    footer {
+        display: none;
+    }
+
+    .collegeName {
+        text-align: center !important;
+        font-size: 24px !important;
+        margin-top: 16px !important;
+        margin-bottom: -8px !important;
+        font-family: none !important;
+        color: rgb(0, 0, 0) !important;
+        font-weight: 550 !important;
+    }
+
+    .title {
+        text-align: center !important;
+        font-size: 21px !important;
+        font-family: none !important;
+        color: rgb(0, 0, 0) !important;
+        font-weight: 550 !important;
+        margin-bottom: -0.1px !important;
+    }
+
+    .details {
+        font-size: 19px;
+        justify-content: center;
+        font-family: none;
+        color: rgb(0, 0, 0) !important;
+        text-align: center !important;
+    }
+
+    table {
+        border: 1px solid black !important;
+        border-collapse: collapse !important;
+        padding: 2px !important;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 12px;
+    }
+
+    .table-th {
+        border: 1px solid black !important;
+        border-collapse: collapse !important;
+    }
+
+    .table-td {
+        border: 1px solid black !important;
+        border-collapse: collapse !important;
+    }
+
+    .header {
+        justify-content: center !important;
+
+        p {
+            text-align: center !important;
+        }
+    }
+}
+
+.icon {
+    color: aliceblue !important;
+    padding: 4px;
+}
+
+.ptnbtn {
+    margin-top: 4% !important;
+}
+
+.search-align {
+    margin: -0.9% !important;
+}
+
+.align-items {
+    margin-top: 0.4% !important;
+}
+
+.footer {
+    font-weight: 550;
+    width: 40%;
+    text-align: left !important;
+    color: rgb(0, 0, 0) !important
+}
+
+.portraitLogo {
+    height: 80%;
+    width: 80%;
+}

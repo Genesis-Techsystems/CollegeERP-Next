@@ -1,0 +1,269 @@
+.mb-24 {
+    margin-bottom: 10px !important;
+}
+.mp-24 {
+    margin-top: 8px !important;
+    overflow: hidden !important;
+}
+.savebtn-align {
+    margin: 3px 0px 15px 0px !important;
+    float: right;
+    button {
+        width: 100%;
+    }
+}
+.down-box {
+    border: 2px solid #c3d9ff;
+    margin: 20px 0px 0 0px;
+    background: #fff;
+    border-radius: 3px;
+}
+.header-align {
+    border-bottom: 2px solid #ffcf46;
+    padding-bottom: 8px;
+    margin: 16px 12px;
+}
+.absent {
+    background: #ecf3ff;
+    margin: 0;
+    padding: 11px;
+    border: 1px solid #c3d9ff;
+    font-weight: 500;
+    text-transform: uppercase;
+    text-align: center;
+    span {
+        float: right;
+    }
+}
+p {
+    margin: 0 !important;
+    padding: 10px;
+    border-bottom: 1px solid #dedede;
+}
+.span-active {
+    color: #00c300;
+}
+.span-inActive {
+    color: red;
+}
+.mar-8 {
+    margin: 0 8px;
+}
+.mat-raised-button {
+   // min-width: 135px !important;
+    line-height: 30px !important;
+}
+p {
+    margin: 4px 5px !important;
+}
+p.details-off {
+    font-weight: 500;
+    margin: 0 !important;
+    padding: 5px !important;
+    border-bottom: 0px solid #dedede !important;
+}
+.colr {
+    color: #0d29ff;
+}
+.break {
+    background: #dedede;
+}
+.mat-dialog-actions {
+    margin: 0px 13px 5px 0 !important;
+}
+.div-border {
+    padding: 0 !important;
+}
+.mar-8 {
+    margin: 0 8px;
+}
+.example-container {
+    height: 450px;
+}
+.abs-div {
+    overflow: auto;
+    max-height: 442px;
+}
+.prxy {
+    background: yellow;
+    padding: 5px;
+    border-radius: 3px;
+    margin-left: 10px;
+}
+.ex-amt {
+    border: 2px solid #c4c4c4;
+    width: 40%;
+    height: 25px;
+    border-radius: 3px;
+    float: right;
+    text-align: right;
+    padding: 0%;
+}
+.ex-amt {
+    width: 100%;
+    text-align: center;
+    padding: 5px;
+    box-sizing: border-box;
+    height: 30px;
+    border: 2px solid #ccc;
+    border-radius: 3px;
+}
+
+.label-fee {
+    font-weight: bold;
+    text-align: center;
+    display: block;
+    color: blue;  /* Matches the uploaded image */
+}
+
+.fee-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.late-border {
+    padding: 10px;
+}
+
+.head-late {
+    text-align: start;
+}
+
+
+
+.ex-amt-supply {
+    border: 2px solid #c4c4c4;
+    width: 70%;
+    height: 25px;
+    border-radius: 3px;
+    float: right;
+    text-align: right;
+}
+.exFee-amt {
+    border: 2px solid #c4c4c4;
+    height: 30px;
+    border-radius: 3px;
+    float: right;
+    margin: 15px 0px;
+    text-align: right;
+    padding: 0%;
+
+}
+.add-fee {
+    border: 1px solid #dedede;
+    margin: 10px;
+    padding: 5px;
+    background: #ecf3ff;
+    border-radius: 5px;
+}
+.bordr-fee {
+    padding: 5px !important;
+}
+.mat-table {
+    padding: 0px 0px;
+}
+.search-box{
+    position: relative;
+    margin: 5px 5px 0 5px;
+    input{
+        width: 100%;
+        border: 2px solid #ffcf46;
+        padding: 10px 10px 10px 32px;
+        margin-bottom: 8px;
+        border-radius: 5px;
+    }
+    i{
+        position: absolute;
+        top: 11px;
+        left: 10px;
+        font-size: 15px;
+    }
+}
+p.para_amt {
+    margin: 0px !important;
+}
+.late-border{
+    border: 2px solid #c3d9ff;
+    margin: 5px 10px;
+    padding: 5px 0px;
+    border-radius: 3px;
+}
+.firstTable {
+    margin: 0 0 0 10px;
+    table {
+        width: 100%;
+    }
+    thead {
+        display: table;
+        /* to take the same width as tr */
+        width: calc(100% - 12px);
+        /* - 17px because of the scrollbar width */
+    }
+    tbody {
+        display: block;
+        /* to enable vertical scrolling */
+        max-height: 195px;
+        /* e.g. */
+        overflow-y: scroll;
+        /* keeps the scrollbar even if it doesn't need it; display purpose */
+    }
+    th,
+    td {
+        width: 16%;
+        /* to enable "word-break: break-all" */
+        padding: 5px;
+       // word-break: break-all;
+        /* 4. */
+    }
+    tr {
+        display: table;
+        /* display purpose; th's border */
+        width: 100%;
+        box-sizing: border-box;
+        /* because of the border (Chrome needs this line, but not FF) */
+    }
+    td {
+      //  text-align: center;
+        border-bottom: none;
+        border-left: none;
+    }
+}
+.table-th{
+    padding: 5px 5px !important;
+    background: #C3D9FF !important;
+    font-weight: 500;
+    color: #000 !important;
+}
+table {
+    border-spacing: 1px !important;
+}
+.table-td {
+    padding: 3px 8px !important;
+   // background: #C3D9FF !important;
+}
+tbody tr:nth-child(odd){
+    background-color: #eaf2ff;
+    color: #fff;
+  }
+  .table-align mat-card-content {
+    background: #fff;
+    padding: 7px 15px 0px 15px;
+    color: #000;
+    margin-bottom: 0;
+    height: auto;
+}
+.head-late {
+    background: #ecf3ff;
+    margin: 0;
+    padding: 11px;
+    border: 1px solid #c3d9ff;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+.label-fee{
+    font-weight: 500;
+    margin-top: 4px;
+    // margin-left: 10px;
+    color: blue;
+}

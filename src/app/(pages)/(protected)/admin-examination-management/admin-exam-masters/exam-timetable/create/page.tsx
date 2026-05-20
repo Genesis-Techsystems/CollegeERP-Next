@@ -1,0 +1,496 @@
+'use client'
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select'
+import { distinct } from '@/lib/utils'
+import { useSearchParams } from 'next/navigation'
+import { Trash2 } from 'lucide-react'
+import {
+	getUnivExamFiltersAll,
+	resolveExamLoginEmpId,
+	listCourseYears,
+	getExamSubjectsForSchedule,
+	getUnivExamSubjectFilters,
+	listExamFeeTypeGeneralDetails,
+} from '@/services/examination'
+import { useSessionContext } from '@/context/SessionContext'
+import { PageContainer, PageHeader } from '@/components/layout'
+import { toastSuccess } from '@/lib/toast'
+
+type Slot = {
+	date: string
+	startTime: string
+	endTime: string
+	subject?: string
+	venue?: string
+}
+
+export default function CreateExamTimetablePage() {
+	const searchParams = useSearchParams()
+	const { user } = useSessionContext()
+	// Filters
+	const [loadingFilters, setLoadingFilters] = useState(true)
+	const [filtersData, setFiltersData] = useState<any[]>([])
+
+	const [courses, setCourses] = useState<any[]>([])
+	const [academicYears, setAcademicYears] = useState<any[]>([])
+	const [courseYears, setCourseYears] = useState<any[]>([])
+	const [examMasters, setExamMasters] = useState<any[]>([])
+
+	const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
+	const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<number | null>(null)
+	const [selectedExamId, setSelectedExamId] = useState<number | null>(null)
+	const [paramCourseId, setParamCourseId] = useState<number | null>(null)
+	const [paramAcademicYearId, setParamAcademicYearId] = useState<number | null>(null)
+	const [paramExamId, setParamExamId] = useState<number | null>(null)
+	const [paramCourseYearId, setParamCourseYearId] = useState<number | null>(null)
+	const [paramCourseName, setParamCourseName] = useState('')
+	const [paramAcademicYear, setParamAcademicYear] = useState('')
+	const [paramExamName, setParamExamName] = useState('')
+	const [paramFromDate, setParamFromDate] = useState('')
+	const [paramToDate, setParamToDate] = useState('')
+
+	// Course years
+	const [q, setQ] = useState('')
+	const [selectedCourseYearIds, setSelectedCourseYearIds] = useState<Set<number>>(new Set())
+	const [selectedCourseYearId, setSelectedCourseYearId] = useState<number | null>(null)
+
+	// Subjects
+	const [subjects, setSubjects] = useState<{ code: string; name?: string }[]>([])
+	/** EXMFEETYP general-detail code (shown as "Exam fee type"). */
+	const [selectedRegulation, setSelectedRegulation] = useState<string | null>(null)
+	const [examFeeTypes, setExamFeeTypes] = useState<{ id: number; code: string; name: string }[]>([])
+	const [selectedSubjectCode, setSelectedSubjectCode] = useState<string | null>(null)
+
+	// Timetable slots
+	const [slotDraft, setSlotDraft] = useState<Slot>({ date: '', startTime: '', endTime: '' })
+	const [slots, setSlots] = useState<Slot[]>([])
+	// Course groups (UI mirroring)
+	const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
+	function toggleGroup(code: string) {
+		setSelectedGroups((s) => {
+			const next = new Set(s)
+			if (next.has(code)) next.delete(code)
+			else next.add(code)
+			return next
+		})
+	}
+
+	// Staged rows (table)
+	type StagedRow = {
+		examDate: string
+		session: 'M' | 'A'
+		groupCode: string
+		subjectCode: string
+	}
+	const [stagedRows, setStagedRows] = useState<StagedRow[]>([])
+
+	const filteredCourseYears = useMemo(() => {
+		const list = courseYears
+		if (!q.trim()) return list
+		const lower = q.toLowerCase()
+		return list.filter((y: any) => {
+			const label = (y.courseYearName ?? y.yearName ?? '').toString().toLowerCase()
+			return label.includes(lower)
+		})
+	}, [q, courseYears])
+
+	const fetchFilters = useCallback(async () => {
+		setLoadingFilters(true)
+		try {
+			const empId = resolveExamLoginEmpId(user?.employeeId)
+			const flat = await getUnivExamFiltersAll(empId)
+			const f = flat.filter((r: any) => !r.flag || r.flag === 'univ_exam_filters')
+			setFiltersData(f)
+			const distinctCourses = distinct(f ?? [], (r) => r.fk_course_id)
+			setCourses(distinctCourses)
+			if (distinctCourses.length > 0) {
+				handleCourseChange(distinctCourses[0].fk_course_id, f)
+			}
+			const gd = await listExamFeeTypeGeneralDetails().catch(() => [])
+			setExamFeeTypes(
+				(Array.isArray(gd) ? gd : []).map((d: any) => ({
+					id: Number(d.generalDetailId ?? d.id ?? 0),
+					code: String(d.generalDetailCode ?? d.code ?? ''),
+					name: String(d.generalDetailName ?? d.name ?? ''),
+				})).filter((d) => d.code),
+			)
+		} finally {
+			setLoadingFilters(false)
+		}
+	}, [user?.employeeId])
+
+	useEffect(() => {
+		setParamCourseId(searchParams?.get('courseId') ? Number(searchParams?.get('courseId')) : null)
+		setParamAcademicYearId(searchParams?.get('academicYearId') ? Number(searchParams?.get('academicYearId')) : null)
+		setParamExamId(searchParams?.get('examId') ? Number(searchParams?.get('examId')) : null)
+		setParamCourseYearId(searchParams?.get('courseYearId') ? Number(searchParams?.get('courseYearId')) : null)
+		setParamCourseName(searchParams?.get('courseName') ?? '')
+		setParamAcademicYear(searchParams?.get('academicYear') ?? '')
+		setParamExamName(searchParams?.get('examName') ?? '')
+		setParamFromDate(searchParams?.get('fromDate') ?? '')
+		setParamToDate(searchParams?.get('toDate') ?? '')
+		fetchFilters()
+	}, [fetchFilters, searchParams])
+
+	async function handleCourseChange(courseId: number, fRef = filtersData) {
+		setSelectedCourseId(courseId)
+		setSelectedAcademicYearId(null)
+		setSelectedExamId(null)
+		setExamMasters([])
+		setCourseYears([])
+		setSelectedCourseYearIds(new Set())
+		setSelectedCourseYearId(null)
+		setSubjects([])
+		setSelectedSubjectCode(null)
+
+		const filtered = (fRef ?? []).filter((r: any) => Number(r.fk_course_id) === Number(courseId))
+		const years = distinct(filtered, (r: any) => r.fk_academic_year_id).sort(
+			(a: any, b: any) =>
+				Number(String(b.academic_year ?? '').split('-')[0] || 0) -
+				Number(String(a.academic_year ?? '').split('-')[0] || 0),
+		)
+		setAcademicYears(years)
+
+		const yrs = await listCourseYears(courseId).catch(() => [])
+		const arr = Array.isArray(yrs) ? yrs : []
+		setCourseYears(arr)
+		if (arr.length > 0) {
+			if (
+				paramCourseYearId &&
+				arr.some((y: any) => Number(y.courseYearId ?? y.id) === Number(paramCourseYearId))
+			) {
+				setSelectedCourseYearId(paramCourseYearId)
+			} else {
+				const first = arr[0].courseYearId ?? arr[0].id ?? null
+				if (first != null) setSelectedCourseYearId(first)
+			}
+		}
+	}
+
+	useEffect(() => {
+		setExamMasters([])
+		setSelectedExamId(null)
+		if (!selectedCourseId || !selectedAcademicYearId) return
+		const rows = filtersData.filter(
+			(r: any) =>
+				Number(r.fk_course_id) === Number(selectedCourseId) &&
+				Number(r.fk_academic_year_id) === Number(selectedAcademicYearId),
+		)
+		const uniqByExam = distinct(rows, (r: any) => Number(r.fk_exam_id ?? r.exam_id ?? r.examId ?? 0))
+		const list = uniqByExam
+			.map((r: any) => ({
+				examId: Number(r.fk_exam_id ?? r.exam_id ?? r.examId ?? 0),
+				examName: String(r.exam_name ?? r.exam_Name ?? r.exam_short_name ?? r.short_name ?? '—'),
+			}))
+			.filter((e: { examId: number }) => e.examId > 0)
+		setExamMasters(list)
+		if (list.length > 0) setSelectedExamId(list[0].examId)
+	}, [selectedCourseId, selectedAcademicYearId, filtersData])
+
+	useEffect(() => {
+		if (loadingFilters || courses.length === 0 || !paramCourseId) return
+		if (selectedCourseId === paramCourseId) return
+		if (courses.some((c: any) => c.fk_course_id === paramCourseId)) {
+			handleCourseChange(paramCourseId, filtersData)
+		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [loadingFilters, paramCourseId, courses, selectedCourseId])
+
+	useEffect(() => {
+		if (paramAcademicYearId && academicYears.some((a: any) => a.fk_academic_year_id === paramAcademicYearId)) {
+			setSelectedAcademicYearId(paramAcademicYearId)
+		}
+	}, [paramAcademicYearId, academicYears])
+
+	useEffect(() => {
+		if (paramExamId && examMasters.some((e: any) => (e.examId ?? e.id) === paramExamId)) {
+			setSelectedExamId(paramExamId)
+		}
+	}, [paramExamId, examMasters])
+
+	useEffect(() => {
+		if (paramCourseYearId && courseYears.some((y: any) => (y.courseYearId ?? y.id) === paramCourseYearId)) {
+			setSelectedCourseYearId(paramCourseYearId)
+		}
+	}, [paramCourseYearId, courseYears])
+
+	// Load subjects when ids ready (uses legacy endpoints with fallback)
+	useEffect(() => {
+		async function loadSubjects() {
+			setSubjects([])
+			setSelectedSubjectCode(null)
+			if (!selectedCourseId || !selectedAcademicYearId || !selectedExamId || !selectedCourseYearId) return
+			const empId = resolveExamLoginEmpId(user?.employeeId)
+			let rows: any[] = []
+			rows = await getUnivExamSubjectFilters({
+				courseId: selectedCourseId,
+				examId: selectedExamId,
+				academicYearId: selectedAcademicYearId,
+				courseYearId: selectedCourseYearId,
+				employeeId: empId,
+			}).catch(() => [])
+			if (!rows || (Array.isArray(rows) && rows.length === 0)) {
+				rows = await getExamSubjectsForSchedule({
+					courseId: selectedCourseId,
+					examId: selectedExamId,
+					academicYearId: selectedAcademicYearId,
+					courseYearId: selectedCourseYearId,
+					employeeId: empId,
+				}).catch(() => [])
+			}
+			const mapped = (rows ?? []).map((r: any) => {
+				const code = String(
+					r.subject_code ?? r.subjectCode ?? r.subCode ?? r.paperCode ?? r.code ?? ''
+				).trim()
+				const name = String(
+					r.subject_name ?? r.subjectName ?? r.sub_name ?? r.paperName ?? r.name ?? ''
+				).trim()
+				return { code, name }
+			}).filter((x) => x.code)
+			// Deduplicate by code
+			const seen = new Set<string>()
+			const uniq: { code: string; name?: string }[] = []
+			for (const s of mapped) {
+				if (!seen.has(s.code)) {
+					seen.add(s.code)
+					uniq.push(s)
+				}
+			}
+			setSubjects(uniq)
+		}
+		loadSubjects()
+	}, [selectedCourseId, selectedAcademicYearId, selectedExamId, selectedCourseYearId, user?.employeeId])
+
+	function toggleCourseYear(id: number) {
+		setSelectedCourseYearIds((s) => {
+			const next = new Set(s)
+			if (next.has(id)) next.delete(id)
+			else next.add(id)
+			return next
+		})
+	}
+
+	function addSlot() {
+		if (!slotDraft.date || !slotDraft.startTime || !slotDraft.endTime) return
+		setSlots((s) => [...s, slotDraft])
+		setSlotDraft({ date: '', startTime: '', endTime: '' })
+	}
+	function removeSlot(i: number) {
+		setSlots((s) => s.filter((_, idx) => idx !== i))
+	}
+
+	function addSelectedToStage() {
+		const session: 'M' | 'A' | null = slotDraft.startTime ? (slotDraft.startTime < '12:00' ? 'M' : 'A') : null
+		if (!slotDraft.date || !session || !selectedSubjectCode || selectedGroups.size === 0) return
+		const rows: StagedRow[] = []
+		for (const code of Array.from(selectedGroups)) {
+			rows.push({
+				examDate: slotDraft.date,
+				session,
+				groupCode: code,
+				subjectCode: selectedSubjectCode,
+			})
+		}
+		setStagedRows((s) => [...s, ...rows])
+	}
+
+	function removeStagedRow(idx: number) {
+		setStagedRows((s) => s.filter((_, i) => i !== idx))
+	}
+
+	const canAdd = useMemo(() => {
+		const hasDate = !!slotDraft.date
+		const hasSession = !!slotDraft.startTime
+		const hasSubject = !!selectedSubjectCode
+		const hasGroups = selectedGroups.size > 0
+		return hasDate && hasSession && hasSubject && hasGroups
+	}, [slotDraft.date, slotDraft.startTime, selectedSubjectCode, selectedGroups])
+
+	const summaryLine = useMemo(() => {
+		const course = paramCourseName || courses.find((c) => c.fk_course_id === selectedCourseId)?.course_code || courses.find((c) => c.fk_course_id === selectedCourseId)?.course_name || ''
+		const ay = paramAcademicYear || academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)?.academic_year || ''
+		const cy = searchParams?.get('courseYearName') || courseYears.find((y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId)?.courseYearName || courseYears.find((y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId)?.yearName || ''
+		const ex = paramExamName || examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)?.examName || ''
+		return [course, ay, cy, ex].filter(Boolean).join(' / ')
+	}, [paramCourseName, courses, selectedCourseId, paramAcademicYear, academicYears, selectedAcademicYearId, searchParams, courseYears, selectedCourseYearId, paramExamName, examMasters, selectedExamId])
+
+	return (
+		<PageContainer className="space-y-4">
+		<PageHeader title="Create Exam Timetable" subtitle="Schedule exam dates and times" />
+			{/* Header card */}
+			<div className="app-card overflow-hidden">
+				<div className="px-4 py-3 border-b border-border bg-muted/40">
+					<h2 className="app-card-title">Create Exam Timetable</h2>
+				</div>
+
+				<div className="px-3 py-3">
+					<div className="mb-3 rounded-md border bg-muted/40/50 px-3 py-2 text-[13px] font-medium text-[hsl(var(--primary))]">
+						{summaryLine || '—'}
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+						<div className="space-y-1 md:col-span-3">
+							<Label>Exam Date *</Label>
+							<input
+								type="date"
+								className="h-8 text-[12px] w-full rounded-md border border-border bg-card px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+								value={slotDraft.date}
+								onChange={(e) => setSlotDraft((s) => ({ ...s, date: e.target.value }))}
+							/>
+						</div>
+						<div className="space-y-1 md:col-span-3">
+							<Label>Exam Session *</Label>
+							<Select
+								value={slotDraft.startTime ? (slotDraft.startTime < '12:00' ? 'M' : 'A') : undefined}
+								onValueChange={(v) => {
+									// map session to indicative times
+									if (v === 'M') setSlotDraft((s) => ({ ...s, startTime: '09:45', endTime: '16:00' }))
+									else setSlotDraft((s) => ({ ...s, startTime: '13:00', endTime: '16:00' }))
+								}}
+							>
+								<SelectTrigger className="h-8 text-[12px]">
+									<SelectValue placeholder="Select Session" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="M">MORNING (09:45AM - 04:00PM)</SelectItem>
+									<SelectItem value="A">AFTERNOON (01:00PM - 04:00PM)</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="space-y-1 md:col-span-3">
+							<Label>Exam fee type *</Label>
+							<Select value={selectedRegulation ?? undefined} onValueChange={(v) => setSelectedRegulation(v)}>
+								<SelectTrigger className="h-8 text-[12px]">
+									<SelectValue placeholder={examFeeTypes.length === 0 ? 'Loading…' : 'Select type'} />
+								</SelectTrigger>
+								<SelectContent>
+									{examFeeTypes.map((t) => (
+										<SelectItem key={t.id || t.code} value={t.code}>
+											{t.code}{t.name ? ` — ${t.name}` : ''}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+						<div className="space-y-1 md:col-span-3">
+							<Label>Subject</Label>
+							<Select
+								value={selectedSubjectCode ?? undefined}
+								onValueChange={(v) => setSelectedSubjectCode(v)}
+								disabled={!selectedCourseId || !selectedAcademicYearId || !selectedExamId || !selectedCourseYearId}
+							>
+								<SelectTrigger className="h-8 text-[12px]">
+									<SelectValue placeholder={subjects.length === 0 ? 'No subjects' : 'Select Subject'} />
+								</SelectTrigger>
+								<SelectContent>
+									{subjects.map((s) => (
+										<SelectItem key={s.code} value={s.code}>
+											{s.code} {s.name ? `— ${s.name}` : ''}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					</div>
+				</div>
+
+				{/* 3/2/7 Course Group + Selected + Table */}
+				{!!slotDraft.date && !!slotDraft.startTime && !!selectedRegulation && !!selectedSubjectCode && (
+				<div className="grid grid-cols-12 gap-3 items-start">
+					<div className="col-span-3 rounded-md border overflow-hidden">
+						<div className="px-3 py-2 bg-muted/40 border-b text-[12px] font-medium">Select Course Group</div>
+						<div className="p-2 space-y-1 max-h-72 overflow-auto">
+							{['AIML','CIV','CME','CSD','EEE','IT','MECH'].map((code) => {
+								const checked = selectedGroups.has(code)
+								return (
+									<label key={code} className="flex items-center gap-2 text-[12px]">
+										<input type="checkbox" checked={checked} onChange={() => toggleGroup(code)} />
+										<span>{code} <span className="text-muted-foreground">(Regular)</span></span>
+									</label>
+								)
+							})}
+						</div>
+					</div>
+					<div className="col-span-2 rounded-md border overflow-hidden flex flex-col">
+						<div className="px-3 py-2 bg-muted/40 border-b text-[12px] font-medium">Selected Course Groups</div>
+						<div className="p-2 min-h-[12rem] text-[12px] flex-1">
+							{Array.from(selectedGroups).length === 0
+								? '—'
+								: Array.from(selectedGroups).map((g) => (
+										<div key={g}><span className="font-medium">{g}</span> <span className="text-muted-foreground">(Regular)</span></div>
+								  ))}
+						</div>
+						<div className="p-2 border-t flex justify-end">
+							<Button type="button" variant="outline" className="h-8 text-[12px]" onClick={addSelectedToStage} disabled={!canAdd}>
+								Add to Table
+							</Button>
+						</div>
+					</div>
+					<div className="col-span-7 rounded-md border">
+						<div className="px-3 py-2 bg-muted/40 border-b text-[12px] font-medium">
+							{slotDraft.startTime && slotDraft.startTime < '12:00' ? '(9:45 AM - 4:00 PM)' : '(1:00 PM - 4:00 PM)'}
+						</div>
+						<div className="overflow-auto">
+							<table className="w-full min-w-[760px] text-[12px]">
+								<thead className="bg-muted/40">
+									<tr>
+										<th className="px-2 py-1 w-16 text-left">Sl.No</th>
+										<th className="px-2 py-1 text-left">Exam Date</th>
+										<th className="px-2 py-1 text-left">Group</th>
+										<th className="px-2 py-1 text-left">Subject</th>
+										<th className="px-2 py-1 text-left w-16">Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									{stagedRows.length === 0 && (
+										<tr>
+											<td className="px-2 py-2 text-muted-foreground" colSpan={5}>No rows added</td>
+										</tr>
+									)}
+									{stagedRows.map((r, i) => (
+										<tr key={`${r.groupCode}-${r.examDate}-${r.session}-${i}`}>
+											<td className="px-2 py-1">{i + 1}</td>
+											<td className="px-2 py-1">{new Date(r.examDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+											<td className="px-2 py-1">{r.groupCode}</td>
+											<td className="px-2 py-1">
+												{subjects.find((s) => s.code === r.subjectCode)?.code}{' '}
+												{subjects.find((s) => s.code === r.subjectCode)?.name ? `— ${subjects.find((s) => s.code === r.subjectCode)?.name}` : ''}
+											</td>
+											<td className="px-2 py-1">
+												<Button type="button" variant="ghost" size="sm" onClick={() => removeStagedRow(i)}>
+													<Trash2 className="h-4 w-4" />
+												</Button>
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+				)}
+
+				{stagedRows.length > 0 && (
+					<div className="flex items-center justify-end pt-3 pr-2 pb-1">
+						<Button
+							type="button"
+							className="h-8 text-[12px]"
+							onClick={() => toastSuccess('Saved')}
+						>
+							Save
+						</Button>
+					</div>
+				)}
+			</div>
+		</PageContainer>
+	)
+}
+

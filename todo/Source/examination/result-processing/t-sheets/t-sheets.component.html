@@ -1,0 +1,196 @@
+
+<div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+  
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+  
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" routerLink="{{dashboard}}">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Report Processing</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>T-Sheets </span>
+                </div>
+            </div>
+  
+        </div>
+        <!-- / HEADER -->
+  
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads">T-Sheets</strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="staffForm" [formGroup]="staffForm" novalidate>
+                      <div fxLayout="column" class="radio-btn" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                          <mat-radio-group [(ngModel)]="check" [ngModelOptions]="{standalone: true}">
+                              <mat-radio-button [value]="1" (change)="clear($event)">Detailed Result By Course</mat-radio-button>
+                              <mat-radio-button [value]="2" (change)="clear($event)" class="r-btn">Detailed Result By Student</mat-radio-button>
+                          </mat-radio-group>
+                      </div>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="check==1">
+                                <mat-select placeholder="College" name="collegeId" formControlName="collegeId" (selectionChange)="selectedCollege(staffForm.value.collegeId)"  required>
+                                    <mat-option *ngFor="let college of colleges" [value]="college.collegeId">{{college.collegeCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15"*ngIf="check==1" >
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(staffForm.value.courseId,$event)" required>
+                                    <mat-option *ngFor="let course of courses" [value]="course.courseId">{{course.courseCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="check==1">
+                                <mat-select placeholder="Exam Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)" >
+                                      <mat-option [value]="0">Select</mat-option> 
+                                    <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.academicYearId">{{obcjt.academicYear}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25" *ngIf="check==2">
+                              <mat-select placeholder="Student" name="studentId" formControlName="studentId" (selectionChange)="dataRefresh()" #singleSelect (selectionChange)="selectedStd()">
+                                  <ngx-mat-select-search [formControl]="studentFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" (keyup)="enteredStudent($event)"></ngx-mat-select-search>
+                                  <mat-option *ngFor="let std of filteredStudents | async" [value]="std.studentId">{{std.rollNumber}}<span class="rol-no" *ngIf="std.firstName != null">({{std.firstName}})</span></mat-option>
+                              </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="55" fxFlex.gt-md="55">
+                                <mat-select placeholder="Exam" name="examId" formControlName="examId" #singleSelect (selectionChange)="selectedStudent()">
+                                    <ngx-mat-select-search [formControl]="examFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'"></ngx-mat-select-search>
+                                    <mat-option *ngFor="let exam of filteredExams | async" [value]="exam.examId" matTooltip="{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})"
+                                    >{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})
+                                        <span *ngIf="exam.isInternalExam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                                        <span *ngIf="exam.isRegularExam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                                        <span *ngIf="exam.isSupplyExam" style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                                </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+                        <div fxLayout="row" >
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="check==1">
+                                <mat-select placeholder="Course Group" name="courseGroupId" formControlName="courseGroupId" (selectionChange)="selectedGroup(staffForm.value.courseGroupId)"  >
+                                  <mat-option [value]="0" *ngIf="isAdmin">Select</mat-option>  
+                                  <mat-option *ngFor="let courseGroup of courseGroups" [value]="courseGroup.courseGroupId">{{courseGroup.groupCode}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="check==1">
+                                <mat-select placeholder="Course Year" name="courseYearId" formControlName="courseYearId" (selectionChange)="selectedYear(staffForm.value.courseYearId)" >
+                                    <mat-option [value]="0" *ngIf="isAdmin">Select</mat-option>   
+                                  <mat-option *ngFor="let courseYear of courseYears" [value]="courseYear.courseYearId">{{courseYear.courseYearName}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="check==1">
+                              <mat-select placeholder="Regulation" name="regulationId" formControlName="regulationId" (selectionChange)="selectedRegulation()" >
+                                  <mat-option [value]="0">Select</mat-option>  
+                                  <mat-option *ngFor="let reg of regulations" [value]="reg.regulationId">{{reg.regulationName}}</mat-option>
+                              </mat-select>
+                            </mat-form-field>
+                            <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                              <mat-select placeholder="Student" name="studentId" formControlName="studentId" (selectionChange)="dataRefresh()" #singleSelect >
+                                  <ngx-mat-select-search [formControl]="studentFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'" (keyup)="enteredStudent($event)"></ngx-mat-select-search>
+                                  <mat-option *ngFor="let std of filteredStudents | async" [value]="std.studentId">{{std.rollNumber}}<span class="rol-no" *ngIf="std.firstName != null">({{std.firstName}})</span></mat-option>
+                              </mat-select>
+                            </mat-form-field> -->
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" >
+                                <mat-select placeholder="Result Status" name="isPass" formControlName="isPass" (selectionChange)="selectedPass()" required>
+                                    <mat-option [value]="-1">All</mat-option>
+                                    <mat-option [value]="1">Pass</mat-option>
+                                    <mat-option [value]="0">Fail</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                <mat-select placeholder="Course" name="Course" formControlName="courseCode" (selectionChange)="selectedCourse1(evaluatorSettingForm.value.courseCode)">
+                                    <mat-option *ngFor="let courseCode of courseCode" [value]="courseCode.course_code">{{courseCode.course_code}}</mat-option>
+    
+                                 </mat-select>
+                            </mat-form-field> -->
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                <mat-select placeholder="Exam Month Year" name="ExamMonthYear"  formControlName="examMonthYear">
+                                    <mat-option *ngFor="let monthYr of monthYear" [value]="monthYr.exam_month_yr">{{monthYr.exam_month_yr| date: 'dd/MM/yyyy'}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="13" fxFlex.gt-md="13">
+                                <button mat-raised-button class="add-btn" color="accent" (click)="newGetDetails()">Get List</button>
+                            </div>
+                            <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="5" fxFlex.gt-md="5">
+                                  <span class="material-icons" (click)="reset()" 
+                                  style="cursor: pointer;margin-top: 17px;" matTooltip="Reset">
+                                          cached
+                                          </span></div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                </mat-expansion-panel>
+            </mat-accordion>
+            <div class="header  pd-page " fxLayout="column" fxLayoutAlign="space-between" *ngIf="examRegisteredStudents.length>0">
+              <div fxLayout="row wrap " class="page-table-head" fxFlex="100" fxLayoutAlign="space-between center">
+                  <div fxLayoutAlign="start center" class="mod-head">
+                      <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                          <i class="material-icons icon-align ">
+                              ballot
+                              </i>
+                          <strong class="table-heads">T-Sheets Result</strong>
+                      </div>
+                  </div>
+                 
+              </div>
+  
+            </div>
+            <mat-card class="pd-card table-align " *ngIf="examRegisteredStudents.length > 0">
+                <div class="mat-elevation-z8 ">
+                    <div class="example-container ">
+                                <!-- <ejs-grid #grid [dataSource]='gridData'  [toolbar]='toolbar' 
+   [allowSorting]='true'   [pageSettings]='initialPage'  allowTextWrap='true' (toolbarClick)='toolbarClick($event)' textAlign='Lift'
+                                [allowExcelExport]='true' [allowPaging]='true'>
+                                    <e-columns>
+                                        <e-column field='id' headerText='S.No'  width='50' textAlign='Lift'></e-column>
+                                        <e-column field='roll_number' headerText='HallTicket No.'  width='100'  textAlign='Lift'></e-column>
+                                        <e-column field='college_code' headerText='Course Details'  width='120'  textAlign='Lift'></e-column>
+                                        <e-column field='exam_name' headerText='Exam' width='150'  textAlign='Lift'></e-column>
+                                        <e-column field='examtype' headerText='Exam Type' textAlign='Lift'  width='80'></e-column>
+                                        <e-column field='subject_name' headerText='Subject' textAlign='Lift' width='100'></e-column>
+                                        <e-column field='internal_marks' headerText='Internal Marks' textAlign='Center' width='75'></e-column>
+                                        <e-column field='external_marks' headerText='External Marks' textAlign='Center' width='75'></e-column>
+                                        <e-column field='grade' headerText='Grade' textAlign='Center' width='50'></e-column>
+                                        <e-column field='grade_points' headerText='Grade Points' textAlign='Center' width='75'></e-column>
+                                        <e-column field='result' headerText='Result' textAlign='Center'width='60'></e-column>
+                                        <e-column field='credits' headerText='Credits' textAlign='Center' width='60'></e-column>
+                                       
+                                    </e-columns>
+                                </ejs-grid> -->
+                                <div>
+                                  <!-- <div  style="overflow-x: auto; overflow-y: auto; height: 300px;"> -->
+                                <table #table mat-table [dataSource]="tabledataSource1" matSort>
+                                    <ng-container *ngFor="let header of displayedColumns1; let i = index" [matColumnDef]="header">
+                                      <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ header }}</th>
+                                      <td mat-cell *matCellDef="let row">{{ row[header] }}</td>
+                                    </ng-container>
+                                    <tr mat-header-row *matHeaderRowDef="displayedColumns1"></tr>
+                                    <tr mat-row *matRowDef="let row; columns: displayedColumns1;"></tr>
+                                  </table>
+                                </div>
+                               <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+
+                               </div>
+                </div>
+  
+            </mat-card>
+  
+            <!-- / CONTENT -->
+  
+        </div>
+    </div>

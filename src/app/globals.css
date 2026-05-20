@@ -1,0 +1,755 @@
+@import "tailwindcss";
+/* Manrope (body) + Sora (headings) loaded via next/font in app/layout.tsx,
+   exposed as --font-body and --font-heading.
+   Design tokens mirror the EduPulse reference (academy-arc-vision.lovable.app). */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS — Light Mode (EduPulse)
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Semantic surface tokens */
+  --background: 210 20% 97%;          /* pale blue-grey canvas */
+  --foreground: 210 50% 10%;          /* deep navy text */
+  --card: 0 0% 100%;                  /* pure white */
+  --card-foreground: 210 50% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 210 50% 10%;
+
+  /* Brand: deep teal-blue primary, bright teal accent */
+  --primary: 200 55% 35%;
+  --primary-foreground: 0 0% 100%;
+
+  /* Secondary — soft blue surface */
+  --secondary: 200 30% 92%;
+  --secondary-foreground: 210 50% 15%;
+
+  --muted: 210 20% 94%;
+  --muted-foreground: 210 15% 45%;
+  --accent: 174 45% 48%;              /* bright teal */
+  --accent-foreground: 0 0% 100%;
+
+  /* Status */
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 160 60% 40%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --info: 200 80% 50%;
+  --info-foreground: 0 0% 100%;
+
+  /* Borders & inputs */
+  --border: 214 20% 90%;
+  --input: 214 20% 90%;
+  --ring: 200 55% 35%;
+  --radius: 0.625rem;
+
+  /* Sidebar — DARK navy (EduPulse default, matches --gradient-sidebar) */
+  --sidebar-background: 210 60% 11%;        /* deep navy top */
+  --sidebar-background-end: 210 55% 8%;     /* deep navy bottom (gradient) */
+  --sidebar-surface: 210 45% 14%;
+  --sidebar-foreground: 210 22% 70%;        /* muted slate text */
+  --sidebar-foreground-active: 0 0% 100%;   /* white on active */
+  --sidebar-primary: 174 55% 55%;           /* bright teal — readable on dark */
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 174 55% 55%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 210 40% 16%;
+  --sidebar-ring: 174 55% 55%;
+  /* Active item pill + hover (dark variant) */
+  --sidebar-active-bg: 174 55% 55% / 0.12;
+  --sidebar-active-border: 174 55% 55% / 0.30;
+  --sidebar-hover-bg: 210 45% 14%;
+  --sidebar-section-label: 210 18% 55%;
+
+  /* Custom brand vars */
+  --amber: 35 90% 48%;               /* matches --secondary */
+  --amber-light: 40 95% 58%;
+  --navy-deep: 225 47% 7%;
+
+  /* Shadows (EduPulse scale) */
+  --shadow-sm: 0 1px 2px 0 hsl(210 50% 10% / 0.04);
+  --shadow-md: 0 4px 12px -2px hsl(210 50% 10% / 0.08);
+  --shadow-lg: 0 12px 32px -4px hsl(210 50% 10% / 0.12);
+  --shadow-glow: 0 0 20px -4px hsl(174 45% 48% / 0.30);
+  --shadow-card-hover: 0 4px 12px -2px hsl(210 50% 10% / 0.08);
+  --shadow-indigo: 0 4px 20px hsl(200 55% 35% / 0.18);
+
+  /* Brand gradients */
+  --gradient-primary: linear-gradient(135deg, hsl(200 55% 35%), hsl(174 45% 48%));
+  --gradient-card-hover: linear-gradient(135deg, hsl(200 55% 35% / 0.05), hsl(174 45% 48% / 0.05));
+  --gradient-sidebar: linear-gradient(180deg, hsl(210 60% 12%), hsl(210 55% 8%));
+
+  /* Headings (centralized) */
+  --page-title: 222 47% 15%;          /* main page H1 */
+  --card-title: var(--primary);       /* card header titles use brand color */
+  --section-title: 222 47% 22%;       /* small section headers */
+
+  /* ── Status colors ──────────────────────────────────────────────────────── */
+  --color-status-active: oklch(0.527 0.154 150.069);      /* green */
+  --color-status-inactive: oklch(0.577 0.245 27.325);     /* red */
+  --color-status-pending: oklch(0.714 0.143 85.873);      /* amber */
+  --color-status-draft: oklch(0.551 0.027 264.364);       /* slate */
+  --color-status-published: oklch(0.546 0.245 262.881);   /* blue */
+
+  /* ── Feedback colors ────────────────────────────────────────────────────── */
+  --color-success: oklch(0.527 0.154 150.069);
+  --color-warning: oklch(0.714 0.143 85.873);
+  --color-error: oklch(0.577 0.245 27.325);
+  --color-info: oklch(0.546 0.245 262.881);
+
+  /* ── Data display ───────────────────────────────────────────────────────── */
+  --color-table-header-bg: oklch(0.967 0.003 264.542);    /* light gray */
+  --color-table-row-hover: oklch(0.985 0.002 264.542);    /* very light */
+  --color-table-row-stripe: oklch(0.975 0.002 264.542);   /* alternate row */
+
+  /* ── Spacing ────────────────────────────────────────────────────────────── */
+  --spacing-page-x: 1.5rem;
+  --spacing-page-y: 1.25rem;
+  --spacing-card-x: 1.25rem;
+  --spacing-card-y: 1rem;
+  --spacing-stack: 1rem;   /* default vertical gap between page sections */
+
+  /* ── Typography ─────────────────────────────────────────────────────────── */
+  --font-size-page-title: 1.375rem;     /* 22px — H1 */
+  --font-size-section-title: 1rem;      /* 16px — H2 */
+  --font-size-label: 0.8125rem;         /* 13px */
+  --font-size-caption: 0.75rem;         /* 12px */
+  --font-size-body: 0.875rem;           /* 14px base */
+  --font-size-nav: 0.8125rem;           /* 13px nav items */
+  --font-size-nav-section: 0.6875rem;   /* 11px uppercase section label */
+  --app-control-height: 32px;
+  --app-control-font-size: 13px;
+  --app-label-font-size: 13px;
+  --app-table-header-font-size: 12px;
+  --app-table-row-font-size: 12.5px;
+  --app-table-row-height: 32px;
+
+  /* ── Border radius ──────────────────────────────────────────────────────── */
+  --radius-card: 0.5rem;
+  --radius-modal: 0.75rem;
+  --radius-badge: 9999px;
+}
+
+/* ── AG Grid (Quartz) density tweaks for app tables ─────────────────────────── */
+.app-data-table .ag-theme-quartz {
+  --ag-font-size: var(--app-table-row-font-size);
+  --ag-grid-size: 4px;
+  --ag-list-item-height: 22px;
+  --ag-header-height: 38px;
+  --ag-row-height: var(--app-table-row-height);
+  --ag-cell-horizontal-padding: 14px;
+  --ag-font-family: var(--font-body), 'Manrope', system-ui, sans-serif;
+  --ag-background-color: hsl(var(--card));
+  --ag-header-background-color: hsl(var(--muted));
+  --ag-border-color: hsl(var(--border));
+  --ag-row-border-color: hsl(var(--border));
+  --ag-row-hover-color: hsl(var(--muted) / 0.6);
+  --ag-selected-row-background-color: hsl(var(--primary) / 0.08);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.app-data-table .ag-theme-quartz .ag-header-cell-text {
+  font-size: var(--app-table-header-font-size);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+}
+
+.app-data-table .ag-theme-quartz .ag-header-row {
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.app-data-table .ag-theme-quartz .ag-cell,
+.app-data-table .ag-theme-quartz .ag-cell-value {
+  font-size: var(--app-table-row-font-size) !important;
+  line-height: 1.35;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  color: hsl(var(--foreground));
+}
+
+.app-data-table .ag-theme-quartz .ag-row {
+  min-height: var(--app-table-row-height) !important;
+}
+
+.app-data-table .ag-theme-quartz .ag-root-wrapper {
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+.app-data-table .ag-theme-quartz .ag-pinned-right-header,
+.app-data-table .ag-theme-quartz .ag-pinned-left-header {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Reusable control tokens */
+.app-control {
+  height: var(--app-control-height);
+  font-size: var(--app-control-font-size);
+}
+
+.app-label {
+  font-size: var(--app-label-font-size);
+}
+
+.app-table-head-cell {
+  font-size: var(--app-table-header-font-size);
+}
+
+.app-table-value-cell {
+  font-size: var(--app-table-row-font-size);
+}
+
+/* Native table typography baseline (for pages not using DataTable yet) */
+.app-card table th {
+  font-size: var(--app-table-header-font-size);
+  font-weight: 600;
+}
+
+.app-card table td {
+  font-size: var(--app-table-row-font-size);
+  line-height: 1.2;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+/* ── App-wide card shadow utility ─────────────────────────────────────────── */
+.app-card {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  border-radius: 0.625rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+.app-card:hover {
+  border-color: hsl(var(--border) / 0.8);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 16px rgba(15, 23, 42, 0.04);
+}
+
+/* Global compact spacing between stacked cards */
+main .app-card + .app-card {
+  margin-top: 0.5rem;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   EXAMINATION THEME (scoped) — match reference site 100% within wrapper
+   Apply by wrapping a route with <div class="theme-examination">...</div>
+   ───────────────────────────────────────────────────────────────────────── */
+.theme-examination {
+  /* Typography */
+  font-family: 'Inter', sans-serif;
+
+  /* Canvas and surfaces (warm, subtle contrast) */
+  --background: 220 24% 94%;           /* slightly darker canvas for clearer card contrast */
+  --foreground: 222 47% 12%;           /* near-navy text */
+  --card: 0 0% 100%;                   /* pure white cards */
+  --card-foreground: 222 47% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 12%;
+
+  /* Brand and accents */
+  --primary: 175 42% 48%;              /* teal */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 39 84% 55%;             /* amber-500 */
+  --secondary-foreground: 0 0% 100%;
+  --muted: 220 14% 97%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 220 14% 96%;
+  --accent-foreground: 222 47% 12%;
+
+  /* Feedback */
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 142 71% 45%;
+  --warning: 38 92% 50%;
+
+  /* Borders & focus */
+  --border: 220 13% 92%;
+  --input: 220 13% 92%;
+  --ring: 175 42% 48%;                 /* match primary */
+
+  /* Radii — slightly rounder */
+  --radius: 0.625rem;
+  --radius-card: 0.75rem;
+  --radius-modal: 0.875rem;
+  --radius-badge: 9999px;
+
+  /* Sidebar palette — deep navy with soft hover */
+  --sidebar-background: 222 47% 11%;
+  --sidebar-surface: 217 33% 17%;
+  --sidebar-foreground: 215 20% 70%;
+  --sidebar-foreground-active: 0 0% 100%;
+  --sidebar-primary: 175 42% 48%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 223 92% 62%;
+  --sidebar-border: 217 33% 20%;
+
+  /* Typography scale tuning for the reference */
+  --font-size-page-title: 2rem;        /* 32px */
+  --font-size-section-title: 1.125rem; /* 18px */
+  --font-size-label: 0.875rem;         /* 14px */
+  --font-size-caption: 0.8125rem;      /* 13px */
+
+  /* Shadows matching the soft, airy design */
+  --shadow-sm: 0 1px 2px rgba(15,23,42,0.05);
+  --shadow-md: 0 4px 12px rgba(15,23,42,0.07), 0 1px 3px rgba(15,23,42,0.04);
+  --shadow-lg: 0 12px 28px rgba(15,23,42,0.10), 0 4px 8px rgba(15,23,42,0.06);
+
+  /* Headings (theme overrides) */
+  --page-title: 222 47% 14%;
+  --card-title: var(--primary);
+  --section-title: 222 47% 22%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS — Dark Mode
+   ───────────────────────────────────────────────────────────────────────── */
+.dark {
+  --background: 210 30% 8%;
+  --foreground: 210 30% 96%;
+  --card: 210 30% 11%;
+  --card-foreground: 210 30% 96%;
+  --popover: 210 30% 11%;
+  --popover-foreground: 210 30% 96%;
+  --primary: 200 65% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 20% 18%;
+  --secondary-foreground: 210 30% 92%;
+  --muted: 210 20% 16%;
+  --muted-foreground: 210 15% 65%;
+  --accent: 174 50% 50%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 65% 50%;
+  --destructive-foreground: 210 30% 96%;
+  --border: 210 20% 20%;
+  --input: 210 20% 20%;
+  --ring: 200 65% 55%;
+  --sidebar-background: 210 30% 9%;
+  --sidebar-surface: 210 25% 13%;
+  --sidebar-foreground: 210 18% 65%;
+  --sidebar-foreground-active: 0 0% 100%;
+  --sidebar-primary: 200 65% 55%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 174 50% 50%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 210 22% 16%;
+  --sidebar-active-bg: 200 65% 55% / 0.18;
+  --sidebar-hover-bg: 210 22% 14%;
+  --sidebar-section-label: 210 14% 55%;
+
+  /* Headings (dark mode) */
+  --page-title: 210 40% 96%;
+  --card-title: var(--primary);
+  --section-title: 210 40% 86%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   TAILWIND V4 THEME MAPPING
+   ───────────────────────────────────────────────────────────────────────── */
+@theme inline {
+  /* Map CSS vars → Tailwind color tokens */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --radius: var(--radius);
+
+  /* Map heading tokens */
+  --color-page-title: hsl(var(--page-title));
+  --color-card-title: hsl(var(--card-title));
+  --color-section-title: hsl(var(--section-title));
+
+  /* Sidebar color tokens */
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-surface: hsl(var(--sidebar-surface));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-foreground-active: hsl(var(--sidebar-foreground-active));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+
+  /* Brand tokens */
+  --color-amber: hsl(var(--amber));
+  --color-navy-deep: hsl(var(--navy-deep));
+
+  /* Custom animation tokens */
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-fade-up: fade-up 0.4s ease-out both;
+  --animate-fade-in: fade-in 0.2s ease-out both;
+  --animate-slide-in-left: slide-in-left 0.3s ease-out both;
+  --animate-scale-in: scale-in 0.2s ease-out both;
+  --animate-spin-smooth: spin-smooth 0.8s linear infinite;
+  --animate-bounce-dots: bounce-dots 1.4s ease-in-out infinite;
+  --animate-pulse-ring: pulse-ring 1.5s ease-out infinite;
+  --animate-bar-grow: bar-grow 1.2s ease-in-out infinite;
+  --animate-progress: progress 1.8s ease-in-out infinite;
+  /* Login-specific */
+  --animate-login-card-in: login-card-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-field-in: field-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   KEYFRAMES
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Skeleton shimmer — sweeps right */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* Page/section entrance — rises with fade */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Quick alpha fade */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Sidebar / panel slide in */
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Popup / modal scale in */
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Smooth rotation for spinner */
+@keyframes spin-smooth {
+  to { transform: rotate(360deg); }
+}
+
+/* Three dots bounce */
+@keyframes bounce-dots {
+  0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+  40%            { transform: scale(1); opacity: 1; }
+}
+
+/* Pulsing ring (notification indicator) */
+@keyframes pulse-ring {
+  0%   { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* Bars loader height oscillation */
+@keyframes bar-grow {
+  0%, 100% { transform: scaleY(0.4); }
+  50%       { transform: scaleY(1); }
+}
+
+/* Horizontal progress sweep */
+@keyframes progress {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Login card entrance — blur + scale + rise */
+@keyframes login-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.96);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Individual form field stagger */
+@keyframes field-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   BASE STYLES
+   ───────────────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+  border-color: hsl(var(--border));
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: var(--font-body), 'Manrope', system-ui, -apple-system, sans-serif;
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+}
+
+/* Heading rhythm — apply Sora for display headings but let pages keep their own
+   size via Tailwind utilities. Only utility classes .h1/.h2 carry the full
+   token-driven sizing; raw <h1>/<h2> get font-family + color only so existing
+   page-level `text-[Npx]` overrides are honored. */
+h1, h2, h3, h4, .h1, .h2, .h3 {
+  font-family: var(--font-heading), 'Sora', system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.015em;
+}
+.h1 {
+  font-size: var(--font-size-page-title);
+  font-weight: 600;
+  line-height: 1.25;
+  color: hsl(var(--page-title));
+}
+.h2 {
+  font-size: var(--font-size-section-title);
+  font-weight: 600;
+  line-height: 1.35;
+  color: hsl(var(--section-title));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CARD TITLE — kept as a hook (semantic & for any future themes) but hidden,
+   since the page title is now carried by the breadcrumb's last segment.
+   The wrapper row containing this element is also hidden via :has() so the
+   card chrome collapses to just the toolbar row + table.
+   ───────────────────────────────────────────────────────────────────────── */
+.app-card-title {
+  display: none;
+}
+.app-card > div:has(> .app-card-title),
+.app-card > div:has(> * > .app-card-title),
+/* Catch any bespoke heading that still references the card-title or primary
+   color tokens — these are page titles we want to hide and let the breadcrumb
+   carry. The :has(>) restricts to direct children so it won't hide content
+   inside nested cards/sections. */
+.app-card > div:has(> h1[class*="card-title"]),
+.app-card > div:has(> h2[class*="card-title"]),
+.app-card > div:has(> h3[class*="card-title"]),
+.app-card > div:has(> h1[class*="#007e7a"]),
+.app-card > div:has(> h2[class*="#007e7a"]),
+.app-card > div:has(> h3[class*="#007e7a"]),
+/* Catch h2/h3 titles that just use "text-primary" or "text-teal-600" tokens
+   (no card-title var). These are bespoke page titles introduced ad-hoc by
+   individual pages and would otherwise duplicate the breadcrumb. We only
+   match these when the heading is a DIRECT child of the card's first wrapper
+   div — keeps legitimate section subheaders untouched. */
+.app-card > div:first-child:has(> h2[class*="text-primary"]),
+.app-card > div:first-child:has(> h3[class*="text-primary"]),
+.app-card > div:first-child:has(> h2[class*="text-teal-600"]),
+.app-card > div:first-child:has(> h3[class*="text-teal-600"]) {
+  display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SIDEBAR — section labels, nav item, active pill
+   ───────────────────────────────────────────────────────────────────────── */
+.sidebar-section-label {
+  font-size: var(--font-size-nav-section);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--sidebar-section-label));
+  padding: 0.875rem 0.875rem 0.375rem;
+  line-height: 1;
+}
+
+.nav-item {
+  font-size: var(--font-size-nav);
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+}
+
+.nav-item-active {
+  background: hsl(var(--sidebar-active-bg));
+  color: hsl(var(--sidebar-foreground-active));
+  font-weight: 600;
+}
+
+.nav-item-hover:hover {
+  background: hsl(var(--sidebar-hover-bg));
+  color: hsl(var(--sidebar-foreground-active));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FOCUS RINGS — accessible, on-brand
+   ───────────────────────────────────────────────────────────────────────── */
+
+*:focus-visible {
+  outline: none;            /* remove double outline */
+  box-shadow: none;         /* avoid glow */
+}
+
+/* Ensure all form controls use the brand color for focus borders */
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+.app-select-trigger:focus,
+.app-select-trigger[data-state="open"] {
+  border-color: hsl(var(--primary)) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CUSTOM SCROLLBAR — sidebar & main content
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Thin scrollbar for sidebar nav */
+.scrollbar-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-sidebar::-webkit-scrollbar-thumb {
+  background: hsl(var(--sidebar-foreground) / 0.18);
+  border-radius: 2px;
+}
+.scrollbar-sidebar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--sidebar-foreground) / 0.35);
+}
+
+/* Standard thin scrollbar for content areas */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.4);
+}
+
+/* Hide scrollbar but keep scroll behavior */
+.scrollbar-hidden {
+  -ms-overflow-style: none; /* IE and old Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SKELETON — shimmer style
+   ───────────────────────────────────────────────────────────────────────── */
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--muted-foreground) / 0.12) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   STAGGER HELPERS — dashboard card entrance
+   ───────────────────────────────────────────────────────────────────────── */
+
+.stagger-children > *:nth-child(1) { animation-delay:   0ms; }
+.stagger-children > *:nth-child(2) { animation-delay:  70ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 140ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 210ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 280ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 350ms; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Table toolbar standardization (search + buttons)
+   ───────────────────────────────────────────────────────────────────────── */
+.table-toolbar input[type="text"],
+.table-toolbar input[type="search"],
+.table-toolbar .search-input {
+  height: 2rem;
+  font-size: var(--app-control-font-size);
+}
+.table-toolbar button {
+  height: 2rem;
+  font-size: var(--app-control-font-size);
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FLOATING LABEL — login form inputs
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Label rests centered inside the input when empty */
+.fl-label {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.875rem;
+  color: #94a3b8; /* slate-400 */
+  pointer-events: none;
+  transition: top 0.2s ease, transform 0.2s ease, font-size 0.2s ease, color 0.2s ease;
+}
+
+/* Float up when field has content */
+.fl-input:not(:placeholder-shown) ~ .fl-label {
+  top: 0.625rem;
+  transform: translateY(0);
+  font-size: 0.6875rem;
+  color: #64748b; /* slate-500 */
+}
+
+/* Float up + brand indigo when focused */
+.fl-input:focus ~ .fl-label {
+  top: 0.625rem;
+  transform: translateY(0);
+  font-size: 0.6875rem;
+  color: #4F46E5;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   REDUCED MOTION — respect user preference
+   ───────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Suppress decorative animations but leave functional ones (spinners, loaders) alone */
+  *:not([data-animate="functional"]), *:not([data-animate="functional"])::before, *:not([data-animate="functional"])::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

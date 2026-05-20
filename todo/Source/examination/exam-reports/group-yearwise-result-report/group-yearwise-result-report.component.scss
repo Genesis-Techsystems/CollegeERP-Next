@@ -1,0 +1,138 @@
+// table{
+//     td,th{
+//         text-align: center;
+//     }
+//     th{
+//         font-weight: 400;
+//         color: #dedede;
+//     }
+// }
+
+// .print-section{
+//     display: none;
+//   }
+//   @media print {
+//     .table{
+//         width: 100% !important;
+//         margin: 0px !important;
+//         padding: 0px !important;
+//     }
+ 
+//     #printNone {
+//       display: none !important;
+//       visibility: hidden !important;
+//     }
+//     .print-section{
+//     display: block !important;
+//     }
+//     header nav, footer {
+//       display: none;
+//    }
+//    .header{ 
+//     justify-content: center;
+//     margin-bottom: -16px;
+   
+// }
+//   }
+ 
+//   .college{
+//     text-align: left !important;
+//     font-size: 30px !important;
+//      margin-top: 20px !important; 
+//     margin-bottom: -20px !important; 
+//      font-family: none !important;
+//       color: rgb(0, 0, 0) !important
+//   }
+//   .reporttitle{
+//     text-align: left !important;
+//     font-size: 25px !important;
+//     font-family: none !important;
+//      color: rgb(0, 0, 0) !important
+// }
+// .exams{
+//   font-size: 20px;
+//   justify-content: center;
+// //   margin-bottom: 20px !important;
+//   margin-top: -8px !important; 
+
+//   font-family: none;
+// }
+// .printicon{
+//   color: aliceblue !important;
+//   padding: 4px !important;
+// }
+// .buttons{
+//     justify-content: end !important;
+//     display: flex !important;
+// }
+// .icon{
+//     color: aliceblue !important;
+//     padding: 4px;
+// }
+
+
+
+table{
+  td,th{
+      text-align: center;
+  }
+  th{
+      font-weight: 400;
+      color: #dedede;
+  }
+}
+.icon{
+  color: aliceblue !important;
+  padding: 4px;
+}
+.print-section{
+  display: none;
+}
+@media print {
+  .table{
+      width: 100% !important;
+      margin: 0px !important;
+      padding: 10% !important;
+  }
+  @page{
+      margin: 0;
+  }
+  #printNone {
+    display: none !important;
+    visibility: hidden !important;
+  }
+  .print-section{
+  display: block !important;
+  }
+  header nav, footer {
+    display: none;
+ }
+}
+.header{ 
+  justify-content: center;
+  margin-bottom: -16px;
+  p{
+    text-align: center !important;
+  }
+  // display: flex;
+.clgname{
+  font-size: 30px;  margin-bottom: -20px; font-family: none; text-transform: capitalize !important;
+  justify-content: center;
+}
+.title{
+  font-size: 25px;
+  justify-content: center;
+  margin-bottom: -16px;
+  font-family: none;
+}
+
+.exam{
+  font-size: 20px;
+  justify-content: center;
+  font-family: none;
+}
+}
+.buttons{
+justify-content: end !important;
+display: flex !important;
+}

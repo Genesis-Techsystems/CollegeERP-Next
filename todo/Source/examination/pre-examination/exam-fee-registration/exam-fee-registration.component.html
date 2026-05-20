@@ -1,0 +1,120 @@
+<div id="admission-dashboard" class="page-layout simple">
+
+  <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+      <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+          <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+              <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+              <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+              <span>Examination Management</span>
+              <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+              <span>Pre Examination</span>
+              <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+              <span>Exam Fee Registration</span>
+          </div>
+      </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content pd-card mt-15">
+
+      <div class="mat-elevation-z8 bkgrd">
+          <form name="examFeeCollectionForm" [formGroup]="examFeeCollectionForm" style="padding-bottom: 1px;" class="form-pad" novalidate>
+              <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                  <i class="material-icons sub-header-icon">money</i>
+                  <span class="sub-header-text"> Exam Fee Registration</span>
+              </div>
+              
+              <div fxLayout="column" class="inner-bkgrd std-his" *ngIf="!isEmptyObject(student)">
+                  <div fxLayout="row" class="mar-8">
+                      <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                          <img class="pic" *ngIf="selectedStd.length > 0" [src]='student.studentPhotoPath' onerror="this.src='assets/images/avatars/default_Student.png'">
+                          <img class="pic" *ngIf="selectedStd.length == 0" [src]='student.studentPhotoPath' onerror="this.src='assets/images/avatars/default_Student.png'">
+                      </div>
+                      <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="60" fxFlex.gt-md="60" style="padding: 10px 0px;line-height: 0.8em;">
+                          <p *ngIf="student.isLateral">{{student.firstName}} (<span style="color: blue;">LATERAL</span>) </p>
+                          <p *ngIf="!student.isLateral">{{student.firstName}} (<span style="color: blue;">REGULAR</span>) </p>
+                          <p style="color: #8c8c8c !important;">{{student.rollNumber}}</p>
+                          <p style="color: #8c8c8c !important;">{{student.collegeCode}} / {{student.academicYear}} / {{student.courseCode}} / {{student.groupCode}} / {{student.courseYearName}} / Section {{student.section}}</p>
+                          <p style="color: #8c8c8c !important;">{{student.mobile}}</p>
+                      </div>
+                      <div class="user-info" fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-sm="row" fxLayoutAlign.gt-sm="start center">
+                          <div class="name" [@animate]="{value:'*',params:{delay:'100ms',x:'-25px'}}">
+
+                              <div style="color: black; font-size: 15px;padding: 5px 0px;">
+                                  <span>Quota : </span><span style="color: blue;" *ngIf="student.quotaDisplayName !== null"> {{student.quotaDisplayName}} </span>
+                              </div>
+                              <div style="color: black; font-size: 15px;padding: 5px 0px;">
+                                  <span>Student Status : </span><span *ngIf="student.studentStatusCode !== null" [ngClass]="{'dtnd': student.studentStatusCode === 'DTND',
+                                      'incollege': student.studentStatusCode === 'INCOLLEGE',
+                                      'passedout': student.studentStatusCode === 'PASSEDOUT',
+                                      'detainRecmnd': student.studentStatusCode === 'DETAINRECOMMENDED',
+                                      'discontinued': student.studentStatusCode === 'DISCONTINUED'}"> {{student.studentStatusDisplayName}}  </span>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+             <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd" >
+                <div fxLayout="row wrap " fxFlex="100">
+                  <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="70" fxFlex.gt-md="70">
+                    <mat-select placeholder="Exam" name="examId" formControlName="examId" #singleSelect (selectionChange)="selectedExternalExam(examFeeCollectionForm.value.examId)" required>
+                        <ngx-mat-select-search [formControl]="examFilterCtrl" [placeholderLabel]="'Search...'" [noEntriesFoundLabel]="'no matching data found'"></ngx-mat-select-search>
+                        <mat-option *ngFor="let exam of filteredExams | async" [value]="exam.examId">{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})
+                            <span *ngIf="exam.isInternalExam" style="color: #0014ff;font-weight: 500;">(Internal)</span>
+                            <span *ngIf="exam.isRegularExam" style="color: #0014ff;font-weight: 500;">(Regular)</span>
+                            <span *ngIf="exam.isSupplyExam" style="color: #0014ff;font-weight: 500;">(Supple)</span>
+                    </mat-option>
+                    </mat-select>
+                </mat-form-field>
+                </div>
+                <p style="color: red;margin-left: 11px !important;">Note: The above fees particulars may be correlated in the fees counter A Block for any variation.</p>
+            </div>
+
+              <div fxLayout="column" class="inner-bkgrd" style="margin: 0px 24px 0px 24px !important;" *ngIf="flag">
+                  <h2>Registered Exam Course Years 
+                      <!-- <span class="add_py" (click)="goToPayment()">Add</span> -->
+                      <button class="btn-add" mat-raised-button color="accent" style="float: right;margin-top: 0px !important;" (click)="goToPayment()">
+                           
+                            Register</button>
+                    </h2>
+                  
+                  <div fxLayout="row" class="mar-8 table-bac">
+                      <table class="table table-striped fee fee_">
+                          <thead>
+                              <tr>
+                                  <th style="width: 5%;">SI No.</th>
+                                  <th>Course Year</th>
+                                  <th>Exam Type</th>
+                                  <th>Exam Fee Structure</th>
+                                  <th>Subjects</th>
+                                  <th>Pay Details</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              <tr *ngFor="let item of feeRegistrations; let i = index;">
+                                  <td>{{i + 1}}</td>
+                                  <td>{{item.courseYearName}}</td>
+                                  <td>{{item.examTypeCode}}</td>
+                                  <td>{{item.examFeeStructureName}}</td>
+                                  <td>
+                                      <button mat-raised-button style="background: #ffcf46;cursor: pointer;" (click)="viewCourseYearSubjectsListDialog(item)">Subjects</button>
+                                  </td>
+                                  <td >
+                                    <button mat-icon-button>
+                                        <i class="fa fa-eye edit" aria-hidden="true" matTooltip="View Transactions" style="color: #9E9E9E  !important;"  (click)="viewTransactions(item)"></i>
+                                    </button>
+                                  </td>
+                              </tr>
+                              
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+
+          </form>
+      </div>
+  </div>
+  <!-- / CONTENT -->
+
+</div>

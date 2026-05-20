@@ -1,0 +1,42 @@
+
+<div id="dashboard" class="layout" id="printsection">
+
+    <div  class="page-layout simple "  >
+  
+      <div fxLayout="row"  >
+         <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100" class="questions">
+            <div class="header">
+                <!-- <h2>M.Tech. Computer Science & Engineering (CBCS Pattern) Semester - II </h2> -->
+                <h2 class="capital">{{params.CourseCode}} &nbsp;{{params.CourseGroupCode}} &nbsp;{{params.CourseYear}}</h2>
+                <h1> <b>{{params.subjectName}}</b> </h1> 
+            </div>
+       <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+        <div fxLayout="row" fxFlex="50" fxFlex.gt-xs="50" fxFlex.gt-md="50" style="display: flex;">
+            <p style="margin:auto;">Time:3 Hrs</p> 
+            <p style="margin: auto">Max.Marks:80</p>
+        </div>
+       </div>
+            <div ><hr /></div>
+            <div> <b>Note :</b>  
+                <ol>
+                <li>All questions are compulsory.</li>
+                <li>All questions carry equal marks.</li>
+                <li>Due credit will be given to neatness and adequate dimensions.</li>
+                <li>Assume suitable data wherever necessary.</li>
+               </ol>
+        </div>
+           <div *ngFor="let row of questionPaper" >
+            <p>{{row.questionCode}}) &nbsp; {{row.question  | htmlToPlaintext}} &nbsp; <b>({{row.questionMarks}}&nbsp;marks)</b></p> 
+           </div>
+           <div class="printbtn">
+            <button  id="printPageButton" mat-raised-button color="accent" (click)="printBack()">
+              Back</button>
+              <button  id="printPageButton" mat-raised-button color="accent" (click)="printPage('printsection')">
+                  print</button>
+          </div>
+         </div>
+       
+      </div>
+     
+    </div>
+</div>

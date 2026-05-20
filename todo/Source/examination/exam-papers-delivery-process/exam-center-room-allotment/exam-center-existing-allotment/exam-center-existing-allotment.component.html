@@ -1,0 +1,128 @@
+<div id="admission-dashboard" class="page-layout simple">
+
+    <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+        <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Examination</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Exam Centers</span>
+                <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                <span>Copy Existing Seating</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content pd-card mt-15">
+        <div class="mat-elevation-z8 bkgrd">
+            <form name="staffForm" [formGroup]="staffForm" style="padding-bottom: 1px;" class="form-pad" novalidate>
+                <div fxLayout="row" fxLayoutAlign="start center" class="sub-header">
+                    <i class="material-icons sub-header-icon">computer</i>
+                    <span class="sub-header-text"> Copy Existing Seating </span>
+                </div>
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd div-border">
+
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="12" fxFlex.gt-md="12" *ngIf="!isEmptyObject(pageParams)">
+                            <p class="details-off">Course  </p>
+                        </div>:
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="rol-no"> {{targetExam.collegeCode}} / {{pageParams.academicYear}} / {{pageParams.courseCode}}</span></p>
+                        </div>
+                    </div>
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="12" fxFlex.gt-md="12">
+                            <p class="details-off">Target Exam  </p>
+                        </div>:
+                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="80" fxFlex.gt-md="80">
+                            <p class="details-off"><span class="rol-no"> {{targetExam.examName}} ({{targetExam.fromDate | date:dateFormate}} - {{targetExam.toDate | date:dateFormate}}) </span></p>
+                            
+                                <span class="rol-no"> 
+                                    <span *ngIf="targetExam.isInternalExam != false">(Internal)</span>
+                                <span *ngIf="targetExam.isRegularExam != false">(Regular)</span>
+                                <span *ngIf="targetExam.isSupplyExam != false">(Supple)</span>
+                            </span>
+                        
+                        </div>
+                    </div>
+                </div>
+                <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                    <div fxLayout="row" fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="52" fxFlex.gt-md="52">
+                            <mat-select placeholder="Source Exam" name="examId" formControlName="examId" (selectionChange)="selectedSourceExam(staffForm.value.examId)" required>
+                                <mat-option *ngFor="let exam of examsList" [value]="exam.examId">{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})
+                                    <span class="rol-no"> 
+                                        <span *ngIf="exam.isInternalExam != false">(Internal)</span>
+                                    <span *ngIf="exam.isRegularExam != false">(Regular)</span>
+                                    <span *ngIf="exam.isSupplyExam != false">(Supple)</span>
+                                </span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>                       
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" *ngIf="staffForm.value.examId">
+                            <input matInput [matDatepicker]="picker" name="examDate" [min]="minDate" [max]="maxDate" (dateChange)="calDays()" formControlName="examDate" placeholder="Choose a exam date">
+                            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                            <mat-datepicker #picker></mat-datepicker>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50"  *ngIf="staffForm.value.examId">
+                            <mat-select placeholder="Exam Timetable" name="examTimetableId" formControlName="examTimetableId" (selectionChange)="SelectedSession(staffForm.value.examTimetableId)" required>
+                                <mat-option *ngFor="let examTimetable of examTimetables" [value]="examTimetable.examTimetableId"  >
+                                    <span *ngIf="examTimetable.subjects.length > 0">{{examTimetable.examDate}} </span> / {{examTimetable.examSessionName}}
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        </div>
+                        <!-- <div fxLayout="row" fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="52" fxFlex.gt-md="52">
+                            <mat-select placeholder="Target Exam" name="targetExamId" formControlName="targetExamId" required>
+                                <mat-option *ngFor="let exam of examsList" [value]="exam.examId">{{exam.examName}} ({{exam.fromDate | date:'MMM d, y'}} - {{exam.toDate | date:'MMM d, y'}})
+                                    <span class="rol-no"> 
+                                        <span *ngIf="exam.isInternalExam != false">(Internal)</span>
+                                    <span *ngIf="exam.isRegularExam != false">(Regular)</span>
+                                    <span *ngIf="exam.isSupplyExam != false">(Supple)</span>
+                                </span>
+                                </mat-option>
+                            </mat-select>
+                        </mat-form-field> 
+                    </div> -->
+                </div>
+                <div fxLayout="column" style="margin-top: 10px" class="inner-bkgrd yar-bordr" *ngIf="vacancyRoomList.length > 0">
+                    <h2 style="margin: 8px 0px;color: blue;">Existing Seating</h2>
+                    <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                         <table style="width:30%">
+                            <tr>
+                                <th>Room</th>
+                                <th>Strength</th>
+                            </tr>
+                            <tr *ngFor="let rm of vacancyRoomList">
+                                <td>{{rm.room}}</td>
+                                <td style="width: 10%;">{{rm.room_strength}}</td>
+                            </tr>
+                         </table>
+                         <table style="width:30%;margin-left: 30px;">
+                            <tr>
+                                <th><input type="checkbox" [(ngModel)]="selectAll" (click)="checkAll(selectAll)" [ngModelOptions]="{standalone: true}"></th>
+                                <th>Current Exam Sessions</th>
+                            </tr>
+                            <tr *ngFor="let et of examTargetTimetables">
+                                <td><input type="checkbox" name="checked" [(ngModel)]="et.checked" (click)="singleCheck(et)" [ngModelOptions]="{standalone: true}"></td>
+                                <td>{{et.examDate}} ({{et.examSessionName}})</td>
+                            </tr>
+                         </table>
+                    </div>
+                </div>
+                <div class="form-btn">
+                    <button mat-raised-button class="add-btn back-btn" (click)="goBack()">Back</button>
+                    <button mat-raised-button class="add-btn" color="accent" (click)="addExamTable()">
+                    Save
+                </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+    <!-- / CONTENT -->
+
+</div>

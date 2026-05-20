@@ -1,0 +1,99 @@
+span {
+    color: #042956;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.pd-page-1 {
+    padding: 0px 24px 0px 24px;
+}
+
+.color i {
+    font-size: 20px;
+    vertical-align: inherit;
+    color: #042956;
+}
+
+.bckgrd {
+    background: #fff;
+    padding: 12px 12px;
+}
+
+:host {
+    display: block;
+    box-sizing: border-box;
+}
+
+.dndDragging {
+    border: 1px solid green;
+}
+
+.dndDraggingSource {
+    display: none;
+}
+
+.dndPlaceholder {
+    min-height: 48px;
+    border: 1px dashed green;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.mat-list {
+    padding: 22px 10px 22px 10px;
+    display: block;
+    -webkit-tap-highlight-color: transparent;
+    // height: 310px !important;
+    overflow-y: scroll;
+}
+
+.drop-post-rgt {
+    position: absolute;
+    right: 30px;
+}
+
+.page-table-head {
+    padding: 10px 10px !important;
+}
+.box-border{
+    border: 1px solid #dedede;
+    margin: 5px 5px;
+    border-radius: 5px;
+}
+pre{
+    font-size: 16px !important;
+    text-transform: uppercase !important;
+}
+.mat-lst{
+    height: 450px !important;
+}
+.mat-lt{
+    height: 500px !important;
+}
+h1{
+    display: inline-table !important;
+    font-size: 13px !important;
+    width: 220px !important;
+   // text-transform: lowercase !important;
+}
+.mat-list-item {
+    margin: -1px 0px !important;
+}
+.flt-rht{
+    float: right;
+}
+.search-box{
+    position: relative;
+    input{
+        width: 100%;
+        border: 2px solid #ffcf46;
+        padding: 10px 10px 10px 32px;
+        margin-bottom: 8px;
+        border-radius: 5px;
+    }
+    i{
+        position: absolute;
+        top: 11px;
+        left: 10px;
+        font-size: 15px;
+    }
+}

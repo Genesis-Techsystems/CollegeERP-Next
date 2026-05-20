@@ -1,0 +1,85 @@
+.icon {
+  color: aliceblue !important;
+  padding: 4px;
+}
+
+.ptnbtn {
+  margin-top: 4% !important;
+}
+@media print {
+   #printNone {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    .print-section {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    header nav,
+    footer {
+        display: none;
+    }
+
+    .collegeName {
+        text-align: center !important;
+        font-size: 24px !important;
+        margin-top: 16px !important;
+        margin-bottom: -8px !important;
+        font-family: none !important;
+        color: rgb(0, 0, 0) !important;
+        font-weight: 550 !important;
+    }
+
+    .title {
+        text-align: center !important;
+        font-size: 21px !important;
+        font-family: none !important;
+        color: rgb(0, 0, 0) !important;
+        font-weight: 550 !important;
+        margin-bottom: -0.1px !important;
+    }
+
+    .details {
+        font-size: 19px;
+        justify-content: center;
+        font-family: none;
+        color: rgb(0, 0, 0) !important;
+        text-align: center !important;
+    }
+
+    table {
+        border: 1px solid black !important;
+        border-collapse: collapse !important;
+        padding: 2px !important;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 12px;
+    }
+
+    .table-th {
+        border: 1px solid black !important;
+        border-collapse: collapse !important;
+    }
+
+    .table-td {
+        border: 1px solid black !important;
+        border-collapse: collapse !important;
+    }
+      .header-text {
+      margin-top: -95px !important;
+      text-align: center;
+  }
+
+    .header {
+        justify-content: center !important;
+
+        p {
+            text-align: center !important;
+        }
+    }
+    
+}
+.print-section {
+    display: none;
+}

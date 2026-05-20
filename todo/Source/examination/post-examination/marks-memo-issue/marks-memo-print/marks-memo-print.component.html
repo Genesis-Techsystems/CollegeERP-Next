@@ -1,0 +1,242 @@
+<div class="layout">
+    <div id="dashboard" class="page-layout simple " id="printsection">
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <div fxLayout="column" fxFlex="18" fxFlex.gt-xs="18" fxFlex.gt-md="18">
+                <img src="{{MinIo + data[0].examStudentMemoSubjectDTO[0].logoFilename}}" style="height:100px;width:100px;">
+               
+            </div>
+            <div fxLayout="column" fxFlex="45" fxFlex.gt-xs="45" fxFlex.gt-md="45"
+                style="margin-top:1%">
+                <p style="font-size:20px">{{data[0].collegeName}}</p>
+                <p>{{data[0].examStudentMemoSubjectDTO[0].address}}</p>
+                <!-- <p>https://gondwanauniv.emdoar.com</p> -->
+            </div>
+        </div>
+        <p class="subhead">THIS MARKSHEET IS VALID ONLY FOR APPLYING FOR REASSESSMENT AND SUPPLEMENTARY EXAMS
+            AND FOR ADMISSION TO NEXT SEMESTER</p>
+        <p class="subhead">FINAL MARKSHEET WILL BE ISSUED LATER</p>
+        <p class="subhead">{{data[0].examName}}</p>
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <table id="table2" style="border:0;margin-top:2%">
+                <tr>
+                    <td colspan="2">Student Name: {{data[0].studentName}}</td>
+                    <td>Roll No:{{rollnumber}} </td>
+                    <td>Date: {{data[0].dateOfIssue | date:'dd/MM/YYYY'}}</td>
+                </tr>
+                <tr>
+                    <td colspan="2">Mother's Name: {{data[0].examStudentMemoSubjectDTO[0].motherName}}</td>
+                    <td>PRN.: -</td>
+                    <td>P/L: -</td>
+                </tr>
+                <tr>
+                    <td>Exam Category: {{data[0].examTypeName}}</td>
+                    <td>Gender: {{data[0].examStudentMemoSubjectDTO[0].generalDetailCode}}</td>
+                    <td>Center No: -</td>
+                    <td>Medium: -</td>
+                </tr>
+                <tr>
+                    <td colspan="3">College: {{data[0].collegeName}}
+                    </td>
+                    <td></td>
+                </tr>
+            </table>
+        </div>
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <table id="table2" style="margin-top:1%">
+                <tr>
+                    <td>Sr. No.</td>
+                    <td>SUBJECT</td>
+                    <td>MAX UA</td>
+                    <td>MAX CA</td>
+                    <!-- <td>MAX UA</td> -->
+                    <td>TOTAL MARKS</td>
+                    <!-- <td>MIN UA+CA</td> -->
+                    <!-- <td>MIN UA</td> -->
+                    <td>CR</td>
+                    <td>UA</td>
+                    <td>CA</td>
+                    <td>TOTAL MARKS</td>
+                    <td>GRADE</td>
+                    <td>GP</td>
+                    <td>GPV</td>
+                    <td>RMK</td>
+                </tr>
+                <tr *ngFor="let subjects of memodata index as i">
+                    <td>{{i+1}}</td>
+                    <td>{{subjects.subjectName}}</td>
+                    <td>{{marks.externalMarks}}</td>
+                    <td>{{marks.internalMarks}}</td>
+                    <!-- <td>--</td> -->
+                    <td>{{marks.externalMarks + marks.internalMarks}}</td>
+                    <!-- <td>-</td> -->
+                    <!-- <td>--</td> -->
+                    <td>{{subjects.credits}}</td>
+                    <td>{{subjects.externalMarks}}</td>
+                    <td>{{subjects.internalMarks}}</td>
+                    <td>{{subjects.totalMarks}}</td>
+                    <td>{{subjects.grade}}</td>
+                    <td>{{subjects.gradePoints}}</td>
+                    <td>{{subjects.credits * subjects.gradePoints}}</td>
+                    <td>--</td>
+                </tr>
+                <!-- <tr>
+                    <td>2</td>
+                    <td>MARATHI</td>
+                    <td>80</td>
+                    <td>20</td>
+                    <td>--</td>
+                    <td>100</td>
+                    <td>40</td>
+                    <td>--</td>
+                    <td>2</td>
+                    <td>64</td>
+                    <td>19</td>
+                    <td>--</td>
+                    <td>83</td>
+                    <td>O</td>
+                    <td>10</td>
+                    <td>20</td>
+                    <td>--</td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td>FINANCIAL ACCOUNTING-I </td>
+                    <td>60</td>
+                    <td>15</td>
+                    <td>--</td>
+                    <td>75</td>
+                    <td>30</td>
+                    <td>--</td>
+                    <td>3</td>
+                    <td>38</td>
+                    <td>14</td>
+                    <td>--</td>
+                    <td>52</td>
+                    <td>A</td>
+                    <td>9</td>
+                    <td>27</td>
+                    <td>--</td>
+                </tr>
+                <tr>
+                    <td>4</td>
+                    <td>BUSINESS ECONOMICS-I </td>
+                    <td>60</td>
+                    <td>15</td>
+                    <td>--</td>
+                    <td>75</td>
+                    <td>30</td>
+                    <td>--</td>
+                    <td>3</td>
+                    <td>24</td>
+                    <td>15</td>
+                    <td>--</td>
+                    <td>39</td>
+                    <td>C</td>
+                    <td>7</td>
+                    <td>21</td>
+                    <td>--</td>
+                </tr>
+                <tr>
+                    <td>5</td>
+                    <td>PRINCIPLE OF MANAGEMENT-I</td>
+                    <td>60</td>
+                    <td>15</td>
+                    <td>--</td>
+                    <td>75</td>
+                    <td>30</td>
+                    <td>--</td>
+                    <td>3</td>
+                    <td>37</td>
+                    <td>15</td>
+                    <td>--</td>
+                    <td>52</td>
+                    <td>A</td>
+                    <td>9</td>
+                    <td>27</td>
+                    <td>--</td>
+                </tr>
+                <tr>
+                    <td>6</td>
+                    <td>STATISTICS TECHNIQUES & BUSINESS MATHEMATICS4 </td>
+                    <td>60</td>
+                    <td>15</td>
+                    <td>--</td>
+                    <td>75</td>
+                    <td>30</td>
+                    <td>--</td>
+                    <td>3</td>
+                    <td>34</td>
+                    <td>15</td>
+                    <td>--</td>
+                    <td>49</td>
+                    <td>A</td>
+                    <td>9</td>
+                    <td>27</td>
+                    <td>--</td>
+                </tr>
+                <tr>
+                    <td>7</td>
+                    <td>INFORMATION TECHNOLOGY( INFORMATION COMMUNICATIONTECHNOLOGY-I)</td>
+                    <td>60</td>
+                    <td>15</td>
+                    <td>25</td>
+                    <td>100</td>
+                    <td>30</td>
+                    <td>10</td>
+                    <td>4</td>
+                    <td>41</td>
+                    <td>14</td>
+                    <td>24</td>
+                    <td>79</td>
+                    <td>O</td>
+                    <td>10</td>
+                    <td>40</td>
+                    <td>--</td>
+                </tr> -->
+            </table>
+        </div>
+        <div fxLayout="row" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <table id="table2" style="margin-top:1%">
+                <tr>
+                    <td>Incentive</td>
+                    <td>Total Credits</td>
+                    <td>GPV</td>
+                    <td>SGPA</td>
+                    <td>OUT OF</td>
+                    <td>RESULT</td>
+                    <td>REMARKS</td>
+                </tr>
+                <tr>
+                    <td> </td>
+                    <td>{{getTotalCredits()}}</td>
+                    <td>{{getTotalGpv()}}</td>
+                    <td>{{data[0].sgpa}}</td>
+                    <td>10.00</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>
+                <!-- <tr>
+                    <td>1</td>
+                    <td>2</td>
+                    <td>3</td>
+                    <td>4</td>
+                    <td>1</td>
+                    <td>2</td>
+                    <td>3</td>
+                </tr> -->
+            </table>
+        </div>
+        <p>UA=University Assessment; CA=College Assesment; RMK=Exemption Remark; WLS= Withheld for Lower Staged; CR =Credit GP</p>
+        <p>FINAL MARKSHEET WILL BE ISSUED LATER2</p>
+        <p>FINAL MARKSHEET WILL BE ISSUED LATER3</p>
+        <p style="margin-bottom:2%;">FINAL MARKSHEET WILL BE ISSUED LATER4</p>
+    </div>
+    <p style="margin-bottom:1%;text-align:center;color:rgb(71, 71, 210)" 
+    id="printPageButton" >Print the Layout in Landscape mode</p>
+    <div class="printbtn" style="margin-bottom:1%">
+        <button id="printPageButton" mat-raised-button class="back-btn" (click)="backPage(data)">
+            Back</button>
+        <button id="printPageButton" mat-raised-button color="accent" (click)="printPage()">
+            print</button>
+    </div>
+</div>

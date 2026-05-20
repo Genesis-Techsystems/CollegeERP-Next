@@ -1,0 +1,309 @@
+<div id="dashboard" class="page-layout simple">
+    <div class="center" fusePerfectScrollbar>
+  
+        <!-- HEADER -->
+        <div class="header pd-dash pb-0" fxLayout="column" fxLayoutAlign="space-between">
+  
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Evaluation Process</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Question Paper Marks New</span>
+                </div>
+            </div>
+        </div>
+        <!-- / HEADER -->
+        <div class="content">
+
+        <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+            <mat-expansion-panel [expanded]="true" hideToggle style="margin: 0px 25px;">
+                <mat-expansion-panel-header>
+                    <mat-panel-title>
+                        <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                <mat-icon class="fs  icon-align ">book</mat-icon>
+                                <strong class="table-heads">Exam Question Paper</strong>
+                            </div>
+                        </div>
+                    </mat-panel-title>
+                    <label class="filter-align">Filter</label>
+                    <mat-icon>filter_list</mat-icon>
+                    
+                </mat-expansion-panel-header>
+                <form name="questionPaperForm" [formGroup]="questionPaperForm"  novalidate>
+                    <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                        <div fxLayout="row wrap " fxFlex="100">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId" (selectionChange)="selectedCourse(questionPaperForm.value.courseId)">
+                                    <mat-option *ngFor="let courseCode of CourseCode" [value]="courseCode.fk_course_id">{{courseCode.course_code}}</mat-option>
+                                 </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                                <mat-select placeholder="Academic Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(questionPaperForm.value.academicYearId)">
+                                    <mat-option *ngFor="let academicYear of academicYearDetailList" [value]="academicYear.fk_academic_year_id">{{academicYear.academic_year}}</mat-option>
+                                 </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                                <mat-select placeholder="Exam" name="examId"  formControlName="examId" (selectionChange)="selectedExam(questionPaperForm.value.examId)">
+                                    <ngx-mat-select-search [noEntriesFoundLabel]="'no matching data found'" (keyup)="searchExam($event.target.value)"
+                                    [placeholderLabel]="'Search...'" ></ngx-mat-select-search>
+                                    <mat-option *ngFor="let exam of examDuplicateList" [value]="exam.fk_exam_id">{{exam.exam_name}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                <mat-select placeholder="Regulation Id" name="regulationId" formControlName="regulationId"  (selectionChange)="selectedregulationCode(questionPaperForm.value.regulationId)">
+                                    <mat-option *ngFor="let RegulationCode of regulationsData" [value]="RegulationCode.fk_regulation_id">{{RegulationCode.regulation_code}}</mat-option>
+                                 </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40">
+                                <mat-select placeholder="Subject" name="Subject" formControlName="subjectId" (selectionChange)="selectedSubject(questionPaperForm.value.subjectId)">
+                                    <ngx-mat-select-search [noEntriesFoundLabel]="'no matching data found'" (keyup)="searchSubject($event.target.value)"
+                                    [placeholderLabel]="'Search...'" ></ngx-mat-select-search>
+                                    <mat-option *ngFor="let subject of subjectDuplicateList" [value]="subject.fk_subject_id" matTooltip="{{subject.subject_code}}-{{subject.subject_name}}">{{subject.subject_code}}-{{subject.subject_name}}</mat-option>
+                                 </mat-select>
+                            </mat-form-field>
+                            
+               
+                        <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <mat-select placeholder="Exam Month Year" name="ExamMonthYear" formControlName="ExamMonthYear" (selectionChange)="selectedMonthyr(questionPaperForm.value.ExamMonthYear)">
+                                <ngx-mat-select-search (keyup)="searchExamMonth($event.target.value)" [noEntriesFoundLabel]="'no matching data found'" [placeholderLabel]="'Search Exam Month Year...'" ></ngx-mat-select-search>
+                                <mat-option *ngFor="let monthYr of monthYearDuplicateList" [value]="monthYr.exam_month_yr">{{monthYr.exam_month_yr}}</mat-option>
+                            </mat-select>
+                        </mat-form-field> -->
+                        <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <mat-select placeholder="Course Year" name="CourseYear" formControlName="CourseYear" (selectionChange)="selectedCourseYr(questionPaperForm.value.CourseYear)">
+                                <mat-option *ngFor="let courseyearcode of courseyearcode" [value]="courseyearcode.course_year_code">{{courseyearcode.course_year_code}}</mat-option>
+                             </mat-select>
+
+                        </mat-form-field> -->
+                        <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <mat-select placeholder="Course Group Code" name="CourseGroupCode" formControlName="CourseGroupCode"  (selectionChange)="selectedgroupCode(questionPaperForm.value.CourseGroupCode)">
+                                <mat-option *ngFor="let CourseGroupCode of CourseGroupCode" [value]="CourseGroupCode.group_code">{{CourseGroupCode.group_code}}</mat-option>
+                             </mat-select>
+                        </mat-form-field> -->
+                       
+
+                        <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-select placeholder="Exam Date" name="ExamDate" formControlName="ExamDate" (selectionChange)="selectedDate(questionPaperForm.value.ExamDate)">
+                                <ngx-mat-select-search (keyup)="searchExamDate($event.target.value)" [noEntriesFoundLabel]="'no matching data found'" [placeholderLabel]="'Search Exam Date Year...'" ></ngx-mat-select-search>
+                                <mat-option *ngFor="let ExamDate of ExamDateDuplicateList" [value]="ExamDate.exam_dates">{{ExamDate.exam_dates}}</mat-option>
+                             </mat-select>
+                        </mat-form-field> -->
+
+                        <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40">
+                            <mat-select placeholder="Subject" name="Subject" formControlName="subjectcode" (selectionChange)="selectedSubject(questionPaperForm.value.subjectcode)">
+                                <ngx-mat-select-search (keyup)="searchdata($event.target.value)" [placeholderLabel]="'Search Subjects Names...'" [noEntriesFoundLabel]="'no matching data found'" ></ngx-mat-select-search>
+                                <mat-option *ngFor="let subjectcode of selectedStates" [value]="subjectcode.subject_code" matTooltip="{{subjectcode.subject_code}}-{{subjectcode.subject_name}}">{{subjectcode.subject_code}}-{{subjectcode.subject_name}}</mat-option>
+                             </mat-select>
+                        </mat-form-field>  -->
+                        
+                  <div class="savebtn-align" style="display: flex; justify-content: end;" >
+                    <button mat-raised-button class="add-btn" color="accent" (click)="getQuestionpapers()">Get List</button>
+                </div>
+                  </div>
+                </div>
+                </form>
+            </mat-expansion-panel>
+           
+        </mat-accordion>
+
+
+        <!-- CONTENT -->
+        <div fxLayout="row" *ngIf="flag">
+            <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <mat-card class="pd-card table-align" >
+              
+              <mat-card-content  *ngIf="flag">
+                <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                    <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                        <label for="search" class="mr-8">
+                            <mat-icon class="secondary-text">search</mat-icon>
+                        </label>
+                        <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                            <input matInput (keyup)="applyFilter($event.target.value)" name="search" placeholder="Search">
+                        </mat-form-field>
+                    </div>
+                     <button class="btn-add" mat-raised-button color="accent" (click)="openDialog()">
+                        <i class="material-icons">add</i>
+                        Exam Question Paper</button>
+                </div>
+            </mat-card-content>
+                <div class="mat-elevation-z8">
+                    <div class="example-container">
+                        <table mat-table [dataSource]="dataSource" matSort >
+  
+                            <!-- ID Column -->
+                            <ng-container matColumnDef="id">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                <td mat-cell *matCellDef="let row; let i = index" style="width: 5%;" > {{QuestionPapers.indexOf(row) + 1}} </td>
+                            </ng-container>
+  
+                            <!--Bank Column -->
+                            <ng-container matColumnDef="questionPaperTitle">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Question Paper Title</th>
+                                <td mat-cell *matCellDef="let row" style="width: 27%;">
+                                    <span></span>
+                                  <p class="align" style="position: relative !important;">
+                                      <span class="font-align">{{row.questionpaper_title}}</span>
+                                  </p>
+                                  <p class="align question-bank clr" style="font-size: 13px; font-weight: 500;" >
+                                    <span (click)="viewTemplate1(row)">View Questions&nbsp;| &nbsp;</span>
+                                    <span (click)="printQP(row)">Print QP&nbsp;| &nbsp;</span>
+                                    <span (click)="printQA(row)">Print QA&nbsp;| &nbsp;</span>
+                                    <span (click)="editDialog(row)" matTooltip="Edit ExamQuestionPaper">Edit</span>
+                                </p> 
+                              <p class="align question-bank clr" style="font-size: 12px; text-align: center;">
+                              
+                            </p>
+                                 </td>
+                            </ng-container>
+  
+                       <!-- Setnumber Column -->
+
+                       <ng-container matColumnDef="questionPaperCode">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>QP Code</th>
+                        <td mat-cell *matCellDef="let row" style="text-align: center;"> 
+                            {{row.questionpaper_code}} 
+                        </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="setNumber">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Set No.</th>
+                        <td mat-cell *matCellDef="let row" style="text-align: center;"> 
+                            {{row.setnumber}} 
+                        </td>
+                    </ng-container>
+
+                       <!-- passmarks column -->
+                       <ng-container matColumnDef="passMarks">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Pass Marks</th>
+                        <td mat-cell *matCellDef="let row" style="text-align: center;"> 
+                            {{row.passmarks}}    
+                        </td>
+                    </ng-container>
+
+                     <!-- totalmarks Column -->
+                       <ng-container matColumnDef="totalMarks">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Total Marks</th>
+                        <td mat-cell *matCellDef="let row" style="text-align: center;"> {{row.totalmarks}}   </td>
+                       </ng-container>
+
+                     <!-- totalquestions Column -->
+                     <ng-container matColumnDef="totalQuestions">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Total Questions</th>
+                        <td mat-cell *matCellDef="let row" style="text-align: center;"> {{row.totalquestions}}  </td>
+                    </ng-container>
+
+                     <!-- questionpaper_path Column -->
+                     <ng-container matColumnDef="questionPaperPath">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Question Paper</th>
+                        <td mat-cell *matCellDef="let row"  style="text-align: center;"> 
+                           <!-- <mat-icon matTooltip="View" (click)="openDialogpath1(row?.questionpaper_path)">remove_red_eye</mat-icon> -->
+                           <p *ngIf="row.questionpaper_path != null"><mat-icon (click)="openFile(row?.questionpaper_path)">remove_red_eye</mat-icon></p>
+                           <span *ngIf="row.questionpaper_path == null">No Docs Uploaded</span>
+
+                         </td>
+                    </ng-container>
+
+                     <!-- modelanswersheet_path Column -->
+                     <ng-container matColumnDef="modelAnswerSheetPath"  >
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Answer Sheet</th>
+                        <td mat-cell *matCellDef="let row" style="text-align: center;"> 
+                                    <!-- <mat-icon matTooltip="View" (click)="openDialogpath1(row?.questionpaper_path)">remove_red_eye</mat-icon> -->
+                                    <p *ngIf="row.modelanswersheet_path != null"><mat-icon (click)="openFile(row?.modelanswersheet_path)">remove_red_eye</mat-icon></p>
+                                    <span *ngIf="row.modelanswersheet_path == null">No Docs Uploaded</span>
+         
+                                </td>
+                    </ng-container>
+                    <ng-container matColumnDef="paperTemplate"  >
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>View Template</th>
+                        <td mat-cell *matCellDef="let row" style="text-align: center;"> 
+                                    <!-- <mat-icon matTooltip="View" (click)="openDialogpath1(row?.questionpaper_path)">remove_red_eye</mat-icon> -->
+                                    <p *ngIf="row.fk_exam_qp_template_id != null"><mat-icon (click)="viewTemplate(row)">remove_red_eye</mat-icon></p>
+                                    <span *ngIf="row.fk_exam_qp_template_id == null">No Docs Uploaded</span>
+         
+                                </td>
+                    </ng-container>
+                     <!-- Prepared by Employe Column -->
+                     <ng-container matColumnDef="PrepareByEmp"> 
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Prepared By</th>
+                        <td mat-cell *matCellDef="let row"> {{row.preparedby_emp_name}}  </td>
+                    </ng-container>
+                      <!--  PreparedDate Column -->
+                      <ng-container matColumnDef="PreparedDate">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Prepared Date</th>
+                        <td mat-cell *matCellDef="let row"> {{row.prepared_date}}  </td>
+                    </ng-container>
+                     <!--  QuestionPaperStatus Column -->
+                     <ng-container matColumnDef="QuestionPaperStatus">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Question Paper Status</th>
+                        <td mat-cell *matCellDef="let row"> {{row.question_status}}  </td>
+                    </ng-container>
+                     <!--  StatusComments Column -->
+                     <ng-container matColumnDef="StatusComments">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Status Comments</th>
+                        <td mat-cell *matCellDef="let row"> {{row.status_comments}}  </td>
+                    </ng-container>
+                     <!--  IsApproved Column -->
+                     <ng-container matColumnDef="IsApproved">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Is Approved</th>
+                        <td mat-cell *matCellDef="let row"> {{row.is_approved}}  </td>
+                    </ng-container>
+                      <!--  ApprovedEmp Column -->
+                      <ng-container matColumnDef="ApprovedEmp">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Approved By</th>
+                        <td mat-cell *matCellDef="let row"> {{row.approvedby_emp_name}}  </td>
+                    </ng-container>
+                      <!-- Approved date Column -->
+                      <ng-container matColumnDef="ApprovedDate">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Approved Date</th>
+                        <td mat-cell *matCellDef="let row"> {{row.approved_date}}  </td>
+                    </ng-container>
+
+
+                    <!-- Isactive Column -->
+                    <ng-container matColumnDef="Status">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
+                        <td mat-cell *matCellDef="let row">
+                            <span *ngIf="row.is_active==true" class="active">Active</span>
+                            <span *ngIf="row.is_active==false" class="in-active">InActive</span>
+                        </td>
+                    </ng-container>
+                            <!--STUDENT  Column -->
+                            <ng-container matColumnDef="Actions">
+                              <th mat-header-cell *matHeaderCellDef mat-sort-header style="width: 30px;">Actions</th>
+                              <td mat-cell *matCellDef="let row"  class="button-icon text-ctr">
+                                       
+                                        <!-- <span *ngIf="row.fk_exam_questionpaper_template_id == null">
+                                        <button mat-raised-button color="primary" style="margin: 0px 5px; margin-bottom: 10px;" (click)="assignTemplate(row)">
+                                            Assign Template</button></span> -->
+                                            <span *ngIf="row.fk_exam_qp_template_id != null"> <button mat-raised-button color="primary" style="margin: 0px 5px; margin-bottom: 10px;" (click)="manageQuestions(row)">
+                                                Manage Question</button></span>
+                                        <span  *ngIf="row.fk_exam_qp_template_id != null"><button mat-raised-button color="primary"  (click)="UploadPapers(row)">
+                                            Upload QP & AS</button></span>
+                                        <span  ><button mat-raised-button color="primary" >
+                                            Submit</button></span>
+                              </td>
+                            </ng-container> 
+                            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                            <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                            </tr>
+                        </table>
+                    </div>
+                    <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+                </div>
+            </mat-card>
+        </div>
+</div>
+    </div>
+</div>
+</div>

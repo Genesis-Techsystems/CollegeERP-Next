@@ -1,0 +1,698 @@
+<div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Re-Valuation</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Re-Valuation Fee</span>
+                </div>
+            </div>
+
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                                fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads">Re-Valuation Fee</strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <!-- <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon> -->
+                    </mat-expansion-panel-header>
+                    <form name="evaluatorForm" [formGroup]="reEvaluationForm" novalidate>
+                        <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                            <div fxLayout="row wrap " fxFlex="100">
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40"
+                                    fxFlex.gt-md="40">
+                                    <mat-select placeholder="Student" name="studentId" formControlName="studentId"
+                                        #singleSelect (selectionChange)="selectedStudent()">
+                                        <ngx-mat-select-search [formControl]="studentFilterCtrl"
+                                            [placeholderLabel]="'Search...'"
+                                            [noEntriesFoundLabel]="'no matching data found'"
+                                            (keyup)="enteredStudent($event,'ADMIN')"></ngx-mat-select-search>
+                                        <!-- <mat-option [value]="0" >All</mat-option>  -->
+                                        <mat-option *ngFor="let std of filteredStudents | async"
+                                            [value]="std.studentId">{{std.hallticketNumber}}<span class="clr"
+                                                *ngIf="std.firstName != null">({{std.firstName}})</span></mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40"
+                                    fxFlex.gt-md="40">
+                                    <mat-select placeholder="Exam" name="examId" formControlName="examId" required
+                                        (selectionChange)="selectedExam(reEvaluationForm.value.examId)">
+                                        <mat-option *ngFor="let exam of examList"
+                                            [value]="exam.fk_exam_id">{{exam.exam_name}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Revision Type" name="revisiontype"
+                                        formControlName="revisionTypeId"
+                                        (selectionChange)="selectedRevision(reEvaluationForm.value.revisionTypeId)">
+                                        <mat-option *ngFor="let reEvaluationDataList of reEvaluationDataList"
+                                            [value]="reEvaluationDataList.fk_adt_examfeetype_catdet_id">{{reEvaluationDataList.exam_fee_type}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field> -->
+
+                                <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                                    <mat-select placeholder="Exam Revision Type" formControlName="revisionTypeId"  (selectionChange)="selectedRevision(reEvaluationForm.value.revisionTypeId)"   >
+                                        <mat-option *ngFor="let revType of reEvaluationDataList" [value]="revType.generalDetailId">{{revType.generalDetailDisplayName}}</mat-option>
+                                    </mat-select>
+                            </mat-form-field>
+
+                                <!-- <button mat-raised-button class="add-btn" color="accent"  (click)="getSubjectList()">Get List</button> -->
+                            </div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+            </mat-accordion>
+            <div *ngIf="flag">
+                <div class="content pd-card mt-15">
+                    <div class="mat-elevation-z8 bkgrd">
+                        <div class="header" fxLayout="column" fxLayoutAlign="space-between">
+
+                            <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center"
+                                fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs icon-align">book</mat-icon>
+                                    <strong class="table-heads">Re-Valuation Fee</strong>
+                                    <!-- &nbsp; - &nbsp; <strong class="table-heads"> {{examRevisionStdDetails[0]?.student_name}} / {{examRevisionStdDetails[0]?.hallticket_number}}</strong> -->
+                                </div>
+                            </div>
+                        </div>
+                        <div fxLayout="column" class="inner-bkgrd std-his">
+                            <div fxLayout="row" class="mar-8">
+                                <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                    <img class="pic" [src]='student?.studentPhotoPath'
+                                        onerror="this.src='assets/images/avatars/default_Student.png'">
+                                    <!-- <img class="pic" *ngIf="student.length == 0" [src]='student.studentPhotoPath' onerror="this.src='assets/images/avatars/default_Student.png'"> -->
+                                </div>
+                                <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="60" fxFlex.gt-md="60"
+                                    style="padding: 10px 0px;">
+                                    <p>{{student?.firstName}} </p>
+                                    <!-- <p *ngIf="!student.isLateral">{{student.firstName}} (<span style="color: blue;">REGULAR</span>) </p> -->
+                                    <p style="color: #8c8c8c !important;">{{student?.rollNumber}}</p>
+                                    <p style="color: #8c8c8c !important;">{{student?.collegeCode}} /
+                                        {{student?.academicYear}} / {{student?.courseCode}} / {{student?.groupCode}} /
+                                        {{student?.courseYearName}} / Section {{student?.section}}</p>
+                                    <p style="color: #8c8c8c !important;">{{student?.mobile}}</p>
+                                </div>
+                                <div class="user-info" fxLayout="column" fxLayoutAlign="center center"
+                                    fxLayout.gt-sm="row" fxLayoutAlign.gt-sm="start center">
+                                    <div class="name" [@animate]="{value:'*',params:{delay:'100ms',x:'-25px'}}">
+
+                                        <div style="color: black; font-size: 15px;padding: 5px 0px;">
+                                            <span>Quota : </span><span style="color: blue;"
+                                                *ngIf="student?.quotaDisplayName !== null">
+                                                {{student?.quotaDisplayName}} </span>
+                                        </div>
+                                        <div style="color: black; font-size: 15px;padding: 5px 0px;">
+                                            <span>Student Status : </span><span
+                                                *ngIf="student?.studentStatusCode !== null" [ngClass]="{'dtnd': student?.studentStatusCode === 'DTND',
+                                            'incollege': student?.studentStatusCode === 'INCOLLEGE',
+                                            'passedout': student?.studentStatusCode === 'PASSEDOUT',
+                                            'detainRecmnd': student?.studentStatusCode === 'DETAINRECOMMENDED',
+                                            'discontinued': student?.studentStatusCode === 'DISCONTINUED'}">
+                                                {{student?.studentStatusDisplayName}} </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div fxLayout="row" style="margin: 15px !important;" *ngIf="CoursesYearList.length>0">
+                            <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15"
+                                style="padding-right: 25px;">
+                                <div class="mat-elevation-z8 weeday-bordr">
+                                    <h2>Select Semester</h2>
+                                    <table class="mar">
+                                        <thead>
+                                            <tr>
+                                                <th class="table-th" style="width: 17% !important;">
+                                                    <mat-checkbox [(ngModel)]="checkCourse" (change)="CoursemarkItems()"
+                                                        style=" padding: 5px;"
+                                                        [ngModelOptions]="{standalone: true}"></mat-checkbox>
+                                                </th>
+                                                <!-- <mat-checkbox [(ngModel)]="checkCourse" (change)="CoursemarkItems()" style=" padding: 5px;" [ngModelOptions]="{standalone: true}"></mat-checkbox></th> -->
+                                                <th class="table-th"><span class="rol-no" style="color: blue;">
+                                                        All</span></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr *ngFor="let obj of CoursesYearList">
+                                                <!-- <td class="table-td"  style="width: 15% !important;">
+                                                (click)="checkedserialNo(!CoursesList.checked,CoursesList)" 
+                                                <mat-checkbox style="text-align: center;" (change)="checkedCourseYear(!obj?.check,obj)" [(ngModel)]="obj.check" [ngModelOptions]="{standalone: true}"></mat-checkbox>
+                                            </td> -->
+                                                <td class="table-td" style="width: 15% !important;">
+                                                    <!-- (click)="checkedserialNo(!CoursesList.checked,CoursesList)"  -->
+                                                    <mat-checkbox style="text-align: center;"
+                                                        (change)="checkedCourseYear(obj?.check,obj)"
+                                                        [(ngModel)]="obj.check"
+                                                        [ngModelOptions]="{standalone: true}"></mat-checkbox>
+                                                </td>
+                                                <td class="table-td" style="text-align: left; ">
+                                                    {{obj?.course_year_code}}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <!-- <table class="mar subjectslist ">
+                                    <thead>
+                                        <tr >
+                                            <th class="table-th" style="width: 17% !important;">
+                                                <mat-checkbox [(ngModel)]="checksubject" (change)="markItems()" style=" padding: 5px;" [ngModelOptions]="{standalone: true}"></mat-checkbox>All</th>
+                                            <th class="table-th" >Evaluators List: <span class="rol-no" style="color: blue;">{{evaluatorName.length}}</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody >
+                                        <tr *ngFor="let  objct of evaluatorName; let i=index">
+                                            <td class="table-td" style="width: 15% !important;">
+                                                <mat-checkbox  style="text-align: center;" (change)="checkedEvaluvatorsList($event,i,objct)" [(ngModel)]="objct.checked" [ngModelOptions]="{standalone: true}"></mat-checkbox>
+                                            </td>
+                                            <td class="table-td" style="text-align: left; ">{{objct.evaluator_name}}</td>
+                                        </tr>
+                            
+                                    </tbody>
+                                </table> -->
+                                </div>
+                            </div>
+
+                            <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="85" fxFlex.gt-md="85"
+                                style="margin-bottom: 20px !important;">
+                                <div class="mat-elevation-z8">
+                                    <div class="example-container1 ">
+                                        <div fxLayout="column" class="mlr-15 inner-bkgrd">
+                                            <div fxLayout="row wrap " fxFlex="100">
+                                                <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100"
+                                                    fxFlex.gt-md="100">
+                                                    <div fxLayout="row" fxLayoutAlign="space-between center">
+                                                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="70"
+                                                            fxFlex.gt-md="70" fxLayout="row"
+                                                            fxLayoutAlign="start center">
+                                                            <div class="search-input-wrapper mx-24 m-md-0"
+                                                                fxFlex.gt-xs="30" fxFlex.gt-md="35" fxLayout="row"
+                                                                fxLayoutAlign="start center" style="margin: -5px;">
+
+                                                                <!-- <i class="fa fa-search" aria-hidden="true"></i>
+                                                                <input  placeholder="Search..."> -->
+                                                                <!-- <label for="search" class="mr-8">
+                                                                    <mat-icon class="secondary-text">search</mat-icon>
+                                                                </label> -->
+                                                                <mat-form-field floatLabel="never" fxFlex="1 0 auto"
+                                                                    style="margin-left: 10px">
+                                                                    <input matInput
+                                                                        (keyup)="applyFilter($event.target.value)"
+                                                                        placeholder="Search">
+                                                                </mat-form-field>
+
+                                                            </div>
+
+                                                        </div>
+                                                        <div fxFlex.gt-xs="28" fxFlex.gt-md="28" fxLayout="row"
+                                                            fxLayoutAlign="start center" class="buttons">
+                                                            <span style="color: black !important;">Each Course Fee -
+                                                            </span> &nbsp; <span
+                                                                style="color: blue !important;font-weight: bold !important">
+                                                                {{CoursesYearList[0].fee}} /-</span>
+                                                            <!-- <button mat-raised-button class="add-btn" color="accent"  (click)="exportAsExcel()">
+                                                    <i class="fa fa-file-excel-o icon" aria-hidden="true"></i>Export Excel</button>
+                                                    <button mat-raised-button class="add-btn" color="accent"  (click)="PrintData()">
+                                                        <i class="fa fa-print icon" aria-hidden="true"></i>Print Report</button> -->
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- <div class="mat-elevation-z8 ">
+                                                        <div class="example-container "> -->
+                                                    <table mat-table [dataSource]="dataSource" matSort
+                                                        style="margin-top: -10px !important;">
+                                                        <ng-container matColumnDef="mark">
+                                                            <th mat-header-cell *matHeaderCellDef>
+                                                                <section class="mp-14 mb-14 p-8">
+                                                                  <mat-checkbox
+                                                                    [(ngModel)]="checksubject"
+                                                                    (change)="markItems()"
+                                                                    [ngModelOptions]="{ standalone: true }">
+                                                                    All
+                                                                  </mat-checkbox>
+                                                                </section>
+                                                              </th>
+                                                            <td mat-cell *matCellDef="let row; let i = index;">
+                                                                <section class="mp-14 mb-14 p-8">
+                                                                    <!-- <mat-checkbox name="checked-{{i}}"  (click)="checkedItems(!row.checked,i,row)" [(ngModel)]="row.checked" [ngModelOptions]="{standalone: true}">
+                                                                            </mat-checkbox> -->
+                                                                    <mat-checkbox name="checked-{{i}}"
+                                                                        [disabled]="row.disabled"
+                                                                        (change)="checkedItems($event.checked, i, row)"
+                                                                        [(ngModel)]="row.checked"
+                                                                        [ngModelOptions]="{standalone: true}">
+                                                                    </mat-checkbox>
+
+                                                                </section>
+                                                            </td>
+                                                        </ng-container>
+
+                                                        <!-- Semisters Column -->
+                                                        <ng-container matColumnDef="subject">
+                                                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject
+                                                            </th>
+                                                            <td mat-cell *matCellDef="let row"> {{row.subject_code}} -
+                                                                {{row.subject_name}}</td>
+                                                        </ng-container>
+
+                                                        <!-- Semisters Column -->
+                                                        <ng-container matColumnDef="totalAmount">
+                                                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject
+                                                                Marks</th>
+                                                            <td mat-cell *matCellDef="let row"> {{row.subject_marks}}
+                                                            </td>
+                                                        </ng-container>
+                                                        <!-- <ng-container matColumnDef="feeReceiptNo">
+                                                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Fee
+                                                                Receipt No</th>
+                                                            <td mat-cell *matCellDef="let row"> {{row.fee_receipt_no}}
+                                                            </td>
+                                                        </ng-container> -->
+                                                        <ng-container matColumnDef="grade">
+                                                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Grade
+                                                            </th>
+                                                            <td mat-cell *matCellDef="let row"> {{row.grade}} </td>
+                                                        </ng-container>
+                                                        <ng-container matColumnDef="gradePoints">
+                                                            <th mat-header-cell *matHeaderCellDef mat-sort-header>Grade
+                                                                Points</th>
+                                                            <td mat-cell *matCellDef="let row"> {{row.grade_points}}
+                                                            </td>
+                                                        </ng-container>
+                                                        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                                                        <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                                                        </tr>
+                                                    </table>
+                                                           
+
+                                                    <!-- </div>
+                                                </div> -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator> -->
+                                        <div class="save-btn-align">
+                                            <button mat-raised-button class="add-btn" (click)="validExamDate()"
+                                                color="accent">Add</button>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+
+                </div>
+
+                <div fxLayout="column" class="mlr-15 inner-bkgrd yar-bordr" *ngIf="duplicateSelectedList.length>0">
+                    <mat-card class="pd-card1 table-align">
+                        <div fxLayout="row wrap " fxFlex="100">
+                            <div fxLayout="column" class="bordr bg pay inner-bkgrd" fxFlex="100" fxFlex.gt-xs="40"
+                                fxFlex.gt-md="40" class="1 table-align">
+                                <div class="mat-elevation-z8 ">
+                                    <div class="example-container1">
+                                        <table mat-table [dataSource]="duplicateDataSource" matSort>
+                                            <ng-container matColumnDef="id">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                                <td mat-cell *matCellDef="let row index as i">{{i+1}} </td>
+                                            </ng-container>
+                                            <ng-container matColumnDef="subject">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject</th>
+                                                <td mat-cell *matCellDef="let row"> {{row.subject_code}} -
+                                                    {{row.subject_name}}</td>
+                                            </ng-container>
+
+                                            <ng-container matColumnDef="totalAmount">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Course Marks</th>
+                                                <td mat-cell *matCellDef="let row"> {{row.subject_marks}} </td>
+                                            </ng-container>
+                                            <tr mat-header-row *matHeaderRowDef="duplicateDisplayedColumns"></tr>
+                                            <tr mat-row *matRowDef="let row; columns: duplicateDisplayedColumns;">
+                                            </tr>
+                                        </table>
+                                        <!-- <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                                <h3 style="font-weight: bold;">  Registered Courses</h3>
+                                    <div fxLayout="row" class="mar-8 table-bac" >
+                                        <table class="table table-striped fee fee_">
+                                            <thead>
+                                                <tr>
+                                                    <th>S.No</th>
+                                                    <th>Course</th>
+                                                    <th>Previous Marks</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr *ngFor="let row of examRevisionSubject;let i=index">
+                                                    <td>{{i+1}}</td>
+                                                    <td>{{row.subject_code}} - {{row.subject_name}}</td>
+                                                    <td>{{row.previous_marks}}</td>
+                                                  
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>  -->
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+                            <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="55" fxFlex.gt-md="55"
+                                style="height:fit-content" class="pd-card1 table-align pay inner-bkgrd">
+                                <form name="reEvaluationForm" [formGroup]="reEvaluationForm" novalidate>
+
+                                    <div fxLayout="row" class="mar-8" style="position: relative;">
+                                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                            fxFlex.gt-md="25">
+                                            <mat-select placeholder="Pay Mode" name="paymentModeCatId"
+                                                formControlName="paymentModeCatId" required>
+                                                <mat-option *ngFor="let paymentMode of paymentModes"
+                                                    [value]="paymentMode.generalDetailId">{{paymentMode.generalDetailDisplayName}}</mat-option>
+                                            </mat-select>
+                                        </mat-form-field>
+
+                                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                            fxFlex.gt-md="25" *ngIf="reEvaluationForm.value.paymentModeCatId == 133">
+                                            <input matInput placeholder="Cheque Number" name="chequeNo"
+                                                formControlName="chequeNo">
+                                        </mat-form-field>
+                                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                            fxFlex.gt-md="25" *ngIf="reEvaluationForm.value.paymentModeCatId == 134">
+                                            <input matInput placeholder="DD Number" name="ddno" formControlName="ddno">
+                                        </mat-form-field>
+                                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                            fxFlex.gt-md="25" *ngIf="reEvaluationForm.value.paymentModeCatId == 131">
+                                            <input matInput placeholder="Reference Number" name="referenceNumber"
+                                                formControlName="referenceNumber">
+                                        </mat-form-field>
+                                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                            fxFlex.gt-md="25" *ngIf="reEvaluationForm.value.paymentModeCatId == 135">
+                                            <input matInput placeholder="Other Payment Number" name="otherPaymentNumber"
+                                                formControlName="otherPaymentNumber">
+                                        </mat-form-field>
+                                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                            fxFlex.gt-md="25" *ngIf="reEvaluationForm.value.paymentModeCatId == 132">
+                                            <input matInput placeholder="Transaction Number" name="transactionNo"
+                                                formControlName="transactionNo">
+                                        </mat-form-field>
+                                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
+                                            fxFlex.gt-md="30"></div>
+                                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20"></div>
+                                        <label style="position: absolute;right: 2px;
+                                                font-size: 15px;font-weight: 500;">Payment Amount</label>
+                                        <input type="number" min="0" fxLayout="column" disabled style="font-weight: 700; max-width: 100% !important; width: 100% !important;
+                                            font-size: 20px !important;height: 45px;margin-left: 8px;" class="p-8 amt pay-box" fxFlex="100" fxFlex.gt-xs="35"
+                                            fxFlex.gt-md="35" placeholder="Amount" name="amount"
+                                            formControlName="amount">
+                                    </div>
+                                    <div fxLayout="row" class="mar-8 position-rel">
+                                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15"
+                                            fxFlex.gt-md="15">
+                                            <input matInput [matDatepicker]="rd" placeholder="Payment Date"
+                                                name="receiptDate" formControlName="receiptDate" required>
+                                            <mat-datepicker-toggle matSuffix [for]="rd"></mat-datepicker-toggle>
+                                            <mat-datepicker #rd></mat-datepicker>
+                                        </mat-form-field>
+                                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="45"
+                                            fxFlex.gt-md="45">
+                                            <input matInput #amt placeholder="Fee Comments" name="feeComments"
+                                                formControlName="feeComments">
+                                        </mat-form-field>
+                                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15"></div>
+                                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15"
+                                            class="pay-btn">
+                                            <button mat-raised-button class="add-btn" color="accent" (click)="payFee()">
+                                                Pay fees
+                                            </button>
+                                            <!-- flag && equalAmount == 0 -->
+                                        </div>
+                                    </div>
+                                </form>
+                                <!-- <form name="reEvaluationForm" [formGroup]="reEvaluationForm" novalidate>
+                                    <div fxLayout="row">
+                                        <div fxLayout="column" class="p-8 justify-end" fxFlex="100" fxFlex.gt-xs="60"
+                                            fxFlex.gt-md="60">
+                                            <span style="font-size: 16px; margin-bottom: 12px !important;">Payment
+                                                Amount (₹) : </span>
+
+                                        </div>
+                                        <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40"
+                                            fxFlex.gt-md="40">
+                                            <p style="font-size: 16px;">
+                                                <input type="number" min="0" fxLayout="column" disabled style="font-weight: 700; max-width: 100% !important; width: 100% !important;
+                        font-size: 20px !important;height: 45px;margin-left: 8px;" class="p-8 amt pay-box" fxFlex="100"
+                                                    fxFlex.gt-xs="35" fxFlex.gt-md="35" placeholder="Amount"
+                                                    name="amount" formControlName="amount">
+                                            </p>
+
+                                        </div>
+                                    </div>
+                                </form> -->
+                                <!-- <div class="save-btn-align">
+                                    <button mat-raised-button class="add-btn" color="accent" *ngIf="paybutton"
+                                        (click)="payFee()">Pay</button>
+                                </div> -->
+                            </div>
+                        </div>
+
+
+                    </mat-card>
+                </div>
+              <!-- OUTER CARD -->
+<div class="outer-card">
+    <div class="inner-card">
+        <table mat-table [dataSource]="revisionHistoryList" matSort class="rev-table">
+
+            <!-- Hallticket -->
+            <ng-container matColumnDef="hallticket_number">
+                <th mat-header-cell *matHeaderCellDef> Hall Ticket No </th>
+                <td mat-cell *matCellDef="let row"> {{ row.hallticket_number }} </td>
+            </ng-container>
+
+            <!-- Course/Year -->
+            <ng-container matColumnDef="course_year_code">
+                <th mat-header-cell *matHeaderCellDef> Course/Year </th>
+                <td mat-cell *matCellDef="let row"> {{ row.course_year_code }} </td>
+            </ng-container>
+
+            <!-- GD Code -->
+            <ng-container matColumnDef="gd_code">
+                <th mat-header-cell *matHeaderCellDef> GD Code </th>
+                <td mat-cell *matCellDef="let row"> {{ row.gd_code }} </td>
+            </ng-container>
+
+            <!-- Subject -->
+            <ng-container matColumnDef="subject_details">
+                <th mat-header-cell *matHeaderCellDef> Subject Details </th>
+                <td mat-cell *matCellDef="let row"> {{ row.subject_details }} </td>
+            </ng-container>
+
+            <!-- Fee -->
+            <ng-container matColumnDef="fee_amount">
+                <th mat-header-cell *matHeaderCellDef> Fee Amount </th>
+                <td mat-cell *matCellDef="let row"> ₹ {{ row.fee_amount }} </td>
+            </ng-container>
+
+            <!-- View -->
+           <!-- View -->
+<ng-container matColumnDef="photocopy">
+    <th mat-header-cell *matHeaderCellDef> View </th>
+    <td mat-cell *matCellDef="let row">
+
+        <!-- ENABLED EYE ICON -->
+        <!-- ENABLED EYE ICON -->
+<button mat-icon-button color="primary"
+        *ngIf="row.is_photocopy == 1"
+        (click)="getPhotocopyDetails(row)">
+    <mat-icon>visibility</mat-icon>
+</button>
+
+
+        <!-- DISABLED EYE ICON (instead of --) -->
+        <!-- ENABLED EYE ICON -->
+<button mat-icon-button color="primary"
+        *ngIf="row.is_photocopy == 0"
+        (click)="getPhotocopyDetails(row)">
+    <mat-icon>visibility</mat-icon>
+</button>
+
+
+    </td>
+</ng-container>
+
+
+            <tr mat-header-row *matHeaderRowDef="historyColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: historyColumns;"></tr>
+
+        </table>
+    </div>
+</div>
+
+
+                 
+            </div>
+
+            <div *ngIf="receiptsLists.length>0" style="margin-bottom:2% !important">
+                <div fxLayout="column" class="inner-bkgrd" style="margin: 0px 24px 0px 24px !important;">
+                    <!-- <h2>Exam Fee Receipts <span class="span-3">
+                            <button mat-raised-button (click)="printForm(CoursesYearList)"
+                                style="background: #ffcf46;cursor: pointer;"> <i class="material-icons print"
+                                    matTooltip="Print Receipt"> print</i>Exam Form</button>
+                        </span>
+                    </h2> -->
+                    <div fxLayout="row" class="mar-8 table-bac">
+                        <table class="table table-striped fee fee_">
+                            <thead>
+                                <tr>
+                                    <th style="width: 5%;">SI No.</th>
+                                    <th>Semester</th>
+                                    <th>Receipt No.</th>
+                                    <th>Payment Date</th>
+                                    <th>Payment Mode</th>
+                                    <!-- <th>Exam Type</th> -->
+                                    <th style="text-align: right">Exam Fee (₹)</th>
+                                    <th style="text-align: right">Add. Fee (₹)</th>
+                                    <th style="text-align: right">LateFee(₹)</th>
+                                    <th style="text-align: right">Amount (₹)</th>
+                                    <th>Subjects</th>
+                                    <th>Exam Form</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr  *ngFor="let obj of receiptsLists; index as i">
+                                    <td>{{i+1}}</td>
+                                    <td>{{obj?.course_year_code}}</td>
+                                    <td>{{obj?.fee_receipt_no}}</td>
+                                    <td>{{obj?.receipt_date | date:'MMM d, y'}}</td>
+                                    <td>{{obj?.payment_mode}}</td>
+                                    <!-- <td>{{obj?.exam_type_name}}</td> -->
+                                    <td style="text-align: right">
+                                        <span
+                                            *ngIf="obj?.exam_fee_amount!=null">{{obj?.exam_fee_amount}}</span>
+                                        <span *ngIf="obj?.exam_fee_amount==null">-</span>
+                                    </td>
+                                    <td style="text-align: right">
+                                        <span
+                                            *ngIf="obj?.exam_addt_fee!=null">{{obj?.exam_addt_fee}}</span>
+                                        <span *ngIf="obj?.exam_addt_fee==null">-</span>
+                                    </td>
+                                    <td style="text-align: right">
+                                        <span
+                                            *ngIf="obj?.exam_fine_amount!=null">{{obj?.exam_fine_amount}}</span>
+                                        <span *ngIf="obj?.exam_fine_amount==null">-</span>
+                                    </td>
+                                    <td style="text-align: right">{{obj?.exam_total_amount}}</td>
+                                    <td>
+                                        <button mat-raised-button
+                                            (click)="viewCourseYearSubjectsListDialog(obj, 'receipt')"
+                                            style="background: #ffcf46;cursor: pointer;">Courses</button>
+                                    </td>
+                                    <td style="text-align: center">
+                                        <i class="material-icons print" (click)="printForm(obj)"
+                                            matTooltip="Print Exam Form"> print</i>
+                                    </td>
+                                    <td style="text-align: center">
+                                        <i class="material-icons print" (click)="printreceipt(obj)"
+                                            matTooltip="Print Receipt"> print</i>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- POPUP TEMPLATE -->
+<!-- ======================= PHOTOCOPY POPUP ========================= -->
+<ng-template #photoCopyDialog>
+    <form>
+
+       <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+        <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+            <div fxLayoutAlign="start center" class="mod-head">
+                <mat-icon class="fs  icon-align ">book</mat-icon>
+                <span>Photo Copy Details</span>
+            </div>
+        </div>
+    </div>
+
+        <mat-dialog-content>
+
+            <table class="popup-table" style="width: 100%; border-collapse: collapse; margin-top:10px">
+
+                <thead>
+                    <tr style="background:#f5f5f5;">
+                        <th style="padding:8px;">Hall Ticket</th>
+                        <th style="padding:8px;">Evaluator Name</th>
+                        <th style="padding:8px;">Subject</th>
+                        <th style="padding:8px;">Total Marks</th>
+                        <th style="padding:8px; text-align:center;">Path</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    <tr *ngFor="let row of photocopyData" style="border-bottom:1px solid #ddd;">
+                        
+                        <td style="padding:8px;">{{ row.hallticket_number }}</td>
+                        <td style="padding:8px;">{{ row.evaluator_name }}</td>
+                        <td style="padding:8px;">{{ row.subject_details }}</td>
+                        <td style="padding:8px;">{{ row.evaluated_totalmarks }}</td>
+
+                        <td style="padding:8px; text-align:center;">
+                            
+                            <!-- Eye Icon (Click Method) -->
+                            <mat-icon *ngIf="row.evaluated_answerpaper_path"
+                                      style="cursor:pointer; color:#1976d2;"
+                                      matTooltip="View Answer Sheet"
+                                      (click)="openFile(row.evaluated_answerpaper_path)">
+                                remove_red_eye
+                            </mat-icon>
+
+                            <!-- No File -->
+                            <span *ngIf="!row.evaluated_answerpaper_path">--</span>
+
+                        </td>
+
+                    </tr>
+                </tbody>
+
+            </table>
+
+        </mat-dialog-content>
+
+        <mat-dialog-actions align="end">
+             <button mat-raised-button class="cls-btn" mat-dialog-close>
+                      Close
+                  </button>
+        </mat-dialog-actions>
+
+    </form>
+</ng-template>
+</div>
