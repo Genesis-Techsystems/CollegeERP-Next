@@ -516,28 +516,16 @@ export default function CreateExamTimetablePage() {
 			<div className="app-card overflow-hidden">
 				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
 					<h2 className="app-card-title">Create Exam Timetable</h2>
-					<div className="flex items-center gap-2">
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							className="h-6 px-2.5 text-[12px]"
-							onClick={goBack}
-						>
-							<ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
-							Back
-						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							className="h-6 px-2.5 text-[12px]"
-							onClick={openExistingTimetable}
-							disabled={!selectedExamId || !selectedCourseYearId || !selectedCourseId}
-						>
-							Show Existing Timetable
-						</Button>
-					</div>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="h-6 px-2.5 text-[12px]"
+						onClick={openExistingTimetable}
+						disabled={!selectedExamId || !selectedCourseYearId || !selectedCourseId}
+					>
+						Show Existing Timetable
+					</Button>
 				</div>
 
 				<div className="px-3 py-3">
@@ -715,8 +703,8 @@ export default function CreateExamTimetablePage() {
 				</div>
 				)}
 
-				{stagedRows.length > 0 && (
-					<div className="flex items-center justify-end pt-3 pr-2 pb-1">
+				<div className="flex items-center justify-end gap-2 pt-3 pr-2 pb-1">
+					{stagedRows.length > 0 && (
 						<Button
 							type="button"
 							className="h-8 text-[12px]"
@@ -725,8 +713,18 @@ export default function CreateExamTimetablePage() {
 						>
 							{saving ? 'Saving…' : 'Save'}
 						</Button>
-					</div>
-				)}
+					)}
+					<Button
+						type="button"
+						variant="outline"
+						className="h-8 text-[12px]"
+						onClick={goBack}
+						disabled={saving}
+					>
+						<ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+						Back
+					</Button>
+				</div>
 			</div>
 
 			<ExistingExamTimetableModal
