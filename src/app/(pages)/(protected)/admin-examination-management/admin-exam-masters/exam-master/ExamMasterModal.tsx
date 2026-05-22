@@ -5,7 +5,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
-import { Paperclip, X } from 'lucide-react'
+import { Eye, Paperclip, X } from 'lucide-react'
 import type { ExamMaster } from '@/types/exam-master'
 import { createExamMaster, updateExamMaster, uploadExamFiles } from '@/services/exam-master'
 import {
@@ -68,11 +68,24 @@ function FileInput({
   existingPath?: string
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const [localUrl, setLocalUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!file) {
+      setLocalUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(file)
+    setLocalUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+
   const displayName = file
     ? file.name
     : existingPath
       ? (existingPath.split('cms/')[1] ?? existingPath).split('/').pop()
       : null
+  const viewUrl = localUrl ?? existingPath ?? null
 
   return (
     <div className="mt-1">
@@ -91,6 +104,18 @@ function FileInput({
         {displayName && (
           <div className="flex items-center gap-1 min-w-0">
             <span className="text-xs text-slate-500 truncate max-w-[140px]">{displayName}</span>
+            {viewUrl && (
+              <a
+                href={viewUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="View uploaded file"
+                title="View file"
+                className="inline-flex items-center justify-center h-5 w-5 shrink-0 rounded text-slate-400 hover:text-slate-600"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </a>
+            )}
             {file && (
               <Button
                 type="button"
