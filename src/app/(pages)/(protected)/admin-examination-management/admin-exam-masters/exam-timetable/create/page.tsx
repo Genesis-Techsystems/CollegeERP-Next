@@ -18,6 +18,7 @@ import {
 	resolveExamLoginEmpId,
 	listCourseYears,
 	listCourseGroups,
+	listExamSessions,
 	getExamSubjectsForSchedule,
 	getUnivExamSubjectFilters,
 	listExamFeeTypeGeneralDetails,
@@ -26,7 +27,9 @@ import {
 import { useSessionContext } from '@/context/SessionContext'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
-import { toastSuccess } from '@/lib/toast'
+import { toastError, toastSuccess } from '@/lib/toast'
+import { getErrorMessage } from '@/lib/errors'
+import { EXAM_API, NEXT_API } from '@/config/constants/api'
 import ExistingExamTimetableModal, { type ExistingExamTimetableRow } from '../ExistingExamTimetableModal'
 
 type Slot = {
@@ -70,17 +73,43 @@ export default function CreateExamTimetablePage() {
 	const [selectedCourseYearId, setSelectedCourseYearId] = useState<number | null>(null)
 
 	// Subjects
-	const [subjects, setSubjects] = useState<{ code: string; name?: string }[]>([])
+	const [subjects, setSubjects] = useState<{ id: number; code: string; name?: string }[]>([])
 	/** EXMFEETYP general-detail code (shown as "Exam fee type"). */
 	const [selectedRegulation, setSelectedRegulation] = useState<string | null>(null)
 	const [examFeeTypes, setExamFeeTypes] = useState<{ id: number; code: string; name: string }[]>([])
 	const [selectedSubjectCode, setSelectedSubjectCode] = useState<string | null>(null)
 
+	// Exam sessions (replaces hardcoded M/A select)
+	const [examSessions, setExamSessions] = useState<
+		{ id: number; name: string; code: string; sessionStartTime?: string; sessionEndTime?: string }[]
+	>([])
+	const [selectedExamSessionId, setSelectedExamSessionId] = useState<number | null>(null)
+
+	useEffect(() => {
+		let cancelled = false
+		async function loadSessions() {
+			const rows = await listExamSessions().catch(() => [] as any[])
+			if (cancelled) return
+			const mapped = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+				id: Number(r.examSessionId ?? r.id ?? 0),
+				name: String(r.examSessionName ?? r.name ?? '').trim(),
+				code: String(r.examsessioninCatCode ?? r.sessionCode ?? '').trim(),
+				sessionStartTime: r.sessionStartTime ? String(r.sessionStartTime) : undefined,
+				sessionEndTime: r.sessionEndTime ? String(r.sessionEndTime) : undefined,
+			})).filter((s) => s.id > 0)
+			setExamSessions(mapped)
+		}
+		void loadSessions()
+		return () => {
+			cancelled = true
+		}
+	}, [])
+
 	// Timetable slots
 	const [slotDraft, setSlotDraft] = useState<Slot>({ date: '', startTime: '', endTime: '' })
 	const [slots, setSlots] = useState<Slot[]>([])
 	// Course groups (loaded from API on courseId change)
-	const [courseGroups, setCourseGroups] = useState<{ code: string; regulationName?: string }[]>([])
+	const [courseGroups, setCourseGroups] = useState<{ id: number; code: string; regulationId?: number; regulationName?: string }[]>([])
 	const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
 	function toggleGroup(code: string) {
 		setSelectedGroups((s) => {
@@ -100,6 +129,7 @@ export default function CreateExamTimetablePage() {
 			const rows = await listCourseGroups(selectedCourseId as number).catch(() => [] as any[])
 			if (cancelled) return
 			const list = (Array.isArray(rows) ? rows : []).map((g: any) => ({
+				id: Number(g.courseGroupId ?? g.course_group_id ?? g.id ?? 0),
 				code: String(
 					g.groupCode ??
 						g.courseGroupCode ??
@@ -109,6 +139,7 @@ export default function CreateExamTimetablePage() {
 						g.groupName ??
 						'',
 				).trim(),
+				regulationId: Number(g.regulationId ?? g.regulation_id ?? g.fk_regulation_id ?? 0) || undefined,
 				regulationName: String(
 					g.regulationName ?? g.regulation_name ?? g.regulationShortName ?? '',
 				).trim() || undefined,
@@ -128,10 +159,12 @@ export default function CreateExamTimetablePage() {
 	type StagedRow = {
 		examDate: string
 		session: 'M' | 'A'
+		examSessionId: number
 		groupCode: string
 		subjectCode: string
 	}
 	const [stagedRows, setStagedRows] = useState<StagedRow[]>([])
+	const [saving, setSaving] = useState(false)
 
 	// Existing Timetable modal
 	const [existingOpen, setExistingOpen] = useState(false)
@@ -306,17 +339,18 @@ export default function CreateExamTimetablePage() {
 				}).catch(() => [])
 			}
 			const mapped = (rows ?? []).map((r: any) => {
+				const id = Number(r.subject_id ?? r.subjectId ?? r.id ?? r.fk_subject_id ?? 0)
 				const code = String(
 					r.subject_code ?? r.subjectCode ?? r.subCode ?? r.paperCode ?? r.code ?? ''
 				).trim()
 				const name = String(
 					r.subject_name ?? r.subjectName ?? r.sub_name ?? r.paperName ?? r.name ?? ''
 				).trim()
-				return { code, name }
+				return { id, code, name }
 			}).filter((x) => x.code)
 			// Deduplicate by code
 			const seen = new Set<string>()
-			const uniq: { code: string; name?: string }[] = []
+			const uniq: { id: number; code: string; name?: string }[] = []
 			for (const s of mapped) {
 				if (!seen.has(s.code)) {
 					seen.add(s.code)
@@ -348,12 +382,13 @@ export default function CreateExamTimetablePage() {
 
 	function addSelectedToStage() {
 		const session: 'M' | 'A' | null = slotDraft.startTime ? (slotDraft.startTime < '12:00' ? 'M' : 'A') : null
-		if (!slotDraft.date || !session || !selectedSubjectCode || selectedGroups.size === 0) return
+		if (!slotDraft.date || !session || selectedExamSessionId == null || !selectedSubjectCode || selectedGroups.size === 0) return
 		const rows: StagedRow[] = []
 		for (const code of Array.from(selectedGroups)) {
 			rows.push({
 				examDate: slotDraft.date,
 				session,
+				examSessionId: selectedExamSessionId,
 				groupCode: code,
 				subjectCode: selectedSubjectCode,
 			})
@@ -365,13 +400,93 @@ export default function CreateExamTimetablePage() {
 		setStagedRows((s) => s.filter((_, i) => i !== idx))
 	}
 
+	async function saveTimetable() {
+		if (stagedRows.length === 0 || !selectedCourseId || !selectedExamId || !selectedCourseYearId) return
+		const examTypeCatId = examFeeTypes.find((t) => t.code === selectedRegulation)?.id ?? 0
+		if (!examTypeCatId) {
+			toastError('Pick an Exam fee type before saving.')
+			return
+		}
+
+		// Group rows by (examSessionId, examDate) to mirror the Angular payload
+		// where each entry covers one date + session and carries an array of details.
+		const grouped = new Map<string, StagedRow[]>()
+		for (const r of stagedRows) {
+			const key = `${r.examSessionId}|${r.examDate}`
+			if (!grouped.has(key)) grouped.set(key, [])
+			grouped.get(key)!.push(r)
+		}
+
+		const payload = Array.from(grouped.values()).map((rows) => {
+			const first = rows[0]
+			const session = examSessions.find((e) => e.id === first.examSessionId)
+			return {
+				examDate: first.examDate,
+				courseId: selectedCourseId,
+				examSessionId: first.examSessionId,
+				session: session?.code ?? '',
+				sessionStartTime: session?.sessionStartTime ?? null,
+				sessionEndTime: session?.sessionEndTime ?? null,
+				examId: selectedExamId,
+				isActive: true,
+				examTimetableDetail: rows.map((r) => {
+					const grp = courseGroups.find((g) => g.code === r.groupCode)
+					const subj = subjects.find((s) => s.code === r.subjectCode)
+					return {
+						examLabBatchesId: null,
+						checked: false,
+						examTypeCatId,
+						examDate: r.examDate,
+						courseYearId: selectedCourseYearId,
+						courseGroupId: grp?.id,
+						regulationId: grp?.regulationId,
+						subjectId: subj?.id,
+						isActive: true,
+					}
+				}),
+			}
+		})
+
+		setSaving(true)
+		try {
+			const res = await fetch(NEXT_API.PROXY(EXAM_API.SAVE_EXAM_TIMETABLE), {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload),
+			})
+			const body = await res.json().catch(() => null)
+			if (!res.ok || !body || body.success === false) {
+				toastError(body?.message ?? 'Save failed')
+				return
+			}
+			if (Array.isArray(body.data) && body.data.length > 0) {
+				const conflicts: ExistingExamTimetableRow[] = body.data.map((r: any) => ({
+					subjectName: String(r.subjectName ?? '').trim(),
+					subjecttypeName: String(r.subjecttypeName ?? '').trim(),
+					groupName: String(r.groupName ?? '').trim(),
+					courseYearName: String(r.courseYearName ?? '').trim(),
+				}))
+				setExistingRows(conflicts)
+				setExistingOpen(true)
+				toastError('Some subjects already exist for this session/year.')
+				return
+			}
+			toastSuccess('Exam timetable saved')
+			setStagedRows([])
+		} catch (err) {
+			toastError(getErrorMessage(err) ?? 'Save failed')
+		} finally {
+			setSaving(false)
+		}
+	}
+
 	const canAdd = useMemo(() => {
 		const hasDate = !!slotDraft.date
-		const hasSession = !!slotDraft.startTime
+		const hasSession = selectedExamSessionId != null
 		const hasSubject = !!selectedSubjectCode
 		const hasGroups = selectedGroups.size > 0
 		return hasDate && hasSession && hasSubject && hasGroups
-	}, [slotDraft.date, slotDraft.startTime, selectedSubjectCode, selectedGroups])
+	}, [slotDraft.date, selectedExamSessionId, selectedSubjectCode, selectedGroups])
 
 	const summaryLine = useMemo(() => {
 		const course = paramCourseName || courses.find((c) => c.fk_course_id === selectedCourseId)?.course_code || courses.find((c) => c.fk_course_id === selectedCourseId)?.course_name || ''
@@ -418,19 +533,29 @@ export default function CreateExamTimetablePage() {
 						<div className="space-y-1 md:col-span-3">
 							<Label>Exam Session *</Label>
 							<Select
-								value={slotDraft.startTime ? (slotDraft.startTime < '12:00' ? 'M' : 'A') : undefined}
+								value={selectedExamSessionId != null ? String(selectedExamSessionId) : undefined}
 								onValueChange={(v) => {
-									// map session to indicative times
-									if (v === 'M') setSlotDraft((s) => ({ ...s, startTime: '09:45', endTime: '16:00' }))
-									else setSlotDraft((s) => ({ ...s, startTime: '13:00', endTime: '16:00' }))
+									const sid = Number(v)
+									setSelectedExamSessionId(sid)
+									const s = examSessions.find((e) => e.id === sid)
+									setSlotDraft((d) => ({
+										...d,
+										startTime: s?.sessionStartTime ?? '',
+										endTime: s?.sessionEndTime ?? '',
+									}))
 								}}
+								disabled={examSessions.length === 0}
 							>
 								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder="Select Session" />
+									<SelectValue placeholder={examSessions.length === 0 ? 'Loading…' : 'Select Session'} />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="M">MORNING (09:45AM - 04:00PM)</SelectItem>
-									<SelectItem value="A">AFTERNOON (01:00PM - 04:00PM)</SelectItem>
+									{examSessions.map((s) => (
+										<SelectItem key={s.id} value={String(s.id)}>
+											{s.name}
+											{s.sessionStartTime && s.sessionEndTime ? ` (${s.sessionStartTime} - ${s.sessionEndTime})` : ''}
+										</SelectItem>
+									))}
 								</SelectContent>
 							</Select>
 						</div>
@@ -472,7 +597,7 @@ export default function CreateExamTimetablePage() {
 				</div>
 
 				{/* 3/2/7 Course Group + Selected + Table */}
-				{!!slotDraft.date && !!slotDraft.startTime && !!selectedRegulation && !!selectedSubjectCode && (
+				{!!slotDraft.date && selectedExamSessionId != null && !!selectedRegulation && !!selectedSubjectCode && (
 				<div className="grid grid-cols-12 gap-3 items-start">
 					<div className="col-span-3 rounded-md border overflow-hidden">
 						<div className="px-3 py-2 bg-muted/40 border-b text-[12px] font-medium">Select Course Group</div>
@@ -570,9 +695,10 @@ export default function CreateExamTimetablePage() {
 						<Button
 							type="button"
 							className="h-8 text-[12px]"
-							onClick={() => toastSuccess('Saved')}
+							onClick={saveTimetable}
+							disabled={saving}
 						>
-							Save
+							{saving ? 'Saving…' : 'Save'}
 						</Button>
 					</div>
 				)}
