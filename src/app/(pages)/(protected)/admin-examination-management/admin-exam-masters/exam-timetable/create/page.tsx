@@ -25,6 +25,7 @@ import {
 } from '@/services/examination'
 import { useSessionContext } from '@/context/SessionContext'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
 import { toastSuccess } from '@/lib/toast'
 import ExistingExamTimetableModal, { type ExistingExamTimetableRow } from '../ExistingExamTimetableModal'
 
@@ -39,6 +40,8 @@ type Slot = {
 export default function CreateExamTimetablePage() {
 	const searchParams = useSearchParams()
 	const { user } = useSessionContext()
+
+	useBreadcrumbLabel('Create Timetable')
 	// Filters
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [filtersData, setFiltersData] = useState<any[]>([])
