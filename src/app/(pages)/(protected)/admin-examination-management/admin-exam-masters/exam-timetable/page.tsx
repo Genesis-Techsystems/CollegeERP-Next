@@ -865,12 +865,6 @@ export default function ExamTimetablePage() {
 				)}
 			</div>
 
-			{(!selectedCourseYearId || !titleLine) && !loadingFilters && (
-				<div className="app-card px-4 py-8 text-center text-[13px] text-muted-foreground">
-					Select Course, Exam Year, Exam Master and Course Year above to load the timetable grid.
-				</div>
-			)}
-
 			{selectedCourseYearId != null && titleLine && (
 				<div className="app-card">
 					<div className="px-4 py-3 border-b border-border bg-card">
@@ -900,7 +894,6 @@ export default function ExamTimetablePage() {
 								type="button"
 								size="sm"
 								onClick={openCreateSchedule}
-								disabled={!selectedExamId || dates.length === 0 || branches.length === 0}
 							>
 								+ Create Schedule
 							</Button>
