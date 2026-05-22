@@ -26,8 +26,9 @@ import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Filter, LayoutGrid } from 'lucide-react'
+import { ChevronDown, Filter, LayoutGrid, ShieldAlert } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
+import CheckConflictsModal from './CheckConflictsModal'
 
 function pickAyId(row: any): number {
 	return Number(row?.fk_academic_year_id ?? row?.academicYearId ?? row?.fk_academicYearId ?? 0)
@@ -75,6 +76,7 @@ export default function ExamTimetablePage() {
 		isActive: true,
 	})
 
+	const [conflictsOpen, setConflictsOpen] = useState(false)
 	const [editOpen, setEditOpen] = useState(false)
 	const [editContext, setEditContext] = useState<{
 		branchId: string | number
@@ -873,14 +875,26 @@ export default function ExamTimetablePage() {
 								<span className="inline-block rounded bg-indigo-600 text-white h-4 px-1 text-[10px] leading-4">A</span> AFTERNOON
 							</span>
 						</div>
-						<Button
-							type="button"
-							size="sm"
-							onClick={openCreateSchedule}
-							disabled={!selectedExamId || dates.length === 0 || branches.length === 0}
-						>
-							+ Create Schedule
-						</Button>
+						<div className="flex items-center gap-2">
+							<Button
+								type="button"
+								size="sm"
+								variant="outline"
+								onClick={() => setConflictsOpen(true)}
+								disabled={!selectedExamId || !selectedAcademicYearId}
+							>
+								<ShieldAlert className="h-3.5 w-3.5 mr-1.5" />
+								Check Conflicts
+							</Button>
+							<Button
+								type="button"
+								size="sm"
+								onClick={openCreateSchedule}
+								disabled={!selectedExamId || dates.length === 0 || branches.length === 0}
+							>
+								+ Create Schedule
+							</Button>
+						</div>
 					</div>
 
 					<div className="overflow-auto">
@@ -943,6 +957,13 @@ export default function ExamTimetablePage() {
 					</div>
 				</div>
 			)}
+
+			<CheckConflictsModal
+				open={conflictsOpen}
+				onClose={() => setConflictsOpen(false)}
+				examId={selectedExamId}
+				academicYearId={selectedAcademicYearId}
+			/>
 
 			<Dialog
 				open={editOpen}
