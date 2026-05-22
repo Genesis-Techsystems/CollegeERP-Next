@@ -20,7 +20,8 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer } from '@/components/layout'
 import { useSessionContext } from '@/context/SessionContext'
-import { listExamSessions, createExamSession, updateExamSession, getCollegeFilters } from '@/services/examination'
+import { listExamSessions, createExamSession, updateExamSession, getCollegeFilters, listGeneralDetailsByMaster } from '@/services/examination'
+import { GM_CODES } from '@/config/constants/ui'
 import { distinct } from '@/lib/utils'
 import { toastError, toastSuccess } from '@/lib/toast'
 
@@ -85,6 +86,8 @@ export default function ExamSessionPage() {
   const [editing, setEditing] = useState<any | null>(null)
   const [universityOptions, setUniversityOptions] = useState<{ code: string; name?: string }[]>([])
   const [universityOptionsLoaded, setUniversityOptionsLoaded] = useState(false)
+  const [sessionInOptions, setSessionInOptions] = useState<{ code: string; label: string }[]>([])
+  const [sessionInOptionsLoaded, setSessionInOptionsLoaded] = useState(false)
 
   const [form, setForm] = useState({
     examSessionName: '',
@@ -134,6 +137,24 @@ export default function ExamSessionPage() {
     if (!open) return
     void ensureUniversityOptionsLoaded()
   }, [ensureUniversityOptionsLoaded, open])
+
+  const ensureSessionInOptionsLoaded = useCallback(async () => {
+    if (sessionInOptionsLoaded) return
+    const rows = await listGeneralDetailsByMaster(GM_CODES.EXAM_SESSION).catch(() => [] as any[])
+    const opts = (Array.isArray(rows) ? rows : [])
+      .map((r: any) => ({
+        code: String(r.generalDetailCode ?? '').trim(),
+        label: String(r.generalDetailDisplayName ?? r.generalDetailName ?? r.generalDetailCode ?? '').trim(),
+      }))
+      .filter((o) => o.code)
+    setSessionInOptions(opts)
+    setSessionInOptionsLoaded(true)
+  }, [sessionInOptionsLoaded])
+
+  useEffect(() => {
+    if (!open) return
+    void ensureSessionInOptionsLoaded()
+  }, [ensureSessionInOptionsLoaded, open])
 
   function formatTime12h(value?: string) {
     if (!value) return ''
@@ -253,8 +274,22 @@ export default function ExamSessionPage() {
               <Input className="h-9 text-[12px]" value={form.examSessionName} onChange={(e) => setForm((s) => ({ ...s, examSessionName: e.target.value }))} />
             </div>
             <div className="min-w-0 space-y-1">
-              <Label className="text-[12px]">Session In (Code)</Label>
-              <Input className="h-9 text-[12px]" value={form.examsessioninCatCode} onChange={(e) => setForm((s) => ({ ...s, examsessioninCatCode: e.target.value }))} />
+              <Label className="text-[12px]">Session In</Label>
+              <Select
+                value={form.examsessioninCatCode || undefined}
+                onValueChange={(v) => setForm((s) => ({ ...s, examsessioninCatCode: v }))}
+              >
+                <SelectTrigger className="h-9 text-[12px]">
+                  <SelectValue placeholder="Select Session In" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sessionInOptions.map((o) => (
+                    <SelectItem key={o.code} value={o.code}>
+                      {o.code}{o.label && o.label !== o.code ? ` - ${o.label}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="min-w-0 space-y-1">
               <Label className="text-[12px]">University Code</Label>
