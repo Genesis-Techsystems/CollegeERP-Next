@@ -25,7 +25,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronDown, Filter, LayoutGrid, ShieldAlert } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import CheckConflictsModal from './CheckConflictsModal'
@@ -36,6 +36,7 @@ function pickAyId(row: any): number {
 
 export default function ExamTimetablePage() {
 	const router = useRouter()
+	const searchParams = useSearchParams()
 	const { user } = useSessionContext()
 	// Filters
 	const [loadingFilters, setLoadingFilters] = useState(true)
@@ -103,17 +104,47 @@ export default function ExamTimetablePage() {
 			const distinctCourses = distinct(f ?? [], (r) => r.fk_course_id)
 			setCourses(distinctCourses)
 			if (distinctCourses.length > 0) {
-				const firstCourseId = distinctCourses[0].fk_course_id
-				handleCourseChange(firstCourseId, f)
+				const urlCourseId = Number(searchParams.get('courseId') ?? 0)
+				const target =
+					urlCourseId > 0 && distinctCourses.some((c) => Number(c.fk_course_id) === urlCourseId)
+						? urlCourseId
+						: distinctCourses[0].fk_course_id
+				handleCourseChange(target, f)
 			}
 		} finally {
 			setLoadingFilters(false)
 		}
-	}, [user?.employeeId])
+	}, [user?.employeeId, searchParams])
 
 	useEffect(() => {
 		fetchFilters()
 	}, [fetchFilters])
+
+	// Restore academicYearId from URL once the academic-year list is available.
+	useEffect(() => {
+		const ayId = Number(searchParams.get('academicYearId') ?? 0)
+		if (ayId > 0 && academicYears.some((a: any) => pickAyId(a) === ayId)) {
+			setSelectedAcademicYearId(ayId)
+		}
+	}, [academicYears, searchParams])
+
+	// Restore examId from URL once exam masters load.
+	useEffect(() => {
+		const examId = Number(searchParams.get('examId') ?? 0)
+		if (examId > 0 && examMasters.some((e: any) => Number(e.examId ?? e.id) === examId)) {
+			setSelectedExamId(examId)
+		}
+	}, [examMasters, searchParams])
+
+	// Restore courseYearId from URL once the effective course-year list resolves.
+	useEffect(() => {
+		const cyId = Number(searchParams.get('courseYearId') ?? 0)
+		if (cyId <= 0) return
+		const list = examScopedCourseYears.length > 0 ? examScopedCourseYears : null
+		if (list && list.some((y) => y.courseYearId === cyId)) {
+			setSelectedCourseYearId(cyId)
+		}
+	}, [examScopedCourseYears, searchParams])
 
 	async function handleCourseChange(courseId: number, fRef = filtersData) {
 		setSelectedCourseId(courseId)

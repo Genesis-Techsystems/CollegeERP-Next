@@ -11,8 +11,8 @@ import {
 	SelectValue,
 } from '@/components/ui/select'
 import { distinct } from '@/lib/utils'
-import { useSearchParams } from 'next/navigation'
-import { Trash2 } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ArrowLeft, Trash2 } from 'lucide-react'
 import {
 	getUnivExamFiltersAll,
 	resolveExamLoginEmpId,
@@ -41,10 +41,23 @@ type Slot = {
 }
 
 export default function CreateExamTimetablePage() {
+	const router = useRouter()
 	const searchParams = useSearchParams()
 	const { user } = useSessionContext()
 
 	useBreadcrumbLabel('Create Timetable')
+
+	function goBack() {
+		const qp = new URLSearchParams()
+		if (selectedCourseId != null) qp.set('courseId', String(selectedCourseId))
+		if (selectedAcademicYearId != null) qp.set('academicYearId', String(selectedAcademicYearId))
+		if (selectedExamId != null) qp.set('examId', String(selectedExamId))
+		if (selectedCourseYearId != null) qp.set('courseYearId', String(selectedCourseYearId))
+		const q = qp.toString()
+		router.push(
+			`/admin-examination-management/admin-exam-masters/exam-timetable${q ? `?${q}` : ''}`,
+		)
+	}
 	// Filters
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [filtersData, setFiltersData] = useState<any[]>([])
@@ -503,16 +516,28 @@ export default function CreateExamTimetablePage() {
 			<div className="app-card overflow-hidden">
 				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
 					<h2 className="app-card-title">Create Exam Timetable</h2>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						className="h-6 px-2.5 text-[12px]"
-						onClick={openExistingTimetable}
-						disabled={!selectedExamId || !selectedCourseYearId || !selectedCourseId}
-					>
-						Show Existing Timetable
-					</Button>
+					<div className="flex items-center gap-2">
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							className="h-6 px-2.5 text-[12px]"
+							onClick={goBack}
+						>
+							<ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+							Back
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							className="h-6 px-2.5 text-[12px]"
+							onClick={openExistingTimetable}
+							disabled={!selectedExamId || !selectedCourseYearId || !selectedCourseId}
+						>
+							Show Existing Timetable
+						</Button>
+					</div>
 				</div>
 
 				<div className="px-3 py-3">
