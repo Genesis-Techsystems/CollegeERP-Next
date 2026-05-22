@@ -27,11 +27,12 @@ import {
 } from '@/services'
 import { Select } from '@/common/components/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ChevronDown, Filter, Pencil, Plus } from 'lucide-react'
+import { ChevronDown, Eye, Filter, Pencil, Plus } from 'lucide-react'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { NoticeAlert } from '@/common/components/feedback'
 import { getErrorMessage } from '@/lib/errors'
+import ViewExamFeeStructureModal, { type ExamFeeStructureViewData } from './ViewExamFeeStructureModal'
 
 // ── Pure renderer ─────────────────────────────────────────────────────────────
 function statusRenderer(p: ICellRendererParams) {
@@ -105,6 +106,8 @@ export default function ExamFeeSetupPage() {
   const [editing, setEditing] = useState<any | null>(null)
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [viewOpen, setViewOpen] = useState(false)
+  const [viewing, setViewing] = useState<ExamFeeStructureViewData | null>(null)
   const [form, setForm] = useState({
     examFeeStructureName: '',
     collectionStartDate: '',
@@ -307,40 +310,68 @@ export default function ExamFeeSetupPage() {
     },
     {
       headerName: 'Actions',
-      minWidth: 80,
+      minWidth: 110,
       cellRenderer: (p: any) => (
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            if (!selectedExamId) return
-            const uni = universities.find((u) => u.fk_university_id === selectedUniversityId)
-            const course = courses.find((c) => c.fk_course_id === selectedCourseId)
-            const ay = academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)
-            const exam = examMasters.find((ex) => (ex.examId ?? ex.id) === selectedExamId)
-            const qp = new URLSearchParams({
-              check: mode === 'college' ? '2' : '1',
-              universityId: String(selectedUniversityId ?? 0),
-              universityCode: String(uni?.university_code ?? ''),
-              courseId: String(selectedCourseId ?? 0),
-              courseName: String(course?.course_code ?? course?.course_name ?? ''),
-              academicYearId: String(selectedAcademicYearId ?? 0),
-              academicYear: String(ay?.academic_year ?? ''),
-              examId: String(selectedExamId ?? 0),
-              examName: String(exam?.examName ?? ''),
-              fromDate: String(exam?.fromDate ?? ''),
-              toDate: String(exam?.toDate ?? ''),
-              examFeeStructureId: String(p.data?.examFeeStructureId ?? p.data?.id ?? 0),
-            })
-            router.push(`/admin-examination-management/admin-exam-masters/exam-fee-setup/create?${qp.toString()}`)
-          }}
-          disabled={!selectedExamId}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            aria-label="View exam fee structure"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              const uni = universities.find((u) => u.fk_university_id === selectedUniversityId)
+              const course = courses.find((c) => c.fk_course_id === selectedCourseId)
+              const ay = academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)
+              const exam = examMasters.find((ex) => (ex.examId ?? ex.id) === selectedExamId)
+              setViewing({
+                ...(p.data ?? {}),
+                collegeCode: p.data?.collegeCode ?? uni?.university_code ?? '',
+                courseCode: p.data?.courseCode ?? course?.course_code ?? course?.course_name ?? '',
+                examYear: p.data?.examYear ?? ay?.academic_year ?? '',
+                examName: p.data?.examName ?? p.data?.examMaster?.examName ?? exam?.examName ?? '',
+                regFee: p.data?.regFee ?? p.data?.regularFee,
+                supplyFee: p.data?.supplyFee ?? p.data?.suppleFee,
+              })
+              setViewOpen(true)
+            }}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              if (!selectedExamId) return
+              const uni = universities.find((u) => u.fk_university_id === selectedUniversityId)
+              const course = courses.find((c) => c.fk_course_id === selectedCourseId)
+              const ay = academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)
+              const exam = examMasters.find((ex) => (ex.examId ?? ex.id) === selectedExamId)
+              const qp = new URLSearchParams({
+                check: mode === 'college' ? '2' : '1',
+                universityId: String(selectedUniversityId ?? 0),
+                universityCode: String(uni?.university_code ?? ''),
+                courseId: String(selectedCourseId ?? 0),
+                courseName: String(course?.course_code ?? course?.course_name ?? ''),
+                academicYearId: String(selectedAcademicYearId ?? 0),
+                academicYear: String(ay?.academic_year ?? ''),
+                examId: String(selectedExamId ?? 0),
+                examName: String(exam?.examName ?? ''),
+                fromDate: String(exam?.fromDate ?? ''),
+                toDate: String(exam?.toDate ?? ''),
+                examFeeStructureId: String(p.data?.examFeeStructureId ?? p.data?.id ?? 0),
+              })
+              router.push(`/admin-examination-management/admin-exam-masters/exam-fee-setup/create?${qp.toString()}`)
+            }}
+            disabled={!selectedExamId}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ], [selectedExamId, universities, selectedUniversityId, courses, selectedCourseId, academicYears, selectedAcademicYearId, examMasters, mode, router])
@@ -689,6 +720,12 @@ export default function ExamFeeSetupPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ViewExamFeeStructureModal
+        open={viewOpen}
+        onClose={() => { setViewOpen(false); setViewing(null) }}
+        data={viewing}
+      />
     </PageContainer>
   )
 }
