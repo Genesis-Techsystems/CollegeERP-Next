@@ -22,6 +22,7 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Filter } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
 
 type LateFeeFine = { name: string; startDate: string; endDate: string; regFeeFine?: string; suppleFeeFine?: string }
 type AdditionalFee = { name: string; type: 'regular' | 'supple'; amount: string }
@@ -78,6 +79,8 @@ export default function CreateRevaluationFeeStructurePage() {
 	const [paramExamFromDate, setParamExamFromDate] = useState('')
 	const [paramExamToDate, setParamExamToDate] = useState('')
 	const [editId, setEditId] = useState<number | null>(null)
+
+	useBreadcrumbLabel(editId ? 'Edit Re Valuation Fee Setup' : 'Create Re Valuation Fee Setup')
 
 	const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
 	const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<number | null>(null)
