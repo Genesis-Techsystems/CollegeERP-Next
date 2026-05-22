@@ -406,6 +406,7 @@ export default function CreateExamTimetablePage() {
 							<Label>Exam Date *</Label>
 							<input
 								type="date"
+								autoFocus
 								className="h-8 text-[12px] w-full rounded-md border border-border bg-card px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
 								value={slotDraft.date}
 								onChange={(e) => setSlotDraft((s) => ({ ...s, date: e.target.value }))}
@@ -446,7 +447,7 @@ export default function CreateExamTimetablePage() {
 							</Select>
 						</div>
 						<div className="space-y-1 md:col-span-3">
-							<Label>Subject</Label>
+							<Label>Subject *</Label>
 							<Select
 								value={selectedSubjectCode ?? undefined}
 								onValueChange={(v) => setSelectedSubjectCode(v)}
@@ -508,7 +509,10 @@ export default function CreateExamTimetablePage() {
 										)
 								  })}
 						</div>
-						<div className="p-2 border-t flex justify-end">
+						<div className="p-2 border-t flex flex-col items-end gap-1">
+							{!canAdd && selectedGroups.size === 0 && (
+								<p className="text-[11px] text-muted-foreground">Tick at least one course group to enable.</p>
+							)}
 							<Button type="button" variant="outline" className="h-8 text-[12px]" onClick={addSelectedToStage} disabled={!canAdd}>
 								Add to Table
 							</Button>
