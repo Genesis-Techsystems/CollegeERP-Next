@@ -20,10 +20,12 @@ import {
 	getExamSubjectsForSchedule,
 	getUnivExamSubjectFilters,
 	listExamFeeTypeGeneralDetails,
+	getExamTimetableDetails,
 } from '@/services/examination'
 import { useSessionContext } from '@/context/SessionContext'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { toastSuccess } from '@/lib/toast'
+import ExistingExamTimetableModal, { type ExistingExamTimetableRow } from '../ExistingExamTimetableModal'
 
 type Slot = {
 	date: string
@@ -92,6 +94,24 @@ export default function CreateExamTimetablePage() {
 		subjectCode: string
 	}
 	const [stagedRows, setStagedRows] = useState<StagedRow[]>([])
+
+	// Existing Timetable modal
+	const [existingOpen, setExistingOpen] = useState(false)
+	const [existingRows, setExistingRows] = useState<ExistingExamTimetableRow[]>([])
+
+	async function openExistingTimetable() {
+		if (!selectedExamId || !selectedCourseYearId || !selectedCourseId) return
+		const data = await getExamTimetableDetails(selectedCourseYearId, selectedCourseId, selectedExamId).catch(() => [])
+		const rows = Array.isArray(data) ? data : []
+		const mapped: ExistingExamTimetableRow[] = rows.map((r: any) => ({
+			subjectName: String(r.subjectName ?? r.subject_name ?? r.paperTitle ?? '').trim(),
+			subjecttypeName: String(r.subjecttypeName ?? r.subject_type_name ?? r.examPaperType ?? '').trim(),
+			groupName: String(r.groupCode ?? r.groupName ?? r.courseGroupCode ?? r.course_group_code ?? '').trim(),
+			courseYearName: String(r.courseYearName ?? r.course_year_name ?? r.yearName ?? '').trim(),
+		}))
+		setExistingRows(mapped)
+		setExistingOpen(true)
+	}
 
 	const filteredCourseYears = useMemo(() => {
 		const list = courseYears
@@ -328,8 +348,18 @@ export default function CreateExamTimetablePage() {
 		<PageHeader title="Create Exam Timetable" subtitle="Schedule exam dates and times" />
 			{/* Header card */}
 			<div className="app-card overflow-hidden">
-				<div className="px-4 py-3 border-b border-border bg-muted/40">
+				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
 					<h2 className="app-card-title">Create Exam Timetable</h2>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="h-6 px-2.5 text-[12px]"
+						onClick={openExistingTimetable}
+						disabled={!selectedExamId || !selectedCourseYearId || !selectedCourseId}
+					>
+						Show Existing Timetable
+					</Button>
 				</div>
 
 				<div className="px-3 py-3">
@@ -490,6 +520,12 @@ export default function CreateExamTimetablePage() {
 					</div>
 				)}
 			</div>
+
+			<ExistingExamTimetableModal
+				open={existingOpen}
+				onClose={() => setExistingOpen(false)}
+				rows={existingRows}
+			/>
 		</PageContainer>
 	)
 }
