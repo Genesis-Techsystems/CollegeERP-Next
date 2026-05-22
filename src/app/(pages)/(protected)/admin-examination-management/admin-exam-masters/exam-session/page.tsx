@@ -31,8 +31,8 @@ const COL_DEFS = {
   sessionIn: { field: 'examsessioninCatCode', headerName: 'Session In', minWidth: 120 } as ColDef,
   uniCode:   { field: 'universityCode', headerName: 'University Code', minWidth: 140 } as ColDef,
   startEnd:  {
-    headerName: 'Start - End',
-    minWidth: 180,
+    headerName: 'Session Start - End Times',
+    minWidth: 200,
     valueGetter: (p: any) =>
       p.data?.sessionStartTime && p.data?.sessionEndTime
         ? `${p.data.sessionStartTime} - ${p.data.sessionEndTime}`
@@ -152,9 +152,9 @@ export default function ExamSessionPage() {
   const columnDefs = useMemo<ColDef[]>(
     () => [
       COL_DEFS.siNo,
+      COL_DEFS.uniCode,
       COL_DEFS.name,
       COL_DEFS.sessionIn,
-      COL_DEFS.uniCode,
       COL_DEFS.startEnd,
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
       { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditing, setForm, setOpen) },
