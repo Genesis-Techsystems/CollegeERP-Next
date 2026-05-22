@@ -335,8 +335,13 @@ export function DataTable<T>({
 
   const applyColumnVisible = useCallback((colId: string, visible: boolean) => {
     const api = gridRef.current?.api ?? gridApi
-    api?.applyColumnState({ state: [{ colId, hide: !visible }] })
+    if (!api) return
+
+    api.applyColumnState({ state: [{ colId, hide: !visible }] })
+    // Ensure the grid (and then the column picker checkbox states) updates immediately.
+    api.refreshHeader()
   }, [gridApi])
+
 
   function handleRowClicked(event: RowClickedEvent<T>) {
     if (onRowClick && event.data !== undefined) onRowClick(event.data)

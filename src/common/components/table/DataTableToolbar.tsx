@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
+
 import type { Column } from 'ag-grid-community'
 import { Columns3, FileText } from 'lucide-react'
 import { SearchInput } from '@/common/components/search'
@@ -54,9 +55,13 @@ export function DataTableToolbar({
   const [, setColumnMenuTick] = useState(0)
   const bump = useCallback(() => setColumnMenuTick((n) => n + 1), [])
 
+  // Important: AG Grid column visibility changes are held in AG Grid state.
+  // We must re-read `col.isVisible()` after every toggle, otherwise the checkbox list
+  // can get stuck showing old `checked` values.
   const columnItems = useMemo(() => {
     const cols = getColumns()
     if (!cols?.length) return []
+
     return cols
       .filter((c) => !c.getColDef().suppressColumnsToolPanel)
       .map((c) => ({
@@ -66,6 +71,7 @@ export function DataTableToolbar({
         locked: lockColumnIds.includes(c.getId()),
       }))
   }, [getColumns, lockColumnIds, bump])
+
 
   const visibleCount = columnItems.filter((c) => c.visible).length
 
