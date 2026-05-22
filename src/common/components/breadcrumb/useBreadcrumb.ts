@@ -1,7 +1,9 @@
 'use client'
 
+import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import type { BreadcrumbItem } from './Breadcrumb'
+import { useBreadcrumbStore } from '@/store/breadcrumb-store'
 
 /**
  * Converts a URL path segment into a human-readable label.
@@ -43,6 +45,7 @@ function segmentToLabel(segment: string): string {
  */
 export function useBreadcrumb(customItems?: BreadcrumbItem[]): BreadcrumbItem[] {
   const pathname = usePathname()
+  const lastSegmentLabel = useBreadcrumbStore((s) => s.lastSegmentLabel)
 
   if (customItems !== undefined) {
     return customItems
@@ -65,5 +68,27 @@ export function useBreadcrumb(customItems?: BreadcrumbItem[]): BreadcrumbItem[] 
     })
   })
 
+  if (lastSegmentLabel && items.length > 0) {
+    const last = items[items.length - 1]
+    items[items.length - 1] = { ...last, label: lastSegmentLabel }
+  }
+
   return items
+}
+
+/**
+ * Page-level override for the LAST breadcrumb segment label. Parent segments
+ * stay auto-generated. Pass `null` (or omit during cleanup) to fall back to
+ * the URL-derived label.
+ *
+ * @example
+ *   useBreadcrumbLabel(isEditMode ? 'Edit Exam Fee Structure' : 'Add Exam Fee Structure')
+ */
+export function useBreadcrumbLabel(label: string | null): void {
+  useEffect(() => {
+    useBreadcrumbStore.getState().setLastSegmentLabel(label)
+    return () => {
+      useBreadcrumbStore.getState().setLastSegmentLabel(null)
+    }
+  }, [label])
 }
