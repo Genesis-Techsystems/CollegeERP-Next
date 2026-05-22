@@ -77,6 +77,7 @@ export default function ExamTimetablePage() {
 	})
 
 	const [conflictsOpen, setConflictsOpen] = useState(false)
+	const [loadingGrid, setLoadingGrid] = useState(false)
 	const [editOpen, setEditOpen] = useState(false)
 	const [editContext, setEditContext] = useState<{
 		branchId: string | number
@@ -243,6 +244,7 @@ export default function ExamTimetablePage() {
 	useEffect(() => {
 		async function hydrateFromApi() {
 			if (!selectedExamId || !selectedCourseId || !selectedCourseYearId) return
+			setLoadingGrid(true)
 			try {
 				// We'll accumulate branches from filters/entities first,
 				// then merge with any discovered in timetable rows.
@@ -447,6 +449,8 @@ export default function ExamTimetablePage() {
 				}
 			} catch {
 				// ignore network errors for now
+			} finally {
+				setLoadingGrid(false)
 			}
 		}
 		hydrateFromApi()
@@ -861,6 +865,12 @@ export default function ExamTimetablePage() {
 				)}
 			</div>
 
+			{(!selectedCourseYearId || !titleLine) && !loadingFilters && (
+				<div className="app-card px-4 py-8 text-center text-[13px] text-muted-foreground">
+					Select Course, Exam Year, Exam Master and Course Year above to load the timetable grid.
+				</div>
+			)}
+
 			{selectedCourseYearId != null && titleLine && (
 				<div className="app-card">
 					<div className="px-4 py-3 border-b border-border bg-card">
@@ -897,6 +907,12 @@ export default function ExamTimetablePage() {
 						</div>
 					</div>
 
+					{loadingGrid && (
+						<div className="px-4 py-8 text-center text-[13px] text-muted-foreground">
+							Loading timetable…
+						</div>
+					)}
+
 					<div className="overflow-auto">
 						<table className="w-full border-t border-border">
 							<thead className="bg-muted/40">
@@ -908,7 +924,7 @@ export default function ExamTimetablePage() {
 											day: '2-digit',
 											month: 'short',
 											year: 'numeric',
-										})
+										}).replace(/(\d+) (\w+) (\d+)/, '$1 $2, $3')
 										return (
 											<th key={d.toISOString()} className="min-w-[160px] px-3 py-2 text-[12px] font-semibold border-r border-border">
 												<div>{dayNum}</div>
