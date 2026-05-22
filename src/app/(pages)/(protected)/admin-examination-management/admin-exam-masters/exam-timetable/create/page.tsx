@@ -17,6 +17,7 @@ import {
 	getUnivExamFiltersAll,
 	resolveExamLoginEmpId,
 	listCourseYears,
+	listCourseGroups,
 	getExamSubjectsForSchedule,
 	getUnivExamSubjectFilters,
 	listExamFeeTypeGeneralDetails,
@@ -75,7 +76,8 @@ export default function CreateExamTimetablePage() {
 	// Timetable slots
 	const [slotDraft, setSlotDraft] = useState<Slot>({ date: '', startTime: '', endTime: '' })
 	const [slots, setSlots] = useState<Slot[]>([])
-	// Course groups (UI mirroring)
+	// Course groups (loaded from API on courseId change)
+	const [courseGroups, setCourseGroups] = useState<{ code: string; regulationName?: string }[]>([])
 	const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set())
 	function toggleGroup(code: string) {
 		setSelectedGroups((s) => {
@@ -85,6 +87,39 @@ export default function CreateExamTimetablePage() {
 			return next
 		})
 	}
+
+	useEffect(() => {
+		setCourseGroups([])
+		setSelectedGroups(new Set())
+		if (!selectedCourseId) return
+		let cancelled = false
+		async function loadGroups() {
+			const rows = await listCourseGroups(selectedCourseId as number).catch(() => [] as any[])
+			if (cancelled) return
+			const list = (Array.isArray(rows) ? rows : []).map((g: any) => ({
+				code: String(
+					g.groupCode ??
+						g.courseGroupCode ??
+						g.group_code ??
+						g.course_group_code ??
+						g.courseGroupName ??
+						g.groupName ??
+						'',
+				).trim(),
+				regulationName: String(
+					g.regulationName ?? g.regulation_name ?? g.regulationShortName ?? '',
+				).trim() || undefined,
+			})).filter((g) => g.code)
+			// Dedupe by code, preserving first occurrence
+			const seen = new Set<string>()
+			const unique = list.filter((g) => (seen.has(g.code) ? false : (seen.add(g.code), true)))
+			setCourseGroups(unique)
+		}
+		void loadGroups()
+		return () => {
+			cancelled = true
+		}
+	}, [selectedCourseId])
 
 	// Staged rows (table)
 	type StagedRow = {
@@ -438,15 +473,24 @@ export default function CreateExamTimetablePage() {
 					<div className="col-span-3 rounded-md border overflow-hidden">
 						<div className="px-3 py-2 bg-muted/40 border-b text-[12px] font-medium">Select Course Group</div>
 						<div className="p-2 space-y-1 max-h-72 overflow-auto">
-							{['AIML','CIV','CME','CSD','EEE','IT','MECH'].map((code) => {
-								const checked = selectedGroups.has(code)
-								return (
-									<label key={code} className="flex items-center gap-2 text-[12px]">
-										<input type="checkbox" checked={checked} onChange={() => toggleGroup(code)} />
-										<span>{code} <span className="text-muted-foreground">(Regular)</span></span>
-									</label>
-								)
-							})}
+							{courseGroups.length === 0 ? (
+								<div className="text-[12px] text-muted-foreground px-1 py-2">
+									{selectedCourseId ? 'No course groups for this course.' : 'Pick a course to load groups.'}
+								</div>
+							) : (
+								courseGroups.map((g) => {
+									const checked = selectedGroups.has(g.code)
+									return (
+										<label key={g.code} className="flex items-center gap-2 text-[12px]">
+											<input type="checkbox" checked={checked} onChange={() => toggleGroup(g.code)} />
+											<span>
+												{g.code}
+												{g.regulationName ? <span className="text-muted-foreground"> ({g.regulationName})</span> : null}
+											</span>
+										</label>
+									)
+								})
+							)}
 						</div>
 					</div>
 					<div className="col-span-2 rounded-md border overflow-hidden flex flex-col">
@@ -454,9 +498,15 @@ export default function CreateExamTimetablePage() {
 						<div className="p-2 min-h-[12rem] text-[12px] flex-1">
 							{Array.from(selectedGroups).length === 0
 								? '—'
-								: Array.from(selectedGroups).map((g) => (
-										<div key={g}><span className="font-medium">{g}</span> <span className="text-muted-foreground">(Regular)</span></div>
-								  ))}
+								: Array.from(selectedGroups).map((code) => {
+										const grp = courseGroups.find((g) => g.code === code)
+										return (
+											<div key={code}>
+												<span className="font-medium">{code}</span>
+												{grp?.regulationName ? <span className="text-muted-foreground"> ({grp.regulationName})</span> : null}
+											</div>
+										)
+								  })}
 						</div>
 						<div className="p-2 border-t flex justify-end">
 							<Button type="button" variant="outline" className="h-8 text-[12px]" onClick={addSelectedToStage} disabled={!canAdd}>
