@@ -303,11 +303,13 @@ export default function ExamMaxMarksSetupPage() {
 
       {rows.length > 0 && (
         <div className="app-card p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
+          <div className="mb-3">
             <h3 className="app-card-title">Marks Setup</h3>
+          </div>
+          <div className="mb-3">
             <SearchInput
-              className="w-full max-w-sm"
-              placeholder="Search marks…"
+              className="w-full max-w-md"
+              placeholder="Search by category code or marks setup name…"
               value={q}
               onChange={setQ}
             />
