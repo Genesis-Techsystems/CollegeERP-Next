@@ -149,18 +149,6 @@ export default function CreateExamFeeStructurePage() {
 	)
 	const isEditMode = pageParams.examFeeStructureId > 0
 
-	const groupCodes = useMemo(
-		() =>
-			Array.from(
-				new Set(
-					(courseGroups ?? [])
-						.map((g: any) => String(g.group_code ?? g.groupCode ?? g.courseGroupCode ?? g.course_group_code ?? '').trim())
-						.filter(Boolean)
-				)
-			),
-		[courseGroups]
-	)
-
 	const additionalTypeOptions = useMemo(
 		() =>
 			(additionalTypes ?? [])
@@ -180,36 +168,14 @@ export default function CreateExamFeeStructurePage() {
 		[additionalTypes]
 	)
 
+	// Render one row per course year. Earlier code duplicated each year across
+	// every course-group code, but the selection state (and the save payload)
+	// keys solely on courseYearId — duplicates therefore checked together and
+	// produced the "click one, several toggle" bug.
 	const displayCourseYears = useMemo(() => {
 		if (!Array.isArray(courseYears) || courseYears.length === 0) return []
-
-		const hasRowLevelGroup = courseYears.some((y: any) =>
-			Boolean(
-				y.groupCode ||
-				y.group_code ||
-				y.courseGroupCode ||
-				y.course_group_code ||
-				y.branchCode ||
-				y.branch_code ||
-				y.specializationCode ||
-				y.specialization_code ||
-				y.deptCode ||
-				y.dept_code ||
-				(String(y.courseYearCode ?? y.course_year_code ?? '').includes('-'))
-			)
-		)
-
-		if (hasRowLevelGroup || groupCodes.length === 0) return courseYears
-
-		// Legacy-like display: expand each year under each available group code.
-		return courseYears.flatMap((y: any) =>
-			groupCodes.map((gc) => ({
-				...y,
-				__displayGroupCode: gc,
-				__rowKey: `${y.courseYearId ?? y.id ?? y.course_year_id ?? y.fk_course_year_id ?? 'row'}-${gc}`,
-			}))
-		)
-	}, [courseYears, groupCodes])
+		return courseYears
+	}, [courseYears])
 
 	const filteredCourseYears = useMemo(() => {
 		const list = displayCourseYears
