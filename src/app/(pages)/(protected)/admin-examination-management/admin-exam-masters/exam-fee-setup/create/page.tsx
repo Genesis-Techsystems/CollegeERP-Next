@@ -30,6 +30,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { listGeneralDetailsByMaster } from '@/services/examination'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
 
 type FineRow = {
 	fineName: string
@@ -148,6 +149,8 @@ export default function CreateExamFeeStructurePage() {
 		[searchParams],
 	)
 	const isEditMode = pageParams.examFeeStructureId > 0
+
+	useBreadcrumbLabel(isEditMode ? 'Edit Exam Fee Structure' : 'Add Exam Fee Structure')
 
 	const groupCodes = useMemo(
 		() =>
