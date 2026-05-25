@@ -1280,21 +1280,6 @@ export default function SeatingPlanSetupPage() {
 								</SelectContent>
 							</Select>
 						</div>
-						<div className="space-y-1">
-							<Label>College</Label>
-							<Select value={selectedCollegeId != null ? String(selectedCollegeId) : undefined} onValueChange={(v) => setSelectedCollegeId(Number(v))}>
-								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder="College" />
-								</SelectTrigger>
-								<SelectContent>
-									{colleges.map((c: any, i: number) => (
-										<SelectItem key={`clg-${c.fk_college_id ?? i}`} value={String(c.fk_college_id)}>
-											{c.college_code ?? c.collegeCode ?? `College ${i + 1}`}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
 					</div>
 				</div>
 				)}
