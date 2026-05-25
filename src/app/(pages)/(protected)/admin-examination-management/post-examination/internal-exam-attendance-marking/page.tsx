@@ -466,41 +466,73 @@ export default function InternalExamAttendanceMarkingPage() {
               <p>Room: {rooms.find((x) => Number(x.fk_room_id ?? 0) === Number(roomId))?.room_name ?? 'All'}</p>
             </div>
           </div>
-          <TableCard withHeaderBorder={false}>
-            <DataTable
-              rowData={rows}
-              columnDefs={columnDefs}
-              loading={loadingList}
-              pagination
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search…',
-                pdfDocumentTitle: 'Internal Exam Attendance',
-              }}
-              toolbarTrailing={
-                <>
-                  <label className="inline-flex items-center gap-2 text-[12px] shrink-0">
-                    <Checkbox
-                      checked={allMarkedPresent}
-                      onCheckedChange={(v) => setRows((prev) => prev.map((r) => ({ ...r, isPresent: Boolean(v) })))}
-                    />
-                    <span>{allMarkedPresent ? 'Unmark All' : 'Mark All'}</span>
-                  </label>
-                  <span className="hidden text-[12px] text-slate-600 sm:inline shrink-0">
-                    Absentees:{' '}
-                    <span className="font-semibold text-[hsl(var(--primary))]">{absentees.length}</span>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+            <div className="lg:col-span-9 min-w-0">
+              <TableCard withHeaderBorder={false}>
+                <DataTable
+                  rowData={rows}
+                  columnDefs={columnDefs}
+                  loading={loadingList}
+                  pagination
+                  toolbar={{
+                    search: true,
+                    searchPlaceholder: 'Search…',
+                    pdfDocumentTitle: 'Internal Exam Attendance',
+                  }}
+                  toolbarTrailing={
+                    <>
+                      <label className="inline-flex items-center gap-2 text-[12px] shrink-0">
+                        <Checkbox
+                          checked={allMarkedPresent}
+                          onCheckedChange={(v) =>
+                            setRows((prev) => prev.map((r) => ({ ...r, isPresent: Boolean(v) })))
+                          }
+                        />
+                        <span>{allMarkedPresent ? 'Unmark All' : 'Mark All'}</span>
+                      </label>
+                      <Button
+                        className="h-[30px] text-[12px]"
+                        onClick={onSaveAttendance}
+                        disabled={saving || rows.length === 0}
+                      >
+                        {saving ? 'Saving...' : 'Save Attendance'}
+                      </Button>
+                    </>
+                  }
+                />
+              </TableCard>
+            </div>
+
+            <aside className="lg:col-span-3 min-w-0">
+              <div className="app-card overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/40">
+                  <h3 className="app-card-title">Absentees</h3>
+                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-cyan-100 px-2 text-[12px] font-semibold text-slate-900">
+                    {absentees.length}
                   </span>
-                  <Button
-                    className="h-[30px] text-[12px]"
-                    onClick={onSaveAttendance}
-                    disabled={saving || rows.length === 0}
-                  >
-                    {saving ? 'Saving...' : 'Save Attendance'}
-                  </Button>
-                </>
-              }
-            />
-          </TableCard>
+                </div>
+                <div className="max-h-[480px] overflow-auto p-3 text-[12px]">
+                  {absentees.length === 0 ? (
+                    <p className="text-slate-500">No absents found.</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {absentees.map((r) => (
+                        <li
+                          key={`abs-${r.examStdDetId}`}
+                          className="flex items-center justify-between gap-2 leading-tight"
+                        >
+                          <span className="truncate text-slate-700">{r.firstName}</span>
+                          <span className="shrink-0 font-semibold text-[hsl(var(--primary))]">
+                            {r.hallticketNumber}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
       )}
     </PageContainer>
