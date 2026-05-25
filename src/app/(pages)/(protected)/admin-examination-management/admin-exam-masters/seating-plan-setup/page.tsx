@@ -1363,6 +1363,20 @@ export default function SeatingPlanSetupPage() {
 
 	return (
 		<PageContainer className="space-y-4">
+			{loadingPrintData && (
+				<div
+					data-print-hide
+					className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+				>
+					<div className="rounded-lg bg-white px-6 py-4 shadow-lg flex items-center gap-3">
+						<div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+						<div className="flex flex-col">
+							<span className="text-[13px] font-semibold text-slate-900">Preparing print…</span>
+							<span className="text-[11px] text-slate-500">Fetching student data from server (can take 10-15s)</span>
+						</div>
+					</div>
+				</div>
+			)}
 			<PageHeader title="Exam Room Seating Plan" subtitle="Allocate exam room seating" />
 			<div className="app-card overflow-hidden">
 				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
