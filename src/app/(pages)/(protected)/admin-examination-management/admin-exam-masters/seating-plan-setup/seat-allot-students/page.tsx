@@ -374,35 +374,55 @@ export default function SeatAllotStudentsPage() {
 	].filter(Boolean).join(' / ')
 
 	if (printMode === 'seating') {
+		// Port of Angular #printSeatingOrder section (check === 1):
+		// H2 "Seating Order : (room)" + H3 exam + H3 date/session,
+		// seat grid table, summary table.
+		const totalSeats = (roomMeta.totalRows || 0) * (roomMeta.totalCols || 0) || roomMeta.capacity
 		return (
-			<div className="p-4 text-black">
-				<div className="mb-3 text-center">
-					<div className="text-[16px] font-bold">{details.examName || 'Exam'}</div>
-					<div className="text-[12px]">
-						{[details.courseName || details.courseCode, details.academicYear || resolvedAcademicYear]
-							.filter(Boolean)
-							.join(' / ')}
-					</div>
-					<div className="text-[12px]">
-						{[details.examDate, details.examSession].filter(Boolean).join(' • ')}{' '}
-						{roomMeta.roomLabel ? `• Room: ${roomMeta.roomLabel}` : ''}
-					</div>
-				</div>
-				<table className="w-full border-collapse text-[11px]">
+			<div className="text-black" style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px', maxWidth: '990px', margin: '0 auto' }}>
+				<h2 style={{ color: 'blue', margin: '0 0 8px 0', fontSize: '18px' }}>
+					Seating Order : <span style={{ color: 'black' }}>({roomMeta.roomLabel || details.roomCode || '—'})</span>
+				</h2>
+				<h3 style={{ marginTop: '-2px', color: 'blue', fontSize: '14px' }}>
+					Exam Name : <span style={{ color: 'black' }}>
+						{details.examName || '—'}
+						{details.examDate ? ` (${details.examDate})` : ''}
+					</span>
+				</h3>
+				<h3 style={{ marginTop: '-2px', fontSize: '14px' }}>
+					<span>Date : {details.examDate || '—'} &nbsp;|&nbsp; Session : {details.examSession || '—'}</span>
+				</h3>
+
+				<table id="printTable" style={{ borderCollapse: 'collapse', width: '100%', margin: '12px 0' }}>
 					<tbody>
 						{seatingGrid.map((row, rIdx) => (
 							<tr key={`pr-${rIdx}`}>
 								{row.map((seat) => {
 									const blocked = seat.status.toLowerCase() === 'blocked'
+									const booked = seat.status.toLowerCase() === 'booked' || !!seat.hallticket
 									return (
 										<td
 											key={seat.key}
-											className="border border-slate-400 p-1 align-top h-[60px] min-w-[68px]"
-											style={blocked ? { background: '#e5e7eb' } : {}}
+											style={{
+												border: '1px solid #000',
+												padding: '4px',
+												verticalAlign: 'top',
+												minHeight: '60px',
+												minWidth: '72px',
+												textAlign: 'center',
+												background: blocked ? '#d1d5db' : 'transparent',
+											}}
 										>
-											<div className="text-[9px] text-right">{seat.serial}</div>
-											<div className="text-center text-[11px] font-medium">{seat.hallticket || (blocked ? 'BLOCKED' : '')}</div>
-											<div className="text-center text-[9px]">{seat.subjectCode}</div>
+											{booked && seat.hallticket ? (
+												<>
+													<p style={{ fontSize: '12px', margin: 0 }}>
+														{seat.hallticket} - {seat.serial}
+													</p>
+													<p style={{ fontSize: '10px', margin: 0 }}>{seat.subjectCode || ''}</p>
+												</>
+											) : blocked ? (
+												<p style={{ fontSize: '10px', margin: 0 }}>BLOCKED</p>
+											) : null}
 										</td>
 									)
 								})}
@@ -410,57 +430,132 @@ export default function SeatAllotStudentsPage() {
 						))}
 					</tbody>
 				</table>
-				<div className="mt-3 grid grid-cols-4 gap-2 text-[11px]">
-					<div>Total Seats: <b>{roomMeta.capacity}</b></div>
-					<div>Blocked: <b>{roomMeta.blockedSeats}</b></div>
-					<div>Booked: <b>{roomMeta.bookedSeats}</b></div>
-					<div>Available: <b>{roomMeta.availableSeats}</b></div>
-				</div>
+
+				<table style={{ borderCollapse: 'collapse', width: '100%', marginTop: '12px' }}>
+					<tbody>
+						<tr><td style={{ border: '1px solid #000', padding: '6px' }}>Total Seats</td><td style={{ border: '1px solid #000', padding: '6px' }}>{totalSeats}</td></tr>
+						<tr><td style={{ border: '1px solid #000', padding: '6px' }}>Booked Seats</td><td style={{ border: '1px solid #000', padding: '6px' }}>{roomMeta.bookedSeats}</td></tr>
+						<tr><td style={{ border: '1px solid #000', padding: '6px' }}>Available Seats</td><td style={{ border: '1px solid #000', padding: '6px' }}>{roomMeta.availableSeats}</td></tr>
+						<tr><td style={{ border: '1px solid #000', padding: '6px' }}>Present</td><td style={{ border: '1px solid #000', padding: '6px' }}>&nbsp;</td></tr>
+						<tr><td style={{ border: '1px solid #000', padding: '6px' }}>Absent</td><td style={{ border: '1px solid #000', padding: '6px' }}>&nbsp;</td></tr>
+					</tbody>
+				</table>
 			</div>
 		)
 	}
 
 	if (printMode === 'attendance') {
-		const rows = attendanceRows.length > 0 ? attendanceRows : seatRows
-		return (
-			<div className="p-4 text-black">
-				<div className="mb-3 text-center">
-					<div className="text-[16px] font-bold">{details.examName || 'Exam'} — Attendance Sheet</div>
-					<div className="text-[12px]">{headerLine}</div>
+		// Port of Angular printAttendance section: per (course_group, subject,
+		// room, exam_type) page with banner, ATTENDANCE SHEET title, exam-label
+		// row, Branch/Date/Room + Subject/Session header rows, numbered student
+		// table, summary table, three-signature footer.
+		const source = seatRows.length > 0 ? seatRows : attendanceRows
+		// Match Angular groupByMultipleKeys: fk_course_group_id | fk_subject_id | room_id | fk_examtype_catdet_id.
+		const byKey = new Map<string, any[]>()
+		for (const s of source) {
+			const key = [
+				(s as any).fk_course_group_id ?? (s as any).groupCode ?? (s as any).group_code,
+				(s as any).fk_subject_id ?? (s as any).subjectCode ?? (s as any).subject_code,
+				(s as any).room_id ?? (s as any).roomCode,
+				(s as any).fk_examtype_catdet_id ?? (s as any).examTypeCode ?? 'EX',
+			].join('|')
+			if (!byKey.has(key)) byKey.set(key, [])
+			byKey.get(key)!.push(s)
+		}
+		const attGroups = Array.from(byKey.values()).map((students) =>
+			students.slice().sort((a: any, b: any) =>
+				String(a.hallticket_number ?? a.hallticketNumber ?? '').localeCompare(
+					String(b.hallticket_number ?? b.hallticketNumber ?? ''),
+					undefined,
+					{ numeric: true },
+				),
+			),
+		)
+		if (attGroups.length === 0) {
+			return (
+				<div className="text-black" style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px', maxWidth: '900px', margin: '0 auto' }}>
+					<p style={{ textAlign: 'center', padding: '40px 0' }}>No allotted students for this room.</p>
 				</div>
-				<table className="w-full border-collapse text-[11px]">
-					<thead>
-						<tr>
-							<th className="border border-slate-400 px-2 py-1 text-left w-12">SI.No</th>
-							<th className="border border-slate-400 px-2 py-1 text-left">Hall Ticket</th>
-							<th className="border border-slate-400 px-2 py-1 text-left">Student Name</th>
-							<th className="border border-slate-400 px-2 py-1 text-left">Subject</th>
-							<th className="border border-slate-400 px-2 py-1 text-left w-24">Seat</th>
-							<th className="border border-slate-400 px-2 py-1 text-left w-32">Signature</th>
-						</tr>
-					</thead>
-					<tbody>
-						{rows.length === 0 ? (
-							<tr>
-								<td colSpan={6} className="border border-slate-400 px-2 py-3 text-center">
-									No students for this room / date / session.
-								</td>
-							</tr>
-						) : (
-							rows.map((r: any, i: number) => (
-								<tr key={`att-${i}`}>
-									<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.hallticketNumber ?? r.hallticket_number ?? '-'}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.stdName ?? r.student_name ?? '-'}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.subjectCode ?? r.subject_code ?? '-'}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.seatNumber ?? r.omr_serial_no ?? '-'}</td>
-									<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
-								</tr>
-							))
-						)}
-					</tbody>
-				</table>
-				<div className="mt-3 text-[11px]">Total students: <b>{rows.length}</b></div>
+			)
+		}
+		return (
+			<div className="text-black" style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px', maxWidth: '900px', margin: '0 auto' }}>
+				{attGroups.map((students, gi) => {
+					const s: any = students[0]
+					const isLab = String(s?.subjectTypeCode ?? '').toUpperCase() === 'LAB'
+					return (
+						<div key={`att-${gi}`} className={gi > 0 ? 'page-break' : ''}>
+							<img
+								src="/college-banner.png"
+								alt=""
+								style={{ maxHeight: 80, margin: '0 auto 8px', display: 'block' }}
+								onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+							/>
+							<h4 style={{ textAlign: 'center', fontWeight: 'bold', margin: '0 0 8px 0' }}>ATTENDANCE SHEET</h4>
+							<h4 style={{ textAlign: 'center', margin: '0 0 12px 0', fontSize: '14px' }}>
+								{s?.exam_label_name ?? details.examName ?? '—'}
+								{s?.exam_type_name ? ` (${s.exam_type_name})` : details.examType ? ` (${details.examType})` : ''}
+							</h4>
+							<div className="flex justify-between text-[12px] mb-1 px-1">
+								<div><b>Branch :</b> {s?.group_code ?? s?.groupCode ?? '—'}</div>
+								<div><b>Date :</b> {s?.exam_date ?? details.examDate ?? '—'}</div>
+								<div><b>Room :</b> {s?.room_name ?? roomMeta.roomLabel ?? '—'}</div>
+							</div>
+							<div className="flex justify-between text-[12px] mb-3 px-1">
+								<div style={{ flex: 2 }}><b>Subject:</b> {s?.subject_name ?? s?.subjectName ?? '—'}</div>
+								<div><b>Session:</b> {s?.sessin_time ?? s?.session_name ?? details.examSession ?? '—'}</div>
+							</div>
+							<table style={{ borderCollapse: 'collapse', width: '100%', marginBottom: '12px' }}>
+								<thead>
+									<tr>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>S.NO</th>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>H.T. NO.</th>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Student Name</th>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Signature of the Student</th>
+									</tr>
+								</thead>
+								<tbody>
+									{students.map((stu: any, i: number) => (
+										<tr key={`att-${gi}-${i}`}>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{i + 1}</td>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{stu.hallticket_number ?? stu.hallticketNumber ?? '—'}</td>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{stu.student_name ?? stu.stdName ?? '—'}</td>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>&nbsp;</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+							<table style={{ borderCollapse: 'collapse', width: '100%', marginBottom: '12px' }}>
+								<thead>
+									<tr>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Total No.of Students Registered</th>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Total No.of Students Absent</th>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Total No.of Students Present</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr>
+										<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{students.length}</td>
+										<td style={{ border: '1px solid #000', padding: '4px 6px' }}>&nbsp;</td>
+										<td style={{ border: '1px solid #000', padding: '4px 6px' }}>&nbsp;</td>
+									</tr>
+								</tbody>
+							</table>
+							{isLab ? (
+								<div className="flex justify-between text-[12px] mt-8 px-1">
+									<div>Signature of the Internal Examiner</div>
+									<div>Signature of the External Examiner</div>
+								</div>
+							) : (
+								<div className="flex justify-between text-[12px] mt-8 px-1">
+									<div>Signature of the Invigilator - I</div>
+									<div>Signature of the Invigilator - II</div>
+									<div>Controller of Examinations</div>
+								</div>
+							)}
+						</div>
+					)
+				})}
 			</div>
 		)
 	}
