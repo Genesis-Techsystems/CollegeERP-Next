@@ -383,6 +383,16 @@ export default function SeatingPlanSetupPage() {
 		}
 	}, [sessionOptions, searchParams])
 
+	// Restore the College once `restRows` populates -- the cascade at
+	// loadExamTimetables auto-picks the first college, so without this we'd
+	// land on the wrong campus after Back.
+	useEffect(() => {
+		const id = Number(searchParams?.get('collegeId') ?? 0)
+		if (id > 0 && restRows.some((r: any) => Number(r.fk_college_id) === id)) {
+			setSelectedCollegeId(id)
+		}
+	}, [restRows, searchParams])
+
 	useEffect(() => {
 		fetchFilters()
 	}, [fetchFilters])

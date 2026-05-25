@@ -773,6 +773,24 @@ textarea:focus-visible,
 }
 
 @media print {
+  /* Override the design-token surfaces themselves so any element using
+     bg-[hsl(var(--background))] / --card / --muted / --secondary renders
+     as white without needing to chase every Tailwind arbitrary-value
+     class through attribute selectors. */
+  :root,
+  html,
+  body {
+    --background: 0 0% 100% !important;
+    --card: 0 0% 100% !important;
+    --muted: 0 0% 100% !important;
+    --muted-foreground: 0 0% 20% !important;
+    --secondary: 0 0% 100% !important;
+    --popover: 0 0% 100% !important;
+    --accent: 0 0% 100% !important;
+    --sidebar-background: 0 0% 100% !important;
+    --sidebar-surface: 0 0% 100% !important;
+  }
+
   [data-print-hide],
   .print-hide,
   aside,
@@ -835,7 +853,11 @@ textarea:focus-visible,
     background-color: #fff !important;
   }
 
-  /* Render background colours / images during print. */
+  /* Render background colours / borders / images during print. The grey
+     page bg is already neutralised because we override the design-token
+     CSS variables (--background, --card, --muted) to white at the top of
+     @media print -- so `exact` mode now prints those surfaces as white
+     rather than the on-screen pale blue-grey. */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
