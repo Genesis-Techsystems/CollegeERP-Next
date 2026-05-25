@@ -88,8 +88,6 @@ export default function ExamSessionPage() {
   const [universityOptionsLoaded, setUniversityOptionsLoaded] = useState(false)
   const [sessionInOptions, setSessionInOptions] = useState<{ code: string; label: string }[]>([])
   const [sessionInOptionsLoaded, setSessionInOptionsLoaded] = useState(false)
-  const [reasonOptions, setReasonOptions] = useState<{ code: string; label: string }[]>([])
-  const [reasonOptionsLoaded, setReasonOptionsLoaded] = useState(false)
 
   const [form, setForm] = useState({
     examSessionName: '',
@@ -157,24 +155,6 @@ export default function ExamSessionPage() {
     if (!open) return
     void ensureSessionInOptionsLoaded()
   }, [ensureSessionInOptionsLoaded, open])
-
-  const ensureReasonOptionsLoaded = useCallback(async () => {
-    if (reasonOptionsLoaded) return
-    const rows = await listGeneralDetailsByMaster('REASON').catch(() => [] as any[])
-    const opts = (Array.isArray(rows) ? rows : [])
-      .map((r: any) => ({
-        code: String(r.generalDetailCode ?? '').trim(),
-        label: String(r.generalDetailDisplayName ?? r.generalDetailName ?? r.generalDetailCode ?? '').trim(),
-      }))
-      .filter((o) => o.code)
-    setReasonOptions(opts)
-    setReasonOptionsLoaded(true)
-  }, [reasonOptionsLoaded])
-
-  useEffect(() => {
-    if (!open) return
-    void ensureReasonOptionsLoaded()
-  }, [ensureReasonOptionsLoaded, open])
 
   function formatTime12h(value?: string) {
     if (!value) return ''
@@ -331,44 +311,10 @@ export default function ExamSessionPage() {
             </div>
             <div className="min-w-0 space-y-1">
               <Label className="text-[12px]">Active</Label>
-              <div
-                role="button"
-                tabIndex={0}
-                className="flex h-9 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-2 hover:border-input"
-                onClick={() =>
-                  setForm((s) => ({
-                    ...s,
-                    isActive: !s.isActive,
-                    reason: s.isActive ? '' : 'active',
-                  }))
-                }
-                onKeyDown={(e) => {
-                  if (e.key === ' ' || e.key === 'Enter') {
-                    e.preventDefault()
-                    setForm((s) => ({
-                      ...s,
-                      isActive: !s.isActive,
-                      reason: s.isActive ? '' : 'active',
-                    }))
-                  }
-                }}
-              >
-                <Checkbox
-                  checked={form.isActive}
-                  onCheckedChange={(v) =>
-                    setForm((s) => ({
-                      ...s,
-                      isActive: !!v,
-                      reason: v ? 'active' : '',
-                    }))
-                  }
-                  // Stop the row's onClick from firing again after Radix already toggled.
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <span className="text-[12px] text-slate-700 select-none">
-                  {form.isActive ? 'Session is active' : 'Session is inactive'}
-                </span>
-              </div>
+              <label className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-border bg-card px-2">
+                <Checkbox checked={form.isActive} onCheckedChange={(v) => setForm((s) => ({ ...s, isActive: !!v }))} />
+                <span className="text-[12px] text-slate-700">Session is active</span>
+              </label>
             </div>
             <div className="min-w-0 space-y-1">
               <TimePicker
@@ -387,21 +333,7 @@ export default function ExamSessionPage() {
             {!form.isActive && (
               <div className="space-y-1 md:col-span-2">
                 <Label className="text-[12px]">Reason</Label>
-                <Select
-                  value={form.reason || undefined}
-                  onValueChange={(v) => setForm((s) => ({ ...s, reason: v }))}
-                >
-                  <SelectTrigger className="h-9 text-[12px]">
-                    <SelectValue placeholder="Select Reason" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {reasonOptions.map((o) => (
-                      <SelectItem key={o.code} value={o.code}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input className="h-9 text-[12px]" value={form.reason} onChange={(e) => setForm((s) => ({ ...s, reason: e.target.value }))} />
               </div>
             )}
           </div>

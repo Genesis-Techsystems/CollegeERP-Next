@@ -31,6 +31,8 @@ import {
   createExamLabBatch,
   updateExamLabBatch,
 } from '@/services/exam-lab-batches'
+import { listGeneralDetailsByMaster } from '@/services/examination'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ChevronDown, Filter, PencilIcon, Plus } from 'lucide-react'
 
 type Row = Record<string, any>
@@ -95,6 +97,9 @@ export default function ExamLabBatchesPage() {
   const [capacity, setCapacity] = useState('')
   const [sortOrder, setSortOrder] = useState('')
   const [isActive, setIsActive] = useState(true)
+  const [reason, setReason] = useState<string>('active')
+  const [reasonOptions, setReasonOptions] = useState<{ code: string; label: string }[]>([])
+  const [reasonOptionsLoaded, setReasonOptionsLoaded] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
@@ -204,6 +209,7 @@ export default function ExamLabBatchesPage() {
     setCapacity('')
     setSortOrder('')
     setIsActive(true)
+    setReason('active')
     if (!subjectId && subjects[0]?.fk_subject_id) {
       setSubjectId(Number(subjects[0].fk_subject_id))
     }
@@ -225,8 +231,27 @@ export default function ExamLabBatchesPage() {
     setCapacity(String(r.capacity ?? ''))
     setSortOrder(String(r.sortOrder ?? ''))
     setIsActive(Boolean(r.isActive))
+    setReason(String(r.reason ?? (r.isActive ? 'active' : '')))
     setOpen(true)
   }, [availableExamTypes])
+
+  const ensureReasonOptionsLoaded = useCallback(async () => {
+    if (reasonOptionsLoaded) return
+    const rows = await listGeneralDetailsByMaster('REASON').catch(() => [] as any[])
+    const opts = (Array.isArray(rows) ? rows : [])
+      .map((r: any) => ({
+        code: String(r.generalDetailCode ?? '').trim(),
+        label: String(r.generalDetailDisplayName ?? r.generalDetailName ?? r.generalDetailCode ?? '').trim(),
+      }))
+      .filter((o) => o.code)
+    setReasonOptions(opts)
+    setReasonOptionsLoaded(true)
+  }, [reasonOptionsLoaded])
+
+  useEffect(() => {
+    if (!open) return
+    void ensureReasonOptionsLoaded()
+  }, [ensureReasonOptionsLoaded, open])
 
   async function saveBatch() {
     setSaveError('')
@@ -256,6 +281,7 @@ export default function ExamLabBatchesPage() {
       sortOrder: sortOrder ? Number(sortOrder) : null,
       capacity: capacity ? Number(capacity) : null,
       isActive,
+      reason: isActive ? 'active' : (reason || '').trim(),
       examtypeCatdetId: examTypeId,
       examtypeCatdetCode: examTypeCode,
     }
@@ -368,7 +394,60 @@ export default function ExamLabBatchesPage() {
             <div className="space-y-1"><Label>Batch Name</Label><Input className="h-8 text-[12px]" value={batchName} onChange={(e) => setBatchName(e.target.value)} /></div>
             <div className="space-y-1"><Label>Capacity</Label><Input className="h-8 text-[12px]" type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} /></div>
             <div className="space-y-1"><Label>Sort Order</Label><Input className="h-8 text-[12px]" type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} /></div>
-            {/* Status/Reason removed per latest UX requirement */}
+            <div className="space-y-1">
+              <Label className="text-[12px]">Active</Label>
+              <div
+                role="button"
+                tabIndex={0}
+                className="flex h-8 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-2 hover:border-input"
+                onClick={() => {
+                  const next = !isActive
+                  setIsActive(next)
+                  setReason(next ? 'active' : '')
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault()
+                    const next = !isActive
+                    setIsActive(next)
+                    setReason(next ? 'active' : '')
+                  }
+                }}
+              >
+                <Checkbox
+                  checked={isActive}
+                  onCheckedChange={(v) => {
+                    const next = !!v
+                    setIsActive(next)
+                    setReason(next ? 'active' : '')
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span className="text-[12px] text-slate-700 select-none">
+                  {isActive ? 'Batch is active' : 'Batch is inactive'}
+                </span>
+              </div>
+            </div>
+            {!isActive && (
+              <div className="space-y-1 md:col-span-2">
+                <Label className="text-[12px]">Reason</Label>
+                <Select
+                  value={reason || undefined}
+                  onValueChange={(v) => setReason(v)}
+                >
+                  <SelectTrigger className="h-8 text-[12px]">
+                    <SelectValue placeholder="Select Reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {reasonOptions.map((o) => (
+                      <SelectItem key={o.code} value={o.code}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter className="px-4 pb-4">
             {saveError ? <p className="mr-auto text-[12px] text-red-600">{saveError}</p> : null}
