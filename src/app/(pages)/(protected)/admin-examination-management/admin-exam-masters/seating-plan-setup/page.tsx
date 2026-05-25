@@ -714,10 +714,32 @@ export default function SeatingPlanSetupPage() {
 		return () => ac.abort()
 	}, [roomAllotmentLoadKey])
 
-	async function handleCopyExistingSeating() {
-		if (!selectedExamId || !selectedExamTimetableId) return
-		const rows = await listExamRoomAllotmentsPre(selectedCollegeId ?? 0, selectedExamId, selectedExamTimetableId).catch(() => [])
-		setPreviewRows(mapAllocationRows(rows ?? []))
+	function handleCopyExistingSeating() {
+		if (!selectedExamId || !selectedCourseId) {
+			toast.error('Select an exam and course first.')
+			return
+		}
+		const session = sessionOptions.find((s) => Number(s.id) === Number(selectedExamTimetableId))
+		const qp = new URLSearchParams({
+			collegeId: String(selectedCollegeId ?? ''),
+			courseId: String(selectedCourseId ?? ''),
+			examId: String(selectedExamId ?? ''),
+			academicYearId: String(selectedAcademicYearId ?? ''),
+			examTimetableId: String(selectedExamTimetableId ?? ''),
+			examDate: toDateStr(session?.examDate ?? ''),
+			courseCode: String(
+				courses.find((c: any) => Number(c.courseId ?? c.id ?? c.fk_course_id) === Number(selectedCourseId))?.courseCode ??
+					courses.find((c: any) => Number(c.courseId ?? c.id ?? c.fk_course_id) === Number(selectedCourseId))?.course_code ??
+					'',
+			),
+			academicYear: String(academicYearOptions.find((a) => a.id === selectedAcademicYearId)?.label ?? ''),
+			examName: String(
+				examMasters.find((e: any) => Number(e.examId ?? e.id ?? e.fk_exam_id) === Number(selectedExamId))?.examName ?? '',
+			),
+		})
+		router.push(
+			`/admin-examination-management/admin-exam-masters/seating-plan-setup/existing-allotment?${qp.toString()}`,
+		)
 	}
 
 	function handleAssignSeating() {
@@ -860,26 +882,31 @@ export default function SeatingPlanSetupPage() {
 	}
 
 	function handleAddRoomSeatingPlan() {
-		const roomCode = window.prompt('Enter Room Code', '')
-		if (!roomCode) return
-		const booked = Number(window.prompt('Enter Booked Seats', '0') ?? '0')
-		const blocked = Number(window.prompt('Enter Blocked Seats', '0') ?? '0')
-		const available = Number(window.prompt('Enter Available Seats', '0') ?? '0')
-		const selectedSession = sessionOptions.find((s) => s.id === selectedExamTimetableId)?.label ?? ''
-		const next = previewRows.length + 1
-		setPreviewRows((s) => [
-			...s,
-			{
-				sl: next,
-				examDate: selectedSession.split(' (')[0] ?? '',
-				session: selectedSession.includes('(') ? selectedSession.split('(')[1].replace(')', '') : '',
-				roomCode: roomCode.trim(),
-				bookedSeats: Number.isFinite(booked) ? booked : 0,
-				blockedSeats: Number.isFinite(blocked) ? blocked : 0,
-				availableSeats: Number.isFinite(available) ? available : 0,
-				isActive: true,
-			},
-		])
+		if (!selectedExamId || !selectedCourseId) {
+			toast.error('Select an exam and course first.')
+			return
+		}
+		const session = sessionOptions.find((s) => Number(s.id) === Number(selectedExamTimetableId))
+		const qp = new URLSearchParams({
+			collegeId: String(selectedCollegeId ?? ''),
+			courseId: String(selectedCourseId ?? ''),
+			examId: String(selectedExamId ?? ''),
+			academicYearId: String(selectedAcademicYearId ?? ''),
+			examTimetableId: String(selectedExamTimetableId ?? ''),
+			examDate: toDateStr(session?.examDate ?? ''),
+			courseCode: String(
+				courses.find((c: any) => Number(c.courseId ?? c.id ?? c.fk_course_id) === Number(selectedCourseId))?.courseCode ??
+					courses.find((c: any) => Number(c.courseId ?? c.id ?? c.fk_course_id) === Number(selectedCourseId))?.course_code ??
+					'',
+			),
+			academicYear: String(academicYearOptions.find((a) => a.id === selectedAcademicYearId)?.label ?? ''),
+			examName: String(
+				examMasters.find((e: any) => Number(e.examId ?? e.id ?? e.fk_exam_id) === Number(selectedExamId))?.examName ?? '',
+			),
+		})
+		router.push(
+			`/admin-examination-management/admin-exam-masters/seating-plan-setup/room-allotment?${qp.toString()}`,
+		)
 	}
 
 	function tConvert(time?: string) {

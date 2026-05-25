@@ -19,3 +19,11 @@ export async function updateBlock(
 ): Promise<Block> {
   return domainUpdate<Block>(ENTITIES.BLOCK.name, ENTITIES.BLOCK.pk, blockId, data)
 }
+
+export async function listBlocksByBuilding(buildingId: number): Promise<Block[]> {
+  if (!buildingId) return []
+  return domainList<Block>(
+    ENTITIES.BLOCK.name,
+    buildQuery({ 'Building.buildingId': buildingId, isActive: true }),
+  )
+}

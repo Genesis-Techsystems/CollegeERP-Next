@@ -30,3 +30,11 @@ export async function listActiveBlocksForFloors(): Promise<Block[]> {
     buildQuery({ isActive: true }, { field: 'createdDt', direction: 'DESC' }),
   )
 }
+
+export async function listFloorsByBlock(blockId: number): Promise<Floor[]> {
+  if (!blockId) return []
+  return domainList<Floor>(
+    ENTITIES.FLOOR.name,
+    buildQuery({ 'Block.blockId': blockId, isActive: true }),
+  )
+}
