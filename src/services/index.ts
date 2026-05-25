@@ -153,6 +153,10 @@ export {
   listExamInvigilationAllotments as listSeatingPlanInvigilationAllotments,
   listRoomwiseOmrStudents,
   listExamStdAttDetails,
+  assignSeatingAllSession,
+  getExamRoomDetails,
+  copyExamRoomAllotmentSessions,
+  createExamRoomAllotments,
 } from './seating-plan'
 export type { ListRoomsParams, GenerateSeatingParams, SaveSeatingRequest } from './seating-plan'
 export * from './post-examination'

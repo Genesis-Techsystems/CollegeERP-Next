@@ -401,3 +401,113 @@ export async function listExamStdAttDetails(params: {
 	const body = await res.json().catch(() => null)
 	return flattenResult(body)
 }
+
+/**
+ * Runs the Spring proc that allots students to existing exam rooms for the
+ * given exam date + session. Mirrors Angular's
+ * `AssignSeatingAllotment()` which calls listByThreeIds on
+ * CONSTANTS.seatingAllSessionUrl with (in_exam_id, in_exam_date,
+ * in_session_id). Returns the proc rows so the caller can refresh the
+ * allotment list afterwards.
+ */
+export async function assignSeatingAllSession(params: {
+	examId: number
+	examDate: string
+	sessionId: number
+}): Promise<any[]> {
+	const search = new URLSearchParams({
+		in_exam_id: String(params.examId),
+		in_exam_date: String(params.examDate ?? ''),
+		in_session_id: String(params.sessionId ?? 0),
+	})
+	const res = await fetch(
+		NEXT_API.PROXY(`/getAllRecords/s_pop_exam_student_seating_all_session?${search.toString()}`),
+	)
+	const body = await res.json().catch(() => null)
+	return flattenResult(body)
+}
+
+/**
+ * Lists exam-room candidates from the legacy s_get_exam_room_details proc
+ * (flag = 'exam_room_allotment') for the Add Room Seating Plan and Copy
+ * Existing Seating flows. Each row carries vacancy info plus
+ * `pk_exam_room_allotment_id` -- non-null means the room is already
+ * allotted for this timetable (Angular disables it in the Add flow and
+ * shows it as Existing in the Copy flow).
+ */
+export async function getExamRoomDetails(params: {
+	orgId?: number
+	buildingId?: number
+	blockId?: number
+	floorId?: number
+	roomId?: number
+	examTimetableId: number
+	examId?: number
+	academicYearId?: number
+	groupSectionId?: number
+	empId?: number
+}): Promise<any[]> {
+	const search = new URLSearchParams({
+		in_flag: 'exam_room_allotment',
+		in_org_id: String(params.orgId ?? 1),
+		in_building_id: String(params.buildingId ?? 0),
+		in_block_id: String(params.blockId ?? 0),
+		in_floor_id: String(params.floorId ?? 0),
+		in_room_id: String(params.roomId ?? 0),
+		in_exam_timetable_id: String(params.examTimetableId),
+		in_exam_id: String(params.examId ?? 0),
+		in_academicYearId: String(params.academicYearId ?? 0),
+		in_group_sectionId: String(params.groupSectionId ?? 0),
+		in_emp_id: String(params.empId ?? 0),
+	})
+	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_get_exam_room_details?${search.toString()}`))
+	const body = await res.json().catch(() => null)
+	return flattenResult(body)
+}
+
+/**
+ * Copies an existing seating plan from one exam timetable to a list of
+ * target timetables. Mirrors Angular's `addExamTable()` on the
+ * Existing Allotment page which calls listByTwelveIds on
+ * popExamRoomPlanUrl with flag = 'exam_room_allotment_session_copy'.
+ */
+export async function copyExamRoomAllotmentSessions(params: {
+	sourceExamTimetableId: number
+	targetExamTimetableIds: string // comma-separated
+	orgId?: number
+}): Promise<{ ok: boolean; rows: any[]; message?: string }> {
+	const search = new URLSearchParams({
+		in_flag: 'exam_room_allotment_session_copy',
+		in_org_id: String(params.orgId ?? 1),
+		in_building_id: '0',
+		in_block_id: '0',
+		in_floor_id: '0',
+		in_room_id: '0',
+		in_exam_timetable_id: String(params.sourceExamTimetableId),
+		in_exam_id: '0',
+		in_academicYearId: '0',
+		in_group_sectionId: '0',
+		in_emp_id: '0',
+		in_target_exam_timetable_id: String(params.targetExamTimetableIds ?? ''),
+	})
+	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_pop_exam_room_plan?${search.toString()}`))
+	const body = await res.json().catch(() => null)
+	const ok = Boolean(body?.success ?? body?.statusCode === 200)
+	return { ok, rows: flattenResult(body), message: body?.message }
+}
+
+/**
+ * POST a batch of ExamRoomAllotment rows (with nested
+ * examRoomStudentAllotmentDTO seating matrix). Used by Add Room Seating
+ * Plan. Mirrors Angular's `crudService.add(examRoomAllotmentPostUrl, ...)`.
+ */
+export async function createExamRoomAllotments(rows: any[]): Promise<{ ok: boolean; message?: string; raw: any }> {
+	const res = await fetch(NEXT_API.PROXY('/examroomallotment'), {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(rows),
+	})
+	const body = await res.json().catch(() => null)
+	const ok = Boolean(body?.success ?? body?.statusCode === 200)
+	return { ok, message: body?.message, raw: body }
+}

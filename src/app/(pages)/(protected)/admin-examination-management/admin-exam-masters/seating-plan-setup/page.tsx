@@ -18,6 +18,7 @@ import { PageContainer, PageHeader } from '@/components/layout'
 import { distinct } from '@/lib/utils'
 import { listCourseYears, getExamTimetableDetails } from '@/services/examination'
 import {
+	assignSeatingAllSession,
 	getGroupwiseAllotmentSummary,
 	getRoomwiseAllotmentSummary,
 	getRoomwiseSubjectSummary,
@@ -27,6 +28,8 @@ import {
 	listRoomwiseOmrStudents,
 	listUnivExamFiltersByCode,
 } from '@/services/seating-plan'
+import { ConfirmDialog } from '@/common/components/feedback'
+import { toast } from 'sonner'
 import {
 	getUnivExamFiltersRegSup,
 	getUnivExamRestNoTt,
@@ -312,6 +315,8 @@ export default function SeatingPlanSetupPage() {
 	const [invigilatorRows, setInvigilatorRows] = useState<any[]>([])
 	const [studentAllotmentDetails, setStudentAllotmentDetails] = useState<any[]>([])
 	const [loadingPrintData, setLoadingPrintData] = useState(false)
+	const [assignSeatingOpen, setAssignSeatingOpen] = useState(false)
+	const [assignSeatingBusy, setAssignSeatingBusy] = useState(false)
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [baseRows, setBaseRows] = useState<any[]>([])
 	const [restRows, setRestRows] = useState<any[]>([])
@@ -715,28 +720,49 @@ export default function SeatingPlanSetupPage() {
 		setPreviewRows(mapAllocationRows(rows ?? []))
 	}
 
-	async function handleAssignSeating() {
-		if (!selectedExamTimetableId) return
-		const rows = await listExamInvigilationAllotments(selectedExamTimetableId).catch(() => [])
-		if (!rows.length) {
-			alert('No invigilation records found for selected session.')
+	function handleAssignSeating() {
+		if (!selectedExamId || !selectedExamTimetableId) {
+			toast.error('Select an exam and exam timetable first.')
 			return
 		}
-		// Best-effort mapping from invigilation assignments to seating view.
-		const mapped: AllocationRow[] = rows.map((r: any, i: number) => ({
-			sl: i + 1,
-			examDate: String(r.examDate ?? ''),
-			session: String(r.examSessionName ?? ''),
-			roomCode: [r.buildingCode, r.blockCode, r.floorName, r.roomCode ?? r.room ?? r.block_room]
-				.filter(Boolean)
-				.join(' / ') || '-',
-			bookedSeats: Number(r.bookedSeats ?? r.noOfStudents ?? 0),
-			blockedSeats: Number(r.blockedSeats ?? 0),
-			availableSeats: Number(r.availableSeats ?? 0),
-			isActive: r.isActive ?? true,
-			raw: r,
-		}))
-		setPreviewRows(mapped)
+		setAssignSeatingOpen(true)
+	}
+
+	async function confirmAssignSeating() {
+		if (!selectedExamId || !selectedExamTimetableId) return
+		const session = sessionOptions.find((s) => Number(s.id) === Number(selectedExamTimetableId))
+		const examDate = toDateStr(session?.examDate) || ''
+		const sessionId = Number(
+			(session as any)?.sessionId ??
+				(session as any)?.examSessionId ??
+				(session as any)?.fk_exam_session_id ??
+				(session as any)?.exam_session_id ??
+				0,
+		)
+		try {
+			setAssignSeatingBusy(true)
+			const rows = await assignSeatingAllSession({ examId: selectedExamId, examDate, sessionId })
+			toast.success(
+				rows.length > 0
+					? `Seating allotted successfully for ${rows.length} students.`
+					: 'Seating allotment triggered.',
+			)
+			setAssignSeatingOpen(false)
+			// Refresh the on-screen allotment list so the user sees the newly
+			// populated booked / available seat counts.
+			const refreshed = await listExamRoomAllotmentsPre(
+				selectedCollegeId ?? 0,
+				selectedExamId,
+				selectedExamTimetableId,
+			).catch(() => [])
+			if (Array.isArray(refreshed) && refreshed.length > 0) {
+				setPreviewRows(mapAllocationRows(refreshed))
+			}
+		} catch (e) {
+			toast.error('Failed to assign seating. Please try again.')
+		} finally {
+			setAssignSeatingBusy(false)
+		}
 	}
 
 	function openSeatAllotStudents(row: AllocationRow) {
@@ -1665,6 +1691,16 @@ export default function SeatingPlanSetupPage() {
 					<DataTable rowData={filteredRows} columnDefs={columnDefs} pagination />
 				</div>
 			)}
+			<ConfirmDialog
+				open={assignSeatingOpen}
+				title="Assign Seating Allotment"
+				description="If you have already created a seating plan, this action will erase the existing plan and generate a new one. You may also need to reprint all related summaries. Are you sure you want to continue? Press OK to proceed, or Cancel to go back."
+				confirmLabel="OK"
+				confirmVariant="default"
+				isLoading={assignSeatingBusy}
+				onConfirm={confirmAssignSeating}
+				onCancel={() => setAssignSeatingOpen(false)}
+			/>
 		</PageContainer>
 	)
 }
