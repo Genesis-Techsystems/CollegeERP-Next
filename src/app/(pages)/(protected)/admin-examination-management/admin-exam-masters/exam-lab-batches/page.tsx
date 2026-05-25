@@ -31,7 +31,6 @@ import {
   createExamLabBatch,
   updateExamLabBatch,
 } from '@/services/exam-lab-batches'
-import { listGeneralDetailsByMaster } from '@/services/examination'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ChevronDown, Filter, PencilIcon, Plus } from 'lucide-react'
 
@@ -98,8 +97,6 @@ export default function ExamLabBatchesPage() {
   const [sortOrder, setSortOrder] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [reason, setReason] = useState<string>('active')
-  const [reasonOptions, setReasonOptions] = useState<{ code: string; label: string }[]>([])
-  const [reasonOptionsLoaded, setReasonOptionsLoaded] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
@@ -234,24 +231,6 @@ export default function ExamLabBatchesPage() {
     setReason(String(r.reason ?? (r.isActive ? 'active' : '')))
     setOpen(true)
   }, [availableExamTypes])
-
-  const ensureReasonOptionsLoaded = useCallback(async () => {
-    if (reasonOptionsLoaded) return
-    const rows = await listGeneralDetailsByMaster('REASON').catch(() => [] as any[])
-    const opts = (Array.isArray(rows) ? rows : [])
-      .map((r: any) => ({
-        code: String(r.generalDetailCode ?? '').trim(),
-        label: String(r.generalDetailDisplayName ?? r.generalDetailName ?? r.generalDetailCode ?? '').trim(),
-      }))
-      .filter((o) => o.code)
-    setReasonOptions(opts)
-    setReasonOptionsLoaded(true)
-  }, [reasonOptionsLoaded])
-
-  useEffect(() => {
-    if (!open) return
-    void ensureReasonOptionsLoaded()
-  }, [ensureReasonOptionsLoaded, open])
 
   async function saveBatch() {
     setSaveError('')
@@ -426,21 +405,12 @@ export default function ExamLabBatchesPage() {
             {!isActive && (
               <div className="space-y-1 md:col-span-2">
                 <Label className="text-[12px]">Reason</Label>
-                <Select
-                  value={reason || undefined}
-                  onValueChange={(v) => setReason(v)}
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Select Reason" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {reasonOptions.map((o) => (
-                      <SelectItem key={o.code} value={o.code}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  className="h-8 text-[12px]"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Reason for deactivation"
+                />
               </div>
             )}
           </div>
