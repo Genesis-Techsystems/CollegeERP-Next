@@ -33,6 +33,7 @@ import { ChevronDown, Filter, Plus, Printer } from 'lucide-react'
 import { SearchInput } from '@/common/components/search'
 import { useRouter } from 'next/navigation'
 import { toDateStr } from '@/common/generic-functions'
+import { usePrintMode } from '@/lib/print'
 
 type AllocationRow = {
 	sl: number
@@ -285,6 +286,17 @@ export default function SeatingPlanSetupPage() {
 		return fromStorage || fromSession || 0
 	}, [user?.employeeId])
 	// Top-level filters
+	type PrintMode =
+		| 'room-wise-seating'
+		| 'room-subject-counts'
+		| 'group-wise-seating'
+		| 'attendance'
+		| 'student'
+		| 'groupwise-stickers'
+		| 'invigilator'
+		| 'cover-slip'
+		| 'packing-slip'
+	const { mode: printMode, triggerPrint } = usePrintMode<PrintMode>()
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [baseRows, setBaseRows] = useState<any[]>([])
 	const [restRows, setRestRows] = useState<any[]>([])
@@ -834,6 +846,305 @@ export default function SeatingPlanSetupPage() {
 		[],
 	)
 
+	// ── Print layouts ─────────────────────────────────────────────────────────
+	// When printMode is set, the normal UI is replaced by a tailored print
+	// layout (the AppShell still wraps it, but @media print hides aside / nav /
+	// header so the OS print sheet shows only the layout below). Data sources:
+	// - filteredRows : the room-allocation summary visible in the on-screen grid
+	//   (one row per Exam Date + Session + Room with booked/blocked/available).
+	// - selected*    : the active filter context for the printed header.
+	// Per-student / per-invigilator data is not loaded on this index page, so
+	// those layouts list rooms with placeholders for per-student detail rows.
+	if (printMode) {
+		const selectedExam = examMasters.find((e: any) => Number(e.examId ?? e.id) === Number(selectedExamId))
+		const selectedCourse = courses.find((c: any) => Number(c.fk_course_id ?? c.id) === Number(selectedCourseId))
+		const selectedAy = academicYears.find((a: any) => Number(a.fk_academic_year_id ?? a.id) === Number(selectedAcademicYearId))
+		const examName = String(selectedExam?.examName ?? selectedExam?.exam_name ?? '').trim() || 'Exam'
+		const courseLabel = String(selectedCourse?.course_code ?? selectedCourse?.course_name ?? '').trim()
+		const ayLabel = String(selectedAy?.academic_year ?? selectedAy?.academicYear ?? '').trim()
+		const headerSubtitle = [courseLabel, ayLabel].filter(Boolean).join(' / ')
+
+		function PrintShell({ title, children }: { title: string; children: React.ReactNode }) {
+			return (
+				<div className="p-4 text-black">
+					<div className="mb-3 text-center">
+						<div className="text-[16px] font-bold">{examName}</div>
+						<div className="text-[12px]">{headerSubtitle || ' '}</div>
+						<div className="text-[13px] font-semibold mt-1">{title}</div>
+					</div>
+					{children}
+				</div>
+			)
+		}
+
+		const dateSessionGroups = filteredRows.reduce<Record<string, AllocationRow[]>>((acc, r) => {
+			const key = `${r.examDate} / ${r.session}`
+			if (!acc[key]) acc[key] = []
+			acc[key].push(r)
+			return acc
+		}, {})
+
+		if (printMode === 'room-wise-seating') {
+			return (
+				<PrintShell title="Room Wise Seating">
+					<table className="w-full border-collapse text-[11px]">
+						<thead>
+							<tr>
+								<th className="border border-slate-400 px-2 py-1 text-left w-12">SI.No</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Exam Date</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Session</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Room</th>
+								<th className="border border-slate-400 px-2 py-1 text-right w-20">Booked</th>
+								<th className="border border-slate-400 px-2 py-1 text-right w-20">Blocked</th>
+								<th className="border border-slate-400 px-2 py-1 text-right w-20">Available</th>
+							</tr>
+						</thead>
+						<tbody>
+							{filteredRows.length === 0 ? (
+								<tr>
+									<td colSpan={7} className="border border-slate-400 px-2 py-3 text-center">No rooms allocated.</td>
+								</tr>
+							) : (
+								filteredRows.map((r, i) => (
+									<tr key={`rws-${i}`}>
+										<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
+										<td className="border border-slate-400 px-2 py-1">{r.examDate}</td>
+										<td className="border border-slate-400 px-2 py-1">{r.session}</td>
+										<td className="border border-slate-400 px-2 py-1">{r.roomCode}</td>
+										<td className="border border-slate-400 px-2 py-1 text-right">{r.bookedSeats}</td>
+										<td className="border border-slate-400 px-2 py-1 text-right">{r.blockedSeats}</td>
+										<td className="border border-slate-400 px-2 py-1 text-right">{r.availableSeats}</td>
+									</tr>
+								))
+							)}
+						</tbody>
+					</table>
+				</PrintShell>
+			)
+		}
+
+		if (printMode === 'room-subject-counts') {
+			return (
+				<PrintShell title="Room Subject Counts">
+					<table className="w-full border-collapse text-[11px]">
+						<thead>
+							<tr>
+								<th className="border border-slate-400 px-2 py-1 text-left w-12">SI.No</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Room</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Exam Date</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Session</th>
+								<th className="border border-slate-400 px-2 py-1 text-right w-28">Student Count</th>
+							</tr>
+						</thead>
+						<tbody>
+							{filteredRows.map((r, i) => (
+								<tr key={`rsc-${i}`}>
+									<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.roomCode}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.examDate}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.session}</td>
+									<td className="border border-slate-400 px-2 py-1 text-right">{r.bookedSeats}</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+					<p className="mt-2 text-[10px] text-slate-600">
+						Per-subject breakdown requires loading student rows per room; this view shows the room booked count.
+					</p>
+				</PrintShell>
+			)
+		}
+
+		if (printMode === 'group-wise-seating') {
+			return (
+				<PrintShell title="Group Wise Seating">
+					{Object.entries(dateSessionGroups).map(([key, rows], gi) => (
+						<div key={`gws-${key}`} className={gi > 0 ? 'page-break pt-2' : ''}>
+							<div className="my-2 text-[12px] font-semibold">{key}</div>
+							<table className="w-full border-collapse text-[11px]">
+								<thead>
+									<tr>
+										<th className="border border-slate-400 px-2 py-1 text-left w-12">SI.No</th>
+										<th className="border border-slate-400 px-2 py-1 text-left">Room</th>
+										<th className="border border-slate-400 px-2 py-1 text-right w-20">Booked</th>
+										<th className="border border-slate-400 px-2 py-1 text-right w-20">Blocked</th>
+										<th className="border border-slate-400 px-2 py-1 text-right w-20">Available</th>
+									</tr>
+								</thead>
+								<tbody>
+									{rows.map((r, i) => (
+										<tr key={`gws-${key}-${i}`}>
+											<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
+											<td className="border border-slate-400 px-2 py-1">{r.roomCode}</td>
+											<td className="border border-slate-400 px-2 py-1 text-right">{r.bookedSeats}</td>
+											<td className="border border-slate-400 px-2 py-1 text-right">{r.blockedSeats}</td>
+											<td className="border border-slate-400 px-2 py-1 text-right">{r.availableSeats}</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					))}
+				</PrintShell>
+			)
+		}
+
+		if (printMode === 'attendance') {
+			return (
+				<PrintShell title="Attendance Sheet (Rooms)">
+					{filteredRows.map((r, ri) => (
+						<div key={`att-${ri}`} className={ri > 0 ? 'page-break pt-2' : 'pt-1'}>
+							<div className="my-1 text-[12px]">
+								<span className="font-semibold">Room: {r.roomCode}</span>
+								{' • '}{r.examDate} {r.session}
+								{' • '}Booked: {r.bookedSeats}
+							</div>
+							<table className="w-full border-collapse text-[11px]">
+								<thead>
+									<tr>
+										<th className="border border-slate-400 px-2 py-1 w-10 text-left">#</th>
+										<th className="border border-slate-400 px-2 py-1 text-left">Hall Ticket</th>
+										<th className="border border-slate-400 px-2 py-1 text-left">Student Name</th>
+										<th className="border border-slate-400 px-2 py-1 text-left">Subject</th>
+										<th className="border border-slate-400 px-2 py-1 w-28 text-left">Signature</th>
+									</tr>
+								</thead>
+								<tbody>
+									{Array.from({ length: Math.max(r.bookedSeats, 1) }).map((_, i) => (
+										<tr key={`att-${ri}-${i}`}>
+											<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
+											<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
+											<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
+											<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
+											<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					))}
+				</PrintShell>
+			)
+		}
+
+		if (printMode === 'student') {
+			return (
+				<PrintShell title="Print Student">
+					<p className="text-[11px] text-slate-700">
+						Per-student slip requires fetching the seat allotment per student. Open
+						"Seat Allot Students" for a specific room to print individual student slips.
+					</p>
+					<table className="mt-3 w-full border-collapse text-[11px]">
+						<thead>
+							<tr>
+								<th className="border border-slate-400 px-2 py-1 text-left w-12">SI.No</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Room</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Exam Date</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Session</th>
+							</tr>
+						</thead>
+						<tbody>
+							{filteredRows.map((r, i) => (
+								<tr key={`stu-${i}`}>
+									<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.roomCode}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.examDate}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.session}</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</PrintShell>
+			)
+		}
+
+		if (printMode === 'groupwise-stickers') {
+			return (
+				<PrintShell title="Group-Wise Stickers (Rooms)">
+					{Object.entries(dateSessionGroups).map(([key, rows], gi) => (
+						<div key={`gst-${key}`} className={gi > 0 ? 'page-break pt-2' : ''}>
+							<div className="my-2 text-[12px] font-semibold text-center">{key}</div>
+							<div className="grid grid-cols-3 gap-2">
+								{rows.map((r, i) => (
+									<div key={`gst-${key}-${i}`} className="border border-slate-400 p-2 text-center">
+										<div className="text-[10px]">{key}</div>
+										<div className="text-[12px] font-bold">{r.roomCode}</div>
+										<div className="text-[10px]">Booked: {r.bookedSeats}</div>
+										<div className="text-[9px] text-slate-600">Blocked: {r.blockedSeats} • Avail: {r.availableSeats}</div>
+									</div>
+								))}
+							</div>
+						</div>
+					))}
+				</PrintShell>
+			)
+		}
+
+		if (printMode === 'invigilator') {
+			return (
+				<PrintShell title="Invigilator Allotment">
+					<p className="text-[11px] text-slate-700 mb-2">
+						Invigilator details aren't loaded on this index. The list below shows
+						rooms only — per-room invigilator assignments need the
+						<code>listExamInvigilationAllotments</code> data plumbed in.
+					</p>
+					<table className="w-full border-collapse text-[11px]">
+						<thead>
+							<tr>
+								<th className="border border-slate-400 px-2 py-1 text-left w-12">SI.No</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Room</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Exam Date</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Session</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Invigilator</th>
+								<th className="border border-slate-400 px-2 py-1 text-left">Signature</th>
+							</tr>
+						</thead>
+						<tbody>
+							{filteredRows.map((r, i) => (
+								<tr key={`inv-${i}`}>
+									<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.roomCode}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.examDate}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.session}</td>
+									<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
+									<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</PrintShell>
+			)
+		}
+
+		if (printMode === 'cover-slip' || printMode === 'packing-slip') {
+			const title = printMode === 'cover-slip' ? 'Cover Slip' : 'Packing Slip'
+			return (
+				<PrintShell title={title}>
+					{filteredRows.map((r, ri) => (
+						<div key={`cs-${ri}`} className={ri > 0 ? 'page-break pt-3' : 'pt-1'}>
+							<div className="border-2 border-slate-700 p-4">
+								<div className="text-center text-[14px] font-bold mb-1">{title}</div>
+								<div className="text-center text-[11px] mb-3">{headerSubtitle || examName}</div>
+								<div className="grid grid-cols-2 gap-2 text-[11px]">
+									<div><b>Room:</b> {r.roomCode}</div>
+									<div><b>Exam Date:</b> {r.examDate}</div>
+									<div><b>Session:</b> {r.session}</div>
+									<div><b>Total Students:</b> {r.bookedSeats}</div>
+									<div><b>Blocked Seats:</b> {r.blockedSeats}</div>
+									<div><b>Available:</b> {r.availableSeats}</div>
+								</div>
+								<div className="mt-4 grid grid-cols-2 gap-4 text-[10px]">
+									<div>Invigilator Signature: ____________________</div>
+									<div>Chief Superintendent: ____________________</div>
+								</div>
+							</div>
+						</div>
+					))}
+				</PrintShell>
+			)
+		}
+	}
+
 	return (
 		<PageContainer className="space-y-4">
 			<PageHeader title="Exam Room Seating Plan" subtitle="Allocate exam room seating" />
@@ -1010,31 +1321,31 @@ export default function SeatingPlanSetupPage() {
 						</div>
 					</div>
 
-					<div className="rounded-lg border border-border/90 bg-muted/40/70 p-3">
+					<div className="rounded-lg border border-border/90 bg-muted/40/70 p-3 print-hide">
 						<p className="mb-2 px-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
 							Print & exports
 						</p>
 						<div className="flex flex-wrap gap-1.5">
 							{(
 								[
-									'Room Wise Seating Print',
-									'Room Subject Counts Print',
-									'Group Wise Seating Print',
-									'Print Attendance Sheet',
-									'Print Student',
-									'Group-Wise Stickers',
-									'Print Invigilator',
-									'Cover Slip',
-									'Packing Slip',
+									['Room Wise Seating Print', 'room-wise-seating'],
+									['Room Subject Counts Print', 'room-subject-counts'],
+									['Group Wise Seating Print', 'group-wise-seating'],
+									['Print Attendance Sheet', 'attendance'],
+									['Print Student', 'student'],
+									['Group-Wise Stickers', 'groupwise-stickers'],
+									['Print Invigilator', 'invigilator'],
+									['Cover Slip', 'cover-slip'],
+									['Packing Slip', 'packing-slip'],
 								] as const
-							).map((label) => (
+							).map(([label, mode]) => (
 								<Button
 									key={label}
 									type="button"
 									variant="outline"
 									size="sm"
 									className="h-8 gap-1.5 rounded-md border-border bg-card px-2.5 text-[11px] font-medium text-slate-700 shadow-sm hover:border-input hover:bg-card hover:text-slate-900"
-									onClick={() => window.print()}
+									onClick={() => triggerPrint(mode)}
 								>
 									<Printer className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
 									{label}
