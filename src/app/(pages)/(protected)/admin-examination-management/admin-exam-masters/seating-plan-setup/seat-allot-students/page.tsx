@@ -571,6 +571,20 @@ export default function SeatAllotStudentsPage() {
 
 	return (
 		<PageContainer className="space-y-4">
+			{loading && (
+				<div
+					data-print-hide
+					className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+				>
+					<div className="rounded-lg bg-white px-6 py-4 shadow-lg flex items-center gap-3">
+						<div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+						<div className="flex flex-col">
+							<span className="text-[13px] font-semibold text-slate-900">Loading seating data…</span>
+							<span className="text-[11px] text-slate-500">Fetching student allotment from server</span>
+						</div>
+					</div>
+				</div>
+			)}
 		<PageHeader title="Seat Allot Students" subtitle="Allocate seating for exam students" />
 			<div className="app-card overflow-hidden">
 				<div className="px-4 py-3 border-b border-border bg-muted/40">
