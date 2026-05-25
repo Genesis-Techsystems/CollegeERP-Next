@@ -309,6 +309,7 @@ export default function SeatingPlanSetupPage() {
 	const [roomSubjectAllocations, setRoomSubjectAllocations] = useState<any[]>([])
 	const [groupwiseAllocations, setGroupwiseAllocations] = useState<any[]>([])
 	const [invigilatorRows, setInvigilatorRows] = useState<any[]>([])
+	const [studentAllotmentDetails, setStudentAllotmentDetails] = useState<any[]>([])
 	const [loadingPrintData, setLoadingPrintData] = useState(false)
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [baseRows, setBaseRows] = useState<any[]>([])
@@ -1084,93 +1085,204 @@ export default function SeatingPlanSetupPage() {
 		}
 
 		if (printMode === 'attendance') {
+			// Mirror Angular getstudentBarcode(): group studentAllotmentDetails by
+			// (fk_course_group_id | fk_subject_id | room_id | fk_examtype_catdet_id).
+			// Each group becomes one ATTENDANCE SHEET page.
+			const byKey = new Map<string, any[]>()
+			for (const s of studentAllotmentDetails) {
+				const key = [s.fk_course_group_id, s.fk_subject_id, s.room_id, s.fk_examtype_catdet_id].join('|')
+				if (!byKey.has(key)) byKey.set(key, [])
+				byKey.get(key)!.push(s)
+			}
+			const attGroups = Array.from(byKey.values()).map((students) =>
+				students.slice().sort((a: any, b: any) =>
+					String(a.hallticket_number).localeCompare(String(b.hallticket_number), undefined, { numeric: true }),
+				),
+			)
+			if (attGroups.length === 0) {
+				return (
+					<PrintShell title="Attendance Sheet">
+						<p className="text-[11px] text-center py-6">No allotted students for this exam date / session.</p>
+					</PrintShell>
+				)
+			}
 			return (
-				<PrintShell title="Attendance Sheet">
-					{filteredRows.map((r, ri) => (
-						<div key={`att-${ri}`} className={ri > 0 ? 'page-break pt-2' : 'pt-1'}>
-							<div className="my-1 text-[12px]">
-								<span className="font-semibold">Room: {r.roomCode}</span>
-								{' • '}{r.examDate} {r.session}
-								{' • '}Booked: {r.bookedSeats}
-							</div>
-							<table className="w-full border-collapse text-[11px]">
-								<thead>
-									<tr>
-										<th className="border border-slate-400 px-2 py-1 w-10 text-left">#</th>
-										<th className="border border-slate-400 px-2 py-1 text-left">Hall Ticket</th>
-										<th className="border border-slate-400 px-2 py-1 text-left">Student Name</th>
-										<th className="border border-slate-400 px-2 py-1 text-left">Subject</th>
-										<th className="border border-slate-400 px-2 py-1 w-28 text-left">Signature</th>
-									</tr>
-								</thead>
-								<tbody>
-									{Array.from({ length: Math.max(r.bookedSeats, 1) }).map((_, i) => (
-										<tr key={`att-${ri}-${i}`}>
-											<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
-											<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
-											<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
-											<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
-											<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
+				<div className="text-black" style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px', maxWidth: '900px', margin: '0 auto' }}>
+					{attGroups.map((students, gi) => {
+						const s = students[0] as any
+						return (
+							<div key={`att-${gi}`} className={gi > 0 ? 'page-break' : ''}>
+								<img src="/college-banner.png" alt="" style={{ maxHeight: 80, margin: '0 auto 8px', display: 'block' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+								<h4 style={{ textAlign: 'center', fontWeight: 'bold', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Attendance Sheet</h4>
+								<h4 style={{ textAlign: 'center', margin: '0 0 12px 0', fontSize: '14px' }}>
+									{s?.exam_label_name ?? examName} {s?.exam_type_name ? `(${s.exam_type_name})` : ''}
+								</h4>
+								<div className="flex justify-between text-[12px] mb-1 px-1">
+									<div><b>Branch :</b> {s?.group_code ?? '—'}</div>
+									<div><b>Date :</b> {s?.exam_date ?? '—'}</div>
+									<div><b>Room :</b> {s?.room_name ?? '—'}</div>
+								</div>
+								<div className="flex justify-between text-[12px] mb-3 px-1">
+									<div style={{ flex: 2 }}><b>Subject:</b> {s?.subject_name ?? '—'}</div>
+									<div><b>Session:</b> {s?.sessin_time ?? s?.session_name ?? '—'}</div>
+								</div>
+								<table className="w-full border-collapse text-[11px] mb-3" style={{ border: '1px solid #000' }}>
+									<thead>
+										<tr>
+											<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>S.NO</th>
+											<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>H.T. NO.</th>
+											<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Student Name</th>
+											<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Signature of the Student</th>
 										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
-					))}
-				</PrintShell>
-			)
-		}
-
-		if (printMode === 'student') {
-			return (
-				<PrintShell title="Print Student">
-					<p className="text-[11px] text-slate-700">
-						Per-student slip requires fetching the seat allotment per student. Open
-						"Seat Allot Students" for a specific room to print individual student slips.
-					</p>
-					<table className="mt-3 w-full border-collapse text-[11px]">
-						<thead>
-							<tr>
-								<th className="border border-slate-400 px-2 py-1 text-left w-12">SI.No</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Room</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Exam Date</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Session</th>
-							</tr>
-						</thead>
-						<tbody>
-							{filteredRows.map((r, i) => (
-								<tr key={`stu-${i}`}>
-									<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.roomCode}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.examDate}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.session}</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				</PrintShell>
-			)
-		}
-
-		if (printMode === 'groupwise-stickers') {
-			return (
-				<PrintShell title="Group-Wise Stickers">
-					{Object.entries(dateSessionGroups).map(([key, rows], gi) => (
-						<div key={`gst-${key}`} className={gi > 0 ? 'page-break pt-2' : ''}>
-							<div className="my-2 text-[12px] font-semibold text-center">{key}</div>
-							<div className="grid grid-cols-3 gap-2">
-								{rows.map((r, i) => (
-									<div key={`gst-${key}-${i}`} className="border border-slate-400 p-2 text-center">
-										<div className="text-[10px]">{key}</div>
-										<div className="text-[12px] font-bold">{r.roomCode}</div>
-										<div className="text-[10px]">Booked: {r.bookedSeats}</div>
-										<div className="text-[9px] text-slate-600">Blocked: {r.blockedSeats} • Avail: {r.availableSeats}</div>
-									</div>
-								))}
+									</thead>
+									<tbody>
+										{students.map((stu: any, i: number) => (
+											<tr key={`att-${gi}-${i}`}>
+												<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{i + 1}</td>
+												<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{stu.hallticket_number ?? '—'}</td>
+												<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{stu.student_name ?? '—'}</td>
+												<td style={{ border: '1px solid #000', padding: '4px 6px' }}>&nbsp;</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+								<table className="w-full border-collapse text-[11px] mb-3" style={{ border: '1px solid #000' }}>
+									<thead>
+										<tr>
+											<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Total No.of Students Registered</th>
+											<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Total No.of Students Absent</th>
+											<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Total No.of Students Present</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{students.length}</td>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>&nbsp;</td>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>&nbsp;</td>
+										</tr>
+									</tbody>
+								</table>
+								<div className="flex justify-between text-[12px] mt-8 px-1">
+									<div>Signature of the Invigilator - I</div>
+									<div>Signature of the Invigilator - II</div>
+									<div>Controller of Examinations</div>
+								</div>
 							</div>
+						)
+					})}
+				</div>
+			)
+		}
+
+
+		if (printMode === 'student' || printMode === 'groupwise-stickers') {
+			// Mirror Angular print-seating-stickers + print-groupwise-seating-stickers.
+			// Both render 4-column sticker tables headed by an exam-info card; the
+			// only difference is the grouping (Print Stickers groups by room, Group-
+			// Wise Stickers groups by room *and* course-group).
+			const isGroupwise = printMode === 'groupwise-stickers'
+			// Outer group: by room.
+			const byRoom = new Map<string, any[]>()
+			for (const s of studentAllotmentDetails) {
+				const key = String(s.room_id ?? s.room_name ?? '—')
+				if (!byRoom.has(key)) byRoom.set(key, [])
+				byRoom.get(key)!.push(s)
+			}
+			const rooms = Array.from(byRoom.values())
+			if (rooms.length === 0) {
+				return (
+					<PrintShell title={isGroupwise ? 'Group-Wise Seating Stickers' : 'Seating Stickers'}>
+						<p className="text-[11px] text-center py-6">No allotted students for this exam date / session.</p>
+					</PrintShell>
+				)
+			}
+			function StickerCell({ data }: { data: any }) {
+				return (
+					<td style={{ border: 'none', verticalAlign: 'middle', padding: '8px 0', width: '25%', textAlign: 'center' }}>
+						<div style={{ fontSize: '12px', fontWeight: 'bold' }}>
+							{data.hallticket_number ?? '—'}
+							{data.omr_serial_no ? ` · ${data.omr_serial_no}` : ''}
 						</div>
-					))}
-				</PrintShell>
+						{data.omr_barcode ? (
+							<img
+								src={`data:image/jpg;base64,${data.omr_barcode}`}
+								style={{ height: '30px', width: '180px' }}
+								alt=""
+							/>
+						) : (
+							<div style={{ fontSize: '9px', color: '#666' }}>(no barcode in response)</div>
+						)}
+						<div style={{ fontSize: '7px', marginTop: '1px' }}>
+							{data.exam_date ?? ''} &nbsp; {data.subject_code ?? ''}
+						</div>
+					</td>
+				)
+			}
+			function StickerHeader({ row, extraGroup }: { row: any; extraGroup?: string | null }) {
+				return (
+					<thead>
+						<tr>
+							<td style={{ border: '1px solid #000', padding: '12px 0 6px 0', textAlign: 'center', fontSize: '10px', fontWeight: 'bold' }}>
+								<span style={{ fontSize: '12px', fontWeight: 'bold' }}>{row?.exam_name ?? examName}</span><br />
+								|{row?.university_code ?? '—'}|<br />
+								{row?.exam_date ?? ''} &nbsp; {row?.exam_session_name ?? row?.session_name ?? ''}<br />
+								Room: {row?.room_name ?? '—'}
+								{extraGroup ? <> | Group: {extraGroup}</> : null}
+							</td>
+						</tr>
+					</thead>
+				)
+			}
+			return (
+				<div className="text-black" style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px', maxWidth: '990px', margin: '0 auto' }}>
+					{rooms.map((roomStudents, ri) => {
+						if (isGroupwise) {
+							// For group-wise, further bucket by fk_course_group_id within room.
+							const byGroup = new Map<string, any[]>()
+							for (const s of roomStudents) {
+								const key = String(s.fk_course_group_id ?? s.group_code ?? '—')
+								if (!byGroup.has(key)) byGroup.set(key, [])
+								byGroup.get(key)!.push(s)
+							}
+							return Array.from(byGroup.entries()).map(([groupKey, students], gi) => {
+								const head = students[0]
+								return (
+									<div key={`gst-${ri}-${gi}`} className={(ri + gi) > 0 ? 'page-break' : ''}>
+										<table style={{ borderCollapse: 'collapse', width: '100%', marginBottom: '20px' }}>
+											<StickerHeader row={head} extraGroup={head?.group_code ?? groupKey} />
+											<tbody>
+												{Array.from({ length: Math.ceil(students.length / 4) }).map((_, r) => (
+													<tr key={`gst-${ri}-${gi}-r${r}`}>
+														{students.slice(r * 4, r * 4 + 4).map((stu: any, ci: number) => (
+															<StickerCell key={`gst-${ri}-${gi}-${r}-${ci}`} data={stu} />
+														))}
+													</tr>
+												))}
+											</tbody>
+										</table>
+									</div>
+								)
+							})
+						}
+						const head = roomStudents[0]
+						return (
+							<div key={`stk-${ri}`} className={ri > 0 ? 'page-break' : ''}>
+								<table style={{ borderCollapse: 'collapse', width: '100%', marginBottom: '20px' }}>
+									<StickerHeader row={head} />
+									<tbody>
+										{Array.from({ length: Math.ceil(roomStudents.length / 4) }).map((_, r) => (
+											<tr key={`stk-${ri}-r${r}`}>
+												{roomStudents.slice(r * 4, r * 4 + 4).map((stu: any, ci: number) => (
+													<StickerCell key={`stk-${ri}-${r}-${ci}`} data={stu} />
+												))}
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						)
+					})}
+				</div>
 			)
 		}
 
@@ -1410,7 +1522,7 @@ export default function SeatingPlanSetupPage() {
 									['Room Subject Counts Print', 'room-subject-counts'],
 									['Group Wise Seating Print', 'group-wise-seating'],
 									['Print Attendance Sheet', 'attendance'],
-									['Print Student', 'student'],
+									['Print Stickers', 'student'],
 									['Group-Wise Stickers', 'groupwise-stickers'],
 									['Print Invigilator', 'invigilator'],
 									['Cover Slip', 'cover-slip'],
@@ -1457,6 +1569,20 @@ export default function SeatingPlanSetupPage() {
 												setLoadingPrintData(true)
 												const data = await listExamInvigilationAllotmentsByTimetable(selectedExamTimetableId).catch(() => [] as any[])
 												setInvigilatorRows(data)
+												setLoadingPrintData(false)
+											} else if (mode === 'student' || mode === 'groupwise-stickers' || mode === 'attendance') {
+												// All three render per-student rows from the same Angular call:
+												// roomwise_OMR_students -> studentAllotmentDetails. Attendance groups
+												// by (course_group, subject, room, examtype) for the sheet; stickers
+												// group by room (or room+group for the group-wise variant).
+												setLoadingPrintData(true)
+												const data = await listRoomwiseOmrStudents({
+													examId: selectedExamId,
+													courseId: selectedCourseId,
+													examDate,
+													sessionId,
+												}).catch(() => [] as any[])
+												setStudentAllotmentDetails(data)
 												setLoadingPrintData(false)
 											}
 										}

@@ -781,6 +781,15 @@ textarea:focus-visible,
     display: none !important;
   }
 
+  /* AppShell uses flex containers that, with sidebar+topbar hidden, can
+     leave the content visually off-centre. Strip layout padding/margin on
+     html/body/main so the printed sheet uses the @page margin only. */
+  html, body, main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
   body {
     background: #fff !important;
     color: #000 !important;
