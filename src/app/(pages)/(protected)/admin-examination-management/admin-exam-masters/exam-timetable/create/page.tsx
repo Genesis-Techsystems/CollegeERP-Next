@@ -94,7 +94,14 @@ export default function CreateExamTimetablePage() {
 
 	// Exam sessions (replaces hardcoded M/A select)
 	const [examSessions, setExamSessions] = useState<
-		{ id: number; name: string; code: string; sessionStartTime?: string; sessionEndTime?: string }[]
+		{
+			id: number
+			name: string
+			code: string
+			universityCode?: string
+			sessionStartTime?: string
+			sessionEndTime?: string
+		}[]
 	>([])
 	const [selectedExamSessionId, setSelectedExamSessionId] = useState<number | null>(null)
 
@@ -107,6 +114,7 @@ export default function CreateExamTimetablePage() {
 				id: Number(r.examSessionId ?? r.id ?? 0),
 				name: String(r.examSessionName ?? r.name ?? '').trim(),
 				code: String(r.examsessioninCatCode ?? r.sessionCode ?? '').trim(),
+				universityCode: String(r.universityCode ?? r.university_code ?? '').trim() || undefined,
 				sessionStartTime: r.sessionStartTime ? String(r.sessionStartTime) : undefined,
 				sessionEndTime: r.sessionEndTime ? String(r.sessionEndTime) : undefined,
 			})).filter((s) => s.id > 0)
@@ -117,6 +125,42 @@ export default function CreateExamTimetablePage() {
 			cancelled = true
 		}
 	}, [])
+
+	// Selected exam's university — used to scope the Exam Session dropdown.
+	const selectedExamUniversityCode = useMemo(() => {
+		const ex = examMasters.find((e: any) => (e.examId ?? e.id) === selectedExamId)
+		return String(ex?.universityCode ?? '').trim()
+	}, [examMasters, selectedExamId])
+
+	const filteredExamSessions = useMemo(() => {
+		if (!selectedExamUniversityCode) return examSessions
+		return examSessions.filter(
+			(s) => !s.universityCode || s.universityCode === selectedExamUniversityCode,
+		)
+	}, [examSessions, selectedExamUniversityCode])
+
+	// Clear the selected session if it dropped out of the filtered list
+	// (e.g. user changed the exam to one with a different university).
+	useEffect(() => {
+		if (selectedExamSessionId == null) return
+		if (!filteredExamSessions.some((s) => s.id === selectedExamSessionId)) {
+			setSelectedExamSessionId(null)
+			setSlotDraft((d) => ({ ...d, startTime: '', endTime: '' }))
+		}
+	}, [filteredExamSessions, selectedExamSessionId])
+
+	// Effective exam from/to range — prefer the loaded exam master's dates,
+	// fall back to the URL params passed in from the list page.
+	const examFromDate = useMemo(() => {
+		const ex = examMasters.find((e: any) => (e.examId ?? e.id) === selectedExamId)
+		const raw = ex?.fromDate ?? paramFromDate ?? ''
+		return raw ? raw.slice(0, 10) : ''
+	}, [examMasters, selectedExamId, paramFromDate])
+	const examToDate = useMemo(() => {
+		const ex = examMasters.find((e: any) => (e.examId ?? e.id) === selectedExamId)
+		const raw = ex?.toDate ?? paramToDate ?? ''
+		return raw ? raw.slice(0, 10) : ''
+	}, [examMasters, selectedExamId, paramToDate])
 
 	// Timetable slots
 	const [slotDraft, setSlotDraft] = useState<Slot>({ date: '', startTime: '', endTime: '' })
@@ -294,6 +338,10 @@ export default function CreateExamTimetablePage() {
 			.map((r: any) => ({
 				examId: Number(r.fk_exam_id ?? r.exam_id ?? r.examId ?? 0),
 				examName: String(r.exam_name ?? r.exam_Name ?? r.exam_short_name ?? r.short_name ?? '—'),
+				universityId: Number(r.fk_university_id ?? r.university_id ?? r.universityId ?? 0) || undefined,
+				universityCode: String(r.university_code ?? r.universityCode ?? '').trim() || undefined,
+				fromDate: String(r.from_date ?? r.fromDate ?? r.exam_from_date ?? r.examFromDate ?? '').trim() || undefined,
+				toDate: String(r.to_date ?? r.toDate ?? r.exam_to_date ?? r.examToDate ?? '').trim() || undefined,
 			}))
 			.filter((e: { examId: number }) => e.examId > 0)
 		setExamMasters(list)
@@ -540,6 +588,8 @@ export default function CreateExamTimetablePage() {
 								autoFocus
 								className="h-8 text-[12px] w-full rounded-md border border-border bg-card px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
 								value={slotDraft.date}
+								min={examFromDate || undefined}
+								max={examToDate || undefined}
 								onChange={(e) => setSlotDraft((s) => ({ ...s, date: e.target.value }))}
 							/>
 						</div>
@@ -557,13 +607,19 @@ export default function CreateExamTimetablePage() {
 										endTime: s?.sessionEndTime ?? '',
 									}))
 								}}
-								disabled={examSessions.length === 0}
+								disabled={filteredExamSessions.length === 0}
 							>
 								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder={examSessions.length === 0 ? 'Loading…' : 'Select Session'} />
+									<SelectValue placeholder={
+										examSessions.length === 0
+											? 'Loading…'
+											: filteredExamSessions.length === 0
+												? 'No sessions for this university'
+												: 'Select Session'
+									} />
 								</SelectTrigger>
 								<SelectContent>
-									{examSessions.map((s) => (
+									{filteredExamSessions.map((s) => (
 										<SelectItem key={s.id} value={String(s.id)}>
 											{s.name}
 											{s.sessionStartTime && s.sessionEndTime ? ` (${s.sessionStartTime} - ${s.sessionEndTime})` : ''}
