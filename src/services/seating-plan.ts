@@ -159,15 +159,17 @@ export async function listRoomwiseOmrStudents(params: {
 	courseId: number
 	examDate?: string
 	sessionId?: number
+	collegeId?: number
+	roomId?: number
 }): Promise<any[]> {
 	const search = new URLSearchParams({
 		in_flag: 'roomwise_OMR_students',
 		in_exam_id: String(params.examId),
-		in_college_id: '0',
+		in_college_id: String(params.collegeId ?? 0),
 		in_course_id: String(params.courseId),
 		in_course_group_id: '0',
 		in_course_year_id: '0',
-		in_room_id: '0',
+		in_room_id: String(params.roomId ?? 0),
 		in_std_id: '0',
 		in_invgilator_emp_id: '0',
 		in_regulation_id: '0',

@@ -38,6 +38,8 @@ async function fetchRoomwiseOmrStudents(params: {
 	courseId: number
 	examDate: string
 	sessionId: number
+	collegeId?: number
+	roomId?: number
 }): Promise<any[]> {
 	return listRoomwiseOmrStudents(params)
 }
@@ -137,6 +139,7 @@ export default function SeatAllotStudentsPage() {
 		() => ({
 			examId: searchParams?.get('examId') ?? '',
 			courseId: searchParams?.get('courseId') ?? '',
+			collegeId: searchParams?.get('collegeId') ?? '',
 			examTimetableId: searchParams?.get('examTimetableId') ?? '',
 			sessionId: searchParams?.get('sessionId') ?? '',
 			examRoomAllotmentId: searchParams?.get('examRoomAllotmentId') ?? '',
@@ -198,17 +201,28 @@ export default function SeatAllotStudentsPage() {
 					routeSessionId ||
 					num(pick(allotment, ['examSessionId', 'fk_exam_session_id', 'sessionId', 'exam_session_id'], 0))
 				const examDate = details.examDate || String(pick(allotment, ['examDate', 'exam_date'], ''))
+				// Pull college / room ids so the OMR proc matches the Angular call:
+				// in_college_id and in_room_id are required to scope the result to
+				// this room — without them the proc returns an empty rowset on
+				// some installations.
+				const collegeId =
+					Number(details.collegeId || 0) ||
+					num(pick(allotment, ['collegeId', 'fk_college_id', 'college_id', 'College.collegeId', 'College.college_id'], 0))
+				const roomId =
+					num(pick(allotment, ['roomId', 'fk_room_id', 'room_id', 'examRoomId', 'fk_exam_room_id', 'exam_room_id', 'ExamRoom.examRoomId', 'Room.roomId'], 0))
 
 				const [attData, seatsData] = await Promise.all([
 					examId > 0 && courseId > 0 && examTimetableId > 0
 						? fetchExamStdAttDetails({ examId, courseId, examTimetableId })
 						: Promise.resolve([]),
-					examId > 0 && courseId > 0
+					examId > 0
 						? fetchRoomwiseOmrStudents({
 								examId,
 								courseId,
 								examDate,
 								sessionId,
+								collegeId,
+								roomId,
 							})
 						: Promise.resolve([]),
 				])
