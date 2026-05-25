@@ -88,6 +88,8 @@ export default function ExamSessionPage() {
   const [universityOptionsLoaded, setUniversityOptionsLoaded] = useState(false)
   const [sessionInOptions, setSessionInOptions] = useState<{ code: string; label: string }[]>([])
   const [sessionInOptionsLoaded, setSessionInOptionsLoaded] = useState(false)
+  const [reasonOptions, setReasonOptions] = useState<{ code: string; label: string }[]>([])
+  const [reasonOptionsLoaded, setReasonOptionsLoaded] = useState(false)
 
   const [form, setForm] = useState({
     examSessionName: '',
@@ -155,6 +157,24 @@ export default function ExamSessionPage() {
     if (!open) return
     void ensureSessionInOptionsLoaded()
   }, [ensureSessionInOptionsLoaded, open])
+
+  const ensureReasonOptionsLoaded = useCallback(async () => {
+    if (reasonOptionsLoaded) return
+    const rows = await listGeneralDetailsByMaster('REASON').catch(() => [] as any[])
+    const opts = (Array.isArray(rows) ? rows : [])
+      .map((r: any) => ({
+        code: String(r.generalDetailCode ?? '').trim(),
+        label: String(r.generalDetailDisplayName ?? r.generalDetailName ?? r.generalDetailCode ?? '').trim(),
+      }))
+      .filter((o) => o.code)
+    setReasonOptions(opts)
+    setReasonOptionsLoaded(true)
+  }, [reasonOptionsLoaded])
+
+  useEffect(() => {
+    if (!open) return
+    void ensureReasonOptionsLoaded()
+  }, [ensureReasonOptionsLoaded, open])
 
   function formatTime12h(value?: string) {
     if (!value) return ''
@@ -367,7 +387,21 @@ export default function ExamSessionPage() {
             {!form.isActive && (
               <div className="space-y-1 md:col-span-2">
                 <Label className="text-[12px]">Reason</Label>
-                <Input className="h-9 text-[12px]" value={form.reason} onChange={(e) => setForm((s) => ({ ...s, reason: e.target.value }))} />
+                <Select
+                  value={form.reason || undefined}
+                  onValueChange={(v) => setForm((s) => ({ ...s, reason: v }))}
+                >
+                  <SelectTrigger className="h-9 text-[12px]">
+                    <SelectValue placeholder="Select Reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {reasonOptions.map((o) => (
+                      <SelectItem key={o.code} value={o.code}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>
