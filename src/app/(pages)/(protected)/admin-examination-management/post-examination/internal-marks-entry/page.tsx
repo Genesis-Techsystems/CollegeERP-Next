@@ -336,42 +336,13 @@ export default function InternalMarksEntryPage() {
     }
   }
 
-  const hasExamColumn = useMemo(
-    () =>
-      rows.some(
-        (r) => Number(r.internal_exam_marks ?? 0) > 0 || r.internal_exam_marks_max != null || r.exam_max_marks != null,
-      ),
-    [rows],
-  )
-  const hasAssignmentColumn = useMemo(
-    () =>
-      rows.some(
-        (r) =>
-          Number(r.internal_assignment_marks ?? 0) > 0 ||
-          r.internal_assignment_marks_max != null ||
-          r.assignment_max_marks != null,
-      ),
-    [rows],
-  )
-  const hasQuizColumn = useMemo(
-    () =>
-      rows.some(
-        (r) => Number(r.internal_quiz_marks ?? 0) > 0 || r.internal_quiz_marks_max != null || r.quiz_max_marks != null,
-      ),
-    [rows],
-  )
-  // Default: when none of the three has any data yet, show all three so the
-  // user can enter marks for whichever applies. Once data arrives we trust
-  // the detection above and only show the populated buckets.
-  const showAllThree = !hasExamColumn && !hasAssignmentColumn && !hasQuizColumn
-
   const columnDefs = useMemo<ColDef<MarkRow>[]>(() => {
     const attendanceValue = (isPresent: unknown) => {
       if (isPresent === true) return 'Present'
       if (isPresent === false) return 'Absent'
       return 'Not Marked'
     }
-    const cols: ColDef<MarkRow>[] = [
+    return [
       { headerName: 'SI No', width: 70, flex: 0, valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1 },
       { field: 'hallticketNumber', headerName: 'Hallticket Number', minWidth: 170 },
       { field: 'firstName', headerName: 'Student', minWidth: 180 },
@@ -380,39 +351,32 @@ export default function InternalMarksEntryPage() {
         minWidth: 130,
         valueGetter: (p: any) => attendanceValue(p.data?.isPresent),
       },
-    ]
-    if (hasExamColumn || showAllThree) {
-      cols.push({
+      {
         headerName: 'Exam',
         minWidth: 110,
         cellRenderer: MarkInputRenderer,
         cellRendererParams: { field: 'internal_exam_marks', onChange: updateMarks, disabled: false },
-      })
-    }
-    if (hasAssignmentColumn || showAllThree) {
-      cols.push({
+      },
+      {
         headerName: 'Assignment',
         minWidth: 120,
         cellRenderer: MarkInputRenderer,
         cellRendererParams: { field: 'internal_assignment_marks', onChange: updateMarks, disabled: false },
-      })
-    }
-    if (hasQuizColumn || showAllThree) {
-      cols.push({
+      },
+      {
         headerName: 'Quiz',
         minWidth: 110,
         cellRenderer: MarkInputRenderer,
         cellRendererParams: { field: 'internal_quiz_marks', onChange: updateMarks, disabled: false },
-      })
-    }
-    cols.push({
-      headerName: 'Total Internal',
-      minWidth: 130,
-      // Derived from sum of the three; rendered read-only.
-      valueGetter: (p: any) => Number(p.data?.internal_total_marks ?? 0),
-    })
-    return cols
-  }, [hasExamColumn, hasAssignmentColumn, hasQuizColumn, showAllThree])
+      },
+      {
+        headerName: 'Total Internal',
+        minWidth: 130,
+        // Read-only -- updateMarks keeps internal_total_marks = sum of the three.
+        valueGetter: (p: any) => Number(p.data?.internal_total_marks ?? 0),
+      },
+    ]
+  }, [])
 
   // ── Print layout ─────────────────────────────────────────────────────────
   // Mirrors Angular's #printsection: banner placeholder, MARKS SHEET title,
