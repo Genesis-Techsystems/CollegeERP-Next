@@ -311,10 +311,44 @@ export default function ExamSessionPage() {
             </div>
             <div className="min-w-0 space-y-1">
               <Label className="text-[12px]">Active</Label>
-              <label className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-border bg-card px-2">
-                <Checkbox checked={form.isActive} onCheckedChange={(v) => setForm((s) => ({ ...s, isActive: !!v }))} />
-                <span className="text-[12px] text-slate-700">Session is active</span>
-              </label>
+              <div
+                role="button"
+                tabIndex={0}
+                className="flex h-9 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-2 hover:border-input"
+                onClick={() =>
+                  setForm((s) => ({
+                    ...s,
+                    isActive: !s.isActive,
+                    reason: s.isActive ? '' : 'active',
+                  }))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault()
+                    setForm((s) => ({
+                      ...s,
+                      isActive: !s.isActive,
+                      reason: s.isActive ? '' : 'active',
+                    }))
+                  }
+                }}
+              >
+                <Checkbox
+                  checked={form.isActive}
+                  onCheckedChange={(v) =>
+                    setForm((s) => ({
+                      ...s,
+                      isActive: !!v,
+                      reason: v ? 'active' : '',
+                    }))
+                  }
+                  // Stop the row's onClick from firing again after Radix already toggled.
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span className="text-[12px] text-slate-700 select-none">
+                  {form.isActive ? 'Session is active' : 'Session is inactive'}
+                </span>
+              </div>
             </div>
             <div className="min-w-0 space-y-1">
               <TimePicker
