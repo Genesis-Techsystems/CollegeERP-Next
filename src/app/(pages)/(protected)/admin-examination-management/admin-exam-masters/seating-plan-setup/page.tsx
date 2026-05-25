@@ -1427,7 +1427,16 @@ export default function SeatingPlanSetupPage() {
 										if (selectedCourseId && selectedExamId) {
 											const session = sessionOptions.find((s) => s.id === selectedExamTimetableId)
 											const examDate = session?.examDate ?? filteredRows[0]?.examDate ?? ''
-											const sessionId = session?.examSessionId ?? 0
+											// SessionOption stores the real exam-session id under .sessionId (the
+											// helper that builds it pulls from examSessionId / fk_exam_session_id /
+											// sessionId / exam_session_id and assigns to .sessionId). Try every
+											// alias before giving up so the proc gets a real id, not 0.
+											const sessionId =
+												(session as any)?.sessionId ??
+												(session as any)?.examSessionId ??
+												(session as any)?.fk_exam_session_id ??
+												(session as any)?.exam_session_id ??
+												0
 											const params = { courseId: selectedCourseId, examId: selectedExamId, examDate, sessionId }
 											if (mode === 'room-wise-seating') {
 												setLoadingPrintData(true)
