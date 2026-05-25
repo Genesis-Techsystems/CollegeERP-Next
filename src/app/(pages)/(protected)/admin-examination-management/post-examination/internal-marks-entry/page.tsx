@@ -18,6 +18,7 @@ import {
   saveInternalMarksEntry,
 } from '@/services/post-examination'
 import { toastError, toastSuccess } from '@/lib/toast'
+import { usePrintMode } from '@/lib/print'
 
 type AnyRow = Record<string, any>
 type MarkRow = Record<string, any>
@@ -56,6 +57,7 @@ export default function InternalMarksEntryPage() {
   const [saving, setSaving] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
   const [checkUploadType] = useState(1)
+  const { mode: printMode, triggerPrint } = usePrintMode<'marks-sheet'>()
 
   const [allFilters, setAllFilters] = useState<AnyRow[]>([])
   const [restFilters, setRestFilters] = useState<AnyRow[]>([])
@@ -359,6 +361,152 @@ export default function InternalMarksEntryPage() {
     return cols
   }, [])
 
+  // ── Print layout ─────────────────────────────────────────────────────────
+  // Mirrors Angular's #printsection: banner placeholder, MARKS SHEET title,
+  // college/course/subject info block, students table with conditional
+  // Exam / Assignment / Quiz columns, and Faculty/HOD signature lines.
+  if (printMode === 'marks-sheet') {
+    const first = rows[0] ?? {}
+    const examTypeLabel = String(first.examTypeCode ?? first.exam_type ?? 'Internal').toUpperCase()
+    const sheetTitle = `${examTypeLabel} - MARKS SHEET`
+    const isLab =
+      Number(first.subjecttypeId ?? first.fk_subjecttype_catdet_id ?? 0) === 5 ||
+      Number(first.subjecttypeId ?? first.fk_subjecttype_catdet_id ?? 0) === 6026
+    const subjectTypeLabel = isLab ? 'LAB' : 'THEORY'
+    const hasExamMarks = rows.some((r) => Number(r.internal_exam_marks ?? 0) > 0)
+    const hasAssignmentMarks = rows.some((r) => Number(r.internal_assignment_marks ?? 0) > 0)
+    const hasQuizMarks = rows.some((r) => Number(r.internal_quiz_marks ?? 0) > 0)
+    return (
+      <div
+        className="text-black"
+        style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px' }}
+      >
+        <h1 style={{ textAlign: 'center', fontSize: '18px', fontWeight: 600, margin: 0 }}>
+          {selectedCollege?.college_name ?? selectedCollege?.college_code ?? ''}
+        </h1>
+        <hr style={{ border: 0, borderTop: '1px solid #000', margin: '12px 0' }} />
+        <p style={{ textAlign: 'center', fontSize: '14px', fontWeight: 600, margin: 0 }}>
+          {sheetTitle}
+        </p>
+
+        <div style={{ marginTop: '14px', fontSize: '12px', lineHeight: 1.6 }}>
+          <div>
+            <strong>College:</strong> {selectedCollege?.college_name ?? selectedCollege?.college_code ?? '-'}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+            <div>
+              <strong>Course:</strong> {selectedCourse?.course_code ?? '-'} - {selectedGroup?.group_code ?? '-'}
+            </div>
+            <div>
+              <strong>Academic Year:</strong> {selectedAcademicYear?.academic_year ?? '-'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+            <div>
+              <strong>Subject Code:</strong> {selectedSubject?.subject_code ?? '-'}
+            </div>
+            <div>
+              <strong>Subject Title:</strong> {selectedSubject?.subject_name ?? '-'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+            <div>
+              <strong>Max Marks:</strong> {maxMarks || '-'}
+            </div>
+            <div>
+              <strong>Subject Type:</strong> {subjectTypeLabel}
+            </div>
+          </div>
+        </div>
+
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            marginTop: '12px',
+            fontSize: '12px',
+          }}
+        >
+          <thead>
+            <tr>
+              <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>SI.NO</th>
+              <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>USN</th>
+              <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Student Name</th>
+              <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Attendance</th>
+              {hasExamMarks && (
+                <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Exam</th>
+              )}
+              {hasAssignmentMarks && (
+                <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Assignment</th>
+              )}
+              {hasQuizMarks && (
+                <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>Quiz</th>
+              )}
+              <th style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>
+                Total Internal Marks
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const attendance =
+                r.isPresent === true ? 'Present' : r.isPresent === false ? 'Absent' : ''
+              return (
+                <tr key={`print-${r.hallticketNumber ?? r.studentId ?? i}`}>
+                  <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>
+                    {i + 1}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '4px' }}>
+                    {r.hallticketNumber ?? r.hallticket_number ?? '-'}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '4px' }}>
+                    {r.firstName ?? r.student_name ?? '-'}
+                  </td>
+                  <td style={{ border: '1px solid #000', padding: '4px' }}>{attendance}</td>
+                  {hasExamMarks && (
+                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>
+                      {Number(r.internal_exam_marks ?? 0)}
+                    </td>
+                  )}
+                  {hasAssignmentMarks && (
+                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>
+                      {Number(r.internal_assignment_marks ?? 0)}
+                    </td>
+                  )}
+                  {hasQuizMarks && (
+                    <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>
+                      {Number(r.internal_quiz_marks ?? 0)}
+                    </td>
+                  )}
+                  <td style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>
+                    {Number(r.internal_total_marks ?? 0)}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+
+        <p style={{ marginTop: '14px', fontSize: '12px', fontWeight: 500 }}>
+          Date of Submission of IA Marks:
+        </p>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginTop: '60px',
+            fontSize: '12px',
+            fontWeight: 600,
+          }}
+        >
+          <div>Signature of the Faculty</div>
+          <div>HOD</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <PageContainer className="space-y-4">
       <PageHeader title="Internal Marks Entry" subtitle="Post examination marks entry" />
@@ -438,7 +586,14 @@ export default function InternalMarksEntryPage() {
               />
               <div className="flex items-center justify-end gap-2">
                 <Button className="h-8 text-[12px]" onClick={onSaveMarks} disabled={saving || rows.length === 0}>{saving ? 'Saving...' : 'Save Marks'}</Button>
-                <Button className="h-8 text-[12px]" variant="outline" onClick={() => globalThis?.print?.()}>Print</Button>
+                <Button
+                  className="h-8 text-[12px]"
+                  variant="outline"
+                  onClick={() => triggerPrint('marks-sheet')}
+                  disabled={rows.length === 0}
+                >
+                  Print
+                </Button>
               </div>
             </div>
           </TableCard>
