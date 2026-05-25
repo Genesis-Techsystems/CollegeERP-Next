@@ -452,46 +452,119 @@ export default function SeatAllotStudentsPage() {
 	}
 
 	if (printMode === 'stickers' || printMode === 'groupwise-stickers') {
-		const source = attendanceRows.length > 0 ? attendanceRows : seatRows
-		const groups: Record<string, any[]> =
-			printMode === 'groupwise-stickers'
-				? source.reduce((acc: Record<string, any[]>, r: any) => {
-					const key = String(r.groupCode ?? r.group_code ?? r.subjectCode ?? r.subject_code ?? 'Group')
-					if (!acc[key]) acc[key] = []
-					acc[key].push(r)
-					return acc
-				}, {})
-				: { all: source }
-		const groupKeys = Object.keys(groups)
+		// Match Angular print-seating-stickers / print-groupwise-seating-stickers
+		// exactly: a 4-column float grid per (room) or (room+group) with a
+		// bordered header card above. Source data is whichever of seatRows /
+		// attendanceRows has rows.
+		const source = seatRows.length > 0 ? seatRows : attendanceRows
+		const isGroupwise = printMode === 'groupwise-stickers'
+		const byRoom = new Map<string, any[]>()
+		for (const s of source) {
+			const key = String((s as any).room_id ?? (s as any).room_name ?? roomMeta.roomLabel ?? '—')
+			if (!byRoom.has(key)) byRoom.set(key, [])
+			byRoom.get(key)!.push(s)
+		}
+		const rooms = Array.from(byRoom.values())
+		function StickerCell({ data }: { data: any }) {
+			return (
+				<div
+					style={{
+						width: '25%',
+						boxSizing: 'border-box',
+						padding: '27px 0 9px 0',
+						textAlign: 'center',
+						float: 'left',
+						pageBreakInside: 'avoid',
+						breakInside: 'avoid',
+					}}
+				>
+					<div style={{ display: 'flex', justifyContent: 'center', marginBottom: '-3px', fontSize: '12px' }}>
+						<span>{data.hallticket_number ?? data.hallticketNumber ?? ''}</span>
+						{(data.omr_serial_no ?? data.seatNumber) ? <>&nbsp;&nbsp;<span>{data.omr_serial_no ?? data.seatNumber}</span></> : null}
+					</div>
+					{data.omr_barcode ? (
+						<img
+							src={`data:image/jpg;base64,${data.omr_barcode}`}
+							style={{ height: '30px', width: '180px' }}
+							alt=""
+						/>
+					) : null}
+					<div style={{ display: 'flex', justifyContent: 'center', fontSize: '7px', marginTop: '1px' }}>
+						{data.exam_date ?? details.examDate ?? ''} &nbsp;&nbsp; {data.subject_code ?? data.subjectCode ?? ''}
+					</div>
+				</div>
+			)
+		}
+		function StickerHeader({ row, extraGroup }: { row: any; extraGroup?: string | null }) {
+			return (
+				<div
+					style={{
+						border: '1px solid #000',
+						padding: '25px 0 9px 0',
+						textAlign: 'center',
+						fontSize: '10px',
+						fontWeight: 'bold',
+						marginBottom: '8px',
+						pageBreakAfter: 'avoid',
+						breakAfter: 'avoid',
+					}}
+				>
+					<div style={{ fontSize: '10px', fontWeight: 'bold' }}>{row?.exam_name ?? details.examName ?? 'Exam'}</div>
+					<div>|{row?.university_code ?? '—'}|</div>
+					<div>
+						<span>{row?.exam_date ?? details.examDate ?? ''}</span> &nbsp;
+						<span>{row?.exam_session_name ?? details.examSession ?? ''}</span>
+					</div>
+					<div>
+						<span>Room: {row?.room_name ?? roomMeta.roomLabel ?? '—'}</span>
+						{extraGroup ? <> | <span>Group: {extraGroup}</span></> : null}
+					</div>
+				</div>
+			)
+		}
+		if (rooms.length === 0) {
+			return (
+				<div className="text-black" style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px', maxWidth: '990px', margin: '0 auto' }}>
+					<p style={{ textAlign: 'center', padding: '40px 0' }}>No allotted students for this room.</p>
+				</div>
+			)
+		}
 		return (
-			<div className="p-4 text-black">
-				{groupKeys.map((gk, gi) => (
-					<div key={`g-${gk}`} className={gi > 0 ? 'page-break pt-4' : ''}>
-						<div className="mb-3 text-center">
-							<div className="text-[14px] font-bold">{details.examName || 'Exam'}</div>
-							<div className="text-[11px]">
-								{[details.examDate, details.examSession, roomMeta.roomLabel].filter(Boolean).join(' • ')}
-							</div>
-							{printMode === 'groupwise-stickers' && gk !== 'all' && (
-								<div className="text-[11px] font-semibold">Group: {gk}</div>
-							)}
-						</div>
-						<div className="grid grid-cols-3 gap-2">
-							{groups[gk].map((r: any, i: number) => (
-								<div key={`st-${gk}-${i}`} className="border border-slate-400 p-2 text-center">
-									<div className="text-[10px]">{r.subjectCode ?? r.subject_code ?? ''}</div>
-									<div className="text-[12px] font-bold">
-										{r.hallticketNumber ?? r.hallticket_number ?? '-'}
-									</div>
-									<div className="text-[10px]">{r.stdName ?? r.student_name ?? ''}</div>
-									<div className="text-[9px] text-slate-600">
-										Seat {r.seatNumber ?? r.omr_serial_no ?? '-'} • {details.examDate}
+			<div className="text-black" style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px', maxWidth: '990px', margin: '0 auto' }}>
+				{rooms.map((roomStudents, ri) => {
+					if (isGroupwise) {
+						const byGroup = new Map<string, any[]>()
+						for (const s of roomStudents) {
+							const key = String((s as any).fk_course_group_id ?? (s as any).group_code ?? (s as any).groupCode ?? '—')
+							if (!byGroup.has(key)) byGroup.set(key, [])
+							byGroup.get(key)!.push(s)
+						}
+						return Array.from(byGroup.entries()).map(([groupKey, students], gi) => {
+							const head: any = students[0]
+							return (
+								<div key={`gst-${ri}-${gi}`} className={(ri + gi) > 0 ? 'page-break' : ''} style={{ marginBottom: '20px' }}>
+									<StickerHeader row={head} extraGroup={head?.group_code ?? head?.groupCode ?? groupKey} />
+									<div style={{ overflow: 'auto', margin: '0 4px' }}>
+										{students.map((stu, ci) => (
+											<StickerCell key={`gst-${ri}-${gi}-${ci}`} data={stu} />
+										))}
 									</div>
 								</div>
-							))}
+							)
+						})
+					}
+					const head: any = roomStudents[0]
+					return (
+						<div key={`stk-${ri}`} className={ri > 0 ? 'page-break' : ''} style={{ marginBottom: '20px' }}>
+							<StickerHeader row={head} />
+							<div style={{ overflow: 'auto', margin: '0 4px' }}>
+								{roomStudents.map((stu, ci) => (
+									<StickerCell key={`stk-${ri}-${ci}`} data={stu} />
+								))}
+							</div>
 						</div>
-					</div>
-				))}
+					)
+				})}
 			</div>
 		)
 	}
