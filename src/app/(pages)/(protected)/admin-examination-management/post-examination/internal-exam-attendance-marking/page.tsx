@@ -456,8 +456,14 @@ export default function InternalExamAttendanceMarkingPage() {
       {hasFetched && (
         <div className="space-y-3">
           <div className="app-card overflow-hidden">
-            <div className="px-4 py-3 border-b border-border bg-muted/40">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-border bg-muted/40">
               <h3 className="app-card-title">Mark Exam Attendance</h3>
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-700">
+                Absentees :
+                <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-cyan-100 px-2 font-semibold text-slate-900">
+                  {absentees.length}
+                </span>
+              </span>
             </div>
             <div className="p-3 text-[12px] text-slate-700">
               <p>{exams.find((e) => Number(e.fk_exam_id) === Number(examId))?.exam_name ?? '-'}</p>
