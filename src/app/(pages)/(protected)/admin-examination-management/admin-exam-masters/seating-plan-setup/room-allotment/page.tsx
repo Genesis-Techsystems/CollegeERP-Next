@@ -131,28 +131,38 @@ export default function AddRoomSeatingPlanPage() {
 		})()
 	}, [blockId])
 
-	async function refreshRooms(nextTimetableId: number) {
-		if (!nextTimetableId) {
+	// Re-query the rooms list whenever the location filters or the exam
+	// timetable change. Mirrors Angular's SelectedBuilding / SelectedBlock /
+	// SelectedFloors / SelectedSession which all call getRooms().
+	useEffect(() => {
+		if (!examTimetableId) {
 			setVacancyRooms([])
 			return
 		}
-		const rows = await getExamRoomDetails({
-			buildingId,
-			blockId,
-			floorId,
-			examTimetableId: nextTimetableId,
-		}).catch(() => [])
-		const arr: ExamRoomRow[] = (Array.isArray(rows) ? rows : []).map((r: AnyRow) => ({
-			...r,
-			checked: false,
-			disabled: r.pk_exam_room_allotment_id != null,
-			total_rows: 0,
-			total_columns: 0,
-			room_strength: 0,
-		}))
-		setVacancyRooms(arr)
-		setSelectAll(false)
-	}
+		let cancelled = false
+		void (async () => {
+			const rows = await getExamRoomDetails({
+				buildingId,
+				blockId,
+				floorId,
+				examTimetableId,
+			}).catch(() => [])
+			if (cancelled) return
+			const arr: ExamRoomRow[] = (Array.isArray(rows) ? rows : []).map((r: AnyRow) => ({
+				...r,
+				checked: false,
+				disabled: r.pk_exam_room_allotment_id != null,
+				total_rows: 0,
+				total_columns: 0,
+				room_strength: 0,
+			}))
+			setVacancyRooms(arr)
+			setSelectAll(false)
+		})()
+		return () => {
+			cancelled = true
+		}
+	}, [buildingId, blockId, floorId, examTimetableId])
 
 	function handleCheckAll(next: boolean) {
 		setSelectAll(next)
@@ -245,7 +255,9 @@ export default function AddRoomSeatingPlanPage() {
 		const session = examTimetables.find(
 			(t: AnyRow) => Number(t.examTimetableId) === Number(examTimetableId),
 		)
-		const subjectId = Number(session?.examTimetableDetail?.[0]?.subjectId ?? 0) || null
+		// Spring sometimes returns the relation as either name; cover both.
+		const details: AnyRow[] = session?.examTimetableDetail ?? session?.examTimetableDetails ?? []
+		const subjectId = Number(details?.[0]?.subjectId ?? details?.[0]?.subject_id ?? 0) || null
 		const payload = checked.map((r) => ({
 			collegeId: params.collegeId,
 			examId: params.examId,
@@ -380,11 +392,7 @@ export default function AddRoomSeatingPlanPage() {
 						<Label className="text-[12px]">Exam Timetable</Label>
 						<Select
 							value={String(examTimetableId || '')}
-							onChange={(v) => {
-								const n = Number(v) || 0
-								setExamTimetableId(n)
-								void refreshRooms(n)
-							}}
+							onChange={(v) => setExamTimetableId(Number(v) || 0)}
 							options={examTimetableOptions}
 							placeholder="Select Exam Timetable"
 						/>
