@@ -456,14 +456,8 @@ export default function InternalExamAttendanceMarkingPage() {
       {hasFetched && (
         <div className="space-y-3">
           <div className="app-card overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-border bg-muted/40">
+            <div className="px-4 py-3 border-b border-border bg-muted/40">
               <h3 className="app-card-title">Mark Exam Attendance</h3>
-              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-700">
-                Absentees :
-                <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-cyan-100 px-2 font-semibold text-slate-900">
-                  {absentees.length}
-                </span>
-              </span>
             </div>
             <div className="p-3 text-[12px] text-slate-700">
               <p>{exams.find((e) => Number(e.fk_exam_id) === Number(examId))?.exam_name ?? '-'}</p>
@@ -509,44 +503,32 @@ export default function InternalExamAttendanceMarkingPage() {
               </TableCard>
             </div>
 
-            <aside className="lg:col-span-3 min-w-0">
-              <div className="app-card overflow-hidden">
-                <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border bg-muted/40">
-                  <h3 className="app-card-title">
-                    Absentees :{' '}
-                    <span className="ml-1 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-cyan-100 px-2 text-[12px] font-semibold text-slate-900">
-                      {absentees.length}
-                    </span>
-                  </h3>
-                </div>
-                <div className="max-h-[480px] overflow-auto p-3 text-[12px]">
+            <aside className="space-y-3 lg:col-span-3 min-w-0">
+              <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">
+                <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[14px] font-semibold uppercase text-slate-700">
+                  Absentees :{' '}
+                  <span className="rounded-full bg-cyan-300 px-2 py-0.5">{absentees.length}</span>
+                </h3>
+                <div className="max-h-[320px] overflow-auto p-3 text-[12px]">
                   {absentees.length === 0 ? (
-                    <p className="text-slate-500">No absents found.</p>
+                    <p className="text-muted-foreground">No absents found.</p>
                   ) : (
-                    <ul className="space-y-1.5">
-                      {absentees.map((r) => (
-                        <li
-                          key={`abs-${r.examStdDetId}`}
-                          className="flex items-center justify-between gap-2 leading-tight"
-                        >
-                          <span className="truncate text-slate-700">{r.firstName}</span>
-                          <span className="shrink-0 font-semibold text-[hsl(var(--primary))]">
-                            {r.hallticketNumber}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    absentees.map((r) => (
+                      <p key={`abs-${r.examStdDetId}`} className="mb-1">
+                        {r.firstName} (<span className="text-blue-700">{r.hallticketNumber}</span>)
+                      </p>
+                    ))
                   )}
                 </div>
-                <div className="flex justify-end border-t border-border bg-muted/40 px-3 py-2">
-                  <Button
-                    className="h-[30px] text-[12px]"
-                    onClick={onSaveAttendance}
-                    disabled={saving || rows.length === 0}
-                  >
-                    {saving ? 'Saving...' : 'Save Attendance'}
-                  </Button>
-                </div>
+              </div>
+              <div className="flex justify-center">
+                <Button
+                  className="h-8 px-5 text-[12px]"
+                  onClick={onSaveAttendance}
+                  disabled={saving || rows.length === 0}
+                >
+                  {saving ? 'Saving...' : 'Save Attendance'}
+                </Button>
               </div>
             </aside>
           </div>
