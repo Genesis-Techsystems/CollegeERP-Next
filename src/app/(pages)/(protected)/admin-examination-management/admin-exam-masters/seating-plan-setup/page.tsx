@@ -18,6 +18,7 @@ import { PageContainer, PageHeader } from '@/components/layout'
 import { distinct } from '@/lib/utils'
 import { listCourseYears, getExamTimetableDetails } from '@/services/examination'
 import {
+	getRoomwiseAllotmentSummary,
 	listExamInvigilationAllotments,
 	listExamRoomAllotments as listExamRoomAllotmentsDomain,
 	listRoomwiseOmrStudents,
@@ -297,6 +298,12 @@ export default function SeatingPlanSetupPage() {
 		| 'cover-slip'
 		| 'packing-slip'
 	const { mode: printMode, triggerPrint } = usePrintMode<PrintMode>()
+	// Per-mode fetched data for prints that need their own server call.
+	// Today: room-wise-seating fetches `roomwise_allotment_summary` rows; the
+	// other modes fall back to filteredRows until their respective Angular
+	// procs are wired in.
+	const [roomWiseAllocations, setRoomWiseAllocations] = useState<any[]>([])
+	const [loadingPrintData, setLoadingPrintData] = useState(false)
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [baseRows, setBaseRows] = useState<any[]>([])
 	const [restRows, setRestRows] = useState<any[]>([])
@@ -902,40 +909,46 @@ export default function SeatingPlanSetupPage() {
 		}, {})
 
 		if (printMode === 'room-wise-seating') {
+			// Group by room_name to mirror Angular's groupedAllocations shape.
+			const grouped = roomWiseAllocations.reduce<Record<string, any[]>>((acc, curr) => {
+				const key = String(curr?.room_name ?? '—')
+				if (!acc[key]) acc[key] = []
+				acc[key].push(curr)
+				return acc
+			}, {})
+			const groups = Object.entries(grouped).map(([room_name, records]) => ({ room_name, records }))
 			return (
 				<PrintShell title="Seating Arrangement">
-					<table className="w-full border-collapse text-[11px]">
-						<thead>
-							<tr>
-								<th className="border border-slate-400 px-2 py-1 text-left w-12">SI.No</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Exam Date</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Session</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Room</th>
-								<th className="border border-slate-400 px-2 py-1 text-right w-20">Booked</th>
-								<th className="border border-slate-400 px-2 py-1 text-right w-20">Blocked</th>
-								<th className="border border-slate-400 px-2 py-1 text-right w-20">Available</th>
-							</tr>
-						</thead>
-						<tbody>
-							{filteredRows.length === 0 ? (
-								<tr>
-									<td colSpan={7} className="border border-slate-400 px-2 py-3 text-center">No rooms allocated.</td>
-								</tr>
-							) : (
-								filteredRows.map((r, i) => (
-									<tr key={`rws-${i}`}>
-										<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
-										<td className="border border-slate-400 px-2 py-1">{r.examDate}</td>
-										<td className="border border-slate-400 px-2 py-1">{r.session}</td>
-										<td className="border border-slate-400 px-2 py-1">{r.roomCode}</td>
-										<td className="border border-slate-400 px-2 py-1 text-right">{r.bookedSeats}</td>
-										<td className="border border-slate-400 px-2 py-1 text-right">{r.blockedSeats}</td>
-										<td className="border border-slate-400 px-2 py-1 text-right">{r.availableSeats}</td>
+					{groups.length === 0 ? (
+						<p className="text-[11px] text-center py-6">No room-wise allotment data for this exam date / session.</p>
+					) : (
+						groups.map(({ room_name, records }, gi) => (
+							<table key={`rws-${room_name}-${gi}`} className="w-full border-collapse text-[11px] mb-4" style={{ border: '1px solid #000' }}>
+								<thead>
+									<tr>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>S.No.</th>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Room Number</th>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>H.T. Numbers</th>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Branch</th>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>No. of Students</th>
 									</tr>
-								))
-							)}
-						</tbody>
-					</table>
+								</thead>
+								<tbody>
+									{records.map((alloc: any, i: number) => (
+										<tr key={`rws-row-${room_name}-${i}`}>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{i + 1}</td>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{alloc.room_name ?? '—'}</td>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>
+												{alloc['min(tssd.hallticket_number)'] ?? '—'} to {alloc['max(tssd.hallticket_number)'] ?? '—'}
+											</td>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{alloc.group_code ?? '—'}</td>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{alloc.cnt ?? 0}</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						))
+					)}
 				</PrintShell>
 			)
 		}
@@ -1347,7 +1360,21 @@ export default function SeatingPlanSetupPage() {
 									variant="outline"
 									size="sm"
 									className="h-8 gap-1.5 rounded-md border-border bg-card px-2.5 text-[11px] font-medium text-slate-700 shadow-sm hover:border-input hover:bg-card hover:text-slate-900"
-									onClick={() => triggerPrint(mode)}
+									onClick={async () => {
+										if (mode === 'room-wise-seating' && selectedCourseId && selectedExamId) {
+											setLoadingPrintData(true)
+											const session = sessionOptions.find((s) => s.id === selectedExamTimetableId)
+											const data = await getRoomwiseAllotmentSummary({
+												courseId: selectedCourseId,
+												examId: selectedExamId,
+												examDate: session?.examDate ?? filteredRows[0]?.examDate ?? '',
+												sessionId: session?.examSessionId ?? 0,
+											}).catch(() => [] as any[])
+											setRoomWiseAllocations(data)
+											setLoadingPrintData(false)
+										}
+										triggerPrint(mode)
+									}}
 								>
 									<Printer className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
 									{label}
