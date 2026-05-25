@@ -394,39 +394,36 @@ export default function ExamLabBatchesPage() {
             <div className="space-y-1"><Label>Batch Name</Label><Input className="h-8 text-[12px]" value={batchName} onChange={(e) => setBatchName(e.target.value)} /></div>
             <div className="space-y-1"><Label>Capacity</Label><Input className="h-8 text-[12px]" type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} /></div>
             <div className="space-y-1"><Label>Sort Order</Label><Input className="h-8 text-[12px]" type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} /></div>
-            <div className="space-y-1">
-              <Label className="text-[12px]">Active</Label>
-              <div
-                role="button"
-                tabIndex={0}
-                className="flex h-8 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-2 hover:border-input"
-                onClick={() => {
+            <div
+              role="button"
+              tabIndex={0}
+              className="flex h-8 min-w-0 cursor-pointer items-center gap-2 self-end"
+              onClick={() => {
+                const next = !isActive
+                setIsActive(next)
+                setReason(next ? 'active' : '')
+              }}
+              onKeyDown={(e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                  e.preventDefault()
                   const next = !isActive
                   setIsActive(next)
                   setReason(next ? 'active' : '')
+                }
+              }}
+            >
+              <Checkbox
+                checked={isActive}
+                onCheckedChange={(v) => {
+                  const next = !!v
+                  setIsActive(next)
+                  setReason(next ? 'active' : '')
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === ' ' || e.key === 'Enter') {
-                    e.preventDefault()
-                    const next = !isActive
-                    setIsActive(next)
-                    setReason(next ? 'active' : '')
-                  }
-                }}
-              >
-                <Checkbox
-                  checked={isActive}
-                  onCheckedChange={(v) => {
-                    const next = !!v
-                    setIsActive(next)
-                    setReason(next ? 'active' : '')
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <span className="text-[12px] text-slate-700 select-none">
-                  {isActive ? 'Batch is active' : 'Batch is inactive'}
-                </span>
-              </div>
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span className="text-[12px] text-slate-700 select-none">
+                {isActive ? 'Batch is active' : 'Batch is inactive'}
+              </span>
             </div>
             {!isActive && (
               <div className="space-y-1 md:col-span-2">
