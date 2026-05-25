@@ -12,6 +12,7 @@ import {
 	getSingleDomain,
 } from '@/services/seating-plan'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { usePrintMode } from '@/lib/print'
 
 function flattenLegacyResult(body: any): any[] {
 	const result = (body?.result ?? body?.data?.result ?? body?.data ?? body ?? []) as any[]
@@ -118,9 +119,12 @@ function maxSeatRowCol(rows: any[]): { maxRow: number; maxCol: number } {
 	return { maxRow, maxCol }
 }
 
+type PrintMode = 'seating' | 'attendance' | 'stickers' | 'groupwise-stickers'
+
 export default function SeatAllotStudentsPage() {
 	const router = useRouter()
 	const searchParams = useSearchParams()
+	const { mode: printMode, triggerPrint } = usePrintMode<PrintMode>()
 	const [attendanceRows, setAttendanceRows] = useState<any[]>([])
 	const [seatRows, setSeatRows] = useState<any[]>([])
 	const [roomAllotment, setRoomAllotment] = useState<any | null>(null)
@@ -343,6 +347,155 @@ export default function SeatAllotStudentsPage() {
 		})
 	}, [seatRows, roomAllotment, roomMeta.totalRows, roomMeta.totalCols])
 
+	// ── Print layouts ─────────────────────────────────────────────────────────
+	// While printMode is set, the normal UI is unmounted and only the chosen
+	// print layout renders. usePrintMode handles opening the OS print dialog
+	// and resets on afterprint.
+	const headerLine = [
+		details.examName,
+		details.examDate,
+		details.examSession,
+		roomMeta.roomLabel,
+		details.courseName || details.courseCode,
+	].filter(Boolean).join(' / ')
+
+	if (printMode === 'seating') {
+		return (
+			<div className="p-4 text-black">
+				<div className="mb-3 text-center">
+					<div className="text-[16px] font-bold">{details.examName || 'Exam'}</div>
+					<div className="text-[12px]">
+						{[details.courseName || details.courseCode, details.academicYear || resolvedAcademicYear]
+							.filter(Boolean)
+							.join(' / ')}
+					</div>
+					<div className="text-[12px]">
+						{[details.examDate, details.examSession].filter(Boolean).join(' • ')}{' '}
+						{roomMeta.roomLabel ? `• Room: ${roomMeta.roomLabel}` : ''}
+					</div>
+				</div>
+				<table className="w-full border-collapse text-[11px]">
+					<tbody>
+						{seatingGrid.map((row, rIdx) => (
+							<tr key={`pr-${rIdx}`}>
+								{row.map((seat) => {
+									const blocked = seat.status.toLowerCase() === 'blocked'
+									return (
+										<td
+											key={seat.key}
+											className="border border-slate-400 p-1 align-top h-[60px] min-w-[68px]"
+											style={blocked ? { background: '#e5e7eb' } : {}}
+										>
+											<div className="text-[9px] text-right">{seat.serial}</div>
+											<div className="text-center text-[11px] font-medium">{seat.hallticket || (blocked ? 'BLOCKED' : '')}</div>
+											<div className="text-center text-[9px]">{seat.subjectCode}</div>
+										</td>
+									)
+								})}
+							</tr>
+						))}
+					</tbody>
+				</table>
+				<div className="mt-3 grid grid-cols-4 gap-2 text-[11px]">
+					<div>Total Seats: <b>{roomMeta.capacity}</b></div>
+					<div>Blocked: <b>{roomMeta.blockedSeats}</b></div>
+					<div>Booked: <b>{roomMeta.bookedSeats}</b></div>
+					<div>Available: <b>{roomMeta.availableSeats}</b></div>
+				</div>
+			</div>
+		)
+	}
+
+	if (printMode === 'attendance') {
+		const rows = attendanceRows.length > 0 ? attendanceRows : seatRows
+		return (
+			<div className="p-4 text-black">
+				<div className="mb-3 text-center">
+					<div className="text-[16px] font-bold">{details.examName || 'Exam'} — Attendance Sheet</div>
+					<div className="text-[12px]">{headerLine}</div>
+				</div>
+				<table className="w-full border-collapse text-[11px]">
+					<thead>
+						<tr>
+							<th className="border border-slate-400 px-2 py-1 text-left w-12">SI.No</th>
+							<th className="border border-slate-400 px-2 py-1 text-left">Hall Ticket</th>
+							<th className="border border-slate-400 px-2 py-1 text-left">Student Name</th>
+							<th className="border border-slate-400 px-2 py-1 text-left">Subject</th>
+							<th className="border border-slate-400 px-2 py-1 text-left w-24">Seat</th>
+							<th className="border border-slate-400 px-2 py-1 text-left w-32">Signature</th>
+						</tr>
+					</thead>
+					<tbody>
+						{rows.length === 0 ? (
+							<tr>
+								<td colSpan={6} className="border border-slate-400 px-2 py-3 text-center">
+									No students for this room / date / session.
+								</td>
+							</tr>
+						) : (
+							rows.map((r: any, i: number) => (
+								<tr key={`att-${i}`}>
+									<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.hallticketNumber ?? r.hallticket_number ?? '-'}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.stdName ?? r.student_name ?? '-'}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.subjectCode ?? r.subject_code ?? '-'}</td>
+									<td className="border border-slate-400 px-2 py-1">{r.seatNumber ?? r.omr_serial_no ?? '-'}</td>
+									<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
+								</tr>
+							))
+						)}
+					</tbody>
+				</table>
+				<div className="mt-3 text-[11px]">Total students: <b>{rows.length}</b></div>
+			</div>
+		)
+	}
+
+	if (printMode === 'stickers' || printMode === 'groupwise-stickers') {
+		const source = attendanceRows.length > 0 ? attendanceRows : seatRows
+		const groups: Record<string, any[]> =
+			printMode === 'groupwise-stickers'
+				? source.reduce((acc: Record<string, any[]>, r: any) => {
+					const key = String(r.groupCode ?? r.group_code ?? r.subjectCode ?? r.subject_code ?? 'Group')
+					if (!acc[key]) acc[key] = []
+					acc[key].push(r)
+					return acc
+				}, {})
+				: { all: source }
+		const groupKeys = Object.keys(groups)
+		return (
+			<div className="p-4 text-black">
+				{groupKeys.map((gk, gi) => (
+					<div key={`g-${gk}`} className={gi > 0 ? 'page-break pt-4' : ''}>
+						<div className="mb-3 text-center">
+							<div className="text-[14px] font-bold">{details.examName || 'Exam'}</div>
+							<div className="text-[11px]">
+								{[details.examDate, details.examSession, roomMeta.roomLabel].filter(Boolean).join(' • ')}
+							</div>
+							{printMode === 'groupwise-stickers' && gk !== 'all' && (
+								<div className="text-[11px] font-semibold">Group: {gk}</div>
+							)}
+						</div>
+						<div className="grid grid-cols-3 gap-2">
+							{groups[gk].map((r: any, i: number) => (
+								<div key={`st-${gk}-${i}`} className="border border-slate-400 p-2 text-center">
+									<div className="text-[10px]">{r.subjectCode ?? r.subject_code ?? ''}</div>
+									<div className="text-[12px] font-bold">
+										{r.hallticketNumber ?? r.hallticket_number ?? '-'}
+									</div>
+									<div className="text-[10px]">{r.stdName ?? r.student_name ?? ''}</div>
+									<div className="text-[9px] text-slate-600">
+										Seat {r.seatNumber ?? r.omr_serial_no ?? '-'} • {details.examDate}
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				))}
+			</div>
+		)
+	}
+
 	return (
 		<PageContainer className="space-y-4">
 		<PageHeader title="Seat Allot Students" subtitle="Allocate seating for exam students" />
@@ -496,20 +649,20 @@ export default function SeatAllotStudentsPage() {
 						</div>
 					)}
 
-					<div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+					<div className="flex flex-wrap items-center justify-center gap-3 pt-2 print-hide">
 						<Button type="button" variant="outline" className="h-8 px-6 text-[12px]" onClick={() => router.back()}>
 							Back
 						</Button>
-						<Button type="button" className="h-8 px-6 text-[12px]" onClick={() => window.print()}>
+						<Button type="button" className="h-8 px-6 text-[12px]" onClick={() => triggerPrint('seating')}>
 							Print
 						</Button>
-						<Button type="button" className="h-8 px-6 text-[12px]" onClick={() => window.print()}>
+						<Button type="button" className="h-8 px-6 text-[12px]" onClick={() => triggerPrint('attendance')}>
 							Print Attendance Sheet
 						</Button>
-						<Button type="button" className="h-8 px-6 text-[12px]" onClick={() => window.print()}>
+						<Button type="button" className="h-8 px-6 text-[12px]" onClick={() => triggerPrint('stickers')}>
 							Print Stickers
 						</Button>
-						<Button type="button" className="h-8 px-6 text-[12px]" onClick={() => window.print()}>
+						<Button type="button" className="h-8 px-6 text-[12px]" onClick={() => triggerPrint('groupwise-stickers')}>
 							Group-Wise Stickers
 						</Button>
 					</div>

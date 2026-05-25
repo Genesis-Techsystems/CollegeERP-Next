@@ -753,3 +753,65 @@ textarea:focus-visible,
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PRINT — minimal chrome-free print sheet
+   ─────────────────────────────────────────────────────────────────────────────
+   Per-button selective printing is done in the page (conditional-render: the
+   print mode unmounts the normal UI and renders just the chosen print layout
+   while window.print() runs, then resets on afterprint).
+   This block is the housekeeping CSS that applies to every print regardless:
+   - hide app chrome (aside / nav / header / .print-hide / [data-print-hide]);
+   - force white background and black text;
+   - 1cm page margin;
+   - keep rows together where possible;
+   - flip .print-only blocks on, .screen-only blocks off.
+*/
+
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  [data-print-hide],
+  .print-hide,
+  aside,
+  nav,
+  header {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Render background colours / images during print. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    margin: 1cm;
+  }
+
+  tr,
+  thead,
+  tfoot {
+    page-break-inside: avoid;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .screen-only {
+    display: none !important;
+  }
+
+  /* Page-break helper for stickers / multi-section prints. */
+  .page-break {
+    page-break-before: always;
+  }
+}
