@@ -421,9 +421,7 @@ export default function ExamLabBatchesPage() {
                 }}
                 onClick={(e) => e.stopPropagation()}
               />
-              <span className="text-[12px] text-slate-700 select-none">
-                {isActive ? 'Batch is active' : 'Batch is inactive'}
-              </span>
+              <span className="text-[12px] text-slate-700 select-none">Active</span>
             </div>
             {!isActive && (
               <div className="space-y-1 md:col-span-2">
