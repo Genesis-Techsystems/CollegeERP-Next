@@ -215,6 +215,41 @@ export async function getRoomwiseAllotmentSummary(params: {
 	return flattenResult(body)
 }
 
+/**
+ * Room-wise subject summary for the "Room Subject Counts" print. Mirrors the
+ * Angular `getProcs()` third request (flag = 'roomwise_subject_summary') on
+ * `s_get_exam_allotment_details`. Returns flat rows with at least:
+ *   room_name, subject_name, subject_code, cnt
+ * Caller groups by room_name for the printed table (Angular's
+ * `groupedSubjectAllocations`).
+ */
+export async function getRoomwiseSubjectSummary(params: {
+	courseId: number
+	examId: number
+	examDate: string
+	sessionId?: number
+}): Promise<any[]> {
+	const search = new URLSearchParams({
+		in_flag: 'roomwise_subject_summary',
+		in_college_id: '0',
+		in_course_id: String(params.courseId),
+		in_course_group_id: '0',
+		in_course_year_id: '0',
+		in_exam_id: String(params.examId),
+		in_invgilator_emp_id: '0',
+		in_regulation_id: '0',
+		in_subject_id: '0',
+		in_session_id: String(params.sessionId ?? 0),
+		in_std_id: '0',
+		in_room_id: '0',
+		from_exam_date: params.examDate || '',
+		to_exam_date: params.examDate || '',
+	})
+	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_get_exam_allotment_details?${search.toString()}`))
+	const body = await res.json().catch(() => null)
+	return flattenResult(body)
+}
+
 export async function getExamRoomAllotmentById(examRoomAllotmentId: number): Promise<any | null> {
 	if (!examRoomAllotmentId) return null
 	const search = new URLSearchParams({

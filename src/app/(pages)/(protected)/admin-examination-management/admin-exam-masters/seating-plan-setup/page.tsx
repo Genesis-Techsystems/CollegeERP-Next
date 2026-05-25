@@ -19,6 +19,7 @@ import { distinct } from '@/lib/utils'
 import { listCourseYears, getExamTimetableDetails } from '@/services/examination'
 import {
 	getRoomwiseAllotmentSummary,
+	getRoomwiseSubjectSummary,
 	listExamInvigilationAllotments,
 	listExamRoomAllotments as listExamRoomAllotmentsDomain,
 	listRoomwiseOmrStudents,
@@ -303,6 +304,7 @@ export default function SeatingPlanSetupPage() {
 	// other modes fall back to filteredRows until their respective Angular
 	// procs are wired in.
 	const [roomWiseAllocations, setRoomWiseAllocations] = useState<any[]>([])
+	const [roomSubjectAllocations, setRoomSubjectAllocations] = useState<any[]>([])
 	const [loadingPrintData, setLoadingPrintData] = useState(false)
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [baseRows, setBaseRows] = useState<any[]>([])
@@ -954,33 +956,44 @@ export default function SeatingPlanSetupPage() {
 		}
 
 		if (printMode === 'room-subject-counts') {
+			// Group by room_name to mirror Angular's groupedSubjectAllocations shape.
+			const grouped = roomSubjectAllocations.reduce<Record<string, any[]>>((acc, curr) => {
+				const key = String(curr?.room_name ?? '—')
+				if (!acc[key]) acc[key] = []
+				acc[key].push(curr)
+				return acc
+			}, {})
+			const groups = Object.entries(grouped).map(([room_name, records]) => ({ room_name, records }))
 			return (
 				<PrintShell title="Seating Arrangement — Subject Counts">
-					<table className="w-full border-collapse text-[11px]">
-						<thead>
-							<tr>
-								<th className="border border-slate-400 px-2 py-1 text-left w-12">SI.No</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Room</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Exam Date</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Session</th>
-								<th className="border border-slate-400 px-2 py-1 text-right w-28">Student Count</th>
-							</tr>
-						</thead>
-						<tbody>
-							{filteredRows.map((r, i) => (
-								<tr key={`rsc-${i}`}>
-									<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.roomCode}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.examDate}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.session}</td>
-									<td className="border border-slate-400 px-2 py-1 text-right">{r.bookedSeats}</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-					<p className="mt-2 text-[10px] text-slate-600">
-						Per-subject breakdown requires loading student rows per room; this view shows the room booked count.
-					</p>
+					{groups.length === 0 ? (
+						<p className="text-[11px] text-center py-6">No room-subject allotment data for this exam date / session.</p>
+					) : (
+						groups.map(({ room_name, records }, gi) => (
+							<table key={`rsc-${room_name}-${gi}`} className="w-full border-collapse text-[11px] mb-4" style={{ border: '1px solid #000' }}>
+								<thead>
+									<tr>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>S.No.</th>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Room Number</th>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Subject</th>
+										<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>No. of Question Papers</th>
+									</tr>
+								</thead>
+								<tbody>
+									{records.map((alloc: any, i: number) => (
+										<tr key={`rsc-row-${room_name}-${i}`}>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{i + 1}</td>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{alloc.room_name ?? '—'}</td>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>
+												{(alloc.subject_name ?? '—')}({alloc.subject_code ?? '—'})
+											</td>
+											<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{alloc.cnt ?? 0}</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						))
+					)}
 				</PrintShell>
 			)
 		}
@@ -1361,17 +1374,31 @@ export default function SeatingPlanSetupPage() {
 									size="sm"
 									className="h-8 gap-1.5 rounded-md border-border bg-card px-2.5 text-[11px] font-medium text-slate-700 shadow-sm hover:border-input hover:bg-card hover:text-slate-900"
 									onClick={async () => {
-										if (mode === 'room-wise-seating' && selectedCourseId && selectedExamId) {
-											setLoadingPrintData(true)
+										if (selectedCourseId && selectedExamId) {
 											const session = sessionOptions.find((s) => s.id === selectedExamTimetableId)
-											const data = await getRoomwiseAllotmentSummary({
-												courseId: selectedCourseId,
-												examId: selectedExamId,
-												examDate: session?.examDate ?? filteredRows[0]?.examDate ?? '',
-												sessionId: session?.examSessionId ?? 0,
-											}).catch(() => [] as any[])
-											setRoomWiseAllocations(data)
-											setLoadingPrintData(false)
+											const examDate = session?.examDate ?? filteredRows[0]?.examDate ?? ''
+											const sessionId = session?.examSessionId ?? 0
+											if (mode === 'room-wise-seating') {
+												setLoadingPrintData(true)
+												const data = await getRoomwiseAllotmentSummary({
+													courseId: selectedCourseId,
+													examId: selectedExamId,
+													examDate,
+													sessionId,
+												}).catch(() => [] as any[])
+												setRoomWiseAllocations(data)
+												setLoadingPrintData(false)
+											} else if (mode === 'room-subject-counts') {
+												setLoadingPrintData(true)
+												const data = await getRoomwiseSubjectSummary({
+													courseId: selectedCourseId,
+													examId: selectedExamId,
+													examDate,
+													sessionId,
+												}).catch(() => [] as any[])
+												setRoomSubjectAllocations(data)
+												setLoadingPrintData(false)
+											}
 										}
 										triggerPrint(mode)
 									}}
