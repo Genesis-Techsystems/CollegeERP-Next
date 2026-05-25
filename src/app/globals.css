@@ -783,9 +783,9 @@ textarea:focus-visible,
 
   /* AppShell uses flex containers that, with sidebar+topbar hidden, can
      leave the content visually off-centre. Strip layout padding/margin on
-     html/body/main so the printed sheet uses the @page margin only.
-     overflow:visible + height:auto undo `<main className="overflow-y-auto">`
-     which otherwise traps print content into a single screen-sized box. */
+     html/body/main and reset Tailwind utility classes that trap print
+     content into a single screen-sized box (overflow-hidden, h-screen,
+     overflow-y-auto). */
   html, body, main {
     margin: 0 !important;
     padding: 0 !important;
@@ -793,15 +793,23 @@ textarea:focus-visible,
     height: auto !important;
     overflow: visible !important;
   }
-  /* Same fix for the AppShell intermediate flex container. */
+  .h-screen,
+  .overflow-hidden,
+  .overflow-y-auto,
+  .overflow-x-hidden,
   div.flex.h-screen,
   div.flex.min-w-0.flex-1.flex-col {
     overflow: visible !important;
     height: auto !important;
+    max-height: none !important;
   }
 
-  body {
+  /* Force white background everywhere — Tailwind bg-[hsl(var(--background))]
+     and friends were bleeding through and printing as a grey sheet when the
+     browser was set to use default margins. */
+  html, body, main, .bg-card, .bg-background, .bg-muted, .bg-muted\/40 {
     background: #fff !important;
+    background-color: #fff !important;
     color: #000 !important;
   }
 

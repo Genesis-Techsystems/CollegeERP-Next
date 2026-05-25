@@ -1207,6 +1207,7 @@ export default function SeatingPlanSetupPage() {
 							boxSizing: 'border-box',
 							padding: '27px 0 9px 0',
 							textAlign: 'center',
+							float: 'left',
 							pageBreakInside: 'avoid',
 							breakInside: 'avoid',
 						}}
@@ -1271,7 +1272,7 @@ export default function SeatingPlanSetupPage() {
 								return (
 									<div key={`gst-${ri}-${gi}`} className={(ri + gi) > 0 ? 'page-break' : ''} style={{ marginBottom: '20px' }}>
 										<StickerHeader row={head} extraGroup={head?.group_code ?? groupKey} />
-										<div style={{ display: 'flex', flexWrap: 'wrap', margin: '0 4px' }}>
+										<div style={{ overflow: 'auto', margin: '0 4px' }}>
 											{students.map((stu: any, ci: number) => (
 												<StickerCell key={`gst-${ri}-${gi}-${ci}`} data={stu} />
 											))}
@@ -1284,7 +1285,7 @@ export default function SeatingPlanSetupPage() {
 						return (
 							<div key={`stk-${ri}`} className={ri > 0 ? 'page-break' : ''} style={{ marginBottom: '20px' }}>
 								<StickerHeader row={head} />
-								<div style={{ display: 'flex', flexWrap: 'wrap', margin: '0 4px' }}>
+								<div style={{ overflow: 'auto', margin: '0 4px' }}>
 									{roomStudents.map((stu: any, ci: number) => (
 										<StickerCell key={`stk-${ri}-${ci}`} data={stu} />
 									))}
