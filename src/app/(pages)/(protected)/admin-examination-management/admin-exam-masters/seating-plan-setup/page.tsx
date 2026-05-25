@@ -1196,12 +1196,24 @@ export default function SeatingPlanSetupPage() {
 					</PrintShell>
 				)
 			}
+			// Replace Angular's <table> sticker layout with div+flex so the header
+			// stays visible across pages and the grid paginates cleanly. Each
+			// sticker cell uses pageBreakInside:avoid to prevent split rendering.
 			function StickerCell({ data }: { data: any }) {
 				return (
-					<td style={{ border: 'none', verticalAlign: 'middle', padding: '8px 0', width: '25%', textAlign: 'center' }}>
-						<div style={{ fontSize: '12px', fontWeight: 'bold' }}>
-							{data.hallticket_number ?? '—'}
-							{data.omr_serial_no ? ` · ${data.omr_serial_no}` : ''}
+					<div
+						style={{
+							width: '25%',
+							boxSizing: 'border-box',
+							padding: '27px 0 9px 0',
+							textAlign: 'center',
+							pageBreakInside: 'avoid',
+							breakInside: 'avoid',
+						}}
+					>
+						<div style={{ display: 'flex', justifyContent: 'center', marginBottom: '-3px', fontSize: '12px' }}>
+							<span>{data.hallticket_number ?? ''}</span>
+							{data.omr_serial_no ? <>&nbsp;&nbsp;<span>{data.omr_serial_no}</span></> : null}
 						</div>
 						{data.omr_barcode ? (
 							<img
@@ -1209,28 +1221,38 @@ export default function SeatingPlanSetupPage() {
 								style={{ height: '30px', width: '180px' }}
 								alt=""
 							/>
-						) : (
-							<div style={{ fontSize: '9px', color: '#666' }}>(no barcode in response)</div>
-						)}
-						<div style={{ fontSize: '7px', marginTop: '1px' }}>
-							{data.exam_date ?? ''} &nbsp; {data.subject_code ?? ''}
+						) : null}
+						<div style={{ display: 'flex', justifyContent: 'center', fontSize: '7px', marginTop: '1px' }}>
+							{data.exam_date ?? ''} &nbsp;&nbsp; {data.subject_code ?? ''}
 						</div>
-					</td>
+					</div>
 				)
 			}
 			function StickerHeader({ row, extraGroup }: { row: any; extraGroup?: string | null }) {
 				return (
-					<thead>
-						<tr>
-							<td style={{ border: '1px solid #000', padding: '12px 0 6px 0', textAlign: 'center', fontSize: '10px', fontWeight: 'bold' }}>
-								<span style={{ fontSize: '12px', fontWeight: 'bold' }}>{row?.exam_name ?? examName}</span><br />
-								|{row?.university_code ?? '—'}|<br />
-								{row?.exam_date ?? ''} &nbsp; {row?.exam_session_name ?? row?.session_name ?? ''}<br />
-								Room: {row?.room_name ?? '—'}
-								{extraGroup ? <> | Group: {extraGroup}</> : null}
-							</td>
-						</tr>
-					</thead>
+					<div
+						style={{
+							border: '1px solid #000',
+							padding: '25px 0 9px 0',
+							textAlign: 'center',
+							fontSize: '10px',
+							fontWeight: 'bold',
+							marginBottom: '8px',
+							pageBreakAfter: 'avoid',
+							breakAfter: 'avoid',
+						}}
+					>
+						<div style={{ fontSize: '10px', fontWeight: 'bold' }}>{row?.exam_name ?? examName}</div>
+						<div>|{row?.university_code ?? '—'}|</div>
+						<div>
+							<span>{row?.exam_date ?? ''}</span> &nbsp;
+							<span>{row?.exam_session_name ?? row?.session_name ?? ''}</span>
+						</div>
+						<div>
+							<span>Room: {row?.room_name ?? '—'}</span>
+							{extraGroup ? <> | <span>Group: {extraGroup}</span></> : null}
+						</div>
+					</div>
 				)
 			}
 			return (
@@ -1247,38 +1269,26 @@ export default function SeatingPlanSetupPage() {
 							return Array.from(byGroup.entries()).map(([groupKey, students], gi) => {
 								const head = students[0]
 								return (
-									<div key={`gst-${ri}-${gi}`} className={(ri + gi) > 0 ? 'page-break' : ''}>
-										<table style={{ borderCollapse: 'collapse', width: '100%', marginBottom: '20px' }}>
-											<StickerHeader row={head} extraGroup={head?.group_code ?? groupKey} />
-											<tbody>
-												{Array.from({ length: Math.ceil(students.length / 4) }).map((_, r) => (
-													<tr key={`gst-${ri}-${gi}-r${r}`}>
-														{students.slice(r * 4, r * 4 + 4).map((stu: any, ci: number) => (
-															<StickerCell key={`gst-${ri}-${gi}-${r}-${ci}`} data={stu} />
-														))}
-													</tr>
-												))}
-											</tbody>
-										</table>
+									<div key={`gst-${ri}-${gi}`} className={(ri + gi) > 0 ? 'page-break' : ''} style={{ marginBottom: '20px' }}>
+										<StickerHeader row={head} extraGroup={head?.group_code ?? groupKey} />
+										<div style={{ display: 'flex', flexWrap: 'wrap', margin: '0 4px' }}>
+											{students.map((stu: any, ci: number) => (
+												<StickerCell key={`gst-${ri}-${gi}-${ci}`} data={stu} />
+											))}
+										</div>
 									</div>
 								)
 							})
 						}
 						const head = roomStudents[0]
 						return (
-							<div key={`stk-${ri}`} className={ri > 0 ? 'page-break' : ''}>
-								<table style={{ borderCollapse: 'collapse', width: '100%', marginBottom: '20px' }}>
-									<StickerHeader row={head} />
-									<tbody>
-										{Array.from({ length: Math.ceil(roomStudents.length / 4) }).map((_, r) => (
-											<tr key={`stk-${ri}-r${r}`}>
-												{roomStudents.slice(r * 4, r * 4 + 4).map((stu: any, ci: number) => (
-													<StickerCell key={`stk-${ri}-${r}-${ci}`} data={stu} />
-												))}
-											</tr>
-										))}
-									</tbody>
-								</table>
+							<div key={`stk-${ri}`} className={ri > 0 ? 'page-break' : ''} style={{ marginBottom: '20px' }}>
+								<StickerHeader row={head} />
+								<div style={{ display: 'flex', flexWrap: 'wrap', margin: '0 4px' }}>
+									{roomStudents.map((stu: any, ci: number) => (
+										<StickerCell key={`stk-${ri}-${ci}`} data={stu} />
+									))}
+								</div>
 							</div>
 						)
 					})}

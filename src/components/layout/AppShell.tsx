@@ -83,7 +83,11 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
       )}
 
       {/* -- Sidebar --------------------------------------------------------- */}
+      {/* data-print-hide on the wrapper too — hiding <aside> alone leaves a
+          260px / 56px gutter on the printed sheet because this wrapper div
+          carries the width. */}
       <div
+        data-print-hide
         className={cn(
           'relative z-30 shrink-0 overflow-hidden transition-all duration-200 ease-in-out',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
@@ -97,7 +101,7 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
 
       {/* -- Main content area ---------------------------------------------- */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="sticky top-0 z-20">
+        <div data-print-hide className="sticky top-0 z-20">
           <Topbar />
         </div>
 
@@ -107,7 +111,7 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
         >
           {/* Page container without outer card; sections control their own surfaces */}
           <div className="mx-auto w-full max-w-none px-0 py-0">
-            <div className="px-6 pt-3 pb-1">
+            <div data-print-hide className="px-6 pt-3 pb-1">
               <Breadcrumb
                 items={breadcrumbs}
                 maxItems={4}

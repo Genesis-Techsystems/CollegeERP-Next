@@ -783,11 +783,21 @@ textarea:focus-visible,
 
   /* AppShell uses flex containers that, with sidebar+topbar hidden, can
      leave the content visually off-centre. Strip layout padding/margin on
-     html/body/main so the printed sheet uses the @page margin only. */
+     html/body/main so the printed sheet uses the @page margin only.
+     overflow:visible + height:auto undo `<main className="overflow-y-auto">`
+     which otherwise traps print content into a single screen-sized box. */
   html, body, main {
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  /* Same fix for the AppShell intermediate flex container. */
+  div.flex.h-screen,
+  div.flex.min-w-0.flex-1.flex-col {
+    overflow: visible !important;
+    height: auto !important;
   }
 
   body {
