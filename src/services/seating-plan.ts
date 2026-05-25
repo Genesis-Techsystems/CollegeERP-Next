@@ -216,6 +216,64 @@ export async function getRoomwiseAllotmentSummary(params: {
 }
 
 /**
+ * Group-wise allotment summary for the "Group Wise Seating" print. Mirrors
+ * Angular `getProcs()` second request (flag = 'groupwise_allotment_summary')
+ * on `s_get_exam_allotment_details`. Returns flat rows keyed by subject_name
+ * with at least: room_name, group_code, subject_name, subject_code,
+ * min(tssd.hallticket_number), max(tssd.hallticket_number), cnt. Caller
+ * nests these into `groupedSubjects` ({ subject_name, branches:
+ * [{ sno, branch, allocations: [...] }] }).
+ */
+export async function getGroupwiseAllotmentSummary(params: {
+	courseId: number
+	examId: number
+	examDate: string
+	sessionId?: number
+}): Promise<any[]> {
+	const search = new URLSearchParams({
+		in_flag: 'groupwise_allotment_summary',
+		in_college_id: '0',
+		in_course_id: String(params.courseId),
+		in_course_group_id: '0',
+		in_course_year_id: '0',
+		in_exam_id: String(params.examId),
+		in_invgilator_emp_id: '0',
+		in_regulation_id: '0',
+		in_subject_id: '0',
+		in_session_id: String(params.sessionId ?? 0),
+		in_std_id: '0',
+		in_room_id: '0',
+		from_exam_date: params.examDate || '',
+		to_exam_date: params.examDate || '',
+	})
+	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_get_exam_allotment_details?${search.toString()}`))
+	const body = await res.json().catch(() => null)
+	return flattenResult(body)
+}
+
+/**
+ * ExamInvigilationAllotment rows for a given exam timetable id. Matches the
+ * Angular call to /cms/domain/list/ExamInvigilationAllotment used by the
+ * "Print Invigilators" page. Returns the rows the print template binds to
+ * (roomName, invigilatorEmpName, examDate, sessionStartTime, sessionEndTime).
+ */
+export async function listExamInvigilationAllotmentsByTimetable(examTimetableId: number): Promise<any[]> {
+	if (!examTimetableId) return []
+	const search = new URLSearchParams({
+		size: '99999',
+		query: `ExamTimetable.examTimetableId==${examTimetableId}.and.isActive==true`,
+	})
+	const res = await fetch(NEXT_API.PROXY(`/domain/list/ExamInvigilationAllotment?${search.toString()}`))
+	const body = await res.json().catch(() => null)
+	const raw = body?.data?.resultList ?? body?.resultList ?? body?.data ?? body ?? []
+	if (Array.isArray(raw)) return raw
+	if (raw && typeof raw === 'object' && Array.isArray((raw as { content?: unknown }).content)) {
+		return (raw as { content: any[] }).content
+	}
+	return []
+}
+
+/**
  * Room-wise subject summary for the "Room Subject Counts" print. Mirrors the
  * Angular `getProcs()` third request (flag = 'roomwise_subject_summary') on
  * `s_get_exam_allotment_details`. Returns flat rows with at least:

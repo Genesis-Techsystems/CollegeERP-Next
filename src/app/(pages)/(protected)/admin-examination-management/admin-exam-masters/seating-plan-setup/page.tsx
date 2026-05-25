@@ -18,9 +18,11 @@ import { PageContainer, PageHeader } from '@/components/layout'
 import { distinct } from '@/lib/utils'
 import { listCourseYears, getExamTimetableDetails } from '@/services/examination'
 import {
+	getGroupwiseAllotmentSummary,
 	getRoomwiseAllotmentSummary,
 	getRoomwiseSubjectSummary,
 	listExamInvigilationAllotments,
+	listExamInvigilationAllotmentsByTimetable,
 	listExamRoomAllotments as listExamRoomAllotmentsDomain,
 	listRoomwiseOmrStudents,
 	listUnivExamFiltersByCode,
@@ -305,6 +307,8 @@ export default function SeatingPlanSetupPage() {
 	// procs are wired in.
 	const [roomWiseAllocations, setRoomWiseAllocations] = useState<any[]>([])
 	const [roomSubjectAllocations, setRoomSubjectAllocations] = useState<any[]>([])
+	const [groupwiseAllocations, setGroupwiseAllocations] = useState<any[]>([])
+	const [invigilatorRows, setInvigilatorRows] = useState<any[]>([])
 	const [loadingPrintData, setLoadingPrintData] = useState(false)
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [baseRows, setBaseRows] = useState<any[]>([])
@@ -885,6 +889,16 @@ export default function SeatingPlanSetupPage() {
 					style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px' }}
 				>
 					<div className="text-center mb-3">
+						{/* Logo: drop your banner image at /public/college-banner.png (or set
+						    /public/MECS_BANNER.png / MVSR_BANNER.png to mirror Angular). The
+						    onError hides the <img> if the file doesn't exist so the print
+						    sheet still renders without it. */}
+						<img
+							src="/college-banner.png"
+							alt=""
+							style={{ maxHeight: 80, margin: '0 auto 8px', display: 'block' }}
+							onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+						/>
 						<p style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '0.5px', margin: 0, textTransform: 'uppercase' }}>{title}</p>
 						<p style={{ fontSize: '14px', margin: '6px 0 0 0' }}>{examName}</p>
 						{headerSubtitle && <p style={{ fontSize: '12px', margin: '2px 0 0 0' }}>{headerSubtitle}</p>}
@@ -999,35 +1013,72 @@ export default function SeatingPlanSetupPage() {
 		}
 
 		if (printMode === 'group-wise-seating') {
+			// Mirror Angular groupedSubjects: subject_name → branches → allocations.
+			// Step 1: bucket by subject_name. Step 2: within each, bucket by group_code.
+			const bySubject = new Map<string, any[]>()
+			for (const r of groupwiseAllocations) {
+				const key = String(r?.subject_name ?? '—')
+				if (!bySubject.has(key)) bySubject.set(key, [])
+				bySubject.get(key)!.push(r)
+			}
+			let sno = 1
+			const groupedSubjects = Array.from(bySubject.entries()).map(([subject_name, rows]) => {
+				const byBranch = new Map<string, any[]>()
+				for (const r of rows) {
+					const key = String(r?.group_code ?? '—')
+					if (!byBranch.has(key)) byBranch.set(key, [])
+					byBranch.get(key)!.push(r)
+				}
+				const branches = Array.from(byBranch.entries()).map(([branch, allocations]) => ({
+					sno: sno++,
+					branch,
+					allocations,
+				}))
+				return { subject_name, branches }
+			})
 			return (
 				<PrintShell title="Seating Arrangement — Group Wise">
-					{Object.entries(dateSessionGroups).map(([key, rows], gi) => (
-						<div key={`gws-${key}`} className={gi > 0 ? 'page-break pt-2' : ''}>
-							<div className="my-2 text-[12px] font-semibold">{key}</div>
-							<table className="w-full border-collapse text-[11px]">
-								<thead>
-									<tr>
-										<th className="border border-slate-400 px-2 py-1 text-left w-12">SI.No</th>
-										<th className="border border-slate-400 px-2 py-1 text-left">Room</th>
-										<th className="border border-slate-400 px-2 py-1 text-right w-20">Booked</th>
-										<th className="border border-slate-400 px-2 py-1 text-right w-20">Blocked</th>
-										<th className="border border-slate-400 px-2 py-1 text-right w-20">Available</th>
-									</tr>
-								</thead>
-								<tbody>
-									{rows.map((r, i) => (
-										<tr key={`gws-${key}-${i}`}>
-											<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
-											<td className="border border-slate-400 px-2 py-1">{r.roomCode}</td>
-											<td className="border border-slate-400 px-2 py-1 text-right">{r.bookedSeats}</td>
-											<td className="border border-slate-400 px-2 py-1 text-right">{r.blockedSeats}</td>
-											<td className="border border-slate-400 px-2 py-1 text-right">{r.availableSeats}</td>
+					{groupedSubjects.length === 0 ? (
+						<p className="text-[11px] text-center py-6">No group-wise allotment data for this exam date / session.</p>
+					) : (
+						groupedSubjects.map((subject) => (
+							<div key={`gws-${subject.subject_name}`} style={{ marginBottom: '24px' }}>
+								<h3 style={{ marginTop: '24px', fontSize: '14px' }}>Subject: {subject.subject_name}</h3>
+								<table className="w-full border-collapse text-[11px]" style={{ border: '1px solid #000' }}>
+									<thead>
+										<tr>
+											<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>S.No.</th>
+											<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Branch</th>
+											<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>H.T. Numbers</th>
+											<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Room Number</th>
+											<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>No. of Students</th>
 										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
-					))}
+									</thead>
+									<tbody>
+										{subject.branches.flatMap((group) =>
+											group.allocations.map((alloc: any, i: number) => (
+												<tr key={`gws-${subject.subject_name}-${group.branch}-${i}`}>
+													{i === 0 && (
+														<td style={{ border: '1px solid #000', padding: '4px 6px' }} rowSpan={group.allocations.length}>{group.sno}</td>
+													)}
+													{i === 0 && (
+														<td style={{ border: '1px solid #000', padding: '4px 6px' }} rowSpan={group.allocations.length}>{group.branch}</td>
+													)}
+													<td style={{ border: '1px solid #000', padding: '4px 6px' }}>
+														<strong>
+															{alloc['min(tssd.hallticket_number)'] ?? '—'} to {alloc['max(tssd.hallticket_number)'] ?? '—'}
+														</strong>
+													</td>
+													<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{alloc.room_name ?? '—'}</td>
+													<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{alloc.cnt ?? 0}</td>
+												</tr>
+											))
+										)}
+									</tbody>
+								</table>
+							</div>
+						))
+					)}
 				</PrintShell>
 			)
 		}
@@ -1126,35 +1177,34 @@ export default function SeatingPlanSetupPage() {
 		if (printMode === 'invigilator') {
 			return (
 				<PrintShell title="Invigilators">
-					<p className="text-[11px] text-slate-700 mb-2">
-						Invigilator details aren't loaded on this index. The list below shows
-						rooms only — per-room invigilator assignments need the
-						<code>listExamInvigilationAllotments</code> data plumbed in.
-					</p>
-					<table className="w-full border-collapse text-[11px]">
-						<thead>
-							<tr>
-								<th className="border border-slate-400 px-2 py-1 text-left w-12">SI.No</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Room</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Exam Date</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Session</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Invigilator</th>
-								<th className="border border-slate-400 px-2 py-1 text-left">Signature</th>
-							</tr>
-						</thead>
-						<tbody>
-							{filteredRows.map((r, i) => (
-								<tr key={`inv-${i}`}>
-									<td className="border border-slate-400 px-2 py-1">{i + 1}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.roomCode}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.examDate}</td>
-									<td className="border border-slate-400 px-2 py-1">{r.session}</td>
-									<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
-									<td className="border border-slate-400 px-2 py-1">&nbsp;</td>
+					{invigilatorRows.length === 0 ? (
+						<p className="text-[11px] text-center py-6">No invigilator allotments for this exam timetable.</p>
+					) : (
+						<table className="w-full border-collapse text-[11px]" style={{ border: '1px solid #000' }}>
+							<thead>
+								<tr>
+									<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>S.NO</th>
+									<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Room</th>
+									<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Invigilator</th>
+									<th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>Signature</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
+							</thead>
+							<tbody>
+								{invigilatorRows.map((row: any, i: number) => (
+									<tr key={`inv-${i}`}>
+										<td style={{ border: '1px solid #000', padding: '4px 6px' }}>{i + 1}</td>
+										<td style={{ border: '1px solid #000', padding: '4px 6px' }}>
+											{row.roomName ?? row.room_name ?? row.examRoomCode ?? '—'}
+										</td>
+										<td style={{ border: '1px solid #000', padding: '4px 6px' }}>
+											{row.invigilatorEmpName ?? row.invigilator_emp_name ?? row.employeeName ?? '—'}
+										</td>
+										<td style={{ border: '1px solid #000', padding: '4px 6px' }}>&nbsp;</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					)}
 				</PrintShell>
 			)
 		}
@@ -1378,25 +1428,26 @@ export default function SeatingPlanSetupPage() {
 											const session = sessionOptions.find((s) => s.id === selectedExamTimetableId)
 											const examDate = session?.examDate ?? filteredRows[0]?.examDate ?? ''
 											const sessionId = session?.examSessionId ?? 0
+											const params = { courseId: selectedCourseId, examId: selectedExamId, examDate, sessionId }
 											if (mode === 'room-wise-seating') {
 												setLoadingPrintData(true)
-												const data = await getRoomwiseAllotmentSummary({
-													courseId: selectedCourseId,
-													examId: selectedExamId,
-													examDate,
-													sessionId,
-												}).catch(() => [] as any[])
+												const data = await getRoomwiseAllotmentSummary(params).catch(() => [] as any[])
 												setRoomWiseAllocations(data)
 												setLoadingPrintData(false)
 											} else if (mode === 'room-subject-counts') {
 												setLoadingPrintData(true)
-												const data = await getRoomwiseSubjectSummary({
-													courseId: selectedCourseId,
-													examId: selectedExamId,
-													examDate,
-													sessionId,
-												}).catch(() => [] as any[])
+												const data = await getRoomwiseSubjectSummary(params).catch(() => [] as any[])
 												setRoomSubjectAllocations(data)
+												setLoadingPrintData(false)
+											} else if (mode === 'group-wise-seating') {
+												setLoadingPrintData(true)
+												const data = await getGroupwiseAllotmentSummary(params).catch(() => [] as any[])
+												setGroupwiseAllocations(data)
+												setLoadingPrintData(false)
+											} else if (mode === 'invigilator' && selectedExamTimetableId) {
+												setLoadingPrintData(true)
+												const data = await listExamInvigilationAllotmentsByTimetable(selectedExamTimetableId).catch(() => [] as any[])
+												setInvigilatorRows(data)
 												setLoadingPrintData(false)
 											}
 										}
