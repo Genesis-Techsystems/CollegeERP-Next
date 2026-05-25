@@ -773,24 +773,6 @@ textarea:focus-visible,
 }
 
 @media print {
-  /* Override the design-token surfaces themselves so any element using
-     bg-[hsl(var(--background))] / --card / --muted / --secondary renders
-     as white without needing to chase every Tailwind arbitrary-value
-     class through attribute selectors. */
-  :root,
-  html,
-  body {
-    --background: 0 0% 100% !important;
-    --card: 0 0% 100% !important;
-    --muted: 0 0% 100% !important;
-    --muted-foreground: 0 0% 20% !important;
-    --secondary: 0 0% 100% !important;
-    --popover: 0 0% 100% !important;
-    --accent: 0 0% 100% !important;
-    --sidebar-background: 0 0% 100% !important;
-    --sidebar-surface: 0 0% 100% !important;
-  }
-
   [data-print-hide],
   .print-hide,
   aside,
@@ -823,41 +805,15 @@ textarea:focus-visible,
   }
 
   /* Force white background everywhere — Tailwind bg-[hsl(var(--background))]
-     compiles to an arbitrary-value class (.bg-\[hsl\(...\)\]) that the plain
-     .bg-background / .bg-muted selectors miss. Use attribute selectors to
-     catch every bg-[hsl(...)] variant plus the design-token utilities, and
-     flip print-color-adjust to economy on the body so the page itself never
-     prints its background colour even when the user picks "default" margins.
-  */
-  html, body, main {
+     and friends were bleeding through and printing as a grey sheet when the
+     browser was set to use default margins. */
+  html, body, main, .bg-card, .bg-background, .bg-muted, .bg-muted\/40 {
     background: #fff !important;
     background-color: #fff !important;
     color: #000 !important;
-    -webkit-print-color-adjust: economy !important;
-    print-color-adjust: economy !important;
-  }
-  .bg-card,
-  .bg-background,
-  .bg-muted,
-  .bg-muted\/40,
-  [class*="bg-[hsl"],
-  [class*="bg-\\[hsl"] {
-    background: #fff !important;
-    background-color: #fff !important;
-  }
-  /* AppShell's flex containers also carry the design-token bg via Tailwind;
-     scrub them too. */
-  div.flex.h-screen,
-  div.flex.min-w-0.flex-1.flex-col {
-    background: #fff !important;
-    background-color: #fff !important;
   }
 
-  /* Render background colours / borders / images during print. The grey
-     page bg is already neutralised because we override the design-token
-     CSS variables (--background, --card, --muted) to white at the top of
-     @media print -- so `exact` mode now prints those surfaces as white
-     rather than the on-screen pale blue-grey. */
+  /* Render background colours / images during print. */
   * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
