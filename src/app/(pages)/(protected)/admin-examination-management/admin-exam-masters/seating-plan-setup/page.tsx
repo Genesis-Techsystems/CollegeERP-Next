@@ -864,18 +864,35 @@ export default function SeatingPlanSetupPage() {
 		const ayLabel = String(selectedAy?.academic_year ?? selectedAy?.academicYear ?? '').trim()
 		const headerSubtitle = [courseLabel, ayLabel].filter(Boolean).join(' / ')
 
+		const firstRow = filteredRows[0]
+		const firstDate = firstRow?.examDate ?? ''
+		const firstSession = firstRow?.session ?? ''
+		const totalStudents = filteredRows.reduce((sum, r) => sum + (r.bookedSeats || 0), 0)
+
 		function PrintShell({ title, children }: { title: string; children: React.ReactNode }) {
 			return (
-				<div className="p-4 text-black">
-					<div className="mb-3 text-center">
-						<div className="text-[16px] font-bold">{examName}</div>
-						<div className="text-[12px]">{headerSubtitle || ' '}</div>
-						<div className="text-[13px] font-semibold mt-1">{title}</div>
+				<div
+					className="text-black"
+					style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px' }}
+				>
+					<div className="text-center mb-3">
+						<p style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '0.5px', margin: 0, textTransform: 'uppercase' }}>{title}</p>
+						<p style={{ fontSize: '14px', margin: '6px 0 0 0' }}>{examName}</p>
+						{headerSubtitle && <p style={{ fontSize: '12px', margin: '2px 0 0 0' }}>{headerSubtitle}</p>}
+					</div>
+					<div className="flex justify-between text-[12px] mb-3 px-1">
+						<span>Date : <b>{firstDate || '—'}</b></span>
+						<span>Session : <b>{firstSession || '—'}</b></span>
 					</div>
 					{children}
+					<div className="flex justify-between mt-10 text-[12px] px-1">
+						<div>Total No. of Students : <b>{totalStudents}</b></div>
+						<div>Controller of Examinations</div>
+					</div>
 				</div>
 			)
 		}
+
 
 		const dateSessionGroups = filteredRows.reduce<Record<string, AllocationRow[]>>((acc, r) => {
 			const key = `${r.examDate} / ${r.session}`
@@ -886,7 +903,7 @@ export default function SeatingPlanSetupPage() {
 
 		if (printMode === 'room-wise-seating') {
 			return (
-				<PrintShell title="Room Wise Seating">
+				<PrintShell title="Seating Arrangement">
 					<table className="w-full border-collapse text-[11px]">
 						<thead>
 							<tr>
@@ -925,7 +942,7 @@ export default function SeatingPlanSetupPage() {
 
 		if (printMode === 'room-subject-counts') {
 			return (
-				<PrintShell title="Room Subject Counts">
+				<PrintShell title="Seating Arrangement — Subject Counts">
 					<table className="w-full border-collapse text-[11px]">
 						<thead>
 							<tr>
@@ -957,7 +974,7 @@ export default function SeatingPlanSetupPage() {
 
 		if (printMode === 'group-wise-seating') {
 			return (
-				<PrintShell title="Group Wise Seating">
+				<PrintShell title="Seating Arrangement — Group Wise">
 					{Object.entries(dateSessionGroups).map(([key, rows], gi) => (
 						<div key={`gws-${key}`} className={gi > 0 ? 'page-break pt-2' : ''}>
 							<div className="my-2 text-[12px] font-semibold">{key}</div>
@@ -991,7 +1008,7 @@ export default function SeatingPlanSetupPage() {
 
 		if (printMode === 'attendance') {
 			return (
-				<PrintShell title="Attendance Sheet (Rooms)">
+				<PrintShell title="Attendance Sheet">
 					{filteredRows.map((r, ri) => (
 						<div key={`att-${ri}`} className={ri > 0 ? 'page-break pt-2' : 'pt-1'}>
 							<div className="my-1 text-[12px]">
@@ -1060,7 +1077,7 @@ export default function SeatingPlanSetupPage() {
 
 		if (printMode === 'groupwise-stickers') {
 			return (
-				<PrintShell title="Group-Wise Stickers (Rooms)">
+				<PrintShell title="Group-Wise Stickers">
 					{Object.entries(dateSessionGroups).map(([key, rows], gi) => (
 						<div key={`gst-${key}`} className={gi > 0 ? 'page-break pt-2' : ''}>
 							<div className="my-2 text-[12px] font-semibold text-center">{key}</div>
@@ -1082,7 +1099,7 @@ export default function SeatingPlanSetupPage() {
 
 		if (printMode === 'invigilator') {
 			return (
-				<PrintShell title="Invigilator Allotment">
+				<PrintShell title="Invigilators">
 					<p className="text-[11px] text-slate-700 mb-2">
 						Invigilator details aren't loaded on this index. The list below shows
 						rooms only — per-room invigilator assignments need the
