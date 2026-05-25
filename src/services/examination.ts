@@ -458,6 +458,8 @@ export async function getUnivExamSubjectFilters(params: {
   academicYearId: number
   courseYearId: number
   employeeId?: number
+  /** Optional regulation filter; defaults to 0 (no filter) when omitted. */
+  regulationId?: number
 }): Promise<any[]> {
   const data = await getAllRecords<{ result?: any[][] }>('s_get_univ_exam_details', {
     in_flag: 'clg_exam_subject_filters',
@@ -469,7 +471,7 @@ export async function getUnivExamSubjectFilters(params: {
     in_course_year_id: params.courseYearId,
     in_academic_year_id: params.academicYearId,
     in_exam_id: params.examId,
-    in_regulation_id: 0,
+    in_regulation_id: params.regulationId ?? 0,
     in_subject_id: 0,
     in_sub_flag_type: '',
     in_loginuser_empid: params.employeeId ?? 0,

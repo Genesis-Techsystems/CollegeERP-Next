@@ -24,6 +24,7 @@ import {
 	listExamFeeTypeGeneralDetails,
 	getExamTimetableDetails,
 } from '@/services/examination'
+import { getRegulations } from '@/services/exam-master'
 import { useSessionContext } from '@/context/SessionContext'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
@@ -85,12 +86,19 @@ export default function CreateExamTimetablePage() {
 	const [selectedCourseYearIds, setSelectedCourseYearIds] = useState<Set<number>>(new Set())
 	const [selectedCourseYearId, setSelectedCourseYearId] = useState<number | null>(null)
 
-	// Subjects
-	const [subjects, setSubjects] = useState<{ id: number; code: string; name?: string }[]>([])
-	/** EXMFEETYP general-detail code (shown as "Exam fee type"). */
-	const [selectedRegulation, setSelectedRegulation] = useState<string | null>(null)
-	const [examFeeTypes, setExamFeeTypes] = useState<{ id: number; code: string; name: string }[]>([])
+	// Subjects (now also carry the Regular/Supple/Internal exam-type flags so
+	// the save flow can derive examTypeCatId per detail row.)
+	const [subjects, setSubjects] = useState<
+		{ id: number; code: string; name?: string; isRegular?: boolean; isSupple?: boolean; isInternal?: boolean }[]
+	>([])
 	const [selectedSubjectCode, setSelectedSubjectCode] = useState<string | null>(null)
+
+	// Real Regulation dropdown — the previous "Exam fee type" Select was a
+	// workaround. examFeeTypes is still loaded so the save flow can resolve
+	// examTypeCatId from each subject's exam-type flag at save time.
+	const [regulations, setRegulations] = useState<{ id: number; code: string; name: string }[]>([])
+	const [selectedRegulationId, setSelectedRegulationId] = useState<number | null>(null)
+	const [examFeeTypes, setExamFeeTypes] = useState<{ id: number; code: string; name: string }[]>([])
 
 	// Exam sessions (replaces hardcoded M/A select)
 	const [examSessions, setExamSessions] = useState<
@@ -161,6 +169,28 @@ export default function CreateExamTimetablePage() {
 		const raw = ex?.toDate ?? paramToDate ?? ''
 		return raw ? raw.slice(0, 10) : ''
 	}, [examMasters, selectedExamId, paramToDate])
+
+	// Load regulations for the selected course (filters the subject list).
+	useEffect(() => {
+		setRegulations([])
+		setSelectedRegulationId(null)
+		if (!selectedCourseId) return
+		let cancelled = false
+		async function loadRegs() {
+			const rows = await getRegulations(selectedCourseId as number).catch(() => [] as any[])
+			if (cancelled) return
+			const mapped = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+				id: Number(r.regulationId ?? r.id ?? 0),
+				code: String(r.regulationCode ?? r.regulationShortName ?? '').trim(),
+				name: String(r.regulationName ?? r.regulation_name ?? r.regulationCode ?? '').trim(),
+			})).filter((r) => r.id > 0)
+			setRegulations(mapped)
+		}
+		void loadRegs()
+		return () => {
+			cancelled = true
+		}
+	}, [selectedCourseId])
 
 	// Timetable slots
 	const [slotDraft, setSlotDraft] = useState<Slot>({ date: '', startTime: '', endTime: '' })
@@ -375,7 +405,8 @@ export default function CreateExamTimetablePage() {
 		}
 	}, [paramCourseYearId, courseYears])
 
-	// Load subjects when ids ready (uses legacy endpoints with fallback)
+	// Load subjects when ids ready (uses legacy endpoints with fallback).
+	// Includes the selected regulationId so the proc filters server-side.
 	useEffect(() => {
 		async function loadSubjects() {
 			setSubjects([])
@@ -389,6 +420,7 @@ export default function CreateExamTimetablePage() {
 				academicYearId: selectedAcademicYearId,
 				courseYearId: selectedCourseYearId,
 				employeeId: empId,
+				regulationId: selectedRegulationId ?? 0,
 			}).catch(() => [])
 			if (!rows || (Array.isArray(rows) && rows.length === 0)) {
 				rows = await getExamSubjectsForSchedule({
@@ -407,11 +439,14 @@ export default function CreateExamTimetablePage() {
 				const name = String(
 					r.subject_name ?? r.subjectName ?? r.sub_name ?? r.paperName ?? r.name ?? ''
 				).trim()
-				return { id, code, name }
+				const isInternal = Boolean(r.is_internal_exam ?? r.isInternalExam)
+				const isRegular = Boolean(r.is_regular_exam ?? r.isRegularExam)
+				const isSupple = Boolean(r.is_supply_exam ?? r.isSupplyExam ?? r.is_supple_exam)
+				return { id, code, name, isInternal, isRegular, isSupple }
 			}).filter((x) => x.code)
 			// Deduplicate by code
 			const seen = new Set<string>()
-			const uniq: { id: number; code: string; name?: string }[] = []
+			const uniq: typeof mapped = []
 			for (const s of mapped) {
 				if (!seen.has(s.code)) {
 					seen.add(s.code)
@@ -421,7 +456,14 @@ export default function CreateExamTimetablePage() {
 			setSubjects(uniq)
 		}
 		loadSubjects()
-	}, [selectedCourseId, selectedAcademicYearId, selectedExamId, selectedCourseYearId, user?.employeeId])
+	}, [
+		selectedCourseId,
+		selectedAcademicYearId,
+		selectedExamId,
+		selectedCourseYearId,
+		selectedRegulationId,
+		user?.employeeId,
+	])
 
 	function toggleCourseYear(id: number) {
 		setSelectedCourseYearIds((s) => {
@@ -463,10 +505,22 @@ export default function CreateExamTimetablePage() {
 
 	async function saveTimetable() {
 		if (stagedRows.length === 0 || !selectedCourseId || !selectedExamId || !selectedCourseYearId) return
-		const examTypeCatId = examFeeTypes.find((t) => t.code === selectedRegulation)?.id ?? 0
-		if (!examTypeCatId) {
-			toastError('Pick an Exam fee type before saving.')
+		if (selectedRegulationId == null) {
+			toastError('Pick a Regulation before saving.')
 			return
+		}
+
+		// Resolve EXMFEETYP general-detail ids for the three exam-type flags.
+		const internalId = examFeeTypes.find((t) => t.code === 'Internal')?.id
+		const regularId = examFeeTypes.find((t) => t.code === 'Regular')?.id
+		const suppleId = examFeeTypes.find((t) => t.code === 'Supple')?.id
+		function deriveExamTypeCatId(s?: { isInternal?: boolean; isRegular?: boolean; isSupple?: boolean }): number {
+			if (!s) return 0
+			if (s.isInternal && internalId) return internalId
+			if (s.isRegular && regularId) return regularId
+			if (s.isSupple && suppleId) return suppleId
+			// Fall back to Regular if subject carries no flag (matches typical default).
+			return regularId ?? 0
 		}
 
 		// Group rows by (examSessionId, examDate) to mirror the Angular payload
@@ -496,11 +550,11 @@ export default function CreateExamTimetablePage() {
 					return {
 						examLabBatchesId: null,
 						checked: false,
-						examTypeCatId,
+						examTypeCatId: deriveExamTypeCatId(subj),
 						examDate: r.examDate,
 						courseYearId: selectedCourseYearId,
 						courseGroupId: grp?.id,
-						regulationId: grp?.regulationId,
+						regulationId: selectedRegulationId,
 						subjectId: subj?.id,
 						isActive: true,
 					}
@@ -629,15 +683,23 @@ export default function CreateExamTimetablePage() {
 							</Select>
 						</div>
 						<div className="space-y-1 md:col-span-3">
-							<Label>Exam fee type *</Label>
-							<Select value={selectedRegulation ?? undefined} onValueChange={(v) => setSelectedRegulation(v)}>
+							<Label>Regulation *</Label>
+							<Select
+								value={selectedRegulationId != null ? String(selectedRegulationId) : undefined}
+								onValueChange={(v) => setSelectedRegulationId(Number(v))}
+								disabled={regulations.length === 0}
+							>
 								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder={examFeeTypes.length === 0 ? 'Loading…' : 'Select type'} />
+									<SelectValue placeholder={
+										regulations.length === 0
+											? (selectedCourseId ? 'No regulations for this course' : 'Loading…')
+											: 'Select Regulation'
+									} />
 								</SelectTrigger>
 								<SelectContent>
-									{examFeeTypes.map((t) => (
-										<SelectItem key={t.id || t.code} value={t.code}>
-											{t.code}{t.name ? ` — ${t.name}` : ''}
+									{regulations.map((r) => (
+										<SelectItem key={r.id} value={String(r.id)}>
+											{r.name || r.code}
 										</SelectItem>
 									))}
 								</SelectContent>
@@ -666,7 +728,7 @@ export default function CreateExamTimetablePage() {
 				</div>
 
 				{/* 3/2/7 Course Group + Selected + Table */}
-				{!!slotDraft.date && selectedExamSessionId != null && !!selectedRegulation && !!selectedSubjectCode && (
+				{!!slotDraft.date && selectedExamSessionId != null && selectedRegulationId != null && !!selectedSubjectCode && (
 				<div className="grid grid-cols-12 gap-3 items-start">
 					<div className="col-span-3 rounded-md border overflow-hidden">
 						<div className="px-3 py-2 bg-muted/40 border-b text-[12px] font-medium">Select Course Group</div>
