@@ -805,12 +805,34 @@ textarea:focus-visible,
   }
 
   /* Force white background everywhere — Tailwind bg-[hsl(var(--background))]
-     and friends were bleeding through and printing as a grey sheet when the
-     browser was set to use default margins. */
-  html, body, main, .bg-card, .bg-background, .bg-muted, .bg-muted\/40 {
+     compiles to an arbitrary-value class (.bg-\[hsl\(...\)\]) that the plain
+     .bg-background / .bg-muted selectors miss. Use attribute selectors to
+     catch every bg-[hsl(...)] variant plus the design-token utilities, and
+     flip print-color-adjust to economy on the body so the page itself never
+     prints its background colour even when the user picks "default" margins.
+  */
+  html, body, main {
     background: #fff !important;
     background-color: #fff !important;
     color: #000 !important;
+    -webkit-print-color-adjust: economy !important;
+    print-color-adjust: economy !important;
+  }
+  .bg-card,
+  .bg-background,
+  .bg-muted,
+  .bg-muted\/40,
+  [class*="bg-[hsl"],
+  [class*="bg-\\[hsl"] {
+    background: #fff !important;
+    background-color: #fff !important;
+  }
+  /* AppShell's flex containers also carry the design-token bg via Tailwind;
+     scrub them too. */
+  div.flex.h-screen,
+  div.flex.min-w-0.flex-1.flex-col {
+    background: #fff !important;
+    background-color: #fff !important;
   }
 
   /* Render background colours / images during print. */

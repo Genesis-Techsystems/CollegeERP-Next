@@ -35,7 +35,7 @@ import {
 } from '@/services/pre-examination'
 import { ChevronDown, Filter, Plus, Printer } from 'lucide-react'
 import { SearchInput } from '@/common/components/search'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toDateStr } from '@/common/generic-functions'
 import { usePrintMode } from '@/lib/print'
 
@@ -283,6 +283,7 @@ function statusRenderer(p: ICellRendererParams) {
 
 export default function SeatingPlanSetupPage() {
 	const router = useRouter()
+	const searchParams = useSearchParams()
 	const { user } = useSessionContext()
 	const employeeId = useMemo(() => {
 		const fromStorage = Number(globalThis.localStorage?.getItem('employeeId') ?? 0)
@@ -345,12 +346,42 @@ export default function SeatingPlanSetupPage() {
 			const distinctCourses = distinct(univRows ?? [], (r) => r.fk_course_id)
 			setCourses(distinctCourses)
 			if (distinctCourses.length > 0) {
-				await handleCourseChange(distinctCourses[0].fk_course_id, Array.isArray(univRows) ? univRows : [])
+				// If the URL carries ?courseId (e.g. from Back on seat-allot-students),
+				// pre-select that course instead of the auto-picked first one.
+				const urlCourseId = Number(searchParams?.get('courseId') ?? 0)
+				const targetCourse = (urlCourseId > 0 && distinctCourses.some((c: any) => Number(c.fk_course_id) === urlCourseId))
+					? urlCourseId
+					: distinctCourses[0].fk_course_id
+				await handleCourseChange(targetCourse, Array.isArray(univRows) ? univRows : [])
 			}
 		} finally {
 			setLoadingFilters(false)
 		}
 	}, [employeeId])
+
+	// After each list populates, restore the matching URL param (carried back
+	// from seat-allot-students) so the user lands with the same Course / AY /
+	// Exam / Exam Timetable selected.
+	useEffect(() => {
+		const id = Number(searchParams?.get('academicYearId') ?? 0)
+		if (id > 0 && academicYears.some((a: any) => Number(a.fk_academic_year_id ?? a.academicYearId ?? a.id) === id)) {
+			setSelectedAcademicYearId(id)
+		}
+	}, [academicYears, searchParams])
+
+	useEffect(() => {
+		const id = Number(searchParams?.get('examId') ?? 0)
+		if (id > 0 && examMasters.some((e: any) => Number(e.fk_exam_id ?? e.examId ?? e.id) === id)) {
+			setSelectedExamId(id)
+		}
+	}, [examMasters, searchParams])
+
+	useEffect(() => {
+		const id = Number(searchParams?.get('examTimetableId') ?? 0)
+		if (id > 0 && sessionOptions.some((s) => Number(s.id) === id)) {
+			setSelectedExamTimetableId(id)
+		}
+	}, [sessionOptions, searchParams])
 
 	useEffect(() => {
 		fetchFilters()

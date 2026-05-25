@@ -846,7 +846,29 @@ export default function SeatAllotStudentsPage() {
 					)}
 
 					<div className="flex flex-wrap items-center justify-center gap-3 pt-2 print-hide">
-						<Button type="button" variant="outline" className="h-8 px-6 text-[12px]" onClick={() => router.back()}>
+						<Button
+							type="button"
+							variant="outline"
+							className="h-8 px-6 text-[12px]"
+							onClick={() => {
+								// Carry the filter context back to the index so it can re-select
+								// the same Course / Academic Year / Exam Master / Exam Timetable
+								// and re-run Get List without the user re-picking everything.
+								const qp = new URLSearchParams()
+								if (details.collegeId) qp.set('collegeId', details.collegeId)
+								if (details.courseId) qp.set('courseId', details.courseId)
+								if (details.examId) qp.set('examId', details.examId)
+								if (details.examTimetableId) qp.set('examTimetableId', details.examTimetableId)
+								if (details.sessionId) qp.set('sessionId', details.sessionId)
+								if (details.examDate) qp.set('examDate', details.examDate)
+								const ay = searchParams?.get('academicYearId')
+								if (ay) qp.set('academicYearId', ay)
+								const q = qp.toString()
+								router.push(
+									`/admin-examination-management/admin-exam-masters/seating-plan-setup${q ? `?${q}` : ''}`,
+								)
+							}}
+						>
 							Back
 						</Button>
 						<Button type="button" className="h-8 px-6 text-[12px]" onClick={() => triggerPrint('seating')}>
