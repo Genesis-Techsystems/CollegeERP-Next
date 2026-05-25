@@ -505,11 +505,13 @@ export default function InternalExamAttendanceMarkingPage() {
 
             <aside className="lg:col-span-3 min-w-0">
               <div className="app-card overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/40">
-                  <h3 className="app-card-title">Absentees</h3>
-                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-cyan-100 px-2 text-[12px] font-semibold text-slate-900">
-                    {absentees.length}
-                  </span>
+                <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border bg-muted/40">
+                  <h3 className="app-card-title">
+                    Absentees :{' '}
+                    <span className="ml-1 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-cyan-100 px-2 text-[12px] font-semibold text-slate-900">
+                      {absentees.length}
+                    </span>
+                  </h3>
                 </div>
                 <div className="max-h-[480px] overflow-auto p-3 text-[12px]">
                   {absentees.length === 0 ? (
@@ -529,6 +531,15 @@ export default function InternalExamAttendanceMarkingPage() {
                       ))}
                     </ul>
                   )}
+                </div>
+                <div className="flex justify-end border-t border-border bg-muted/40 px-3 py-2">
+                  <Button
+                    className="h-[30px] text-[12px]"
+                    onClick={onSaveAttendance}
+                    disabled={saving || rows.length === 0}
+                  >
+                    {saving ? 'Saving...' : 'Save Attendance'}
+                  </Button>
                 </div>
               </div>
             </aside>
