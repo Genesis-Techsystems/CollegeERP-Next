@@ -109,6 +109,38 @@ export async function updateExamQuestionPaper(
   throw new Error('Unable to update exam question paper.')
 }
 
+/**
+ * Upload Question Paper and/or Model Answer Paper files for an
+ * exam question paper. Mirrors Angular UploadPapersComponent which
+ * builds a FormData with {questionPaperId, questionPaper, modelAnswerPaper}
+ * and POSTs to CONSTANTS.PaperPathUploadUrl ("examQuestionPaperPathUpload").
+ */
+export async function uploadQuestionPaperFiles(params: {
+  examQuestionPaperId: number
+  questionPaper?: File | null
+  modelAnswerPaper?: File | null
+}): Promise<{ message: string; data?: AnyRow }> {
+  const formData = new FormData()
+  formData.append('questionPaperId', String(params.examQuestionPaperId))
+  if (params.questionPaper) {
+    formData.append('questionPaper', params.questionPaper, params.questionPaper.name)
+  }
+  if (params.modelAnswerPaper) {
+    formData.append('modelAnswerPaper', params.modelAnswerPaper, params.modelAnswerPaper.name)
+  }
+  const res = await fetch(NEXT_API.PROXY('/examQuestionPaperPathUpload'), {
+    method: 'POST',
+    body: formData,
+  })
+  const body = (await res.json().catch(() => null)) as
+    | { success?: boolean; message?: string; data?: AnyRow }
+    | null
+  if (!res.ok || (body && body.success === false)) {
+    throw new Error(body?.message ?? `Upload failed (${res.status}).`)
+  }
+  return { message: body?.message ?? 'Uploaded successfully.', data: body?.data }
+}
+
 export async function getAssignQuestionPaperTemplateList(params: {
   examId: number
   courseYearId: number

@@ -19,6 +19,7 @@ import {
   listEvaluationSubjects,
   listExamQuestionPapers,
   updateExamQuestionPaper,
+  uploadQuestionPaperFiles,
 } from '@/services/evaluation-process'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
@@ -58,6 +59,10 @@ export default function ExamQuestionPaperMarksPage() {
   const [hasFetched, setHasFetched] = useState(false)
   const [openAddModal, setOpenAddModal] = useState(false)
   const [editingRow, setEditingRow] = useState<AnyRow | null>(null)
+  const [uploadRow, setUploadRow] = useState<AnyRow | null>(null)
+  const [uploadQpFile, setUploadQpFile] = useState<File | null>(null)
+  const [uploadAsFile, setUploadAsFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
   const [rows, setRows] = useState<AnyRow[]>([])
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
@@ -373,7 +378,39 @@ export default function ExamQuestionPaperMarksPage() {
     )
   }
   function uploadPapers(row: AnyRow) {
-    toastError(`Upload QP & AS modal not yet implemented for "${pickText(row, ['questionPaperTitle', 'questionpaper_title'])}".`)
+    setUploadRow(row)
+    setUploadQpFile(null)
+    setUploadAsFile(null)
+  }
+
+  async function submitUpload() {
+    if (!uploadRow) return
+    const id = rowQuestionPaperId(uploadRow)
+    if (!id) {
+      toastError('Question paper id is missing on this row.')
+      return
+    }
+    if (!uploadQpFile && !uploadAsFile) {
+      toastError('Choose at least one file to upload.')
+      return
+    }
+    setUploading(true)
+    try {
+      const { message } = await uploadQuestionPaperFiles({
+        examQuestionPaperId: id,
+        questionPaper: uploadQpFile,
+        modelAnswerPaper: uploadAsFile,
+      })
+      toastSuccess(message || 'Files uploaded.')
+      setUploadRow(null)
+      setUploadQpFile(null)
+      setUploadAsFile(null)
+      await getList()
+    } catch (error: any) {
+      toastError(error?.message ?? 'Failed to upload files.')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const cols = useMemo<ColDef[]>(
@@ -862,6 +899,73 @@ export default function ExamQuestionPaperMarksPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenAddModal(false)}>Close</Button>
             <Button onClick={() => void saveQuestionPaper()} disabled={loading}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(uploadRow)}
+        onOpenChange={(v) => {
+          if (!v) {
+            setUploadRow(null)
+            setUploadQpFile(null)
+            setUploadAsFile(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[16px] text-[hsl(var(--primary))]">
+              Upload Question Paper &amp; Model Answer Paper
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-[13px]">
+            {uploadRow ? (
+              <p className="text-[12px] text-muted-foreground">
+                {pickText(uploadRow, ['questionPaperTitle', 'questionpaper_title'])} (
+                {pickText(uploadRow, ['questionPaperCode', 'questionpaper_code', 'paperCode']) || '-'})
+              </p>
+            ) : null}
+            <div className="space-y-1">
+              <Label className="text-[12px] font-semibold">Question Paper</Label>
+              <Input
+                type="file"
+                accept=".pdf,.doc,.docx,image/*"
+                className="h-9 text-[12px] file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1"
+                onChange={(e) => setUploadQpFile(e.target.files?.[0] ?? null)}
+              />
+              {uploadQpFile ? (
+                <p className="text-[11px] text-muted-foreground">Selected: {uploadQpFile.name}</p>
+              ) : null}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px] font-semibold">Model Answer Paper</Label>
+              <Input
+                type="file"
+                accept=".pdf,.doc,.docx,image/*"
+                className="h-9 text-[12px] file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1"
+                onChange={(e) => setUploadAsFile(e.target.files?.[0] ?? null)}
+              />
+              {uploadAsFile ? (
+                <p className="text-[11px] text-muted-foreground">Selected: {uploadAsFile.name}</p>
+              ) : null}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUploadRow(null)
+                setUploadQpFile(null)
+                setUploadAsFile(null)
+              }}
+              disabled={uploading}
+            >
+              Close
+            </Button>
+            <Button onClick={() => void submitUpload()} disabled={uploading}>
+              {uploading ? 'Uploading…' : 'Save'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
