@@ -238,6 +238,51 @@ export async function getQuestionPaperTemplateViewRows(
   return Array.isArray(data?.result?.[0]) ? data.result?.[0] ?? [] : []
 }
 
+/**
+ * Fetch a single QuestionPaperMarks row by id (used to pre-fill the
+ * "Edit Question" modal on manage-questions-paper). Angular calls
+ * listDetailsById on CONSTANTS.ExamQuestionPaperMarksCrudUrl.
+ */
+export async function getQuestionPaperMarksById(
+  questionPaperMarksId: number,
+): Promise<AnyRow | null> {
+  if (!questionPaperMarksId) return null
+  const entities = ['QuestionPaperMarks', 'ExamQuestionPaperMarks']
+  const q = buildQuery({ questionPaperMarksId })
+  for (const entity of entities) {
+    try {
+      const rows = await domainList<AnyRow>(entity, q)
+      if (Array.isArray(rows) && rows.length > 0) return rows[0]
+    } catch {
+      // try next
+    }
+  }
+  return null
+}
+
+/**
+ * Update a QuestionPaperMarks row (question text / isActive). Mirrors
+ * Angular updateQuestion() -> crudService.updateDetails on the same
+ * CRUD url with key = questionPaperMarksId.
+ */
+export async function updateQuestionPaperMarks(
+  questionPaperMarksId: number,
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  const entities = [
+    { name: 'QuestionPaperMarks', pk: 'questionPaperMarksId' },
+    { name: 'ExamQuestionPaperMarks', pk: 'questionPaperMarksId' },
+  ]
+  for (const { name, pk } of entities) {
+    try {
+      return await domainUpdate<AnyRow>(name, pk, questionPaperMarksId, payload)
+    } catch {
+      // try next entity name
+    }
+  }
+  throw new Error('Unable to update question paper marks.')
+}
+
 export async function listQuestionPaperTemplates(): Promise<AnyRow[]> {
   const entities = [
     EXAM_EVAL_API.QP_TEMPLATE,
