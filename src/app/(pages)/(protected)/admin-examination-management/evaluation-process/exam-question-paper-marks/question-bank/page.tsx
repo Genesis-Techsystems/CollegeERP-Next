@@ -12,20 +12,9 @@ import {
   createQuestionPaperMarks,
   listAssessmentsBySubjectCode,
 } from '@/services/evaluation-process'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 
 type AnyRow = Record<string, any>
-
-function htmlToPlaintext(html: unknown): string {
-  if (html == null) return ''
-  return String(html)
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .trim()
-}
 
 export default function QuestionBankPage() {
   const router = useRouter()
@@ -59,7 +48,8 @@ export default function QuestionBankPage() {
   const [banks, setBanks] = useState<AnyRow[]>([])
   const [bankId, setBankId] = useState<number>(0)
   const [questions, setQuestions] = useState<AnyRow[]>([])
-  const [pickedQuestion, setPickedQuestion] = useState<AnyRow | null>(null)
+  const [pickedQuestionId, setPickedQuestionId] = useState<number | null>(null)
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({})
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -79,7 +69,19 @@ export default function QuestionBankPage() {
     const bank = banks.find((b) => Number(b.assessmentId) === id)
     const list = Array.isArray(bank?.assessmentQuestionDTOs) ? bank.assessmentQuestionDTOs : []
     setQuestions(list)
-    setPickedQuestion(null)
+    setPickedQuestionId(null)
+    // Default-expand the first question (mirrors Angular's [expanded]="step === 0").
+    const opened: Record<number, boolean> = {}
+    if (list[0]) {
+      const firstId = Number(
+        list[0].assessmentQuestionId ??
+          list[0].courseQuestionDTO?.courseQuestionId ??
+          list[0].courseQuestionId ??
+          0,
+      )
+      if (firstId) opened[firstId] = true
+    }
+    setExpanded(opened)
   }
 
   function navigateBack() {
@@ -103,15 +105,14 @@ export default function QuestionBankPage() {
   }
 
   async function addPickedToQuestionPaper() {
-    if (!pickedQuestion) {
+    const picked = questions.find((q) => qid(q) === pickedQuestionId) ?? null
+    if (!picked) {
       toastError('Pick a question first.')
       return
     }
-    const courseQ = pickedQuestion.courseQuestionDTO ?? pickedQuestion
-    const modelAnswer =
-      Array.isArray(courseQ?.courseQuestionOptionDTOs) && courseQ.courseQuestionOptionDTOs[0]?.options
-        ? String(courseQ.courseQuestionOptionDTOs[0].options)
-        : ''
+    const courseQ = picked.courseQuestionDTO ?? picked
+    const options = Array.isArray(courseQ?.courseQuestionOptionDTOs) ? courseQ.courseQuestionOptionDTOs : []
+    const modelAnswer = options[0]?.options ? String(options[0].options) : ''
     setSaving(true)
     try {
       await createQuestionPaperMarks({
@@ -140,6 +141,15 @@ export default function QuestionBankPage() {
     }
   }
 
+  function qid(q: AnyRow): number {
+    return Number(
+      q?.assessmentQuestionId ??
+        q?.courseQuestionDTO?.courseQuestionId ??
+        q?.courseQuestionId ??
+        0,
+    )
+  }
+
   return (
     <PageContainer className="space-y-4">
       <div className="app-card overflow-hidden">
@@ -148,105 +158,130 @@ export default function QuestionBankPage() {
             Question Bank
             {params.questionPaperTitle ? (
               <span className="ml-2 text-[13px] font-medium text-blue-700">
-                ({params.questionPaperTitle} — {params.questioncode})
+                ({params.questionPaperTitle})
               </span>
             ) : null}
           </h2>
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={navigateBack}>
-              Back
-            </Button>
-            <Button
-              type="button"
-              className="h-8 text-[12px]"
-              onClick={() => void addPickedToQuestionPaper()}
-              disabled={saving || !pickedQuestion}
-            >
-              {saving ? 'Saving…' : 'Add Question'}
-            </Button>
-          </div>
         </div>
 
-        <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-[13px]">
-          <div className="space-y-1">
-            <Label className="text-[12px]">Question Bank</Label>
-            <Select
-              value={bankId ? String(bankId) : null}
-              onChange={(v) => handleBankPick(Number(v) || 0)}
-              options={banks.map((b) => ({
-                value: String(b.assessmentId),
-                label:
-                  String(b.assessmentName ?? b.assessmentCode ?? b.assessmentTitle ?? '-') +
-                  (b.onlineCourseName ? ` (${b.onlineCourseName})` : ''),
-              }))}
-              placeholder={banks.length === 0 ? 'No question banks for this subject' : 'Select Question Bank'}
-              disabled={banks.length === 0}
-              searchable
-            />
+        <div className="m-4 rounded border border-border">
+          <div className="border-b border-border bg-muted/30 px-4 py-2 text-[13px] font-semibold text-slate-800">
+            Add Questions in &lsquo;{params.questionPaperTitle || '—'}&rsquo;
           </div>
-          <div className="md:col-span-2 space-y-1">
-            <Label className="text-[12px]">Subject</Label>
-            <div className="rounded-md border border-input bg-background px-3 py-2 text-[12px] text-slate-700">
-              {params.subjectName} {params.subjectCode ? `(${params.subjectCode})` : ''} —{' '}
-              <span className="text-blue-700">{params.questioncode || '—'}</span>{' '}
-              <span className="text-muted-foreground">Max Marks: {params.iqm || '—'}</span>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4">
+            <div className="space-y-1">
+              <Label className="text-[12px]">Select Question Bank</Label>
+              <Select
+                value={bankId ? String(bankId) : null}
+                onChange={(v) => handleBankPick(Number(v) || 0)}
+                options={banks.map((b) => ({
+                  value: String(b.assessmentId),
+                  label: String(b.assessmentName ?? b.assessmentCode ?? b.assessmentTitle ?? '-'),
+                }))}
+                placeholder={banks.length === 0 ? 'No question banks for this subject' : 'Select Question Bank'}
+                disabled={banks.length === 0}
+                searchable
+              />
             </div>
           </div>
-        </div>
 
-        <div className="px-4 pb-4">
-          {questions.length === 0 ? (
-            <p className="py-6 text-center text-[12px] text-muted-foreground">
-              {bankId
-                ? 'No questions in this question bank.'
-                : 'Pick a question bank to see its questions.'}
-            </p>
-          ) : (
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="border-b border-border bg-muted/30 text-left">
-                  <th className="w-10 px-2 py-2"></th>
-                  <th className="w-12 px-2 py-2">SI.No</th>
-                  <th className="px-2 py-2">Question</th>
-                  <th className="w-20 px-2 py-2 text-center">Marks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {questions.map((q, i) => {
-                  const courseQ = q.courseQuestionDTO ?? q
-                  const id = Number(q.assessmentQuestionId ?? q.courseQuestionId ?? courseQ?.courseQuestionId ?? i)
-                  const isPicked = pickedQuestion === q
+          {questions.length > 0 && (
+            <div className="px-4 pb-4 space-y-2">
+              <div className="border-b-2 border-amber-400 bg-white px-3 py-2 text-[16px] font-semibold text-slate-800">
+                List of <span className="text-blue-700">Questions</span>
+              </div>
+              <ul className="space-y-2">
+                {questions.map((qu) => {
+                  const id = qid(qu) || Math.random()
+                  const courseQ = qu.courseQuestionDTO ?? qu
+                  const isOpen = Boolean(expanded[id])
+                  const isPicked = pickedQuestionId === id
+                  const options = Array.isArray(courseQ?.courseQuestionOptionDTOs)
+                    ? courseQ.courseQuestionOptionDTOs
+                    : []
                   return (
-                    <tr
+                    <li
                       key={`qb-${id}`}
-                      className={`border-b border-border align-top ${
-                        isPicked ? 'bg-blue-50' : ''
-                      }`}
+                      className={`rounded border ${isPicked ? 'border-blue-400 bg-blue-50/50' : 'border-border'}`}
                     >
-                      <td className="px-2 py-2">
+                      <div className="flex items-center gap-2 px-3 py-2">
                         <input
                           type="radio"
                           name="qb-pick"
                           checked={isPicked}
-                          onChange={() => setPickedQuestion(q)}
+                          onChange={() => setPickedQuestionId(id)}
+                          className="shrink-0"
                         />
-                      </td>
-                      <td className="px-2 py-2">{i + 1}</td>
-                      <td className="px-2 py-2">
-                        <span
-                          className="block"
-                          dangerouslySetInnerHTML={{
-                            __html: String(courseQ?.question ?? htmlToPlaintext(courseQ?.question)),
-                          }}
-                        />
-                      </td>
-                      <td className="px-2 py-2 text-center">{courseQ?.marks ?? '-'}</td>
-                    </tr>
+                        <button
+                          type="button"
+                          className="flex-1 text-left flex items-start gap-2 min-w-0"
+                          onClick={() => setExpanded((s) => ({ ...s, [id]: !s[id] }))}
+                        >
+                          {isOpen ? (
+                            <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                          ) : (
+                            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                          )}
+                          <span className="flex-1 min-w-0">
+                            <span
+                              className="font-semibold text-[14px] text-slate-800"
+                              dangerouslySetInnerHTML={{
+                                __html: String(courseQ?.question ?? ''),
+                              }}
+                            />
+                            <span className="ml-2 font-semibold text-[12px] text-slate-600">
+                              ({courseQ?.marks ?? '-'} marks)
+                            </span>
+                          </span>
+                        </button>
+                      </div>
+                      {isOpen ? (
+                        <div className="border-t border-border bg-muted/20 px-3 py-2">
+                          {options.length === 0 ? (
+                            <p className="text-[12px] text-muted-foreground">
+                              No options for this question.
+                            </p>
+                          ) : (
+                            <ul className="space-y-1 pl-6 list-disc text-[13px]">
+                              {options.map((opt: AnyRow, i: number) => (
+                                <li
+                                  key={`opt-${id}-${i}`}
+                                  className={
+                                    opt.isCorrectAnswer
+                                      ? 'text-emerald-700 font-semibold'
+                                      : 'text-slate-700'
+                                  }
+                                >
+                                  <span
+                                    dangerouslySetInnerHTML={{ __html: String(opt.options ?? '') }}
+                                  />
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ) : null}
+                    </li>
                   )
                 })}
-              </tbody>
-            </table>
+              </ul>
+            </div>
           )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-muted/40">
+          <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={navigateBack}>
+            Back
+          </Button>
+          <Button
+            type="button"
+            className="h-8 text-[12px]"
+            onClick={() => void addPickedToQuestionPaper()}
+            disabled={saving || !pickedQuestionId}
+          >
+            {saving ? 'Saving…' : 'Add'}
+          </Button>
         </div>
       </div>
     </PageContainer>

@@ -44,7 +44,7 @@ export default function ViewTemplatePrintPage() {
   )
 
   const [rows, setRows] = useState<AnyRow[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const collegeName = String(user?.collegeName ?? user?.collegeCode ?? '')
 
@@ -117,7 +117,14 @@ export default function ViewTemplatePrintPage() {
         <hr className="my-3 border-black" />
 
         {loading ? (
-          <p className="py-8 text-center text-muted-foreground">Loading…</p>
+          <div className="py-8 space-y-3" aria-live="polite">
+            <div className="mx-auto h-4 w-2/3 animate-pulse rounded bg-slate-200" />
+            <div className="mx-auto h-4 w-1/2 animate-pulse rounded bg-slate-200" />
+            <div className="mx-auto h-4 w-3/4 animate-pulse rounded bg-slate-200" />
+            <p className="pt-2 text-center text-[12px] text-muted-foreground">
+              Loading question paper…
+            </p>
+          </div>
         ) : rows.length === 0 ? (
           <p className="py-8 text-center text-muted-foreground">No template details found.</p>
         ) : (
