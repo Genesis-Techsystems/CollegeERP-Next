@@ -106,6 +106,16 @@ export function normalizeHref(path: string): string {
     // Angular Admission module → App Router path (`enquiry-form` folder routes as `enquiries`).
     .replace(/\/apps\/admission\//gi, '/admission/')
     .replace(/\/admission\/enquiry-form\//gi, '/admission/enquiries/')
+    // Angular Accounts & Fees — hostel payment (Student Fee Collection).
+    .replace(/\/fees-collection\/hostel-payment(?=\/|$)/gi, '/accounts-and-fees/fees-collection/hostel-payment')
+    .replace(
+      /\/fees-collection\/hostel-payment\/hostel-fee-payment/gi,
+      '/accounts-and-fees/fees-collection/hostel-payment/hostel-fee-payment',
+    )
+    .replace(
+      /\/fees-collection\/hostel-payment\/hostel-fee-list/gi,
+      '/accounts-and-fees/fees-collection/hostel-payment/hostel-fee-payment',
+    )
     // Angular Admin institutional masters → App Router admin pages.
     .replace(/\/institutional-masters\/rooms-type(?=\/|$)/gi, '/admin/room-types')
     .replace(/\/institutional-masters\/rooms(?=\/|$)/gi, '/admin/rooms')

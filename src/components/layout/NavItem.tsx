@@ -1093,6 +1093,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return '/tc-no-due-approval/certificate-requests'
       }
 
+      if (labelLower.includes('hostel') && labelLower.includes('payment')) {
+        return '/accounts-and-fees/fees-collection/hostel-payment'
+      }
+      if (hrefLower.includes('fees-collection/hostel-payment')) {
+        return '/accounts-and-fees/fees-collection/hostel-payment'
+      }
       if (labelLower.includes('room details') || labelLower === 'room detail') {
         return '/admin/room-details'
       }
@@ -1982,6 +1988,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     }
     if (label.includes('fee masters')) return normPathname.startsWith('/accounts-and-fees/fee-masters/')
     if (label.includes('fee collection')) return normPathname.startsWith('/accounts-and-fees/fees-collection/')
+    if (label.includes('hostel') && label.includes('payment')) {
+      return normPathname.startsWith('/accounts-and-fees/fees-collection/hostel-payment')
+    }
     if (hasChildren && label.trim() === 'hostel') {
       return isHostelModulePath(normPathname)
     }

@@ -1248,6 +1248,10 @@ export const HOSTEL_API = {
   HOSTEL_ALLOCATION: 'hostelallocationforstudent',
   /** POST: hostel room allocation */
   ROOM_ALLOCATION: 'hostelroomallocation',
+  /** GET: allocations for a room — `cms/hstlroomallocation?hstlRoomId=&isActive=true` */
+  ROOM_ALLOCATION_LIST: 'hstlroomallocation',
+  /** GET: search hosteler by name — `roomAllocationSearch?hostelId=&q=` */
+  ROOM_ALLOCATION_SEARCH: 'roomAllocationSearch',
   /** GET: monthly visitors summary */
   GET_VISITORS_REPORT: 'getAllRecords/s_get_visitors_report',
 } as const

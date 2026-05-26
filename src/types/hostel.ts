@@ -76,32 +76,77 @@ export interface HostelDiscount {
 export interface HostelRegister {
   hstlRegisterId: number
   hostelId?: number
+  organizationId?: number
+  hstlRoomAllotId?: number
+  studentId?: number
+  employeeId?: number
   stdFirstName?: string
+  empFirstName?: string
   attendeesName?: string
+  relationCatdetId?: number
   relationCatdetDisplayName?: string
+  inDate?: string
+  outDate?: string
+  inTime?: string
+  outTime?: string
   inTiming?: string
   outTiming?: string
   mobileNumber?: string
   isActive: boolean
+  reason?: string
+}
+
+/** Search result row from `roomAllocationSearch` (hostel register / visitor modals). */
+export interface HostelRoomAllocationSearchRow {
+  hstlRoomAllotId: number
+  studentId?: number
+  employeeId?: number
+  stdFirstName?: string
+  empFirstName?: string
+  rollNumber?: string
+  empNumber?: string
 }
 
 export interface HostelVisitor {
   hstlVisitorId: number
   hostelId?: number
+  organizationId?: number
+  studentId?: number
+  employeeId?: number
   stdFirstName?: string
+  empFirstName?: string
   visitorName?: string
+  relationCatdetId?: number
   relationCatdetDisplayName?: string
+  inDate?: string
+  outDate?: string
+  inTime?: string
+  outTime?: string
   inTiming?: string
   outTiming?: string
   mobileNumber?: string
   isActive: boolean
+  reason?: string
+  otherRelation?: string
+  purpose?: string
 }
 
 export interface HostelRoomAllocationRow {
   hstlRoomAllotId?: number
+  hostelId?: number
+  hstlRoomId?: number
   studentId?: number
+  employeeId?: number
   firstName?: string
   rollNumber?: string
+  hallticketNumber?: string
+  parentName?: string
+  fatherName?: string
+  paymentDueDate?: string
+  isAmountSetteled?: boolean
+  orgCode?: string
+  orgName?: string
+  organizationName?: string
   studentPhotoPath?: string
   [key: string]: unknown
 }

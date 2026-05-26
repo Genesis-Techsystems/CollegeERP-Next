@@ -76,7 +76,10 @@ export function mapHostelNavRoute(href?: string, label?: string): string | null 
     return '/hostel/hostel-visitor'
   }
   if (labelLower.includes('hostel') && labelLower.includes('payment')) {
-    return '/hostel/hostel-payment'
+    return '/accounts-and-fees/fees-collection/hostel-payment'
+  }
+  if (hrefLower.includes('fees-collection/hostel-payment')) {
+    return '/accounts-and-fees/fees-collection/hostel-payment'
   }
   if (labelLower.includes('visitor') && labelLower.includes('summary')) {
     return '/hostel/monthly-visitor-summary-report'

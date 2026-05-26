@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -80,21 +80,14 @@ export function HostelDetailModal({ open, onClose, row, onSaved }: Readonly<Host
     enabled: open,
   })
 
-  const [typeOptions, setTypeOptions] = useState<{ value: string; label: string }[]>([])
-
-  useEffect(() => {
-    if (!organizationId) {
-      setTypeOptions([])
-      return
-    }
-    setTypeOptions(
-      hostelTypes
-        .filter((t) => t.organizationId === organizationId)
-        .map((t) => ({
-          value: String(t.hostelTypeId),
-          label: t.hostelTypeName ?? t.hostelTypeCode ?? String(t.hostelTypeId),
-        })),
-    )
+  const typeOptions = useMemo(() => {
+    if (!organizationId) return []
+    return hostelTypes
+      .filter((t) => t.organizationId === organizationId)
+      .map((t) => ({
+        value: String(t.hostelTypeId),
+        label: t.hostelTypeName ?? t.hostelTypeCode ?? String(t.hostelTypeId),
+      }))
   }, [organizationId, hostelTypes])
 
   useEffect(() => {

@@ -12,11 +12,20 @@ import type {
   HostelRoom,
   HostelRoomCharge,
   HostelType,
+  HostelRoomAllocationRow,
+  HostelRoomAllocationSearchRow,
   HostelVisitor,
 } from '@/types/hostel'
 import type { GeneralDetail } from '@/types/exam-master'
 import { format } from 'date-fns'
-import { domainCreate, domainList, domainUpdate, getAllRecords, postDetails } from './crud'
+import {
+  domainCreate,
+  domainList,
+  domainUpdate,
+  fetchDetails,
+  getAllRecords,
+  postDetails,
+} from './crud'
 import { buildQuery } from './query'
 import { getGeneralDetails } from './exam-master'
 
@@ -250,6 +259,72 @@ export async function listHostelRoomTypeOptions(): Promise<GeneralDetail[]> {
 
 export async function listPaymentFrequencyOptions(): Promise<GeneralDetail[]> {
   return getGeneralDetails(GM_CODES.PAYMENT_TYPE_FREQ)
+}
+
+export async function listRelationOptions(): Promise<GeneralDetail[]> {
+  return getGeneralDetails(GM_CODES.RELATION)
+}
+
+function normalizeRoomAllocationSearchRows(data: unknown): HostelRoomAllocationSearchRow[] {
+  if (Array.isArray(data)) return data as HostelRoomAllocationSearchRow[]
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>
+    for (const key of ['resultList', 'content', 'data', 'result', 'list', 'rows']) {
+      const nested = obj[key]
+      if (Array.isArray(nested)) return nested as HostelRoomAllocationSearchRow[]
+    }
+  }
+  return []
+}
+
+/** Angular `roomAllocationSearch?hostelId=&q=` — hosteler lookup for register/visitor. */
+export async function searchHostelRoomAllocations(
+  hostelId: number,
+  q: string,
+): Promise<HostelRoomAllocationSearchRow[]> {
+  const term = q.trim()
+  if (!hostelId || term.length < 4) return []
+
+  try {
+    const data = await fetchDetails<unknown>(HOSTEL_API.ROOM_ALLOCATION_SEARCH, {
+      hostelId,
+      q: term,
+    })
+    return normalizeRoomAllocationSearchRows(data)
+  } catch {
+    return []
+  }
+}
+
+// ─── Room allocations (payment / occupancy) ───────────────────────────────────
+
+function normalizeHostelRoomAllocationRows(data: unknown): HostelRoomAllocationRow[] {
+  if (Array.isArray(data)) return data as HostelRoomAllocationRow[]
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>
+    for (const key of ['content', 'data', 'result', 'list', 'rows']) {
+      const nested = obj[key]
+      if (Array.isArray(nested)) return nested as HostelRoomAllocationRow[]
+    }
+  }
+  return []
+}
+
+/** Angular `GET cms/hstlroomallocation?hstlRoomId=&isActive=true` (hostel payment screen). */
+export async function listHostelRoomAllocationsByRoom(
+  hstlRoomId: number,
+): Promise<HostelRoomAllocationRow[]> {
+  if (!hstlRoomId) return []
+
+  try {
+    const data = await fetchDetails<unknown>(HOSTEL_API.ROOM_ALLOCATION_LIST, {
+      hstlRoomId,
+      isActive: true,
+    })
+    return normalizeHostelRoomAllocationRows(data)
+  } catch {
+    return []
+  }
 }
 
 // ─── Transactions & reports ────────────────────────────────────────────────────

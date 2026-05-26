@@ -206,6 +206,31 @@ export const QK = {
     list: () => ['Block', 'list'] as const,
   },
 
+  feesCollection: {
+    studentDue: (filters: Record<string, unknown>) => ['FeesCollection', 'studentDue', filters] as const,
+    studentStructures: (studentId: number) => ['FeesCollection', 'studentStructures', studentId] as const,
+    studentSearch: (term: string) => ['FeesCollection', 'studentSearch', term] as const,
+    studentSearchCollege: (collegeId: number, term: string) =>
+      ['FeesCollection', 'studentSearchCollege', collegeId, term] as const,
+    feeReceipts: (filters: Record<string, unknown>) => ['FeesCollection', 'feeReceipts', filters] as const,
+    feeReceiptDetails: (filters: Record<string, unknown>) =>
+      ['FeesCollection', 'feeReceiptDetails', filters] as const,
+    feeConcessions: (filters: Record<string, unknown>) => ['FeesCollection', 'feeConcessions', filters] as const,
+    employeeSearch: (term: string) => ['FeesCollection', 'employeeSearch', term] as const,
+    employeeDetails: (employeeId: number) => ['FeesCollection', 'employeeDetails', employeeId] as const,
+    transportAllocations: (employeeId: number) =>
+      ['FeesCollection', 'transportAllocations', employeeId] as const,
+    paylinkFilters: (orgId: number, employeeId: number) =>
+      ['FeesCollection', 'paylinkFilters', orgId, employeeId] as const,
+    feeDueNotifications: (filters: Record<string, unknown>) =>
+      ['FeesCollection', 'feeDueNotifications', filters] as const,
+    feeManagementDetail: (studentId: number) => ['FeesCollection', 'feeManagement', studentId] as const,
+    feeMgmtFilters: (orgId: number, employeeId: number) =>
+      ['FeesCollection', 'feeMgmtFilters', orgId, employeeId] as const,
+    allocateStructures: (filters: Record<string, unknown>) =>
+      ['FeesCollection', 'allocateStructures', filters] as const,
+  },
+
   // ── Floors ─────────────────────────────────────────────────────────────
   floors: {
     all: ['Floor'] as const,
@@ -537,6 +562,8 @@ export const QK = {
     detailsByOrg: (organizationId: number) => ['Hostel', 'details', organizationId] as const,
     roomCharges: () => ['Hostel', 'roomCharges'] as const,
     rooms: (hostelId: number) => ['Hostel', 'rooms', hostelId] as const,
+    roomAllocations: (hostelId: number, hstlRoomId: number) =>
+      ['Hostel', 'roomAllocations', hostelId, hstlRoomId] as const,
     discounts: () => ['Hostel', 'discounts'] as const,
     register: (hostelId: number) => ['Hostel', 'register', hostelId] as const,
     visitors: (hostelId: number) => ['Hostel', 'visitors', hostelId] as const,
