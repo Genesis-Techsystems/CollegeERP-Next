@@ -408,6 +408,8 @@ export const EMPLOYEE_API = {
   EMPLOYEE_DETAIL: 'EmployeeDetail',
   /** GET: employee typeahead (`cms/employeesearch?q=&empStatus=ACTV`, optional `collegeId`). */
   EMPLOYEE_SEARCH: 'cms/employeesearch',
+  /** GET: employee details by user id — `employeedetailsbyid?userId=` */
+  DETAILS_BY_USER_ID: 'employeedetailsbyid',
 } as const
 
 // ─── Fee / Payment Management ────────────────────────────────────────────────
@@ -1025,6 +1027,10 @@ export const TIMETABLE_MGMT_API = {
   TIMETABLES_POST: 'timetables',
   TIMETABLES_CURR: 'timetablescurr',
   SCHEDULE_LIST_BY_TIMING_SET: 'schedulelistbytimingset',
+} as const
+
+export const TIMETABLE_REPORT_API = {
+  REP_TT_GET_TIMETABLE_DETAILS: 'getAllRecords/s_rep_tt_get_timetable_details',
 } as const
 
 // ─── Grievance ───────────────────────────────────────────────────────────────
