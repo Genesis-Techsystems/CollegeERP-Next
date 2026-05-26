@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { MINIO_URL } from '@/config/constants/api'
 import { useSessionContext } from '@/context/SessionContext'
@@ -268,6 +268,28 @@ export default function ExamQuestionPaperMarksPage() {
     [subjects, subjectId],
   )
 
+  // AG Grid caches the action-cell renderers, so a closure over filter state
+  // goes stale (it captures the first render's null/0 ids). Read the current
+  // selection from a ref that we refresh every render — this guarantees the
+  // navigation carries the live subjectId/subjectCode to manage-questions /
+  // question-bank (Angular passes these via parameters.manageQuestions).
+  const navStateRef = useRef({
+    courseId,
+    academicYearId,
+    examId,
+    subjectId,
+    regulationId,
+    selectedSubject,
+  })
+  navStateRef.current = {
+    courseId,
+    academicYearId,
+    examId,
+    subjectId,
+    regulationId,
+    selectedSubject,
+  }
+
   useEffect(() => {
     async function init() {
       setLoading(true)
@@ -398,6 +420,10 @@ export default function ExamQuestionPaperMarksPage() {
     ])
   }
   function navigateWithRow(path: string, row: AnyRow) {
+    // Read the live filter selection from the ref (see navStateRef above) so
+    // the ids are never the stale first-render values.
+    const { courseId, academicYearId, examId, subjectId, regulationId, selectedSubject } =
+      navStateRef.current
     const params = new URLSearchParams({
       examQuestionPaperId: String(rowQuestionPaperId(row)),
       questionPaperId: String(rowQuestionPaperId(row)),

@@ -247,17 +247,11 @@ export async function getQuestionPaperMarksById(
   questionPaperMarksId: number,
 ): Promise<AnyRow | null> {
   if (!questionPaperMarksId) return null
-  const entities = ['QuestionPaperMarks', 'ExamQuestionPaperMarks']
-  const q = buildQuery({ questionPaperMarksId })
-  for (const entity of entities) {
-    try {
-      const rows = await domainList<AnyRow>(entity, q)
-      if (Array.isArray(rows) && rows.length > 0) return rows[0]
-    } catch {
-      // try next
-    }
-  }
-  return null
+  const rows = await domainList<AnyRow>(
+    'ExamQuestionPaperMarks',
+    buildQuery({ questionPaperMarksId }),
+  ).catch(() => [])
+  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null
 }
 
 /**
@@ -269,18 +263,12 @@ export async function updateQuestionPaperMarks(
   questionPaperMarksId: number,
   payload: Record<string, unknown>,
 ): Promise<AnyRow> {
-  const entities = [
-    { name: 'QuestionPaperMarks', pk: 'questionPaperMarksId' },
-    { name: 'ExamQuestionPaperMarks', pk: 'questionPaperMarksId' },
-  ]
-  for (const { name, pk } of entities) {
-    try {
-      return await domainUpdate<AnyRow>(name, pk, questionPaperMarksId, payload)
-    } catch {
-      // try next entity name
-    }
-  }
-  throw new Error('Unable to update question paper marks.')
+  return domainUpdate<AnyRow>(
+    'ExamQuestionPaperMarks',
+    'questionPaperMarksId',
+    questionPaperMarksId,
+    payload,
+  )
 }
 
 /**
@@ -291,15 +279,11 @@ export async function updateQuestionPaperMarks(
 export async function createQuestionPaperMarks(
   payload: Record<string, unknown>,
 ): Promise<AnyRow> {
-  const entities = ['QuestionPaperMarks', 'ExamQuestionPaperMarks']
-  for (const entity of entities) {
-    try {
-      return await domainCreate<AnyRow>(entity, payload)
-    } catch {
-      // try next entity name
-    }
-  }
-  throw new Error('Unable to create question paper marks.')
+  // Angular posts to ExamQuestionPaperMarksCrudUrl ('ExamQuestionPaperMarks').
+  // Do NOT fall back to 'QuestionPaperMarks' — that entity persists the row
+  // without the level/group/subgroup positional fields, so the question-paper
+  // detail proc can't match it to its template slot (question never shows).
+  return domainCreate<AnyRow>('ExamQuestionPaperMarks', payload)
 }
 
 /**
@@ -315,13 +299,74 @@ export async function listAssessmentsBySubjectCode(
 ): Promise<AnyRow[]> {
   const code = String(subjectCode ?? '').trim()
   if (!code) return []
-  // Mirror Angular listDetailsByTwoIdWithSort EXACTLY: the Assessment list
-  // joins the two conditions with '&' (not '.and.'), e.g.
-  //   domain/list/Assessment?size=99999&query=onlineCourses.onlineCourseCode==U21HSN02EG&isActive==true.order(createdDt=DESC)
-  // crud.list() runs the value through encodeURIComponent (& -> %26, == ->
-  // %3D%3D); Spring decodes it back to the literal query above.
-  const q = `onlineCourses.onlineCourseCode==${code}&isActive==true.order(createdDt=DESC)`
+  // Join conditions with the backend's '.and.' operator (NOT a literal '&',
+  // which crud.list() percent-encodes to %26 -> Spring 400s). Produces:
+  //   onlineCourses.onlineCourseCode==U21HSN02EG.and.isActive==true.order(createdDt=DESC)
+  const q = buildQuery(
+    { 'onlineCourses.onlineCourseCode': code, isActive: true },
+    { field: 'createdDt', direction: 'DESC' },
+  )
   return domainList<AnyRow>('Assessment', q)
+}
+
+/**
+ * Resolve a subject's code from its id via the Subject domain entity.
+ * Fallback for the Question Bank flow: the evaluation subject-filter proc
+ * (univ_exam_subject_uc) doesn't reliably expose subject_code, so when the
+ * code isn't carried in the URL we look it up here. Subject.subjectCode is
+ * the same value the Assessment list matches against onlineCourses.onlineCourseCode.
+ */
+export async function getSubjectCodeById(subjectId: number): Promise<string> {
+  if (!subjectId) return ''
+  const rows = await domainList<AnyRow>('Subject', buildQuery({ subjectId })).catch(() => [])
+  const row = Array.isArray(rows) ? rows[0] : null
+  return String(row?.subjectCode ?? row?.subject_code ?? '').trim()
+}
+
+/** Recursively find the first non-empty value for any of `keys` anywhere in `obj`. */
+function deepFindValue(obj: unknown, keys: string[], depth = 0): unknown {
+  if (obj == null || typeof obj !== 'object' || depth > 6) return undefined
+  const record = obj as Record<string, unknown>
+  // Direct keys on this object first.
+  for (const k of keys) {
+    const v = record[k]
+    if (v != null && String(v).trim() !== '') return v
+  }
+  // Then descend into nested objects/arrays.
+  for (const v of Object.values(record)) {
+    if (v && typeof v === 'object') {
+      const found = deepFindValue(v, keys, depth + 1)
+      if (found != null) return found
+    }
+  }
+  return undefined
+}
+
+/**
+ * Resolve a subject code from a question-paper id. Ultimate fallback for the
+ * Question Bank flow: questionPaperId is always carried in the URL, so even if
+ * subjectCode and subjectId are missing we can still fire the Assessment list.
+ * The ExamQuestionPaper record exposes a `subjectCode` field; we deep-scan the
+ * response for it (it may sit on a nested relation), then fall back to a
+ * subjectId lookup.
+ */
+export async function getSubjectCodeByQuestionPaperId(questionPaperId: number): Promise<string> {
+  if (!questionPaperId) return ''
+  // The CRUD entity is 'ExamQuestionPapers' and its primary key is
+  // 'questionPaperId' (Angular ExamQuestionPaperCrudUrl, updateDetails key
+  // 'questionPaperId'). 'ExamQuestionPaper' (singular) does not exist and
+  // querying by 'examQuestionPaperId' 500s. The row carries the subject
+  // relation; deep-scan it for the code, else fall back to a subjectId lookup.
+  const rows = await domainList<AnyRow>(
+    'ExamQuestionPapers',
+    buildQuery({ questionPaperId }),
+  ).catch(() => [])
+  const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+  if (!row) return ''
+  const code = deepFindValue(row, ['subjectCode', 'subject_code'])
+  if (code != null && String(code).trim() !== '') return String(code).trim()
+  const sid = Number(deepFindValue(row, ['subjectId', 'fk_subject_id']) ?? 0)
+  return sid ? getSubjectCodeById(sid) : ''
 }
 
 /**

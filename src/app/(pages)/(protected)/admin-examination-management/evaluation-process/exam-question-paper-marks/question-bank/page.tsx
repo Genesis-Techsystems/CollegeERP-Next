@@ -17,6 +17,8 @@ import { useSessionContext } from '@/context/SessionContext'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   createQuestionPaperMarks,
+  getSubjectCodeById,
+  getSubjectCodeByQuestionPaperId,
   listAssessmentsBySubjectCode,
   listQuestionDifficultyLevels,
   listQuestionTaxonomyLevels,
@@ -42,6 +44,7 @@ export default function QuestionBankPage() {
       examName: searchParams?.get('examName') ?? '',
       subjectName: searchParams?.get('subjectName') ?? '',
       subjectCode: searchParams?.get('subjectCode') ?? '',
+      subjectId: Number(searchParams?.get('subjectId') ?? 0),
       level0no: searchParams?.get('level0no') ?? '',
       level1no: searchParams?.get('level1no') ?? '',
       groupno: searchParams?.get('groupno') ?? '',
@@ -72,14 +75,25 @@ export default function QuestionBankPage() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      const rows = await listAssessmentsBySubjectCode(params.subjectCode).catch(() => [])
+      // subjectCode normally arrives in the URL; if it's missing (the
+      // evaluation subject-filter proc doesn't always expose it), resolve it
+      // from subjectId via the Subject entity so the Assessment list still fires.
+      // Last resort: derive it from the question-paper id.
+      let code = params.subjectCode
+      if (!code && params.subjectId) {
+        code = await getSubjectCodeById(params.subjectId).catch(() => '')
+      }
+      if (!code && params.questionPaperId) {
+        code = await getSubjectCodeByQuestionPaperId(params.questionPaperId).catch(() => '')
+      }
+      const rows = code ? await listAssessmentsBySubjectCode(code).catch(() => []) : []
       if (cancelled) return
       setBanks(Array.isArray(rows) ? rows : [])
     })()
     return () => {
       cancelled = true
     }
-  }, [params.subjectCode])
+  }, [params.subjectCode, params.subjectId, params.questionPaperId])
 
   // Load difficulty + taxonomy lists the first time the modal opens, then
   // default-select the first option of each (Angular getGeneralDetails).
@@ -164,23 +178,28 @@ export default function QuestionBankPage() {
     const courseQ = picked.courseQuestionDTO ?? picked
     const options = Array.isArray(courseQ?.courseQuestionOptionDTOs) ? courseQ.courseQuestionOptionDTOs : []
     const modelAnswer = options[0]?.options ? String(options[0].options) : ''
+    // Positional fields: a number when the slot supplies one, otherwise null
+    // (NOT 0 — the detail proc matches slots on these and 0 breaks the join).
+    const numOrNull = (v: string | null | undefined) =>
+      v != null && String(v).trim() !== '' ? Number(v) : null
     setSaving(true)
     try {
       await createQuestionPaperMarks({
         questionPaperId: params.questionPaperId,
-        level0No: Number(params.level0no) || 0,
-        level1No: Number(params.level1no) || 0,
-        groupNo: Number(params.groupno) || 0,
-        subGroupNo: Number(params.subgroupno) || 0,
-        questionNumber: Number(params.questionnumber) || 0,
-        questionCode: params.questioncode,
-        subQuestionCode: params.subquestioncode,
+        level0No: numOrNull(params.level0no),
+        level1No: numOrNull(params.level1no),
+        groupNo: numOrNull(params.groupno),
+        subGroupNo: numOrNull(params.subgroupno),
+        questionNumber: numOrNull(params.questionnumber),
+        questionCode: params.questioncode || null,
+        subQuestionCode: params.subquestioncode || null,
         question: courseQ?.question ?? '',
         questionMarks: params.iqm || Number(courseQ?.marks) || 0,
         modelAnswer1: modelAnswer,
         courseQuestionId: Number(courseQ?.courseQuestionId) || 0,
         assessmentId: bankId || null,
-        questionOwnerProfileId: employeeId,
+        // Angular: questionOwnerProfileId = +localStorage employeeId (login user).
+        questionOwnerProfileId: employeeId || null,
         // From the Question Type modal (Angular submit() merges these in).
         questionDifficultyCatDetId: difficultyId || null,
         taxonomyLevelCatDetId: taxonomyId || null,

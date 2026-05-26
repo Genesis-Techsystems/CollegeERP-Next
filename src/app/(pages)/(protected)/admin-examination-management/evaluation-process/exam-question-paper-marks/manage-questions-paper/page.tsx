@@ -141,6 +141,13 @@ export default function ManageQuestionsPaperPage() {
     qp.set('subjectName', params.subjectName)
     qp.set('subjectCode', params.subjectCode)
     qp.set('totalmarks', params.totalmarks)
+    // Forward the filter ids so downstream (Question Bank) can resolve the
+    // subject code from subjectId when subjectCode isn't populated.
+    const carry = ['subjectId', 'courseId', 'academicYearId', 'examId', 'regulationId']
+    for (const k of carry) {
+      const v = searchParams?.get(k)
+      if (v) qp.set(k, v)
+    }
     // Carry the row meta Angular sends to QB / Add Manual.
     const meta = ['level0no', 'level1no', 'groupno', 'subgroupno', 'questionnumber', 'questioncode', 'subquestioncode']
     for (const k of meta) {
