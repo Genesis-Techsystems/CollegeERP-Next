@@ -17,6 +17,7 @@ import {
   getAssignQuestionPaperTemplateList,
   getEvaluationExamFilters,
   getEvaluationExamRestBundle,
+  getQuestionPaperTemplateViewRows,
   listEvaluationSubjects,
   listExamQuestionPapers,
   updateExamQuestionPaper,
@@ -66,6 +67,10 @@ export default function ExamQuestionPaperMarksPage() {
   const [uploading, setUploading] = useState(false)
   const [templateRows, setTemplateRows] = useState<AnyRow[]>([])
   const [templateId, setTemplateId] = useState<number>(0)
+  const [viewTemplateOpen, setViewTemplateOpen] = useState(false)
+  const [viewTemplateTitle, setViewTemplateTitle] = useState('')
+  const [viewTemplateLoading, setViewTemplateLoading] = useState(false)
+  const [viewTemplateRows, setViewTemplateRows] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnyRow[]>([])
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
@@ -307,40 +312,6 @@ export default function ExamQuestionPaperMarksPage() {
     if (!subjectId && subjects[0]) setSubjectId(pickNum(subjects[0], ['fk_subject_id', 'subjectId']))
   }, [subjects, subjectId])
 
-  // Load assigned templates whenever the modal opens with enough context
-  // (exam / course year / regulation / subject). Mirrors Angular
-  // getTemplateDetails() which calls s_get_question_paper_assignments.
-  useEffect(() => {
-    if (!openAddModal) return
-    if (!examId || !courseYearId || !regulationId || !subjectId) {
-      setTemplateRows([])
-      return
-    }
-    let cancelled = false
-    void (async () => {
-      const rows = await getAssignQuestionPaperTemplateList({
-        examId,
-        courseYearId,
-        regulationId,
-        subjectId,
-      }).catch(() => [])
-      if (cancelled) return
-      const list = Array.isArray(rows) ? rows : []
-      setTemplateRows(list)
-      // If not editing, default to the first assigned template (Angular parity).
-      if (!editingRow && list.length > 0) {
-        const firstId = pickNum(list[0], [
-          'fk_exam_questionpaper_template_id',
-          'examQuestionPaperTemplateId',
-          'questionPaperTemplateId',
-        ])
-        if (firstId > 0) setTemplateId(firstId)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [openAddModal, examId, courseYearId, regulationId, subjectId, editingRow])
   useEffect(() => {
     setRows([])
     setHasFetched(false)
@@ -356,6 +327,27 @@ export default function ExamQuestionPaperMarksPage() {
       }).catch(() => [])
       setRows(Array.isArray(list) ? list : [])
       setHasFetched(true)
+      // Angular's getTemplateDetails() runs after the list call -- fetch
+      // assigned templates here so the modal's Template dropdown is ready
+      // by the time the user clicks "+ Exam Question Paper".
+      if (examId && courseYearId && regulationId && subjectId) {
+        const tmpls = await getAssignQuestionPaperTemplateList({
+          examId,
+          courseYearId,
+          regulationId,
+          subjectId,
+        }).catch(() => [])
+        const tmplList = Array.isArray(tmpls) ? tmpls : []
+        setTemplateRows(tmplList)
+        const firstId = pickNum(tmplList[0] ?? {}, [
+          'fk_exam_questionpaper_template_id',
+          'examQuestionPaperTemplateId',
+          'questionPaperTemplateId',
+        ])
+        if (firstId > 0) setTemplateId(firstId)
+      } else {
+        setTemplateRows([])
+      }
     } finally {
       setLoading(false)
     }
@@ -387,10 +379,33 @@ export default function ExamQuestionPaperMarksPage() {
     router.push(`${path}?${params.toString()}`)
   }
   function viewQuestions(row: AnyRow) {
-    navigateWithRow(
-      '/admin-examination-management/evaluation-process/exam-question-paper-marks/view-template',
-      row,
-    )
+    const tplId = rowTemplateId(row)
+    const title =
+      pickText(row, ['template_title', 'templateTitle']) ||
+      pickText(row, ['questionPaperTitle', 'questionpaper_title']) ||
+      ''
+    if (tplId > 0) {
+      void openViewTemplateModal(tplId, title)
+    } else {
+      navigateWithRow(
+        '/admin-examination-management/evaluation-process/exam-question-paper-marks/view-template',
+        row,
+      )
+    }
+  }
+
+  async function openViewTemplateModal(tplId: number, title: string) {
+    if (!tplId) return
+    setViewTemplateTitle(title)
+    setViewTemplateRows([])
+    setViewTemplateOpen(true)
+    setViewTemplateLoading(true)
+    try {
+      const rows = await getQuestionPaperTemplateViewRows(tplId).catch(() => [])
+      setViewTemplateRows(Array.isArray(rows) ? rows : [])
+    } finally {
+      setViewTemplateLoading(false)
+    }
   }
   function printQP(row: AnyRow) {
     const url = pickText(row, ['questionPaperPath', 'questionpaper_path'])
@@ -900,12 +915,17 @@ export default function ExamQuestionPaperMarksPage() {
                   disabled={!templateId}
                   onClick={() => {
                     if (!templateId) return
-                    const params = new URLSearchParams({
-                      examQuestionPaperTemplateId: String(templateId),
-                    })
-                    router.push(
-                      `/admin-examination-management/evaluation-process/exam-question-paper-marks/view-template?${params.toString()}`,
+                    const selected = templateRows.find(
+                      (t) =>
+                        pickNum(t, [
+                          'fk_exam_questionpaper_template_id',
+                          'examQuestionPaperTemplateId',
+                          'questionPaperTemplateId',
+                        ]) === Number(templateId),
                     )
+                    const title =
+                      pickText(selected ?? {}, ['template_title', 'templateTitle']) || ''
+                    void openViewTemplateModal(templateId, title)
                   }}
                 >
                   <Eye className="h-4 w-4" />
@@ -1094,6 +1114,79 @@ export default function ExamQuestionPaperMarksPage() {
             <Button onClick={() => void submitUpload()} disabled={uploading}>
               {uploading ? 'Uploading…' : 'Save'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={viewTemplateOpen} onOpenChange={setViewTemplateOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[16px] text-[hsl(var(--primary))]">
+              Template View
+              {viewTemplateTitle ? <span className="text-slate-700"> - {viewTemplateTitle}</span> : null}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="text-[13px]">
+            {viewTemplateLoading ? (
+              <p className="py-6 text-center text-muted-foreground">Loading…</p>
+            ) : viewTemplateRows.length === 0 ? (
+              <p className="py-6 text-center text-muted-foreground">No template details found.</p>
+            ) : (
+              <table className="w-full border-collapse" id="template-view-table">
+                <tbody>
+                  {viewTemplateRows.map((t, i) => {
+                    const level1 = Number(t.level1no ?? 0)
+                    const groupNo = Number(t.groupno ?? 0)
+                    const subGroupNo = Number(t.subgroupno ?? 0)
+                    const code = t.questioncode ?? null
+                    const down = String(t.displaydowntext ?? '').trim()
+                    const cells: React.ReactNode[] = []
+                    if (level1 > 0 && groupNo === 0 && subGroupNo === 0) {
+                      cells.push(
+                        <tr key={`vt-${i}-title`}>
+                          <td colSpan={4} className="text-center font-semibold py-1">
+                            {t.QuestionTitle}
+                          </td>
+                        </tr>,
+                      )
+                    }
+                    if (level1 > 0 && groupNo > 0 && subGroupNo === 0) {
+                      cells.push(
+                        <tr key={`vt-${i}-grp`}>
+                          <td className="py-1 pr-2"><b>{groupNo}.</b></td>
+                          <td className="py-1 pr-2">&nbsp;&nbsp;</td>
+                          <td className="w-full py-1">{t.QuestionTitle}</td>
+                          <td className="py-1 pl-2 text-right"><b>{t.question_marks}</b></td>
+                        </tr>,
+                      )
+                    }
+                    if (code != null) {
+                      cells.push(
+                        <tr key={`vt-${i}-code`}>
+                          <td className="py-1 pr-2">&nbsp;&nbsp;</td>
+                          <td className="py-1 pr-2">{code}</td>
+                          <td className="w-full py-1" />
+                          <td className="py-1 pl-2 text-right">{t.individual_question_marks}</td>
+                        </tr>,
+                      )
+                    }
+                    if (down) {
+                      cells.push(
+                        <tr key={`vt-${i}-down`}>
+                          <td colSpan={4} className="text-center py-1">
+                            <b>{down}</b>
+                          </td>
+                        </tr>,
+                      )
+                    }
+                    return cells
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewTemplateOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
