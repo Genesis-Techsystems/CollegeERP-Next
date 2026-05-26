@@ -78,6 +78,35 @@ export default function ExamQuestionPaperMarksPage() {
   const empNumber = globalThis?.localStorage?.getItem('empNumber') ?? ''
   const userName = globalThis?.localStorage?.getItem('uName') ?? globalThis?.localStorage?.getItem('userName') ?? ''
   const preparedEmpLabel = userName ? `${empNumber} (${userName})` : empNumber || `Employee ${employeeId}`
+  const preparedEmpOptions = useMemo(() => {
+    const options: { value: string; label: string }[] = []
+    if (employeeId > 0) {
+      options.push({ value: String(employeeId), label: preparedEmpLabel })
+    }
+    if (editingRow) {
+      const priorId = pickNum(editingRow, [
+        'preparedByEmpId',
+        'fk_preparedby_emp_id',
+        'preparedbyEmpId',
+      ])
+      if (priorId > 0 && priorId !== employeeId) {
+        const priorName =
+          pickText(editingRow, [
+            'preparedby_emp_name',
+            'preparedByEmpName',
+            'preparedBy',
+            'preparedByEmp',
+          ]) || `Employee ${priorId}`
+        const priorNumber = pickText(editingRow, [
+          'preparedby_emp_number',
+          'preparedByEmpNumber',
+        ])
+        const label = priorNumber ? `${priorNumber} (${priorName})` : priorName
+        options.push({ value: String(priorId), label })
+      }
+    }
+    return options
+  }, [employeeId, preparedEmpLabel, editingRow])
   const [form, setForm] = useState({
     questionPaperTitle: '',
     questionPaperCode: '',
@@ -849,7 +878,7 @@ export default function ExamQuestionPaperMarksPage() {
                 onChange={(v) =>
                   setForm((s) => ({ ...s, preparedByEmpId: Number(v) || employeeId }))
                 }
-                options={[{ value: String(employeeId || ''), label: preparedEmpLabel }]}
+                options={preparedEmpOptions}
                 placeholder="Prepared Employee"
               />
             </div>
