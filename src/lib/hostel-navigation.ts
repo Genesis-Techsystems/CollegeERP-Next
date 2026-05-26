@@ -7,6 +7,11 @@ export function mapHostelNavRoute(href?: string, label?: string): string | null 
   const hrefLower = (href ?? '').toLowerCase()
   const labelLower = (label ?? '').toLowerCase().trim()
 
+  // Admin institutional masters (rooms, room types, room details) — not hostel.
+  if (hrefLower.includes('institutional-masters')) {
+    return null
+  }
+
   if (labelLower === 'hostel types' || hrefLower.includes('hostel-types')) {
     return '/hostel/hostel-types'
   }
@@ -27,6 +32,14 @@ export function mapHostelNavRoute(href?: string, label?: string): string | null 
   ) {
     return '/hostel/hostel-details'
   }
+  // Admin master-settings screen — not hostel (label "Room Details" contains "room").
+  if (
+    hrefLower.includes('room-detail') ||
+    hrefLower.includes('master-settings/room-detail') ||
+    labelLower.includes('room detail')
+  ) {
+    return null
+  }
   if (labelLower.includes('room') && labelLower.includes('charge')) {
     return '/hostel/room-charges'
   }
@@ -45,7 +58,8 @@ export function mapHostelNavRoute(href?: string, label?: string): string | null 
       !labelLower.includes('allocation') &&
       !labelLower.includes('charge') &&
       !labelLower.includes('list') &&
-      !labelLower.includes('view'))
+      !labelLower.includes('view') &&
+      !labelLower.includes('detail'))
   ) {
     return '/hostel/rooms'
   }

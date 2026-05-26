@@ -106,6 +106,11 @@ export function normalizeHref(path: string): string {
     // Angular Admission module → App Router path (`enquiry-form` folder routes as `enquiries`).
     .replace(/\/apps\/admission\//gi, '/admission/')
     .replace(/\/admission\/enquiry-form\//gi, '/admission/enquiries/')
+    // Angular Admin institutional masters → App Router admin pages.
+    .replace(/\/institutional-masters\/rooms-type(?=\/|$)/gi, '/admin/room-types')
+    .replace(/\/institutional-masters\/rooms(?=\/|$)/gi, '/admin/rooms')
+    .replace(/\/institutional-masters\/room-details(?=\/|$)/gi, '/admin/room-details')
+    .replace(/\/institutional-masters\/room-detail(?=\/|$)/gi, '/admin/room-details')
     // Angular E-Office module (`Office/` menu prefix) → App Router path.
     .replace(/\/Office\//gi, '/e-office/')
     .replace(/\/apps\/e-office\//gi, '/e-office/')

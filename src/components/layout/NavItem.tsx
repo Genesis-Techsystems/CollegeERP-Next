@@ -796,6 +796,7 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
   return item.children.some((child) => {
     const ch = child.href?.trim()
     const mapped =
+      (ch ? mapLegacyInstitutionalMastersHref(ch) : null) ??
       mapHostelNavRoute(ch, child.label) ??
       mapErpModuleNavRoute(ch, child.label) ??
       mapLabelToRoute(child.label) ??
@@ -834,6 +835,39 @@ const navActive = {
   solid: 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]',
   solidHover: 'hover:bg-[hsl(var(--primary))]/90 hover:text-[hsl(var(--primary-foreground))]',
 } as const
+
+/** Angular `#/admin/institutional-masters/*` → App Router admin pages. */
+function mapLegacyInstitutionalMastersHref(href?: string): string | null {
+  if (!href) return null
+  const normalized = href.toLowerCase().replace(/\/+$/, '')
+  const marker = 'institutional-masters/'
+  const markerIndex = normalized.indexOf(marker)
+  if (markerIndex === -1) return null
+
+  const slug = normalized.slice(markerIndex + marker.length).split('?')[0]!
+  if (!slug) return null
+
+  const routeMap: Record<string, string> = {
+    'rooms-type': '/admin/room-types',
+    'rooms-types': '/admin/room-types',
+    'room-type': '/admin/room-types',
+    'room-types': '/admin/room-types',
+    roomtypes: '/admin/room-types',
+    rooms: '/admin/rooms',
+    room: '/admin/rooms',
+    'room-details': '/admin/room-details',
+    'room-detail': '/admin/room-details',
+    roomdetails: '/admin/room-details',
+    buildings: '/admin/buildings',
+    building: '/admin/buildings',
+    blocks: '/admin/blocks',
+    block: '/admin/blocks',
+    floors: '/admin/floors',
+    floor: '/admin/floors',
+  }
+
+  return routeMap[slug] ?? null
+}
 
 function mapLegacyMasterSettingsHref(href?: string): string | null {
   if (!href) return null
@@ -889,6 +923,9 @@ function mapLegacyMasterSettingsHref(href?: string): string | null {
     'config-auto-number': '/admin/configure-auto-numbers',
     'config-autonumber': '/admin/configure-auto-numbers',
     configautonumber: '/admin/configure-auto-numbers',
+    'room-details': '/admin/room-details',
+    'room-detail': '/admin/room-details',
+    roomdetails: '/admin/room-details',
   }
 
   return routeMap[slug] ?? `/admin/${slug}`
@@ -1056,6 +1093,10 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return '/tc-no-due-approval/certificate-requests'
       }
 
+      if (labelLower.includes('room details') || labelLower === 'room detail') {
+        return '/admin/room-details'
+      }
+
       const hostelRoute = mapHostelNavRoute(item.href, item.label)
       if (hostelRoute) return hostelRoute
     }
@@ -1208,6 +1249,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return '/email-sms/principal-to-dept-email'
     }
+
+    const institutionalRoute = mapLegacyInstitutionalMastersHref(item.href)
+    if (institutionalRoute) return institutionalRoute
 
     const masterSettingsRoute = mapLegacyMasterSettingsHref(item.href)
     if (masterSettingsRoute) return masterSettingsRoute
