@@ -121,18 +121,20 @@ export async function updateExamQuestionPaper(
  */
 export async function uploadQuestionPaperFiles(params: {
   examQuestionPaperId: number
-  questionPaper?: File | null
-  modelAnswerPaper?: File | null
+  questionPapers?: File[] | null
+  modelAnswerPapers?: File[] | null
 }): Promise<{ message: string; data?: AnyRow }> {
   const formData = new FormData()
   formData.append('questionPaperId', String(params.examQuestionPaperId))
-  if (params.questionPaper) {
-    formData.append('questionPaper', params.questionPaper, params.questionPaper.name)
+  for (const f of params.questionPapers ?? []) {
+    formData.append('questionPaper', f, f.name)
   }
-  if (params.modelAnswerPaper) {
-    formData.append('modelAnswerPaper', params.modelAnswerPaper, params.modelAnswerPaper.name)
+  for (const f of params.modelAnswerPapers ?? []) {
+    formData.append('modelAnswerPaper', f, f.name)
   }
-  const res = await fetch(NEXT_API.PROXY('/examQuestionPaperPathUpload'), {
+  // Angular target endpoint:
+  //   /cms/uploadquestionpapermodelanswerpapers
+  const res = await fetch(NEXT_API.PROXY('/uploadquestionpapermodelanswerpapers'), {
     method: 'POST',
     body: formData,
   })

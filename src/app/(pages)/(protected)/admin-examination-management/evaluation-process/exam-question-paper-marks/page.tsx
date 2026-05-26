@@ -64,8 +64,8 @@ export default function ExamQuestionPaperMarksPage() {
   const [openAddModal, setOpenAddModal] = useState(false)
   const [editingRow, setEditingRow] = useState<AnyRow | null>(null)
   const [uploadRow, setUploadRow] = useState<AnyRow | null>(null)
-  const [uploadQpFile, setUploadQpFile] = useState<File | null>(null)
-  const [uploadAsFile, setUploadAsFile] = useState<File | null>(null)
+  const [uploadQpFiles, setUploadQpFiles] = useState<File[]>([])
+  const [uploadAsFiles, setUploadAsFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [templateRows, setTemplateRows] = useState<AnyRow[]>([])
   const [templateId, setTemplateId] = useState<number>(0)
@@ -181,7 +181,7 @@ export default function ExamQuestionPaperMarksPage() {
         totalQuestions: Number(form.totalQuestions || 0),
         totalMarks: Number(form.totalMarks || 0),
         passMarks: Number(form.passMarks || 0),
-        preparedByEmpId: form.preparedByEmpId || null,
+        preparedByEmpId: form.preparedByEmpId || employeeId || null,
         preparedDate: form.preparedDate || null,
         questionPaperStatus: form.questionPaperStatus || null,
         statusComments: form.statusComments || null,
@@ -530,8 +530,8 @@ export default function ExamQuestionPaperMarksPage() {
   }
   function uploadPapers(row: AnyRow) {
     setUploadRow(row)
-    setUploadQpFile(null)
-    setUploadAsFile(null)
+    setUploadQpFiles([])
+    setUploadAsFiles([])
   }
 
   async function submitUpload() {
@@ -541,7 +541,7 @@ export default function ExamQuestionPaperMarksPage() {
       toastError('Question paper id is missing on this row.')
       return
     }
-    if (!uploadQpFile && !uploadAsFile) {
+    if (uploadQpFiles.length === 0 && uploadAsFiles.length === 0) {
       toastError('Choose at least one file to upload.')
       return
     }
@@ -549,13 +549,13 @@ export default function ExamQuestionPaperMarksPage() {
     try {
       const { message } = await uploadQuestionPaperFiles({
         examQuestionPaperId: id,
-        questionPaper: uploadQpFile,
-        modelAnswerPaper: uploadAsFile,
+        questionPapers: uploadQpFiles,
+        modelAnswerPapers: uploadAsFiles,
       })
       toastSuccess(message || 'Files uploaded.')
       setUploadRow(null)
-      setUploadQpFile(null)
-      setUploadAsFile(null)
+      setUploadQpFiles([])
+      setUploadAsFiles([])
       await getList()
     } catch (error: any) {
       toastError(error?.message ?? 'Failed to upload files.')
@@ -1058,7 +1058,13 @@ export default function ExamQuestionPaperMarksPage() {
             <div className="md:col-span-4 space-y-1">
               <Label>Prepared Employee</Label>
               <Select
-                value={form.preparedByEmpId ? String(form.preparedByEmpId) : null}
+                value={
+                  form.preparedByEmpId
+                    ? String(form.preparedByEmpId)
+                    : employeeId > 0
+                      ? String(employeeId)
+                      : null
+                }
                 onChange={(v) =>
                   setForm((s) => ({ ...s, preparedByEmpId: Number(v) || employeeId }))
                 }
@@ -1128,12 +1134,12 @@ export default function ExamQuestionPaperMarksPage() {
         onOpenChange={(v) => {
           if (!v) {
             setUploadRow(null)
-            setUploadQpFile(null)
-            setUploadAsFile(null)
+            setUploadQpFiles([])
+            setUploadAsFiles([])
           }
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="text-[16px] text-[hsl(var(--primary))]">
               Upload Question Paper &amp; Model Answer Paper
@@ -1146,38 +1152,44 @@ export default function ExamQuestionPaperMarksPage() {
                 {pickText(uploadRow, ['questionPaperCode', 'questionpaper_code', 'paperCode']) || '-'})
               </p>
             ) : null}
-            <div className="space-y-1">
-              <Label className="text-[12px] font-semibold">Question Paper</Label>
-              <Input
+            <div className="flex items-center gap-3">
+              <b className="shrink-0 w-44 text-[13px]">Question Paper :-</b>
+              <input
                 type="file"
+                multiple
                 accept=".pdf,.doc,.docx,image/*"
-                className="h-9 text-[12px] file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1"
-                onChange={(e) => setUploadQpFile(e.target.files?.[0] ?? null)}
+                className="text-[12px] file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1"
+                onChange={(e) => setUploadQpFiles(Array.from(e.target.files ?? []))}
               />
-              {uploadQpFile ? (
-                <p className="text-[11px] text-muted-foreground">Selected: {uploadQpFile.name}</p>
-              ) : null}
             </div>
-            <div className="space-y-1">
-              <Label className="text-[12px] font-semibold">Model Answer Paper</Label>
-              <Input
+            {uploadQpFiles.length > 0 ? (
+              <p className="ml-44 -mt-2 text-[11px] text-muted-foreground">
+                Selected: {uploadQpFiles.map((f) => f.name).join(', ')}
+              </p>
+            ) : null}
+            <div className="flex items-center gap-3">
+              <b className="shrink-0 w-44 text-[13px]">Model Answer Paper :-</b>
+              <input
                 type="file"
+                multiple
                 accept=".pdf,.doc,.docx,image/*"
-                className="h-9 text-[12px] file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1"
-                onChange={(e) => setUploadAsFile(e.target.files?.[0] ?? null)}
+                className="text-[12px] file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1"
+                onChange={(e) => setUploadAsFiles(Array.from(e.target.files ?? []))}
               />
-              {uploadAsFile ? (
-                <p className="text-[11px] text-muted-foreground">Selected: {uploadAsFile.name}</p>
-              ) : null}
             </div>
+            {uploadAsFiles.length > 0 ? (
+              <p className="ml-44 -mt-2 text-[11px] text-muted-foreground">
+                Selected: {uploadAsFiles.map((f) => f.name).join(', ')}
+              </p>
+            ) : null}
           </div>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
                 setUploadRow(null)
-                setUploadQpFile(null)
-                setUploadAsFile(null)
+                setUploadQpFiles([])
+                setUploadAsFiles([])
               }}
               disabled={uploading}
             >
