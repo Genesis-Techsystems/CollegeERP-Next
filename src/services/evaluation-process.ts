@@ -95,18 +95,22 @@ export async function updateExamQuestionPaper(
   examQuestionPaperId: number,
   payload: Record<string, unknown>,
 ): Promise<AnyRow> {
-  const entities = [
-    { name: 'ExamQuestionPaper', pk: 'examQuestionPaperId' },
-    { name: 'ExamQuestionPapers', pk: 'examQuestionPaperId' },
-  ]
-  for (const { name, pk } of entities) {
-    try {
-      return await domainUpdate<AnyRow>(name, pk, examQuestionPaperId, payload)
-    } catch {
-      // try next entity name
-    }
+  // Angular calls the dedicated /updateExamQuestionPapers endpoint, not
+  // the generic /domain/update path. The endpoint expects the payload
+  // shape from createExamQuestionPaper plus the primary key.
+  const body = { ...payload, examQuestionPaperId, pkExamQuestionpaperId: examQuestionPaperId }
+  const res = await fetch(NEXT_API.PROXY('/updateExamQuestionPapers'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const json = (await res.json().catch(() => null)) as
+    | { success?: boolean; message?: string; data?: AnyRow }
+    | null
+  if (!res.ok || (json && json.success === false)) {
+    throw new Error(json?.message ?? `Update failed (${res.status}).`)
   }
-  throw new Error('Unable to update exam question paper.')
+  return (json?.data ?? {}) as AnyRow
 }
 
 /**
@@ -201,7 +205,10 @@ export async function getAssignQuestionPaperTemplateList(params: {
   return []
 }
 
-export async function getQuestionPaperTemplateViewRows(templateId: number): Promise<AnyRow[]> {
+export async function getQuestionPaperTemplateViewRows(
+  templateId: number,
+  examQuestionPaperId?: number,
+): Promise<AnyRow[]> {
   if (!templateId) return []
   const payload = {
     in_flag: 'list_exam_questionpaper_details',
@@ -209,7 +216,11 @@ export async function getQuestionPaperTemplateViewRows(templateId: number): Prom
     in_fdate: '1990-01-01',
     in_tdate: '1990-01-01',
     in_exam_questionpaper_template_id: templateId,
-    in_exam_questionpaper_id: 0,
+    // Angular's "View Questions" path (view-template-questions) passes the
+    // question paper id so the proc returns the actual saved questions for
+    // that paper, not the blank template skeleton. The "View Template"
+    // path (view-template-modal) passes 0.
+    in_exam_questionpaper_id: examQuestionPaperId ?? 0,
     in_exam_id: 0,
     in_course_year_id: 0,
     in_subject_id: 0,

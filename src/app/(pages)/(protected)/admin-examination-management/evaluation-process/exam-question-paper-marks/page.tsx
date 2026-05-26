@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { MINIO_URL } from '@/config/constants/api'
+import { useSessionContext } from '@/context/SessionContext'
 import type { ColDef } from 'ag-grid-community'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
@@ -82,10 +84,23 @@ export default function ExamQuestionPaperMarksPage() {
   const [regulationId, setRegulationId] = useState<number | null>(null)
   const [courseYearId, setCourseYearId] = useState<number | null>(null)
   const [subjectId, setSubjectId] = useState<number | null>(null)
-  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
-  const empNumber = globalThis?.localStorage?.getItem('empNumber') ?? ''
-  const userName = globalThis?.localStorage?.getItem('uName') ?? globalThis?.localStorage?.getItem('userName') ?? ''
-  const preparedEmpLabel = userName ? `${empNumber} (${userName})` : empNumber || `Employee ${employeeId}`
+  const { user } = useSessionContext()
+  const employeeId = Number(
+    user?.employeeId ?? globalThis?.localStorage?.getItem('employeeId') ?? 0,
+  )
+  const empNumber =
+    String(globalThis?.localStorage?.getItem('empNumber') ?? '') ||
+    String(user?.userName ?? '')
+  const userName =
+    String(user?.firstName ?? '') ||
+    String(globalThis?.localStorage?.getItem('uName') ?? '') ||
+    String(globalThis?.localStorage?.getItem('userName') ?? '') ||
+    String(user?.userName ?? '')
+  const preparedEmpLabel = userName
+    ? empNumber
+      ? `${empNumber} (${userName})`
+      : userName
+    : empNumber || `Employee ${employeeId}`
   const preparedEmpOptions = useMemo(() => {
     const options: { value: string; label: string }[] = []
     if (employeeId > 0) {
@@ -312,6 +327,14 @@ export default function ExamQuestionPaperMarksPage() {
     if (!subjectId && subjects[0]) setSubjectId(pickNum(subjects[0], ['fk_subject_id', 'subjectId']))
   }, [subjects, subjectId])
 
+  // Hydrate preparedByEmpId once user data is available -- handles the
+  // SSR/hydration race where employeeId is 0 on first render.
+  useEffect(() => {
+    if (employeeId > 0) {
+      setForm((s) => (s.preparedByEmpId === employeeId || editingRow ? s : { ...s, preparedByEmpId: employeeId }))
+    }
+  }, [employeeId, editingRow])
+
   useEffect(() => {
     setRows([])
     setHasFetched(false)
@@ -376,20 +399,33 @@ export default function ExamQuestionPaperMarksPage() {
   function navigateWithRow(path: string, row: AnyRow) {
     const params = new URLSearchParams({
       examQuestionPaperId: String(rowQuestionPaperId(row)),
+      questionPaperId: String(rowQuestionPaperId(row)),
       examQuestionPaperTemplateId: String(rowTemplateId(row)),
+      pkEQPTid: String(rowTemplateId(row)),
       questionPaperTitle: pickText(row, ['questionPaperTitle', 'questionpaper_title']),
+      questionpaper_title: pickText(row, ['questionPaperTitle', 'questionpaper_title']),
       questionPaperCode: pickText(row, ['questionPaperCode', 'questionpaper_code', 'paperCode']),
+      examName: pickText(row, ['exam_name', 'examName']),
+      subjectName: pickText(row, ['subject_name', 'subjectName']),
+      subjectCode: pickText(row, ['subject_code', 'subjectCode']),
+      totalmarks: String(pickNum(row, ['totalmarks', 'totalMarks'])),
+      courseId: String(courseId ?? 0),
+      academicYearId: String(academicYearId ?? 0),
+      examId: String(examId ?? 0),
+      subjectId: String(subjectId ?? 0),
+      regulationId: String(regulationId ?? 0),
     })
     router.push(`${path}?${params.toString()}`)
   }
   function viewQuestions(row: AnyRow) {
     const tplId = rowTemplateId(row)
+    const qpId = rowQuestionPaperId(row)
     const title =
       pickText(row, ['template_title', 'templateTitle']) ||
       pickText(row, ['questionPaperTitle', 'questionpaper_title']) ||
       ''
     if (tplId > 0) {
-      void openViewTemplateModal(tplId, title)
+      void openViewTemplateModal(tplId, title, qpId)
     } else {
       navigateWithRow(
         '/admin-examination-management/evaluation-process/exam-question-paper-marks/view-template',
@@ -398,39 +434,32 @@ export default function ExamQuestionPaperMarksPage() {
     }
   }
 
-  async function openViewTemplateModal(tplId: number, title: string) {
+  async function openViewTemplateModal(tplId: number, title: string, qpId?: number) {
     if (!tplId) return
     setViewTemplateTitle(title)
     setViewTemplateRows([])
     setViewTemplateOpen(true)
     setViewTemplateLoading(true)
     try {
-      const rows = await getQuestionPaperTemplateViewRows(tplId).catch(() => [])
+      const rows = await getQuestionPaperTemplateViewRows(tplId, qpId).catch(() => [])
       setViewTemplateRows(Array.isArray(rows) ? rows : [])
     } finally {
       setViewTemplateLoading(false)
     }
   }
   function printQP(row: AnyRow) {
-    const url = pickText(row, ['questionPaperPath', 'questionpaper_path'])
-    if (url) {
-      globalThis?.open?.(url, '_blank')
-      return
-    }
+    // Angular Print QP navigates to /view-template (the print-friendly
+    // template view) with the row context. Match that.
     navigateWithRow(
-      '/admin-examination-management/evaluation-process/exam-question-paper-marks/print-qa',
-      { ...row, printMode: 'QP' },
+      '/admin-examination-management/evaluation-process/exam-question-paper-marks/view-template',
+      row,
     )
   }
   function printQA(row: AnyRow) {
-    const url = pickText(row, ['modelAnswerSheetPath', 'modelanswersheet_path'])
-    if (url) {
-      globalThis?.open?.(url, '_blank')
-      return
-    }
+    // Angular Print QA navigates to /print-qa with the row context.
     navigateWithRow(
       '/admin-examination-management/evaluation-process/exam-question-paper-marks/print-qa',
-      { ...row, printMode: 'QA' },
+      row,
     )
   }
   function editRow(row: AnyRow) {
@@ -453,9 +482,13 @@ export default function ExamQuestionPaperMarksPage() {
     })
     setOpenAddModal(true)
   }
-  function openFile(url: string | null | undefined) {
-    if (!url) return
-    globalThis?.open?.(url, '_blank')
+  function openFile(path: string | null | undefined) {
+    if (!path) return
+    // Paths stored in DB are relative MinIO keys; prefix with the public
+    // MinIO base URL to make them browser-openable. Mirrors Angular
+    // openFile(path) -> window.open(miniopath + path, '_blank').
+    const url = /^https?:\/\//i.test(path) ? path : `${MINIO_URL}${path}`
+    globalThis?.open?.(url, '_blank', 'width=900,height=700,noopener,noreferrer')
   }
   function manageQuestions(row: AnyRow) {
     navigateWithRow(
