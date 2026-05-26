@@ -75,6 +75,9 @@ export default function ExamQuestionPaperMarksPage() {
   const [courseYearId, setCourseYearId] = useState<number | null>(null)
   const [subjectId, setSubjectId] = useState<number | null>(null)
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const empNumber = globalThis?.localStorage?.getItem('empNumber') ?? ''
+  const userName = globalThis?.localStorage?.getItem('uName') ?? globalThis?.localStorage?.getItem('userName') ?? ''
+  const preparedEmpLabel = userName ? `${empNumber} (${userName})` : empNumber || `Employee ${employeeId}`
   const [form, setForm] = useState({
     questionPaperTitle: '',
     questionPaperCode: '',
@@ -82,7 +85,7 @@ export default function ExamQuestionPaperMarksPage() {
     totalQuestions: '',
     totalMarks: '',
     passMarks: '',
-    preparedByEmp: 'Praveen Reddy',
+    preparedByEmpId: employeeId,
     preparedDate: toDateOnlyISO(new Date()),
     questionPaperStatus: 'Prepared',
     statusComments: '',
@@ -98,7 +101,7 @@ export default function ExamQuestionPaperMarksPage() {
       totalQuestions: '',
       totalMarks: '',
       passMarks: '',
-      preparedByEmp: 'Praveen Reddy',
+      preparedByEmpId: employeeId,
       preparedDate: toDateOnlyISO(new Date()),
       questionPaperStatus: 'Prepared',
       statusComments: '',
@@ -125,7 +128,7 @@ export default function ExamQuestionPaperMarksPage() {
         totalQuestions: Number(form.totalQuestions || 0),
         totalMarks: Number(form.totalMarks || 0),
         passMarks: Number(form.passMarks || 0),
-        preparedByEmp: form.preparedByEmp || null,
+        preparedByEmpId: form.preparedByEmpId || null,
         preparedDate: form.preparedDate || null,
         questionPaperStatus: form.questionPaperStatus || null,
         statusComments: form.statusComments || null,
@@ -352,7 +355,8 @@ export default function ExamQuestionPaperMarksPage() {
       totalQuestions: String(pickNum(row, ['totalQuestions', 'totalquestions']) || ''),
       totalMarks: String(pickNum(row, ['totalMarks', 'totalmarks']) || ''),
       passMarks: String(pickNum(row, ['passMarks', 'passmarks']) || ''),
-      preparedByEmp: pickText(row, ['preparedByEmp', 'preparedby_emp_name', 'preparedBy']),
+      preparedByEmpId:
+        pickNum(row, ['preparedByEmpId', 'fk_preparedby_emp_id', 'preparedbyEmpId']) || employeeId,
       preparedDate: pickText(row, ['preparedDate', 'prepared_date']) || toDateOnlyISO(new Date()),
       questionPaperStatus: pickText(row, ['questionPaperStatus', 'question_status']) || 'Prepared',
       statusComments: pickText(row, ['statusComments', 'status_comments']),
@@ -840,10 +844,13 @@ export default function ExamQuestionPaperMarksPage() {
             </div>
             <div className="md:col-span-4 space-y-1">
               <Label>Prepared Employee</Label>
-              <Input
-                className="h-9 text-[12px]"
-                value={form.preparedByEmp}
-                onChange={(e) => setForm((s) => ({ ...s, preparedByEmp: e.target.value }))}
+              <Select
+                value={form.preparedByEmpId ? String(form.preparedByEmpId) : null}
+                onChange={(v) =>
+                  setForm((s) => ({ ...s, preparedByEmpId: Number(v) || employeeId }))
+                }
+                options={[{ value: String(employeeId || ''), label: preparedEmpLabel }]}
+                placeholder="Prepared Employee"
               />
             </div>
             <div className="md:col-span-4 space-y-1">
