@@ -13,6 +13,7 @@
 export const QK = {
   // ── Session ──────────────────────────────────────────────────────────────
   session: ['session'] as const,
+  loginEmployeeId: (userId: number) => ['loginEmployeeId', userId] as const,
 
   // ── Exam Sessions ─────────────────────────────────────────────────────
   examSessions: {
