@@ -19,7 +19,7 @@ import {
   getEvaluationExamRestBundle,
   getQuestionPaperTemplateViewRows,
   listEvaluationSubjects,
-  listExamQuestionPapers,
+  listFinalizableQuestionPapers,
   updateExamQuestionPaper,
   uploadQuestionPaperFiles,
 } from '@/services/evaluation-process'
@@ -320,10 +320,14 @@ export default function ExamQuestionPaperMarksPage() {
   async function getList() {
     setLoading(true)
     try {
-      const list = await listExamQuestionPapers({
-        examId: examId ?? undefined,
+      const list = await listFinalizableQuestionPapers({
+        employeeId,
+        examId: examId ?? 0,
+        courseId: courseId ?? undefined,
+        academicYearId: academicYearId ?? undefined,
         courseYearId: courseYearId ?? undefined,
         subjectId: subjectId ?? undefined,
+        regulationId: regulationId ?? undefined,
       }).catch(() => [])
       setRows(Array.isArray(list) ? list : [])
       setHasFetched(true)
@@ -821,8 +825,17 @@ export default function ExamQuestionPaperMarksPage() {
                   className="h-[30px] px-3 text-[12px]"
                   onClick={() => {
                     setEditingRow(null)
-                    setTemplateId(0)
                     resetForm()
+                    // Re-anchor templateId / preparedByEmpId on open so a
+                    // template loaded during Get List + the current login
+                    // user appear pre-selected (Angular parity).
+                    const firstTemplateId = pickNum(templateRows[0] ?? {}, [
+                      'fk_exam_questionpaper_template_id',
+                      'examQuestionPaperTemplateId',
+                      'questionPaperTemplateId',
+                    ])
+                    if (firstTemplateId > 0) setTemplateId(firstTemplateId)
+                    setForm((s) => ({ ...s, preparedByEmpId: employeeId }))
                     setOpenAddModal(true)
                   }}
                 >
@@ -840,8 +853,8 @@ export default function ExamQuestionPaperMarksPage() {
           setOpenAddModal(v)
           if (!v) {
             setEditingRow(null)
-            setTemplateId(0)
-            setTemplateRows([])
+            // Keep templateRows / templateId loaded from Get List so the
+            // next "+ Exam Question Paper" click still has them.
             resetForm()
           }
         }}
