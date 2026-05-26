@@ -14,6 +14,7 @@ import { ChevronDown, Eye, Filter } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   createExamQuestionPaper,
+  getAssignQuestionPaperTemplateList,
   getEvaluationExamFilters,
   getEvaluationExamRestBundle,
   listEvaluationSubjects,
@@ -63,6 +64,8 @@ export default function ExamQuestionPaperMarksPage() {
   const [uploadQpFile, setUploadQpFile] = useState<File | null>(null)
   const [uploadAsFile, setUploadAsFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [templateRows, setTemplateRows] = useState<AnyRow[]>([])
+  const [templateId, setTemplateId] = useState<number>(0)
   const [rows, setRows] = useState<AnyRow[]>([])
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
@@ -169,6 +172,7 @@ export default function ExamQuestionPaperMarksPage() {
         regulationId: regulationId ?? undefined,
         academicYearId: academicYearId ?? undefined,
         courseId: courseId ?? undefined,
+        examQuestionPaperTemplateId: templateId || null,
       }
       const editingId = editingRow ? rowQuestionPaperId(editingRow) : 0
       if (editingId > 0) {
@@ -302,6 +306,41 @@ export default function ExamQuestionPaperMarksPage() {
   useEffect(() => {
     if (!subjectId && subjects[0]) setSubjectId(pickNum(subjects[0], ['fk_subject_id', 'subjectId']))
   }, [subjects, subjectId])
+
+  // Load assigned templates whenever the modal opens with enough context
+  // (exam / course year / regulation / subject). Mirrors Angular
+  // getTemplateDetails() which calls s_get_question_paper_assignments.
+  useEffect(() => {
+    if (!openAddModal) return
+    if (!examId || !courseYearId || !regulationId || !subjectId) {
+      setTemplateRows([])
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const rows = await getAssignQuestionPaperTemplateList({
+        examId,
+        courseYearId,
+        regulationId,
+        subjectId,
+      }).catch(() => [])
+      if (cancelled) return
+      const list = Array.isArray(rows) ? rows : []
+      setTemplateRows(list)
+      // If not editing, default to the first assigned template (Angular parity).
+      if (!editingRow && list.length > 0) {
+        const firstId = pickNum(list[0], [
+          'fk_exam_questionpaper_template_id',
+          'examQuestionPaperTemplateId',
+          'questionPaperTemplateId',
+        ])
+        if (firstId > 0) setTemplateId(firstId)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [openAddModal, examId, courseYearId, regulationId, subjectId, editingRow])
   useEffect(() => {
     setRows([])
     setHasFetched(false)
@@ -377,6 +416,7 @@ export default function ExamQuestionPaperMarksPage() {
   }
   function editRow(row: AnyRow) {
     setEditingRow(row)
+    setTemplateId(rowTemplateId(row))
     setForm({
       questionPaperTitle: pickText(row, ['questionPaperTitle', 'questionpaper_title']),
       questionPaperCode: pickText(row, ['questionPaperCode', 'questionpaper_code', 'paperCode']),
@@ -764,7 +804,12 @@ export default function ExamQuestionPaperMarksPage() {
                   type="button"
                   size="sm"
                   className="h-[30px] px-3 text-[12px]"
-                  onClick={() => setOpenAddModal(true)}
+                  onClick={() => {
+                    setEditingRow(null)
+                    setTemplateId(0)
+                    resetForm()
+                    setOpenAddModal(true)
+                  }}
                 >
                   + Exam Question Paper
                 </Button>
@@ -780,6 +825,8 @@ export default function ExamQuestionPaperMarksPage() {
           setOpenAddModal(v)
           if (!v) {
             setEditingRow(null)
+            setTemplateId(0)
+            setTemplateRows([])
             resetForm()
           }
         }}
@@ -818,7 +865,52 @@ export default function ExamQuestionPaperMarksPage() {
             </div>
             <div className="md:col-span-3 space-y-1">
               <Label>Template</Label>
-              <Input value="B.Tech DS Template A" disabled className="h-9 text-[12px]" />
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <Select
+                    value={templateId ? String(templateId) : null}
+                    onChange={(v) => setTemplateId(Number(v) || 0)}
+                    options={templateRows.map((t) => ({
+                      value: String(
+                        pickNum(t, [
+                          'fk_exam_questionpaper_template_id',
+                          'examQuestionPaperTemplateId',
+                          'questionPaperTemplateId',
+                        ]),
+                      ),
+                      label:
+                        pickText(t, [
+                          'template_title',
+                          'templateTitle',
+                          'template_name',
+                          'templateName',
+                        ]) || '-',
+                    }))}
+                    placeholder={templateRows.length === 0 ? 'No template assigned' : 'Template'}
+                    disabled={templateRows.length === 0}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-9 w-9 p-0"
+                  aria-label="View Template"
+                  title="View Template"
+                  disabled={!templateId}
+                  onClick={() => {
+                    if (!templateId) return
+                    const params = new URLSearchParams({
+                      examQuestionPaperTemplateId: String(templateId),
+                    })
+                    router.push(
+                      `/admin-examination-management/evaluation-process/exam-question-paper-marks/view-template?${params.toString()}`,
+                    )
+                  }}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="md:col-span-12 border-t pt-3 mt-1" />
