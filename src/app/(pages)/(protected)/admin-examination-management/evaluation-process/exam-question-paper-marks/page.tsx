@@ -71,6 +71,7 @@ export default function ExamQuestionPaperMarksPage() {
   const [templateId, setTemplateId] = useState<number>(0)
   const [viewTemplateOpen, setViewTemplateOpen] = useState(false)
   const [viewTemplateTitle, setViewTemplateTitle] = useState('')
+  const [viewTemplateMode, setViewTemplateMode] = useState<'questions' | 'template'>('template')
   const [viewTemplateLoading, setViewTemplateLoading] = useState(false)
   const [viewTemplateRows, setViewTemplateRows] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnyRow[]>([])
@@ -421,11 +422,11 @@ export default function ExamQuestionPaperMarksPage() {
     const tplId = rowTemplateId(row)
     const qpId = rowQuestionPaperId(row)
     const title =
-      pickText(row, ['template_title', 'templateTitle']) ||
       pickText(row, ['questionPaperTitle', 'questionpaper_title']) ||
+      pickText(row, ['template_title', 'templateTitle']) ||
       ''
     if (tplId > 0) {
-      void openViewTemplateModal(tplId, title, qpId)
+      void openViewTemplateModal(tplId, title, qpId, 'questions')
     } else {
       navigateWithRow(
         '/admin-examination-management/evaluation-process/exam-question-paper-marks/view-template',
@@ -434,9 +435,15 @@ export default function ExamQuestionPaperMarksPage() {
     }
   }
 
-  async function openViewTemplateModal(tplId: number, title: string, qpId?: number) {
+  async function openViewTemplateModal(
+    tplId: number,
+    title: string,
+    qpId?: number,
+    mode: 'questions' | 'template' = 'template',
+  ) {
     if (!tplId) return
     setViewTemplateTitle(title)
+    setViewTemplateMode(mode)
     setViewTemplateRows([])
     setViewTemplateOpen(true)
     setViewTemplateLoading(true)
@@ -484,10 +491,29 @@ export default function ExamQuestionPaperMarksPage() {
   }
   function openFile(path: string | null | undefined) {
     if (!path) return
-    // Paths stored in DB are relative MinIO keys; prefix with the public
-    // MinIO base URL to make them browser-openable. Mirrors Angular
-    // openFile(path) -> window.open(miniopath + path, '_blank').
-    const url = /^https?:\/\//i.test(path) ? path : `${MINIO_URL}${path}`
+    if (/^https?:\/\//i.test(path)) {
+      globalThis?.open?.(path, '_blank', 'width=900,height=700,noopener,noreferrer')
+      return
+    }
+    // Derive MinIO base from the Spring API URL (Angular: miniopath =
+    // serverUrl + ':9000/cms/'). NEXT_PUBLIC_MINIO_URL is preferred when
+    // explicitly set; otherwise swap the :8443 API port for :9000 on the
+    // same host. If both are missing, fall back to a relative path.
+    let base = MINIO_URL
+    if (!base) {
+      const spring = process.env.NEXT_PUBLIC_SPRING_API_URL ?? ''
+      if (spring) {
+        try {
+          const u = new URL(spring)
+          base = `${u.protocol}//${u.hostname}:9000/cms/`
+        } catch {
+          base = spring.replace(/:8443\/cms\/?$/i, ':9000/cms/')
+          if (!base.endsWith('/')) base += '/'
+        }
+      }
+    }
+    const clean = path.replace(/^\/+/, '')
+    const url = `${base}${clean}`
     globalThis?.open?.(url, '_blank', 'width=900,height=700,noopener,noreferrer')
   }
   function manageQuestions(row: AnyRow) {
@@ -1168,7 +1194,7 @@ export default function ExamQuestionPaperMarksPage() {
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-auto">
           <DialogHeader>
             <DialogTitle className="text-[16px] text-[hsl(var(--primary))]">
-              Template View
+              {viewTemplateMode === 'questions' ? 'View Questions' : 'Template View'}
               {viewTemplateTitle ? <span className="text-slate-700"> - {viewTemplateTitle}</span> : null}
             </DialogTitle>
           </DialogHeader>
@@ -1209,10 +1235,17 @@ export default function ExamQuestionPaperMarksPage() {
                     if (code != null) {
                       cells.push(
                         <tr key={`vt-${i}-code`}>
-                          <td className="py-1 pr-2">&nbsp;&nbsp;</td>
-                          <td className="py-1 pr-2">{code}</td>
-                          <td className="w-full py-1" />
-                          <td className="py-1 pl-2 text-right">{t.individual_question_marks}</td>
+                          <td className="py-1 pr-2 align-top">&nbsp;&nbsp;</td>
+                          <td className="py-1 pr-2 align-top">{code})</td>
+                          <td
+                            className="w-full py-1 align-top"
+                            dangerouslySetInnerHTML={{
+                              __html: String(t.question ?? t.QuestionTitle ?? ''),
+                            }}
+                          />
+                          <td className="py-1 pl-2 text-right align-top">
+                            {t.individual_question_marks}
+                          </td>
                         </tr>,
                       )
                     }
