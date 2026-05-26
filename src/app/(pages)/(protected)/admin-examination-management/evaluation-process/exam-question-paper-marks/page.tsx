@@ -407,8 +407,16 @@ export default function ExamQuestionPaperMarksPage() {
       questionpaper_title: pickText(row, ['questionPaperTitle', 'questionpaper_title']),
       questionPaperCode: pickText(row, ['questionPaperCode', 'questionpaper_code', 'paperCode']),
       examName: pickText(row, ['exam_name', 'examName']),
-      subjectName: pickText(row, ['subject_name', 'subjectName']),
-      subjectCode: pickText(row, ['subject_code', 'subjectCode']),
+      // Angular derives subjectName/subjectCode from the selected subject
+      // filter (exam-question-paper-marks.component getQuestionpapers), not
+      // from the question-paper row -- the list proc doesn't return them.
+      // Prefer the row when present, otherwise fall back to the filter.
+      subjectName:
+        pickText(row, ['subject_name', 'subjectName']) ||
+        pickText(selectedSubject, ['subject_name', 'subjectName']),
+      subjectCode:
+        pickText(row, ['subject_code', 'subjectCode']) ||
+        pickText(selectedSubject, ['subjectCode', 'subject_code']),
       totalmarks: String(pickNum(row, ['totalmarks', 'totalMarks'])),
       courseId: String(courseId ?? 0),
       academicYearId: String(academicYearId ?? 0),

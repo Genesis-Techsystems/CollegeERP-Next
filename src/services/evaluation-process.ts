@@ -315,16 +315,42 @@ export async function listAssessmentsBySubjectCode(
 ): Promise<AnyRow[]> {
   const code = String(subjectCode ?? '').trim()
   if (!code) return []
-  const q = buildQuery(
-    { 'onlineCourses.onlineCourseCode': code, isActive: true },
-    { field: 'createdDt', direction: 'DESC' },
-  )
+  // Mirror Angular listDetailsByTwoIdWithSort EXACTLY: the Assessment list
+  // joins the two conditions with '&' (not '.and.'), e.g.
+  //   domain/list/Assessment?size=99999&query=onlineCourses.onlineCourseCode==U21HSN02EG&isActive==true.order(createdDt=DESC)
+  // crud.list() runs the value through encodeURIComponent (& -> %26, == ->
+  // %3D%3D); Spring decodes it back to the literal query above.
+  const q = `onlineCourses.onlineCourseCode==${code}&isActive==true.order(createdDt=DESC)`
   return domainList<AnyRow>('Assessment', q)
+}
+
+/**
+ * GeneralDetail rows for the Question Type modal "Difficulty Level" dropdown.
+ * Mirrors Angular listDetailsByTwoIds(generalDetailsUrl, QuestionDifficulty,
+ * 'true', generalDetailsByCodeUrl, isActive) — GM code 'QuestionDifficulty'.
+ */
+export async function listQuestionDifficultyLevels(): Promise<AnyRow[]> {
+  const q = buildQuery({ 'GeneralMaster.generalMasterCode': 'QuestionDifficulty', isActive: true })
+  return domainList<AnyRow>('GeneralDetail', q)
+}
+
+/**
+ * GeneralDetail rows for the Question Type modal "Taxonomy Level" dropdown.
+ * Mirrors Angular listDetailsByTwoIdsWithSort(generalDetailsUrl,
+ * QuestionTaxonomyLevel, 'true', 'ASC', generalDetailsByCodeUrl, isActive,
+ * 'generalDetailSortOrder') — GM code 'QuestionTaxonomyLevel', ordered.
+ */
+export async function listQuestionTaxonomyLevels(): Promise<AnyRow[]> {
+  const q = buildQuery(
+    { 'GeneralMaster.generalMasterCode': 'QuestionTaxonomyLevel', isActive: true },
+    { field: 'generalDetailSortOrder', direction: 'ASC' },
+  )
+  return domainList<AnyRow>('GeneralDetail', q)
 }
 
 export async function listQuestionPaperTemplates(): Promise<AnyRow[]> {
   const entities = [
-    EXAM_EVAL_API.QP_TEMPLATE,
+    QUESTION_PAPER_API.QP_TEMPLATE,
     'ExamQuestionpaperTemplate',
     'ExamQuestionPaperTemplate',
     'ExamQpTemplate',

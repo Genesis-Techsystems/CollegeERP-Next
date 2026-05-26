@@ -4,6 +4,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { PageContainer } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { useSessionContext } from '@/context/SessionContext'
@@ -11,6 +18,8 @@ import { toastError, toastSuccess } from '@/lib/toast'
 import {
   createQuestionPaperMarks,
   listAssessmentsBySubjectCode,
+  listQuestionDifficultyLevels,
+  listQuestionTaxonomyLevels,
 } from '@/services/evaluation-process'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
@@ -52,6 +61,14 @@ export default function QuestionBankPage() {
   const [expanded, setExpanded] = useState<Record<number, boolean>>({})
   const [saving, setSaving] = useState(false)
 
+  // Question Type modal (mirrors Angular QuestionTypeModalComponent): pick a
+  // Difficulty Level + Taxonomy Level before the question is added.
+  const [typeModalOpen, setTypeModalOpen] = useState(false)
+  const [difficultyList, setDifficultyList] = useState<AnyRow[]>([])
+  const [taxonomyList, setTaxonomyList] = useState<AnyRow[]>([])
+  const [difficultyId, setDifficultyId] = useState<number>(0)
+  const [taxonomyId, setTaxonomyId] = useState<number>(0)
+
   useEffect(() => {
     let cancelled = false
     void (async () => {
@@ -63,6 +80,29 @@ export default function QuestionBankPage() {
       cancelled = true
     }
   }, [params.subjectCode])
+
+  // Load difficulty + taxonomy lists the first time the modal opens, then
+  // default-select the first option of each (Angular getGeneralDetails).
+  useEffect(() => {
+    if (!typeModalOpen) return
+    let cancelled = false
+    void (async () => {
+      const [diff, tax] = await Promise.all([
+        listQuestionDifficultyLevels().catch(() => []),
+        listQuestionTaxonomyLevels().catch(() => []),
+      ])
+      if (cancelled) return
+      const diffRows = Array.isArray(diff) ? diff : []
+      const taxRows = Array.isArray(tax) ? tax : []
+      setDifficultyList(diffRows)
+      setTaxonomyList(taxRows)
+      setDifficultyId((prev) => prev || Number(diffRows[0]?.generalDetailId ?? 0))
+      setTaxonomyId((prev) => prev || Number(taxRows[0]?.generalDetailId ?? 0))
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [typeModalOpen])
 
   function handleBankPick(id: number) {
     setBankId(id)
@@ -104,7 +144,18 @@ export default function QuestionBankPage() {
     )
   }
 
-  async function addPickedToQuestionPaper() {
+  // Angular addQuestionsList(): opens the Question Type modal with the picked
+  // question. The modal collects difficulty + taxonomy before the POST.
+  function openTypeModal() {
+    const picked = questions.find((q) => qid(q) === pickedQuestionId) ?? null
+    if (!picked) {
+      toastError('Pick a question first.')
+      return
+    }
+    setTypeModalOpen(true)
+  }
+
+  async function submitQuestion() {
     const picked = questions.find((q) => qid(q) === pickedQuestionId) ?? null
     if (!picked) {
       toastError('Pick a question first.')
@@ -130,9 +181,13 @@ export default function QuestionBankPage() {
         courseQuestionId: Number(courseQ?.courseQuestionId) || 0,
         assessmentId: bankId || null,
         questionOwnerProfileId: employeeId,
+        // From the Question Type modal (Angular submit() merges these in).
+        questionDifficultyCatDetId: difficultyId || null,
+        taxonomyLevelCatDetId: taxonomyId || null,
         isActive: true,
       })
       toastSuccess('Question added to question paper.')
+      setTypeModalOpen(false)
       navigateBack()
     } catch (e: any) {
       toastError(e?.message ?? 'Failed to add question to paper.')
@@ -179,8 +234,7 @@ export default function QuestionBankPage() {
                   value: String(b.assessmentId),
                   label: String(b.assessmentName ?? b.assessmentCode ?? b.assessmentTitle ?? '-'),
                 }))}
-                placeholder={banks.length === 0 ? 'No question banks for this subject' : 'Select Question Bank'}
-                disabled={banks.length === 0}
+                placeholder="Select Question Bank"
                 searchable
               />
             </div>
@@ -277,13 +331,67 @@ export default function QuestionBankPage() {
           <Button
             type="button"
             className="h-8 text-[12px]"
-            onClick={() => void addPickedToQuestionPaper()}
-            disabled={saving || !pickedQuestionId}
+            onClick={openTypeModal}
+            disabled={!pickedQuestionId}
           >
-            {saving ? 'Saving…' : 'Add'}
+            Add
           </Button>
         </div>
       </div>
+
+      <Dialog
+        open={typeModalOpen}
+        onOpenChange={(v) => {
+          if (!saving) setTypeModalOpen(v)
+        }}
+      >
+        <DialogContent className="max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle className="text-[16px] text-[hsl(var(--primary))]">
+              Add Question
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[13px]">
+            <div className="space-y-1">
+              <Label className="text-[12px]">Difficulty Level</Label>
+              <Select
+                value={difficultyId ? String(difficultyId) : null}
+                onChange={(v) => setDifficultyId(Number(v) || 0)}
+                options={difficultyList.map((d) => ({
+                  value: String(d.generalDetailId),
+                  label: String(d.generalDetailDisplayName ?? d.generalDetailName ?? '-'),
+                }))}
+                placeholder="Difficulty Level"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">Taxonomy Level</Label>
+              <Select
+                value={taxonomyId ? String(taxonomyId) : null}
+                onChange={(v) => setTaxonomyId(Number(v) || 0)}
+                options={taxonomyList.map((t) => ({
+                  value: String(t.generalDetailId),
+                  label: String(t.generalDetailDisplayName ?? t.generalDetailName ?? '-'),
+                }))}
+                placeholder="Taxonomy Level"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTypeModalOpen(false)}
+              disabled={saving}
+            >
+              Close
+            </Button>
+            <Button type="button" onClick={() => void submitQuestion()} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   )
 }
