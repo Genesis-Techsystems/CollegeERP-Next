@@ -91,6 +91,24 @@ export async function createExamQuestionPaper(payload: Record<string, unknown>):
   throw new Error('Unable to create exam question paper.')
 }
 
+export async function updateExamQuestionPaper(
+  examQuestionPaperId: number,
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  const entities = [
+    { name: 'ExamQuestionPaper', pk: 'examQuestionPaperId' },
+    { name: 'ExamQuestionPapers', pk: 'examQuestionPaperId' },
+  ]
+  for (const { name, pk } of entities) {
+    try {
+      return await domainUpdate<AnyRow>(name, pk, examQuestionPaperId, payload)
+    } catch {
+      // try next entity name
+    }
+  }
+  throw new Error('Unable to update exam question paper.')
+}
+
 export async function getAssignQuestionPaperTemplateList(params: {
   examId: number
   courseYearId: number

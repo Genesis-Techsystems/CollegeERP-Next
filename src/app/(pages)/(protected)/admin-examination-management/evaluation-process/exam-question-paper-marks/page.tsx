@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { ColDef } from 'ag-grid-community'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select } from '@/common/components/select'
-import { ChevronDown, Filter } from 'lucide-react'
+import { ChevronDown, Eye, Filter } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   createExamQuestionPaper,
@@ -17,6 +18,7 @@ import {
   getEvaluationExamRestBundle,
   listEvaluationSubjects,
   listExamQuestionPapers,
+  updateExamQuestionPaper,
 } from '@/services/evaluation-process'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
@@ -50,10 +52,12 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
 }
 
 export default function ExamQuestionPaperMarksPage() {
+  const router = useRouter()
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
   const [openAddModal, setOpenAddModal] = useState(false)
+  const [editingRow, setEditingRow] = useState<AnyRow | null>(null)
   const [rows, setRows] = useState<AnyRow[]>([])
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
@@ -109,7 +113,7 @@ export default function ExamQuestionPaperMarksPage() {
     }
     setLoading(true)
     try {
-      await createExamQuestionPaper({
+      const payload = {
         questionPaperTitle: form.questionPaperTitle,
         questionPaperCode: form.questionPaperCode,
         setNumber: form.setNumber || null,
@@ -128,9 +132,17 @@ export default function ExamQuestionPaperMarksPage() {
         regulationId: regulationId ?? undefined,
         academicYearId: academicYearId ?? undefined,
         courseId: courseId ?? undefined,
-      })
-      toastSuccess('Question paper saved successfully.')
+      }
+      const editingId = editingRow ? rowQuestionPaperId(editingRow) : 0
+      if (editingId > 0) {
+        await updateExamQuestionPaper(editingId, payload)
+        toastSuccess('Question paper updated successfully.')
+      } else {
+        await createExamQuestionPaper(payload)
+        toastSuccess('Question paper saved successfully.')
+      }
       setOpenAddModal(false)
+      setEditingRow(null)
       resetForm()
       await getList()
     } catch (error: any) {
@@ -273,52 +285,309 @@ export default function ExamQuestionPaperMarksPage() {
     }
   }
 
+  function rowQuestionPaperId(row: AnyRow): number {
+    return pickNum(row, [
+      'examQuestionPaperId',
+      'exam_questionpaper_id',
+      'questionPaperId',
+      'pk_exam_questionpaper_id',
+      'id',
+    ])
+  }
+  function rowTemplateId(row: AnyRow): number {
+    return pickNum(row, [
+      'examQuestionPaperTemplateId',
+      'fk_exam_questionpaper_template_id',
+      'questionPaperTemplateId',
+    ])
+  }
+  function navigateWithRow(path: string, row: AnyRow) {
+    const params = new URLSearchParams({
+      examQuestionPaperId: String(rowQuestionPaperId(row)),
+      examQuestionPaperTemplateId: String(rowTemplateId(row)),
+      questionPaperTitle: pickText(row, ['questionPaperTitle', 'questionpaper_title']),
+      questionPaperCode: pickText(row, ['questionPaperCode', 'questionpaper_code', 'paperCode']),
+    })
+    router.push(`${path}?${params.toString()}`)
+  }
+  function viewQuestions(row: AnyRow) {
+    navigateWithRow(
+      '/admin-examination-management/evaluation-process/exam-question-paper-marks/view-template',
+      row,
+    )
+  }
+  function printQP(row: AnyRow) {
+    const url = pickText(row, ['questionPaperPath', 'questionpaper_path'])
+    if (url) {
+      globalThis?.open?.(url, '_blank')
+      return
+    }
+    navigateWithRow(
+      '/admin-examination-management/evaluation-process/exam-question-paper-marks/print-qa',
+      { ...row, printMode: 'QP' },
+    )
+  }
+  function printQA(row: AnyRow) {
+    const url = pickText(row, ['modelAnswerSheetPath', 'modelanswersheet_path'])
+    if (url) {
+      globalThis?.open?.(url, '_blank')
+      return
+    }
+    navigateWithRow(
+      '/admin-examination-management/evaluation-process/exam-question-paper-marks/print-qa',
+      { ...row, printMode: 'QA' },
+    )
+  }
+  function editRow(row: AnyRow) {
+    setEditingRow(row)
+    setForm({
+      questionPaperTitle: pickText(row, ['questionPaperTitle', 'questionpaper_title']),
+      questionPaperCode: pickText(row, ['questionPaperCode', 'questionpaper_code', 'paperCode']),
+      setNumber: pickText(row, ['setNumber', 'setnumber', 'setNo']),
+      totalQuestions: String(pickNum(row, ['totalQuestions', 'totalquestions']) || ''),
+      totalMarks: String(pickNum(row, ['totalMarks', 'totalmarks']) || ''),
+      passMarks: String(pickNum(row, ['passMarks', 'passmarks']) || ''),
+      preparedByEmp: pickText(row, ['preparedByEmp', 'preparedby_emp_name', 'preparedBy']),
+      preparedDate: pickText(row, ['preparedDate', 'prepared_date']) || toDateOnlyISO(new Date()),
+      questionPaperStatus: pickText(row, ['questionPaperStatus', 'question_status']) || 'Prepared',
+      statusComments: pickText(row, ['statusComments', 'status_comments']),
+      isActive: row.isActive === true || row.is_active === true,
+      reason: pickText(row, ['reason']) || 'active',
+    })
+    setOpenAddModal(true)
+  }
+  function openFile(url: string | null | undefined) {
+    if (!url) return
+    globalThis?.open?.(url, '_blank')
+  }
+  function manageQuestions(row: AnyRow) {
+    navigateWithRow(
+      '/admin-examination-management/evaluation-process/exam-question-paper-marks/manage-questions-paper',
+      row,
+    )
+  }
+  function assignTemplate(row: AnyRow) {
+    navigateWithRow(
+      '/admin-examination-management/evaluation-process/exam-question-paper-marks/assign-question-template',
+      row,
+    )
+  }
+  function uploadPapers(row: AnyRow) {
+    toastError(`Upload QP & AS modal not yet implemented for "${pickText(row, ['questionPaperTitle', 'questionpaper_title'])}".`)
+  }
+
   const cols = useMemo<ColDef[]>(
     () => [
       { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 82, pinned: 'left' },
       {
         field: 'questionPaperTitle',
         headerName: 'Question Paper Title',
-        minWidth: 240,
-        cellRenderer: (p: { data?: any }) => (
-          <div className="py-1">
-            <p className="font-medium text-[12px]">{p.data?.questionPaperTitle}</p>
-            <p className="text-[11px] text-blue-700">
-              View Questions | Print QP | Print QA | Edit
-            </p>
-          </div>
-        ),
+        minWidth: 280,
+        autoHeight: true,
+        cellRenderer: (p: { data?: AnyRow }) => {
+          const row = p.data ?? {}
+          return (
+            <div className="py-1">
+              <p className="font-medium text-[12px]">
+                {pickText(row, ['questionPaperTitle', 'questionpaper_title']) || '-'}
+              </p>
+              <p className="text-[11px] text-blue-700">
+                <button
+                  type="button"
+                  className="hover:underline"
+                  onClick={() => viewQuestions(row)}
+                >
+                  View Questions
+                </button>
+                {' | '}
+                <button
+                  type="button"
+                  className="hover:underline"
+                  onClick={() => printQP(row)}
+                >
+                  Print QP
+                </button>
+                {' | '}
+                <button
+                  type="button"
+                  className="hover:underline"
+                  onClick={() => printQA(row)}
+                >
+                  Print QA
+                </button>
+                {' | '}
+                <button
+                  type="button"
+                  className="hover:underline"
+                  onClick={() => editRow(row)}
+                >
+                  Edit
+                </button>
+              </p>
+            </div>
+          )
+        },
       },
-      { field: 'paperCode', headerName: 'QP Code', minWidth: 110, valueGetter: (p) => p.data?.paperCode ?? p.data?.questionPaperCode ?? '-' },
-      { field: 'courseYearCode', headerName: 'Course Year', minWidth: 120, valueGetter: (p) => p.data?.courseYearCode ?? p.data?.courseYearName ?? '-' },
-      { field: 'setNo', headerName: 'Set No.', minWidth: 95, valueGetter: (p) => p.data?.setNo ?? p.data?.setNumber ?? '-' },
-      { field: 'totalQuestions', headerName: 'Total Questions', minWidth: 130 },
-      { field: 'totalMarks', headerName: 'Total Marks', minWidth: 120 },
-      { field: 'passMarks', headerName: 'Pass Marks', minWidth: 110 },
-      { field: 'preparedBy', headerName: 'Prepared By', minWidth: 130, valueGetter: (p) => p.data?.preparedBy ?? p.data?.preparedByEmp ?? '-' },
-      { field: 'questionPaper', headerName: 'Question Paper', minWidth: 130 },
-      { field: 'answerSheet', headerName: 'Answer Sheet', minWidth: 120 },
-      { field: 'viewTemplate', headerName: 'View Template', minWidth: 125 },
+      {
+        field: 'paperCode',
+        headerName: 'QP Code',
+        minWidth: 110,
+        valueGetter: (p) =>
+          pickText(p.data, ['questionPaperCode', 'questionpaper_code', 'paperCode']) || '-',
+      },
+      {
+        field: 'courseYearCode',
+        headerName: 'Course Year',
+        minWidth: 120,
+        valueGetter: (p) => pickText(p.data, ['courseYearCode', 'courseYearName']) || '-',
+      },
+      {
+        field: 'setNo',
+        headerName: 'Set No.',
+        minWidth: 95,
+        valueGetter: (p) => pickText(p.data, ['setNumber', 'setnumber', 'setNo']) || '-',
+      },
+      {
+        headerName: 'Total Questions',
+        minWidth: 130,
+        valueGetter: (p) => pickNum(p.data, ['totalQuestions', 'totalquestions']) || '-',
+      },
+      {
+        headerName: 'Total Marks',
+        minWidth: 120,
+        valueGetter: (p) => pickNum(p.data, ['totalMarks', 'totalmarks']) || '-',
+      },
+      {
+        headerName: 'Pass Marks',
+        minWidth: 110,
+        valueGetter: (p) => pickNum(p.data, ['passMarks', 'passmarks']) || '-',
+      },
+      {
+        headerName: 'Question Paper',
+        minWidth: 130,
+        cellRenderer: (p: { data?: AnyRow }) => {
+          const url = pickText(p.data, ['questionPaperPath', 'questionpaper_path'])
+          if (!url) return <span className="text-[11px] text-muted-foreground">No Docs Uploaded</span>
+          return (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0"
+              onClick={() => openFile(url)}
+              aria-label="View question paper"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          )
+        },
+      },
+      {
+        headerName: 'Answer Sheet',
+        minWidth: 120,
+        cellRenderer: (p: { data?: AnyRow }) => {
+          const url = pickText(p.data, ['modelAnswerSheetPath', 'modelanswersheet_path'])
+          if (!url) return <span className="text-[11px] text-muted-foreground">No Docs Uploaded</span>
+          return (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0"
+              onClick={() => openFile(url)}
+              aria-label="View answer sheet"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          )
+        },
+      },
+      {
+        headerName: 'View Template',
+        minWidth: 125,
+        cellRenderer: (p: { data?: AnyRow }) => {
+          if (!rowTemplateId(p.data ?? {}))
+            return <span className="text-[11px] text-muted-foreground">No Docs Uploaded</span>
+          return (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0"
+              onClick={() => p.data && viewQuestions(p.data)}
+              aria-label="View template"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          )
+        },
+      },
+      {
+        headerName: 'Prepared By',
+        minWidth: 130,
+        valueGetter: (p) => pickText(p.data, ['preparedByEmp', 'preparedby_emp_name', 'preparedBy']) || '-',
+      },
+      {
+        headerName: 'Prepared Date',
+        minWidth: 130,
+        valueGetter: (p) => pickText(p.data, ['preparedDate', 'prepared_date']) || '-',
+      },
+      {
+        headerName: 'Question Paper Status',
+        minWidth: 150,
+        valueGetter: (p) => pickText(p.data, ['questionPaperStatus', 'question_status']) || '-',
+      },
+      {
+        headerName: 'Status Comments',
+        minWidth: 160,
+        valueGetter: (p) => pickText(p.data, ['statusComments', 'status_comments']) || '-',
+      },
+      {
+        headerName: 'Approved By',
+        minWidth: 130,
+        valueGetter: (p) => pickText(p.data, ['approvedByEmp', 'approvedby_emp_name']) || '-',
+      },
+      {
+        headerName: 'Approved Date',
+        minWidth: 130,
+        valueGetter: (p) => pickText(p.data, ['approvedDate', 'approved_date']) || '-',
+      },
       {
         field: 'isActive',
         headerName: 'Status',
         minWidth: 105,
         cellRenderer: (p: { data?: AnyRow }) => (
-          <StatusBadge status={p.data?.isActive === true || p.data?.isActive === 'Active'} />
+          <StatusBadge status={p.data?.isActive === true || p.data?.is_active === true} />
         ),
       },
       {
         headerName: 'Actions',
-        minWidth: 190,
-        cellRenderer: () => (
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="h-7">Manage Question</Button>
-            <Button size="sm" className="h-7">Upload QP & AS</Button>
-          </div>
-        ),
+        minWidth: 220,
+        cellRenderer: (p: { data?: AnyRow }) => {
+          const row = p.data ?? {}
+          const hasTemplate = rowTemplateId(row) > 0
+          return (
+            <div className="flex items-center gap-1.5">
+              {hasTemplate ? (
+                <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => manageQuestions(row)}>
+                  Manage Question
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => assignTemplate(row)}>
+                  Assign Template
+                </Button>
+              )}
+              {hasTemplate && (
+                <Button size="sm" className="h-7 text-[11px]" onClick={() => uploadPapers(row)}>
+                  Upload QP & AS
+                </Button>
+              )}
+            </div>
+          )
+        },
       },
     ],
-    [],
+    [router],
   )
 
   return (
@@ -435,10 +704,21 @@ export default function ExamQuestionPaperMarksPage() {
         </div>
       )}
 
-      <Dialog open={openAddModal} onOpenChange={setOpenAddModal}>
+      <Dialog
+        open={openAddModal}
+        onOpenChange={(v) => {
+          setOpenAddModal(v)
+          if (!v) {
+            setEditingRow(null)
+            resetForm()
+          }
+        }}
+      >
         <DialogContent className="max-w-5xl max-h-[85vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle className="text-[18px] text-[hsl(var(--primary))]">Create Question Paper</DialogTitle>
+            <DialogTitle className="text-[18px] text-[hsl(var(--primary))]">
+              {editingRow ? 'Edit Question Paper' : 'Create Question Paper'}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 text-[13px]">
