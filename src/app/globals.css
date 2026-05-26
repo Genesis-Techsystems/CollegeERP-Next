@@ -181,6 +181,59 @@
   border-radius: 0 !important;
 }
 
+/* College Counselling — fit all columns without horizontal scroll */
+.college-counselling-table .app-data-table .ag-theme-quartz {
+  --ag-cell-horizontal-padding: 6px;
+}
+
+.college-counselling-table .app-data-table .ag-theme-quartz .ag-body-horizontal-scroll,
+.college-counselling-table .app-data-table .ag-theme-quartz .ag-horizontal-left-spacer,
+.college-counselling-table .app-data-table .ag-theme-quartz .ag-horizontal-right-spacer {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Student Fee Management — column dividers + multi-line student name */
+.fee-mgmt-data-table .ag-theme-quartz {
+  --ag-row-height: 72px;
+  --ag-cell-horizontal-border: solid 1px #cbd5e1;
+  --ag-header-column-separator-display: block;
+  --ag-header-column-separator-color: #cbd5e1;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-row {
+  min-height: 72px !important;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-header-cell.fee-mgmt-grid-cell,
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-grid-cell {
+  border-right: 1px solid #cbd5e1 !important;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-header-cell.fee-mgmt-grid-cell:last-child,
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-grid-cell:last-child {
+  border-right: none !important;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-student-cell,
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-student-cell .ag-cell-value {
+  align-items: flex-start !important;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  white-space: normal;
+  line-height: 1.35;
+  overflow: visible;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-compact-cell,
+.fee-mgmt-data-table .ag-theme-quartz .ag-header-cell.fee-mgmt-compact-cell {
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  justify-content: center;
+}
+
 .app-data-table .ag-theme-quartz .ag-pinned-right-header,
 .app-data-table .ag-theme-quartz .ag-pinned-left-header {
   border-color: hsl(var(--border)) !important;

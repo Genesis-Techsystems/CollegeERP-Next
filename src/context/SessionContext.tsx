@@ -38,7 +38,14 @@ function SessionProviderInner({
   )
 }
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      throwOnError: false,
+      retry: false,
+    },
+  },
+})
 
 export function SessionProvider({
   children,

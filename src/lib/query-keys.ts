@@ -323,6 +323,260 @@ export const QK = {
       ['collegeFilters', 'subjects', courseYearId] as const,
   },
 
+  // ── Scholarship Management ───────────────────────────────────────────────
+  scholarshipTypes: {
+    all: ['ScholarshipType'] as const,
+    list: () => ['ScholarshipType', 'list'] as const,
+  },
+  scholarshipApplications: {
+    all: ['SchStdApplication'] as const,
+    list: (collegeId: number, academicYearId: number) =>
+      ['SchStdApplication', 'list', { collegeId, academicYearId }] as const,
+  },
+  schPreceedings: {
+    all: ['SchPreceeding'] as const,
+    list: (filters: { collegeId: number; academicYearId: number; financialYearId: number; page?: number }) =>
+      ['SchPreceeding', 'list', filters] as const,
+  },
+  schAccountsPreceedings: {
+    all: ['SchAccountsPreceeding'] as const,
+    list: (collegeId?: number) => ['SchAccountsPreceeding', 'list', collegeId] as const,
+  },
+  schStdPreceedings: {
+    all: ['SchStdPreceeding'] as const,
+    list: (schPreceedingId: number) => ['SchStdPreceeding', 'list', schPreceedingId] as const,
+  },
+  feeSchStructures: {
+    all: ['FeeSchStructure'] as const,
+    list: (filters: { collegeId: number; academicYearId?: number; courseId?: number; batchId?: number }) =>
+      ['FeeSchStructure', 'list', filters] as const,
+    detail: (feeSchStructureId: number) => ['FeeSchStructure', 'detail', feeSchStructureId] as const,
+    values: (feeSchStructureId: number) => ['ScholarshipValue', 'byStructure', feeSchStructureId] as const,
+  },
+  assignScholarship: {
+    all: ['AssignScholarship'] as const,
+    batches: (courseId: number) => ['AssignScholarship', 'batches', courseId] as const,
+    students: (filters: Record<string, number | undefined>) =>
+      ['AssignScholarship', 'students', filters] as const,
+    types: (filters: Record<string, number | undefined>) =>
+      ['AssignScholarship', 'types', filters] as const,
+  },
+  scholarshipFilters: {
+    all: ['scholarshipFilters'] as const,
+    college: (orgId: number, empId: number) => ['scholarshipFilters', orgId, empId] as const,
+  },
+
+  // ── Admission ─────────────────────────────────────────────────────────────
+  admission: {
+    all: ['Admission'] as const,
+    collegeFilters: (orgId: number, empId: number) =>
+      ['Admission', 'collegeFilters', orgId, empId] as const,
+    univFilters: (orgId: number, empId: number) =>
+      ['Admission', 'univFilters', orgId, empId] as const,
+    applicationForms: (filters: { collegeId: number; academicYearId: number; courseId: number }) =>
+      ['Admission', 'applicationForms', filters] as const,
+    enquiries: (filters?: { organizationId?: number; collegeId?: number; courseId?: number }) =>
+      ['Admission', 'enquiries', filters] as const,
+    casteQuotas: () => ['Admission', 'casteQuotas'] as const,
+    collegeCounselling: (filters: { collegeId: number; batchId: number; courseGroupId: number }) =>
+      ['Admission', 'collegeCounselling', filters] as const,
+    univStdApplications: () => ['Admission', 'univStdApplications'] as const,
+    feePaidApplications: (filters: Record<string, number | string | undefined>) =>
+      ['Admission', 'feePaidApplications', filters] as const,
+    admissionAllotmentsList: (collegeId: number) =>
+      ['Admission', 'allotments', 'list', collegeId] as const,
+    admissionAllotmentConsolidate: (collegeId: number) =>
+      ['Admission', 'allotments', 'consolidate', collegeId] as const,
+  },
+
+  // ── Affiliated Colleges ───────────────────────────────────────────────────
+  affiliatedColleges: {
+    all: ['AffiliatedColleges'] as const,
+    collegeFilters: (orgId: number, empId: number) =>
+      ['AffiliatedColleges', 'collegeFilters', orgId, empId] as const,
+    examFilters: (orgId: number, empId: number) =>
+      ['AffiliatedColleges', 'examFilters', orgId, empId] as const,
+    uploadSummary: (filters: Record<string, number>) =>
+      ['AffiliatedColleges', 'uploadSummary', filters] as const,
+    uploadsApprovalSummary: (filters: Record<string, number>) =>
+      ['AffiliatedColleges', 'uploadsApprovalSummary', filters] as const,
+    uploadsApprovalDetail: (proc: string, uploadFileId: number) =>
+      ['AffiliatedColleges', 'uploadsApprovalDetail', proc, uploadFileId] as const,
+    collegeSummary: (flag: string, filters: Record<string, number>) =>
+      ['AffiliatedColleges', 'collegeSummary', flag, filters] as const,
+    examPayments: (collegeId: number, examId: number) =>
+      ['AffiliatedColleges', 'examPayments', collegeId, examId] as const,
+    assignSubjects: (
+      collegeId: number,
+      academicYearId: number,
+      studentId: number,
+      courseYearId: number,
+    ) =>
+      ['AffiliatedColleges', 'assignSubjects', collegeId, academicYearId, studentId, courseYearId] as const,
+  },
+
+  // ── HR & Payroll ──────────────────────────────────────────────────────────
+  hrPayroll: {
+    all: ['HrPayroll'] as const,
+    payrollCategories: () => ['HrPayroll', 'payrollCategories'] as const,
+    payrollGroups: () => ['HrPayroll', 'payrollGroups'] as const,
+    payslipSettings: () => ['HrPayroll', 'payslipSettings'] as const,
+    departmentHeads: () => ['HrPayroll', 'departmentHeads'] as const,
+    leaveTypes: () => ['HrPayroll', 'leaveTypes'] as const,
+    leaveApplications: () => ['HrPayroll', 'leaveApplications'] as const,
+    employees: () => ['HrPayroll', 'employees'] as const,
+    employeeReporting: (employeeId?: number) =>
+      employeeId != null
+        ? (['HrPayroll', 'employeeReporting', employeeId] as const)
+        : (['HrPayroll', 'employeeReporting'] as const),
+    employeeDetail: (employeeId: number) => ['HrPayroll', 'employeeDetail', employeeId] as const,
+    performanceAssessment: (employeeId?: number) =>
+      employeeId != null
+        ? (['HrPayroll', 'performanceAssessment', employeeId] as const)
+        : (['HrPayroll', 'performanceAssessment'] as const),
+    selfAppraisalForms: (collegeId: number) => ['HrPayroll', 'selfAppraisalForms', collegeId] as const,
+    biometricEmployees: (collegeId: number | null, page: number, pageSize: number, unassigned: boolean) =>
+      ['HrPayroll', 'biometricEmployees', collegeId, page, pageSize, unassigned] as const,
+    employeeShifts: (employeeId: number) => ['HrPayroll', 'employeeShifts', employeeId] as const,
+    shifts: () => ['HrPayroll', 'shifts'] as const,
+    leaveEntitlement: (collegeId: number, leaveYear: string, departmentId: number) =>
+      ['HrPayroll', 'leaveEntitlement', collegeId, leaveYear, departmentId] as const,
+    employeePayrollGroup: (payrollGroupId: number) =>
+      ['HrPayroll', 'employeePayrollGroup', payrollGroupId] as const,
+    employeePayrollByCollege: (collegeId: number) =>
+      ['HrPayroll', 'employeePayrollByCollege', collegeId] as const,
+    staffPayrollReport: (
+      flag: string,
+      collegeId: number,
+      deptId: number,
+      catId: number,
+      month: number,
+      year: number,
+    ) => ['HrPayroll', 'staffPayrollReport', flag, collegeId, deptId, catId, month, year] as const,
+  },
+
+  // ── Timetable management ────────────────────────────────────────────────────
+  timetableManagement: {
+    all: ['TimetableManagement'] as const,
+    timingSets: () => ['TimetableManagement', 'timingSets'] as const,
+    timetables: () => ['TimetableManagement', 'timetables'] as const,
+    weekdays: () => ['TimetableManagement', 'weekdays'] as const,
+    timingSetDetail: (timingsetId: number) =>
+      ['TimetableManagement', 'timingSetDetail', timingsetId] as const,
+    classTimings: (timingsetId: number) =>
+      ['TimetableManagement', 'classTimings', timingsetId] as const,
+  },
+
+  // ── E-Office ──────────────────────────────────────────────────────────────
+  eOffice: {
+    all: ['EOffice'] as const,
+    letterFormats: (organizationId: number, collegeId: number) =>
+      ['EOffice', 'letterFormats', organizationId, collegeId] as const,
+    internalIndents: () => ['EOffice', 'internalIndents'] as const,
+    internalIndent: (id: number) => ['EOffice', 'internalIndent', id] as const,
+    purchaseOrders: () => ['EOffice', 'purchaseOrders'] as const,
+    purchaseOrder: (id: number) => ['EOffice', 'purchaseOrder', id] as const,
+    lookup: () => ['EOffice', 'lookup'] as const,
+  },
+
+  mentorship: {
+    all: ['Mentorship'] as const,
+    activityTypes: () => ['Mentorship', 'activityTypes'] as const,
+  },
+
+  events: {
+    all: ['Events'] as const,
+    eventTypes: () => ['Events', 'eventTypes'] as const,
+    departmentEvents: () => ['Events', 'departmentEvents'] as const,
+    collegeEvents: (collegeId: number, academicYearId: number) =>
+      ['Events', 'collegeEvents', collegeId, academicYearId] as const,
+    monthEvents: (
+      collegeId: number,
+      academicYearId: number,
+      date: string,
+    ) => ['Events', 'monthEvents', collegeId, academicYearId, date] as const,
+  },
+
+  library: {
+    all: ['Library'] as const,
+    membership: (mode: string, search: string, collegeId: number) =>
+      ['Library', 'membership', mode, search, collegeId] as const,
+    details: () => ['Library', 'details'] as const,
+    authors: () => ['Library', 'authors'] as const,
+    publishers: () => ['Library', 'publishers'] as const,
+    racks: () => ['Library', 'racks'] as const,
+    bookCategories: () => ['Library', 'bookCategories'] as const,
+    libraryCategories: () => ['Library', 'libraryCategories'] as const,
+    suppliers: () => ['Library', 'suppliers'] as const,
+    librariesByOrg: (organizationId: number) =>
+      ['Library', 'librariesByOrg', organizationId] as const,
+    books: (mode?: string, search?: string) =>
+      ['Library', 'books', mode ?? 'all', search ?? ''] as const,
+    booksByCategory: (libraryId: number, bookcatId: number) =>
+      ['Library', 'booksByCategory', libraryId, bookcatId] as const,
+    collegesForLibrary: () => ['Library', 'collegesForLibrary'] as const,
+    librariesByCollege: (collegeId: number) => ['Library', 'librariesByCollege', collegeId] as const,
+    bookCategoriesByLibrary: (libraryId: number) =>
+      ['Library', 'bookCategoriesByLibrary', libraryId] as const,
+    periodicals: () => ['Library', 'periodicals'] as const,
+    bookDueList: (page: number) => ['Library', 'bookDueList', page] as const,
+    reservedBooks: () => ['Library', 'reservedBooks'] as const,
+    booksSearch: (term: string) => ['Library', 'booksSearch', term] as const,
+    settings: () => ['Library', 'settings'] as const,
+    bookDetails: () => ['Library', 'bookDetails'] as const,
+    fineCollection: (date: string, collegeId: number) =>
+      ['Library', 'fineCollection', date, collegeId] as const,
+  },
+
+  /** Hostel module */
+  hostel: {
+    all: ['Hostel'] as const,
+    types: () => ['Hostel', 'types'] as const,
+    details: () => ['Hostel', 'details'] as const,
+    detailsByOrg: (organizationId: number) => ['Hostel', 'details', organizationId] as const,
+    roomCharges: () => ['Hostel', 'roomCharges'] as const,
+    rooms: (hostelId: number) => ['Hostel', 'rooms', hostelId] as const,
+    discounts: () => ['Hostel', 'discounts'] as const,
+    register: (hostelId: number) => ['Hostel', 'register', hostelId] as const,
+    visitors: (hostelId: number) => ['Hostel', 'visitors', hostelId] as const,
+    visitorsReport: (hostelId: number, from: string, to: string) =>
+      ['Hostel', 'visitorsReport', hostelId, from, to] as const,
+  },
+
+  /** TC & No Due Approval */
+  tcNoDue: {
+    all: ['TcNoDue'] as const,
+    colleges: () => ['TcNoDue', 'colleges'] as const,
+    academicYears: (collegeId: number) => ['TcNoDue', 'academicYears', collegeId] as const,
+    collegeCerts: (collegeId: number, code?: string) =>
+      ['TcNoDue', 'collegeCerts', collegeId, code ?? 'all'] as const,
+    certIssues: (collegeCertificateId: number) =>
+      ['TcNoDue', 'certIssues', collegeCertificateId] as const,
+    studentIssue: (studentId: number, collegeCertificateId: number) =>
+      ['TcNoDue', 'studentIssue', studentId, collegeCertificateId] as const,
+    workflows: (feeCertificateIssueId: number) =>
+      ['TcNoDue', 'workflows', feeCertificateIssueId] as const,
+    summaryReport: (collegeId: number, from: string, to: string) =>
+      ['TcNoDue', 'summaryReport', collegeId, from, to] as const,
+  },
+
+  /** Transport module */
+  transport: {
+    all: ['Transport'] as const,
+    details: () => ['Transport', 'details'] as const,
+    vehicles: () => ['Transport', 'vehicles'] as const,
+    drivers: () => ['Transport', 'drivers'] as const,
+    helpers: () => ['Transport', 'helpers'] as const,
+    routes: () => ['Transport', 'routes'] as const,
+    routeStops: (routeId: number) => ['Transport', 'routeStops', routeId] as const,
+    vehicleDrivers: () => ['Transport', 'vehicleDrivers'] as const,
+    vehicleRoutes: () => ['Transport', 'vehicleRoutes'] as const,
+    distanceFees: () => ['Transport', 'distanceFees'] as const,
+    allocations: (forType: 'S' | 'E') => ['Transport', 'allocations', forType] as const,
+    studentTransport: (params: Record<string, string | number>) =>
+      ['Transport', 'studentTransport', params] as const,
+  },
+
   /** Email & SMS pages — reference data for filters */
   emailSms: {
     all: ['EmailSms'] as const,
