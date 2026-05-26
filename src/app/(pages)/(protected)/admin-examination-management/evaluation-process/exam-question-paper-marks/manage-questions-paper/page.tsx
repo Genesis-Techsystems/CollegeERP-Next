@@ -159,6 +159,13 @@ export default function ManageQuestionsPaperPage() {
     )
   }
 
+  function addManualQuestion(row: AnyRow) {
+    navigateToWithRow(
+      '/admin-examination-management/evaluation-process/exam-question-paper-marks/add-manual-questions',
+      row,
+    )
+  }
+
   function printQuestionPaper() {
     const qp = new URLSearchParams({
       examQuestionPaperTemplateId: String(params.templateId),
@@ -315,14 +322,25 @@ export default function ManageQuestionsPaperPage() {
                               dangerouslySetInnerHTML={{ __html: questionHtml }}
                             />
                             {questionEmpty && hasCode ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="mt-1 h-7 text-[11px]"
-                                onClick={() => questionBank(r)}
-                              >
-                                <Plus className="mr-1 h-3 w-3" /> QB
-                              </Button>
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-7 text-[11px]"
+                                  onClick={() => questionBank(r)}
+                                >
+                                  <Plus className="mr-1 h-3 w-3" /> QB
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[11px]"
+                                  onClick={() => addManualQuestion(r)}
+                                >
+                                  Manually
+                                </Button>
+                              </div>
                             ) : null}
                           </>
                         )}

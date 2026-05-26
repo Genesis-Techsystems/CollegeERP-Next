@@ -283,6 +283,45 @@ export async function updateQuestionPaperMarks(
   throw new Error('Unable to update question paper marks.')
 }
 
+/**
+ * Create a QuestionPaperMarks row (used by Question Bank + Add Manual
+ * Question flows). Mirrors Angular addDetails on
+ * CONSTANTS.ExamQuestionPaperMarksCrudUrl.
+ */
+export async function createQuestionPaperMarks(
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  const entities = ['QuestionPaperMarks', 'ExamQuestionPaperMarks']
+  for (const entity of entities) {
+    try {
+      return await domainCreate<AnyRow>(entity, payload)
+    } catch {
+      // try next entity name
+    }
+  }
+  throw new Error('Unable to create question paper marks.')
+}
+
+/**
+ * List Assessment rows for a subject (used by Question Bank flow as
+ * the "question paper banks" the user picks from). Mirrors Angular
+ * listDetailsByTwoIdWithSort on CONSTANTS.assessmentCrudUrl with
+ * onlineCourses.onlineCourseCode == subjectCode, sorted by createdDt
+ * DESC. Each Assessment carries assessmentQuestionDTOs[] with the
+ * questions inside the bank.
+ */
+export async function listAssessmentsBySubjectCode(
+  subjectCode: string,
+): Promise<AnyRow[]> {
+  const code = String(subjectCode ?? '').trim()
+  if (!code) return []
+  const q = buildQuery(
+    { 'onlineCourses.onlineCourseCode': code, isActive: true },
+    { field: 'createdDt', direction: 'DESC' },
+  )
+  return domainList<AnyRow>('Assessment', q)
+}
+
 export async function listQuestionPaperTemplates(): Promise<AnyRow[]> {
   const entities = [
     EXAM_EVAL_API.QP_TEMPLATE,
