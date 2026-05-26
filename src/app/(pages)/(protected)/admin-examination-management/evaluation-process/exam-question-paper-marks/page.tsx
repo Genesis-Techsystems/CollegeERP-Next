@@ -784,24 +784,27 @@ export default function ExamQuestionPaperMarksPage() {
       },
       {
         headerName: 'Actions',
-        minWidth: 220,
+        minWidth: 290,
+        width: 290,
+        flex: 0,
+        pinned: 'right',
         cellRenderer: (p: { data?: AnyRow }) => {
           const row = p.data ?? {}
           const hasTemplate = rowTemplateId(row) > 0
           return (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-nowrap">
               {hasTemplate ? (
-                <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => manageQuestions(row)}>
+                <Button size="sm" variant="outline" className="h-7 text-[11px] whitespace-nowrap shrink-0" onClick={() => manageQuestions(row)}>
                   Manage Question
                 </Button>
               ) : (
-                <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => assignTemplate(row)}>
+                <Button size="sm" variant="outline" className="h-7 text-[11px] whitespace-nowrap shrink-0" onClick={() => assignTemplate(row)}>
                   Assign Template
                 </Button>
               )}
               {hasTemplate && (
-                <Button size="sm" className="h-7 text-[11px]" onClick={() => uploadPapers(row)}>
-                  Upload QP & AS
+                <Button size="sm" className="h-7 text-[11px] whitespace-nowrap shrink-0" onClick={() => uploadPapers(row)}>
+                  Upload QP &amp; AS
                 </Button>
               )}
             </div>
