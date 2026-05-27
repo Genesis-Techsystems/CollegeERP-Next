@@ -20,6 +20,26 @@ type SummaryRow = {
   no_oof_answerpaper_uploaded: number
 }
 
+type UploadedFile = { fileName: string; folder: string; status: string; view: string }
+
+// Angular uploadFiles(): per file, folder = path[0], fileName = path[1] (the
+// student/OMR folder), falling back to the file name.
+function toUploadedFile(file: File): UploadedFile {
+  const path = String((file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name)
+  const pieces = path.split('/')
+  return { folder: pieces[0] ?? '', fileName: pieces[1] ?? file.name, status: 'Pending', view: '' }
+}
+
+// Best-effort extraction of the stored path from the upload response.
+function extractUploadedPath(res: unknown): string {
+  if (typeof res === 'string') return res
+  if (Array.isArray(res) && typeof res[0] === 'string') return res[0]
+  const data = (res as { data?: unknown } | null)?.data
+  if (typeof data === 'string') return data
+  if (Array.isArray(data) && typeof data[0] === 'string') return data[0]
+  return ''
+}
+
 export default function UploadAnswerSheetsPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [loading, setLoading] = useState(false)
@@ -29,6 +49,7 @@ export default function UploadAnswerSheetsPage() {
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
   const [summary, setSummary] = useState<SummaryRow | null>(null)
   const [selectedFilesCount, setSelectedFilesCount] = useState(0)
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
 
   const [courseId, setCourseId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
@@ -160,7 +181,8 @@ export default function UploadAnswerSheetsPage() {
   }, [regulations])
 
   useEffect(() => {
-    setSubjectId(null)
+    // Auto-populate the first subject (filters cascade fully on load).
+    setSubjectId(num(subjects[0]?.fk_subject_id) || null)
   }, [subjects])
 
   async function checkUploadStatus() {
@@ -187,15 +209,48 @@ export default function UploadAnswerSheetsPage() {
     }
   }
 
+  function onFilesSelected(fileList: FileList | null) {
+    const arr = Array.from(fileList ?? [])
+    setSelectedFilesCount(arr.length)
+    setUploadedFiles(arr.map(toUploadedFile))
+  }
+
   async function handleUpload() {
     const files = fileInputRef.current?.files
     if (!files || files.length === 0) return
     setUploading(true)
     try {
-      for (const file of Array.from(files)) {
+      const arr = Array.from(files)
+      for (const file of arr) {
+        const { fileName } = toUploadedFile(file)
+        setUploadedFiles((prev) => prev.map((u) => (u.fileName === fileName ? { ...u, status: 'Progress' } : u)))
         const form = new FormData()
         form.append('file', file, file.name)
-        await uploadExamOmr(form)
+        try {
+          const res = await uploadExamOmr(form)
+          const view = extractUploadedPath(res)
+          setUploadedFiles((prev) =>
+            prev.map((u) =>
+              u.fileName === fileName ? { ...u, status: view ? 'Success' : 'File not found', view } : u,
+            ),
+          )
+        } catch {
+          setUploadedFiles((prev) => prev.map((u) => (u.fileName === fileName ? { ...u, status: 'File not found' } : u)))
+        }
+      }
+      // Angular submit() -> AssignmentRun(): populate student assignment for the
+      // exam after the answer sheets are uploaded (flag 'popstudentassignment').
+      if (examId) {
+        await runEvaluationProc('s_pop_exam_evaluatorassignment', {
+          in_flag: 'popstudentassignment',
+          in_profileids: '',
+          in_exam_evaluationassignment_ids: '',
+          in_omr_serial_nos: '',
+          in_timetable_det_ids: '',
+          in_exam_id: examId,
+          in_subject_id: 0,
+          in_course_year_id: 0,
+        }).catch(() => null)
       }
       await checkUploadStatus()
       setSelectedFilesCount(0)
@@ -287,7 +342,7 @@ export default function UploadAnswerSheetsPage() {
                     className="hidden"
                     webkitdirectory=""
                     multiple
-                    onChange={(e) => setSelectedFilesCount(e.target.files?.length ?? 0)}
+                    onChange={(e) => onFilesSelected(e.target.files)}
                   />
                   <button
                     type="button"
@@ -332,6 +387,61 @@ export default function UploadAnswerSheetsPage() {
                       <span className="text-red-600">{notUploaded}</span>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {uploadedFiles.length > 0 && (
+              <div className="pt-2">
+                <div className="max-h-[320px] overflow-auto rounded border border-border">
+                  <table className="w-full text-[12px]">
+                    <thead className="sticky top-0 bg-muted/40">
+                      <tr className="border-b border-border text-left">
+                        <th className="px-2 py-2 w-12">SI.No</th>
+                        <th className="px-2 py-2">Filename</th>
+                        <th className="px-2 py-2">Folder</th>
+                        <th className="px-2 py-2 w-32">Status</th>
+                        <th className="px-2 py-2 w-16 text-center">View</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {uploadedFiles.map((u, i) => (
+                        <tr key={`uf-${i}-${u.fileName}`} className="border-b border-slate-100">
+                          <td className="px-2 py-1.5">{i + 1}</td>
+                          <td className="px-2 py-1.5">{u.fileName}</td>
+                          <td className="px-2 py-1.5">{u.folder}</td>
+                          <td className="px-2 py-1.5">
+                            <span
+                              className={
+                                u.status === 'Success'
+                                  ? 'text-emerald-700 font-medium'
+                                  : u.status === 'File not found'
+                                    ? 'text-red-600'
+                                    : u.status === 'Progress'
+                                      ? 'text-amber-600'
+                                      : 'text-slate-600'
+                              }
+                            >
+                              {u.status}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            {u.view ? (
+                              <button
+                                type="button"
+                                className="text-blue-700 hover:underline"
+                                onClick={() => globalThis?.open?.(u.view, '_blank', 'width=700,height=600')}
+                              >
+                                View
+                              </button>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
