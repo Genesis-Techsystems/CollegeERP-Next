@@ -1216,6 +1216,34 @@ export async function listEvaluatorTitles(): Promise<AnyRow[]> {
   return domainList<AnyRow>('GeneralDetail', q)
 }
 
+/**
+ * Evaluator bank details (Angular AddBankDetails/postBankDetails/UpdateBankDetails
+ * on ExamEvaluatorBankDetailsUrl). Existing rows are looked up by the nested
+ * examEvaluatorProfiles.examEvaluatorProfileId; create sends examEvaluatorProfilesId,
+ * update keys on evaluatorBankDetailId.
+ */
+export async function getEvaluatorBankDetails(profileId: number): Promise<AnyRow[]> {
+  if (!profileId) return []
+  const q = buildQuery({ 'examEvaluatorProfiles.examEvaluatorProfileId': profileId })
+  return domainList<AnyRow>(EXAM_EVAL_API.EVALUATOR_BANK_DETAILS, q).catch(() => [])
+}
+
+export async function createEvaluatorBankDetails(payload: Record<string, unknown>): Promise<AnyRow> {
+  return domainCreate<AnyRow>(EXAM_EVAL_API.EVALUATOR_BANK_DETAILS, payload)
+}
+
+export async function updateEvaluatorBankDetails(
+  evaluatorBankDetailId: number,
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  return domainUpdate<AnyRow>(
+    EXAM_EVAL_API.EVALUATOR_BANK_DETAILS,
+    'evaluatorBankDetailId',
+    evaluatorBankDetailId,
+    payload,
+  )
+}
+
 export async function createEvaluatorProfile(payload: Record<string, unknown>): Promise<AnyRow> {
   return postDetails<AnyRow>(EXAM_EVAL_API.ADD_EVALUATOR_PROFILES, payload)
 }

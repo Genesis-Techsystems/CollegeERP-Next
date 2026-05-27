@@ -18,11 +18,14 @@ import { toDateOnlyISO } from '@/common/generic-functions'
 import { listActiveColleges } from '@/services/pre-examination'
 import { listRegulations } from '@/services/examination'
 import {
+  createEvaluatorBankDetails,
   createEvaluatorProfile,
   getEvaluationExamFilters,
+  getEvaluatorBankDetails,
   listActiveCourses,
   listEvaluatorProfiles,
   listEvaluatorTitles,
+  updateEvaluatorBankDetails,
   listExamEvaluatorPreferences,
   listSubjectsByCourseForPreferences,
   sendEvaluatorCredentials,
@@ -102,9 +105,13 @@ function makeDetailsRenderer(
   )
 }
 
-function makeActionsRenderer(openEdit: (row: AnyRow) => void, sendOne: (row: AnyRow) => void) {
+function makeActionsRenderer(
+  openEdit: (row: AnyRow) => void,
+  sendOne: (row: AnyRow) => void,
+  openBank: (row: AnyRow) => void,
+) {
   return (p: { data?: AnyRow }) => (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       <Button
         type="button"
         variant="ghost"
@@ -117,6 +124,9 @@ function makeActionsRenderer(openEdit: (row: AnyRow) => void, sendOne: (row: Any
       </Button>
       <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => sendOne(p.data ?? {})}>
         Mail
+      </button>
+      <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => openBank(p.data ?? {})}>
+        Bank Copy
       </button>
     </div>
   )
@@ -186,6 +196,22 @@ export default function CreateEvaluatorsPage() {
   const [credAcademicYearId, setCredAcademicYearId] = useState<number | null>(null)
   const [credExamId, setCredExamId] = useState<number | null>(null)
   const [credExamSearch, setCredExamSearch] = useState('')
+
+  const [bankOpen, setBankOpen] = useState(false)
+  const [bankProfile, setBankProfile] = useState<AnyRow | null>(null)
+  const [bankEditId, setBankEditId] = useState<number | null>(null)
+  const [bankForm, setBankForm] = useState({
+    bankName: '',
+    branchName: '',
+    bankAddress: '',
+    phone: '',
+    ifscCode: '',
+    accountNumber: '',
+    ddPayableAddress: '',
+    upi: '',
+    isActive: true,
+    reason: '',
+  })
 
   async function loadList() {
     setLoading(true)
@@ -321,6 +347,89 @@ export default function CreateEvaluatorsPage() {
     }
   }
 
+  // Angular AddBankDetails(): look up existing bank row by profile; edit it if
+  // present, else open a blank create form (phone defaults to the evaluator's).
+  async function openBank(row: AnyRow) {
+    const profileId = Number(row?.examEvaluatorProfileId ?? 0)
+    if (profileId <= 0) {
+      toastError('Invalid evaluator profile.')
+      return
+    }
+    setBankProfile(row)
+    setLoading(true)
+    try {
+      const existing = await getEvaluatorBankDetails(profileId)
+      const b = Array.isArray(existing) && existing.length > 0 ? existing[0] : null
+      if (b) {
+        setBankEditId(Number(b.evaluatorBankDetailId) || null)
+        setBankForm({
+          bankName: String(b.bankName ?? ''),
+          branchName: String(b.branchName ?? ''),
+          bankAddress: String(b.bankAddress ?? ''),
+          phone: String(b.phone ?? row.phoneNumber ?? ''),
+          ifscCode: String(b.ifscCode ?? ''),
+          accountNumber: String(b.accountNumber ?? ''),
+          ddPayableAddress: String(b.ddPayableAddress ?? ''),
+          upi: String(b.upi ?? ''),
+          isActive: b.isActive !== false,
+          reason: String(b.reason ?? ''),
+        })
+      } else {
+        setBankEditId(null)
+        setBankForm({
+          bankName: '',
+          branchName: '',
+          bankAddress: '',
+          phone: String(row.phoneNumber ?? ''),
+          ifscCode: '',
+          accountNumber: '',
+          ddPayableAddress: '',
+          upi: '',
+          isActive: true,
+          reason: '',
+        })
+      }
+      setBankOpen(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function saveBank() {
+    if (!bankForm.phone || !bankForm.ifscCode || !bankForm.accountNumber) {
+      toastError('Phone, IFSC code and account number are required.')
+      return
+    }
+    const profileId = Number(bankProfile?.examEvaluatorProfileId ?? 0)
+    setLoading(true)
+    try {
+      const payload: AnyRow = {
+        bankName: bankForm.bankName || null,
+        branchName: bankForm.branchName || null,
+        bankAddress: bankForm.bankAddress || null,
+        phone: bankForm.phone,
+        ifscCode: bankForm.ifscCode,
+        accountNumber: bankForm.accountNumber,
+        ddPayableAddress: bankForm.ddPayableAddress || null,
+        upi: bankForm.upi || null,
+        isActive: bankForm.isActive,
+        reason: bankForm.isActive ? null : bankForm.reason || null,
+      }
+      if (bankEditId) {
+        await updateEvaluatorBankDetails(bankEditId, { ...payload, evaluatorBankDetailId: bankEditId })
+      } else {
+        await createEvaluatorBankDetails({ ...payload, examEvaluatorProfilesId: profileId })
+      }
+      toastSuccess('Bank details saved.')
+      setBankOpen(false)
+      await loadList()
+    } catch (e: any) {
+      toastError(e?.message ?? 'Failed to save bank details.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   function openAdd() {
     setEditRow(null)
     setForm(emptyForm())
@@ -386,8 +495,11 @@ export default function CreateEvaluatorsPage() {
     (row: AnyRow) => {
       const profileId = Number(row?.examEvaluatorProfileId ?? 0)
       if (profileId > 0) {
+        // Angular viewSubjects(): navigate to the evaluator-subject-roles page
+        // with the profile row (that page reads examEvaluatorProfileId + the
+        // cached evaluatorSubjectRoleProfile).
         globalThis?.localStorage?.setItem('evaluatorSubjectRoleProfile', JSON.stringify(row))
-        router.push(`/admin-examination-management/evaluation-process/assign-evaluator-subject?examEvaluatorProfileId=${profileId}`)
+        router.push(`/admin-examination-management/evaluation-process/create-evaluators/evaluator-subject-roles?examEvaluatorProfileId=${profileId}`)
         return
       }
       toastError('Invalid evaluator profile.')
@@ -544,8 +656,8 @@ export default function CreateEvaluatorsPage() {
       { field: 'isActive', headerName: 'Status', minWidth: 100, cellRenderer: statusRenderer },
       {
         headerName: 'Actions',
-        minWidth: 150,
-        cellRenderer: makeActionsRenderer(openEdit, (row) => openSendCredentialsModal('single', row)),
+        minWidth: 220,
+        cellRenderer: makeActionsRenderer(openEdit, (row) => openSendCredentialsModal('single', row), openBank),
       },
     ],
     [openSubjects, openPreferences],
@@ -822,6 +934,73 @@ export default function CreateEvaluatorsPage() {
             </Button>
             <Button variant="outline" onClick={() => setCredOpen(false)} disabled={loading}>
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bankOpen} onOpenChange={setBankOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {bankEditId ? 'Edit Bank Details' : 'Add Bank Details'}
+              {pickText(bankProfile, ['evaluatorName']) ? (
+                <span className="ml-2 text-[13px] font-medium text-blue-700">
+                  — {pickText(bankProfile, ['evaluatorName'])}
+                </span>
+              ) : null}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-[12px]">Bank Name</Label>
+              <Input value={bankForm.bankName} onChange={(e) => setBankForm((p) => ({ ...p, bankName: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-[12px]">Branch Name</Label>
+              <Input value={bankForm.branchName} onChange={(e) => setBankForm((p) => ({ ...p, branchName: e.target.value }))} />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-[12px]">Bank Address</Label>
+              <Input value={bankForm.bankAddress} onChange={(e) => setBankForm((p) => ({ ...p, bankAddress: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-[12px]">Phone <span className="text-red-600">*</span></Label>
+              <Input value={bankForm.phone} onChange={(e) => setBankForm((p) => ({ ...p, phone: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-[12px]">IFSC Code <span className="text-red-600">*</span></Label>
+              <Input value={bankForm.ifscCode} onChange={(e) => setBankForm((p) => ({ ...p, ifscCode: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-[12px]">Account Number <span className="text-red-600">*</span></Label>
+              <Input value={bankForm.accountNumber} onChange={(e) => setBankForm((p) => ({ ...p, accountNumber: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-[12px]">UPI</Label>
+              <Input value={bankForm.upi} onChange={(e) => setBankForm((p) => ({ ...p, upi: e.target.value }))} />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-[12px]">DD Payable Address</Label>
+              <Input value={bankForm.ddPayableAddress} onChange={(e) => setBankForm((p) => ({ ...p, ddPayableAddress: e.target.value }))} />
+            </div>
+            <div className="md:col-span-2 flex items-center gap-2">
+              <Checkbox checked={bankForm.isActive} onCheckedChange={(v) => setBankForm((p) => ({ ...p, isActive: v === true }))} />
+              <span className="text-[12px]">Active</span>
+            </div>
+            {!bankForm.isActive && (
+              <div className="md:col-span-2">
+                <Label className="text-[12px]">Reason</Label>
+                <Input value={bankForm.reason} onChange={(e) => setBankForm((p) => ({ ...p, reason: e.target.value }))} />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBankOpen(false)} disabled={loading}>
+              Close
+            </Button>
+            <Button onClick={() => void saveBank()} disabled={loading}>
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
