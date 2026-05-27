@@ -11,6 +11,8 @@ import { Select, type SelectOption } from '@/common/components/select'
 import { ChevronDown, Eye, Filter } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
+import { MINIO_URL } from '@/config/constants/api'
+import { useSessionContext } from '@/context/SessionContext'
 import {
   getFinalizeQuestionPaperFilters,
   getQuestionPaperPublishDetails,
@@ -18,6 +20,26 @@ import {
   publishQuestionPaperColleges,
 } from '@/services/evaluation-process'
 import { PageContainer, PageHeader } from '@/components/layout'
+
+// MinIO base for opening uploaded files (Angular CONSTANTS.MINIO). Prefer the
+// explicit NEXT_PUBLIC_MINIO_URL; else derive from the Spring API host
+// (:8443/cms -> :9000/cms), mirroring the exam-question-paper-marks page.
+function resolveMinioBase(): string {
+  let base = MINIO_URL
+  if (!base) {
+    const spring = process.env.NEXT_PUBLIC_SPRING_API_URL ?? ''
+    if (spring) {
+      try {
+        const u = new URL(spring)
+        base = `${u.protocol}//${u.hostname}:9000/cms/`
+      } catch {
+        base = spring.replace(/:8443\/cms\/?$/i, ':9000/cms/')
+        if (!base.endsWith('/')) base += '/'
+      }
+    }
+  }
+  return base
+}
 
 type AnyRow = Record<string, any>
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
@@ -56,7 +78,7 @@ function subjectNameRenderer(p: { data?: AnyRow }) {
   return (
     <span>
       {pickText(p.data, ['subject_name', 'subjectName'])}{' '}
-      <span className="text-blue-700">({pickText(p.data, ['subject_code', 'subjectCode'])})</span>
+      <span className="text-blue-700">({pickText(p.data, ['subjectcode', 'subject_code', 'subjectCode'])})</span>
     </span>
   )
 }
@@ -64,14 +86,15 @@ function subjectNameRenderer(p: { data?: AnyRow }) {
 function makeQuestionPaperPathRenderer(minio: string) {
   return (p: { data?: AnyRow }) => {
     const path = pickText(p.data, ['questionpaper_path', 'questionPaperPath'])
-    if (!path) return <span>-</span>
+    if (!path) return <span className="text-[11px] text-muted-foreground">No Documents Upload</span>
+    const url = /^https?:\/\//i.test(path) ? path : `${minio}${path.replace(/^\/+/, '')}`
     return (
       <button
         type="button"
         aria-label="View question paper"
         title="View"
         className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-blue-700 transition-colors hover:bg-blue-50 hover:text-blue-900"
-        onClick={() => window.open(`${minio}${path}`, '_blank')}
+        onClick={() => window.open(url, '_blank')}
       >
         <Eye className="h-4 w-4" strokeWidth={2} aria-hidden />
       </button>
@@ -118,12 +141,19 @@ export default function ViewFinalExamQuestionPaperPage() {
   const [courseId, setCourseId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
   const [examId, setExamId] = useState<number | null>(null)
-  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
-  const minio = String(globalThis?.localStorage?.getItem('MINIO') ?? '')
+  const { user } = useSessionContext()
+  // Login user's employee id (Angular reads localStorage 'employeeId'); prefer
+  // the session, fall back to localStorage. Used for published/downloaded by.
+  const employeeId = Number(user?.employeeId ?? globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const minio = resolveMinioBase()
   const [publishModalOpen, setPublishModalOpen] = useState(false)
   const [publishRow, setPublishRow] = useState<AnyRow | null>(null)
   const [publishDate, setPublishDate] = useState('')
   const [publishTime, setPublishTime] = useState('')
+  // Secure Publish "Published Details" modal (Angular ViewPublishedListComponent)
+  const [secureOpen, setSecureOpen] = useState(false)
+  const [securePublished, setSecurePublished] = useState<AnyRow[]>([])
+  const [secureEmployees, setSecureEmployees] = useState<AnyRow[]>([])
 
   const courses = useMemo(() => dedupeBy(baseRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])), [baseRows])
   const academicYears = useMemo(
@@ -218,8 +248,10 @@ export default function ViewFinalExamQuestionPaperPage() {
         questionPaperPath: pickText(row, ['questionpaper_path', 'questionPaperPath']),
         isActive: row?.is_active ?? true,
         examTimeTableId: id,
-        publishedByEmpId: employeeId,
-        downloadedByEmpId: employeeId,
+        // Pass the login employeeId when present; null (NOT 0) otherwise — 0 is
+        // an invalid FK and the backend rejects it. This admin has no emp record.
+        publishedByEmpId: employeeId || null,
+        downloadedByEmpId: employeeId || null,
       }))
       await publishQuestionPaperColleges(payload)
       toastSuccess('Question paper published successfully.')
@@ -245,18 +277,29 @@ export default function ViewFinalExamQuestionPaperPage() {
     setPublishModalOpen(true)
   }
 
+  // Angular ViewDialog(): fetch list_questionpaper_publish and open the
+  // Published Details modal (published colleges + roles + employees).
   async function onSecurePublish(row: AnyRow) {
     const qId = pickNum(row, ['pk_exam_questionpaper_id', 'questionPaperId', 'examQuestionPaperId'])
     if (qId <= 0) return
     setLoading(true)
     try {
       const details = await getQuestionPaperPublishDetails(qId)
-      toastSuccess(`Published entries: ${details.publishedList.length}`)
+      setSecurePublished(Array.isArray(details.publishedList) ? details.publishedList : [])
+      setSecureEmployees(Array.isArray(details.employees) ? details.employees : [])
+      setSecureOpen(true)
     } catch (error: any) {
       toastError(error?.message ?? 'Unable to fetch published details.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const employeeName = (id: unknown) => {
+    const e = secureEmployees.find(
+      (x) => Number(x.Pk_emp_id ?? x.pk_emp_id ?? x.empId) === Number(id),
+    )
+    return e ? String(e.emp_name ?? e.empName ?? '') : ''
   }
 
   const cols = useMemo<ColDef[]>(
@@ -269,8 +312,8 @@ export default function ViewFinalExamQuestionPaperPage() {
         cellRenderer: subjectNameRenderer,
       },
       { field: 'questionPaper', headerName: 'Question Paper', minWidth: 200, flex: 2, valueGetter: (p) => p.data?.questionpaper_title ?? p.data?.questionPaper ?? '-' },
-      { field: 'publishedDate', headerName: 'Published Date', minWidth: 120, maxWidth: 130, flex: 1, valueGetter: (p) => toDateStr(p.data?.published_date ?? p.data?.publishedDate ?? p.data?.published_datetime) || '-' },
-      { field: 'publishedTime', headerName: 'Published Time', minWidth: 110, maxWidth: 120, flex: 1, valueGetter: (p) => String(p.data?.published_time ?? p.data?.publishedTime ?? p.data?.published_datetime ?? '').slice(11, 19) || '-' },
+      { field: 'publishedDate', headerName: 'Published Date', minWidth: 120, maxWidth: 130, flex: 1, valueGetter: (p) => pickText(p.data, ['published_date', 'publishedDate']) || '-' },
+      { field: 'publishedTime', headerName: 'Published Time', minWidth: 110, maxWidth: 120, flex: 1, valueGetter: (p) => pickText(p.data, ['published_time', 'publishedTime']) || '-' },
       {
         field: 'questionPaperPath',
         headerName: 'QuestionPaper Path',
@@ -370,6 +413,84 @@ export default function ViewFinalExamQuestionPaperPage() {
           <DialogFooter>
             <Button onClick={() => publishRow && void publishNow(publishRow)} disabled={loading}>Ok</Button>
             <Button variant="outline" onClick={() => setPublishModalOpen(false)} disabled={loading}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Secure Publish — Published Details (read-only view of published colleges) */}
+      <Dialog open={secureOpen} onOpenChange={setSecureOpen}>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[16px] font-semibold text-[hsl(var(--primary))]">
+              Published Details
+            </DialogTitle>
+          </DialogHeader>
+          {securePublished.length === 0 ? (
+            <p className="py-6 text-center text-muted-foreground">No published details found.</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-[13px] mb-3">
+                <div>
+                  <span className="text-muted-foreground">QuestionPaper Title: </span>
+                  <span className="text-blue-700 font-medium">{pickText(securePublished[0], ['questionpaper_title'])}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Course Code: </span>
+                  <span className="text-blue-700 font-medium">{pickText(securePublished[0], ['course_code'])}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Exam Date: </span>
+                  <span className="text-blue-700 font-medium">{pickText(securePublished[0], ['exam_date'])}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Subject: </span>
+                  <span className="text-blue-700 font-medium">
+                    {pickText(securePublished[0], ['subjectcode', 'subject_code'])} ({pickText(securePublished[0], ['subject_name'])})
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Session Time: </span>
+                  <span className="text-blue-700 font-medium">
+                    {pickText(securePublished[0], ['session_start_time'])} To {pickText(securePublished[0], ['session_end_time'])}
+                  </span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-[13px]">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30 text-left">
+                      <th className="px-2 py-2 w-12">SI.No</th>
+                      <th className="px-2 py-2">College</th>
+                      <th className="px-2 py-2">Group</th>
+                      <th className="px-2 py-2">Course Year</th>
+                      <th className="px-2 py-2">Publish Status</th>
+                      <th className="px-2 py-2">Publish Date</th>
+                      <th className="px-2 py-2">Expiry Date</th>
+                      <th className="px-2 py-2">Profile Name</th>
+                      <th className="px-2 py-2">Secret Code</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {securePublished.map((r, i) => (
+                      <tr key={`pub-${i}`} className="border-b border-border">
+                        <td className="px-2 py-2">{i + 1}</td>
+                        <td className="px-2 py-2">{pickText(r, ['college_code']) || '-'}</td>
+                        <td className="px-2 py-2">{pickText(r, ['group_code']) || '-'}</td>
+                        <td className="px-2 py-2">{pickText(r, ['course_year_code']) || '-'}</td>
+                        <td className="px-2 py-2">{r.is_published === true || r.is_published === 1 ? 'Yes' : 'No'}</td>
+                        <td className="px-2 py-2">{pickText(r, ['published_date']) || '-'}</td>
+                        <td className="px-2 py-2">{pickText(r, ['cp1_secretcode_expirydate']) || '-'}</td>
+                        <td className="px-2 py-2">{employeeName(r.fk_publishedby_emp_id) || '-'}</td>
+                        <td className="px-2 py-2">{pickText(r, ['collectorprofile1_secretcode']) || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSecureOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
