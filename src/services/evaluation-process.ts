@@ -1148,6 +1148,20 @@ export async function getEvaluatorSubjectRolesSubjects(params: {
   return groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_sub_regexamstd') ?? []
 }
 
+/**
+ * Post-save "map evaluators" side effects fired by the Angular subject-roles
+ * submit(): populate the profile→employee mapping, then set up exam committees.
+ * Both are fire-and-forget stored procs (responses are ignored).
+ */
+export async function popProfileEmployees(profileId: number): Promise<void> {
+  if (!profileId) return
+  await getAllRecords('s_pop_profile_employees', { in_profile_id: profileId }).catch(() => null)
+}
+
+export async function setupExamCommittees(): Promise<void> {
+  await getAllRecords('s_pop_exam_committees', { in_flag: 'exam_committees' }).catch(() => null)
+}
+
 /** Child rows for an evaluator profile (domain list; entity name may vary by backend). */
 export async function listExamEvaluatorProfileDetails(profileId: number): Promise<AnyRow[]> {
   const q = buildQuery({ examEvaluatorProfileId: profileId })

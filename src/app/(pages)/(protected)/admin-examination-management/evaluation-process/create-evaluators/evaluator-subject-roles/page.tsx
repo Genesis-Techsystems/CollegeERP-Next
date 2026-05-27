@@ -12,11 +12,13 @@ import { toastError, toastSuccess } from '@/lib/toast'
 import { listExamLabBatches } from '@/services/exam-lab-batches'
 import {
   getAssignSubjectsEvaluatorRoles,
-  getEvaluationExamFilters,
+  getEvaluatorSubjectRolesExamFilters,
   getEvaluationModerationRest,
   getEvaluatorSubjectRolesSubjects,
   listEvaluatorProfiles,
   listExamEvaluatorProfileDetails,
+  popProfileEmployees,
+  setupExamCommittees,
   updateEvaluatorProfile,
 } from '@/services/evaluation-process'
 import { PageContainer, PageHeader } from '@/components/layout'
@@ -290,7 +292,8 @@ export default function EvaluatorSubjectRolesPage() {
     void (async () => {
       setLoading(true)
       try {
-        const filters = await getEvaluationExamFilters(employeeId).catch(() => [])
+        // Angular getExamFiltersList(): univ_exam_filters with REGSUP flag_type.
+        const filters = await getEvaluatorSubjectRolesExamFilters(employeeId).catch(() => [])
         const f = Array.isArray(filters) ? filters : []
         setFilterRows(f)
         if (f[0]) setCourseId(pickNum(f[0], ['fk_course_id', 'courseId']))
@@ -545,6 +548,10 @@ export default function EvaluatorSubjectRolesPage() {
         examEvaluatorProfileId: profileId,
         examEvaluatorProfileDetailsDTOS: detailPayloads,
       })
+      // Angular submit() success chain: map profile→employees, then set up
+      // exam committees (the implicit "Map evaluators" side effects).
+      await popProfileEmployees(profileId)
+      await setupExamCommittees()
       toastSuccess('Saved successfully.')
       router.push('/admin-examination-management/evaluation-process/create-evaluators')
     } catch (e: any) {
