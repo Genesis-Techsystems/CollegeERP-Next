@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PencilIcon } from 'lucide-react'
+import { Eye, PencilIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, type SelectOption } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { MINIO_URL } from '@/config/constants/api'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   assignChiefEvaluation,
@@ -15,10 +16,34 @@ import {
   getChiefEvaluationSubjectFilters,
   getChiefEvaluatorDetails,
   getEvalSetting,
-  listChiefEvaluationRows,
 } from '@/services'
 
 type AnyRow = Record<string, any>
+
+// MinIO base for opening answer-paper PDFs (Angular view() -> MINIO + path).
+function resolveMinioBase(): string {
+  let base = MINIO_URL
+  if (!base) {
+    const spring = process.env.NEXT_PUBLIC_SPRING_API_URL ?? ''
+    if (spring) {
+      try {
+        const u = new URL(spring)
+        base = `${u.protocol}//${u.hostname}:9000/cms/`
+      } catch {
+        base = spring.replace(/:8443\/cms\/?$/i, ':9000/cms/')
+        if (!base.endsWith('/')) base += '/'
+      }
+    }
+  }
+  return base
+}
+
+function openAnswerPaper(path: string) {
+  if (!path) return
+  const base = resolveMinioBase()
+  const url = /^https?:\/\//i.test(path) ? path : `${base}${path.replace(/^\/+/, '')}`
+  globalThis?.open?.(url, '_blank', 'width=680,height=600')
+}
 
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
   if (!row) return 0
@@ -56,6 +81,7 @@ export default function ChiefEvaluationPagesPage() {
   const [subjectFilterRows, setSubjectFilterRows] = useState<AnyRow[]>([])
   const [evaluationRows, setEvaluationRows] = useState<AnyRow[]>([])
   const [chiefDetails, setChiefDetails] = useState<AnyRow[]>([])
+  const [chiefEvaluations, setChiefEvaluations] = useState<AnyRow[]>([])
   const [settingValue, setSettingValue] = useState('')
   const [hasFetched, setHasFetched] = useState(false)
 
@@ -75,7 +101,7 @@ export default function ChiefEvaluationPagesPage() {
       dedupeBy(
         baseRows.filter((r) => pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId)),
         (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId']),
-      ),
+      ).sort((a, b) => Number.parseInt(pickText(b, ['academic_year']) || '0', 10) - Number.parseInt(pickText(a, ['academic_year']) || '0', 10)),
     [baseRows, courseId],
   )
   const exams = useMemo(
@@ -202,13 +228,85 @@ export default function ChiefEvaluationPagesPage() {
   useEffect(() => {
     setEvaluationRows([])
     setChiefDetails([])
+    setChiefEvaluations([])
     setHasFetched(false)
   }, [courseId, academicYearId, examId, courseYearId, regulationId, subjectId])
+
+  // allowChiefEval gates the per-evaluator Edit (Angular chiefEvaluatorDetails[0].assignment_allowed).
+  const allowChiefEval = Number(chiefDetails[0]?.assignment_allowed ?? 0) === 1
 
   function getEvaluation(serialNo: string, evaluatorNumber: number) {
     return evaluationRows.find(
       (row) =>
         String(row?.omr_serial_no ?? '') === serialNo && Number(row?.evaluator_number ?? 0) === evaluatorNumber,
+    )
+  }
+
+  // chief's own evaluation for an OMR (Angular getChiefEval, result[2]).
+  function getChiefEval(serialNo: string) {
+    return chiefEvaluations.find((row) => String(row?.omr_serial_no ?? '') === serialNo)
+  }
+
+  // chief_evaluation_exists for an OMR (Angular getAllowEvalAssignment).
+  function chiefEvaluationExists(serialNo: string) {
+    const row = evaluationRows.find((r) => String(r?.omr_serial_no ?? '') === serialNo)
+    return Number(row?.chief_evaluation_exists ?? 0) === 1 || row?.chief_evaluation_exists === true
+  }
+
+  // Per-evaluator cell: marks + Edit (chief reassign, gated) + View (Angular HTML 166-196).
+  function evaluatorCell(serialNo: string, n: number) {
+    const ev = getEvaluation(serialNo, n)
+    if (!ev || ev.evaluated_totalmarks == null) return <span>-</span>
+    const path = pickText(ev, ['evaluated_answerpaper_path'])
+    return (
+      <span className="inline-flex items-center gap-1">
+        {String(ev.evaluated_totalmarks ?? '')}
+        {allowChiefEval && chiefEvaluationExists(serialNo) && (
+          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="Reassign to chief" onClick={() => void onEdit(serialNo, n)}>
+            <PencilIcon className="h-3.5 w-3.5 text-blue-700" />
+          </Button>
+        )}
+        {path && (
+          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="View answer paper" onClick={() => openAnswerPaper(path)}>
+            <Eye className="h-3.5 w-3.5 text-slate-600" />
+          </Button>
+        )}
+      </span>
+    )
+  }
+
+  // Chief "My Evaluations" cell (Angular getChiefEval): marks + Edit on status 628 + View.
+  function chiefCell(serialNo: string) {
+    const ce = getChiefEval(serialNo)
+    if (!ce) return <span>-</span>
+    const status = pickNum(ce, ['fk_evaluationstatus_catdet_id', 'evaluationStatusCatDetId'])
+    const path = pickText(ce, ['evaluated_answerpaper_path'])
+    return (
+      <span className="inline-flex items-center gap-1">
+        {String(ce.evaluated_totalmarks ?? '')}
+        {status === 628 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            aria-label="Continue chief evaluation"
+            onClick={() =>
+              routeToEvaluation(
+                pickNum(ce, ['pk_exam_evaluationassignment_id', 'examEvaluationAssignmentId']),
+                pickNum(ce, ['fk_std_answerpaper_id', 'studentAnswerPaperId']),
+              )
+            }
+          >
+            <PencilIcon className="h-3.5 w-3.5 text-blue-700" />
+          </Button>
+        )}
+        {path && (
+          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="View chief answer paper" onClick={() => openAnswerPaper(path)}>
+            <Eye className="h-3.5 w-3.5 text-slate-600" />
+          </Button>
+        )}
+      </span>
     )
   }
 
@@ -235,30 +333,21 @@ export default function ChiefEvaluationPagesPage() {
     }
     setLoading(true)
     try {
-      const [rows, chief] = await Promise.all([
-        listChiefEvaluationRows({
-          employeeId,
-          organizationId,
-          examId,
-          courseId,
-          academicYearId,
-          courseYearId,
-          regulationId,
-          subjectId,
-        }).catch(() => []),
-        getChiefEvaluatorDetails({
-          employeeId,
-          organizationId,
-          examId,
-          courseId,
-          academicYearId,
-          courseYearId,
-          regulationId,
-          subjectId,
-        }).catch(() => []),
-      ])
-      setEvaluationRows(Array.isArray(rows) ? rows : [])
-      setChiefDetails(Array.isArray(chief) ? chief : [])
+      // Angular getChiefEvaluatorDetails(): result[0]=chief details,
+      // result[1]=per-evaluator marks (pivot source), result[2]=chief's own evals.
+      const chief = await getChiefEvaluatorDetails({
+        employeeId,
+        organizationId,
+        examId,
+        courseId,
+        academicYearId,
+        courseYearId,
+        regulationId,
+        subjectId,
+      }).catch(() => ({ chiefDetails: [], marks: [], chiefEvaluations: [] }))
+      setEvaluationRows(chief.marks)
+      setChiefDetails(chief.chiefDetails)
+      setChiefEvaluations(chief.chiefEvaluations)
       setHasFetched(true)
     } finally {
       setLoading(false)
@@ -437,65 +526,20 @@ export default function ChiefEvaluationPagesPage() {
                   <th className="text-left px-3 py-2">Evaluator 1</th>
                   <th className="text-left px-3 py-2">Evaluator 2</th>
                   <th className="text-left px-3 py-2">Evaluator 3</th>
-                  <th className="text-left px-3 py-2">Final Marks</th>
+                  <th className="text-left px-3 py-2">My Evaluations</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredOmrRows.map((row, index) => {
                   const serialNo = String(row?.omr_serial_no ?? '')
-                  const e1 = getEvaluation(serialNo, 1)
-                  const e2 = getEvaluation(serialNo, 2)
-                  const e3 = getEvaluation(serialNo, 3)
                   return (
                     <tr key={`${serialNo}-${index}`} className="border-t">
                       <td className="px-3 py-2">{index + 1}</td>
                       <td className="px-3 py-2">{serialNo || '-'}</td>
-                      <td className="px-3 py-2">
-                        {String(e1?.evaluated_totalmarks ?? '')}
-                        {e1?.evaluated_totalmarks != null && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="ml-1 h-8 w-8 p-0"
-                            aria-label="Edit evaluator 1 marks"
-                            onClick={() => void onEdit(serialNo, 1)}
-                          >
-                            <PencilIcon className="h-3.5 w-3.5 text-blue-700" />
-                          </Button>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {String(e2?.evaluated_totalmarks ?? '')}
-                        {e2?.evaluated_totalmarks != null && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="ml-1 h-8 w-8 p-0"
-                            aria-label="Edit evaluator 2 marks"
-                            onClick={() => void onEdit(serialNo, 2)}
-                          >
-                            <PencilIcon className="h-3.5 w-3.5 text-blue-700" />
-                          </Button>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {String(e3?.evaluated_totalmarks ?? '')}
-                        {e3?.evaluated_totalmarks != null && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="ml-1 h-8 w-8 p-0"
-                            aria-label="Edit evaluator 3 marks"
-                            onClick={() => void onEdit(serialNo, 3)}
-                          >
-                            <PencilIcon className="h-3.5 w-3.5 text-blue-700" />
-                          </Button>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">{String(row?.final_marks ?? '-')}</td>
+                      <td className="px-3 py-2">{evaluatorCell(serialNo, 1)}</td>
+                      <td className="px-3 py-2">{evaluatorCell(serialNo, 2)}</td>
+                      <td className="px-3 py-2">{evaluatorCell(serialNo, 3)}</td>
+                      <td className="px-3 py-2">{chiefCell(serialNo)}</td>
                     </tr>
                   )
                 })}

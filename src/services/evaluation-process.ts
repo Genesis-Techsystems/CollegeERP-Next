@@ -989,7 +989,11 @@ export async function getChiefEvaluatorDetails(params: {
   courseYearId: number
   regulationId: number
   subjectId: number
-}): Promise<AnyRow[]> {
+}): Promise<{ chiefDetails: AnyRow[]; marks: AnyRow[]; chiefEvaluations: AnyRow[] }> {
+  // Angular getChiefEvaluatorDetails() reads ALL three result groups:
+  //   result[0] = chief details (assignment_allowed),
+  //   result[1] = per-evaluator marks list (the pivot source, has evaluator_number),
+  //   result[2] = the chief's own evaluations ("My Evaluations" column).
   const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_examevaluation_bycodes', {
     in_flag: 'chief_evaluator_details',
     in_orgid: params.organizationId || 1,
@@ -1011,7 +1015,12 @@ export async function getChiefEvaluatorDetails(params: {
     in_academic_year_id: params.academicYearId,
     in_loginuser_empid: params.employeeId || 0,
   }).catch(() => ({ result: [] }))
-  return (data?.result?.[0] ?? []).filter(Boolean)
+  const groups = data?.result ?? []
+  return {
+    chiefDetails: (groups[0] ?? []).filter(Boolean),
+    marks: (groups[1] ?? []).filter(Boolean),
+    chiefEvaluations: (groups[2] ?? []).filter(Boolean),
+  }
 }
 
 export async function assignChiefEvaluation(params: {
@@ -1027,16 +1036,8 @@ export async function assignChiefEvaluation(params: {
     in_exam_evaluationassignment_id: params.examEvaluationAssignmentId,
     in_omr_serial_no: params.omrSerialNo,
   }
-  const procs = ['s_pop_exam_chief_eval_assignment', 's_pop_exam_chiefeval_assign']
-  let lastError: unknown = null
-  for (const proc of procs) {
-    try {
-      return await getAllRecords<AnyRow>(proc, payload)
-    } catch (error) {
-      lastError = error
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error('Failed to assign chief evaluation.')
+  // Angular popExamChiefEvalAssign = s_pop_exam_chief_eval_assgn (note 'assgn').
+  return getAllRecords<AnyRow>('s_pop_exam_chief_eval_assgn', payload)
 }
 
 export async function getAssignSubjectsEvaluatorRoles(): Promise<AnyRow[]> {
