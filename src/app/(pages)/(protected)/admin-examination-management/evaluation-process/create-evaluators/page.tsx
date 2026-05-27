@@ -22,6 +22,7 @@ import {
   getEvaluationExamFilters,
   listActiveCourses,
   listEvaluatorProfiles,
+  listEvaluatorTitles,
   listExamEvaluatorPreferences,
   listSubjectsByCourseForPreferences,
   sendEvaluatorCredentials,
@@ -123,7 +124,7 @@ function makeActionsRenderer(openEdit: (row: AnyRow) => void, sendOne: (row: Any
 
 type FormState = {
   collegeCode: string
-  title: string
+  titleId: string
   evaluatorName: string
   email: string
   phoneNumber: string
@@ -140,7 +141,7 @@ function emptyForm(): FormState {
   const today = toDateOnlyISO(new Date())
   return {
     collegeCode: '',
-    title: '',
+    titleId: '',
     evaluatorName: '',
     email: '',
     phoneNumber: '',
@@ -160,6 +161,7 @@ export default function CreateEvaluatorsPage() {
 
   const [rows, setRows] = useState<AnyRow[]>([])
   const [colleges, setColleges] = useState<AnyRow[]>([])
+  const [titles, setTitles] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editRow, setEditRow] = useState<AnyRow | null>(null)
@@ -203,7 +205,20 @@ export default function CreateEvaluatorsPage() {
       const onlyUniversity = all.filter((c) => c?.isUniversity === true || c?.is_university === true)
       setColleges(onlyUniversity.length > 0 ? onlyUniversity : all)
     })()
+    void (async () => {
+      const list = await listEvaluatorTitles().catch(() => [])
+      setTitles(Array.isArray(list) ? list : [])
+    })()
   }, [])
+
+  const titleOptions: SelectOption[] = useMemo(
+    () =>
+      titles.map((t) => ({
+        value: String(pickNum(t, ['generalDetailId'])),
+        label: pickText(t, ['generalDetailDisplayName', 'generalDetailName']),
+      })),
+    [titles],
+  )
 
   const credCourses = useMemo(
     () => dedupeBy(credFilterRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])),
@@ -316,7 +331,7 @@ export default function CreateEvaluatorsPage() {
     setEditRow(row)
     setForm({
       collegeCode: String(row?.collegeCode ?? ''),
-      title: String(row?.title ?? ''),
+      titleId: row?.titleId != null ? String(row.titleId) : '',
       evaluatorName: String(row?.evaluatorName ?? ''),
       email: String(row?.email ?? ''),
       phoneNumber: String(row?.phoneNumber ?? ''),
@@ -338,7 +353,7 @@ export default function CreateEvaluatorsPage() {
     }
     const payload = {
       collegeCode: form.collegeCode,
-      title: form.title,
+      titleId: form.titleId ? Number(form.titleId) : null,
       evaluatorName: form.evaluatorName,
       email: form.email,
       phoneNumber: form.phoneNumber,
@@ -590,7 +605,12 @@ export default function CreateEvaluatorsPage() {
             </div>
             <div>
               <Label className="text-[12px]">Title</Label>
-              <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
+              <Select
+                value={form.titleId || null}
+                onChange={(v) => setForm((p) => ({ ...p, titleId: v ?? '' }))}
+                options={titleOptions}
+                placeholder="Title"
+              />
             </div>
             <div>
               <Label className="text-[12px]">Name</Label>

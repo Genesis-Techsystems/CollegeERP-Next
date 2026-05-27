@@ -1206,6 +1206,16 @@ export async function listEvaluatorProfiles(): Promise<AnyRow[]> {
   return domainList<AnyRow>(EXAM_EVAL_API.EVALUATOR_PROFILES)
 }
 
+/**
+ * Title (salutation) options for the Create/Edit Evaluator dialog. Mirrors
+ * Angular getTitle() -> GeneralDetail by generalMasterCode 'TITLE'. Each row
+ * has generalDetailId + generalDetailName/generalDetailDisplayName.
+ */
+export async function listEvaluatorTitles(): Promise<AnyRow[]> {
+  const q = buildQuery({ 'GeneralMaster.generalMasterCode': 'TITLE', isActive: true })
+  return domainList<AnyRow>('GeneralDetail', q)
+}
+
 export async function createEvaluatorProfile(payload: Record<string, unknown>): Promise<AnyRow> {
   return postDetails<AnyRow>(EXAM_EVAL_API.ADD_EVALUATOR_PROFILES, payload)
 }
