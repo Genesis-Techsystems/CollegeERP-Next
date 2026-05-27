@@ -1164,15 +1164,22 @@ export async function setupExamCommittees(): Promise<void> {
 
 /** Child rows for an evaluator profile (domain list; entity name may vary by backend). */
 export async function listExamEvaluatorProfileDetails(profileId: number): Promise<AnyRow[]> {
-  const q = buildQuery({ examEvaluatorProfileId: profileId })
-  const entities = ['ExamEvaluatorProfileDetails', 'ExamEvaluatorProfileDetail']
-  for (const entity of entities) {
-    try {
-      const rows = await domainList<AnyRow>(entity, q)
-      if (Array.isArray(rows) && rows.length) return rows
-    } catch {
-      // try next entity name
-    }
+  if (!profileId) return []
+  // Angular uses the dedicated getExamEvaluatorProfileDetails endpoint
+  // (?examEvaluatorProfileId=<id>), NOT the generic domain/list.
+  const res = await fetch(
+    NEXT_API.PROXY(`getExamEvaluatorProfileDetails?examEvaluatorProfileId=${profileId}`),
+  ).catch(() => null)
+  if (!res || !res.ok) return []
+  const body = (await res.json().catch(() => null)) as
+    | AnyRow[]
+    | { data?: AnyRow[] | { resultList?: AnyRow[] } }
+    | null
+  if (Array.isArray(body)) return body
+  const data = (body as { data?: AnyRow[] | { resultList?: AnyRow[] } } | null)?.data
+  if (Array.isArray(data)) return data
+  if (data && Array.isArray((data as { resultList?: AnyRow[] }).resultList)) {
+    return (data as { resultList?: AnyRow[] }).resultList ?? []
   }
   return []
 }
@@ -1217,7 +1224,8 @@ export async function updateExamEvaluationSetting(
 }
 
 export async function listEvaluatorProfiles(): Promise<AnyRow[]> {
-  return domainList<AnyRow>(EXAM_EVAL_API.EVALUATOR_PROFILES)
+  // Newest first (Angular list adds query=order(createdDt=desc)).
+  return domainList<AnyRow>(EXAM_EVAL_API.EVALUATOR_PROFILES, 'order(createdDt=desc)')
 }
 
 /**
@@ -1267,7 +1275,7 @@ export async function updateEvaluatorBankDetails(
 export async function searchEvaluatorEmployees(q: string): Promise<AnyRow[]> {
   const term = String(q ?? '').trim()
   if (!term) return []
-  const res = await fetch(NEXT_API.PROXY(`searchEmployees?q=${encodeURIComponent(term)}`)).catch(() => null)
+  const res = await fetch(NEXT_API.PROXY(`employeesearch?q=${encodeURIComponent(term)}`)).catch(() => null)
   if (!res || !res.ok) return []
   const body = (await res.json().catch(() => null)) as { data?: AnyRow[] } | AnyRow[] | null
   if (Array.isArray(body)) return body

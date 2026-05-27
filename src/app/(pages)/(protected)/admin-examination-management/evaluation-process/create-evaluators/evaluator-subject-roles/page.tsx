@@ -419,15 +419,11 @@ export default function EvaluatorSubjectRolesPage() {
   }
 
   function addToTable() {
+    // Required only up to Role; college / course group / course year / lab
+    // batch are optional (Angular: the form is valid once role is chosen).
     if (!courseId || !academicYearId || !examId || !regulationId || !subjectId || !roleId) {
       toastError('Please select course, academic year, exam, regulation, subject, and role.')
       return
-    }
-    if (displayFilters) {
-      if (!collegeId || !courseGroupId || !courseYearId) {
-        toastError('Please select course year, college, and course group for this role.')
-        return
-      }
     }
 
     const exam = getExamRow(examId)
@@ -452,10 +448,10 @@ export default function EvaluatorSubjectRolesPage() {
             evaluatorRoleId: roleId,
             regulationId,
             subjectId,
-            collegeId: collegeId ?? 0,
-            courseGroupId: courseGroupId ?? 0,
-            courseYearId: courseYearId ?? 0,
-            examLabBatchesId: examLabBatchesId ?? 0,
+            collegeId: collegeId ?? null,
+            courseGroupId: courseGroupId ?? null,
+            courseYearId: courseYearId ?? null,
+            examLabBatchesId: examLabBatchesId ?? null,
             isReEvaluation,
             maxNoOfEvaluationsAssign: isReEvaluation ? undefined : Number(maxNoOfEvaluationsAssign || 0),
             maxNoOfReevaluationsAssign: isReEvaluation ? Number(maxNoOfReevaluationsAssign || 0) : undefined,
@@ -469,10 +465,10 @@ export default function EvaluatorSubjectRolesPage() {
             regulationId,
             evaluatorRoleId: roleId,
             subjectId,
-            collegeId: collegeId ?? 0,
-            courseGroupId: courseGroupId ?? 0,
-            courseYearId: courseYearId ?? 0,
-            examLabBatchesId: examLabBatchesId ?? 0,
+            collegeId: collegeId ?? null,
+            courseGroupId: courseGroupId ?? null,
+            courseYearId: courseYearId ?? null,
+            examLabBatchesId: examLabBatchesId ?? null,
             isReEvaluation,
             maxNoOfEvaluationsAssign: isReEvaluation ? undefined : Number(maxNoOfEvaluationsAssign || 0),
             maxNoOfReevaluationsAssign: isReEvaluation ? Number(maxNoOfReevaluationsAssign || 0) : undefined,
@@ -684,7 +680,10 @@ export default function EvaluatorSubjectRolesPage() {
                 <Select
                   value={examLabBatchesId ? String(examLabBatchesId) : null}
                   onChange={(v) => setExamLabBatchesId(v ? Number(v) : null)}
-                  options={examLabBatches.map((b) => ({ value: String(pickNum(b, ['eaxmLabBatchId', 'examLabBatchesId'])), label: pickText(b, ['batchName']) } as SelectOption))}
+                  options={examLabBatches.map((b) => ({
+                    value: String(pickNum(b, ['eaxmLabBatchId', 'examLabBatchesId', 'exam_lab_batches_id', 'pk_eaxm_lab_batch_id'])),
+                    label: pickText(b, ['batchName', 'examLabBatchName', 'batch_name', 'exam_lab_batch_name']),
+                  } as SelectOption))}
                   placeholder="Lab batch"
                 />
               </div>
