@@ -177,11 +177,14 @@ export default function ReAssignEvaluatorsPage() {
       setSummaryRows(summary)
       setEvaluatorStudents(evaluatorStudentsRows)
 
+      // Angular split: "Assigned Evaluator Names" (source) = AssingedList = due!=0
+      // (has pending/incomplete work); "Re-Assign" (target) = UnAssingedList =
+      // due==0 (free to take more).
       const assigned: AnyRow[] = []
       const target: AnyRow[] = []
       for (const row of evaluators) {
         const due = num(row.no_of_students_assigned) - num(row.no_of_evaluations_completed)
-        if (due === 0) {
+        if (due !== 0) {
           assigned.push(row)
         } else {
           target.push(row)
@@ -217,7 +220,8 @@ export default function ReAssignEvaluatorsPage() {
       return !hasSameOmr
     })
     if (selectedOmrSerials.size === 0) {
-      setTargetEvaluators(evaluatorRows.filter((row) => (num(row.no_of_students_assigned) - num(row.no_of_evaluations_completed)) !== 0))
+      // Target list = evaluators who are free (due == 0).
+      setTargetEvaluators(evaluatorRows.filter((row) => (num(row.no_of_students_assigned) - num(row.no_of_evaluations_completed)) === 0))
     } else {
       setTargetEvaluators(filtered)
     }

@@ -1164,27 +1164,9 @@ export async function reassignEvaluationAssignment(params: {
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
   }
-  const endpointCandidates = ['evaluatorassignment', 'getevaluatorassignment']
-  let lastError: unknown = null
-  for (const endpoint of endpointCandidates) {
-    try {
-      await crud.fetchDetails(endpoint, payload)
-      return
-    } catch (error) {
-      lastError = error
-    }
-  }
-
-  const procCandidates = ['s_get_examevaluation_bycodes', 's_get_exam_assignments']
-  for (const proc of procCandidates) {
-    try {
-      await crud.getAllRecords(proc, payload)
-      return
-    } catch (error) {
-      lastError = error
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error('Failed to reassign evaluation assignment.')
+  // Angular evaluatorassignmentUrl = s_pop_exam_evaluatorassignment (the assign
+  // proc), NOT a read proc.
+  await crud.getAllRecords('s_pop_exam_evaluatorassignment', payload)
 }
 
 export async function updateReevaluationCount(params: {
@@ -1202,27 +1184,8 @@ export async function updateReevaluationCount(params: {
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
   }
-  const endpointCandidates = ['evaluatorassignment', 'getevaluatorassignment']
-  let lastError: unknown = null
-  for (const endpoint of endpointCandidates) {
-    try {
-      await crud.fetchDetails(endpoint, payload)
-      return
-    } catch (error) {
-      lastError = error
-    }
-  }
-
-  const procCandidates = ['s_get_examevaluation_bycodes', 's_get_exam_assignments']
-  for (const proc of procCandidates) {
-    try {
-      await crud.getAllRecords(proc, payload)
-      return
-    } catch (error) {
-      lastError = error
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error('Failed to update re-evaluation count.')
+  // Same assign proc as the re-assign call (flag reevaluation_count_update).
+  await crud.getAllRecords('s_pop_exam_evaluatorassignment', payload)
 }
 
 export async function getModeratorEvaluatorProfiles(): Promise<Record<string, unknown>[]> {
