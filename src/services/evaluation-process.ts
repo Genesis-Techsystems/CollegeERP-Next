@@ -1,7 +1,6 @@
 import { buildQuery, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords, postDetails } from '@/services/crud'
 import { EXAM_EVAL_API, NEXT_API, QUESTION_PAPER_API } from '@/config/constants/api'
 import { getUnivExamFiltersByType, getUnivExamRestNoTtBundle, getUnivExamSubjectUc } from '@/services/pre-examination'
-import { toDateOnlyISO } from '@/common/generic-functions'
 
 type AnyRow = Record<string, any>
 
@@ -609,27 +608,18 @@ export async function listFinalizableQuestionPapers(params: {
 
 export async function finalizeOneQuestionPaper(params: {
   questionPaperId: number
-  approvedByEmpId: number
+  data?: Record<string, unknown>
   statusCatDetId?: number
 }): Promise<AnyRow> {
+  // Angular Finalize(): updateDetails(ExamQuestionPaperCrudUrl, fullRecord,
+  // questionPaperId, 'questionPaperId') with questionPaperStatusCatDetId = 623
+  // (Approved). Re-send the full mapped record so the update does not null out
+  // the paper's other columns. Entity = 'ExamQuestionPapers', PK = questionPaperId.
   const payload = {
+    ...(params.data ?? {}),
     questionPaperStatusCatDetId: params.statusCatDetId ?? 623,
-    approvedByEmpId: params.approvedByEmpId || 0,
-    approvedDate: toDateOnlyISO(new Date()),
-    isActive: true,
   }
-  const entities = ['ExamQuestionPaper', 'ExamQuestionPapers']
-  const pks = ['questionPaperId', 'examQuestionPaperId', 'pk_exam_questionpaper_id']
-  for (const entity of entities) {
-    for (const pk of pks) {
-      try {
-        return await domainUpdate<AnyRow>(entity, pk, params.questionPaperId, payload)
-      } catch {
-        // try next variant
-      }
-    }
-  }
-  throw new Error('Unable to finalize question paper.')
+  return domainUpdate<AnyRow>('ExamQuestionPapers', 'questionPaperId', params.questionPaperId, payload)
 }
 
 export async function listViewFinalQuestionPapers(params: {

@@ -199,19 +199,50 @@ export default function ExamFinalQuestionPaperPage() {
 
   async function onFinalize() {
     if (rows.length === 0) return
-    const candidates = rows.filter((r) => pickNum(r, ['pk_exam_questionpaper_id', 'questionPaperId', 'examQuestionPaperId']) > 0)
-    if (candidates.length === 0) {
+    // Angular Finalize(): pick a RANDOM question paper from the list, then
+    // re-send its full record with questionPaperStatusCatDetId = 623 (Approved).
+    const ids = rows
+      .map((r) => pickNum(r, ['pk_exam_questionpaper_id', 'questionPaperId', 'examQuestionPaperId']))
+      .filter((n) => n > 0)
+    if (ids.length === 0) {
       toastError('No eligible question paper found to finalize.')
       return
     }
-    const selected = candidates[Math.floor(Math.random() * candidates.length)]
-    const qpId = pickNum(selected, ['pk_exam_questionpaper_id', 'questionPaperId', 'examQuestionPaperId'])
+    const queid = ids[Math.floor(Math.random() * ids.length)]
+    const selected = rows.find(
+      (r) => pickNum(r, ['pk_exam_questionpaper_id', 'questionPaperId', 'examQuestionPaperId']) === queid,
+    )
+    if (!selected) return
+    // Map the proc row to the ExamQuestionPapers update shape (mirrors Angular).
+    const data = {
+      organizationId: selected.organizationId,
+      examMonthYear: selected.exam_month_yr,
+      courseCode: selected.coursecode,
+      courseYearCode: selected.courseyearcode,
+      courseYearId: selected.fk_course_year_id,
+      courseGroupCodes: selected.coursegroupcodes,
+      regulationCode: selected.regulationcode,
+      subjectCode: selected.subjectcode,
+      examDate: selected.exam_date,
+      questionPaperTitle: selected.questionpaper_title,
+      setNumber: selected.setnumber,
+      passMarks: selected.passmarks,
+      totalMarks: selected.totalmarks,
+      totalQuestions: selected.totalquestions,
+      preparedByEmpId: selected.fk_preparedby_emp_id,
+      preparedDate: selected.prepared_date,
+      questionPaperStatusCatDetId: 623,
+      statusComments: selected.status_comments,
+      isApproved: selected.is_approved,
+      approvedByEmpId: selected.approvedByEmpId,
+      questionPaperPath: selected.questionpaper_path,
+      modelAnswerSheetPath: selected.modelanswersheet_path,
+      approvedDate: selected.approvedDate,
+      isActive: selected.is_active,
+    }
     setLoading(true)
     try {
-      await finalizeOneQuestionPaper({
-        questionPaperId: qpId,
-        approvedByEmpId: employeeId,
-      })
+      await finalizeOneQuestionPaper({ questionPaperId: queid, data })
       toastSuccess('Question paper finalized successfully.')
       await getList()
     } catch (error: any) {
@@ -225,7 +256,7 @@ export default function ExamFinalQuestionPaperPage() {
     () => [
       { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
       { field: 'courseYearCode', headerName: 'Course Year', minWidth: 130, valueGetter: (p) => p.data?.courseyearcode ?? p.data?.courseYearCode ?? '-' },
-      { field: 'preparedBy', headerName: 'Prepared By', minWidth: 170, valueGetter: (p) => p.data?.prepareby_emp ?? p.data?.preparedBy ?? '-' },
+      { field: 'preparedBy', headerName: 'Prepared By', minWidth: 170, valueGetter: (p) => p.data?.preparedby_emp_name ?? p.data?.prepareby_emp ?? p.data?.preparedBy ?? '-' },
       { field: 'questionPaperTitle', headerName: 'Question Paper Title', minWidth: 280, valueGetter: (p) => p.data?.questionpaper_title ?? p.data?.questionPaperTitle ?? '-' },
       {
         field: 'questionPaperStatus',
