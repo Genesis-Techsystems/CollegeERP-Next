@@ -28,6 +28,7 @@ import {
   updateEvaluatorBankDetails,
   listExamEvaluatorPreferences,
   listSubjectsByCourseForPreferences,
+  searchEvaluatorEmployees,
   sendEvaluatorCredentials,
   updateEvaluatorProfile,
   updateExamEvaluatorPreferences,
@@ -133,7 +134,10 @@ function makeActionsRenderer(
 }
 
 type FormState = {
-  collegeCode: string
+  collegeId: string
+  isEmp: boolean
+  evaluatorEmpId: string
+  userId: number | null
   titleId: string
   evaluatorName: string
   email: string
@@ -150,7 +154,10 @@ type FormState = {
 function emptyForm(): FormState {
   const today = toDateOnlyISO(new Date())
   return {
-    collegeCode: '',
+    collegeId: '',
+    isEmp: false,
+    evaluatorEmpId: '',
+    userId: null,
     titleId: '',
     evaluatorName: '',
     email: '',
@@ -165,6 +172,12 @@ function emptyForm(): FormState {
   }
 }
 
+// Validation patterns mirror the Angular create-evaluator form.
+const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const RE_PHONE = /^[0-9]{10}$/
+const RE_AADHAR = /^[0-9]{12}$/
+const RE_PAN = /^[A-Z]{5}[0-9]{4}[A-Z]$/
+
 export default function CreateEvaluatorsPage() {
   const router = useRouter()
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
@@ -176,6 +189,8 @@ export default function CreateEvaluatorsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editRow, setEditRow] = useState<AnyRow | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
+  const [employees, setEmployees] = useState<AnyRow[]>([])
+  const [empQuery, setEmpQuery] = useState('')
 
   const [prefOpen, setPrefOpen] = useState(false)
   const [prefRow, setPrefRow] = useState<AnyRow | null>(null)
@@ -430,16 +445,47 @@ export default function CreateEvaluatorsPage() {
     }
   }
 
+  // Angular enteredEmployee(): search once the term exceeds 4 chars.
+  async function searchEmployees(q: string) {
+    setEmpQuery(q)
+    if (!q || q.trim().length <= 4) {
+      setEmployees([])
+      return
+    }
+    const list = await searchEvaluatorEmployees(q.trim()).catch(() => [])
+    setEmployees(Array.isArray(list) ? list : [])
+  }
+
+  // Angular setEmployee(): autofill college/email/name/phone/userId from the pick.
+  function onSelectEmployee(emp: AnyRow) {
+    setForm((p) => ({
+      ...p,
+      evaluatorEmpId: emp?.employeeId != null ? String(emp.employeeId) : '',
+      userId: emp?.userId != null ? Number(emp.userId) : null,
+      collegeId: emp?.collegeId != null ? String(emp.collegeId) : p.collegeId,
+      email: emp?.email != null ? String(emp.email) : p.email,
+      evaluatorName: emp?.firstName != null ? String(emp.firstName) : p.evaluatorName,
+      phoneNumber: emp?.mobile != null ? String(emp.mobile) : p.phoneNumber,
+    }))
+    setEmpQuery(`${emp?.empNumber ?? ''}${emp?.firstName ? ` (${emp.firstName})` : ''}`)
+    setEmployees([])
+  }
+
   function openAdd() {
     setEditRow(null)
     setForm(emptyForm())
+    setEmployees([])
+    setEmpQuery('')
     setModalOpen(true)
   }
 
   function openEdit(row: AnyRow) {
     setEditRow(row)
     setForm({
-      collegeCode: String(row?.collegeCode ?? ''),
+      collegeId: row?.collegeId != null ? String(row.collegeId) : '',
+      isEmp: false,
+      evaluatorEmpId: row?.evaluatorEmpId != null ? String(row.evaluatorEmpId) : '',
+      userId: row?.userId != null ? Number(row.userId) : null,
       titleId: row?.titleId != null ? String(row.titleId) : '',
       evaluatorName: String(row?.evaluatorName ?? ''),
       email: String(row?.email ?? ''),
@@ -455,24 +501,47 @@ export default function CreateEvaluatorsPage() {
     setModalOpen(true)
   }
 
+  function validateEvaluatorForm(): string | null {
+    // Required + pattern checks mirror the Angular create-evaluator form.
+    if (!form.isEmp && !form.collegeId) return 'University College is required.'
+    if (!form.titleId) return 'Title is required.'
+    if (!form.evaluatorName.trim()) return 'Name is required.'
+    if (!form.email.trim() || !RE_EMAIL.test(form.email.trim())) return 'A valid Email is required.'
+    if (!RE_PHONE.test(form.phoneNumber.trim())) return 'Phone Number must be 10 digits.'
+    if (!RE_PHONE.test(form.alternatePhoneNumber.trim())) return 'Alternate Phone must be 10 digits.'
+    if (!RE_AADHAR.test(form.aadhar.trim())) return 'Aadhar must be 12 digits.'
+    if (!RE_PAN.test(form.panCardNo.trim().toUpperCase())) return 'PAN must be like ABCDE1234F.'
+    if (!form.profileValidFromDate) return 'Start Date is required.'
+    if (!form.profileValidToDate) return 'End Date is required.'
+    if (!form.isActive && !form.reason.trim()) return 'Reason is required when inactive.'
+    return null
+  }
+
   async function onSave() {
-    if (!form.evaluatorName || !form.phoneNumber || !form.aadhar) {
-      toastError('Please fill required fields.')
+    const err = validateEvaluatorForm()
+    if (err) {
+      toastError(err)
       return
     }
-    const payload = {
-      collegeCode: form.collegeCode,
+    // Mirror Angular submit() Obj exactly (same JSON for add + edit).
+    const payload: AnyRow = {
+      collegeId: form.collegeId ? Number(form.collegeId) : null,
+      evaluatorEmpId: form.evaluatorEmpId ? Number(form.evaluatorEmpId) : null,
+      userId: form.userId ?? null,
+      roleId: null,
       titleId: form.titleId ? Number(form.titleId) : null,
       evaluatorName: form.evaluatorName,
-      email: form.email,
       phoneNumber: form.phoneNumber,
       alternatePhoneNumber: form.alternatePhoneNumber,
+      email: form.email,
       aadhar: form.aadhar,
-      panCardNo: form.panCardNo,
+      panCardNo: form.panCardNo.toUpperCase(),
       profileValidFromDate: form.profileValidFromDate,
       profileValidToDate: form.profileValidToDate,
       isActive: form.isActive,
-      reason: form.reason || null,
+      reason: form.isActive ? null : form.reason,
+      createdUser: employeeId || null,
+      examEvaluatorProfileDetailsDTOS: editRow?.examEvaluatorProfileDetailsDTOS ?? [],
     }
     setLoading(true)
     try {
@@ -703,20 +772,59 @@ export default function CreateEvaluatorsPage() {
             <DialogTitle>{editRow ? 'Edit Evaluator Profile' : 'Create Evaluator Profile'}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {!editRow && (
+              <div className="md:col-span-3 flex items-center gap-2">
+                <Checkbox
+                  checked={form.isEmp}
+                  onCheckedChange={(v) => {
+                    setForm((p) => ({ ...p, isEmp: v === true, evaluatorEmpId: '', userId: null }))
+                    setEmployees([])
+                    setEmpQuery('')
+                  }}
+                />
+                <span className="text-[12px]">Existing Employee</span>
+              </div>
+            )}
+            {form.isEmp ? (
+              <div className="md:col-span-2 relative">
+                <Label className="text-[12px]">Employee</Label>
+                <Input
+                  value={empQuery}
+                  onChange={(e) => void searchEmployees(e.target.value)}
+                  placeholder="Search by employee name or number…"
+                />
+                {employees.length > 0 && (
+                  <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-md border border-border bg-popover shadow">
+                    {employees.map((emp, i) => (
+                      <button
+                        type="button"
+                        key={`emp-${emp?.employeeId ?? i}`}
+                        className="block w-full px-3 py-1.5 text-left text-[12px] hover:bg-muted"
+                        onClick={() => onSelectEmployee(emp)}
+                      >
+                        {String(emp?.empNumber ?? '')}
+                        {emp?.firstName ? <span className="text-blue-700"> ({String(emp.firstName)})</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <Label className="text-[12px]">University College <span className="text-red-600">*</span></Label>
+                <Select
+                  value={form.collegeId || null}
+                  onChange={(v) => setForm((p) => ({ ...p, collegeId: v ?? '' }))}
+                  options={colleges.map((c) => ({
+                    value: String(c?.collegeId ?? c?.pk_college_id ?? ''),
+                    label: String(c?.collegeCode ?? c?.college_code ?? c?.collegeName ?? c?.college_name ?? ''),
+                  } as SelectOption))}
+                  placeholder="University College"
+                />
+              </div>
+            )}
             <div>
-              <Label className="text-[12px]">University College</Label>
-              <Select
-                value={form.collegeCode || null}
-                onChange={(v) => setForm((p) => ({ ...p, collegeCode: v ?? '' }))}
-                options={colleges.map((c) => {
-                  const value = String(c?.collegeCode ?? c?.college_code ?? c?.collegeId ?? c?.pk_college_id ?? '')
-                  return { value, label: String(c?.collegeCode ?? c?.college_code ?? c?.collegeName ?? c?.college_name ?? value) } as SelectOption
-                })}
-                placeholder="University College"
-              />
-            </div>
-            <div>
-              <Label className="text-[12px]">Title</Label>
+              <Label className="text-[12px]">Title <span className="text-red-600">*</span></Label>
               <Select
                 value={form.titleId || null}
                 onChange={(v) => setForm((p) => ({ ...p, titleId: v ?? '' }))}
@@ -725,35 +833,35 @@ export default function CreateEvaluatorsPage() {
               />
             </div>
             <div>
-              <Label className="text-[12px]">Name</Label>
+              <Label className="text-[12px]">Name <span className="text-red-600">*</span></Label>
               <Input value={form.evaluatorName} onChange={(e) => setForm((p) => ({ ...p, evaluatorName: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">Email</Label>
+              <Label className="text-[12px]">Email <span className="text-red-600">*</span></Label>
               <Input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">Phone Number</Label>
+              <Label className="text-[12px]">Phone Number <span className="text-red-600">*</span></Label>
               <Input value={form.phoneNumber} onChange={(e) => setForm((p) => ({ ...p, phoneNumber: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">Alternate Phone</Label>
+              <Label className="text-[12px]">Alternate Phone <span className="text-red-600">*</span></Label>
               <Input value={form.alternatePhoneNumber} onChange={(e) => setForm((p) => ({ ...p, alternatePhoneNumber: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">Aadhar</Label>
+              <Label className="text-[12px]">Aadhar <span className="text-red-600">*</span></Label>
               <Input value={form.aadhar} onChange={(e) => setForm((p) => ({ ...p, aadhar: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">Pan Card No.</Label>
+              <Label className="text-[12px]">Pan Card No. <span className="text-red-600">*</span></Label>
               <Input value={form.panCardNo} onChange={(e) => setForm((p) => ({ ...p, panCardNo: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">Start Date</Label>
+              <Label className="text-[12px]">Start Date <span className="text-red-600">*</span></Label>
               <Input type="date" value={form.profileValidFromDate} onChange={(e) => setForm((p) => ({ ...p, profileValidFromDate: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">End Date</Label>
+              <Label className="text-[12px]">End Date <span className="text-red-600">*</span></Label>
               <Input type="date" value={form.profileValidToDate} onChange={(e) => setForm((p) => ({ ...p, profileValidToDate: e.target.value }))} />
             </div>
             <div className="md:col-span-3 flex items-center gap-2">

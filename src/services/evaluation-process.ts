@@ -1244,6 +1244,23 @@ export async function updateEvaluatorBankDetails(
   )
 }
 
+/**
+ * Employee name/number search for the "Existing Employee" picker in the
+ * Create Evaluator dialog. Mirrors Angular enteredEmployee() ->
+ * listByIds(employeeSearchUrl, term, 'q') i.e. GET <employeeSearchUrl>?q=<term>.
+ * TODO: confirm the exact employeeSearchUrl from the legacy global constants.
+ */
+export async function searchEvaluatorEmployees(q: string): Promise<AnyRow[]> {
+  const term = String(q ?? '').trim()
+  if (!term) return []
+  const res = await fetch(NEXT_API.PROXY(`searchEmployees?q=${encodeURIComponent(term)}`)).catch(() => null)
+  if (!res || !res.ok) return []
+  const body = (await res.json().catch(() => null)) as { data?: AnyRow[] } | AnyRow[] | null
+  if (Array.isArray(body)) return body
+  if (body && Array.isArray(body.data)) return body.data
+  return []
+}
+
 export async function createEvaluatorProfile(payload: Record<string, unknown>): Promise<AnyRow> {
   return postDetails<AnyRow>(EXAM_EVAL_API.ADD_EVALUATOR_PROFILES, payload)
 }
