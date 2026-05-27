@@ -1536,7 +1536,9 @@ export async function assignMultipleUpdateEvaluationAssignmentRevision(params: {
   subjectId: number
   courseYearId: number
 }): Promise<void> {
-  await crud.getAllRecords('s_get_examevaluation_bycodes', {
+  // Angular evaluatorassignmentUrl = s_pop_exam_evaluatorassignment (the assign
+  // proc), NOT the read proc s_get_examevaluation_bycodes.
+  await crud.getAllRecords('s_pop_exam_evaluatorassignment', {
     in_flag: 'MultipleUpdateEvaluationAssignment_revision',
     in_profileids: params.profileId,
     in_exam_evaluationassignment_ids: '',

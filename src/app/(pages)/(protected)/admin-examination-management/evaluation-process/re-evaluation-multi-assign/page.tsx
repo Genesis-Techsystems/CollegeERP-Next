@@ -179,8 +179,10 @@ export default function ReEvaluationMultiAssignPage() {
 
   const preparedRows = useMemo(
     () =>
-      filteredStudents
-        .map((r) => {
+      // Angular radioChange(): the OMR list (maintDataList) is empty until an
+      // evaluator radio is selected.
+      (selectedEvaluatorId ? filteredStudents : ([] as AnyRow[]))
+        .map((r): AnyRow => {
           const excluded = txt(r.exclude_fk_exam_evaluator_profile_id)
             .split(',')
             .map((v) => num(v))
@@ -338,7 +340,7 @@ export default function ReEvaluationMultiAssignPage() {
                     const id = evaluatorProfileId(row)
                     return (
                       <label key={`e-${id}-${i}`} className="flex items-center gap-2 text-[12px]">
-                        <input type="radio" checked={num(selectedEvaluatorId) === id} onChange={() => { setSelectedEvaluatorId(id); setSelectedOmr([]) }} />
+                        <input type="radio" name="reeval-evaluator" checked={num(selectedEvaluatorId) === id} onChange={() => { setSelectedEvaluatorId(id); setSelectedOmr([]) }} />
                         <span title={`${txt(row.evaluator_name)} / ${num(row.no_of_students_assigned)}`}>
                           {txt(row.evaluator_name)} / ({num(row.no_of_students_assigned)})
                         </span>
@@ -353,31 +355,41 @@ export default function ReEvaluationMultiAssignPage() {
                   <SearchInput value={omrSearch} onChange={setOmrSearch} placeholder="Search…" className="w-full max-w-sm" />
                   <span className="text-[12px] text-blue-700 font-semibold">Selected: {selectedCount}</span>
                 </div>
-                <table className="w-full text-[12px] border rounded">
-                  <thead className="bg-muted/40">
-                    <tr>
-                      <th className="px-2 py-1 text-left">
-                        <input type="checkbox" checked={allAvailableSelected} onChange={(e) => toggleAll(e.target.checked)} /> All
-                      </th>
-                      <th className="px-2 py-1 text-left">Serial No</th>
-                      <th className="px-2 py-1 text-left">Answer Papers Assigned</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preparedRows.map((row, i) => {
-                      const omr = txt(row.omr_serial_no)
-                      const checked = selectedOmr.includes(omr)
-                      const disabled = Boolean(row.disabled) || !selectedEvaluator
-                      return (
-                        <tr key={`omr-${omr}-${i}`} className="border-t">
-                          <td className="px-2 py-1"><input type="checkbox" disabled={disabled} checked={checked} onChange={(e) => toggleOmr(omr, e.target.checked)} /></td>
-                          <td className="px-2 py-1">{omr}</td>
-                          <td className="px-2 py-1">{num(row.omr_mapped)}</td>
+                <div className="max-h-[280px] overflow-auto border rounded">
+                  <table className="w-full text-[12px]">
+                    <thead className="bg-muted/40 sticky top-0">
+                      <tr>
+                        <th className="px-2 py-1 text-left">
+                          <input type="checkbox" checked={allAvailableSelected} disabled={!selectedEvaluator} onChange={(e) => toggleAll(e.target.checked)} /> All
+                        </th>
+                        <th className="px-2 py-1 text-left">Serial No</th>
+                        <th className="px-2 py-1 text-left">Answer Papers Assigned</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preparedRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="px-2 py-3 text-center text-muted-foreground">
+                            {selectedEvaluator ? 'No OMR sheets found.' : 'Select an evaluator to list OMR sheets.'}
+                          </td>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                      ) : (
+                        preparedRows.map((row, i) => {
+                          const omr = txt(row.omr_serial_no)
+                          const checked = selectedOmr.includes(omr)
+                          const disabled = Boolean(row.disabled) || !selectedEvaluator
+                          return (
+                            <tr key={`omr-${omr}-${i}`} className={`border-t ${disabled ? 'opacity-50' : ''}`}>
+                              <td className="px-2 py-1"><input type="checkbox" disabled={disabled} checked={checked} onChange={(e) => toggleOmr(omr, e.target.checked)} /></td>
+                              <td className="px-2 py-1">{omr}</td>
+                              <td className="px-2 py-1">{num(row.omr_mapped)}</td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               <div className="md:col-span-2 border rounded-md p-2">
