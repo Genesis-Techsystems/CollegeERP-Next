@@ -864,9 +864,12 @@ export async function listEvaluationModerationData(params: {
   const evaluatorGroups = await toResultGroups('list_evaluatorassignment_list', 64)
   const studentGroups = await toResultGroups('list_evaluationstudent_list', 0)
   return {
+    // Angular getEvaluationList(): result[0]=evaluators, result[1]=stats
+    // (totalStudents/NoOfAnswerpapersUploaded/UnAssinged), result[2]=omr-per-evaluator.
     evaluators: evaluatorGroups[0] ?? [],
-    totals: studentGroups[1] ?? [],
+    totals: evaluatorGroups[1] ?? [],
     omrRows: evaluatorGroups[2] ?? [],
+    // Angular getstudentList(): result[0]=students (OMRs to assign).
     students: studentGroups[0] ?? [],
   }
 }
@@ -878,7 +881,9 @@ export async function assignModerationEvaluation(params: {
   courseYearId: number
   omrSerialNos: string
 }): Promise<AnyRow> {
-  return getAllRecords<AnyRow>('s_get_examevaluation_bycodes', {
+  // Angular Assign(): evaluatorassignmentUrl = s_pop_exam_evaluatorassignment
+  // (NOT the read proc s_get_examevaluation_bycodes).
+  return getAllRecords<AnyRow>('s_pop_exam_evaluatorassignment', {
     in_flag: 'AssignModerationEvaluation',
     in_profileids: params.profileId,
     in_exam_evaluationassignment_ids: '',

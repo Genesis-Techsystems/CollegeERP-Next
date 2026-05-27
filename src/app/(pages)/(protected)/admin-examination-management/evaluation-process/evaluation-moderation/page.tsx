@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
 import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '@/components/ui/label'
 import { Select, type SelectOption } from '@/common/components/select'
 import { ChevronDown, Filter } from 'lucide-react'
-import { toastError } from '@/lib/toast'
+import { toastError, toastSuccess } from '@/lib/toast'
 import {
   assignModerationEvaluation,
   getEvaluationModerationFilters,
@@ -74,6 +74,7 @@ function makeEvaluatedRenderer(onOpen: (row: AnyRow, listType: 'AssignedList' | 
 export default function EvaluationModerationPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [assigning, setAssigning] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
@@ -82,6 +83,11 @@ export default function EvaluationModerationPage() {
   const [totalsRows, setTotalsRows] = useState<AnyRow[]>([])
   const [studentRows, setStudentRows] = useState<AnyRow[]>([])
   const [omrRows, setOmrRows] = useState<AnyRow[]>([])
+  // AG Grid caches the action-cell renderers (cols useMemo deps are []), so the
+  // popup handler would close over the initial empty omrRows. Read via a ref
+  // that we refresh each render so the Assigned/Evaluated modal gets live data.
+  const omrRowsRef = useRef<AnyRow[]>([])
+  omrRowsRef.current = omrRows
   const [selectedEvaluatorId, setSelectedEvaluatorId] = useState<number | null>(null)
   const [selectedOmr, setSelectedOmr] = useState<string[]>([])
   const [omrSearch, setOmrSearch] = useState('')
@@ -231,37 +237,44 @@ export default function EvaluationModerationPage() {
   const unassigned = Number(totals.UnAssinged ?? 0)
   const assigned = Math.max(uploaded - unassigned, 0)
 
-  const assignedByEvaluator = useMemo(() => {
-    const map = new Map<number, Set<string>>()
-    for (const row of evaluatorRows) {
-      const id = pickNum(row, ['pk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])
-      if (id <= 0) continue
-      const set = new Set<string>()
-      const raw = String(row?.assigned_omr_serial_nos ?? row?.omr_serial_nos ?? '')
-      for (const v of raw.split(',').map((s) => s.trim()).filter(Boolean)) set.add(v)
-      map.set(id, set)
-    }
-    return map
-  }, [evaluatorRows])
+  // Angular getstudentList(): only rows whose answer paper is uploaded.
+  const uploadedStudents = useMemo(
+    () => studentRows.filter((s) => Number(s?.is_answerpaper_uploaded) === 1),
+    [studentRows],
+  )
 
+  // A student is "already assigned" to an evaluator when that evaluator's profile
+  // id is listed in exclude_fk_exam_evaluator_profile_id (Angular radioChange()).
+  const isExcludedFor = (s: AnyRow, evaluatorId: number | null) => {
+    if (!evaluatorId) return false
+    const raw = String(s?.exclude_fk_exam_evaluator_profile_id ?? '')
+    if (!raw.trim()) return false
+    return raw.split(',').map((v) => v.trim()).filter(Boolean).includes(String(evaluatorId))
+  }
+
+  // OMR list (maintDataList) is shown ONLY after an evaluator radio is selected.
   const visibleStudents = useMemo(() => {
+    if (!selectedEvaluatorId) return []
     const q = omrSearch.trim().toLowerCase()
-    if (!q) return studentRows
-    return studentRows.filter((s) => String(s?.omr_serial_no ?? '').toLowerCase().includes(q))
-  }, [studentRows, omrSearch])
+    return q
+      ? uploadedStudents.filter((s) => String(s?.omr_serial_no ?? '').toLowerCase().includes(q))
+      : uploadedStudents
+  }, [uploadedStudents, omrSearch, selectedEvaluatorId])
 
-  const assignedSetForSelected = useMemo(
-    () => (selectedEvaluatorId ? assignedByEvaluator.get(selectedEvaluatorId) ?? new Set<string>() : new Set<string>()),
-    [assignedByEvaluator, selectedEvaluatorId],
-  )
-  const assignableStudents = useMemo(() => visibleStudents, [visibleStudents])
+  const assignableStudents = visibleStudents
+  // Already-assigned (excluded) OMRs for the selected evaluator (assignedOmrList).
   const alreadyAssignedStudents = useMemo(
-    () => visibleStudents.filter((s) => assignedSetForSelected.has(String(s?.omr_serial_no ?? ''))),
-    [visibleStudents, assignedSetForSelected],
+    () => visibleStudents.filter((s) => isExcludedFor(s, selectedEvaluatorId)),
+    [visibleStudents, selectedEvaluatorId],
   )
+  // Only NON-excluded rows can be selected/assigned.
   const visibleAssignableOmrs = useMemo(
-    () => visibleStudents.map((s) => String(s?.omr_serial_no ?? '')).filter(Boolean),
-    [visibleStudents],
+    () =>
+      visibleStudents
+        .filter((s) => !isExcludedFor(s, selectedEvaluatorId))
+        .map((s) => String(s?.omr_serial_no ?? ''))
+        .filter(Boolean),
+    [visibleStudents, selectedEvaluatorId],
   )
   const areAllVisibleSelected = useMemo(
     () => visibleAssignableOmrs.length > 0 && visibleAssignableOmrs.every((omr) => selectedOmr.includes(omr)),
@@ -275,7 +288,7 @@ export default function EvaluationModerationPage() {
 
   async function onAssign() {
     if (!selectedEvaluatorId || selectedOmr.length === 0 || !examId || !subjectId || !courseYearId) return
-    setLoading(true)
+    setAssigning(true)
     try {
       await assignModerationEvaluation({
         profileId: selectedEvaluatorId,
@@ -284,12 +297,14 @@ export default function EvaluationModerationPage() {
         courseYearId,
         omrSerialNos: selectedOmr.join(','),
       })
+      toastSuccess('Evaluators assigned successfully.')
       setSelectedOmr([])
+      // Refresh lists/counts/stats (Angular calls getstudentList after assign).
       await onGetList()
     } catch (error: any) {
       toastError(error?.message ?? 'Failed to assign moderation evaluation.')
     } finally {
-      setLoading(false)
+      setAssigning(false)
     }
   }
 
@@ -307,7 +322,7 @@ export default function EvaluationModerationPage() {
 
   function openStudentListPopup(row: AnyRow, listType: 'AssignedList' | 'CompletedList') {
     const evaluatorProfileId = pickNum(row, ['pk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])
-    const base = omrRows.filter((x) => pickNum(x, ['pk_exam_evaluator_profile_id', 'examEvaluatorProfileId']) === evaluatorProfileId)
+    const base = omrRowsRef.current.filter((x) => pickNum(x, ['pk_exam_evaluator_profile_id', 'examEvaluatorProfileId']) === evaluatorProfileId)
     const filtered =
       listType === 'CompletedList'
         ? base.filter((x) => x?.evaluated_totalmarks != null && x?.omr_serial_no != null)
@@ -497,24 +512,33 @@ export default function EvaluationModerationPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {assignableStudents.map((s) => {
-                        const omr = String(s?.omr_serial_no ?? '')
-                        const checked = selectedOmr.includes(omr)
-                        return (
-                          <tr key={`omr-${omr}`} className="border-t">
-                            <td className="px-2 py-1">
-                              <input
-                                type="checkbox"
-                                disabled={!selectedEvaluatorId}
-                                checked={checked}
-                                onChange={(e) => toggleOmrSelection(omr, e.target.checked)}
-                              />
-                            </td>
-                            <td className="px-2 py-1">{omr || '-'}</td>
-                            <td className="px-2 py-1">{String(s?.list_evaluated_totalmarks ?? '-')}</td>
-                          </tr>
-                        )
-                      })}
+                      {assignableStudents.length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="px-2 py-3 text-center text-muted-foreground">
+                            {selectedEvaluatorId ? 'No OMR sheets found.' : 'Select an evaluator to list OMR sheets.'}
+                          </td>
+                        </tr>
+                      ) : (
+                        assignableStudents.map((s, idx) => {
+                          const omr = String(s?.omr_serial_no ?? '')
+                          const disabled = isExcludedFor(s, selectedEvaluatorId)
+                          const checked = selectedOmr.includes(omr)
+                          return (
+                            <tr key={`omr-${omr}-${idx}`} className={`border-t ${disabled ? 'opacity-50' : ''}`}>
+                              <td className="px-2 py-1">
+                                <input
+                                  type="checkbox"
+                                  disabled={disabled}
+                                  checked={checked}
+                                  onChange={(e) => toggleOmrSelection(omr, e.target.checked)}
+                                />
+                              </td>
+                              <td className="px-2 py-1">{omr || '-'}</td>
+                              <td className="px-2 py-1">{String(s?.list_evaluated_totalmarks ?? '-')}</td>
+                            </tr>
+                          )
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -538,8 +562,8 @@ export default function EvaluationModerationPage() {
               </div>
             </div>
             <div className="flex justify-end">
-              <Button disabled={loading || !selectedEvaluator || selectedOmr.length === 0} onClick={() => void onAssign()}>
-                Assign
+              <Button disabled={assigning || loading || !selectedEvaluator || selectedOmr.length === 0} onClick={() => void onAssign()}>
+                {assigning ? 'Assigning…' : 'Assign'}
               </Button>
             </div>
           </div>
