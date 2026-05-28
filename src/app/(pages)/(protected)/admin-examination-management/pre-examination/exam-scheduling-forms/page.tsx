@@ -16,6 +16,7 @@ import {
 } from '@/services/pre-examination'
 import { getExamTimetableDetails, listCourseYears } from '@/services/examination'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { useSchedulingFormsPrint, type PrintAllocationRow } from './_print/useSchedulingFormsPrint'
 
 type AnyRow = Record<string, any>
 
@@ -59,18 +60,6 @@ const pickId = (row: AnyRow, keys: string[]) => {
   }
   return 0
 }
-
-const printActions = [
-  'Room Wise Seating Print',
-  'Room Subject Counts Print',
-  'Group Wise Seating Print',
-  'Print Attendance Sheet',
-  'Print Stickers',
-  'Group-Wise Stickers',
-  'Print Invigilator',
-  'Cover Slip',
-  'Packing Slip',
-]
 
 export default function ExamSchedulingFormsPage() {
   const router = useRouter()
@@ -141,6 +130,54 @@ export default function ExamSchedulingFormsPage() {
     Number(collegeId) > 0 &&
     Number.isFinite(Number(examTimetableId)) &&
     Number(examTimetableId) > 0
+
+  // ── Print context (mirrors Exam Seating Plan Setup) ─────────────────────────
+  const selectedTimetable = useMemo(
+    () => timetables.find((t) => pickId(t, ['examTimetableId', 'fk_exam_timetable_id', 'exam_timetable_id', 'id']) === Number(examTimetableId)) ?? null,
+    [timetables, examTimetableId],
+  )
+  const ymdOf = (v: unknown) => String(v ?? '').match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? ''
+  const printExamDate =
+    ymdOf(selectedTimetable?.examDate) ||
+    ymdOf(roomRows[0]?.examDate) ||
+    ymdOf(restRows[0]?.examDate) ||
+    toDateStr(selectedTimetable?.examDate ?? '')
+  const printSessionId = pickId(roomRows[0] ?? {}, ['examSessionId', 'fk_exam_session_id', 'exam_session_id', 'sessionId']) ||
+    pickId(restRows[0] ?? {}, ['examSessionId', 'fk_exam_session_id', 'exam_session_id', 'sessionId'])
+
+  const printExamName =
+    String(
+      exams.find((e) => Number(e.fk_exam_id) === Number(examId))?.exam_name ??
+        exams.find((e) => Number(e.fk_exam_id) === Number(examId))?.examName ??
+        '',
+    ).trim() || 'Exam'
+  const printCourseLabel = String(courses.find((c) => Number(c.fk_course_id) === Number(courseId))?.course_code ?? '').trim()
+  const printAyLabel = String(academicYears.find((a) => Number(a.fk_academic_year_id) === Number(academicYearId))?.academic_year ?? '').trim()
+  const printHeaderSubtitle = [printCourseLabel, printAyLabel].filter(Boolean).join(' / ')
+
+  const printAllocationRows = useMemo<PrintAllocationRow[]>(
+    () =>
+      filteredRows.map((r) => ({
+        examDate: toDateStr(r.examDate),
+        session: String(r.examSessionName ?? ''),
+        roomCode: [r.buildingCode, r.blockCode, r.floorName, r.roomCode].filter(Boolean).join(' / ') || '-',
+        bookedSeats: Number(r.bookedSeats ?? 0),
+        blockedSeats: Number(r.blockedSeats ?? 0),
+        availableSeats: Number(r.availableSeats ?? 0),
+      })),
+    [filteredRows],
+  )
+
+  const { printMode, loadingOverlay, printButtons, printView } = useSchedulingFormsPrint({
+    courseId,
+    examId,
+    examTimetableId,
+    examDate: printExamDate,
+    sessionId: printSessionId,
+    examName: printExamName,
+    headerSubtitle: printHeaderSubtitle,
+    allocationRows: printAllocationRows,
+  })
 
   useEffect(() => {
     async function loadBase() {
@@ -263,8 +300,13 @@ export default function ExamSchedulingFormsPage() {
     router.push(`/admin-examination-management/pre-examination/exam-scheduling-forms/add-exam-scheduling-forms?${params.toString()}`)
   }
 
+  // When a print layout is active, replace the page content with it (the AppShell
+  // @media print rules hide nav/aside so only this prints).
+  if (printMode) return <>{printView}</>
+
   return (
     <PageContainer className="space-y-4">
+      {loadingOverlay}
       <PageHeader title="Exam Scheduling Forms" subtitle="View and manage exam scheduling" />
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
@@ -375,21 +417,7 @@ export default function ExamSchedulingFormsPage() {
         <div className="app-card p-3 space-y-2">
           <div className="space-y-3">
             <SearchInput value={search} onChange={setSearch} placeholder="Search…" className="w-full max-w-sm" />
-            <div className="w-full rounded border border-amber-300 p-3">
-              <div className="flex flex-wrap gap-2">
-                {printActions.map((label) => (
-                  <Button
-                    key={label}
-                    type="button"
-                    variant="outline"
-                    className="h-8 text-[12px]"
-                    onClick={() => window.print()}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            {printButtons}
           </div>
 
           <div className="overflow-auto rounded border">

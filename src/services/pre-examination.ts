@@ -1,4 +1,4 @@
-import { buildQuery, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords, postDetails } from '@/services/crud'
+import { buildQuery, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords, postDetails, uploadFile } from '@/services/crud'
 import { EXAM_API } from '@/config/constants/api'
 import { GM_CODES } from '@/config/constants/ui'
 import { toDateStr } from '@/common/generic-functions'
@@ -876,6 +876,15 @@ export async function saveRegisteredExamSubjects(payload: AnyRow[]): Promise<any
   }
 }
 
+/**
+ * Upload a student's exam registration form (PDF) — Angular UploadPapers/PayDialog:
+ * crudService.upload(uploadExamRegFormsUrl, formData). Multipart fields: file, collegeCode,
+ * examId, collegeId, courseId.
+ */
+export async function uploadExamRegForms(formData: FormData): Promise<void> {
+  return uploadFile('uploadExamRegForms', formData)
+}
+
 export async function listExamFeeAdditionalStructureByExamType(examTypeGeneralDetailId: number): Promise<AnyRow[]> {
   const key = `efa:${examTypeGeneralDetailId}`
   return dedupeInflight(inflightExamFeeAddlByType, key, async () => {
@@ -1028,6 +1037,118 @@ export async function addExamAdditionalFeeReceipt(payload: AnyRow): Promise<any>
   return postDetails<any>('addExamAdditionalFeeReceipt', payload)
 }
 
+/**
+ * Payment modes — Angular getGeneralDetails() loads paymentMode via
+ * generalDetailsByCode (GeneralDetail where GeneralMaster.generalMasterCode == PYMNTMDE).
+ */
+export async function listPaymentModes(): Promise<AnyRow[]> {
+  return domainList<AnyRow>(
+    'GeneralDetail',
+    buildQuery({ 'GeneralMaster.generalMasterCode': GM_CODES.PAYMENT_MODE, isActive: true }),
+  )
+}
+
+/**
+ * Exam fee receipt save — Angular payExamFees(): crudService.add(examFeeReceiptUrl, examFeeReceipt[]).
+ * POSTs the array of receipt objects (one per course-year) to the legacy save endpoint.
+ */
+export async function payExamFeeReceipts(payload: AnyRow[]): Promise<any> {
+  return postDetails<any>('examFeeReceipt', payload)
+}
+
+/**
+ * Exams for a student's course — Angular getExamsList():
+ * ExamMaster where Course.courseId == courseId, ordered by createdDt DESC.
+ * (The page filters out isInternalExam rows.)
+ */
+export async function listExamMastersByCourse(courseId: number): Promise<AnyRow[]> {
+  if (!courseId) return []
+  return domainList<AnyRow>(
+    'ExamMaster',
+    buildQuery({ 'Course.courseId': courseId, isActive: true }, { field: 'createdDt', direction: 'DESC' }),
+  )
+}
+
+/**
+ * Student academic batches — Angular selectedStudent():
+ * StudentAcademicbatch where studentDetail.studentId == studentId (deduped by fromCourseYearId in page).
+ */
+export async function getStudentAcademicBatches(studentId: number): Promise<AnyRow[]> {
+  if (!studentId) return []
+  return domainList<AnyRow>(
+    'StudentAcademicbatch',
+    buildQuery({ 'studentDetail.studentId': studentId, isActive: true }),
+  )
+}
+
+/**
+ * Exam master details — Angular getExamDetails():
+ * ExamMasterDetails by exam + courseGroup + regulation. Used to derive Regular/Supple course-years.
+ */
+export async function getExamMasterDetailsByGroup(params: {
+  examId: number
+  courseGroupId: number
+  regulationId: number
+}): Promise<AnyRow[]> {
+  return domainList<AnyRow>(
+    'ExamMasterDetails',
+    buildQuery({
+      'examMaster.examId': params.examId,
+      'courseGroup.courseGroupId': params.courseGroupId,
+      'regulation.regulationId': params.regulationId,
+      isActive: true,
+    }),
+  )
+}
+
+/**
+ * Regular-exam student subjects — Angular getStudentSubjects() regular branch:
+ * studentsubjectsforregularexam?collegeId=&academicYearId=&studentId=&courseYearId=&examId=
+ */
+export async function getStudentSubjectsForRegularExam(params: {
+  collegeId: number
+  academicYearId: number
+  studentId: number
+  courseYearId: number
+  examId: number
+}): Promise<AnyRow[]> {
+  try {
+    const rows = await fetchDetails<AnyRow[]>('studentsubjectsforregularexam', {
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      studentId: params.studentId,
+      courseYearId: params.courseYearId,
+      examId: params.examId,
+    })
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Supply-exam student subjects — Angular getStudentSubjects() supply branch / getExamCourseYearSubjets():
+ * studentsubjectsforsupplyexam?collegeId=&courseYearId=&studentId=&examId=
+ */
+export async function getStudentSubjectsForSupplyExam(params: {
+  collegeId: number
+  courseYearId: number
+  studentId: number
+  examId: number
+}): Promise<AnyRow[]> {
+  try {
+    const rows = await fetchDetails<AnyRow[]>('studentsubjectsforsupplyexam', {
+      collegeId: params.collegeId,
+      courseYearId: params.courseYearId,
+      studentId: params.studentId,
+      examId: params.examId,
+    })
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Student Exam Lab Batches
 // ---------------------------------------------------------------------------
@@ -1122,6 +1243,9 @@ export async function getExamLabBatchesReport(params: {
   subjectId: number
   examTypeId: number
 }): Promise<AnyRow[]> {
+  // Angular getDetails(): stored proc `s_get_exam_labbatches_report`
+  // (called via getAllRecords/<proc>). result[0] is the flat student array;
+  // the page splits it into unassigned (fk_exam_labbatch_id == null) vs assigned.
   const payload = {
     in_flag: '',
     in_exam_id: params.examId,
@@ -1135,17 +1259,9 @@ export async function getExamLabBatchesReport(params: {
     in_exam_type: params.examTypeId,
   }
 
-  const paths = ['getexamLabBatchesReport', 'getExamLabBatchesReport']
-  for (const p of paths) {
-    try {
-      const data = await fetchDetails<any>(p, payload)
-      const rows = data?.result?.[0] ?? data?.result ?? data?.data ?? data ?? []
-      if (Array.isArray(rows)) return rows
-    } catch {
-      // try next path
-    }
-  }
-  return []
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_labbatches_report', payload).catch(() => null)
+  const rows = data?.result?.[0] ?? []
+  return Array.isArray(rows) ? rows : []
 }
 
 export async function addExamLabBatchesStudentsList(payload: AnyRow[]): Promise<any> {

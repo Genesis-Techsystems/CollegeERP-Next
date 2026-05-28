@@ -15,6 +15,7 @@ import {
   getUnivExamSubjectUc,
 } from '@/services/pre-examination'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { useAttendanceStickerPrint } from './_print/useAttendanceStickerPrint'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 
 type AnyRow = Record<string, any>
@@ -364,6 +365,12 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
     return `row-${sid}-${sub}-${String(d.omr_serial_no ?? d.hallticket_number ?? '')}`
   }, [])
 
+  const printExamName = pickText(
+    exams.find((e) => pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']) === Number(examId)),
+    ['exam_name', 'examName'],
+  )
+  const { printMode, printButtons, printView } = useAttendanceStickerPrint(rows, printExamName)
+
   async function init() {
     setLoading(true)
     try {
@@ -568,6 +575,10 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
     }
   }
 
+  // When a sticker print is active, replace the page with the print layout
+  // (the AppShell @media print rules hide nav/aside so only stickers print).
+  if (printMode) return <>{printView}</>
+
   return (
     <PageContainer className="space-y-4">
       <PageHeader title="Exam Attendance-wise Subject Barcode" subtitle="Generate attendance-based subject barcodes" />
@@ -702,35 +713,7 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
             )}
             toolbarTrailing={(
               <>
-                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-[30px] px-2 text-[11px]"
-                    onClick={() => printStickersNotReady('Print stickers')}
-                  >
-                    Print Stickers
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-[30px] px-2 text-[11px]"
-                    onClick={() => printStickersNotReady('Print stickers with barcode no')}
-                  >
-                    With Barcode No
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-[30px] px-2 text-[11px]"
-                    onClick={() => printStickersNotReady('Print stickers without USN')}
-                  >
-                    Without USN
-                  </Button>
-                </div>
+                {printButtons}
                 <Button
                   type="button"
                   size="sm"

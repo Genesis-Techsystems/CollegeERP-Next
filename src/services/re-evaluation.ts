@@ -220,9 +220,23 @@ export type MergedRevaluationReceipt = {
   fee_receipt_no: string
   receipt_date: string
   exam_total_amount: number | null
+  exam_fee_amount: number | null
+  exam_addt_fee: number | null
+  exam_fine_amount: number | null
   payment_mode: string
   course_year_code: string
+  hallticket_number: string
+  course_code: string
+  student_name: string
+  exam_name: string
+  exam_type_name: string
   subjects: AnyRow[]
+}
+
+function pickNumOrNull(v: unknown): number | null {
+  if (v === undefined || v === null || String(v).length === 0) return null
+  const num = Number(v)
+  return Number.isFinite(num) ? num : null
 }
 
 function pickReceiptTotalAmount(curr: AnyRow): number | null {
@@ -248,8 +262,16 @@ export function mergeRevaluationReceiptRows(receiptRows: AnyRow[]): MergedRevalu
         fee_receipt_no: strFrom(curr, ['fee_receipt_no', 'feeReceiptNo']),
         receipt_date: strFrom(curr, ['receipt_date', 'receiptDate']),
         exam_total_amount: pickReceiptTotalAmount(curr),
+        exam_fee_amount: pickNumOrNull(curr.exam_fee_amount ?? curr.examFeeAmount),
+        exam_addt_fee: pickNumOrNull(curr.exam_addt_fee ?? curr.examAddtFee),
+        exam_fine_amount: pickNumOrNull(curr.exam_fine_amount ?? curr.examFineAmount),
         payment_mode: strFrom(curr, ['payment_mode', 'paymentMode']),
         course_year_code: strFrom(curr, ['course_year_code', 'courseYearCode']),
+        hallticket_number: strFrom(curr, ['hallticket_number', 'hallticketNumber']),
+        course_code: strFrom(curr, ['course_code', 'courseCode']),
+        student_name: strFrom(curr, ['student_name', 'studentName']),
+        exam_name: strFrom(curr, ['exam_name', 'examName']),
+        exam_type_name: strFrom(curr, ['exam_type_name', 'examtypeCatDisplayName']),
         subjects: [],
       })
     }

@@ -12,6 +12,7 @@ import {
   getUnivExamSubjectUc,
 } from '@/services/pre-examination'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { useExamFormsPrint } from './_print/useExamFormsPrint'
 
 type AnyRow = Record<string, any>
 
@@ -128,6 +129,19 @@ export default function ExamFormsPage() {
     [regRows],
   )
   const subjects = useMemo(() => dedupeBy(subRows, (r) => pickNum(r, SUBJECT_ID_KEYS)), [subRows])
+
+  const printCourseYear = pickText(
+    years.find((y) => pickNum(y, ['fk_course_year_id', 'courseYearId']) === Number(courseYearId)),
+    ['course_year_name', 'courseYearName', 'course_year_code', 'courseYearCode'],
+  )
+  const printExamName = pickText(
+    exams.find((e) => pickNum(e, ['fk_exam_id', 'examId']) === Number(examId)),
+    ['exam_name', 'examName'],
+  )
+  const { printMode, printButtons, printView } = useExamFormsPrint(students, {
+    courseYear: printCourseYear,
+    examName: printExamName,
+  })
 
   useEffect(() => {
     setIsMounted(true)
@@ -277,6 +291,10 @@ export default function ExamFormsPage() {
     }
   }
 
+  // When a print view is active, replace the page with the print layout
+  // (the AppShell @media print rules hide nav/aside so only the form prints).
+  if (printMode) return <>{printView}</>
+
   return (
     <PageContainer className="space-y-4">
       <PageHeader title="Exam Forms" subtitle="Manage exam registration forms" />
@@ -407,17 +425,7 @@ export default function ExamFormsPage() {
 
       {students.length > 0 && (
         <div className="app-card p-3">
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" className="h-8 text-[12px]" onClick={() => alert('Print Form-A ready for wiring')}>
-              Print Form-A
-            </Button>
-            <Button type="button" className="h-8 text-[12px]" onClick={() => alert('Print D-Form ready for wiring')}>
-              Print D-Form
-            </Button>
-            <Button type="button" className="h-8 text-[12px]" onClick={() => alert('Print Form ready for wiring')}>
-              Print Form
-            </Button>
-          </div>
+          {printButtons}
         </div>
       )}
     </PageContainer>

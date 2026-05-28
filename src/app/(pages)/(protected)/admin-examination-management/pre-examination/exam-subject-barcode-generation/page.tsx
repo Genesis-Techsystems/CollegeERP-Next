@@ -14,6 +14,7 @@ import {
   getUnivExamSubjectUc,
 } from '@/services/pre-examination'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { useBarcodeStickerPrint } from './_print/useBarcodeStickerPrint'
 import type { ColDef } from 'ag-grid-community'
 
 type AnyRow = Record<string, any>
@@ -292,6 +293,13 @@ export default function ExamSubjectBarcodeGenerationPage() {
     return `row-${sid}-${sub}-${String(d.omr_serial_no ?? d.hallticket_number ?? '')}`
   }, [])
 
+  const printExamName =
+    pickText(
+      exams.find((e) => pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']) === Number(examId)),
+      ['exam_name', 'examName'],
+    ) || 'Exam'
+  const { printMode, printButton, printView } = useBarcodeStickerPrint(rows, printExamName)
+
   async function init() {
     setLoading(true)
     try {
@@ -489,6 +497,10 @@ export default function ExamSubjectBarcodeGenerationPage() {
     }
   }
 
+  // When the sticker print is active, replace the page with the print layout
+  // (the AppShell @media print rules hide nav/aside so only stickers print).
+  if (printMode) return <>{printView}</>
+
   return (
     <PageContainer className="space-y-4">
       <PageHeader title="Exam Subject Barcode" subtitle="Generate subject-wise barcodes" />
@@ -622,16 +634,19 @@ export default function ExamSubjectBarcodeGenerationPage() {
               </span>
             )}
             toolbarTrailing={(
-              <Button
-                type="button"
-                size="sm"
-                onClick={generateBarcode}
-                disabled={tableLoading || rows.length === 0}
-                className="h-[30px] px-3 text-[12px]"
-              >
-                <Barcode className="mr-1.5 h-3.5 w-3.5" />
-                Generate Barcode
-              </Button>
+              <div className="flex items-center gap-2">
+                {printButton}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={generateBarcode}
+                  disabled={tableLoading || rows.length === 0}
+                  className="h-[30px] px-3 text-[12px]"
+                >
+                  <Barcode className="mr-1.5 h-3.5 w-3.5" />
+                  Generate Barcode
+                </Button>
+              </div>
             )}
           />
         </TableCard>
