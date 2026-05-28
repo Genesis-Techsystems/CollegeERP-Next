@@ -14,11 +14,11 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { rowIndexGetter } from '@/lib/utils'
 import { toastError, toastSuccess } from '@/lib/toast'
+import { toast } from 'sonner'
 import {
   addListUnivEcColleges,
-  getExamTimetableFilterRows,
+  getUnivExamGroupCenterGroups,
   listUnivEcCollegesByCenterAndExam,
-  listUnivExamCentersByUniversity,
   pickUnivEcCollegeId,
   updateUnivEcCollege,
   type AnyRow,
@@ -30,34 +30,11 @@ function num(v: unknown): number {
   const n = Number(v)
   return Number.isFinite(n) ? n : 0
 }
-
 function txt(v: unknown): string {
   if (typeof v === 'string') return v
   if (typeof v === 'number' || typeof v === 'boolean') return String(v)
-  if (v == null) return ''
   return ''
 }
-
-type CandidateCollege = Row & { checked?: boolean; isSelected?: boolean }
-
-function makeAssignedEditRenderer(
-  onEdit: (row: Row) => void,
-) {
-  return (p: ICellRendererParams<Row>) => {
-    if (!p.data) return null
-    return (
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 text-blue-700"
-        onClick={() => onEdit(p.data)}
-      >
-        <Pencil className="h-4 w-4" />
-      </Button>
-    )
-  }
-}
-
 function dedupeBy<T>(rows: T[], keyFn: (row: T) => number): T[] {
   const seen = new Set<number>()
   const out: T[] = []
@@ -70,8 +47,21 @@ function dedupeBy<T>(rows: T[], keyFn: (row: T) => number): T[] {
   return out
 }
 
+type CandidateCollege = Row & { checked?: boolean; isSelected?: boolean }
+
+function makeAssignedEditRenderer(onEdit: (row: Row) => void) {
+  return (p: ICellRendererParams<Row>) => {
+    if (!p.data) return null
+    return (
+      <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-700" onClick={() => p.data && onEdit(p.data)}>
+        <Pencil className="h-4 w-4" />
+      </Button>
+    )
+  }
+}
+
 export default function UnivExamCenterCollegesPage() {
-  const orgId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
+  const universityId = Number(globalThis?.localStorage?.getItem('universityId') ?? 0)
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
 
   const [filtersOpen, setFiltersOpen] = useState(true)
@@ -79,7 +69,8 @@ export default function UnivExamCenterCollegesPage() {
   const [loadingList, setLoadingList] = useState(false)
   const [assigning, setAssigning] = useState(false)
 
-  const [allFilterRows, setAllFilterRows] = useState<Row[]>([])
+  // eg_ay_filter group rows (academic years + exam groups + colleges)
+  const [filterAyRows, setFilterAyRows] = useState<Row[]>([])
   const [examCenters, setExamCenters] = useState<Row[]>([])
   const [assignedRows, setAssignedRows] = useState<Row[]>([])
   const [candidateRows, setCandidateRows] = useState<CandidateCollege[]>([])
@@ -91,80 +82,48 @@ export default function UnivExamCenterCollegesPage() {
   const [editRow, setEditRow] = useState<Row | null>(null)
   const [editForm, setEditForm] = useState({ isActive: true, reason: '' })
 
-  const [form, setForm] = useState({
-    courseId: '' as string,
-    academicYearId: '' as string,
-    examId: '' as string,
-    univExamcenterId: '' as string,
-  })
+  const [academicYearId, setAcademicYearId] = useState<string>('')
+  const [examGroupId, setExamGroupId] = useState<string>('')
+  const [univExamcenterId, setUnivExamcenterId] = useState<string>('')
 
-  const courses = useMemo(
-    () => dedupeBy(allFilterRows, (r) => num(r.fk_course_id)),
-    [allFilterRows],
-  )
+  // ── Filter options (Angular getFiltersList → eg_ay_filter group) ──
   const academicYears = useMemo(
     () =>
-      dedupeBy(
-        allFilterRows.filter((r) => num(r.fk_course_id) === Number(form.courseId)),
-        (r) => num(r.fk_academic_year_id),
+      dedupeBy(filterAyRows, (r) => num(r.fk_academic_year_id)).sort(
+        (a, b) => num(b.academic_year) - num(a.academic_year),
       ),
-    [allFilterRows, form.courseId],
+    [filterAyRows],
   )
-  const exams = useMemo(
-    () =>
-      dedupeBy(
-        allFilterRows.filter(
-          (r) =>
-            num(r.fk_course_id) === Number(form.courseId) &&
-            num(r.fk_academic_year_id) === Number(form.academicYearId) &&
-            r.is_internal_exam !== true,
-        ),
-        (r) => num(r.fk_exam_id),
-      ),
-    [allFilterRows, form.courseId, form.academicYearId],
-  )
+  const examGroups = useMemo(() => dedupeBy(filterAyRows, (r) => num(r.fk_univ_exam_group_id)), [filterAyRows])
 
-  const courseOptions: SelectOption[] = useMemo(
-    () => courses.map((c) => ({ value: String(num(c.fk_course_id)), label: txt(c.course_code) })),
-    [courses],
-  )
   const ayOptions: SelectOption[] = useMemo(
     () => academicYears.map((a) => ({ value: String(num(a.fk_academic_year_id)), label: txt(a.academic_year) })),
     [academicYears],
   )
-  const examOptions: SelectOption[] = useMemo(
-    () =>
-      exams.map((e) => ({
-        value: String(num(e.fk_exam_id)),
-        label: `${txt(e.exam_name)} (${txt(e.from_date)} - ${txt(e.to_date)})`,
-      })),
-    [exams],
+  const examGroupOptions: SelectOption[] = useMemo(
+    () => examGroups.map((g) => ({ value: String(num(g.fk_univ_exam_group_id)), label: txt(g.exam_group_code) })),
+    [examGroups],
   )
   const centerOptions: SelectOption[] = useMemo(
     () =>
       examCenters.map((c) => ({
-        value: String(num(c.univExamcenterId ?? c.univExamCenterId ?? c.univ_examcenter_id)),
-        label: txt(c.examcenterCode ?? c.examCenterCode),
+        value: String(num(c.fk_univ_ec_id ?? c.univExamcenterId)),
+        label: `${txt(c.ec_code ?? c.examcenterCode)} - ${txt(c.ec_name ?? c.examcenterName)}`,
       })),
     [examCenters],
   )
 
-  const selectedCount = useMemo(
-    () => candidateRows.filter((r) => r.isSelected).length,
-    [candidateRows],
-  )
-  const selectedColleges = useMemo(
-    () => candidateRows.filter((r) => r.isSelected),
-    [candidateRows],
-  )
+  const selectedCount = useMemo(() => candidateRows.filter((r) => r.isSelected).length, [candidateRows])
+  const selectedColleges = useMemo(() => candidateRows.filter((r) => r.isSelected), [candidateRows])
 
   const headerText = useMemo(() => {
-    const course = courses.find((c) => num(c.fk_course_id) === Number(form.courseId))
-    const ay = academicYears.find((a) => num(a.fk_academic_year_id) === Number(form.academicYearId))
-    const exam = exams.find((e) => num(e.fk_exam_id) === Number(form.examId))
-    const center = examCenters.find((c) => num(c.univExamcenterId ?? c.univExamCenterId) === Number(form.univExamcenterId))
-    return `${txt(course?.course_code)} / ${txt(ay?.academic_year)} / ${txt(exam?.exam_name)} / ${txt(center?.examcenterName ?? center?.examCenterName)}`
-  }, [courses, academicYears, exams, examCenters, form])
+    const ay = academicYears.find((a) => num(a.fk_academic_year_id) === Number(academicYearId))
+    const grp = examGroups.find((g) => num(g.fk_univ_exam_group_id) === Number(examGroupId))
+    const center = examCenters.find((c) => num(c.fk_univ_ec_id ?? c.univExamcenterId) === Number(univExamcenterId))
+    return [txt(ay?.academic_year), txt(grp?.exam_group_code), txt(center?.ec_name ?? center?.examcenterName)]
+      .filter(Boolean)
+      .join(' / ')
+  }, [academicYears, examGroups, examCenters, academicYearId, examGroupId, univExamcenterId])
 
   const onEditAssigned = useCallback((row: Row) => {
     setEditRow(row ?? null)
@@ -175,15 +134,10 @@ export default function UnivExamCenterCollegesPage() {
   const assignedColumnDefs = useMemo<ColDef<Row>[]>(
     () => [
       { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 80, flex: 0 },
-      { headerName: 'Exam Center', minWidth: 150, valueGetter: (p) => txt(p.data?.examcenterCode) },
-      { headerName: 'Exam', minWidth: 180, valueGetter: (p) => txt(p.data?.examName) },
-      { headerName: 'College', minWidth: 130, valueGetter: (p) => txt(p.data?.collegeCode) },
-      {
-        headerName: 'Actions',
-        width: 80,
-        flex: 0,
-        cellRenderer: makeAssignedEditRenderer(onEditAssigned),
-      },
+      { headerName: 'Exam Center', minWidth: 160, valueGetter: (p) => txt(p.data?.examcenterCode ?? p.data?.ec_code) },
+      { headerName: 'Exam', minWidth: 200, valueGetter: (p) => txt(p.data?.examName ?? p.data?.exam_name) },
+      { headerName: 'College', minWidth: 140, valueGetter: (p) => txt(p.data?.collegeCode ?? p.data?.college_code) },
+      { headerName: 'Actions', width: 90, flex: 0, cellRenderer: makeAssignedEditRenderer(onEditAssigned) },
     ],
     [onEditAssigned],
   )
@@ -194,123 +148,124 @@ export default function UnivExamCenterCollegesPage() {
     return candidateRows.filter((r) => txt(r.college_code).toLowerCase().includes(q))
   }, [candidateRows, candidateSearch])
 
+  // ── Angular getFiltersList(): eg_filters → eg_ay_filter group ──
   const loadFilters = useCallback(async () => {
     setLoadingFilters(true)
     try {
-      const rows = await getExamTimetableFilterRows({ organizationId: orgId, employeeId })
-      setAllFilterRows(Array.isArray(rows) ? rows : [])
+      const groups = await getUnivExamGroupCenterGroups({ flag: 'eg_filters', universityId })
+      const ayGroup = groups.find((g) => txt(g[0]?.flag) === 'eg_ay_filter') ?? groups[0] ?? []
+      setFilterAyRows(ayGroup)
     } catch (e) {
       toastError(e, 'Failed to load filters')
-      setAllFilterRows([])
+      setFilterAyRows([])
     } finally {
       setLoadingFilters(false)
     }
-  }, [orgId, employeeId])
+  }, [universityId])
 
   useEffect(() => {
     void loadFilters()
   }, [loadFilters])
 
+  // Auto-select first academic year
   useEffect(() => {
-    if (!courseOptions.length || form.courseId) return
-    setForm((f) => ({ ...f, courseId: courseOptions[0].value }))
-  }, [courseOptions, form.courseId])
+    if (!ayOptions.length || academicYearId) return
+    setAcademicYearId(ayOptions[0].value)
+  }, [ayOptions, academicYearId])
 
-  useEffect(() => {
-    const next = ayOptions[0]?.value ?? ''
-    setForm((f) => ({ ...f, academicYearId: next, examId: '', univExamcenterId: '' }))
-  }, [form.courseId, ayOptions])
-
-  useEffect(() => {
-    const next = examOptions[0]?.value ?? ''
-    setForm((f) => ({ ...f, examId: next, univExamcenterId: '' }))
-  }, [form.academicYearId, examOptions])
-
-  useEffect(() => {
-    async function loadCenters() {
-      setExamCenters([])
-      if (!form.examId) return
-      try {
-        const universityId = num(allFilterRows.find((r) => num(r.fk_exam_id) === Number(form.examId))?.fk_university_id)
-        const rows = await listUnivExamCentersByUniversity(universityId || 0)
-        setExamCenters(Array.isArray(rows) ? rows : [])
-      } catch {
+  // Angular selectedExamGroup(): eg_ec_filters → exam centers
+  const loadCentersForGroup = useCallback(
+    async (grpId: number, ayId: number) => {
+      if (!grpId) {
         setExamCenters([])
+        return
       }
-    }
-    void loadCenters()
-  }, [form.examId, allFilterRows])
+      const groups = await getUnivExamGroupCenterGroups({
+        flag: 'eg_ec_filters',
+        examGroupId: grpId,
+        academicYearId: ayId,
+        universityId,
+      }).catch(() => [])
+      setExamCenters(groups[0] ?? [])
+    },
+    [universityId],
+  )
 
+  function onChangeExamGroup(v: string | null) {
+    const grp = v ?? ''
+    setExamGroupId(grp)
+    setUnivExamcenterId('')
+    setShowSections(false)
+    if (grp) void loadCentersForGroup(Number(grp), Number(academicYearId))
+  }
+
+  // Auto-select first exam center
   useEffect(() => {
-    if (!centerOptions.length || form.univExamcenterId) return
-    setForm((f) => ({ ...f, univExamcenterId: centerOptions[0].value }))
-  }, [centerOptions, form.univExamcenterId])
+    if (!centerOptions.length || univExamcenterId) return
+    setUnivExamcenterId(centerOptions[0].value)
+  }, [centerOptions, univExamcenterId])
 
-  async function refreshAssignedAndCandidates() {
-    const examId = Number(form.examId)
-    const centerId = Number(form.univExamcenterId)
-    if (!examId || !centerId) return
+  // Angular getexamCenterColleges(): eg_clg_cou_exam_list → assigned + getExamColleges() candidates
+  async function onGetList() {
+    if (!academicYearId || !examGroupId || !univExamcenterId) {
+      toastError('Select academic year, exam group and exam center.')
+      return
+    }
     setLoadingList(true)
     try {
-      const assigned = await listUnivEcCollegesByCenterAndExam(centerId, examId)
-      const source = dedupeBy(
-        allFilterRows.filter((x) => num(x.fk_course_id) === Number(form.courseId) && num(x.fk_exam_id) === examId),
-        (x) => num(x.fk_college_id),
-      )
+      // No assigned colleges yet returns a "No Record(s) found" — treat as empty, not an error.
+      const groups = await getUnivExamGroupCenterGroups({
+        flag: 'eg_clg_cou_exam_list',
+        univExamcenterId: Number(univExamcenterId),
+        examGroupId: Number(examGroupId),
+        academicYearId: Number(academicYearId),
+        universityId,
+      }).catch(() => [] as AnyRow[][])
+      const assigned = groups[0] ?? []
+      setAssignedRows(assigned)
+
+      // candidate colleges = all colleges in the exam group minus already-assigned
       const assignedCollegeIds = new Set(assigned.map((a) => num(a.collegeId ?? a.fk_college_id)))
-      const candidates = source
+      const candidates = dedupeBy(
+        filterAyRows.filter((r) => num(r.fk_college_id) > 0),
+        (r) => num(r.fk_college_id),
+      )
         .filter((c) => !assignedCollegeIds.has(num(c.fk_college_id)))
         .map((c) => ({ ...c, checked: false, isSelected: false }))
-      setAssignedRows(Array.isArray(assigned) ? assigned : [])
       setCandidateRows(candidates)
       setSelectAll(false)
       setShowSections(true)
-    } catch (e) {
-      toastError(e, 'Failed to load exam center colleges')
-      setAssignedRows([])
-      setCandidateRows([])
-      setShowSections(false)
     } finally {
       setLoadingList(false)
     }
-  }
-
-  async function onGetList() {
-    if (!form.courseId || !form.academicYearId || !form.examId || !form.univExamcenterId) {
-      toastError('Select program, academic year, exam and exam center.')
-      return
-    }
-    await refreshAssignedAndCandidates()
   }
 
   function toggleSelectAll(checked: boolean) {
     setSelectAll(checked)
     setCandidateRows((rows) => rows.map((r) => ({ ...r, checked, isSelected: checked })))
   }
-
   function toggleCandidate(idx: number, checked: boolean) {
-    setCandidateRows((rows) =>
-      rows.map((r, i) => (i === idx ? { ...r, checked, isSelected: checked } : r)),
-    )
+    setCandidateRows((rows) => rows.map((r, i) => (i === idx ? { ...r, checked, isSelected: checked } : r)))
   }
 
+  // Angular Assign()
   async function onAssign() {
     if (!selectedColleges.length) {
-      toastError('Please select college(s).')
+      toast.info('Please Select College...!')
       return
     }
     setAssigning(true)
     try {
       const payload = selectedColleges.map((c) => ({
-        univExamCentersId: Number(form.univExamcenterId),
-        examMasterId: Number(form.examId),
+        univExamCentersId: Number(univExamcenterId),
+        examMasterId: num(c.fk_exam_id) || 0,
         collegeId: num(c.fk_college_id),
         isActive: true,
         createdUser: employeeId,
       }))
       await addListUnivEcColleges(payload)
       toastSuccess('Colleges assigned.')
-      await refreshAssignedAndCandidates()
+      await onGetList()
     } catch (e) {
       toastError(e, 'Assign failed')
     } finally {
@@ -333,10 +288,11 @@ export default function UnivExamCenterCollegesPage() {
         univEcCollegeId: id,
         isActive: editForm.isActive,
         reason: editForm.isActive ? '' : editForm.reason.trim(),
+        updatedUser: employeeId,
       })
       toastSuccess('Updated.')
       setEditOpen(false)
-      await refreshAssignedAndCandidates()
+      await onGetList()
     } catch (err) {
       toastError(err, 'Update failed')
     }
@@ -344,15 +300,13 @@ export default function UnivExamCenterCollegesPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Exam center colleges" subtitle="Exam papers delivery process · Exam center colleges" />
+      <PageHeader title="Exam Center Colleges" subtitle="Exam papers delivery process · Exam center colleges" />
 
       <div className="app-card p-3 border-t-[3px] border-t-amber-300">
         <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
           <div className="flex items-center gap-2 min-w-0">
             <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
-            <h2 className="app-card-title">
-              Exam Center Colleges
-            </h2>
+            <h2 className="app-card-title">Exam Center Colleges</h2>
           </div>
           <button
             type="button"
@@ -369,23 +323,40 @@ export default function UnivExamCenterCollegesPage() {
         {filtersOpen && (
           <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className="space-y-1 md:col-span-2">
-              <Label>Program</Label>
-              <Select options={courseOptions} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v }))} disabled={loadingFilters} />
-            </div>
-            <div className="space-y-1 md:col-span-2">
               <Label>Academic Year</Label>
-              <Select options={ayOptions} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v }))} />
+              <Select
+                options={ayOptions}
+                value={academicYearId}
+                onChange={(v) => {
+                  setAcademicYearId(v ?? '')
+                  setExamGroupId('')
+                  setUnivExamcenterId('')
+                  setExamCenters([])
+                  setShowSections(false)
+                }}
+                disabled={loadingFilters}
+              />
             </div>
             <div className="space-y-1 md:col-span-4">
-              <Label>Exam</Label>
-              <Select options={examOptions} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v }))} />
+              <Label>Exam Group</Label>
+              <Select options={examGroupOptions} value={examGroupId} onChange={onChangeExamGroup} searchable />
             </div>
-            <div className="space-y-1 md:col-span-3">
+            <div className="space-y-1 md:col-span-4">
               <Label>Exam Center</Label>
-              <Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v }))} />
+              <Select
+                options={centerOptions}
+                value={univExamcenterId}
+                onChange={(v) => {
+                  setUnivExamcenterId(v ?? '')
+                  setShowSections(false)
+                }}
+                searchable
+              />
             </div>
-            <div className="md:col-span-1">
-              <Button type="button" onClick={() => void onGetList()} disabled={loadingList}>Get List</Button>
+            <div className="md:col-span-2">
+              <Button type="button" onClick={() => void onGetList()} disabled={loadingList}>
+                Get List
+              </Button>
             </div>
           </div>
         )}
@@ -422,6 +393,11 @@ export default function UnivExamCenterCollegesPage() {
                           <td className="py-1">{txt(c.college_code)}</td>
                         </tr>
                       ))}
+                      {filteredCandidates.length === 0 && (
+                        <tr>
+                          <td colSpan={2} className="py-3 text-center text-muted-foreground">No colleges to assign.</td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -434,7 +410,7 @@ export default function UnivExamCenterCollegesPage() {
                     <tbody>
                       {selectedColleges.map((c, idx) => (
                         <tr key={`${num(c.fk_college_id)}-s-${idx}`} className="border-b">
-                          <td className="py-1">{txt(c.college_code) || '-'}</td>
+                          <td className="py-1 text-blue-700">{txt(c.college_code) || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -443,15 +419,15 @@ export default function UnivExamCenterCollegesPage() {
               </div>
 
               <div className="md:col-span-2 flex items-end justify-center">
-                <Button onClick={() => void onAssign()} disabled={assigning || !selectedColleges.length}>Assign</Button>
+                <Button onClick={() => void onAssign()} disabled={assigning || !selectedColleges.length}>
+                  Assign
+                </Button>
               </div>
             </div>
           </div>
 
           <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-border">
-            <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">
-              Exam Center Colleges - {headerText}
-            </h3>
+            <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">Exam Center Colleges - {headerText}</h3>
           </div>
 
           <div className="app-card overflow-hidden">
@@ -461,26 +437,16 @@ export default function UnivExamCenterCollegesPage() {
                 columnDefs={assignedColumnDefs}
                 loading={loadingList}
                 pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search…',
-                  pdfDocumentTitle: 'Exam Center Colleges — Assigned',
-                }}
+                toolbar={{ search: true, searchPlaceholder: 'Search…', pdfDocumentTitle: 'Exam Center Colleges' }}
               />
             </div>
           </div>
         </>
       )}
 
-      <FormModal
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        title="Edit exam center college"
-        onSubmit={onSaveEdit}
-        size="lg"
-      >
+      <FormModal open={editOpen} onClose={() => setEditOpen(false)} title="Edit exam center college" onSubmit={onSaveEdit} size="lg">
         <div className="space-y-2">
-          <div className="text-sm text-muted-foreground">College: {txt(editRow?.collegeCode)}</div>
+          <div className="text-sm text-muted-foreground">College: {txt(editRow?.collegeCode ?? editRow?.college_code)}</div>
           <ActiveStatusField
             isActive={editForm.isActive}
             reason={editForm.reason}
@@ -492,4 +458,3 @@ export default function UnivExamCenterCollegesPage() {
     </PageContainer>
   )
 }
-

@@ -508,7 +508,7 @@ this.crudService.listDetailsById(this.buildingCrudUrl, 'true', this.isActive)
             this.requestPayload.push({
               roomId: room.pk_room_id,
               collegeId: this.collegeId,
-              buildingId: this.staffForm.value.buildingId,
+              buildingId: room.pk_building_id,
               examMasterId: this.staffForm.value.examId,
               univExamCentersId: this.staffForm.value.univExamcenterId,
               isAllrooms: true,
@@ -534,7 +534,7 @@ selectSingleRoom(checked, item) {
             this.requestPayload.push({
               roomId: room.pk_room_id,
               collegeId: this.collegeId,
-              buildingId: this.staffForm.value.buildingId,
+              buildingId: room.pk_building_id,
               examMasterId: this.staffForm.value.examId,
               univExamCentersId: this.staffForm.value.univExamcenterId,
               isAllrooms: true,

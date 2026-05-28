@@ -431,7 +431,7 @@ export default function ExamGroupPage() {
 
         {filtersOpen && (
           <div className="mt-4 flex flex-wrap items-end gap-3">
-            <div className="space-y-1 min-w-[200px] flex-1">
+            <div className="space-y-1 w-full sm:w-72">
               <Label>
                 University <span className="text-destructive">*</span>
               </Label>

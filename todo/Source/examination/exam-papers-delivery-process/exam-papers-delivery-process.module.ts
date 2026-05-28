@@ -54,6 +54,35 @@ import { ExamCenterRoomAllotmentModalComponent } from './exam-center-room-allotm
 import { ExamCenterSeatingorderComponent } from './exam-center-room-allotment/exam-center-room-allotment-modal/exam-center-seatingorder/exam-center-seatingorder.component';
 import { ExamCenterSeatingStickersComponent } from './exam-center-room-allotment/exam-center-room-allotment-modal/exam-center-seating-stickers/exam-center-seating-stickers.component';
 import { ExamCenterGroupStickersComponent } from './exam-center-room-allotment/exam-center-room-allotment-modal/exam-center-group-stickers/exam-center-group-stickers.component';
+import { ExamScanProfileComponent } from './exam-scan-profile/exam-scan-profile.component';
+import { CreateExamScanProfileComponent } from './exam-scan-profile/create-exam-scan-profile/create-exam-scan-profile.component';
+import { ProfileDetailsComponent } from './exam-scan-profile/profile-details/profile-details.component';
+import { ScanBundlesComponent } from './scan-bundles/scan-bundles.component';
+import { ScanBundlesModalComponent } from './scan-bundles/scan-bundles-modal/scan-bundles-modal.component';
+import { ScanBundlesStudentsModalComponent } from './scan-bundles/scan-bundles-students-modal/scan-bundles-students-modal.component';
+import { ExamGroupComponent } from './exam-group/exam-group.component';
+import { ExamGroupModalComponent } from './exam-group/exam-group-modal/exam-group-modal.component';
+import { ExamGroupDetailsComponent } from './exam-group/exam-group-details/exam-group-details.component';
+import { ScanBundleDetailsComponent } from './scan-bundles/scan-bundle-details/scan-bundle-details.component';
+import { ScanBundleDetailsModalComponent } from './scan-bundles/scan-bundle-details/scan-bundle-details-modal/scan-bundle-details-modal.component';
+import { ExamCenterBarcodesComponent } from './exam-center-barcodes/exam-center-barcodes.component';
+import { PrintExamCenterBarcodesComponent } from './exam-center-barcodes/print-exam-center-barcodes/print-exam-center-barcodes.component';
+import { ScanBundlesPrintStickersComponent } from './scan-bundles/scan-bundles-print-stickers/scan-bundles-print-stickers.component';
+import { ExamSeatnoBarcodesComponent } from './exam-seatno-barcodes/exam-seatno-barcodes.component';
+import { PrintExamSeatnoStickersComponent } from './exam-seatno-barcodes/print-exam-seatno-stickers/print-exam-seatno-stickers.component';
+import { ExamScanBundlesPrintComponent } from './exam-scan-bundles-print/exam-scan-bundles-print.component';
+import { ExamScanBundlePrintStickersComponent } from './exam-scan-bundles-print/exam-scan-bundle-print-stickers/exam-scan-bundle-print-stickers.component';
+import { ExamBundlePrintComponent } from './exam-bundle-print/exam-bundle-print.component';
+import { ExamBundlePrintStickersComponent } from './exam-bundle-print/exam-bundle-print-stickers/exam-bundle-print-stickers.component';
+import { ExamModalComponentComponent } from './exam-scan-bundles-print/exam-modal-component/exam-modal-component.component';
+import { ScanBundleDetailsNewComponent } from './exam-scan-bundles-print/scan-bundle-details-new/scan-bundle-details-new.component';
+import { ScanBundleDetailsNewModalComponent } from './exam-scan-bundles-print/scan-bundle-details-new/scan-bundle-details-new-modal/scan-bundle-details-new-modal.component';
+import { ExamScanBundlesPrintSticketsGuComponent } from './exam-scan-bundles-print/exam-scan-bundles-print-stickets-gu/exam-scan-bundles-print-stickets-gu.component';
+import { ExamSeatnoBarcodesStickersGuComponent } from './exam-seatno-barcodes/exam-seatno-barcodes-stickers-gu/exam-seatno-barcodes-stickers-gu.component';
+import { PrintExamCenterBarcodesGuComponent } from './exam-center-barcodes/print-exam-center-barcodes-gu/print-exam-center-barcodes-gu.component';
+import { ExamCenterSubjectAttendanceComponent } from './exam-center-subject-attendance/exam-center-subject-attendance.component';
+import { ExamBundlePrintStickersGuComponent } from './exam-bundle-print/exam-bundle-print-stickers-gu/exam-bundle-print-stickers-gu.component';
+
 
 const routes = [
   {
@@ -152,6 +181,90 @@ const routes = [
     path: 'exam-center-seating-plan/copy-existing-seating',
     component: ExamCenterExistingAllotmentComponent
    },
+   {
+    path: 'exam-scan-profile',
+    component: ExamScanProfileComponent
+   },
+   {
+    path: 'exam-scan-profile/profile-details',
+    component: ProfileDetailsComponent
+   },
+   {
+    path: 'scan-bundles',
+    component: ScanBundlesComponent
+   },
+   {
+    path: 'exam-group',
+    component: ExamGroupComponent
+   },
+   {
+    path: 'exam-group/exam-group-details',
+    component: ExamGroupDetailsComponent
+   },
+   {
+    path: 'scan-bundle-details',
+    component: ScanBundleDetailsComponent
+   },
+   {
+    path: 'exam-center-barcodes',
+    component: ExamCenterBarcodesComponent
+   },
+   {
+    path: 'exam-center-barcodes/print-barcodes',
+    component: PrintExamCenterBarcodesComponent
+   },
+   {
+    path: 'scan-bundles/print-stickers',
+    component: ScanBundlesPrintStickersComponent
+   },
+   {
+    path: 'exam-seatno-barcodes',
+    component: ExamSeatnoBarcodesComponent
+   },
+   {
+    path: 'exam-seatno-barcodes/print-exam-seatno-stickers',
+    component: PrintExamSeatnoStickersComponent
+   },
+   {
+    path: 'exam-scan-bundle-print',
+    component: ExamScanBundlesPrintComponent
+   },
+   {
+    path: 'exam-scan-bundle-print/exam-scan-bundle-print-stickers',
+    component: ExamScanBundlePrintStickersComponent
+   },
+   {
+    path: 'exam-bundle-print',
+    component: ExamBundlePrintComponent
+   },
+   {
+    path: 'exam-bundle-print/exam-bundle-print-stickers',
+    component: ExamBundlePrintStickersComponent
+   },
+   {
+    path: 'scan-bundle-details-new',
+    component: ScanBundleDetailsNewComponent
+   },
+   {
+    path: 'exam-scan-bundle-print/exam-scan-bundle-print-stickers-gu',
+    component: ExamScanBundlesPrintSticketsGuComponent
+   },
+   {
+    path: 'exam-seatno-barcodes/print-exam-seatno-stickers-gu',
+    component:ExamSeatnoBarcodesStickersGuComponent
+   },
+   {
+    path: 'exam-center-barcodes/print-barcodes-gu',
+    component: PrintExamCenterBarcodesGuComponent
+   },
+   {
+    path: 'exam-center-subject-attendance',
+    component: ExamCenterSubjectAttendanceComponent
+   },
+   {
+    path: 'exam-bundle-print/exam-bundle-print-stickers-gu',
+    component: ExamBundlePrintStickersGuComponent
+   }
 ]
 @NgModule({
   declarations: [
@@ -199,8 +312,34 @@ const routes = [
     ExamCenterRoomAllotmentModalComponent,
     ExamCenterSeatingorderComponent,
     ExamCenterSeatingStickersComponent,
-    ExamCenterGroupStickersComponent
-   
+    ExamCenterGroupStickersComponent,
+    ExamScanProfileComponent,
+    CreateExamScanProfileComponent,
+    ProfileDetailsComponent,
+    ScanBundlesComponent,
+    ScanBundlesModalComponent,
+    ScanBundlesStudentsModalComponent,
+    ExamGroupComponent,
+    ExamGroupModalComponent,
+    ExamGroupDetailsComponent,
+    ScanBundleDetailsComponent,
+    ScanBundleDetailsModalComponent,
+    ExamCenterBarcodesComponent,
+    PrintExamCenterBarcodesComponent,
+    ScanBundlesPrintStickersComponent,
+    ExamSeatnoBarcodesComponent,
+    PrintExamSeatnoStickersComponent,
+    ExamScanBundlesPrintComponent,
+    ExamScanBundlePrintStickersComponent,
+    ExamBundlePrintComponent,
+    ExamModalComponentComponent,
+    ScanBundleDetailsNewComponent,
+    ScanBundleDetailsNewModalComponent,
+    ExamBundlePrintStickersComponent,
+    ExamScanBundlesPrintSticketsGuComponent,
+    ExamSeatnoBarcodesStickersGuComponent,
+    ExamCenterSubjectAttendanceComponent,
+    ExamBundlePrintStickersGuComponent
       ],
   imports: [
     RouterModule.forChild(routes),

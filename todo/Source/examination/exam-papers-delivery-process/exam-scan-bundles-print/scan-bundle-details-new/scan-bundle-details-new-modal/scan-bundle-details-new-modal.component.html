@@ -1,0 +1,40 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div fxLayout="row wrap " fxFlex="100" fxLayoutAlign="space-between center">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <mat-icon>settings</mat-icon>
+                    <span> {{dialogTitle}} <span> - {{data?.hallticket_number}}/{{data?.omr_serial_no}} </span>
+                    </span>
+                </div>
+                <div fxLayoutAlign="end center" class="mod-head">
+                </div>
+            </div>
+        </div>
+        <form name="examCenterForm" [formGroup]="examCenterForm" novalidate>
+            <mat-dialog-content>
+                <div fxLayout="column">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="20"
+                            fxFlex.gt-md="20">
+                            <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
+                        </section>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50"
+                            *ngIf="examCenterForm.controls.isActive.value === false">
+                            <input matInput placeholder="Reason" name="reason" formControlName="reason">
+                        </mat-form-field>
+
+                    </div>
+                </div>
+            </mat-dialog-content>
+
+            <mat-dialog-actions>
+                <button mat-raised-button class="cls-btn" mat-dialog-close>
+                    Close
+                </button>
+                <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+                    Save
+                </button>
+
+            </mat-dialog-actions>
+        </form>

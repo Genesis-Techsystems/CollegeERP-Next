@@ -20,11 +20,11 @@ import {
   listActiveCities,
   listUnivExamCentersByUniversity,
   listUnivExamRegionalCentersByUniversity,
-  listUniversitiesForExamGroup,
   pickUnivExamCenterId,
   updateUnivExamCenter,
   type AnyRow,
 } from '@/services/exam-papers-delivery'
+import { listActiveUniversities } from '@/services/admin/university'
 
 type CenterRow = AnyRow
 
@@ -105,8 +105,6 @@ function makeEditRenderer(onEdit: (row: CenterRow) => void) {
 }
 
 export default function UnivExamCentersPage() {
-  const orgId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
-  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
   const [loadingUni, setLoadingUni] = useState(true)
   const [universities, setUniversities] = useState<AnyRow[]>([])
   const [universityId, setUniversityId] = useState<number | null>(null)
@@ -185,9 +183,12 @@ export default function UnivExamCentersPage() {
     async function load() {
       setLoadingUni(true)
       try {
-        const list = await listUniversitiesForExamGroup(orgId, employeeId)
+        // Angular getData(): load all active universities, then auto-select the first.
+        const list = await listActiveUniversities()
         if (cancelled) return
-        setUniversities(Array.isArray(list) ? list : [])
+        const arr = (Array.isArray(list) ? list : []) as unknown as AnyRow[]
+        setUniversities(arr)
+        if (arr.length > 0) setUniversityId(pickUniversityId(arr[0]))
       } catch (e) {
         toastError(e, 'Failed to load universities')
         setUniversities([])
@@ -199,7 +200,7 @@ export default function UnivExamCentersPage() {
     return () => {
       cancelled = true
     }
-  }, [orgId, employeeId])
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -395,7 +396,7 @@ export default function UnivExamCentersPage() {
 
         {filtersOpen && (
           <div className="mt-4 flex flex-wrap items-end gap-3">
-            <div className="space-y-1 min-w-[220px] flex-1">
+            <div className="space-y-1 w-full sm:w-72">
               <Label>
                 University <span className="text-destructive">*</span>
               </Label>
@@ -416,13 +417,10 @@ export default function UnivExamCentersPage() {
 
       {universityId != null && (
         <>
-          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-border">
-            <h3 className="app-card-title">
-              Exam Centers - {selectedUniversityCode || '-'}
-            </h3>
-          </div>
-
-          <div className="app-card overflow-hidden">
+          <div className="app-card overflow-hidden border-t-[3px] border-t-amber-300">
+            <div className="px-3 py-2 border-b border-border bg-muted/40">
+              <h3 className="app-card-title">Exam Centers - {selectedUniversityCode || '-'}</h3>
+            </div>
             <div className="p-2">
               <DataTable
                 rowData={rows}
@@ -462,7 +460,7 @@ export default function UnivExamCentersPage() {
             <Select
               options={regionalCenterOptions}
               value={form.univExamReionalCenterId}
-              onChange={(v) => setForm((f) => ({ ...f, univExamReionalCenterId: v }))}
+              onChange={(v) => setForm((f) => ({ ...f, univExamReionalCenterId: v ?? '' }))}
               placeholder="Select regional center"
             />
           </div>
@@ -513,7 +511,7 @@ export default function UnivExamCentersPage() {
             <Select
               options={cityOptions}
               value={form.cityId}
-              onChange={(v) => setForm((f) => ({ ...f, cityId: v }))}
+              onChange={(v) => setForm((f) => ({ ...f, cityId: v ?? '' }))}
               placeholder="Select city"
             />
           </div>
@@ -529,7 +527,7 @@ export default function UnivExamCentersPage() {
             <Select
               options={qpScanningCenterOptions}
               value={form.qpScanningCenterId}
-              onChange={(v) => setForm((f) => ({ ...f, qpScanningCenterId: v }))}
+              onChange={(v) => setForm((f) => ({ ...f, qpScanningCenterId: v ?? '' }))}
               placeholder="Select center"
             />
           </div>

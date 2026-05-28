@@ -1,0 +1,10 @@
+.mod-head {
+    display: flex;
+    align-items: flex-start;   /* allow multi-line */
+}
+
+.title-text {
+    word-break: break-word;    /* 🔥 important */
+    white-space: normal;       /* allow wrapping */
+    margin-left: 8px;
+}

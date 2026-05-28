@@ -1,0 +1,159 @@
+<div id="dashboard" class="page-layout simple">
+    <div class="center" fusePerfectScrollbar>
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr" [routerLink]="'/dashboard'">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Examination Management</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Papers Delivery Process</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Profile Details</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>{{dialogTitle}}</span>
+                </div>
+            </div>
+        </div>
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                                fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads"> {{dialogTitle}} &nbsp;-
+                                        &nbsp;{{data?.scanProfileName}}</strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                    </mat-expansion-panel-header>
+                    <form name="addevaluatorform" [formGroup]="addevaluatorform" novalidate>
+                        <div fxLayout="column" style="margin-top: 10px" class="mlr-15 inner-bkgrd">
+                            <div fxLayout="row wrap " fxFlex="100">
+
+                                <mat-form-field fxFlex="100" fxLayout="column" class="p-8" fxFlex.gt-xs="18"
+                                    fxFlex.gt-md="18">
+
+                                    <mat-select placeholder="Exam Group" formControlName="examGroupId">
+
+                                        <mat-option *ngFor="let group of examGroups"
+                                            [value]="group.fk_univ_exam_group_id"
+                                            matTooltip="{{group.exam_group_name}}">
+
+                                            {{group.exam_group_name}}
+
+                                        </mat-option>
+
+                                    </mat-select>
+
+                                </mat-form-field>
+
+                                <mat-form-field fxFlex="100" fxLayout="column" class="p-8" fxFlex="100"
+                                    fxFlex.gt-xs="18" fxFlex.gt-md="18">
+                                    <mat-select placeholder="Select Role" formControlName="roleId"
+                                        (selectionChange)="selectedRole($event.value)">
+                                        <mat-option *ngFor="let role of roles" [value]="role.pk_role_id"
+                                            matTooltip="{{role.role_name}}">
+                                            {{role.role_name}}
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                                <section fxLayout="column" class="ml-2 mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="12"
+                                    fxFlex.gt-md="12">
+                                   <mat-checkbox formControlName="isActive">
+  Is Active
+</mat-checkbox>
+                                </section>
+                                <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="addToTable()">
+                                        {{ isEditMode ? 'Update' : 'Add' }}
+                                    </button>
+                                </div>
+                                <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                                    <button mat-raised-button class="back-btn add-btn" (click)="goBack()">Back</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+            </mat-accordion>
+            <div class="header  pd-page " fxLayout="column" fxLayoutAlign="space-between"
+                style="width: 100%;padding: 22px 24px 0px 24px;" *ngIf="selectedData.length>0">
+                <div fxLayout="row wrap " class="page-table-head" fxFlex="100" fxLayoutAlign="space-between center">
+                    <div fxLayoutAlign="start center" class="mod-head">
+                        <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                            <i class="material-icons icon-align ">
+                                ballot
+                            </i>
+                            <strong class="table-heads"> {{dialogTitle}} &nbsp;- &nbsp;{{data?.scanProfileName}} </strong>
+                        </div>
+                    </div>
+                    <div fxLayoutAlign="start end" class="mod-head">
+                        <span style="color: blue;
+                        font-weight: 500;">
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="content pd-card" *ngIf="selectedData.length > 0">
+                <div class="mat-elevation-z8">
+
+                    <div class="example-container">
+                        <table mat-table [dataSource]="dataSource" matSort class="mt-1">
+
+                            <!-- ✅ EXAM NAME -->
+                            <ng-container matColumnDef="examGroup">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Exam</th>
+                                <td mat-cell *matCellDef="let row">
+                                    {{ row.examGroupName }}
+                                </td>
+                            </ng-container>
+
+                            <!-- ✅ ROLE -->
+                            <ng-container matColumnDef="role">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Role</th>
+                                <td mat-cell *matCellDef="let row">
+                                    {{ row.roleName }}
+                                </td>
+                            </ng-container>
+
+                               <ng-container matColumnDef="status">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Status </th>
+                                <td mat-cell *matCellDef="let row">
+                                    <span *ngIf="row?.isActive==true" class="active">Active</span>
+                                    <span *ngIf="row?.isActive==false" class="in-active">InActive</span>
+                                </td>
+                            </ng-container>
+
+
+                            <!-- ✅ ACTION -->
+                            <ng-container matColumnDef="actions">
+                                <th mat-header-cell *matHeaderCellDef>Actions</th>
+                                <td mat-cell *matCellDef="let row;let i=index">
+                                    <i class="material-icons edit" matTooltip="Edit"
+                                        (click)="editRow(row, i)">border_color
+                                    </i>
+
+                                    <!-- <i class="fa fa-times edit" style="cursor:pointer;color:red"
+                                        (click)="deleteRow(row.examScanProfileDetailId)">
+                                    </i> -->
+                                </td>
+                            </ng-container>
+
+                            <!-- ✅ HEADER + ROW -->
+                            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

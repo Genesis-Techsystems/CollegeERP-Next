@@ -40,53 +40,12 @@
                     </mat-expansion-panel-header>
                    
                         <div fxLayout="row">
-
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
-                                fxFlex.gt-md="20">
-                                <mat-select placeholder="Program" name="courseId" formControlName="courseId"
-                                    (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
-                                    <mat-option *ngFor="let course of courses"
-                                        [value]="course.fk_course_id">{{course.course_code}}</mat-option>
-                                </mat-select>
-                            </mat-form-field>
-
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="18"
-                                fxFlex.gt-md="18">
-                                <mat-select placeholder="Academic Year" name="academicYearId"
-                                    formControlName="academicYearId"
-                                    (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)" required>
-                                    <mat-option *ngFor="let obcjt of academicYears"
-                                        [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
-                                </mat-select>
-                            </mat-form-field>
-
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
-                                fxFlex.gt-md="60">
-                                <mat-select placeholder="Exam" name="examId" formControlName="examId"
-                                    (selectionChange)="selectedExam(staffForm.value.examId)">
-                                    <ngx-mat-select-search [placeholderLabel]="'Search Exam...'"
-                                        [noEntriesFoundLabel]="'no matching data found'"
-                                        (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>
-                                    <mat-option *ngFor="let exam of examData" [value]="exam.fk_exam_id"
-                                        matTooltip="{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})">{{exam.exam_name}}
-                                        ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})
-                                        <span *ngIf="exam.is_internal_exam"
-                                            style="color: #0014ff;font-weight: 500;">(Internal)</span>
-                                        <span *ngIf="exam.is_regular_exam"
-                                            style="color: #0014ff;font-weight: 500;">(Regular)</span>
-                                        <span *ngIf="exam.is_supply_exam"
-                                            style="color: #0014ff;font-weight: 500;">(Supple)</span>
-                                    </mat-option>
-                                </mat-select>
-                            </mat-form-field>
-                        </div>
-                        <div fxLayout="row">
                             <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
                                 fxFlex.gt-md="30">
                                 <mat-select placeholder="Exam Center" name="univExamcenterId"
                                     formControlName="univExamcenterId" (selectionChange)="selectedExamCenter(staffForm.value.univExamcenterId)" required>
-                                    <mat-option *ngFor="let obj of examsCentersList"
-                                        [value]="obj.fk_univ_examcenter_id">{{obj.examcenter_code}}</mat-option>
+                                    <mat-option *ngFor="let obj of univExamCenters"
+                                        [value]="obj.fk_univ_ec_id">{{obj.examcenter_code}}</mat-option>
                                 </mat-select>
                             </mat-form-field>
                             <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
@@ -97,6 +56,13 @@
                                         [value]="obj.fk_college_id">{{obj.college_code}}</mat-option>
                                 </mat-select>
                             </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30">
+                                <mat-select placeholder="Exam Group" name="examGroupId" formControlName="examGroupId" required  (selectionChange)="selectedExamGroup(staffForm.value.examGroupId)">
+                                    <mat-option *ngFor="let obj of examGroups" [value]="obj.fk_univ_exam_group_id">{{obj.exam_group_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+                        <div fxLayout="row">
                             <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
                             fxFlex.gt-md="30">
                             <!-- (selectionChange)="selectedRegulation(staffForm.value.regulationId)" -->
@@ -129,8 +95,9 @@
                             ballot
                         </i>
                         <!-- <h1 class="secondary-text table-head fs-20">Campus</h1> -->
-                        <strong class="table-heads">Exam Center Colleges - {{courseName}} / {{academicYearName}} /
-                            {{examsName}} / {{examCenterName}} / {{examCollegeName}} / {{regulationCode}}</strong>
+                        <strong class="table-heads">Exam Center Subjects
+                            <span *ngIf="dataDetails != null && dataDetails != ''">&nbsp;-&nbsp;{{dataDetails}}</span>
+                        </strong>
                     </div>
                 </div>
             </div>
@@ -149,7 +116,7 @@
                                                 fxLayoutAlign="start center">
                                                 <div class="search-box">
                                                     <i class="fa fa-search" aria-hidden="true"></i>
-                                                    <input placeholder="Search..." (keyup)="searchOmrNo($event.target.value)"
+                                                    <input placeholder="Search..." [(ngModel)]="searchText"
                                                         [ngModelOptions]="{standalone: true}">
                                                 </div>
                                             </div>
@@ -170,7 +137,7 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr *ngFor="let obj of courseGroups">
+                                                <tr *ngFor="let obj of courseGroups | filter: searchText">
                                                     <td class="table-td" style="width:10px !important">
 
                                                         <mat-radio-group formControlName="courseGroupId">
@@ -196,7 +163,7 @@
                                                 fxLayoutAlign="start center">
                                                 <div class="search-box">
                                                     <i class="fa fa-search" aria-hidden="true"></i>
-                                                    <input placeholder="Search..." (keyup)="searchOmrNo($event.target.value)"
+                                                    <input placeholder="Search..." [(ngModel)]="searchText1"
                                                         [ngModelOptions]="{standalone: true}">
                                                 </div>
                                             </div>
@@ -212,7 +179,7 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    <tr *ngFor="let obj of courseYears">
+                                                    <tr *ngFor="let obj of courseYears | filter: searchText1">
                                                         <td class="table-td" style="width:10px !important">
                                                             <mat-radio-group formControlName="courseYearId">
                                                                 <mat-radio-button (change)="onCourseYearSelect(obj)" [value]="obj.fk_course_year_id"></mat-radio-button>
@@ -234,7 +201,7 @@
                                                 fxLayoutAlign="start center">
                                                 <div class="search-box">
                                                     <i class="fa fa-search" aria-hidden="true"></i>
-                                                    <input placeholder="Search..." (keyup)="searchOmrNo($event.target.value)"
+                                                    <input placeholder="Search..." [(ngModel)]="searchText2"
                                                         [ngModelOptions]="{standalone: true}">
                                                 </div>
                                             </div>
@@ -249,7 +216,7 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr *ngFor="let subject of subjectListDetails">
+                                                <tr *ngFor="let subject of subjectListDetails | filter: searchText2">
                                                     <td class="table-td" style="width:10px !important" [ngClass]="{'custom-background': subject.row_exists!=0}">
                                                         <mat-checkbox (click)="subject.row_exists==0 && onSubjectSelect(subject)" [disabled]="subject.row_exists!=0" [(ngModel)]="subject.checked"
                                                             [ngModelOptions]="{standalone: true}"></mat-checkbox>
@@ -283,8 +250,9 @@
                         <i class="material-icons icon-align ">
                             ballot
                         </i>
-                        <strong class="table-heads">Exam Center Colleges - {{courseName}} / {{academicYearName}} /
-                            {{examsName}} / {{examCenterName}} / {{examCollegeName}} / {{regulationCode}}</strong>
+                        <strong class="table-heads">Exam Center Subjects
+                            <span *ngIf="dataDetails != null && dataDetails != ''">&nbsp;-&nbsp;{{dataDetails}}</span>
+                        </strong>
                     </div>
                 </div>
             </div>
@@ -330,7 +298,9 @@
                             <!-- college Column -->
                             <ng-container matColumnDef="subject">
                                 <th mat-header-cell *matHeaderCellDef mat-sort-header> Subject</th>
-                                <td mat-cell *matCellDef="let row">{{row.subject_code}}</td>
+                                <td mat-cell *matCellDef="let row"> {{row.subject_name}}
+                                    <span style="color:blue"> ({{row.subject_code}}) </span>
+                                </td>
                             </ng-container>
 
                             <!-- Isactive Column -->

@@ -12,6 +12,7 @@ import { CrudService } from 'app/main/services/crud.service';
 import { GenericFunctions } from 'app/main/common/generic-functions';
 import { UnivExamBagsModalComponent } from './univ-exam-bags-modal/univ-exam-bags-modal.component';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+
 @Component({
   selector: 'app-univ-exam-bags',
   templateUrl: './univ-exam-bags.component.html',
@@ -26,6 +27,7 @@ export class UnivExamBagsComponent implements OnInit {
   @ViewChild(MatPaginator) paginator: MatPaginator;
   @ViewChild(MatSort) sort: MatSort;
 
+  private getCollegeExamCenters = CONSTANTS.getCollegeExamCenters;
   private UnivExamBagsUrl = CONSTANTS.UnivExamBagsUrl;
   private collegewisedetailsUrl = CONSTANTS.collegewisedetailsUrl;
   private UnivExamCentersUrl = CONSTANTS.UnivExamCentersUrl;
@@ -55,13 +57,13 @@ export class UnivExamBagsComponent implements OnInit {
   examCenterName: any;
   examTimetableId: any;
   flag=false;
+  examCenterFilters = [];
+  examCenterDetails = [];
 
 
 constructor(private dialog: MatDialog, private snotifyService: SnotifyService, private genericFunctions: GenericFunctions,
-          private crudService: CrudService, private spinner: NgxSpinnerService, public router: Router, private formBuilder: FormBuilder,) {
-
-        this.getFiltersList();
-       
+          private crudService: CrudService, private spinner: NgxSpinnerService, public router: Router, private formBuilder: FormBuilder) {
+          this.getExamCenters();
 }
 
 // tslint:disable-next-line:typedef
@@ -77,33 +79,95 @@ ngOnInit() {
   this.dataSource.sort = this.sort;
 }
 
-getFiltersList(): void {
+getExamCenters(): void {
+    this.spinner.show();
+    let request = [
+      { paramName: 'in_flag', paramValue: 'college_center_filters' },
+      { paramName: 'in_flag_type', paramValue: 'REGSUP' },
+      { paramName: 'in_univ_examcenter_id', paramValue: 0 },
+      { paramName: 'in_exam_group_id', paramValue: 0 },
+      { paramName: 'in_college_id', paramValue: 0 },
+      { paramName: 'in_course_id', paramValue: 0 },
+      { paramName: 'in_course_group_id', paramValue: 0 },
+      { paramName: 'in_course_year_id', paramValue: 0 },
+      { paramName: 'in_exam_id', paramValue: 0 },
+      { paramName: 'in_academic_year_id', paramValue: 0 },
+      { paramName: 'in_regulation_id', paramValue: 0 },
+      { paramName: 'in_exam_date', paramValue: '1900-01-01' },
+      { paramName: 'in_questionpaper_code', paramValue: '' },
+    ];
+    this.crudService.getDetailsByRequest(this.getCollegeExamCenters, '', request, '&')
+      .subscribe(result => {
+        this.spinner.hide();
+        if (result.statusCode === 200) {
+          if (result.data && result.data !== '' && result.data.result.length > 0) {
+            this.examCenterFilters = result.data.result;
+            for (let i = 0; i < this.examCenterFilters.length; i++) {
+              if (this.examCenterFilters[i].length > 0 && this.examCenterFilters[i][0].flag === 'college_center_filters') {
+                this.examCenterDetails = this.examCenterFilters[i];
+              }
+            }
+            const courseList = this.examCenterDetails.map(({ fk_univ_examcenter_id }) => fk_univ_examcenter_id);
+            this.univExamCenters = this.examCenterDetails.filter(({ fk_univ_examcenter_id }, index) =>
+              !courseList.includes(fk_univ_examcenter_id, index + 1));
+          }
+          if (this.univExamCenters.length > 0) {
+            this.staffForm.get('univExamcenterId').setValue(this.univExamCenters[0].fk_univ_examcenter_id);
+            this.selectedExamCenter(this.staffForm.value.univExamcenterId);
+          } else {
+            this.snotifyService.success(result.message, 'Success!');
+          }
+        } else {
+          this.snotifyService.error(result.message, 'Error!');
+        }
+      }, error => {
+        this.spinner.hide();
+        if (error.error.statusCode === 401) {
+          this.snotifyService.error(error.error.message, 'Error!');
+          this.genericFunctions.logOut(this.router.url);
+        } else {
+          this.snotifyService.error(CONSTANTS.message.CON_ERROR, 'Error!');
+        }
+      });
+  }
+
+selectedExamCenter(univExamcenterId): void {
+  this.staffForm.get('courseId').setValue('');
+  this.staffForm.get('examId').setValue('');
+  this.staffForm.get('academicYearId').setValue('');
+  this.filtersDetailsList = [];
+  this.CollegesListDetails = [];
+  this.courses = [];
+  this.academicYears=[]
+  this.searchExams = [];
+  this.examsList = [];
+  this.searchExams = [];
+  this.academicYearsList = [];
+  this.examData = [];
   this.spinner.show();
   let request = [
-    { paramName: 'in_flag', paramValue: 'clg_exam_timetable_filters' },
-    { paramName: 'in_org_id', paramValue: +localStorage.getItem('organizationId') },
-    { paramName: 'in_college_id', paramValue: 0 },
-    { paramName: 'in_course_id', paramValue: 0 },
-    { paramName: 'in_course_group_id', paramValue: 0 },
-    { paramName: 'in_course_year_id', paramValue: 0 },
-    { paramName: 'in_group_section_id', paramValue: 0 },
-    { paramName: 'in_academic_year_id', paramValue: 0 },
-    { paramName: 'in_dept_id', paramValue: 0 },
-    { paramName: 'in_isadmin', paramValue: 0 },
-    { paramName: 'in_loginuser_empid', paramValue: +localStorage.getItem('employeeId') },
-    { paramName: 'in_loginuser_roleid', paramValue: 0 },
-    { paramName: 'in_employee', paramValue: '' },
-    { paramName: 'in_subject', paramValue: '' },
-    { paramName: 'in_gm_codes', paramValue: '' },
-  ];
-  this.crudService.getDetailsByRequest(this.collegewisedetailsUrl, '', request, '&')
+      { paramName: 'in_flag', paramValue: 'exam_center_clg_filters' },
+      { paramName: 'in_flag_type', paramValue: 'REGSUP' },
+      { paramName: 'in_univ_examcenter_id', paramValue: this.staffForm.value.univExamcenterId },
+      { paramName: 'in_exam_group_id', paramValue: 0 },
+      { paramName: 'in_college_id', paramValue: 0 },
+      { paramName: 'in_course_id', paramValue: 0 },
+      { paramName: 'in_course_group_id', paramValue: 0 },
+      { paramName: 'in_course_year_id', paramValue: 0 },
+      { paramName: 'in_exam_id', paramValue: 0 },
+      { paramName: 'in_academic_year_id', paramValue: 0 },
+      { paramName: 'in_regulation_id', paramValue: 0 },
+      { paramName: 'in_exam_date', paramValue: '1900-01-01' },
+      { paramName: 'in_questionpaper_code', paramValue: '' },
+    ];
+    this.crudService.getDetailsByRequest(this.getCollegeExamCenters, '', request, '&')
     .subscribe(result => {
       this.spinner.hide();
       if (result.statusCode === 200) {
         if (result.data && result.data !== '' && result.data.result.length > 0) {
           this.filtersDetailsList = result.data.result;
           for (let i = 0; i < this.filtersDetailsList.length; i++) {
-            if (this.filtersDetailsList[i].length > 0 && this.filtersDetailsList[i][0].flag === 'clg_exam_timetable_filters') {
+            if (this.filtersDetailsList[i].length > 0 && this.filtersDetailsList[i][0].flag === 'exam_center_filters') {
               this.CollegesListDetails = this.filtersDetailsList[i];
             }
           }
@@ -135,8 +199,8 @@ getFiltersList(): void {
 
 // tslint:disable-next-line:typedef
 selectedCourse(courseId) {
-  this.staffForm.get('examId').setValue(0);
-  this.staffForm.get('academicYearId').setValue(0);
+  this.staffForm.get('examId').setValue('');
+  this.staffForm.get('academicYearId').setValue('');
   this.academicYears=[]
   this.searchExams = [];
   this.examsList = [];
@@ -155,7 +219,7 @@ selectedCourse(courseId) {
   }
 }
 selectedAcademicYear(academicYearId){
-  this.staffForm.get('examId').setValue(0);
+  this.staffForm.get('examId').setValue('');
   this.searchExams = [];
   this.examsList = [];
   this.searchExams = [];
@@ -188,46 +252,15 @@ examSearch(value: string) {
 }
 
 selectedExam(examId): void {
-
-  /*---------- GET Bags --------------*/
-  this.crudService.listDetailsById(this.UnivExamCentersUrl, 'true', this.isActive )
-      .subscribe(result => {
-          if (result.statusCode === 200) {
-              if (result.data.resultList && result.data.resultList !== '') {
-                  this.univExamCenters = result.data.resultList;
-                  if (this.univExamCenters.length > 0) {
-                    this.staffForm.get('univExamcenterId').setValue(this.univExamCenters[0].univExamcenterId);
-                    this.selectedCenter( this.staffForm.value.univExamcenterId)
-                    this.headerData();
-                  }
-              } else {
-                  this.snotifyService.success(result.message, 'Success!');
-              }
-          } else {
-              this.snotifyService.error(result.message, 'Error!');
-          }
-      }, error => {
-          if (error.error.statusCode === 401){
-              this.snotifyService.error(error.error.message, 'Error!');
-              this.genericFunctions.logOut(this.router.url);
-          }else{
-              this.snotifyService.error(CONSTANTS.message.CON_ERROR, 'Error!');
-          }
-      });
-
-    }
-
-    selectedCenter(univExamcenterId){
-      this.examBagsList=[];
+  this.examBagsList = [];
+  this.headerData();
     }
     headerData(){
       this.examsName = this.examsList.filter(x => (x.fk_exam_id == this.staffForm.value.examId))[0]?.exam_name
       this.academicYearName = this.academicYears.filter(x => (x.fk_academic_year_id == this.staffForm.value.academicYearId))[0]?.academic_year
       this.courseName = this.courses.filter(x => (x.fk_course_id == this.staffForm.value.courseId))[0]?.course_code
-      this.examCenterName =  this.univExamCenters.filter(x=>(x.univExamcenterId ==this.staffForm.value.univExamcenterId))[0]?.examcenterName
+      this.examCenterName =  this.univExamCenters.filter(x=>(x.fk_univ_examcenter_id ==this.staffForm.value.univExamcenterId))[0]?.examcenter_code
     }
-
-
 // tslint:disable-next-line: typedef
 dashboardUrl(){
    this.genericFunctions.dashboardHome(localStorage.getItem('userTypeCode'));

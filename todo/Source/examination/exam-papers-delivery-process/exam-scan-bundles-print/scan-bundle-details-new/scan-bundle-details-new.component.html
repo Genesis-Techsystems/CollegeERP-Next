@@ -1,0 +1,244 @@
+<div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Papers Delivery Process</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Scan Bundle Details</span>
+                </div>
+            </div>
+
+        </div>
+        <div class="back-btn-wrapper">
+  <button mat-raised-button class="back-btn" (click)="goBack()">Back</button>
+</div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <div >
+                <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;" >
+                    <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                        <mat-expansion-panel-header>
+                            <mat-panel-title>
+                                <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                        <mat-icon class="fs  icon-align ">money</mat-icon>
+                                        <strong class="table-heads">Exam Scan Bundle Details
+                                            <span *ngIf="dataDetails != null && dataDetails != ''">&nbsp;-&nbsp;{{dataDetails}}</span>
+                                        </strong>
+                                     
+                                    </div>
+                                </div>
+                            </mat-panel-title>
+                        </mat-expansion-panel-header>
+                        <form name="staffForm" [formGroup]="staffForm" novalidate>
+                            <div fxLayout="row">
+                                  <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="70" fxFlex.gt-md="70">
+                                    <input type="text" placeholder="Omr serial No" (keyup)="enteredOmr($event)"  #barcode    (keydown.enter)="$event.preventDefault()"   (window:keypress)="onKey($event)" aria-label="SubjectCode" matInput [formControl]="myControl1" [matAutocomplete]="auto1">
+                                    <mat-autocomplete #auto1="matAutocomplete" >
+                                    </mat-autocomplete>
+                                </mat-form-field> -->
+                                <mat-form-field class="barcode-field" appearance="outline">
+                                <mat-icon matPrefix>qr_code_scanner</mat-icon>
+                                <input
+                                matInput
+                                type="text"
+                                placeholder="Scan barcode here – Input always focused"
+                                #barcode
+                                (keyup)="enteredOmr($event)"
+                                (keydown.enter)="$event.preventDefault()"
+                                (window:keypress)="onKey($event)"
+                                [formControl]="myControl1"
+                                [matAutocomplete]="auto1"
+                                autofocus
+                                />
+                                <mat-autocomplete #auto1="matAutocomplete"></mat-autocomplete>
+                                </mat-form-field>
+                            </div>
+                            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" >
+                            </div>
+                            <!-- *ngIf="selectedOmrDetails.length>0" -->
+                            <div style="border: 3px #80a7eb solid; margin-bottom: 20px; " >
+                            <mat-card class=" table-align ">
+                                <div class="mat-elevation-z8 " style="margin-top:20px !important">
+                                   
+                                    <div class="example-container" style="overflow-x: auto; overflow-y: scroll; max-height: 465px;">
+                                        <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                                 <!-- <mat-icon class="secondary-text icon-align ">table_chart</mat-icon> -->
+                                <i class="material-icons icon-align ">
+                                    ballot
+                                    </i>
+                            <strong class="table-heads">Exam Scan Bundle Details
+                                    <span *ngIf="dataDetails != null && dataDetails != ''">&nbsp;-&nbsp;{{dataDetails}}</span>
+                            </strong>
+                                            </div>
+                                        </div>
+                                        <table mat-table [dataSource]="DuplicatedataSource" style="margin-top:20px !important" matSort #sort2="matSort">
+                                            <!-- ID Column -->
+                                            <ng-container matColumnDef="id">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header>SL No. </th>
+                                                <td mat-cell *matCellDef="let row; let i=index">  {{i+ 1}}  </td>
+                                            </ng-container>
+                 
+                                            <!-- vehicleNumber Column -->
+                                            <ng-container matColumnDef="ecSeatNo">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Ec Seat No.</th>
+                                                <td mat-cell *matCellDef="let row">{{row?.ecSeatNo}}</td>
+                                            </ng-container>
+
+                                            <!-- vehicleDetails Code Column -->
+                                            <ng-container matColumnDef="omrSerialNo">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Omr Serial No.</th>
+                                                <td mat-cell *matCellDef="let row"> {{row?.omrSerialNo}}
+                                                 </td>
+                                            </ng-container>
+                 
+                                            <!-- vehicleDetails Code Column -->
+                                            <ng-container matColumnDef="stdFirstName">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Hall Ticket No.</th>
+                                                <td mat-cell *matCellDef="let row"> {{row?.hallticketNumber}}
+                                                 </td>
+                                            </ng-container>
+
+                                            <ng-container matColumnDef="subjectName">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject</th>
+                                                <td mat-cell *matCellDef="let row">{{subjectName}}
+                                                    <span style="color:blue" > ({{subjectCode}}) </span> </td>
+                                            </ng-container>
+                                            <!-- Actions Column -->
+                                            <ng-container matColumnDef="actions">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Actions </th>
+                                                <td mat-cell *matCellDef="let row; let i=index" class="text-ctr">
+                                                    <i class="fa fa-times edit" (click)="deleteOmr(row,i)"></i>
+                                                     </td>
+                                            </ng-container>
+                 
+                                            <tr mat-header-row *matHeaderRowDef="scannedDisplayedColoumns"></tr>
+                                            <tr mat-row *matRowDef="let row; columns: scannedDisplayedColoumns;">
+                                            </tr>
+                                            <tr class="mat-row" *matNoDataRow>
+                        <td class="mat-cell" [attr.colspan]="scannedDisplayedColoumns.length" style="text-align: center;">
+                        No records found
+                        </td>
+  </tr>
+                                        </table>
+                                    </div>
+                                    <mat-paginator #paginator2></mat-paginator>
+                                </div>
+                              
+                            </mat-card>
+                            <div class="savebtn-align" >
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="AssignScanBundles()">Save</button>
+                                </div>
+                        </div>
+                        </form>
+                    </mat-expansion-panel>
+                    <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                    </mat-expansion-panel>
+                </mat-accordion>
+            </div>
+            <!-- *ngIf="this.examCenterStudents && this.examCenterStudents.length > 0" -->
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" >
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                    fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <!-- <mat-icon class="secondary-text icon-align ">table_chart</mat-icon> -->
+                        <i class="material-icons icon-align ">
+                            ballot
+                        </i>
+                        <!-- <h1 class="secondary-text table-head fs-20">Campus</h1> -->
+                        <strong class="table-heads">Exam Scan Bundle Details
+                            <span *ngIf="dataDetails != null && dataDetails != ''"> &nbsp;-&nbsp;{{dataDetails}}</span>
+                        </strong>
+                    </div>
+                </div>
+            </div>
+            <!-- *ngIf="this.examCenterStudents && this.examCenterStudents.length > 0" -->
+            <mat-card class=" table-align" >
+                <mat-card-content>
+                    <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between"
+                        fxLayoutGap="5">
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35"
+                            fxLayout="row" fxLayoutAlign="start center">
+                            <label for="search" class="mr-8">
+                                <mat-icon class="secondary-text">search</mat-icon>
+                            </label>
+                            <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                                <input matInput (keyup)="applyFilter($event.target.value)" name="search"
+                                    placeholder="Search">
+                            </mat-form-field>
+                        </div>
+                    </div>
+                </mat-card-content>
+
+                <div class="mat-elevation-z8">
+                    <div class="example-container" style="overflow: hidden !important;">
+                        <table mat-table [dataSource]="dataSource" matSort>
+
+                            <!-- S.NO Column -->
+                            <ng-container matColumnDef="id">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                <td mat-cell *matCellDef="let row index as i"> {{i+1}} </td>
+                            </ng-container>
+<ng-container matColumnDef="bundleNumber">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Bundle No </th>
+                                <td mat-cell *matCellDef="let row"> {{row.bundle_number}} </td>
+                            </ng-container>
+                            <!-- student Column -->
+                            <ng-container matColumnDef="omrSerialNo">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> OMR Serial No </th>
+                                <td mat-cell *matCellDef="let row"> {{row.omr_serial_no}} </td>
+                            </ng-container>
+
+                            <!-- student Column -->
+                            <ng-container matColumnDef="student">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Student </th>
+                                <td mat-cell *matCellDef="let row"> {{row.ec_seatno}} </td>
+                            </ng-container>
+
+                            <!-- subject Column -->
+                            <ng-container matColumnDef="subject">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Subject</th>
+                                <td mat-cell *matCellDef="let row">{{subjectName}}
+                                    <span style="color:blue" > ({{subjectCode}}) </span> </td>
+                            </ng-container>
+
+                            <!-- Actions Column -->
+                            <ng-container matColumnDef="Actions">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Actions</th>
+                                <td mat-cell *matCellDef="let row">
+                                    <i class="material-icons edit" matTooltip="edit" (click)="editDialog(row)">
+                                        border_color</i>
+                                </td>
+                            </ng-container>
+
+                            <!-- Actions Column -->
+                            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                            <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                            </tr>
+                             <tr class="mat-row" *matNoDataRow>
+    <td class="mat-cell" [attr.colspan]="displayedColumns.length" style="text-align: center;">
+      No records found
+    </td>
+  </tr>
+                        </table>
+                    </div>
+                    <mat-paginator #paginator1 [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+                </div>
+
+            </mat-card>
+
+            <!-- / CONTENT -->
+        </div>
+    </div>
+</div>

@@ -15,14 +15,18 @@
                 <div fxLayout="column">
                     <form name="staffForm" [formGroup]="staffForm" novalidate>
                         <div fxLayout="row">
-                        
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20" >
-                                <mat-select placeholder="Program" name="courseId" formControlName="courseId"   (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                            <mat-select placeholder="Exam Center" name="univExamcenterId" formControlName="univExamcenterId" required>
+                                <mat-option *ngFor="let obj of univExamCenters" [value]="obj.univExamcenterId">{{obj.examcenterCode}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" >
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId"   (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
                                     <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">{{course.course_code}}</mat-option>
                                 </mat-select>
                             </mat-form-field>
 
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="18" fxFlex.gt-md="18">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
                                 <mat-select placeholder="Academic Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)" required>
                                     <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
                                 </mat-select>
@@ -80,16 +84,14 @@
                         </div> -->
                     </form>
                     <div fxLayout="row wrap " fxFlex="100">
-                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
-                            <mat-select placeholder="Exam Center" name="univExamcenterId" formControlName="univExamcenterId" required>
-                                <mat-option *ngFor="let obj of univExamCenters" [value]="obj.univExamcenterId">{{obj.examcenterCode}}</mat-option>
-                            </mat-select>
-                        </mat-form-field>
                         <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33" >
                             <input matInput placeholder="Bag Serial No" name="bagSerialNo" formControlName="bagSerialNo" required>
                         </mat-form-field>
                         <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
                             <input matInput placeholder="Total Answer Books" name="totalAnswerBooks" formControlName="totalAnswerBooks" required>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33" >
+                            <input matInput placeholder="Tracker Id" name="trackerId" formControlName="trackerId" required>
                         </mat-form-field>
                     </div>
                     <div fxLayout="row wrap " fxFlex="100">
@@ -97,34 +99,30 @@
                             <mat-select placeholder="dispatchStatusCatdetId" name="dispatchStatusCatdetId" formControlName="dispatchStatusCatdetId" required>
                                 <mat-option *ngFor="let obj of univExamCenters" [value]="obj.dispatchStatusCatdetId">{{obj.examcenterCode}}</mat-option>
                             </mat-select>
-                        </mat-form-field> -->
-                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25" >
-                            <input matInput placeholder="Tracker Id" name="trackerId" formControlName="trackerId" required>
-                        </mat-form-field>
-                       
+                        </mat-form-field> -->                       
                            <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
                             <mat-select placeholder="Sealed By User" name="sealedbyUserId" formControlName="sealedbyUserId" required>
                                 <mat-option *ngFor="let obj of univExamCenters" [value]="obj.dispatchStatusCatdetId">{{obj.examcenterCode}}</mat-option>
                             </mat-select>
                         </mat-form-field> -->
-                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
                             <input matInput placeholder="Sealed By Name" name="sealedbyName" formControlName="sealedbyName" required>
                         </mat-form-field>
 
-                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
                             <mat-select placeholder="Dispatch Status" name="dispatchStatusCatdetId" formControlName="dispatchStatusCatdetId" required>
                                 <mat-option *ngFor="let obj of examBagDispatchStatusList" [value]="obj.generalDetailId">{{obj.generalDetailDisplayName}}</mat-option>
                             </mat-select>
                         </mat-form-field>
                       
-                        <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="25">
+                        <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
                             <mat-checkbox name="isSealed" formControlName="isSealed">is Sealed</mat-checkbox>
                         </section>
 
                     
                     </div>
                     <div fxLayout="row wrap " fxFlex="100">
-                        <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="25">
+                        <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
                             <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
                         </section>
                         <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50" *ngIf="staffForm.value.isActive === false">

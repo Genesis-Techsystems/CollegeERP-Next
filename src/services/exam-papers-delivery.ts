@@ -730,6 +730,49 @@ export async function getExamCenterByCodeRows(args: {
   return out
 }
 
+/**
+ * Exam-Group → Exam-Center → Colleges flow (Angular univ-examcenter-colleges, todo/Source).
+ * Proc `s_get_exam_center_bycode` (CONSTANTS.profileDetailUrl) with eg_* flags + in_university_id.
+ * Returns the RAW result groups so the caller can pick a group by `[0].flag` / index, like Angular.
+ *  - eg_filters         → group `eg_ay_filter` (academic years + exam groups + colleges)
+ *  - eg_ec_filters      → result[0] = exam centers (fk_univ_ec_id, ec_code, ec_name)
+ *  - eg_clg_cou_exam_list→ result[0] = assigned exam-center colleges
+ */
+export async function getUnivExamGroupCenterGroups(args: {
+  flag: 'eg_filters' | 'eg_ec_filters' | 'eg_clg_cou_exam_list'
+  examGroupId?: number
+  univExamcenterId?: number
+  academicYearId?: number
+  universityId: number
+}): Promise<AnyRow[][]> {
+  const data = await getAllRecords<{ result?: unknown }>(UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS, {
+    in_flag: args.flag,
+    in_flag_type: '',
+    in_univ_examcenter_id: args.univExamcenterId ?? 0,
+    in_exam_group_id: args.examGroupId ?? 0,
+    in_exam_id: 0,
+    in_college_id: 0,
+    in_course_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_academic_year_id: args.academicYearId ?? 0,
+    in_regulation_id: 0,
+    in_subject_id: 0,
+    in_university_id: args.universityId ?? 0,
+    in_exam_date: '1900-01-01',
+    in_questionpaper_code: '',
+  })
+  const raw = data?.result
+  if (!Array.isArray(raw)) return []
+  return raw.map((g) =>
+    Array.isArray(g)
+      ? (g.filter((r) => r && typeof r === 'object') as AnyRow[])
+      : g && typeof g === 'object'
+        ? [g as AnyRow]
+        : [],
+  )
+}
+
 export async function listUnivEcCollegeDetailsByUnivEcCollege(univEcCollegeId: number): Promise<AnyRow[]> {
   if (!univEcCollegeId) return []
   const queries = [
