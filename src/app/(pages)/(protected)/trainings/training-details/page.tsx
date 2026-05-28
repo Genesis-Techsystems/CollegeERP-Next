@@ -178,19 +178,19 @@ function TrainingDetailsContent() {
                   search: true,
                   searchPlaceholder: 'Search details…',
                   pdfDocumentTitle: 'Training Details',
-                  trailingContent: (
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        router.push(
-                          `/trainings/training-detail?a=New+Training+Detail&paTraningId=${traningId}&trainingTitle=${encodeURIComponent(selectedTraining?.trainingTitle ?? '')}&collegeId=${collegeId}&yearName=${encodeURIComponent(yearName)}`,
-                        )
-                      }
-                    >
-                      + Add Training Detail
-                    </Button>
-                  ),
                 }}
+                toolbarTrailing={
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      router.push(
+                        `/trainings/training-detail?a=New+Training+Detail&paTraningId=${traningId}&trainingTitle=${encodeURIComponent(selectedTraining?.trainingTitle ?? '')}&collegeId=${collegeId}&yearName=${encodeURIComponent(yearName)}`,
+                      )
+                    }
+                  >
+                    + Add Training Detail
+                  </Button>
+                }
               />
             </div>
           </div>

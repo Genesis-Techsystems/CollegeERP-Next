@@ -200,15 +200,15 @@ function TrainingSessionsContent() {
                   search: true,
                   searchPlaceholder: 'Search sessions…',
                   pdfDocumentTitle: 'Training Sessions',
-                  trailingContent: (
-                    <Button
-                      size="sm"
-                      onClick={() => { setEditData(null); setModalOpen(true) }}
-                    >
-                      + Add Session
-                    </Button>
-                  ),
                 }}
+                toolbarTrailing={
+                  <Button
+                    size="sm"
+                    onClick={() => { setEditData(null); setModalOpen(true) }}
+                  >
+                    + Add Session
+                  </Button>
+                }
               />
             </div>
           </div>

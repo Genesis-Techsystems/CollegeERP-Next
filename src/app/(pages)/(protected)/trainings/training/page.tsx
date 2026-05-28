@@ -103,15 +103,15 @@ export default function PlacementTrainingsPage() {
                 search: true,
                 searchPlaceholder: 'Search trainings…',
                 pdfDocumentTitle: 'Placement Trainings',
-                trailingContent: (
-                  <Button
-                    size="sm"
-                    onClick={() => { setEditData(null); setModalOpen(true) }}
-                  >
-                    + Add Training
-                  </Button>
-                ),
               }}
+              toolbarTrailing={
+                <Button
+                  size="sm"
+                  onClick={() => { setEditData(null); setModalOpen(true) }}
+                >
+                  + Add Training
+                </Button>
+              }
             />
           </div>
         </div>
