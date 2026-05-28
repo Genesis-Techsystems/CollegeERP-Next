@@ -641,4 +641,8 @@ export const QK = {
     all: ['TrainingSession'] as const,
     byDetail: (traningDetId: number) => ['TrainingSession', 'byDetail', traningDetId] as const,
   },
+  trainingRegistrations: {
+    all: ['TrainingStudent'] as const,
+    byEmployee: (employeeId: number) => ['TrainingStudent', 'byEmployee', employeeId] as const,
+  },
 } as const

@@ -1,10 +1,11 @@
-import type { PlacementTraining, TrainingDetail, TrainingSession } from '@/types/trainings'
+import type { PlacementTraining, TrainingDetail, TrainingSession, TrainingStudent } from '@/types/trainings'
 import { buildQuery, domainList, domainCreate, domainUpdate } from './crud'
 import { ENTITIES } from '@/config/constants/entities'
 
 const ET = ENTITIES.PLACEMENT_TRAINING
 const ED = ENTITIES.TRAINING_DETAIL
 const ES = ENTITIES.TRAINING_SESSION
+const ER = ENTITIES.TRAINING_STUDENT
 
 // ─── Placement Training ──────────────────────────────────────────────────────
 
@@ -69,4 +70,17 @@ export async function createTrainingSession(data: Partial<TrainingSession>): Pro
 
 export async function updateTrainingSession(id: number, data: Partial<TrainingSession>): Promise<TrainingSession> {
   return domainUpdate<TrainingSession>(ES.name, ES.pk, id, data)
+}
+
+// ─── Training Student (Registration) ────────────────────────────────────────
+
+export async function listTrainingStudentsByEmployee(employeeId: number): Promise<TrainingStudent[]> {
+  return domainList<TrainingStudent>(
+    ER.name,
+    buildQuery({ 'EmployeeDetail.employeeId': employeeId }),
+  )
+}
+
+export async function createTrainingStudent(data: Partial<TrainingStudent>): Promise<TrainingStudent> {
+  return domainCreate<TrainingStudent>(ER.name, data)
 }

@@ -49,6 +49,16 @@ export interface TrainingDetail {
   updatedDt?: string
 }
 
+export interface TrainingStudent {
+  trainingStdId: number
+  trainingId: number
+  employeeId: number
+  collegeId: number
+  isActive: boolean
+  createdDt?: string
+  updatedDt?: string
+}
+
 export interface TrainingSession {
   trainingSessionId: number
   sessionDate: string

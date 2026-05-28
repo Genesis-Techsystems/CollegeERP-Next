@@ -166,6 +166,7 @@ export const ENTITIES = {
   PLACEMENT_TRAINING:            { name: 'Training',                  pk: 'traningId'                   },
   TRAINING_DETAIL:               { name: 'TrainingDetail',            pk: 'traningDetId'                },
   TRAINING_SESSION:              { name: 'TrainingSession',           pk: 'trainingSessionId'           },
+  TRAINING_STUDENT:              { name: 'TrainingStudent',           pk: 'trainingStdId'               },
 } as const
 
 export type EntityKey = keyof typeof ENTITIES
