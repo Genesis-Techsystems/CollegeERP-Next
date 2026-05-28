@@ -619,4 +619,12 @@ export const QK = {
     /** Active colleges for email logs filter (same source as department-wise email). */
     emailLogsColleges: () => ['EmailSms', 'emailLogs', 'colleges'] as const,
   },
+
+  // ── Campus Maintenance Issues ─────────────────────────────────────────────
+  campusIssues: {
+    all: ['ClgManagementIssue'] as const,
+    list: () => ['ClgManagementIssue', 'list'] as const,
+    byEmployee: (empId: number) => ['ClgManagementIssue', 'byEmployee', empId] as const,
+    detail: (id: number) => ['ClgManagementIssue', 'detail', id] as const,
+  },
 } as const
