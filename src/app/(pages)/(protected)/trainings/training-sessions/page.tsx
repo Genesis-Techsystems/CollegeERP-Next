@@ -13,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -23,6 +22,11 @@ import type { PlacementTraining, TrainingDetail, TrainingSession } from '@/types
 import type { College } from '@/types/college'
 import { rowIndexGetter } from '@/lib/utils'
 import AddTrainingSessionModal from './AddTrainingSessionModal'
+
+function buildYearOptions(): string[] {
+  const current = new Date().getFullYear()
+  return Array.from({ length: 10 }, (_, i) => String(current - i))
+}
 
 function activeRenderer(p: ICellRendererParams<TrainingSession>) {
   const active = p.data?.isActive
@@ -59,16 +63,22 @@ function TrainingSessionsContent() {
   }, [])
 
   useEffect(() => {
-    if (collegeId) {
+    if (collegeId && yearName) {
       listTrainings()
-        .then((rows) => setTrainings(rows.filter((t) => String(t.collegeId) === collegeId)))
+        .then((rows) =>
+          setTrainings(
+            rows.filter(
+              (t) => String(t.collegeId) === collegeId && t.yearName === yearName,
+            ),
+          ),
+        )
         .catch(console.error)
     } else {
       setTrainings([])
       setTraningId('')
       setTraningDetId('')
     }
-  }, [collegeId])
+  }, [collegeId, yearName])
 
   useEffect(() => {
     if (traningId && collegeId && yearName) {
@@ -126,7 +136,7 @@ function TrainingSessionsContent() {
             <Label className="text-xs">College *</Label>
             <Select
               value={collegeId}
-              onValueChange={(v) => { setCollegeId(v); setTraningId(''); setTraningDetId('') }}
+              onValueChange={(v) => { setCollegeId(v); setYearName(''); setTraningId(''); setTraningDetId('') }}
             >
               <SelectTrigger><SelectValue placeholder="Select college" /></SelectTrigger>
               <SelectContent>
@@ -141,11 +151,18 @@ function TrainingSessionsContent() {
 
           <div className="space-y-0.5">
             <Label className="text-xs">Year *</Label>
-            <Input
+            <Select
               value={yearName}
-              onChange={(e) => setYearName(e.target.value)}
-              placeholder="e.g. 2024-25"
-            />
+              onValueChange={(v) => { setYearName(v); setTraningId(''); setTraningDetId('') }}
+              disabled={!collegeId}
+            >
+              <SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger>
+              <SelectContent>
+                {buildYearOptions().map((y) => (
+                  <SelectItem key={y} value={y}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-0.5">
@@ -153,7 +170,7 @@ function TrainingSessionsContent() {
             <Select
               value={traningId}
               onValueChange={(v) => { setTraningId(v); setTraningDetId('') }}
-              disabled={!collegeId || trainings.length === 0}
+              disabled={!collegeId || !yearName || trainings.length === 0}
             >
               <SelectTrigger><SelectValue placeholder="Select training" /></SelectTrigger>
               <SelectContent>
