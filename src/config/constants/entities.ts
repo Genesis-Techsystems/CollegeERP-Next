@@ -162,6 +162,10 @@ export const ENTITIES = {
   HOSTEL_VISITOR:                { name: 'HostelVisitor',            pk: 'hstlVisitorId'               },
   // ─── Campus Maintenance ──────────────────────────────────────────────────────
   MANAGEMENT_ISSUE:              { name: 'ClgManagementIssue',       pk: 'managementIssueId'           },
+  // ─── Trainings ───────────────────────────────────────────────────────────────
+  PLACEMENT_TRAINING:            { name: 'Training',                  pk: 'traningId'                   },
+  TRAINING_DETAIL:               { name: 'TrainingDetail',            pk: 'traningDetId'                },
+  TRAINING_SESSION:              { name: 'TrainingSession',           pk: 'trainingSessionId'           },
 } as const
 
 export type EntityKey = keyof typeof ENTITIES

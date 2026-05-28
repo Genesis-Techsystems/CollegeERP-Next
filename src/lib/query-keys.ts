@@ -627,4 +627,18 @@ export const QK = {
     byEmployee: (empId: number) => ['ClgManagementIssue', 'byEmployee', empId] as const,
     detail: (id: number) => ['ClgManagementIssue', 'detail', id] as const,
   },
+
+  // ── Trainings ─────────────────────────────────────────────────────────────
+  trainings: {
+    all: ['Training'] as const,
+    list: () => ['Training', 'list'] as const,
+  },
+  trainingDetails: {
+    all: ['TrainingDetail'] as const,
+    byTraining: (traningId: number) => ['TrainingDetail', 'byTraining', traningId] as const,
+  },
+  trainingSessions: {
+    all: ['TrainingSession'] as const,
+    byDetail: (traningDetId: number) => ['TrainingSession', 'byDetail', traningDetId] as const,
+  },
 } as const
