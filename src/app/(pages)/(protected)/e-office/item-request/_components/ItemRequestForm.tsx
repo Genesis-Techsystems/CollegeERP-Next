@@ -39,7 +39,14 @@ function newLine(): ItemLine {
   }
 }
 
-export function ItemRequestForm({ indentId }: { indentId?: number }) {
+export function ItemRequestForm({
+  indentId,
+  listPath = '/e-office/item-request',
+}: {
+  indentId?: number
+  /** Route to return to after save/cancel (inventory vs e-office). */
+  listPath?: string
+}) {
   const router = useRouter()
   const isEdit = Boolean(indentId && indentId > 0)
   const ctx = getEOfficeContextIds()
@@ -309,7 +316,7 @@ export function ItemRequestForm({ indentId }: { indentId?: number }) {
               type="button"
               variant="outline"
               className="h-9 min-w-[5.5rem]"
-              onClick={() => router.push('/e-office/item-request')}
+              onClick={() => router.push(listPath)}
             >
               Back
             </Button>

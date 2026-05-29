@@ -1099,6 +1099,20 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       if (hrefLower.includes('fees-collection/hostel-payment')) {
         return '/accounts-and-fees/fees-collection/hostel-payment'
       }
+      if (
+        hrefLower.includes('university-payment-wallet-transactions')
+        || hrefLower.includes('university-wallet-transactions')
+        || (labelLower.includes('university') && labelLower.includes('payment') && labelLower.includes('wallet') && labelLower.includes('transaction'))
+      ) {
+        return '/wallet/university-payment-wallet-transactions'
+      }
+      if (
+        hrefLower.includes('university-payment-wallet')
+        || hrefLower.includes('univ-payment-wallet')
+        || (labelLower.includes('university') && labelLower.includes('payment') && labelLower.includes('wallet'))
+      ) {
+        return '/wallet/university-payment-wallet'
+      }
       if (labelLower.includes('room details') || labelLower === 'room detail') {
         return '/admin/room-details'
       }
@@ -1109,6 +1123,26 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
 
     // Leaf pages only — parent modules must expand/collapse, not navigate away.
     if (!hasChildren) {
+      if (
+        (labelLower.includes('company') && labelLower.includes('placement') && labelLower.includes('requirement'))
+        || hrefLower.includes('company-placements-requirements')
+        || (hrefLower.includes('placement-companies') && hrefLower.includes('placements-achievements'))
+      ) {
+        return '/placements-achievements/placements/placement-companies'
+      }
+      if (
+        (labelLower.includes('placement') && labelLower.includes('student') && labelLower.includes('list'))
+        || hrefLower.includes('placement-registered-studentslist')
+        || (hrefLower.includes('placement-registered-list') && hrefLower.includes('placements-achievements'))
+      ) {
+        return '/placements-achievements/placements/placement-registered-list'
+      }
+      if (
+        (labelLower.includes('broadcast') && labelLower.includes('message'))
+        || (hrefLower.includes('placement-broadcast') && hrefLower.includes('placements-achievements'))
+      ) {
+        return '/placements-achievements/placements/placement-broadcast'
+      }
       const erpRoute = mapErpModuleNavRoute(item.href, item.label)
       if (erpRoute) return erpRoute
       const timetableRoute = mapTimetableNavRoute(item.href, item.label)

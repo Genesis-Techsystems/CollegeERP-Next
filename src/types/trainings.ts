@@ -52,7 +52,8 @@ export interface TrainingDetail {
 export interface TrainingStudent {
   trainingStdId: number
   trainingId: number
-  employeeId: number
+  employeeId?: number | null
+  studentId?: number | null
   collegeId: number
   isActive: boolean
   createdDt?: string

@@ -99,6 +99,16 @@ export const ENTITIES = {
   INV_STORES_MASTER:        { name: 'InvStoresmaster',        pk: 'storeId'               },
   INV_SUPPLIER_MASTER:      { name: 'InvSuppliermaster',      pk: 'supplierId'            },
   INV_ITEM_MASTER:          { name: 'InvItemmaster',          pk: 'itemId'                },
+  INV_UOM_MASTER:           { name: 'InvUommaster',             pk: 'uomId'                 },
+  INV_BRAND_MASTER:         { name: 'InvBrandmaster',           pk: 'brandmasterId'         },
+  INV_ITEM_CATEGORY:        { name: 'InvItemcategory',          pk: 'itemCategoryId'        },
+  INV_ITEM_SUB_CATEGORY:    { name: 'InvItemsubcategory',       pk: 'itemSubcategoryId'     },
+  INV_ITEM_OPENING_STOCK:   { name: 'InvItemopeningStock',      pk: 'itemopeningStockId'    },
+  INV_SRV:                  { name: 'InvSrv',                   pk: 'srvId'                 },
+  INV_PURCHASE_RETURN:      { name: 'InvPurchasereturn',        pk: 'purchaseReturnId'      },
+  INV_INTERNAL_ISSUE:       { name: 'InvInternalIssue',         pk: 'interIssueId'          },
+  INV_INTERNAL_RETURN:      { name: 'InvInternalReturn',        pk: 'interReturnId'         },
+  INV_STOCK_LEDGER:         { name: 'InvStockledger',           pk: 'stockledgerId'         },
   // ─── Affiliated Colleges ─────────────────────────────────────────────────────
   UNIV_COLLEGE_WISE_PAYMENT: { name: 'UnivCollegeWisePayments', pk: 'univCollegeWisePaymentId' },
   // ─── HR & Payroll ────────────────────────────────────────────────────────────
@@ -167,6 +177,39 @@ export const ENTITIES = {
   TRAINING_DETAIL:               { name: 'TrainingDetail',            pk: 'traningDetId'                },
   TRAINING_SESSION:              { name: 'TrainingSession',           pk: 'trainingSessionId'           },
   TRAINING_STUDENT:              { name: 'TrainingStudent',           pk: 'trainingStdId'               },
+  // ─── Placements & Achievements ───────────────────────────────────────────────
+  PLACEMENT:                     { name: 'Placement',                 pk: 'placementId'                 },
+  COMPANY:                       { name: 'Company',                   pk: 'companyId'                   },
+  COMPANY_CONTACT:               { name: 'CompanyContact',            pk: 'companyContactId'            },
+  COMPANY_MEETING:               { name: 'CompanyMeeting',            pk: 'companyMeetingId'            },
+  PLACEMENT_BROADCAST:           { name: 'PlacementBroadcast',        pk: 'placementBroadcastId'        },
+  PLACEMENT_COMPANY:             { name: 'PlacementCompany',          pk: 'placementCompanyId'          },
+  PLACEMENT_STUDENT_REG:         { name: 'PlacementStudentRegistration', pk: 'placementStdRegId'        },
+  ACHIEVEMENT_CATEGORY:          { name: 'Category',                  pk: 'categoryId'                  },
+  ACHIEVEMENT_SUB_CATEGORY:      { name: 'SubCategory',               pk: 'subCategoryId'               },
+  ACHIEVEMENT:                   { name: 'Achievement',               pk: 'achievementId'               },
+  // ─── University Committees ───────────────────────────────────────────────────
+  UNIV_COMMITTEE:                { name: 'UnivCommittees',              pk: 'univCommitteeId'             },
+  UNIV_COMMITTEE_POSITION:       { name: 'UnivCommitteePositions',      pk: 'univCommitteePositionId'     },
+  UNIV_COMMITTEE_MEMBER:         { name: 'UnivCommitteeMembers',        pk: 'univCommitteeMemberId'       },
+  UNIV_COMMITTEE_MEETING:        { name: 'UnivCommitteeMeetings',       pk: 'univCommitteeMeetingId'      },
+  UNIV_REMUNERATION_SETTING:     { name: 'UnivRemunerationSettings',    pk: 'univRemunerationSettingId'   },
+  UNIV_PROFILE_RECRUITMENT:      { name: 'UnivCommitteeProfilerecruitments', pk: 'univProfileRecruitmentId' },
+  UNIV_EXAMINATION_REMUNERATION: { name: 'UnivExaminationRemunerationDetails', pk: 'univExaminationRemunerationId' },
+  // ─── Finance ─────────────────────────────────────────────────────────────────
+  FIN_ACCOUNT_ENTITY:          { name: 'AccountEntity',              pk: 'accountEntityId'             },
+  FIN_ACCOUNT_TYPE:            { name: 'FinAccountType',             pk: 'accountTypeId'               },
+  FIN_CATEGORY:                { name: 'FinCategory',                pk: 'finCategoryId'               },
+  FIN_SUB_CATEGORY:            { name: 'FinSubCategory',             pk: 'finSubCategoryId'            },
+  FIN_BANK_ACCOUNT:            { name: 'FinBankAccounts',            pk: 'bankAccountId'               },
+  FIN_CHEQUE_BOOK:             { name: 'FinChequeBooks',             pk: 'chequeBookId'                },
+  FIN_TRANSACTION:             { name: 'FinTransaction',             pk: 'finTransactionId'            },
+  FIN_CHEQUE_ISSUE:            { name: 'FinChequeIssue',             pk: 'finChequeIssueId'            },
+  FIN_BUDGET_ALLOCATION:       { name: 'FinBudgetAllocation',        pk: 'finBudgetAllocationId'       },
+  FIN_BUDGET_MIDYEAR:          { name: 'FinBudgetMidyearEstimations', pk: 'finBudgetMidyrEstimationId' },
+  // ─── University Wallet ─────────────────────────────────────────────────────────
+  UNIV_PAYMENT_WALLET:         { name: 'UnivPaymentWallet',              pk: 'univPaymentWalletId'              },
+  UNIV_PAYMENT_WALLET_TXN:     { name: 'UnivPaymentWalletTransactions',  pk: 'univPaymentWalletTransactionId'   },
 } as const
 
 export type EntityKey = keyof typeof ENTITIES

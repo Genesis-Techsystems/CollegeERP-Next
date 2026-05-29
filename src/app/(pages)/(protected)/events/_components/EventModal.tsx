@@ -46,6 +46,8 @@ type EventModalProps = {
   collegeId: number
   academicYearId: number
   universityId?: number
+  /** Prefill start/end/publish dates when creating from a calendar day. */
+  defaultStartDate?: Date
   onSubmit: (payload: CollegeEventRow) => Promise<void>
 }
 
@@ -63,6 +65,7 @@ export function EventModal({
   collegeId,
   academicYearId,
   universityId,
+  defaultStartDate,
   onSubmit,
 }: Readonly<EventModalProps>) {
   const isEditing = row?.eventId != null
@@ -132,9 +135,15 @@ export function EventModal({
         ? Number(activeAudience.audienceTypeId)
         : undefined,
       eventName: String(row?.eventName ?? ''),
-      startDate: row?.startDate ? new Date(String(row.startDate)) : new Date(),
-      endDate: row?.endDate ? new Date(String(row.endDate)) : new Date(),
-      publishDate: row?.publishDate ? new Date(String(row.publishDate)) : new Date(),
+      startDate: row?.startDate
+        ? new Date(String(row.startDate))
+        : (defaultStartDate ?? new Date()),
+      endDate: row?.endDate
+        ? new Date(String(row.endDate))
+        : (defaultStartDate ?? new Date()),
+      publishDate: row?.publishDate
+        ? new Date(String(row.publishDate))
+        : (defaultStartDate ?? new Date()),
       isPublished: row?.isPublished === true,
       organizerDetails: String(row?.organizerDetails ?? ''),
       description: String(row?.description ?? ''),
@@ -142,7 +151,7 @@ export function EventModal({
       isActive: row?.isActive !== false,
       reason: String(row?.reason ?? 'active'),
     })
-  }, [open, row, collegeId, reset])
+  }, [open, row, collegeId, defaultStartDate, reset])
 
   async function onFormSubmit(values: FormValues) {
     const audiences = row?.eventAudiences?.length

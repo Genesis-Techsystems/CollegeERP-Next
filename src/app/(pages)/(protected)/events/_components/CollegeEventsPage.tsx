@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { ChevronLeft, ChevronRight, PencilIcon, PlusIcon, Trash2 } from 'lucide-react'
+import { PencilIcon, PlusIcon, Trash2 } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { ConfirmDialog, FilterCard } from '@/common/components/feedback'
 import { DatePicker } from '@/common/components/date-picker'
@@ -29,6 +29,7 @@ import {
 import { GM_CODES } from '@/config/constants/ui'
 import type { College } from '@/types/college'
 import { EventModal } from './EventModal'
+import { EventsMonthCalendar } from './EventsMonthCalendar'
 
 export type CollegeEventsVariant = 'manage' | 'calendar-view' | 'staff' | 'student' | 'school'
 
@@ -68,6 +69,8 @@ export function CollegeEventsPage({ title, variant }: Readonly<CollegeEventsPage
   const isManage = variant === 'manage'
   const isStaff = variant === 'staff'
   const isStudent = variant === 'student'
+  const isCalendarView = variant === 'calendar-view'
+  const useMonthCalendar = isManage || isCalendarView || isStaff || isStudent
   const useStorageFilters = isStaff || isStudent || variant === 'school'
 
   const [colleges, setColleges] = useState<College[]>([])
@@ -86,6 +89,8 @@ export function CollegeEventsPage({ title, variant }: Readonly<CollegeEventsPage
   const [editing, setEditing] = useState<CollegeEventRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CollegeEventRow | null>(null)
   const [staffAudienceId, setStaffAudienceId] = useState<number | null>(null)
+  const [calendarLoaded, setCalendarLoaded] = useState(false)
+  const [modalDefaultDate, setModalDefaultDate] = useState<Date | undefined>(undefined)
 
   const universityId = useMemo(
     () => colleges.find((c) => c.collegeId === collegeId)?.universityId,
@@ -160,15 +165,24 @@ export function CollegeEventsPage({ title, variant }: Readonly<CollegeEventsPage
     setRows([])
     try {
       let data: CollegeEventRow[] = []
-      if (variant === 'calendar-view') {
-        data = await listEventsByCollegeAndYear(collegeId, academicYearId)
+      const apiDate = useMonthCalendar ? viewMonth : selectedDate
+      if (isCalendarView) {
+        const all = await listEventsByCollegeAndYear(collegeId, academicYearId)
+        const month = viewMonth.getMonth()
+        const year = viewMonth.getFullYear()
+        data = all.filter((row) => {
+          const raw = row.startDate ?? row.eventDate
+          if (!raw) return false
+          const d = new Date(String(raw))
+          return !Number.isNaN(d.getTime()) && d.getMonth() === month && d.getFullYear() === year
+        })
       } else if (isStaff && staffAudienceId) {
         data = await listStaffAudienceEvents({
           collegeId,
           academicYearId,
           departmentId: readStorageNum('empDeptId'),
           audienceTypeId: staffAudienceId,
-          date: selectedDate,
+          date: apiDate,
         })
       } else if (isStudent && staffAudienceId) {
         data = await listStudentAudienceEvents({
@@ -176,29 +190,34 @@ export function CollegeEventsPage({ title, variant }: Readonly<CollegeEventsPage
           academicYearId,
           groupSectionId: readStorageNum('groupSectionId'),
           audienceTypeId: staffAudienceId,
-          date: selectedDate,
+          date: apiDate,
         })
       } else {
         data = await listCollegeCalendarMonthEvents({
           collegeId,
           academicYearId,
-          date: selectedDate,
+          date: apiDate,
         })
       }
       setRows(data)
-      if (data.length === 0) toastSuccess('No events found for this filter.')
+      setCalendarLoaded(true)
     } catch (e) {
       toastError(getErrorMessage(e))
     } finally {
       setLoading(false)
     }
-  }, [collegeId, academicYearId, selectedDate, variant, isStaff, isStudent, staffAudienceId])
+  }, [collegeId, academicYearId, selectedDate, viewMonth, variant, isStaff, isStudent, isCalendarView, staffAudienceId, useMonthCalendar])
 
   useEffect(() => {
-    if (collegeId && academicYearId && (useStorageFilters || variant === 'calendar-view')) {
+    if (collegeId && academicYearId && (useStorageFilters || isCalendarView)) {
       void loadEvents()
     }
-  }, [collegeId, academicYearId, useStorageFilters, variant, loadEvents])
+  }, [collegeId, academicYearId, useStorageFilters, isCalendarView, loadEvents])
+
+  useEffect(() => {
+    if (!calendarLoaded || !collegeId || !academicYearId || !useMonthCalendar) return
+    void loadEvents()
+  }, [viewMonth, calendarLoaded, collegeId, academicYearId, useMonthCalendar, loadEvents])
 
   function makeActionsRenderer() {
     return (p: ICellRendererParams<CollegeEventRow>) =>
@@ -304,7 +323,7 @@ export function CollegeEventsPage({ title, variant }: Readonly<CollegeEventsPage
                 />
               </>
             ) : null}
-            {variant !== 'calendar-view' ? (
+            {!useMonthCalendar ? (
               <DatePicker
                 label="Date"
                 value={selectedDate}
@@ -314,26 +333,48 @@ export function CollegeEventsPage({ title, variant }: Readonly<CollegeEventsPage
               />
             ) : null}
             <div className="md:col-span-2">
-              <Button type="button" onClick={() => void loadEvents()} disabled={loading || !collegeId || !academicYearId}>
+              <Button
+                type="button"
+                onClick={() => void loadEvents()}
+                disabled={loading || !collegeId || !academicYearId}
+              >
                 {loading ? 'Loading…' : 'Get Events'}
               </Button>
             </div>
           </div>
-          {isManage ? (
-            <div className="flex items-center gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm font-medium">{format(viewMonth, 'MMMM yyyy')}</span>
-              <Button type="button" size="sm" variant="outline" onClick={() => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : null}
         </FilterCard>
       ) : null}
 
-      {rows.length > 0 || loading ? (
+      {useMonthCalendar && calendarLoaded ? (
+        <EventsMonthCalendar
+          viewMonth={viewMonth}
+          onViewMonthChange={setViewMonth}
+          events={rows}
+          selectedDate={selectedDate}
+          readOnly={!isManage}
+          onSelectDate={
+            isManage
+              ? (day) => {
+                  setSelectedDate(day)
+                  setModalDefaultDate(day)
+                  setEditing(null)
+                  setModalOpen(true)
+                }
+              : (day) => setSelectedDate(day)
+          }
+          onEventClick={
+            isManage
+              ? (ev) => {
+                  setEditing(ev)
+                  setModalDefaultDate(undefined)
+                  setModalOpen(true)
+                }
+              : undefined
+          }
+        />
+      ) : null}
+
+      {!useMonthCalendar && (rows.length > 0 || loading) ? (
         <TableCard withHeaderBorder={false}>
           <DataTable
             rowData={rows}
@@ -364,17 +405,35 @@ export function CollegeEventsPage({ title, variant }: Readonly<CollegeEventsPage
         </TableCard>
       ) : null}
 
+      {useMonthCalendar && isManage && calendarLoaded && rows.length > 0 ? (
+        <TableCard withHeaderBorder={false}>
+          <DataTable
+            rowData={rows}
+            columnDefs={columnDefs}
+            loading={loading}
+            pagination
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search events…',
+              pdfDocumentTitle: title,
+            }}
+          />
+        </TableCard>
+      ) : null}
+
       {isManage && collegeId && academicYearId ? (
         <EventModal
           open={modalOpen}
           onClose={() => {
             setModalOpen(false)
             setEditing(null)
+            setModalDefaultDate(undefined)
           }}
           row={editing}
           collegeId={collegeId}
           academicYearId={academicYearId}
           universityId={universityId}
+          defaultStartDate={modalDefaultDate}
           onSubmit={handleSaveEvent}
         />
       ) : null}

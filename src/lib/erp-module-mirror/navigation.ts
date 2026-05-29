@@ -10,9 +10,15 @@ function buildSlugMap(mod: ErpModuleMirrorConfig): Record<string, string> {
     (a, b) => b.slug.split('/')[0]!.length - a.slug.split('/')[0]!.length,
   )
   for (const route of routes) {
-    const first = route.slug.split('/')[0]!.toLowerCase()
-    map[first] = route.slug
-    map[first.replace(/-/g, '')] = route.slug
+    const parts = route.slug.split('/')
+    const first = parts[0]!.toLowerCase()
+    // Only map top-level (single-segment) slugs. Nested routes share the same
+    // first segment (e.g. placements/companies, placements/placement-companies)
+    // and must not overwrite each other in the alias map.
+    if (parts.length === 1) {
+      map[first] = route.slug
+      map[first.replace(/-/g, '')] = route.slug
+    }
   }
   return map
 }
@@ -34,8 +40,8 @@ function mapModuleLabel(mod: ErpModuleMirrorConfig, label?: string): string | nu
   )
   for (const route of routesByTitleLength) {
     const routeKey = normalizeLabelKey(route.title)
-    // Exact title match only — avoid "Map Vehicle Route" → /transport/vehicle via "vehicle".
-    if (key === routeKey) {
+    // Exact title match, plus singular/plural variants (e.g. "Requirement" vs "Requirements").
+    if (key === routeKey || key + 's' === routeKey || key === routeKey + 's') {
       return `${mod.basePath}/${route.slug}`
     }
   }
@@ -72,7 +78,12 @@ function mapModuleHrefFromUrl(mod: ErpModuleMirrorConfig, href: string): string 
   if (hrefLower.includes(mod.basePath.replace(/^\//, ''))) {
     const idx = hrefLower.indexOf(mod.basePath.replace(/^\//, ''))
     const tail = hrefRaw.slice(idx).split('?')[0]
-    if (tail.startsWith(mod.basePath)) return tail
+    if (tail.startsWith(mod.basePath)) {
+      const rest = tail.slice(mod.basePath.length).replace(/^\/+/, '')
+      if (!rest) return `${mod.basePath}/${mod.defaultSlug}`
+      const resolved = resolveModuleSlug(mod, rest)
+      return `${mod.basePath}/${resolved}`
+    }
   }
 
   return null

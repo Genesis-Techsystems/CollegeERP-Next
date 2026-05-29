@@ -16,6 +16,12 @@ export function mapModuleTail(
   const idx = hrefLower.indexOf(angularSegment)
   const tail = href.slice(idx + angularSegment.length).replace(/^\/+/, '').split('?')[0]
   if (!tail) return `${base}/${defaultSlug}`
+
+  const tailLower = tail.toLowerCase()
+  if (slugAliases[tailLower]) {
+    return `${base}/${slugAliases[tailLower]}`
+  }
+
   const first = tail.split('/')[0]!.toLowerCase()
   const slug = slugAliases[first] ?? slugAliases[first.replace(/-/g, '')] ?? first
   const rest = tail.split('/').slice(1).join('/')

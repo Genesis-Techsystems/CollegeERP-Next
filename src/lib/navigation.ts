@@ -116,6 +116,10 @@ export function normalizeHref(path: string): string {
       /\/fees-collection\/hostel-payment\/hostel-fee-list/gi,
       '/accounts-and-fees/fees-collection/hostel-payment/hostel-fee-payment',
     )
+    // Angular Wallet module — legacy slugs map to Angular-parity App Router paths.
+    .replace(/\/wallet\/university-wallet-transactions(?=\/|$)/gi, '/wallet/university-payment-wallet-transactions')
+    .replace(/\/wallet\/wallet-transactions(?=\/|$)/gi, '/wallet/university-payment-wallet-transactions')
+    .replace(/\/wallet\/university-wallet-recharge(?=\/|$)/gi, '/wallet/recharge-wallet')
     // Angular Admin institutional masters → App Router admin pages.
     .replace(/\/institutional-masters\/rooms-type(?=\/|$)/gi, '/admin/room-types')
     .replace(/\/institutional-masters\/rooms(?=\/|$)/gi, '/admin/rooms')
@@ -279,6 +283,24 @@ export function normalizeHref(path: string): string {
     .replace(
       /\/user-management\/examination-account(?=\/|$)/i,
       '/user-management/examination-accounts',
+    )
+    // Placements & Achievements — Angular `placement-companies` / legacy component slug.
+    .replace(/\/apps\/placements-achievements\//gi, '/placements-achievements/')
+    .replace(
+      /\/placements-achievements\/placements\/company-placements-requirements(?=\/|$)/gi,
+      '/placements-achievements/placements/placement-companies',
+    )
+    .replace(
+      /\/placements-achievements\/company-placements-requirements(?=\/|$)/gi,
+      '/placements-achievements/placements/placement-companies',
+    )
+    .replace(
+      /\/placements-achievements\/placements\/placement-registered-studentslist(?=\/|$)/gi,
+      '/placements-achievements/placements/placement-registered-list',
+    )
+    .replace(
+      /\/placements-achievements\/placement-registered-studentslist(?=\/|$)/gi,
+      '/placements-achievements/placements/placement-registered-list',
     )
 
   // Normalize slashes and trim trailing slash.

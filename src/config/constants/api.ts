@@ -885,13 +885,27 @@ export const AFFILIATED_COLLEGES_API = {
 
 // ─── E-Office (inventory / letter formats) ───────────────────────────────────
 
+export const FINANCE_API = {
+  /** Angular `uploadVoucherUrl` — multipart voucher upload after transaction save. */
+  UPLOAD_TRANSACTION_VOUCHER: 'finTransaction/uploadVoucherUrl',
+  FIN_REPORTS: 's_fin_reports_bycode',
+  FIN_BUDGET_DETAILS: 's_get_fin_budgetdetails_bycode',
+  ADD_MULTIPLE_FIN_BUDGET_MIDYEAR: 'addMultipleFinBudgetMidyearEstimations',
+  UPDATE_FIN_BUDGET_ALLOC: 'updatefinbudgetalloc',
+  ADD_FIN_BUDGET_ALLOC_LIST: 'addFinBudgetAllocationList',
+} as const
+
 export const E_OFFICE_API = {
   INV_PO: 'invPO',
   UPDATE_INV_PURCHASE_ORDER: 'updateInvPurchaseOrder',
+  INV_SRV: 'invsrv',
+  INV_PURCHASE_RETURN: 'purchasereturns',
   INV_INTERNAL_INDENT: 'invInternalIndent',
   UPDATE_INV_INTERNAL_INDENT: 'updateInvInternalIndent',
-  FIN_BUDGET_DETAILS: 'getAllRecords/s_get_fin_budgetdetails_bycode',
-  FIN_DETAILS: 'getAllRecords/s_get_financialdetails_bycode',
+  INV_INTERNAL_ISSUE: 'invinternalissue',
+  INV_INTERNAL_RETURN: 'invinternalreturn',
+  FIN_BUDGET_DETAILS: 's_get_fin_budgetdetails_bycode',
+  FIN_DETAILS: 's_get_financialdetails_bycode',
 } as const
 
 // ─── Subject / Regulation ────────────────────────────────────────────────────

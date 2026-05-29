@@ -59,7 +59,7 @@ export default function ComplaintOverviewModal({ open, onClose, issue, onSaved }
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-[hsl(var(--primary))]">Complaint Overview</DialogTitle>
         </DialogHeader>

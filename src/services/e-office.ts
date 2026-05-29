@@ -230,9 +230,17 @@ export async function getFinanceBudgetDetails(params: Record<string, string | nu
 }
 
 export async function getFinanceDetailsByCode(params: Record<string, string | number>): Promise<AnyRow[]> {
-  const groups = await getAllRecords<AnyRow[][]>(E_OFFICE_API.FIN_DETAILS, params)
+  const data = await getAllRecords<AnyRow[][] | { result?: unknown[][] }>(E_OFFICE_API.FIN_DETAILS, params)
   const flat: AnyRow[] = []
-  for (const g of groups ?? []) {
+
+  if (data && typeof data === 'object' && 'result' in data && Array.isArray(data.result)) {
+    for (const g of data.result) {
+      if (Array.isArray(g)) flat.push(...(g as AnyRow[]))
+    }
+    return flat
+  }
+
+  for (const g of (data as AnyRow[][]) ?? []) {
     if (Array.isArray(g)) flat.push(...g)
   }
   return flat

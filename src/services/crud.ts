@@ -51,6 +51,11 @@ function domainListRows<T>(body: ApiResponse<unknown> & { resultList?: unknown }
   return [raw as T]
 }
 
+/** Strip accidental `getAllRecords/` prefix — `getAllRecords()` adds it via DOMAIN.PROC. */
+function normalizeProcName(procName: string): string {
+  return procName.startsWith('getAllRecords/') ? procName.slice('getAllRecords/'.length) : procName
+}
+
 /** Stable key for deduping stored-proc GETs (param order–independent). */
 function procGetCacheKey(procName: string, params: Record<string, string | number>): string {
   const keys = Object.keys(params).sort()
@@ -295,6 +300,7 @@ class CrudService {
    * @returns the raw `data` field from the response
    */
   async getAllRecords<T>(procName: string, params: Record<string, string | number>): Promise<T> {
+    procName = normalizeProcName(procName)
     const key = procGetCacheKey(procName, params)
     const now = Date.now()
     const bucket = this.procGetDedupe.get(key) ?? {}

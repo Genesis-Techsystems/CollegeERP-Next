@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
+import { DataTable } from '@/common/components/table'
 import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
@@ -105,7 +105,6 @@ export default function CertificateRequestsPage() {
     try {
       const list = await listCollegeCertificatesByCollege(colId)
       setCertificates(list)
-      if (list.length > 0) setCertificateId(String(list[0].collegeCertificateId))
     } catch (e) {
       toastError(e, 'Failed to load certificates')
       setCertificates([])
@@ -139,7 +138,7 @@ export default function CertificateRequestsPage() {
     <PageContainer className="space-y-5">
       <TcPageTitle title="Certificate Requests" />
 
-      <FilterCard title="Filters">
+      <FilterCard title="Certificates">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Select
             label="Organization"
@@ -179,14 +178,14 @@ export default function CertificateRequestsPage() {
         </div>
       </FilterCard>
 
-      <TableCard headerLeft={<span className="text-sm font-semibold">Pending requests</span>} withHeaderBorder={false}>
+      {certNum > 0 && (
         <DataTable
           columnDefs={columnDefs}
           rowData={pendingRows}
           loading={isLoading}
           height="auto"
         />
-      </TableCard>
+      )}
 
       <IssueCertificateModal
         open={modalOpen}

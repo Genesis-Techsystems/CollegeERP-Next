@@ -169,7 +169,7 @@ export default function NewComplaintModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-[hsl(var(--primary))]">
             {viewMode ? 'Complaint Details' : 'New Complaint'}
@@ -197,41 +197,44 @@ export default function NewComplaintModal({
             </DialogFooter>
           </>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 py-2">
-            <div className="space-y-1">
-              <Label>Complaint Date *</Label>
-              <Input type="date" {...register('issueLogDate')} />
-              {errors.issueLogDate && (
-                <p className="text-xs text-red-500">{errors.issueLogDate.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <Label>College *</Label>
-              <Controller
-                name="collegeId"
-                control={control}
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger><SelectValue placeholder="Select college" /></SelectTrigger>
-                    <SelectContent>
-                      {colleges.map((c) => (
-                        <SelectItem key={c.collegeId} value={String(c.collegeId)}>
-                          {c.collegeName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.collegeId && (
-                <p className="text-xs text-red-500">{errors.collegeId.message}</p>
-              )}
-            </div>
-
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
+            {/* Row 1: Date + College */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Department</Label>
+              <div className="space-y-0.5">
+                <Label className="text-xs">Complaint Date *</Label>
+                <Input type="date" {...register('issueLogDate')} />
+                {errors.issueLogDate && (
+                  <p className="text-xs text-red-500">{errors.issueLogDate.message}</p>
+                )}
+              </div>
+              <div className="space-y-0.5">
+                <Label className="text-xs">College *</Label>
+                <Controller
+                  name="collegeId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger><SelectValue placeholder="Select college" /></SelectTrigger>
+                      <SelectContent>
+                        {colleges.map((c) => (
+                          <SelectItem key={c.collegeId} value={String(c.collegeId)}>
+                            {c.collegeName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.collegeId && (
+                  <p className="text-xs text-red-500">{errors.collegeId.message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Row 2: Department + Room + Service Type */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-0.5">
+                <Label className="text-xs">Department</Label>
                 <Controller
                   name="departmentId"
                   control={control}
@@ -253,8 +256,8 @@ export default function NewComplaintModal({
                   )}
                 />
               </div>
-              <div className="space-y-1">
-                <Label>Room</Label>
+              <div className="space-y-0.5">
+                <Label className="text-xs">Room</Label>
                 <Controller
                   name="issueInroomId"
                   control={control}
@@ -272,55 +275,55 @@ export default function NewComplaintModal({
                   )}
                 />
               </div>
+              <div className="space-y-0.5">
+                <Label className="text-xs">Service Type</Label>
+                <Controller
+                  name="serviceCatId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value ?? ''} onValueChange={field.onChange}>
+                      <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectContent>
+                        {serviceTypes.map((s) => (
+                          <SelectItem key={s.generalDetailId} value={String(s.generalDetailId)}>
+                            {s.generalDetailDisplayName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <Label>Service Type</Label>
-              <Controller
-                name="serviceCatId"
-                control={control}
-                render={({ field }) => (
-                  <Select value={field.value ?? ''} onValueChange={field.onChange}>
-                    <SelectTrigger><SelectValue placeholder="Select service type" /></SelectTrigger>
-                    <SelectContent>
-                      {serviceTypes.map((s) => (
-                        <SelectItem
-                          key={s.generalDetailId}
-                          value={String(s.generalDetailId)}
-                        >
-                          {s.generalDetailDisplayName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Issue Title *</Label>
+            {/* Row 3: Issue Title */}
+            <div className="space-y-0.5">
+              <Label className="text-xs">Issue Title *</Label>
               <Input {...register('issueTitle')} placeholder="Brief title of the issue" />
               {errors.issueTitle && (
                 <p className="text-xs text-red-500">{errors.issueTitle.message}</p>
               )}
             </div>
 
-            <div className="space-y-1">
-              <Label>Description</Label>
+            {/* Row 4: Description */}
+            <div className="space-y-0.5">
+              <Label className="text-xs">Description</Label>
               <Textarea
                 {...register('issueDescription')}
                 placeholder="Describe the issue in detail"
-                rows={3}
+                rows={2}
               />
             </div>
 
-            <div className="space-y-1">
-              <Label>Location</Label>
+            {/* Row 5: Location */}
+            <div className="space-y-0.5">
+              <Label className="text-xs">Location</Label>
               <Input {...register('location')} placeholder="Exact location of the issue" />
             </div>
 
+            {/* Row 6: Before + After picture */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <Label className="text-xs">Before Picture</Label>
                 <Input
                   type="file"
@@ -329,7 +332,7 @@ export default function NewComplaintModal({
                   className="text-xs"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <Label className="text-xs">After Picture</Label>
                 <Input
                   type="file"
@@ -344,7 +347,7 @@ export default function NewComplaintModal({
               <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>
             )}
 
-            <DialogFooter className="pt-2">
+            <DialogFooter className="pt-1">
               <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
                 Cancel
               </Button>

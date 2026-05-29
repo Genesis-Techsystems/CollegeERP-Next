@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { UserCircle2 } from 'lucide-react'
 import { DataTable, TableCard } from '@/common/components/table'
 import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
@@ -48,6 +49,8 @@ const FEE_COL_DEFS = {
   balanceAmount: { field: 'balanceAmount', headerName: 'Balance', minWidth: 100 } as ColDef<StudentFeeStructureRow>,
 }
 
+const TC_STATUS_OPTIONS = [{ value: 'IN COLLEGE', label: 'IN COLLEGE' }]
+
 function balanceRenderer(p: ICellRendererParams<StudentFeeStructureRow>) {
   const bal = Number(p.data?.balanceAmount ?? 0)
   return (
@@ -67,6 +70,8 @@ export default function TransferCertificatePage() {
   const [qualified, setQualified] = useState('')
   const [generalProgress, setGeneralProgress] = useState('')
   const [reason, setReason] = useState('')
+  const [transferDate, setTransferDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [tcStatus, setTcStatus] = useState('IN COLLEGE')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [applying, setApplying] = useState(false)
 
@@ -241,7 +246,44 @@ export default function TransferCertificatePage() {
 
           <div className="app-card space-y-4 p-4">
             <h2 className="text-sm font-semibold text-[hsl(var(--card-title))]">TC details</h2>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-md border border-[#bdd1ef] bg-[#f9fbff] p-3">
+              <div className="flex items-center gap-3">
+                <UserCircle2 className="h-16 w-16 text-muted-foreground" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-[hsl(var(--card-title))]">
+                    {selectedStudent?.firstName ?? 'Student'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedStudent?.hallticketNumber ?? selectedStudent?.rollNumber ?? '—'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedStudent?.collegeCode ?? '—'} / {selectedStudent?.academicYear ?? '—'} /{' '}
+                    {selectedStudent?.courseCode ?? '—'} / {selectedStudent?.courseYearName ?? '—'} /{' '}
+                    {selectedStudent?.section ?? '—'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{selectedStudent?.mobile ?? '—'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-1.5">
+                <Label>Transfer date</Label>
+                <Input
+                  type="date"
+                  value={transferDate}
+                  onChange={(e) => setTransferDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <Select
+                  value={tcStatus}
+                  onChange={(v) => setTcStatus(v ?? 'IN COLLEGE')}
+                  options={TC_STATUS_OPTIONS}
+                  placeholder="Select status"
+                />
+              </div>
               <div className="space-y-1.5">
                 <Label>Qualified for promotion</Label>
                 <Select
@@ -260,9 +302,21 @@ export default function TransferCertificatePage() {
                   placeholder="Select"
                 />
               </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
               <div className="space-y-1.5">
                 <Label>Reason for leaving</Label>
                 <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  className="w-full"
+                  disabled={!canApply}
+                  onClick={() => setConfirmOpen(true)}
+                >
+                  Generate
+                </Button>
               </div>
             </div>
 
@@ -295,13 +349,6 @@ export default function TransferCertificatePage() {
             )}
 
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                disabled={!canApply}
-                onClick={() => setConfirmOpen(true)}
-              >
-                Apply for TC
-              </Button>
               {issue?.applicationStatusCode === 'TCISSUED' && (
                 <Button
                   type="button"

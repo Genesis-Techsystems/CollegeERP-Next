@@ -18,6 +18,7 @@ import type { GeneralDetail } from '@/types/exam-master'
 import { format } from 'date-fns'
 import {
   buildQuery,
+  cmsDomainList,
   domainList,
   fetchDetails,
   getAllRecords,
@@ -82,7 +83,7 @@ export async function listFeeCertificateIssuesByCertificate(
   if (!collegeCertificateId) return []
   const queries = [
     buildQuery(
-      { 'CollegeCertificate.collegeCertificateId': collegeCertificateId, isActive: true },
+      { 'collegeCertificate.collegeCertificateId': collegeCertificateId, isActive: true },
       { field: 'feeCertificateIssueId', direction: 'DESC' },
     ),
     buildQuery(
@@ -90,12 +91,15 @@ export async function listFeeCertificateIssuesByCertificate(
       { field: 'feeCertificateIssueId', direction: 'DESC' },
     ),
   ]
+  const loaders = [cmsDomainList<FeeCertificateIssueRow>, domainList<FeeCertificateIssueRow>]
   for (const query of queries) {
-    try {
-      const rows = await domainList<FeeCertificateIssueRow>(ENTITIES.FEE_CERTIFICATE_ISSUE.name, query)
-      if (rows.length > 0) return rows
-    } catch {
-      // try next
+    for (const load of loaders) {
+      try {
+        const rows = await load(ENTITIES.FEE_CERTIFICATE_ISSUE.name, query)
+        if (rows.length > 0) return rows
+      } catch {
+        // try next
+      }
     }
   }
   return []
@@ -109,19 +113,29 @@ export async function listFeeCertificateIssuesByStudentAndCertificate(
   const queries = [
     buildQuery(
       {
+        'studentDetail.studentId': studentId,
+        'collegeCertificate.collegeCertificateId': collegeCertificateId,
+      },
+      { field: 'feeCertificateIssueId', direction: 'DESC' },
+    ),
+    buildQuery(
+      {
         'StudentDetail.studentId': studentId,
-        'CollegeCertificate.collegeCertificateId': collegeCertificateId,
+        'collegeCertificate.collegeCertificateId': collegeCertificateId,
       },
       { field: 'feeCertificateIssueId', direction: 'DESC' },
     ),
     buildQuery({ studentId, collegeCertificateId }, { field: 'feeCertificateIssueId', direction: 'DESC' }),
   ]
+  const loaders = [cmsDomainList<FeeCertificateIssueRow>, domainList<FeeCertificateIssueRow>]
   for (const query of queries) {
-    try {
-      const rows = await domainList<FeeCertificateIssueRow>(ENTITIES.FEE_CERTIFICATE_ISSUE.name, query)
-      if (rows.length > 0) return rows
-    } catch {
-      // try next
+    for (const load of loaders) {
+      try {
+        const rows = await load(ENTITIES.FEE_CERTIFICATE_ISSUE.name, query)
+        if (rows.length > 0) return rows
+      } catch {
+        // try next
+      }
     }
   }
   return []

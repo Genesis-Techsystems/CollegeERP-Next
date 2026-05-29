@@ -645,4 +645,229 @@ export const QK = {
     all: ['TrainingStudent'] as const,
     byEmployee: (employeeId: number) => ['TrainingStudent', 'byEmployee', employeeId] as const,
   },
+  // ─── Placements & Achievements ───────────────────────────────────────────────
+  placements: {
+    all: ['Placement'] as const,
+    list: () => ['Placement', 'list'] as const,
+    byCampus: (campusId: number) => ['Placement', 'byCampus', campusId] as const,
+  },
+  companies: {
+    all: ['Company'] as const,
+    list: () => ['Company', 'list'] as const,
+  },
+  companyContacts: {
+    all: ['CompanyContact'] as const,
+    byCompany: (companyId: number) => ['CompanyContact', 'byCompany', companyId] as const,
+  },
+  companyMeetings: {
+    all: ['CompanyMeeting'] as const,
+    list: () => ['CompanyMeeting', 'list'] as const,
+  },
+  placementBroadcasts: {
+    all: ['PlacementBroadcast'] as const,
+    byYearType: (yearName: string, typeId: number) => ['PlacementBroadcast', 'byYearType', yearName, typeId] as const,
+  },
+  placementCompanies: {
+    all: ['PlacementCompany'] as const,
+    byPlacement: (placementId: number) => ['PlacementCompany', 'byPlacement', placementId] as const,
+    byCompany: (companyId: number) => ['PlacementCompany', 'byCompany', companyId] as const,
+  },
+  placementStudentRegs: {
+    all: ['PlacementStudentRegistration'] as const,
+    byCompanyAndPlacement: (companyId: number, placementId: number) =>
+      ['PlacementStudentRegistration', 'byCompanyAndPlacement', companyId, placementId] as const,
+  },
+  achievementCategories: {
+    all: ['Category'] as const,
+    list: () => ['Category', 'list'] as const,
+  },
+  achievementSubCategories: {
+    all: ['SubCategory'] as const,
+    byCategory: (categoryId: number) => ['SubCategory', 'byCategory', categoryId] as const,
+    list: () => ['SubCategory', 'list'] as const,
+  },
+  achievements: {
+    all: ['Achievement'] as const,
+    list: () => ['Achievement', 'list'] as const,
+  },
+
+  // ── University Committees ────────────────────────────────────────────────
+  committees: {
+    all: ['UnivCommittees'] as const,
+    list: (orgId: number) => ['UnivCommittees', 'list', orgId] as const,
+    active: (orgId: number) => ['UnivCommittees', 'active', orgId] as const,
+    createFormData: () => ['UnivCommittees', 'createFormData'] as const,
+    examSubjects: (examId: number) => ['UnivCommittees', 'examSubjects', examId] as const,
+  },
+  committeePositions: {
+    all: ['UnivCommitteePositions'] as const,
+    list: (orgId: number) => ['UnivCommitteePositions', 'list', orgId] as const,
+    allPositions: () => ['UnivCommitteePositions', 'all'] as const,
+  },
+  committeeMembers: {
+    all: ['UnivCommitteeMembers'] as const,
+    list: (committeeId: number) => ['UnivCommitteeMembers', 'list', committeeId] as const,
+  },
+  committeeMeetings: {
+    all: ['UnivCommitteeMeetings'] as const,
+    scheduled: (committeeId: number, examId: number, academicYear: string) =>
+      ['UnivCommitteeMeetings', 'scheduled', committeeId, examId, academicYear] as const,
+    forFinalise: (committeeId: number, examId: number) =>
+      ['UnivCommitteeMeetings', 'forFinalise', committeeId, examId] as const,
+  },
+  committeeFilters: {
+    members: () => ['CommitteeFilters', 'members'] as const,
+  },
+  remunerationSettings: {
+    all: ['UnivRemunerationSettings'] as const,
+    list: () => ['UnivRemunerationSettings', 'list'] as const,
+  },
+  profileRecruitments: {
+    all: ['UnivCommitteeProfilerecruitments'] as const,
+    list: (orgId: number, committeeId: number, examId: number) =>
+      ['UnivCommitteeProfilerecruitments', 'list', orgId, committeeId, examId] as const,
+    evaluatorProfiles: (examId: number, subjectCode?: string) =>
+      ['UnivCommitteeProfilerecruitments', 'evaluatorProfiles', examId, subjectCode ?? ''] as const,
+  },
+  examinationRemuneration: {
+    all: ['UnivExaminationRemunerationDetails'] as const,
+    list: (examId: number, roleId?: number) =>
+      ['UnivExaminationRemunerationDetails', 'list', examId, roleId ?? 0] as const,
+    univExamFilters: (orgId: number, empId: number) =>
+      ['UnivExaminationRemunerationDetails', 'univExamFilters', orgId, empId] as const,
+    paymentSummary: (orgId: number, monthYear: string, examId: number, roleId?: number) =>
+      ['UnivExaminationRemunerationDetails', 'paymentSummary', orgId, monthYear, examId, roleId ?? 0] as const,
+  },
+
+  // ── Inventory Management ───────────────────────────────────────────────────
+  invStoresMaster: {
+    all: ['InvStoresmaster'] as const,
+    list: () => ['InvStoresmaster', 'list'] as const,
+  },
+  invUoms: {
+    all: ['InvUommaster'] as const,
+    list: () => ['InvUommaster', 'list'] as const,
+  },
+  invSuppliersMaster: {
+    all: ['InvSuppliermaster'] as const,
+    list: () => ['InvSuppliermaster', 'list'] as const,
+  },
+  invItemCategories: {
+    all: ['InvItemcategory'] as const,
+    list: () => ['InvItemcategory', 'list'] as const,
+  },
+  invItemSubCategories: {
+    all: ['InvItemsubcategory'] as const,
+    list: () => ['InvItemsubcategory', 'list'] as const,
+  },
+  invBrands: {
+    all: ['InvBrandmaster'] as const,
+    list: () => ['InvBrandmaster', 'list'] as const,
+  },
+  invItemsMaster: {
+    all: ['InvItemmaster'] as const,
+    list: () => ['InvItemmaster', 'list'] as const,
+  },
+  invOpeningStocks: {
+    all: ['InvItemopeningStock'] as const,
+    list: () => ['InvItemopeningStock', 'list'] as const,
+  },
+  invPurchaseOrders: {
+    all: ['InvPurchaseOrder'] as const,
+    list: () => ['InvPurchaseOrder', 'list'] as const,
+  },
+  invStockReceiptVouchers: {
+    all: ['InvSrv'] as const,
+    list: () => ['InvSrv', 'list'] as const,
+    detail: (srvId: number) => ['InvSrv', 'detail', srvId] as const,
+  },
+  invPurchaseReturns: {
+    all: ['InvPurchasereturn'] as const,
+    list: () => ['InvPurchasereturn', 'list'] as const,
+    detail: (id: number) => ['InvPurchasereturn', 'detail', id] as const,
+  },
+  invInternalIndents: {
+    all: ['InvInternalIndent'] as const,
+    list: () => ['InvInternalIndent', 'list'] as const,
+  },
+  invInternalIssues: {
+    all: ['InvInternalIssue'] as const,
+    list: () => ['InvInternalIssue', 'list'] as const,
+    detail: (id: number) => ['InvInternalIssue', 'detail', id] as const,
+  },
+  invInternalReturns: {
+    all: ['InvInternalReturn'] as const,
+    list: () => ['InvInternalReturn', 'list'] as const,
+    detail: (id: number) => ['InvInternalReturn', 'detail', id] as const,
+  },
+  invStockLedgers: {
+    all: ['InvStockledger'] as const,
+    list: () => ['InvStockledger', 'list'] as const,
+  },
+
+  // ── Finance ────────────────────────────────────────────────────────────────
+  finAccountEntities: {
+    all: ['AccountEntity'] as const,
+    list: () => ['AccountEntity', 'list'] as const,
+    byCollege: (collegeId: number) => ['AccountEntity', 'byCollege', collegeId] as const,
+  },
+  finAccountTypes: {
+    all: ['FinAccountType'] as const,
+    list: () => ['FinAccountType', 'list'] as const,
+    byCollege: (collegeId: number) => ['FinAccountType', 'byCollege', collegeId] as const,
+  },
+  finCategories: {
+    all: ['FinCategory'] as const,
+    list: () => ['FinCategory', 'list'] as const,
+    byCollegeAccountType: (collegeId: number, accountTypeId: number) =>
+      ['FinCategory', 'byCollegeAccountType', collegeId, accountTypeId] as const,
+  },
+  finSubCategories: {
+    all: ['FinSubCategory'] as const,
+    list: () => ['FinSubCategory', 'list'] as const,
+    byCategory: (finCategoryId: number) => ['FinSubCategory', 'byCategory', finCategoryId] as const,
+  },
+  finBankAccounts: {
+    all: ['FinBankAccounts'] as const,
+    list: () => ['FinBankAccounts', 'list'] as const,
+  },
+  finChequeBooks: {
+    all: ['FinChequeBooks'] as const,
+    list: () => ['FinChequeBooks', 'list'] as const,
+  },
+  finMajorAccountTypes: {
+    all: ['MajorAccountType'] as const,
+    list: () => ['MajorAccountType', 'list'] as const,
+  },
+  finTransactions: {
+    all: ['FinTransaction'] as const,
+    list: () => ['FinTransaction', 'list'] as const,
+  },
+  finEntityFilters: (orgId: number, employeeId: number) =>
+    ['FinTransaction', 'entityFilters', orgId, employeeId] as const,
+  finIncomeExpenseTypes: {
+    all: ['INCMEXTRNSTYP'] as const,
+    list: () => ['INCMEXTRNSTYP', 'list'] as const,
+  },
+  finBookReport: (flag: string, params: Record<string, string | number>) =>
+    ['FinBookReport', flag, params] as const,
+  finBudgetReport: (flag: string, params: Record<string, string | number>) =>
+    ['FinBudgetReport', flag, params] as const,
+  finBudgetMidyear: (accountEntityId: number, financialYearId: number) =>
+    ['FinBudgetMidyear', accountEntityId, financialYearId] as const,
+
+  // ── University Wallet ─────────────────────────────────────────────────────
+  univPaymentWallets: {
+    all: ['UnivPaymentWallet'] as const,
+    list: () => ['UnivPaymentWallet', 'list'] as const,
+    byCollege: (collegeId: number) => ['UnivPaymentWallet', 'byCollege', collegeId] as const,
+    byStudent: (studentId: number) => ['UnivPaymentWallet', 'byStudent', studentId] as const,
+  },
+  univPaymentWalletTransactions: {
+    all: ['UnivPaymentWalletTransactions'] as const,
+    list: (walletId?: number) =>
+      walletId !== undefined
+        ? (['UnivPaymentWalletTransactions', 'list', walletId] as const)
+        : (['UnivPaymentWalletTransactions', 'list'] as const),
+  },
 } as const

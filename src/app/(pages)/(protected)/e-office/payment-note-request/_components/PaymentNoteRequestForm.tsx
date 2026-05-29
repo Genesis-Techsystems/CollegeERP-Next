@@ -83,7 +83,14 @@ function calcTotals(lines: ItemLine[], totals: OrderTotals): OrderTotals {
   return { ...totals, poActualAmount, igst, poNetCost }
 }
 
-export function PaymentNoteRequestForm({ poId }: { poId?: number }) {
+export function PaymentNoteRequestForm({
+  poId,
+  listPath = '/e-office/payment-note-request',
+}: {
+  poId?: number
+  /** Route to return to after save/cancel (inventory vs e-office). */
+  listPath?: string
+}) {
   const router = useRouter()
   const { user, isLoading: sessionLoading } = useSessionContext()
   const orgId = resolveOrganizationId(user) || 1
@@ -332,7 +339,7 @@ export function PaymentNoteRequestForm({ poId }: { poId?: number }) {
     },
     onSuccess: () => {
       toastSuccess(isEdit ? 'Purchase order updated.' : 'Purchase order created.')
-      router.push('/e-office/payment-note-request')
+      router.push(listPath)
     },
     onError: (err) => toastError(getErrorMessage(err)),
   })
@@ -612,7 +619,7 @@ export function PaymentNoteRequestForm({ poId }: { poId?: number }) {
               type="button"
               variant="outline"
               className="h-9 min-w-[5.5rem]"
-              onClick={() => router.push('/e-office/payment-note-request')}
+              onClick={() => router.push(listPath)}
             >
               Back
             </Button>

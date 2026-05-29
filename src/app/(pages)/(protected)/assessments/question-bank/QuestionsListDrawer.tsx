@@ -202,7 +202,7 @@ export default function QuestionsListDrawer({
 
   return (
     <Dialog open={bank !== null} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-5xl overflow-hidden border-border bg-slate-100 p-0 [&>button]:right-4 [&>button]:top-4 [&>button]:text-slate-500">
+      <DialogContent className="sm:max-w-5xl overflow-hidden border-border bg-slate-100 p-0 [&>button]:right-4 [&>button]:top-0 [&>button]:h-14 [&>button]:text-slate-500">
         <DialogHeader className="border-b border-border bg-white pt-[30px] pb-3 pl-[48px] pr-6">
           <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-teal-600">
             <ListChecksIcon className="h-4 w-4 text-teal-600" />

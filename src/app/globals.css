@@ -234,6 +234,29 @@
   justify-content: center;
 }
 
+/* University wallet passbook — Angular light-blue table header + search row */
+.wallet-passbook-table .app-data-table > div:first-child {
+  background: transparent;
+  border-bottom: 0;
+  padding: 0 0 0.75rem;
+}
+
+.wallet-passbook-table .app-data-table .ag-theme-quartz {
+  --ag-header-background-color: #e8f4fc;
+  --ag-border-color: #dbeafe;
+  border: 1px solid #dbeafe;
+}
+
+.wallet-passbook-table .app-data-table .ag-theme-quartz .ag-header-cell-text {
+  color: #1e293b;
+  text-transform: none;
+  font-weight: 600;
+}
+
+.wallet-passbook-table .app-data-table > div:last-child {
+  padding-top: 0;
+}
+
 .app-data-table .ag-theme-quartz .ag-pinned-right-header,
 .app-data-table .ag-theme-quartz .ag-pinned-left-header {
   border-color: hsl(var(--border)) !important;

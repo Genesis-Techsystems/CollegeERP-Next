@@ -42,6 +42,8 @@ export type InvInternalIndentRow = {
   internalIndWfStageName?: string
   indentRaisedEmpId?: number
   invTranstypeCatdetId?: number
+  invTranstypeCatdetDisplayName?: string
+  poId?: number
   invInternalIndentitems?: InvInternalIndentItemRow[]
 }
 

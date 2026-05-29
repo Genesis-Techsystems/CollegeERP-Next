@@ -81,6 +81,13 @@ export async function listTrainingStudentsByEmployee(employeeId: number): Promis
   )
 }
 
+export async function listTrainingStudentsByStudent(studentId: number): Promise<TrainingStudent[]> {
+  return domainList<TrainingStudent>(
+    ER.name,
+    buildQuery({ 'studentDetail.studentId': studentId }),
+  )
+}
+
 export async function createTrainingStudent(data: Partial<TrainingStudent>): Promise<TrainingStudent> {
   return domainCreate<TrainingStudent>(ER.name, data)
 }
