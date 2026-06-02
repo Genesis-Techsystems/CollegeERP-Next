@@ -21,6 +21,7 @@ const PAGES: { slug: string; label: string }[] = [
   { slug: 'exam-scan-profile', label: 'Exam scan profile' },
   { slug: 'exam-bundle-print', label: 'Exam bundle print' },
   { slug: 'scan-bundles', label: 'Exam scan bundles' },
+  { slug: 'exam-scan-bundles-print', label: 'Exam scan bundles print' },
   { slug: 'scan-bundle-details', label: 'Scan bundle details' },
   { slug: 'univ-examcenter-question-paper-config', label: 'Question paper config (center)' },
   { slug: 'exam-center-courses', label: 'Exam center courses' },

@@ -499,6 +499,110 @@ export async function listExamBundlesByCode(args: {
   return []
 }
 
+/**
+ * Scan-bundle list for the exam-scan-bundles-print page. Mirrors Angular
+ * `getScanBundles()` (flag `get_exam_scan_bundle`). The scan procs reuse the
+ * consolidated `s_get_exam_center_bycode` SP family (as the existing React scan
+ * pages do); confirm the backend SP routing if rows come back empty.
+ */
+export async function listExamScanBundlesByCode(args: {
+  univExamcenterId: number
+  examGroupId: number
+  academicYearId: number
+  examDate: string
+  questionPaperCode: string
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result?: unknown }>(UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS, {
+    in_flag: 'get_exam_scan_bundle',
+    in_flag_type: 'REGSUP',
+    in_univ_examcenter_id: args.univExamcenterId ?? 0,
+    in_exam_group_id: args.examGroupId ?? 0,
+    in_college_id: 0,
+    in_course_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_academic_year_id: args.academicYearId ?? 0,
+    in_exam_id: 0,
+    in_regulation_id: 0,
+    in_subject_id: 0,
+    in_university_id: 0,
+    in_exam_date: args.examDate,
+    in_questionpaper_code: args.questionPaperCode,
+  })
+  const raw = data?.result
+  if (!Array.isArray(raw)) return []
+  const first = raw[0]
+  if (Array.isArray(first)) return first.filter((r): r is AnyRow => !!r && typeof r === 'object')
+  if (first && typeof first === 'object') return [first as AnyRow]
+  return []
+}
+
+/** Exam scan profiles for an exam group (Angular `getScanProfiles` — flag `exam_scan_profile_details`). */
+export async function listExamScanProfilesByGroup(examGroupId: number): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result?: unknown }>(UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS, {
+    in_flag: 'exam_scan_profile_details',
+    in_flag_type: 'REGSUP',
+    in_university_id: 0,
+    in_univ_examcenter_id: 0,
+    in_exam_group_id: examGroupId ?? 0,
+    in_course_id: 0,
+    in_academic_year_id: 0,
+    in_exam_id: 0,
+    in_college_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_regulation_id: 0,
+    in_subject_id: 0,
+    in_questionpaper_code: '',
+    in_exam_date: '1900-01-01',
+  })
+  const raw = data?.result
+  if (!Array.isArray(raw)) return []
+  const first = raw[0]
+  if (Array.isArray(first)) return first.filter((r): r is AnyRow => !!r && typeof r === 'object')
+  if (first && typeof first === 'object') return [first as AnyRow]
+  return []
+}
+
+/**
+ * Scan-bundle OMR sticker rows (Angular `getPrintStickersData` — flag
+ * `scan_bundle_omr_details`, param `in_scan_bundle_id`). Pass scanBundleId=0
+ * for a bulk print across the current filter selection.
+ */
+export async function getExamScanBundleStickers(args: {
+  univExamcenterId: number
+  examGroupId: number
+  academicYearId: number
+  examDate: string
+  questionPaperCode: string
+  scanBundleId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result?: unknown }>(UNIV_EXAM_CENTER_API.EXAM_CENTER_BUNDLE_BY_CODE, {
+    in_flag: 'scan_bundle_omr_details',
+    in_univ_examcenter_id: args.univExamcenterId ?? 0,
+    in_exam_group_id: args.examGroupId ?? 0,
+    in_college_id: 0,
+    in_course_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_academic_year_id: args.academicYearId ?? 0,
+    in_subject_id: 0,
+    in_regulation_id: 0,
+    in_bundle_number: 0,
+    in_scan_bundle_id: args.scanBundleId ?? 0,
+    in_start_ec_seatno: 0,
+    in_end_ec_seatno: 0,
+    in_exam_date: args.examDate,
+    in_questionpaper_code: args.questionPaperCode,
+  })
+  const raw = data?.result
+  if (!Array.isArray(raw)) return []
+  const first = raw[0]
+  if (Array.isArray(first)) return first.filter((r): r is AnyRow => !!r && typeof r === 'object')
+  if (first && typeof first === 'object') return [first as AnyRow]
+  return []
+}
+
 export async function createUnivEcProfile(payload: Record<string, unknown>): Promise<AnyRow> {
   return domainCreate<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_SCAN_PROFILES, payload)
 }
