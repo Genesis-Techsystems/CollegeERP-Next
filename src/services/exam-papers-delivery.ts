@@ -2,7 +2,7 @@
  * Exam papers delivery — university exam centers, bundles/bags, seating, etc.
  */
 
-import { EXAM_EVAL_API, SETUP_API, UNIV_EXAM_CENTER_API } from '@/config/constants/api'
+import { EXAM_EVAL_API, NEXT_API, SETUP_API, UNIV_EXAM_CENTER_API } from '@/config/constants/api'
 import { AppError } from '@/lib/errors'
 import { getCollegeFilters } from '@/services/exam-master'
 import { buildQuery, domainCreate, domainList, domainSoftDelete, domainUpdate, getAllRecords, postDetails, putDetails } from '@/services/crud'
@@ -601,6 +601,28 @@ export async function getExamScanBundleStickers(args: {
   if (Array.isArray(first)) return first.filter((r): r is AnyRow => !!r && typeof r === 'object')
   if (first && typeof first === 'object') return [first as AnyRow]
   return []
+}
+
+/**
+ * Search students by OMR serial number (Angular `enteredOmr` →
+ * listByIds(searchExamOmrSerialNoUrl, value, 'query')). Used by the scan-bundle
+ * details page to resolve a scanned barcode to a student row.
+ */
+export async function searchExamOmrSerialNo(query: string): Promise<AnyRow[]> {
+  const res = await fetch(NEXT_API.PROXY(`${UNIV_EXAM_CENTER_API.SEARCH_BY_OMR_SERIAL}?query=${encodeURIComponent(query)}`))
+  const body = await res.json().catch(() => null)
+  const data = (body as { data?: unknown })?.data ?? body
+  return Array.isArray(data) ? (data as AnyRow[]) : []
+}
+
+/**
+ * Bulk-assign scanned OMR answer papers to a scan bundle (Angular
+ * `AssignScanBundles` → add(saveUnivExamScanbundleDetailsUrl, details)).
+ * Confirm the endpoint name with the backend if the save no-ops.
+ */
+export async function saveScanBundleDetails(rows: Record<string, unknown>[]): Promise<void> {
+  if (!rows.length) return
+  await postDetails('saveUnivExamScanbundleDetails', rows)
 }
 
 export async function createUnivEcProfile(payload: Record<string, unknown>): Promise<AnyRow> {

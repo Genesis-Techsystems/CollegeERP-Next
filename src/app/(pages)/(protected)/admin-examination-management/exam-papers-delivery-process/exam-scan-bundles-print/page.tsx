@@ -40,7 +40,7 @@ import {
 type Row = AnyRow
 
 const SCAN_DETAILS_ROUTE =
-	'/admin-examination-management/exam-papers-delivery-process/exam-scan-bundle-details'
+	'/admin-examination-management/exam-papers-delivery-process/exam-scan-bundles-print/scan-bundle-details'
 
 const num = (v: unknown): number => {
 	const n = Number(v)
@@ -379,6 +379,8 @@ export default function ExamScanBundlesPrintPage() {
 			examCenterCode: header.examCenterCode,
 			scanBundleId: String(num(row.pk_univ_exam_scan_bundle_id)),
 			scanBundleName: txt(row.scan_bundle_name),
+			bundleNumber: String(num(row.bundle_number)),
+			scannerProfileDetailId: String(num(row.fk_scanner_profiledet_id ?? row.scannerProfileDetailId)),
 		})
 		router.push(`${SCAN_DETAILS_ROUTE}?${qp.toString()}`)
 	}
