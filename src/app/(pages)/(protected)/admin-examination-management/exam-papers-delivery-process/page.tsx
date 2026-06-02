@@ -19,6 +19,7 @@ const PAGES: { slug: string; label: string }[] = [
   { slug: 'univ-exam-bag-transportation', label: 'Bag transportation' },
   { slug: 'univ-exam-bag-collection', label: 'Bag collection' },
   { slug: 'exam-scan-profile', label: 'Exam scan profile' },
+  { slug: 'exam-bundle-print', label: 'Exam bundle print' },
   { slug: 'scan-bundles', label: 'Exam scan bundles' },
   { slug: 'scan-bundle-details', label: 'Scan bundle details' },
   { slug: 'univ-examcenter-question-paper-config', label: 'Question paper config (center)' },

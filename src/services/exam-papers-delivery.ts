@@ -2,7 +2,7 @@
  * Exam papers delivery — university exam centers, bundles/bags, seating, etc.
  */
 
-import { SETUP_API, UNIV_EXAM_CENTER_API } from '@/config/constants/api'
+import { EXAM_EVAL_API, SETUP_API, UNIV_EXAM_CENTER_API } from '@/config/constants/api'
 import { AppError } from '@/lib/errors'
 import { getCollegeFilters } from '@/services/exam-master'
 import { buildQuery, domainCreate, domainList, domainSoftDelete, domainUpdate, getAllRecords, postDetails, putDetails } from '@/services/crud'
@@ -314,6 +314,191 @@ export async function listAllActiveUnivEcProfiles(): Promise<AnyRow[]> {
   return domainList<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_SCAN_PROFILES, buildQuery({ isActive: true }))
 }
 
+// ─── University Exam Center Profiles (UnivEcProfiles entity) ─────────────────
+
+export async function listUnivEcProfilesByCenterAndRole(
+  univExamcenterId: number,
+  profileRoleId: number,
+): Promise<AnyRow[]> {
+  if (!univExamcenterId || !profileRoleId) return []
+  return domainList<AnyRow>(
+    UNIV_EXAM_CENTER_API.EC_PROFILES,
+    buildQuery({
+      'univExamCenters.univExamcenterId': univExamcenterId,
+      'profileRole.roleId': profileRoleId,
+      isActive: true,
+    }),
+  )
+}
+
+export async function listExamEvaluatorProfilesByRole(roleId: number): Promise<AnyRow[]> {
+  if (!roleId) return []
+  return domainList<AnyRow>(
+    EXAM_EVAL_API.EVALUATOR_PROFILES,
+    buildQuery({ 'role.roleId': roleId, isActive: true }),
+  )
+}
+
+export async function addListUnivEcProfiles(payload: Record<string, unknown>[]): Promise<void> {
+  if (!payload.length) return
+  await postDetails(UNIV_EXAM_CENTER_API.ADD_EC_PROFILES, payload)
+}
+
+export async function updateUnivEcProfileRow(
+  univEcPorifleId: number,
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  return domainUpdate<AnyRow>(
+    UNIV_EXAM_CENTER_API.EC_PROFILES,
+    'univEcPorifleId',
+    univEcPorifleId,
+    payload,
+  )
+}
+
+// ─── Exam Center Subject Attendance ──────────────────────────────────────────
+//
+// Angular proc `getExamCenterBundleByCodeUrl` (s_get_examcenter_bundle_bycode)
+// with flag `bundle_omr_details` returns the OMR student list for the chosen
+// exam center + exam date + question paper. The first group is the student list.
+
+export async function getExamCenterBundleByCode(args: {
+  flag: 'bundle_omr_details'
+  univExamcenterId: number
+  examGroupId: number
+  academicYearId: number
+  examDate: string
+  questionPaperCode: string
+  bagId?: number
+  bundleNumber?: number
+  bundleId?: number
+  startEcSeatNo?: number
+  endEcSeatNo?: number
+  collegeId?: number
+  courseId?: number
+  courseGroupId?: number
+  courseYearId?: number
+  subjectId?: number
+  regulationId?: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result?: unknown }>(
+    UNIV_EXAM_CENTER_API.EXAM_CENTER_BUNDLE_BY_CODE,
+    {
+      in_flag: args.flag,
+      in_univ_examcenter_id: args.univExamcenterId ?? 0,
+      in_exam_group_id: args.examGroupId ?? 0,
+      in_college_id: args.collegeId ?? 0,
+      in_course_id: args.courseId ?? 0,
+      in_course_group_id: args.courseGroupId ?? 0,
+      in_course_year_id: args.courseYearId ?? 0,
+      in_academic_year_id: args.academicYearId ?? 0,
+      in_subject_id: args.subjectId ?? 0,
+      in_regulation_id: args.regulationId ?? 0,
+      in_bag_id: args.bagId ?? 0,
+      in_bundle_number: args.bundleNumber ?? 0,
+      in_bundle_id: args.bundleId ?? 0,
+      in_start_ec_seatno: args.startEcSeatNo ?? 0,
+      in_end_ec_seatno: args.endEcSeatNo ?? 0,
+      in_exam_date: args.examDate,
+      in_questionpaper_code: args.questionPaperCode,
+    },
+  )
+  const raw = data?.result
+  if (!Array.isArray(raw)) return []
+  const first = raw[0]
+  if (Array.isArray(first)) return first.filter((r): r is AnyRow => !!r && typeof r === 'object')
+  if (first && typeof first === 'object') return [first as AnyRow]
+  return []
+}
+
+/**
+ * Wider variant of `getExamCenterByCodeRows` that supports the `eg_filters`,
+ * `eg_ec_filters`, `eg_ec_qc_filters` flags used by the subject-attendance page.
+ * Returns the raw groups (Angular `result.data.result` is `AnyRow[][]`), like
+ * `getUnivExamGroupCenterGroups`, so the caller can pick the right group.
+ */
+export async function getExamCenterFilterGroups(args: {
+  flag: 'eg_filters' | 'eg_ec_filters' | 'eg_ec_qc_filters'
+  flagType?: string
+  univExamcenterId?: number
+  examGroupId?: number
+  academicYearId?: number
+  examDate?: string
+  questionPaperCode?: string
+}): Promise<AnyRow[][]> {
+  const data = await getAllRecords<{ result?: unknown }>(UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS, {
+    in_flag: args.flag,
+    in_flag_type: args.flagType ?? 'REGSUP',
+    in_univ_examcenter_id: args.univExamcenterId ?? 0,
+    in_exam_group_id: args.examGroupId ?? 0,
+    in_college_id: 0,
+    in_course_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_academic_year_id: args.academicYearId ?? 0,
+    in_exam_id: 0,
+    in_regulation_id: 0,
+    in_subject_id: 0,
+    in_university_id: 0,
+    in_exam_date: args.examDate ?? '1900-01-01',
+    in_questionpaper_code: args.questionPaperCode ?? '',
+  })
+  const raw = data?.result
+  if (!Array.isArray(raw)) return []
+  return raw.map((g) =>
+    Array.isArray(g)
+      ? (g.filter((r) => r && typeof r === 'object') as AnyRow[])
+      : g && typeof g === 'object'
+        ? [g as AnyRow]
+        : [],
+  )
+}
+
+/** PUT examstudentdetails — Angular `update1(examStudentDetailsUrl, rows)`. */
+export async function saveExamCenterAttendance(rows: Record<string, unknown>[]): Promise<void> {
+  if (!rows.length) return
+  await putDetails('examstudentdetails', rows)
+}
+
+/**
+ * Bundle list for the exam-bundle-print page. Mirrors Angular `getScanBundles()`
+ * — proc `s_get_exam_center_bycode` with flag `get_exam_bundle` and the full
+ * exam-group / center / date / question-paper filter set. Returns the flat
+ * first result group (exam_bundle_name, total_answer_books, start/end_ec_seatno,
+ * pk_univ_exam_bundle_id).
+ */
+export async function listExamBundlesByCode(args: {
+  univExamcenterId: number
+  examGroupId: number
+  academicYearId: number
+  examDate: string
+  questionPaperCode: string
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result?: unknown }>(UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS, {
+    in_flag: 'get_exam_bundle',
+    in_flag_type: 'REGSUP',
+    in_univ_examcenter_id: args.univExamcenterId ?? 0,
+    in_exam_group_id: args.examGroupId ?? 0,
+    in_college_id: 0,
+    in_course_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_academic_year_id: args.academicYearId ?? 0,
+    in_exam_id: 0,
+    in_regulation_id: 0,
+    in_subject_id: 0,
+    in_university_id: 0,
+    in_exam_date: args.examDate,
+    in_questionpaper_code: args.questionPaperCode,
+  })
+  const raw = data?.result
+  if (!Array.isArray(raw)) return []
+  const first = raw[0]
+  if (Array.isArray(first)) return first.filter((r): r is AnyRow => !!r && typeof r === 'object')
+  if (first && typeof first === 'object') return [first as AnyRow]
+  return []
+}
+
 export async function createUnivEcProfile(payload: Record<string, unknown>): Promise<AnyRow> {
   return domainCreate<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_SCAN_PROFILES, payload)
 }
@@ -438,7 +623,7 @@ export async function listRoomsByFilters(
   blockId: number,
   floorId: number,
 ): Promise<AnyRow[]> {
-  const where: Record<string, unknown> = { isActive: true }
+  const where: Record<string, string | number | boolean> = { isActive: true }
   if (buildingId > 0) where['Building.buildingId'] = buildingId
   if (blockId > 0) where['Block.blockId'] = blockId
   if (floorId > 0) where['Floor.floorId'] = floorId
@@ -451,7 +636,7 @@ export async function listUnivExamCenterRoomsByFilters(
   buildingId: number,
 ): Promise<AnyRow[]> {
   if (!examId || !univExamcenterId) return []
-  const where: Record<string, unknown> = {
+  const where: Record<string, string | number | boolean> = {
     'examMaster.examId': examId,
     'univExamcenters.univExamcenterId': univExamcenterId,
     isActive: true,
