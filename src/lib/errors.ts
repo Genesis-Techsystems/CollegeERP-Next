@@ -50,6 +50,13 @@ export function parseApiError(res: Response, body: unknown): AppError {
     if (res.status === 400) {
       return new AppError('VALIDATION_ERROR', springBody.message ?? 'Invalid request data.', body)
     }
+    if (res.status === 502 || res.status === 503) {
+      return new AppError(
+        'SERVICE_UNAVAILABLE',
+        springBody.message ?? 'Backend service is not reachable. Ensure the API server is running and SPRING_API_URL is correct.',
+        body,
+      )
+    }
 
     return new AppError(
       `HTTP_${res.status}`,

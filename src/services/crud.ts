@@ -51,6 +51,11 @@ function domainListRows<T>(body: ApiResponse<unknown> & { resultList?: unknown }
   return [raw as T]
 }
 
+/** Strip accidental `getAllRecords/` prefix — `getAllRecords()` adds it via DOMAIN.PROC. */
+function normalizeProcName(procName: string): string {
+  return procName.startsWith('getAllRecords/') ? procName.slice('getAllRecords/'.length) : procName
+}
+
 /** Stable key for deduping stored-proc GETs (param order–independent). */
 function procGetCacheKey(procName: string, params: Record<string, string | number>): string {
   const keys = Object.keys(params).sort()
@@ -295,6 +300,7 @@ class CrudService {
    * @returns the raw `data` field from the response
    */
   async getAllRecords<T>(procName: string, params: Record<string, string | number>): Promise<T> {
+    procName = normalizeProcName(procName)
     const key = procGetCacheKey(procName, params)
     const now = Date.now()
     const bucket = this.procGetDedupe.get(key) ?? {}
@@ -385,6 +391,31 @@ class CrudService {
     const body: ApiResponse<T> = await res.json()
     if (!body.success) {
       throw new AppError('API_ERROR', body.message ?? `GET ${path} failed`)
+    }
+
+    return body.data as T
+  }
+
+  /**
+   * GET request with path-segment id — Angular `crudService.list(url, id)`.
+   *
+   * @example GET /api/proxy/timingsets/340
+   */
+  async fetchDetailsById<T>(path: string, id: string | number): Promise<T> {
+    let attemptedPath = path
+    let res = await fetch(`${this.base}/${attemptedPath}/${id}`)
+    if (res.status === 404 && /[A-Z]/.test(path)) {
+      attemptedPath = path.toLowerCase()
+      res = await fetch(`${this.base}/${attemptedPath}/${id}`)
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      throw parseApiError(res, body)
+    }
+
+    const body: ApiResponse<T> = await res.json()
+    if (!body.success) {
+      throw new AppError('API_ERROR', body.message ?? `GET ${path}/${id} failed`)
     }
 
     return body.data as T
@@ -531,6 +562,9 @@ export const fetchDetails = <T>(
   path: string,
   params?: Record<string, string | number>,
 ): Promise<T> => crud.fetchDetails<T>(path, params)
+
+export const fetchDetailsById = <T>(path: string, id: string | number): Promise<T> =>
+  crud.fetchDetailsById<T>(path, id)
 
 export const postDetails = <T = void>(path: string, data: unknown): Promise<T> =>
   crud.postDetails<T>(path, data)

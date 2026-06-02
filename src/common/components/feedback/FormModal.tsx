@@ -74,35 +74,43 @@ export function FormModal({
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent
         className={cn(
-          'max-h-[90vh] overflow-y-auto',
+          'flex max-h-[90vh] flex-col overflow-hidden sm:max-h-[92vh]',
           !showCloseButton && '[&>button]:hidden',
           sizeClass[size],
           contentClassName,
         )}
       >
-        <DialogHeader className={cn(showHeaderDivider && 'border-b border-border pb-3')}>
+        <DialogHeader
+          className={cn('shrink-0', showHeaderDivider && 'border-b border-border pb-3')}
+        >
           <DialogTitle className={titleClassName}>{title}</DialogTitle>
           {description && (
             <DialogDescription>{description}</DialogDescription>
           )}
         </DialogHeader>
 
-        <form
-          onSubmit={onSubmit}
-          className={cn('space-y-4 py-2', formClassName)}
-        >
-          {children}
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div
+            className={cn(
+              'min-h-0 flex-1 space-y-4 overflow-y-auto py-2 scrollbar-hidden',
+              formClassName,
+            )}
+          >
+            {children}
+          </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 gap-2 border-t border-border/60 bg-background pt-3 sm:justify-end">
             <Button
               type="button"
               variant="outline"
+              size="sm"
+              className="h-9 min-w-[5.5rem]"
               onClick={onClose}
               disabled={isSubmitting}
             >
               {cancelLabel}
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" size="sm" className="h-9 min-w-[5.5rem]" disabled={isSubmitting}>
               {isSubmitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}

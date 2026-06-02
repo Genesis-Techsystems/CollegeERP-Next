@@ -116,13 +116,16 @@ export function Select({
   }, [open, searchable])
 
   const needle = searchTerm.trim().toLowerCase()
-  const filteredOptions = needle
-    ? options.filter((o) => {
-        const l = o.label.toLowerCase()
-        const v = String(o.value).toLowerCase()
-        return l.includes(needle) || v.includes(needle)
-      })
-    : options
+  // When `onSearch` loads options from the server, skip client-side filtering so
+  // API rows are not hidden when labels use a different shape than the typed term.
+  const filteredOptions =
+    needle && !onSearch
+      ? options.filter((o) => {
+          const l = o.label.toLowerCase()
+          const v = String(o.value).toLowerCase()
+          return l.includes(needle) || v.includes(needle)
+        })
+      : options
 
   function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     const term = e.target.value

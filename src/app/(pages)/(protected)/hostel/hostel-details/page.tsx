@@ -1,0 +1,131 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import { PencilIcon, PlusIcon } from 'lucide-react'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import { DataTable, TableCard } from '@/common/components/table'
+import { EmptyState } from '@/common/components/feedback'
+import { StatusBadge } from '@/common/components/data-display'
+import { getErrorMessage } from '@/lib/errors'
+import { PageContainer } from '@/components/layout'
+import { Button } from '@/components/ui/button'
+import { useCrudList } from '@/hooks/useCrudList'
+import { QK } from '@/lib/query-keys'
+import { rowIndexGetter } from '@/lib/utils'
+import { listHostelDetails } from '@/services'
+import type { HostelDetail } from '@/types/hostel'
+import { HostelPageTitle } from '../_components/HostelPageTitle'
+import { HostelDetailModal } from './HostelDetailModal'
+
+const COL_DEFS = {
+  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<HostelDetail>,
+  hostelCode: { field: 'hostelCode', headerName: 'Code', minWidth: 100 } as ColDef<HostelDetail>,
+  hostelName: { field: 'hostelName', headerName: 'Name', minWidth: 140 } as ColDef<HostelDetail>,
+  noOfFloors: { field: 'noOfFloors', headerName: 'Floors', width: 90, flex: 0 } as ColDef<HostelDetail>,
+  phoneNumber: { field: 'phoneNumber', headerName: 'Phone', minWidth: 110 } as ColDef<HostelDetail>,
+  hstlForCatdetCode: { field: 'hstlForCatdetCode', headerName: 'For', minWidth: 90 } as ColDef<HostelDetail>,
+  hostelTypeCode: { field: 'hostelTypeCode', headerName: 'Type', minWidth: 90 } as ColDef<HostelDetail>,
+  orgCode: { field: 'orgCode', headerName: 'Org', minWidth: 90 } as ColDef<HostelDetail>,
+  isActive: { field: 'isActive', headerName: 'Status', minWidth: 100, flex: 0 } as ColDef<HostelDetail>,
+  actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<HostelDetail>,
+}
+
+function statusRenderer(p: ICellRendererParams<HostelDetail>) {
+  return <StatusBadge status={p.data?.isActive ?? false} />
+}
+
+function makeActionsRenderer(
+  setEditing: (row: HostelDetail | null) => void,
+  setModalOpen: (open: boolean) => void,
+) {
+  return (p: ICellRendererParams<HostelDetail>) => (
+    <Button
+      size="sm"
+      variant="ghost"
+      className="h-8 w-8 p-0"
+      onClick={() => {
+        setEditing(p.data ?? null)
+        setModalOpen(true)
+      }}
+    >
+      <PencilIcon className="h-3.5 w-3.5" />
+    </Button>
+  )
+}
+
+export default function HostelDetailsPage() {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<HostelDetail | null>(null)
+
+  const { data: rows, isLoading, isError, error, refetch, invalidate } = useCrudList({
+    queryKey: QK.hostel.details(),
+    queryFn: listHostelDetails,
+  })
+
+  const columnDefs = useMemo<ColDef<HostelDetail>[]>(
+    () => [
+      COL_DEFS.siNo,
+      COL_DEFS.hostelCode,
+      COL_DEFS.hostelName,
+      COL_DEFS.noOfFloors,
+      COL_DEFS.phoneNumber,
+      COL_DEFS.hstlForCatdetCode,
+      COL_DEFS.hostelTypeCode,
+      COL_DEFS.orgCode,
+      { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
+      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditing, setModalOpen) },
+    ],
+    [],
+  )
+
+  return (
+    <PageContainer className="space-y-5">
+      <HostelPageTitle title="Hostel Details" />
+
+      <TableCard withHeaderBorder={false}>
+        {isError ? (
+          <EmptyState
+            title="Could not load hostels"
+            description={getErrorMessage(error)}
+            action={{ label: 'Retry', onClick: () => void refetch() }}
+          />
+        ) : (
+          <DataTable
+            rowData={rows}
+            columnDefs={columnDefs}
+            loading={isLoading}
+            pagination
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search hostels…',
+              exportPdf: true,
+              pdfDocumentTitle: 'Hostel Details',
+            }}
+            toolbarTrailing={
+              <Button
+                type="button"
+                size="sm"
+                className="h-[30px] px-3 text-[12px]"
+                onClick={() => {
+                  setEditing(null)
+                  setModalOpen(true)
+                }}
+              >
+                <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
+                Add Hostel
+              </Button>
+            }
+            height="auto"
+          />
+        )}
+      </TableCard>
+
+      <HostelDetailModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        row={editing}
+        onSaved={() => void invalidate()}
+      />
+    </PageContainer>
+  )
+}

@@ -1,4 +1,6 @@
 import type { Module, SubModule, Page, NavItem } from '@/types/navigation'
+import { ensureErpModuleNavChildren, mapErpModuleNavRoute } from './erp-modules-navigation'
+import { ensureTimetableNavChildren, mapTimetableNavRoute } from './timetable-navigation'
 
 /**
  * Removes any doubled leading segment from a URL path.
@@ -74,6 +76,11 @@ export function normalizeHref(path: string): string {
       /\/admin-examination-management\/admin-exam-masters\/exam-re-valuation-fee-setup/gi,
       '/admin-examination-management/admin-exam-masters/re-valuation-fee-setup',
     )
+    // Angular exam-grades folder → App Router grade-setup slug.
+    .replace(
+      /\/admin-examination-management\/admin-exam-masters\/exam-grades(?=\/|$)/gi,
+      '/admin-examination-management/admin-exam-masters/grade-setup',
+    )
     // Legacy post-examination attendance slugs → canonical App Router paths (sidebar active state + links).
     .replace(
       /\/admin-examination-management\/post-examination\/staff-internal-attendance-marking(?=\/|$)/i,
@@ -90,6 +97,73 @@ export function normalizeHref(path: string): string {
     // Angular Assessments module folder typo `assissments` → canonical `assessments`.
     .replace(/\/apps\/assissments\//gi, '/assessments/')
     .replace(/\/assissments\//gi, '/assessments/')
+    // Angular Accounts & Fees module (`accounts-fees` in router) → App Router path.
+    .replace(/\/accounts-fees\//gi, '/accounts-and-fees/')
+    .replace(/\/apps\/accounts-and-fees\//gi, '/accounts-and-fees/')
+    // Angular Scholarship Management module → App Router path.
+    .replace(/\/apps\/scholarship-management\//gi, '/scholarship-management/')
+    .replace(/\/scholarship\//gi, '/scholarship-management/')
+    // Angular Admission module → App Router path (`enquiry-form` folder routes as `enquiries`).
+    .replace(/\/apps\/admission\//gi, '/admission/')
+    .replace(/\/admission\/enquiry-form\//gi, '/admission/enquiries/')
+    // Angular Accounts & Fees — hostel payment (Student Fee Collection).
+    .replace(/\/fees-collection\/hostel-payment(?=\/|$)/gi, '/accounts-and-fees/fees-collection/hostel-payment')
+    .replace(
+      /\/fees-collection\/hostel-payment\/hostel-fee-payment/gi,
+      '/accounts-and-fees/fees-collection/hostel-payment/hostel-fee-payment',
+    )
+    .replace(
+      /\/fees-collection\/hostel-payment\/hostel-fee-list/gi,
+      '/accounts-and-fees/fees-collection/hostel-payment/hostel-fee-payment',
+    )
+    // Angular Wallet module — legacy slugs map to Angular-parity App Router paths.
+    .replace(/\/wallet\/university-wallet-transactions(?=\/|$)/gi, '/wallet/university-payment-wallet-transactions')
+    .replace(/\/wallet\/wallet-transactions(?=\/|$)/gi, '/wallet/university-payment-wallet-transactions')
+    .replace(/\/wallet\/university-wallet-recharge(?=\/|$)/gi, '/wallet/recharge-wallet')
+    // Angular Admin institutional masters → App Router admin pages.
+    .replace(/\/institutional-masters\/rooms-type(?=\/|$)/gi, '/admin/room-types')
+    .replace(/\/institutional-masters\/rooms(?=\/|$)/gi, '/admin/rooms')
+    .replace(/\/institutional-masters\/room-details(?=\/|$)/gi, '/admin/room-details')
+    .replace(/\/institutional-masters\/room-detail(?=\/|$)/gi, '/admin/room-details')
+    // Angular E-Office module (`Office/` menu prefix) → App Router path.
+    .replace(/\/Office\//gi, '/e-office/')
+    .replace(/\/apps\/e-office\//gi, '/e-office/')
+    // Angular Affiliated Colleges module → App Router path.
+    .replace(/\/apps\/affiliated-colleges\//gi, '/affiliated-colleges/')
+    // Angular Attendance Management → App Router path.
+    .replace(/\/admin-attendance-management\//gi, '/attendance-management/')
+    .replace(/\/apps\/admin-attendance-management\//gi, '/attendance-management/')
+    .replace(/\/staff-classes\/attendance-update\//gi, '/attendance-management/mark-attendance/')
+    .replace(/\/exam-attendance\//gi, '/attendance-management/exam-attendance/')
+    // Angular Mentorship / Counseling → App Router path.
+    .replace(/\/staff-mentorship\//gi, '/mentorship/')
+    .replace(/\/admin-counseling\//gi, '/mentorship/')
+    // Angular Library module → App Router path.
+    .replace(/\/apps\/library\//gi, '/library/')
+    .replace(/\/pages\/library\//gi, '/library/')
+    // Angular Notifications & Announcements (`notifications-&-announcements`) → App Router path.
+    .replace(/\/notifications-&-announcements\//gi, '/notifications-and-announcements/')
+    .replace(/\/notifications-%26-announcements\//gi, '/notifications-and-announcements/')
+    .replace(
+      /\/notifications-&-announcements$/i,
+      '/notifications-and-announcements/employee-inbox',
+    )
+    // Student my notifications → App Router path.
+    .replace(/\/student-communications\/student-announcements\/?/gi, '/my-notifications/')
+    // Angular Timetable module (`/apps/timetable/` or nested `timetable/` segment) → App Router path.
+    .replace(/\/apps\/time-table\//gi, '/time-table-management/')
+    .replace(/\/apps\/timetable\//gi, '/time-table-management/')
+    .replace(/\/time-table-management\/timetable\//gi, '/time-table-management/')
+    .replace(/^\/timetable\//i, '/time-table-management/')
+    // Legacy/hash paths that pointed at SIS student-subjects but belong to Affiliated Colleges.
+    .replace(
+      /\/affiliated-colleges\/student-subjects(?=\/|$)/gi,
+      '/affiliated-colleges/assign-student-subjects',
+    )
+    .replace(
+      /\/apps\/affiliated-colleges\/student-subjects(?=\/|$)/gi,
+      '/affiliated-colleges/assign-student-subjects',
+    )
     // Angular module prefix `/apps/user-management/` → App Router path.
     .replace(/\/apps\/user-management\//gi, '/user-management/')
     // Angular Email & SMS app folder → Next routes.
@@ -210,6 +284,24 @@ export function normalizeHref(path: string): string {
       /\/user-management\/examination-account(?=\/|$)/i,
       '/user-management/examination-accounts',
     )
+    // Placements & Achievements — Angular `placement-companies` / legacy component slug.
+    .replace(/\/apps\/placements-achievements\//gi, '/placements-achievements/')
+    .replace(
+      /\/placements-achievements\/placements\/company-placements-requirements(?=\/|$)/gi,
+      '/placements-achievements/placements/placement-companies',
+    )
+    .replace(
+      /\/placements-achievements\/company-placements-requirements(?=\/|$)/gi,
+      '/placements-achievements/placements/placement-companies',
+    )
+    .replace(
+      /\/placements-achievements\/placements\/placement-registered-studentslist(?=\/|$)/gi,
+      '/placements-achievements/placements/placement-registered-list',
+    )
+    .replace(
+      /\/placements-achievements\/placement-registered-studentslist(?=\/|$)/gi,
+      '/placements-achievements/placements/placement-registered-list',
+    )
 
   // Normalize slashes and trim trailing slash.
   raw = raw.replace(/\/{2,}/g, '/').replace(/\/$/, '')
@@ -289,9 +381,25 @@ function overrideLegacyPostExamHref(href: string, label: string): string {
   return href
 }
 
+function overrideTimetableHref(href: string, pageLabel: string): string {
+  const mapped = mapTimetableNavRoute(href, pageLabel)
+  return mapped ?? href
+}
+
+function overrideErpModuleHref(href: string, pageLabel: string): string {
+  const mapped = mapErpModuleNavRoute(href, pageLabel)
+  return mapped ?? href
+}
+
 function normalizePageHref(href: string, pageLabel: string): string {
   return normalizeHref(
-    overrideLegacyPostExamHref(overrideLegacyPreExamHref(href, pageLabel), pageLabel),
+    overrideErpModuleHref(
+      overrideTimetableHref(
+        overrideLegacyPostExamHref(overrideLegacyPreExamHref(href, pageLabel), pageLabel),
+        pageLabel,
+      ),
+      pageLabel,
+    ),
   )
 }
 
@@ -312,17 +420,67 @@ function normalizePageHref(href: string, pageLabel: string): string {
  *   href built from moduleName/submoduleName/page.url parts
  * - Default icon: modules → 'dashboard', pages → 'arrow_forward'
  */
+function normalizeModuleKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+/** Attach top-level `pages[]` entries to their parent module (Spring often sends them separately). */
+function mergeFlatPagesIntoModules(modules: Module[], flatPages: Page[]): Module[] {
+  if (!flatPages.length) return modules
+
+  return modules.map((module) => {
+    const moduleKeys = new Set([
+      normalizeModuleKey(module.moduleName),
+      normalizeModuleKey(module.displayName ?? ''),
+    ])
+    const attached = flatPages.filter((page) => {
+      if (page.moduleId != null && page.moduleId === module.moduleId) return true
+      const pageKey = normalizeModuleKey(page.moduleName ?? '')
+      return pageKey.length > 0 && moduleKeys.has(pageKey)
+    })
+    if (attached.length === 0) return module
+
+    const existingIds = new Set((module.pages ?? []).map((p) => p.pageId))
+    const mergedPages = [...(module.pages ?? [])]
+    for (const page of attached) {
+      if (!existingIds.has(page.pageId)) mergedPages.push(page)
+    }
+    return { ...module, pages: mergedPages }
+  })
+}
+
+/** Pages that are not linked to any module — shown as top-level nav items. */
+function getOrphanPages(flatPages: Page[], modules: Module[]): Page[] {
+  return flatPages.filter((page) => {
+    if (page.moduleId != null) {
+      return !modules.some((m) => m.moduleId === page.moduleId)
+    }
+    const pageKey = normalizeModuleKey(page.moduleName ?? '')
+    if (!pageKey) return true
+    return !modules.some((m) => {
+      const keys = [normalizeModuleKey(m.moduleName), normalizeModuleKey(m.displayName ?? '')]
+      return keys.includes(pageKey)
+    })
+  })
+}
+
 export function buildNavTree(modules: Module[], pages: Page[]): NavItem[] {
-  const hasModules = modules && modules.length > 0
-  const hasPages = pages && pages.length > 0
+  const safeModules = modules ?? []
+  const safePages = pages ?? []
+  const hasModules = safeModules.length > 0
+  const hasPages = safePages.length > 0
 
   if (!hasModules && hasPages) {
-    return buildStandalonePages(pages)
+    return ensureErpModuleNavChildren(ensureTimetableNavChildren(buildStandalonePages(safePages)))
   }
 
   if (!hasModules) return []
 
-  return buildModuleTree(modules, pages)
+  const mergedModules = mergeFlatPagesIntoModules(safeModules, safePages)
+  const orphanPages = getOrphanPages(safePages, mergedModules)
+  return ensureErpModuleNavChildren(
+    ensureTimetableNavChildren(buildModuleTree(mergedModules, orphanPages)),
+  )
 }
 
 /** addPagesToNavigation path — flat pages with no module grouping */

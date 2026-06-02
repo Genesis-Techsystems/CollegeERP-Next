@@ -101,8 +101,10 @@ export function SearchInput({
     }
   }, [isControlled, value])
 
-  // Debounce: schedule onChange after the user stops typing.
+  // Debounce: schedule onChange after the user stops typing (skipped in instant mode).
   useEffect(() => {
+    if (resolvedDebounceMs === 0) return
+
     timerRef.current = setTimeout(() => {
       onChange(localValue)
     }, resolvedDebounceMs)
@@ -118,7 +120,13 @@ export function SearchInput({
     if (timerRef.current !== null) {
       clearTimeout(timerRef.current)
     }
-    setLocalValue(e.target.value)
+    const term = e.target.value
+    setLocalValue(term)
+    // Instant mode: notify parent synchronously so actions (e.g. Search buttons)
+    // see the latest text without waiting for a debounced effect tick.
+    if (resolvedDebounceMs === 0) {
+      onChange(term)
+    }
   }
 
   // Bypass debounce on clear: reset immediately and refocus.

@@ -404,6 +404,12 @@ export const EMPLOYEE_API = {
   POP_PROFILE_EMPLOYEES: 'getAllRecords/s_pop_profile_employees',
   /** GET: new employee list */
   GET_NEW_EMPLOYEE_LIST: 'getAllRecords/s_get_new_employee_list',
+  /** CRUD: EmployeeDetail — staff list (HR employee list) */
+  EMPLOYEE_DETAIL: 'EmployeeDetail',
+  /** GET: employee typeahead (`cms/employeesearch?q=&empStatus=ACTV`, optional `collegeId`). */
+  EMPLOYEE_SEARCH: 'cms/employeesearch',
+  /** GET: employee details by user id — `employeedetailsbyid?userId=` */
+  DETAILS_BY_USER_ID: 'employeedetailsbyid',
 } as const
 
 // ─── Fee / Payment Management ────────────────────────────────────────────────
@@ -443,6 +449,50 @@ export const FEE_API = {
   CERTIFICATE_ISSUE_AMOUNT: 'feeCertificateIssueAmount',
   /** GET: student certificate details */
   GET_STUDENT_CERT_DETAILS: 'getAllRecords/s_get_student_certificate_details',
+  /** GET: paginated college fee structures (batch or academic year mode) */
+  FEE_STRUCTURES_LIST: 'feestructures',
+  /** GET: paginated student fee due list (batch/academic filters). */
+  STUDENT_FEE_LIST: 'studentfeelist',
+  /** GET: student search for fee payment (`q` query param). */
+  STUDENT_FEE_SEARCH: 'studentsearch',
+  /** GET: fee student data for payment screen (`feestudentdata`). */
+  FEE_STUDENT_DATA: 'feestudentdata',
+  /** GET: financial year for receipt date (`financialYearDate`). */
+  FINANCIAL_YEAR_DATE: 'financialYearDate',
+  /** PUT: recalculate fee transactions after particulars change. */
+  GENERATE_TRANSACTIONS: 'generateTransactions',
+  /** POST: save fee receipt / payment. */
+  FEE_RECEIPTS: 'feereceipts',
+  /** GET: student fee receipt PDF download (`?studentId=`). */
+  STUDENT_FEE_RECEIPT_DOWNLOAD: 'studentFeeReceiptDownload',
+  /** GET: paginated fee concession list. */
+  FEE_CONCESSION_LIST: 'feeconsessionlist',
+  /** POST: add institutional scholarship / student-wise fee discount. */
+  FEE_STUDENT_WISE_DISCOUNT: 'feestudentwisediscounts',
+  /** POST: map fee structure to students. */
+  MAP_FEE_STRUCTURE: 'mapfeestructure',
+  /** GET: pop-up student fee structures proc. */
+  POP_STUDENT_FEE_STRUCTURE: 'getAllRecords/s_pop_student_fee_Structure',
+  /** GET: fee structures by course year for student mapping. */
+  FEE_STRUCTURE_COURSEYR: 'FeeStructureCourseyr',
+  /** GET: fee management student detail. */
+  FEE_MANAGEMENT_STUDENT_DETAIL: 'feeManagmentStudentdDetail',
+  /** GET: fee management student details search. */
+  FEE_MANAGEMENT_SEARCH: 'feeManagementStdDetailSearch',
+  /** POST: save student fee management row(s). */
+  FEE_MANAGEMENT_SAVE: 'feeManagmentStdDetail',
+  /** GET: fee due list for pay-link / notifications. */
+  FEE_DUE_LIST: 'getAllRecords/s_fee_due_list',
+  /** POST: send payment mail with due list. */
+  SEND_PAYMENT_MAIL: 'sendPaymentMailNotification',
+  /** GET: employee typeahead (`cms/employeesearch?q=&empStatus=ACTV` — Angular base URL includes `/cms`). */
+  EMPLOYEE_SEARCH: 'cms/employeesearch',
+  /** GET: transport allocation by employee. */
+  TRANSPORT_ALLOCATION: 'TransportAllocation',
+  /** GET: sync initiated online fee payments. */
+  UPDATE_INITIATED_PAYMENTS: 'PayPhi/updateInitiatedPayments',
+  /** GET: sync initiated admission online payments. */
+  UPDATE_INITIATED_PAYMENTS_ADMISSION: 'PayPhi/updateInitiatedPaymentsForAdmission',
   /** GET: fee due notifications */
   GET_FEE_DUE_NOTIFICATIONS: 'getAllRecords/s_get_fee_duenotifications',
   /** GET: fee summary */
@@ -471,6 +521,103 @@ export const FEE_API = {
   STG_ONLINE_FEE_RECEIPTS: 'stgOnlineFeereceipts',
   /** POST: staging online exam fee receipts */
   STG_ONLINE_EXAM_FEE_RECEIPTS: 'stgOnlineExamFeeReceipts',
+} as const
+
+// ─── Scholarship Management ────────────────────────────────────────────────────
+
+export const SCHOLARSHIP_API = {
+  /** Domain list: student scholarship applications by college + academic year. */
+  SCH_STD_APPLICATION: 'SchStdApplication',
+  /** POST: create scholarship application. */
+  SCHOLARSHIP_APP: 'scholarshipapp',
+  /** Domain CRUD: scholarship types. */
+  SCHOLARSHIP_TYPE: 'ScholarshipType',
+  /** Domain CRUD: scholarship values (legacy modal). */
+  SCHOLARSHIP_VALUE: 'ScholarshipValue',
+  /** Domain list: fee scholarship structures. */
+  FEE_SCH_STRUCTURE: 'FeeSchStructure',
+  /** Domain: proceeding header. */
+  SCH_PRECEEDING: 'SchPreceeding',
+  /** GET paginated: proceedings list. */
+  SCH_PRECEEDINGS: 'schpreceedings',
+  /** Domain: student proceeding lines. */
+  SCH_STD_PRECEEDING: 'schstdpreceeding',
+  /** Domain update: student proceeding payment settlement. */
+  SCH_STD_PRECEEDING_CRUD: 'SchStdPreceeding',
+  /** Domain list: account proceedings. */
+  SCH_ACCOUNTS_PRECEEDING: 'SchAccountsPreceeding',
+  /** GET/POST: account proceedings CRUD. */
+  SCH_ACCOUNTS_PRECEEDINGS: 'schaccountspreceedings',
+  /** GET: proceedings linked to account batch. */
+  SCH_PRECEEDINGS_BY_ACC: 'schPreceedingsByAccPrecedingId',
+  /** POST: upload student proceedings Excel. */
+  UPLOAD_STD_PRECEEDINGS: 'uploadstdpreceedings',
+  /** Domain: staging student proceedings. */
+  SCH_STG_STD_PRECEEDING: 'SchStgStdPreceeding',
+  SCH_STG_STD_PRECEEDINGS: 'schstgstdpreceedings',
+  /** GET: unlinked proceedings for account batch. */
+  GET_NULL_PRECEEDINGS: 'getnullpreceedings',
+  /** GET: scholarship types + values for assign screen. */
+  GET_SCHOLARSHIP_TYPE_AND_VALUES: 'getScholarshipTypeAndValues',
+  /** GET: students with scholarship assignment state. */
+  GET_STUDENTS_SCHOLARSHIP_DETAILS: 'getStudentsScholarshipDetails',
+  /** POST: assign/unassign student scholarship. */
+  UPDATE_STD_STUDENT_SCHOLARSHIP: 'updateStdStudentScholarship',
+  /** GET: college-wise filter proc (same as fee masters). */
+  COLLEGE_WISE_DETAILS: 'collegeWiseDetails',
+} as const
+
+// ─── Library ─────────────────────────────────────────────────────────────────
+
+export const LIBRARY_API = {
+  LIBRARY_DETAIL: 'LibraryDetail',
+  LIBRARY_DETAIL_BY_ID: 'libraryId',
+  BOOK_PURCHASE: 'BookPurchaseDetail',
+  BOOK_PURCHASE_BY_ID: 'bookPurchaseDetailId',
+  UPDATE_BOOK_DETAILS: 'updateBookDetails',
+  MEMBERSHIP: 'MemberShip',
+  MEMBERSHIP_BY_ID: 'MemberShipId',
+  MEMBER_SEARCH: 'libraryMemberSearch',
+  NO_MEMBERSHIP: 'nolibmembership',
+  EMPLOYEES_LIB_MEMBERSHIP: 'employeesLibmemberShip',
+  SUPPLIER: 'LibSupplierDetail',
+  SUPPLIER_BY_ID: 'supplierId',
+  BOOK_CATEGORY: 'Bookcategory',
+  LIBRARY_CATEGORY: 'LibraryCategory',
+  BOOK_CATEGORY_BY_ID: 'bookcatId',
+  AUTHOR: 'Author',
+  AUTHOR_BY_ID: 'AuthorId',
+  PUBLISHER: 'Publisher',
+  PUBLISHER_BY_ID: 'PublisherId',
+  BOOK_BY_ID: 'BookId',
+  ADD_BOOK: 'addbook',
+  ADD_NEW_BOOKS: 'addnewbooks',
+  BOOK_DETAIL: 'BookDetail',
+  BOOK_DETAILS_BY_ID: 'bookDetailsId',
+  PERIODICAL: 'Periodical',
+  PERIODICAL_BY_ID: 'periodicalId',
+  PERIODICALS: 'periodicals',
+  PERIODICALS_DETAIL: 'PeriodicalsDetail',
+  PERIODICAL_DET_BY_ID: 'periodicalDetId',
+  RACK: 'LibShelve',
+  RACK_BY_ID: 'shelveId',
+  LIB_MEMBER: 'LibMember',
+  LIB_MEMBER_BY_ID: 'libMemberId',
+  BOOK_ISSUE_DETAILS: 'bookIssuedetails',
+  BOOK_ISSUE_DETAIL: 'BookIssuedetail',
+  BOOK_ISSUE_BY_ID: 'bookIssuedetailsId',
+  BOOK_RETURN_SEARCH: 'bookReturnSearch',
+  BOOK_DUE_LIST: 'bookduelist',
+  BOOK_SEARCH: 'booksearch',
+  BOOK_DETAIL_SEARCH: 'bookdetailsearch',
+  RESERVE_BOOK: 'ReserveBook',
+  LIBRARY_SETTING: 'LibrarySetting',
+  LIB_SETTINGS_BY_ID: 'libSettingsId',
+  LIBRARY_SETTINGS_ALT: 'libraryssettings',
+  GENERATE_BOOK_BARCODE: 'generateBarcodeForBooks',
+  GENERATE_MEMBER_BARCODE: 'generateLibMemebrBarcode',
+  FINE_COLLECTION: 'getAllRecords/s_rep_lib_fee_collection',
+  BOOK: 'Book',
 } as const
 
 // ─── Payment Gateways ────────────────────────────────────────────────────────
@@ -671,6 +818,96 @@ export const LEAVE_API = {
   EMP_ATTENDANCE_VALIDATION: 'getAllRecords/s_rep_emp_attendance_validation',
 } as const
 
+// ─── HR & Payroll ────────────────────────────────────────────────────────────
+
+export const HR_PAYROLL_API = {
+  /** CRUD: EmpDeptHeads */
+  DEPT_HEADS: 'EmpDeptHeads',
+  /** CRUD: PayrollCategory */
+  PAYROLL_CATEGORY: 'PayrollCategory',
+  /** POST: create / update payroll category (Angular `payRollCategoryUrl`) */
+  PAYROLL_CATEGORY_SAVE: 'payrollcategory',
+  /** POST: create / update payroll category (Angular `payRollCategoryUrl`) */
+  PAYROLL_CATEGORY_SAVE: 'payrollcategory',
+  /** GET: payroll groups master list */
+  PAYROLL_GROUPS: 'payrollgroups',
+  /** POST: create / update payroll group (Angular `payrollGroupUrl`) */
+  PAYROLL_GROUP_SAVE: 'payrollgroups',
+  /** CRUD: PayslipSetting */
+  PAYSLIP_SETTING: 'PayslipSetting',
+  /** CRUD: PayrollCategoryGroup */
+  PAYROLL_CATEGORY_GROUP: 'PayrollCategoryGroup',
+  /** CRUD: EmployeePayrollGroup */
+  EMPLOYEE_PAYROLL_GROUP: 'employeepayrollgroup',
+  /** POST: calculate payroll */
+  CALCULATE_PAYROLL: 'calculatepayroll',
+  /** GET: staff payroll list report */
+  STAFF_PAYROLL_LIST: 'getAllRecords/s_staff_payroll_list',
+  /** GET: payroll bank statement */
+  PAYROLL_BANK_STATEMENT: 'getAllRecords/s_rep_payroll_bank_statement',
+  /** GET: pre-payroll audit */
+  PRE_PAYROLL_AUDIT: 'getAllRecords/s_pre_payroll_audit_report',
+  /** GET: PBAS assessment form questions */
+  GET_EMP_PERF_ASSESSMENT: 'getEmpPerAssessment',
+  /** POST: save assessment feedback */
+  ADD_ASSESSMENT_FEEDBACK: 'addFeedback',
+  /** Stored procs — university upload approval (shared naming with affiliated colleges) */
+  UNIV_UPLOADS_APPROVAL: 'getAllRecords/s_get_univ_uploads_approval',
+  UNIV_UPLOAD_STD_BULK: 'getAllRecords/s_pop_univ_upload_std_bulk',
+  /** GET: paginated biometric shift rows (`?status=1&page=&size=` + optional `collegeId`) */
+  SHIFT_DETAILS: 'shiftdetails',
+  /** POST: save employee shift assignments */
+  EMPLOYEE_SHIFTS: 'employeeshifts',
+  /** PUT: batch update LOP salary structure amounts */
+  UPDATE_LOP: 'updateEmployeeSalaryStructure',
+  /** GET: payslips for a generation date */
+  EMP_PAYSLIP_BY_DATE: 'employeepayslipgenerationsbydate',
+  /** POST: generate monthly payslips for college/department */
+  PAYSLIP_GENERATIONS: 'payslipgenerations',
+  /** POST: email payslips for college/department */
+  PAYSLIP_EMAIL: 'payslipgenerationmails',
+} as const
+
+// ─── Affiliated Colleges ───────────────────────────────────────────────────────
+
+export const AFFILIATED_COLLEGES_API = {
+  COLLEGE_WISE_DETAILS: 'getAllRecords/s_get_collegewisedetails_bycode',
+  UNIV_UPLOAD_BULK: 'getAllRecords/s_pop_univ_upload_std_bulk',
+  AFFILIATED_COLLEGE_SUMMARY: 'getAllRecords/s_get_affilated_college_summary_details',
+  UNIV_COLLEGE_WISE_PAYMENTS: 'UnivCollegeWisePayments',
+  AFFILIATED_STD_DETAILS: 'getAffiliatedStdDetails',
+  STUDENT_SUBJECTS_BY_UPLOAD: 'tables/getStudentSubjects',
+  STUDENT_ATTENDANCE_BY_UPLOAD: 'getStudentAttendance',
+  UNIV_STG_EXAM_STD_FEE: 'getUnivStgExamStdFee',
+  UNIVERSITY_APPROVAL: 'getUniversitieApproval',
+  UNIV_UPLOADS_APPROVAL: 'getAllRecords/s_get_univ_uploads_approval',
+} as const
+
+// ─── E-Office (inventory / letter formats) ───────────────────────────────────
+
+export const FINANCE_API = {
+  /** Angular `uploadVoucherUrl` — multipart voucher upload after transaction save. */
+  UPLOAD_TRANSACTION_VOUCHER: 'finTransaction/uploadVoucherUrl',
+  FIN_REPORTS: 's_fin_reports_bycode',
+  FIN_BUDGET_DETAILS: 's_get_fin_budgetdetails_bycode',
+  ADD_MULTIPLE_FIN_BUDGET_MIDYEAR: 'addMultipleFinBudgetMidyearEstimations',
+  UPDATE_FIN_BUDGET_ALLOC: 'updatefinbudgetalloc',
+  ADD_FIN_BUDGET_ALLOC_LIST: 'addFinBudgetAllocationList',
+} as const
+
+export const E_OFFICE_API = {
+  INV_PO: 'invPO',
+  UPDATE_INV_PURCHASE_ORDER: 'updateInvPurchaseOrder',
+  INV_SRV: 'invsrv',
+  INV_PURCHASE_RETURN: 'purchasereturns',
+  INV_INTERNAL_INDENT: 'invInternalIndent',
+  UPDATE_INV_INTERNAL_INDENT: 'updateInvInternalIndent',
+  INV_INTERNAL_ISSUE: 'invinternalissue',
+  INV_INTERNAL_RETURN: 'invinternalreturn',
+  FIN_BUDGET_DETAILS: 's_get_fin_budgetdetails_bycode',
+  FIN_DETAILS: 's_get_financialdetails_bycode',
+} as const
+
 // ─── Subject / Regulation ────────────────────────────────────────────────────
 
 export const SUBJECT_API = {
@@ -773,6 +1010,10 @@ export const DASHBOARD_API = {
 // ─── Attendance ──────────────────────────────────────────────────────────────
 
 export const ATTENDANCE_API = {
+  /** Angular `attendanceNotTakenStaffUrl` — staff who did not mark attendance for a dept/date. */
+  S_REP_ATTENDANCE_NOT_TAKEN_STAFF: 's_rep_attendance_not_taken_staff',
+  /** Angular `downloadAttendanceNotTakenListUrl` — Excel export for the same proc. */
+  DOWNLOAD_STAFF_NOT_MARKED: 'downloadattendancenottakenlist/s_rep_attendance_not_taken_staff',
   /** GET: emp attendance summary */
   EMP_ATTENDANCE_SUMMARY: 'getAllRecords/s_get_emp_attendance_summary',
   /** GET: std attendance summary */
@@ -783,6 +1024,27 @@ export const ATTENDANCE_API = {
   GET_DAYWISE_STD_ATTENDANCE: 'getAllRecords/s_get_daywise_std_attendance_summary',
   /** GET: class wise student attendance summary */
   GET_CLASSWISE_STD_ATTENDANCE: 'getAllRecords/s_get_classwise_std_attendance_summary',
+} as const
+
+/** Angular `timetable` app — timing sets, class timings, timetables, schedules. */
+export const TIMETABLE_MGMT_API = {
+  TIMING_SET_ENTITY: 'Timingset',
+  TIMETABLE_ENTITY: 'Timetable',
+  WEEKDAY_ENTITY: 'Weekday',
+  CLASS_TIMING_ENTITY: 'ClassTiming',
+  CLASS_WEEKDAY_ENTITY: 'ClassWeekday',
+  TIMING_SETS_BY_ID: 'timingsets',
+  ADD_TIMING_SET: 'addTimingSet',
+  UPDATE_TIMING_SETS: 'updateTimingsets',
+  CLASS_TIMINGS: 'classtimings',
+  CLASS_WEEKDAYS_LIST: 'classweekdayslist',
+  TIMETABLES_POST: 'timetables',
+  TIMETABLES_CURR: 'timetablescurr',
+  SCHEDULE_LIST_BY_TIMING_SET: 'schedulelistbytimingset',
+} as const
+
+export const TIMETABLE_REPORT_API = {
+  REP_TT_GET_TIMETABLE_DETAILS: 'getAllRecords/s_rep_tt_get_timetable_details',
 } as const
 
 // ─── Grievance ───────────────────────────────────────────────────────────────
@@ -812,6 +1074,21 @@ export const GRIEVANCE_API = {
   COMPLAINT_REOPEN: 'complaintreopen',
   /** POST: complaint upload */
   COMPLAINT_UPLOAD: 'complaintupload',
+} as const
+
+// ─── Admission ───────────────────────────────────────────────────────────────
+
+export const ADMISSION_API = {
+  /** CRUD: StudentEnquiry */
+  STUDENT_ENQUIRY: 'StudentEnquiry',
+  /** CRUD: student application forms list */
+  STUDENT_APPLICATION_FORMS: 'studentapplicationforms',
+  /** PUT: update university student application */
+  UPDATE_UNIV_STUDENT_APPLICATION: 'updateUnivStudentApplication',
+  /** GET: university student applications search */
+  STD_APPLICATIONS_SEARCH: 'univStdApplicationsSearch',
+  /** GET/POST: student admission report by admission number */
+  STUDENT_ADMISSION_REPORT: 'studentadmissionreport',
 } as const
 
 // ─── University Management ───────────────────────────────────────────────────
@@ -983,6 +1260,14 @@ export const TRANSPORT_API = {
 export const HOSTEL_API = {
   /** POST: hostel allocation for student */
   HOSTEL_ALLOCATION: 'hostelallocationforstudent',
+  /** POST: hostel room allocation */
+  ROOM_ALLOCATION: 'hostelroomallocation',
+  /** GET: allocations for a room — `cms/hstlroomallocation?hstlRoomId=&isActive=true` */
+  ROOM_ALLOCATION_LIST: 'hstlroomallocation',
+  /** GET: search hosteler by name — `roomAllocationSearch?hostelId=&q=` */
+  ROOM_ALLOCATION_SEARCH: 'roomAllocationSearch',
+  /** GET: monthly visitors summary */
+  GET_VISITORS_REPORT: 'getAllRecords/s_get_visitors_report',
 } as const
 
 // ─── Certificates & Reports ──────────────────────────────────────────────────
@@ -1019,6 +1304,26 @@ export const SYLLABUS_API = {
   PLAN_REPORT: 'getAllRecords/s_subject_syllabus_plan_report',
   /** GET: classwise syllabus percentage */
   CLASSWISE_PERCENTAGE: 'getAllRecords/s_get_classwise_syllabus_per',
+} as const
+
+// ─── Events (Angular events-and-notifications + event-calendar) ─────────────
+
+export const EVENTS_API = {
+  COLLEGE_CALENDAR: 'collegecalendar',
+  EVENTS: 'events',
+  EVENTS_BY_AUDIENCE: 'eventsByAudience',
+  DEPARTMENT_EVENT: 'departmentEvent',
+  DEPARTMENT_EVENT_UPLOAD: 'departmentEvent/uploadFiles',
+} as const
+
+// ─── Mentorship / counseling (Angular staff-mentorship + admin-counseling) ───
+
+export const MENTORSHIP_API = {
+  COUNSELOR_MAPPINGS: 'counselormappings',
+  COUNSELOR_DETAILS: 'counselordetails',
+  COUNSELOR_ACTIVITIES: 'counseloractivitys',
+  COUNSELOR_ACTIVITY_ENTITY: 'CounselorActivity',
+  COUNSELOR_ACTIVITY_TYPE_ENTITY: 'CounselorActivityType',
 } as const
 
 // ─── Counselor ───────────────────────────────────────────────────────────────

@@ -19,3 +19,8 @@ export function toastError(err: unknown, context?: string): void {
 export function toastSuccess(message: string): void {
   toast.success(message)
 }
+
+/** Informational toast (Angular Snotify info parity). */
+export function toastInfo(message: string): void {
+  toast.message(message)
+}

@@ -1286,3 +1286,48 @@ export async function submitStudentDiscontinue(rows: Record<string, unknown>[]):
   if (!rows.length) throw new Error('No rows to submit')
   return postDetails<unknown>('discontinue', rows)
 }
+
+export async function listStudentSubjectsForStudentSemester(params: {
+  collegeId: number
+  studentId: number
+  courseYearId: number
+  academicYearId?: number
+}): Promise<AnyRow[]> {
+  const { collegeId, studentId, courseYearId, academicYearId } = params
+  if (!collegeId || !studentId || !courseYearId) return []
+
+  if (academicYearId) {
+    const withAy = await listStudentSubjectsForStudent({
+      collegeId,
+      academicYearId,
+      studentId,
+      courseYearId,
+    })
+    if (withAy.length > 0) return withAy
+  }
+
+  const queryVariants = [
+    buildQuery({
+      'studentDetail.studentId': studentId,
+      'courseYear.courseYearId': courseYearId,
+      isActive: true,
+    }),
+    buildQuery({
+      'StudentDetail.studentId': studentId,
+      'CourseYear.courseYearId': courseYearId,
+      isActive: true,
+    }),
+    buildQuery({ studentId, courseYearId, isActive: true }),
+  ]
+
+  for (const q of queryVariants) {
+    try {
+      const rows = await domainList<AnyRow>('StudentSubject', q)
+      if (rows.length > 0) return rows
+    } catch {
+      // try next
+    }
+  }
+
+  return []
+}

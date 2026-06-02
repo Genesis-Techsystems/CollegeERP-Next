@@ -8,8 +8,9 @@
  * All paths are sourced from NEXT_API / AUTH_API constants.
  */
 
-import { NEXT_API, AUTH_API } from '@/config/constants/api'
+import { EMPLOYEE_API, NEXT_API, AUTH_API } from '@/config/constants/api'
 import type { SessionUser } from '@/types/user'
+import { fetchDetails } from './crud'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -98,4 +99,22 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   if (!res.ok) return null
   const body = (await res.json().catch(() => null)) as { user?: SessionUser } | null
   return body?.user ?? null
+}
+
+/** Angular `login.component` → `employeedetailsbyid?userId=` → `localStorage.employeeId`. */
+export async function getEmployeeIdByUserId(userId: number): Promise<number> {
+  if (!userId) return 0
+  try {
+    const data = await fetchDetails<Record<string, unknown>>(EMPLOYEE_API.DETAILS_BY_USER_ID, {
+      userId,
+    })
+    const row = data && typeof data === 'object' ? data : {}
+    for (const key of ['employeeId', 'pk_emp_id', 'emp_id', 'employee_id'] as const) {
+      const n = Number(row[key])
+      if (Number.isFinite(n) && n > 0) return n
+    }
+  } catch {
+    return 0
+  }
+  return 0
 }

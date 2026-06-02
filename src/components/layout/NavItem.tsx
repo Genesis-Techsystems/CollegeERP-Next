@@ -157,6 +157,16 @@ import {
 } from 'lucide-react'
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible'
 import { normalizeHref } from '@/lib/navigation'
+import {
+  mapErpModuleLabelToRoute,
+  mapErpModuleNavRoute,
+} from '@/lib/erp-modules-navigation'
+import {
+  isTimetableModuleLabel,
+  mapTimetableLabelToRoute,
+  mapTimetableNavRoute,
+} from '@/lib/timetable-navigation'
+import { isHostelModulePath, isHostelRoomAllocationPath, mapHostelNavRoute } from '@/lib/hostel-navigation'
 import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
 import type { NavItem as NavItemType } from '@/types/navigation'
@@ -774,15 +784,26 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
     ) {
       return '/assessments/question-bank'
     }
+    const hostel = mapHostelNavRoute(undefined, label)
+    if (hostel) return hostel
+    const erpModule = mapErpModuleLabelToRoute(label)
+    if (erpModule) return erpModule
+    const timetable = mapTimetableLabelToRoute(label)
+    if (timetable) return timetable
     return null
   }
 
   return item.children.some((child) => {
     const ch = child.href?.trim()
-    const mappedByLabel = mapLabelToRoute(child.label)
-    if (ch || mappedByLabel) {
-      const mappedLegacy = ch ? mapLegacyMasterSettingsHref(ch) : null
-      const nh = normalizeHref(mappedByLabel ?? mappedLegacy ?? ch ?? '')
+    const mapped =
+      (ch ? mapLegacyInstitutionalMastersHref(ch) : null) ??
+      mapHostelNavRoute(ch, child.label) ??
+      mapErpModuleNavRoute(ch, child.label) ??
+      mapLabelToRoute(child.label) ??
+      (ch ? mapLegacyMasterSettingsHref(ch) : null) ??
+      ch
+    if (mapped) {
+      const nh = normalizeHref(mapped)
       if (normPath === nh || normPath.startsWith(`${nh}/`)) return true
     }
     return hasActiveDescendant(child, pathname)
@@ -806,6 +827,47 @@ function findSiblingCollapsibleIds(items: NavItemType[], targetId: string): stri
 }
 
 const EXAM_MASTERS_PATH = '/admin-examination-management/admin-exam-masters'
+
+/** Sidebar active highlight — same teal as primary / Get List button */
+const navActive = {
+  text: 'text-[hsl(var(--primary))]',
+  textHover: 'hover:text-[hsl(var(--primary))]',
+  solid: 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]',
+  solidHover: 'hover:bg-[hsl(var(--primary))]/90 hover:text-[hsl(var(--primary-foreground))]',
+} as const
+
+/** Angular `#/admin/institutional-masters/*` → App Router admin pages. */
+function mapLegacyInstitutionalMastersHref(href?: string): string | null {
+  if (!href) return null
+  const normalized = href.toLowerCase().replace(/\/+$/, '')
+  const marker = 'institutional-masters/'
+  const markerIndex = normalized.indexOf(marker)
+  if (markerIndex === -1) return null
+
+  const slug = normalized.slice(markerIndex + marker.length).split('?')[0]!
+  if (!slug) return null
+
+  const routeMap: Record<string, string> = {
+    'rooms-type': '/admin/room-types',
+    'rooms-types': '/admin/room-types',
+    'room-type': '/admin/room-types',
+    'room-types': '/admin/room-types',
+    roomtypes: '/admin/room-types',
+    rooms: '/admin/rooms',
+    room: '/admin/rooms',
+    'room-details': '/admin/room-details',
+    'room-detail': '/admin/room-details',
+    roomdetails: '/admin/room-details',
+    buildings: '/admin/buildings',
+    building: '/admin/buildings',
+    blocks: '/admin/blocks',
+    block: '/admin/blocks',
+    floors: '/admin/floors',
+    floor: '/admin/floors',
+  }
+
+  return routeMap[slug] ?? null
+}
 
 function mapLegacyMasterSettingsHref(href?: string): string | null {
   if (!href) return null
@@ -861,6 +923,9 @@ function mapLegacyMasterSettingsHref(href?: string): string | null {
     'config-auto-number': '/admin/configure-auto-numbers',
     'config-autonumber': '/admin/configure-auto-numbers',
     configautonumber: '/admin/configure-auto-numbers',
+    'room-details': '/admin/room-details',
+    'room-detail': '/admin/room-details',
+    roomdetails: '/admin/room-details',
   }
 
   return routeMap[slug] ?? `/admin/${slug}`
@@ -959,6 +1024,131 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const postExamBase = '/admin-examination-management/post-examination'
   const forcedRoute = (() => {
     const hrefLower = (item.href ?? '').toLowerCase()
+
+    // Transport — resolve before generic ERP mapper (DB hrefs often duplicate `route`).
+    if (!hasChildren) {
+      const isMapVehicleRoute =
+        (labelLower.includes('map') &&
+          (labelLower.includes('vechicle') || labelLower.includes('vehicle')) &&
+          labelLower.includes('route') &&
+          !labelLower.includes('driver') &&
+          !labelLower.includes('stop')) ||
+        hrefLower.includes('vehicle-map')
+      if (isMapVehicleRoute) return '/transport/vehicle-map'
+
+      const isAddRoute =
+        labelLower === 'add route' ||
+        (labelLower.includes('add') &&
+          labelLower.includes('route') &&
+          !labelLower.includes('map') &&
+          !labelLower.includes('stop')) ||
+        (hrefLower.includes('/transport/route') &&
+          !hrefLower.includes('vehicle-map') &&
+          !hrefLower.includes('route-stop'))
+      if (isAddRoute) return '/transport/route'
+
+      const isMapVehicleDriver =
+        (labelLower.includes('map') &&
+          labelLower.includes('vehicle') &&
+          labelLower.includes('driver')) ||
+        hrefLower.includes('vehicle-driver')
+      if (isMapVehicleDriver) return '/transport/vehicle-drivers'
+
+      if (labelLower.includes('transport') && labelLower.includes('distance') && labelLower.includes('fee')) {
+        return '/transport/distance-fee'
+      }
+
+      // TC & No Due — disambiguate certificate routes (shared Angular certificates module).
+      if (
+        labelLower.includes('transfer') &&
+        labelLower.includes('certificate') &&
+        !labelLower.includes('request') &&
+        !labelLower.includes('issued') &&
+        !labelLower.includes('print')
+      ) {
+        return '/tc-no-due-approval/transfer-certificate'
+      }
+      if (
+        (labelLower.includes('no') && labelLower.includes('due')) ||
+        hrefLower.includes('send-no-due') ||
+        hrefLower.includes('nodue')
+      ) {
+        return '/tc-no-due-approval/send-no-due-approval-request'
+      }
+      if (labelLower.includes('print') && (labelLower.includes('tc') || hrefLower.includes('printtc'))) {
+        return '/tc-no-due-approval/certificate-requests/printTc'
+      }
+      if (labelLower.includes('issued') && labelLower.includes('certificate')) {
+        return '/tc-no-due-approval/certificates-issued-list'
+      }
+      if (labelLower.includes('certificate') && labelLower.includes('report')) {
+        return '/tc-no-due-approval/certificate-request-report'
+      }
+      if (
+        labelLower.includes('certificate') &&
+        labelLower.includes('request') &&
+        !labelLower.includes('report') &&
+        !labelLower.includes('issued')
+      ) {
+        return '/tc-no-due-approval/certificate-requests'
+      }
+
+      if (labelLower.includes('hostel') && labelLower.includes('payment')) {
+        return '/accounts-and-fees/fees-collection/hostel-payment'
+      }
+      if (hrefLower.includes('fees-collection/hostel-payment')) {
+        return '/accounts-and-fees/fees-collection/hostel-payment'
+      }
+      if (
+        hrefLower.includes('university-payment-wallet-transactions')
+        || hrefLower.includes('university-wallet-transactions')
+        || (labelLower.includes('university') && labelLower.includes('payment') && labelLower.includes('wallet') && labelLower.includes('transaction'))
+      ) {
+        return '/wallet/university-payment-wallet-transactions'
+      }
+      if (
+        hrefLower.includes('university-payment-wallet')
+        || hrefLower.includes('univ-payment-wallet')
+        || (labelLower.includes('university') && labelLower.includes('payment') && labelLower.includes('wallet'))
+      ) {
+        return '/wallet/university-payment-wallet'
+      }
+      if (labelLower.includes('room details') || labelLower === 'room detail') {
+        return '/admin/room-details'
+      }
+
+      const hostelRoute = mapHostelNavRoute(item.href, item.label)
+      if (hostelRoute) return hostelRoute
+    }
+
+    // Leaf pages only — parent modules must expand/collapse, not navigate away.
+    if (!hasChildren) {
+      if (
+        (labelLower.includes('company') && labelLower.includes('placement') && labelLower.includes('requirement'))
+        || hrefLower.includes('company-placements-requirements')
+        || (hrefLower.includes('placement-companies') && hrefLower.includes('placements-achievements'))
+      ) {
+        return '/placements-achievements/placements/placement-companies'
+      }
+      if (
+        (labelLower.includes('placement') && labelLower.includes('student') && labelLower.includes('list'))
+        || hrefLower.includes('placement-registered-studentslist')
+        || (hrefLower.includes('placement-registered-list') && hrefLower.includes('placements-achievements'))
+      ) {
+        return '/placements-achievements/placements/placement-registered-list'
+      }
+      if (
+        (labelLower.includes('broadcast') && labelLower.includes('message'))
+        || (hrefLower.includes('placement-broadcast') && hrefLower.includes('placements-achievements'))
+      ) {
+        return '/placements-achievements/placements/placement-broadcast'
+      }
+      const erpRoute = mapErpModuleNavRoute(item.href, item.label)
+      if (erpRoute) return erpRoute
+      const timetableRoute = mapTimetableNavRoute(item.href, item.label)
+      if (timetableRoute) return timetableRoute
+    }
+
     const idLower = item.id.toLowerCase()
     if (
       labelLower.includes('general master setting') ||
@@ -1100,6 +1290,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return '/email-sms/principal-to-dept-email'
     }
 
+    const institutionalRoute = mapLegacyInstitutionalMastersHref(item.href)
+    if (institutionalRoute) return institutionalRoute
+
     const masterSettingsRoute = mapLegacyMasterSettingsHref(item.href)
     if (masterSettingsRoute) return masterSettingsRoute
 
@@ -1160,6 +1353,14 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     }
     if (labelLower.includes('grade rule settings') || labelLower.includes('grade rule setup')) {
       return '/admin-examination-management/result-processing/grade-rule-settings'
+    }
+    if (
+      labelLower.includes('grade setup')
+      || labelLower.includes('exam grade')
+      || hrefLower.includes('grade-setup')
+      || hrefLower.includes('exam-grades')
+    ) {
+      return `${EXAM_MASTERS_PATH}/grade-setup`
     }
     if (labelLower.includes('apply moderation rule')) {
       return '/admin-examination-management/result-processing/apply-moderation-rule'
@@ -1247,7 +1448,68 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return '/academics/subject-mapping/allocate-student-subject'
     }
-    if (labelLower.includes('student subjects') || labelLower.includes('student subject')) {
+    const affiliatedBase = '/affiliated-colleges'
+    if (
+      hrefLower.includes('affiliated-colleges') ||
+      hrefLower.includes('/apps/affiliated-colleges') ||
+      labelLower.includes('affiliated college')
+    ) {
+      if (
+        hrefLower.includes('assign-student-subjects') ||
+        labelLower.includes('assign student subject')
+      ) {
+        return `${affiliatedBase}/assign-student-subjects`
+      }
+      if (hrefLower.includes('college-student-subjects')) {
+        return `${affiliatedBase}/college-student-subjects`
+      }
+      if (item.href) {
+        const affiliatedHref = normalizeHref(item.href)
+        if (affiliatedHref.startsWith(`${affiliatedBase}/`)) return affiliatedHref
+      }
+    }
+    if (
+      !hasChildren &&
+      (labelLower.includes('timetable dashboard') ||
+        (isTimetableModuleLabel(item.label) && !item.children?.length))
+    ) {
+      return '/time-table-management/timetable-dashboard'
+    }
+    const hrPayrollBase = '/hr-payroll'
+    if (
+      hrefLower.includes('hr-payroll') ||
+      hrefLower.includes('/apps/hr-payroll') ||
+      (labelLower.includes('hr') && labelLower.includes('payroll'))
+    ) {
+      if (item.href) {
+        const hrHref = normalizeHref(item.href)
+        const idx = hrHref.indexOf(hrPayrollBase)
+        if (idx >= 0) return hrHref.slice(idx)
+        if (hrHref.includes('/apps/hr-payroll')) {
+          return hrPayrollBase + hrHref.split('/apps/hr-payroll')[1]?.replace(/\/$/, '') || hrPayrollBase
+        }
+      }
+      if (labelLower.includes('hr dashboard')) return `${hrPayrollBase}/hr-dashboard`
+      if (labelLower.includes('department head')) return `${hrPayrollBase}/department-heads`
+      if (labelLower.includes('payroll category')) return `${hrPayrollBase}/payroll/payroll-category`
+      if (labelLower.includes('payroll group')) return `${hrPayrollBase}/payroll/payroll-group`
+      if (labelLower.includes('payslip')) return `${hrPayrollBase}/payroll/payslip-for-employees`
+      if (labelLower.includes('leave type')) return `${hrPayrollBase}/leave-management/leave-type`
+      if (labelLower.includes('employee list')) return `${hrPayrollBase}/employee/employee-list`
+    }
+    if (
+      (labelLower.includes('assign student subject') ||
+        labelLower.includes('college student subject')) &&
+      !hrefLower.includes('subject-mapping') &&
+      !hrefLower.includes('/academics/') &&
+      !hrefLower.includes('student-information')
+    ) {
+      return `${affiliatedBase}/assign-student-subjects`
+    }
+    if (
+      (labelLower.includes('student subjects') || labelLower.includes('student subject')) &&
+      !hrefLower.includes('affiliated-colleges')
+    ) {
       return '/admin-student-information-system/student-subjects'
     }
     if (labelLower.includes('modify subject group') || labelLower.includes('modify course group')) {
@@ -1688,20 +1950,97 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return normPathname.startsWith('/admin/bulk-uploads/')
     }
     if (label.includes('affiliated')) return normPathname.startsWith('/affiliated-colleges/')
+    if (
+      (label.includes('hr') && label.includes('payroll')) ||
+      label.includes('hr & payroll') ||
+      label.includes('hr and payroll')
+    ) {
+      return normPathname.startsWith('/hr-payroll/')
+    }
+    if (
+      (label.includes('timetable') && label.includes('management')) ||
+      label.includes('time table management') ||
+      label.includes('timing set')
+    ) {
+      return normPathname.startsWith('/time-table-management/')
+    }
+    if (label.includes('attendance') && label.includes('management')) {
+      return normPathname.startsWith('/attendance-management/')
+    }
+    if (label.includes('mentorship') || (label.includes('counseling') && !label.includes('meeting'))) {
+      return normPathname.startsWith('/mentorship/')
+    }
+    if (label.trim() === 'events' || (label.includes('event') && label.includes('calendar'))) {
+      return normPathname.startsWith('/events/')
+    }
+    if (label.includes('notification') && label.includes('announcement') && !label.includes('my ')) {
+      return normPathname.startsWith('/notifications-and-announcements/')
+    }
+    if (label.includes('my') && label.includes('notification')) {
+      return normPathname.startsWith('/my-notifications')
+    }
     if (label.includes('student information')) return normPathname.startsWith('/admin-student-information-system/')
     if (label.includes('user management')) return normPathname.startsWith('/user-management/')
     if (label.trim() === 'security') return normPathname.startsWith('/user-management/')
     if ((label.includes('email') && label.includes('sms')) || label.includes('email-sms')) {
       return normPathname.startsWith('/email-sms/')
     }
-    if (label.includes('exam')) return normPathname.startsWith('/admin-examination-management/')
+    const examBase = '/admin-examination-management'
+    if (label.includes('examination management')) {
+      return normPathname.startsWith(`${examBase}/`)
+    }
+    if (label.includes('exam masters') || label === 'exam master') {
+      return normPathname.startsWith(`${examBase}/admin-exam-masters/`)
+    }
+    if (label.includes('pre examination') || label.includes('pre-examination')) {
+      return normPathname.startsWith(`${examBase}/pre-examination/`)
+    }
+    if (label.includes('post examination') || label.includes('post-examination')) {
+      return normPathname.startsWith(`${examBase}/post-examination/`)
+    }
+    if (label.includes('evaluation process')) {
+      return normPathname.startsWith(`${examBase}/evaluation-process/`)
+    }
+    if (label.includes('re-evaluation') || label.includes('reevaluation')) {
+      return normPathname.startsWith(`${examBase}/re-evaluation/`)
+    }
+    if (label.includes('exam papers delivery') || label.includes('papers delivery process')) {
+      return normPathname.startsWith(`${examBase}/exam-papers-delivery-process/`)
+    }
+    if (label.includes('result processing')) {
+      return normPathname.startsWith(`${examBase}/result-processing/`)
+    }
     if (label.includes('assessment')) return normPathname.startsWith('/assessments/')
+    if (
+      label.trim() === 'library' ||
+      (label.includes('library') && !label.includes('fee'))
+    ) {
+      return normPathname.startsWith('/library/')
+    }
+    if (label.includes('accounts') && label.includes('fees')) {
+      return normPathname.startsWith('/accounts-and-fees/')
+    }
+    if (label.includes('fee masters')) return normPathname.startsWith('/accounts-and-fees/fee-masters/')
+    if (label.includes('fee collection')) return normPathname.startsWith('/accounts-and-fees/fees-collection/')
+    if (label.includes('hostel') && label.includes('payment')) {
+      return normPathname.startsWith('/accounts-and-fees/fees-collection/hostel-payment')
+    }
+    if (hasChildren && label.trim() === 'hostel') {
+      return isHostelModulePath(normPathname)
+    }
+    if (hasChildren && label.includes('transport') && !label.includes('fee')) {
+      return normPathname.startsWith('/transport/')
+    }
     return false
   })()
+  const hostelAllocationActive =
+    canonicalHref === '/hostel/rooms-list' && isHostelRoomAllocationPath(normPathname)
   const isSelfActive =
     !!canonicalHref &&
     canonicalHref.length > 1 &&
-    (normPathname === canonicalHref || normPathname.startsWith(`${canonicalHref}/`))
+    (normPathname === canonicalHref ||
+      normPathname.startsWith(`${canonicalHref}/`) ||
+      hostelAllocationActive)
   const isChildActive = (hasChildren ? hasActiveDescendant(item, pathname) : false) || modulePathActive
   const isActive = isSelfActive || isChildActive || modulePathActive
 
@@ -1789,7 +2128,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           // data attributes let Sidebar's scroll effect target the active parent module
           {...(depth === 0 ? { 'data-nav-module': '', 'data-active': isActive ? 'true' : undefined } : {})}
           onClick={(e) => {
-            if (forcedRoute) {
+            if (forcedRoute && !hasChildren) {
               e.preventDefault()
               e.stopPropagation()
               router.push(normalizeHref(forcedRoute))
@@ -1808,7 +2147,11 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
             />
           )}
           {showLeftIcon && (
-            <NavIcon name={renderedIconName} active={isSelfActive} kind={depth === 0 ? 'module' : 'page'} />
+            <NavIcon
+              name={renderedIconName}
+              active={isSelfActive || isChildActive}
+              kind={depth === 0 ? 'module' : 'page'}
+            />
           )}
           <span className="flex-1 text-left leading-5 whitespace-normal break-words">
             {item.label}
@@ -1858,9 +2201,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           aria-hidden="true"
         />
       )}
-      {showLeftIcon && (
-        <NavIcon name={renderedIconName} active={isSelfActive} kind="page" />
-      )}
+      {showLeftIcon && <NavIcon name={renderedIconName} active={isSelfActive} kind="page" />}
       <span className="flex-1 leading-5 whitespace-normal break-words">
         {item.label}
       </span>

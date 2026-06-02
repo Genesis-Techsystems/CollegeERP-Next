@@ -1,0 +1,38 @@
+'use client'
+
+import { approvalDetailKindFromSlug } from '../_lib/approval-upload-config'
+import { AffiliatedBulkUploadPage } from './AffiliatedBulkUploadPage'
+import { AffiliatedSummaryPage } from './AffiliatedSummaryPage'
+import { AffiliatedUniversityReportPage } from './AffiliatedUniversityReportPage'
+import { AffiliatedViewStubPage } from './AffiliatedViewStubPage'
+import { CollegeUploadApprovalDetailPage } from './CollegeUploadApprovalDetailPage'
+import { CollegeUploadsApprovalPage } from './CollegeUploadsApprovalPage'
+import { getAffiliatedConfig } from '../_lib/route-config'
+
+type AffiliatedRoutePageProps = { slug: string }
+
+export function AffiliatedRoutePage({ slug }: AffiliatedRoutePageProps) {
+  const config = getAffiliatedConfig(slug)
+
+  if (config.kind === 'summary' && config.uploadPath) {
+    return <AffiliatedSummaryPage slug={slug} />
+  }
+  if (config.kind === 'bulk-upload') {
+    return <AffiliatedBulkUploadPage slug={slug} />
+  }
+  if (config.kind === 'report' && config.summaryProcFlag) {
+    return <AffiliatedUniversityReportPage slug={slug} />
+  }
+  if (config.kind === 'approval') {
+    return <CollegeUploadsApprovalPage />
+  }
+  const approvalDetailKind = approvalDetailKindFromSlug(slug)
+  if (approvalDetailKind) {
+    return <CollegeUploadApprovalDetailPage kind={approvalDetailKind} />
+  }
+  if (config.kind === 'view' || config.kind === 'assign') {
+    return <AffiliatedViewStubPage slug={slug} />
+  }
+
+  return <AffiliatedViewStubPage slug={slug} />
+}
