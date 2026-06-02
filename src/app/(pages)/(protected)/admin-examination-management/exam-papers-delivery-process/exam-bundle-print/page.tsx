@@ -71,7 +71,10 @@ const EMPTY_FORM: FormState = {
 	questionPaperCode: '',
 }
 
-type PrintMode = 'stickers'
+// 'stickers' = English variant (exam-bundle-print-stickers),
+// 'stickers-gu' = Gujarati variant (exam-bundle-print-stickers-gu) — identical
+// data/structure, wider sticker-row margin.
+type PrintMode = 'stickers' | 'stickers-gu'
 
 export default function ExamBundlePrintPage() {
 	const [filtersOpen, setFiltersOpen] = useState(true)
@@ -276,7 +279,9 @@ export default function ExamBundlePrintPage() {
 	}
 
 	// Load OMR barcode rows for one bundle (id) or all (0), then print stickers.
-	async function loadAndPrintStickers(bundleId: number) {
+	// mode 'stickers' = English layout, 'stickers-gu' = Gujarati layout (Angular
+	// getPrintStickersData vs getPrintStickersDataNew — same proc, different sheet).
+	async function loadAndPrintStickers(bundleId: number, mode: PrintMode = 'stickers') {
 		setLoadingList(true)
 		try {
 			let rows = await getExamCenterBundleByCode({
@@ -295,7 +300,7 @@ export default function ExamBundlePrintPage() {
 				return
 			}
 			setStickerRows(rows)
-			triggerPrint('stickers')
+			triggerPrint(mode)
 		} catch (e) {
 			toastError(e, 'Failed to load stickers')
 		} finally {
@@ -332,7 +337,7 @@ export default function ExamBundlePrintPage() {
 								type="button"
 								title="Print Stickers (Gujarati)"
 								className="text-[hsl(var(--primary))] hover:underline text-[12px]"
-								onClick={() => void loadAndPrintStickers(id)}
+								onClick={() => void loadAndPrintStickers(id, 'stickers-gu')}
 							>
 								Stickers New
 							</button>
@@ -345,8 +350,8 @@ export default function ExamBundlePrintPage() {
 		[form],
 	)
 
-	// ── Sticker print layout (Angular exam-bundle-print-stickers) ────────────────
-	if (printMode === 'stickers') {
+	// ── Sticker print layout (Angular exam-bundle-print-stickers / -gu) ──────────
+	if (printMode === 'stickers' || printMode === 'stickers-gu') {
 		// Group by fk_univ_exam_bundle_id (Angular groupByScanBundleId).
 		const grouped = new Map<string, Row[]>()
 		for (const r of stickerRows) {
@@ -355,6 +360,16 @@ export default function ExamBundlePrintPage() {
 			grouped.get(key)!.push(r)
 		}
 		const groups = Array.from(grouped.values())
+		// Gujarati variant uses a wider sticker-row margin; both render the row as
+		// a block so cells wrap into a grid (Angular `display:block` tr).
+		const isGu = printMode === 'stickers-gu'
+		const rowStyle = { display: 'block', margin: isGu ? '0 35px' : '0' } as const
+		const cellStyle = {
+			border: '1px solid #000',
+			padding: '4px',
+			verticalAlign: 'top' as const,
+			display: 'inline-block' as const,
+		}
 		return (
 			<div className="text-black" style={{ fontFamily: 'Arial, sans-serif', padding: '8px' }}>
 				{groups.map((rows, gi) => {
@@ -376,9 +391,9 @@ export default function ExamBundlePrintPage() {
 									</tr>
 								</thead>
 								<tbody>
-									<tr>
+									<tr style={rowStyle}>
 										{rows.map((data, i) => (
-											<td key={i} style={{ border: '1px solid #000', padding: '4px', verticalAlign: 'top' }}>
+											<td key={i} style={cellStyle}>
 												<span style={{ display: 'flex', justifyContent: 'center', marginBottom: '-3px', fontSize: '12px' }}>
 													<span>
 														<b>{txt(data.ec_seatno)}</b>({txt(data.hallticket_number)})
