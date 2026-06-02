@@ -829,9 +829,9 @@ export default function StudentExamFeeRegistrationPage() {
                       <span className="text-[13px] font-medium text-blue-600">Courses: {selectedCount}</span>
                     </div>
                     <table className="w-full text-[12px]">
-                      <thead>
-                        <tr className="bg-[#C3D9FF]">
-                          <th className="w-[40px] px-1 py-1 text-left">
+                      <thead className="block overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
+                        <tr className="flex w-full bg-[#C3D9FF]">
+                          <th className="w-[40px] px-1 py-1 text-center">
                             <input
                               type="checkbox"
                               checked={checksubject}
@@ -839,10 +839,10 @@ export default function StudentExamFeeRegistrationPage() {
                             />
                             <span className="ml-1">All</span>
                           </th>
-                          <th className="px-1 py-1 text-left">Subjects</th>
+                          <th className="flex-1 px-1 py-1 text-left">Subjects</th>
                         </tr>
                       </thead>
-                      <tbody className="block max-h-[150px] overflow-y-auto">
+                      <tbody className="block max-h-[150px] overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
                         {filteredSubjects.map((obj, i) => (
                           <tr
                             key={`sub-${obj.subjectId || i}`}
