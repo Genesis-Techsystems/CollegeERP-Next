@@ -88,6 +88,9 @@ type PrintMode =
 	| 'packing-slip'
 
 const SEATING_PLAN_BASE = '/admin-examination-management/admin-exam-masters/seating-plan-setup'
+// Center-scoped sub-pages live under this page's own folder. Seat-allot reuses
+// the shared seating-plan-setup page (its logic is center-agnostic).
+const CENTER_BASE = '/admin-examination-management/exam-papers-delivery-process/exam-center-room-allotment'
 
 const num = (v: unknown): number => {
 	const n = Number(v ?? 0)
@@ -215,12 +218,6 @@ export default function ExamCenterRoomAllotmentPage() {
 	useEffect(() => {
 		void fetchFilters()
 	}, [fetchFilters])
-
-	// Derived university code (for print banners) — Angular universityCode.
-	const universityCode = useMemo(() => {
-		const row = courses.find((c) => num(c.fk_course_id) === num(selectedCourseId))
-		return String(row?.university_code ?? '')
-	}, [courses, selectedCourseId])
 
 	const examName = useMemo(() => {
 		const row = exams.find((e) => num(e.fk_exam_id) === num(selectedExamId))
@@ -393,7 +390,7 @@ export default function ExamCenterRoomAllotmentPage() {
 			toast.error('Select an exam and exam center first.')
 			return
 		}
-		router.push(`${SEATING_PLAN_BASE}/existing-allotment?${buildBaseParams().toString()}`)
+		router.push(`${CENTER_BASE}/copy-existing-seating?${buildBaseParams().toString()}`)
 	}
 
 	function handleAddRoomSeatingPlan() {
@@ -401,7 +398,7 @@ export default function ExamCenterRoomAllotmentPage() {
 			toast.error('Select an exam and exam center first.')
 			return
 		}
-		router.push(`${SEATING_PLAN_BASE}/room-allotment?${buildBaseParams().toString()}`)
+		router.push(`${CENTER_BASE}/room-allotment?${buildBaseParams().toString()}`)
 	}
 
 	function handleSeatAllotStudents(row: AllocationRow) {
@@ -526,7 +523,7 @@ export default function ExamCenterRoomAllotmentPage() {
 					{groups.length === 0 ? (
 						<p className="text-[11px] text-center py-6">No room-wise allotment data.</p>
 					) : (
-						groups.map(({ room_name, records }, gi) => (
+						groups.map(({ records }, gi) => (
 							<table key={`rws-${gi}`} className="w-full border-collapse text-[11px] mb-4" style={{ border: '1px solid #000' }}>
 								<thead>
 									<tr>
