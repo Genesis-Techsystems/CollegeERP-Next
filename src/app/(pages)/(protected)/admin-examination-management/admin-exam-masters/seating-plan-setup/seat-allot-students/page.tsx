@@ -863,10 +863,15 @@ export default function SeatAllotStudentsPage() {
 								if (details.examDate) qp.set('examDate', details.examDate)
 								const ay = searchParams?.get('academicYearId')
 								if (ay) qp.set('academicYearId', ay)
+								// The university-exam-center variant passes ?univExamcenterId & ?returnBase
+								// so Back returns to the exam-center page instead of the college one.
+								const uec = searchParams?.get('univExamcenterId')
+								if (uec) qp.set('univExamcenterId', uec)
 								const q = qp.toString()
-								router.push(
-									`/admin-examination-management/admin-exam-masters/seating-plan-setup${q ? `?${q}` : ''}`,
-								)
+								const returnBase =
+									searchParams?.get('returnBase') ||
+									'/admin-examination-management/admin-exam-masters/seating-plan-setup'
+								router.push(`${returnBase}${q ? `?${q}` : ''}`)
 							}}
 						>
 							Back

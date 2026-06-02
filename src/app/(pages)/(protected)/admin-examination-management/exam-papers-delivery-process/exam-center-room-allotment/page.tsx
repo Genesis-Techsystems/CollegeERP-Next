@@ -87,9 +87,9 @@ type PrintMode =
 	| 'cover-slip'
 	| 'packing-slip'
 
-const SEATING_PLAN_BASE = '/admin-examination-management/admin-exam-masters/seating-plan-setup'
-// Center-scoped sub-pages live under this page's own folder. Seat-allot reuses
-// the shared seating-plan-setup page (its logic is center-agnostic).
+// Center-scoped sub-pages live under this page's own folder. Seat-allot renders
+// the shared seating-plan-setup component (its logic is center-agnostic) via a
+// dedicated route, with ?returnBase so Back returns here.
 const CENTER_BASE = '/admin-examination-management/exam-papers-delivery-process/exam-center-room-allotment'
 
 const num = (v: unknown): number => {
@@ -409,7 +409,10 @@ export default function ExamCenterRoomAllotmentPage() {
 		params.set('roomCode', row.roomCode || '-')
 		params.set('examSession', row.session || '')
 		params.set('sessionId', String(num(selectedTimetable?.sessionId ?? raw.examSessionId) || ''))
-		router.push(`${SEATING_PLAN_BASE}/seat-allot-students?${params.toString()}`)
+		// Dedicated center route reuses the shared seat-allot component; returnBase
+		// brings Back here instead of to the college seating-plan page.
+		params.set('returnBase', CENTER_BASE)
+		router.push(`${CENTER_BASE}/seat-allot-students?${params.toString()}`)
 	}
 
 	// ── Assign / auto-assign (Angular AssignSeatingAllotment / autoAssign) ───────
