@@ -31,6 +31,7 @@ const PAGES: { slug: string; label: string }[] = [
   { slug: 'floors', label: 'Exam center floors' },
   { slug: 'rooms-type', label: 'Exam center room types' },
   { slug: 'rooms', label: 'Exam center rooms' },
+  { slug: 'exam-center-room-allotment', label: 'Exam Room Seating Plan' },
   { slug: 'exam-center-seating-plan', label: 'Exam center seating plan' },
   {
     slug: 'exam-center-seating-plan/add-exam-center-allotment',

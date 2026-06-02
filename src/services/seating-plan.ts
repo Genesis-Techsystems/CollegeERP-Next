@@ -129,6 +129,51 @@ export async function listExamRoomAllotments(examId: number, examTimetableId: nu
 	return Array.isArray(rows) ? rows : []
 }
 
+/**
+ * University-exam-center scoped room allotments. Mirrors Angular
+ * `exam-center-room-allotment` selectedCollege(): listDetailsByThreeIds on
+ * CONSTANTS.examRoomAllotmentCrudUrl with
+ * (room.block.building.univExamCenters.univExamcenterId, examMaster.examId,
+ * ExamTimetable.examTimetableId).
+ */
+export async function listExamRoomAllotmentsByCenter(
+	univExamcenterId: number,
+	examId: number,
+	examTimetableId: number,
+): Promise<any[]> {
+	const query =
+		`room.block.building.univExamCenters.univExamcenterId==${univExamcenterId}` +
+		`.and.examMaster.examId==${examId}` +
+		`.and.ExamTimetable.examTimetableId==${examTimetableId}`
+	const res = await fetch(
+		NEXT_API.PROXY(`/domain/list/ExamRoomAllotment?size=99999&query=${encodeURIComponent(query)}`),
+	)
+	const body = await res.json().catch(() => null)
+	const rows = (body?.data ?? body?.result ?? body ?? []) as any[]
+	return Array.isArray(rows) ? rows : []
+}
+
+/**
+ * Auto-assign invigilators for a timetable. Mirrors Angular `autoAssign()`
+ * which calls CONSTANTS.popExamInvigilatorUrl with the `popexaminvigilator`
+ * flag and the timetable detail id.
+ */
+export async function popExamInvigilator(examTimetableId: number): Promise<any[]> {
+	const search = new URLSearchParams({
+		in_flag: 'popexaminvigilator',
+		in_timetable_det_id: String(examTimetableId),
+	})
+	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_pop_exam_invigilator?${search.toString()}`))
+	const body = await res.json().catch(() => null)
+	const result = (body?.result ?? body?.data?.result ?? []) as any[]
+	if (Array.isArray(result)) {
+		const out: any[] = []
+		for (const arr of result) if (Array.isArray(arr)) out.push(...arr)
+		return out
+	}
+	return []
+}
+
 export async function listExamInvigilationAllotments(examTimetableId: number): Promise<any[]> {
 	const query = `ExamTimetable.examTimetableId==${examTimetableId}.and.isActive==true`
 	const res = await fetch(
