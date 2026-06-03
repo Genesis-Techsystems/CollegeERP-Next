@@ -509,23 +509,23 @@ main .app-card + .app-card {
   --card-title: var(--primary);
   --section-title: 218 32% 18%;
 
-  /* Sidebar — solid medium blue with translucent-white active pill */
-  --sidebar-background: 210 82% 27%;        /* #0C447C */
-  --sidebar-background-end: 210 82% 23%;
-  --sidebar-surface: 210 55% 36%;
-  --sidebar-foreground: 210 75% 83%;        /* #B5D4F4 */
-  --sidebar-foreground-active: 0 0% 100%;
-  --sidebar-section-label: 210 71% 72%;     /* #85B7EB */
+  /* Sidebar — deep navy (#0A2F5C) + white text + solid blue active pill (Option C) */
+  --sidebar-background: 213 80% 20%;        /* #0A2F5C deep navy */
+  --sidebar-background-end: 213 82% 15%;
+  --sidebar-surface: 213 45% 28%;
+  --sidebar-foreground: 210 35% 92%;        /* near-white nav text + icons */
+  --sidebar-foreground-active: 0 0% 100%;   /* pure white on active */
+  --sidebar-section-label: 210 58% 74%;     /* light blue MAIN MENU label */
   --sidebar-primary: 0 0% 100%;
-  --sidebar-primary-foreground: 210 82% 27%;
+  --sidebar-primary-foreground: 213 80% 20%;
   --sidebar-accent: 0 0% 100%;
-  --sidebar-border: 210 55% 33%;
+  --sidebar-border: 213 45% 26%;
   --sidebar-ring: 0 0% 100%;
-  --sidebar-active-bg: 0 0% 100% / 0.16;
-  --sidebar-active-border: 0 0% 100% / 0.22;
-  --sidebar-hover-bg: 0 0% 100% / 0.08;
+  --sidebar-active-bg: 213 52% 44%;         /* solid medium-blue pill */
+  --sidebar-active-border: 213 60% 62% / 0.55;
+  --sidebar-hover-bg: 0 0% 100% / 0.07;
 
-  --gradient-sidebar: linear-gradient(180deg, hsl(210 82% 27%), hsl(210 82% 23%));
+  --gradient-sidebar: linear-gradient(180deg, hsl(213 80% 20%), hsl(213 82% 15%));
   --gradient-primary: linear-gradient(135deg, hsl(208 75% 37%), hsl(210 70% 54%));
   --shadow-glow: 0 0 20px -4px hsl(208 75% 37% / 0.30);
 }
