@@ -171,7 +171,7 @@ export function CollegeEventsPage({ title, variant }: Readonly<CollegeEventsPage
         const month = viewMonth.getMonth()
         const year = viewMonth.getFullYear()
         data = all.filter((row) => {
-          const raw = row.startDate ?? row.eventDate
+          const raw = row.startDate ?? (row as { eventDate?: string }).eventDate
           if (!raw) return false
           const d = new Date(String(raw))
           return !Number.isNaN(d.getTime()) && d.getMonth() === month && d.getFullYear() === year
@@ -252,7 +252,7 @@ export function CollegeEventsPage({ title, variant }: Readonly<CollegeEventsPage
       COL_DEFS.name,
       {
         ...COL_DEFS.startDate,
-        valueGetter: (p) => formatDisplayDate(String(p.data?.startDate ?? p.data?.eventDate ?? '')),
+        valueGetter: (p) => formatDisplayDate(String(p.data?.startDate ?? (p.data as { eventDate?: string } | undefined)?.eventDate ?? '')),
       },
       COL_DEFS.type,
       COL_DEFS.audience,

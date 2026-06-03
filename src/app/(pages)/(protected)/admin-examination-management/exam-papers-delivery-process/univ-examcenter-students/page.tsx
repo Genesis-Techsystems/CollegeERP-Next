@@ -301,7 +301,6 @@ export default function UnivExamcenterStudentsPage() {
         getExamOmrStudents({
           examId: Number(form.examId),
           collegeId: Number(form.collegeId),
-          courseId: Number(form.courseId),
           courseGroupId: 0,
           courseYearId: Number(form.courseYearId),
           regulationId: Number(form.regulationId),
@@ -393,14 +392,14 @@ export default function UnivExamcenterStudentsPage() {
 
         {filterOpen && (
           <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
-            <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courses.map((r) => ({ value: String(pickCourseId(r)), label: txt(r.course_code) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v }))} disabled={loading} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={academicYears.map((r) => ({ value: String(pickAyId(r)), label: txt(r.academic_year) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v }))} /></div>
-            <div className="space-y-1 md:col-span-4"><Label>Exam</Label><Select options={exams.map((r) => ({ value: String(pickExamId(r)), label: txt(r.exam_name) }))} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v }))} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Course Years</Label><Select options={courseYears.map((r) => ({ value: String(pickCourseYearId(r)), label: txt(r.course_year_code) }))} value={form.courseYearId} onChange={(v) => setForm((f) => ({ ...f, courseYearId: v }))} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><Select options={regulations.map((r) => ({ value: String(pickRegId(r)), label: txt(r.regulation_code) }))} value={form.regulationId} onChange={(v) => setForm((f) => ({ ...f, regulationId: v }))} /></div>
-            <div className="space-y-1 md:col-span-4"><Label>Subjects</Label><Select options={subjects.map((r) => ({ value: String(pickSubjectId(r)), label: `${txt(r.subject_name)} (${txt(r.subject_code)})` }))} value={form.subjectId} onChange={(v) => setForm((f) => ({ ...f, subjectId: v }))} /></div>
-            <div className="space-y-1 md:col-span-3"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v }))} /></div>
-            <div className="space-y-1 md:col-span-3"><Label>Exam Center college</Label><Select options={collegeOptions} value={form.collegeId} onChange={(v) => setForm((f) => ({ ...f, collegeId: v }))} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courses.map((r) => ({ value: String(pickCourseId(r)), label: txt(r.course_code) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} disabled={loading} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={academicYears.map((r) => ({ value: String(pickAyId(r)), label: txt(r.academic_year) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-4"><Label>Exam</Label><Select options={exams.map((r) => ({ value: String(pickExamId(r)), label: txt(r.exam_name) }))} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Course Years</Label><Select options={courseYears.map((r) => ({ value: String(pickCourseYearId(r)), label: txt(r.course_year_code) }))} value={form.courseYearId} onChange={(v) => setForm((f) => ({ ...f, courseYearId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><Select options={regulations.map((r) => ({ value: String(pickRegId(r)), label: txt(r.regulation_code) }))} value={form.regulationId} onChange={(v) => setForm((f) => ({ ...f, regulationId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-4"><Label>Subjects</Label><Select options={subjects.map((r) => ({ value: String(pickSubjectId(r)), label: `${txt(r.subject_name)} (${txt(r.subject_code)})` }))} value={form.subjectId} onChange={(v) => setForm((f) => ({ ...f, subjectId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-3"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-3"><Label>Exam Center college</Label><Select options={collegeOptions} value={form.collegeId} onChange={(v) => setForm((f) => ({ ...f, collegeId: v ?? '' }))} /></div>
             <div className="md:col-span-2"><Button type="button" onClick={() => void onGetStudents()} disabled={loadingList} className="w-full">Get Students</Button></div>
           </div>
         )}

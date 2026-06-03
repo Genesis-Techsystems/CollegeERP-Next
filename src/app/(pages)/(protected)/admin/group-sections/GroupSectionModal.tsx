@@ -88,12 +88,12 @@ export default function GroupSectionModal({
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
           <Controller name="collegeId" control={control} render={({ field }) => (
-            <Select label="College" required value={field.value ? String(field.value) : null} onChange={(v) => { field.onChange(v ? Number(v) : undefined); setValue('courseGroupId', undefined); setValue('courseYearId', undefined) }}
+            <Select label="College" required value={field.value ? String(field.value) : null} onChange={(v) => { field.onChange(v ? Number(v) : undefined); setValue('courseGroupId', undefined as unknown as number); setValue('courseYearId', undefined as unknown as number) }}
               options={colleges.map((c) => ({ value: String(c.collegeId), label: c.collegeCode ?? c.collegeName }))} placeholder="Select college" searchable error={errors.collegeId?.message} />
           )} />
           <div className="grid grid-cols-2 gap-2">
             <Controller name="courseGroupId" control={control} render={({ field }) => (
-              <Select label="Subject Group" required value={field.value ? String(field.value) : null} onChange={(v) => { field.onChange(v ? Number(v) : undefined); setValue('courseYearId', undefined) }}
+              <Select label="Subject Group" required value={field.value ? String(field.value) : null} onChange={(v) => { field.onChange(v ? Number(v) : undefined); setValue('courseYearId', undefined as unknown as number) }}
                 options={groupOptions} placeholder="Select group" searchable error={errors.courseGroupId?.message} />
             )} />
             <Controller name="courseYearId" control={control} render={({ field }) => (

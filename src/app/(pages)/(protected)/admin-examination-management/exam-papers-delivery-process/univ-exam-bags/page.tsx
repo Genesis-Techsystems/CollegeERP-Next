@@ -55,7 +55,7 @@ function statusRenderer(p: ICellRendererParams<Row>) {
 }
 
 function sealedRenderer(p: ICellRendererParams<Row>) {
-  return <StatusBadge status={Boolean(p.data?.isSealed)} activeLabel="Yes" inactiveLabel="No" />
+  return <StatusBadge status={Boolean(p.data?.isSealed)} label={p.data?.isSealed ? 'Yes' : 'No'} />
 }
 
 function makeEditRenderer(onEdit: (row: Row) => void) {
@@ -348,10 +348,10 @@ export default function UnivExamBagsPage() {
 
         {filtersOpen && (
           <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courses.map((r) => ({ value: String(num(r.fk_course_id)), label: txt(r.course_code) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v }))} disabled={loadingFilters} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={academicYears.map((r) => ({ value: String(num(r.fk_academic_year_id)), label: txt(r.academic_year) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v }))} /></div>
-            <div className="space-y-1 md:col-span-5"><Label>Exam</Label><Select options={exams.map((r) => ({ value: String(num(r.fk_exam_id)), label: `${txt(r.exam_name)} (${txt(r.from_date)} - ${txt(r.to_date)})` }))} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v }))} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v }))} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courses.map((r) => ({ value: String(num(r.fk_course_id)), label: txt(r.course_code) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} disabled={loadingFilters} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={academicYears.map((r) => ({ value: String(num(r.fk_academic_year_id)), label: txt(r.academic_year) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-5"><Label>Exam</Label><Select options={exams.map((r) => ({ value: String(num(r.fk_exam_id)), label: `${txt(r.exam_name)} (${txt(r.from_date)} - ${txt(r.to_date)})` }))} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))} /></div>
             <div className="md:col-span-1"><Button type="button" onClick={() => void onGetList()} disabled={loadingList}>Get List</Button></div>
           </div>
         )}

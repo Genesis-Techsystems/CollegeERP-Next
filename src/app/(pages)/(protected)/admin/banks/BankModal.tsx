@@ -132,7 +132,7 @@ export default function BankModal({
                   value={field.value ? String(field.value) : null}
                   onChange={(value) => {
                     field.onChange(value ? Number(value) : undefined)
-                    setValue('collegeId', undefined)
+                    setValue('collegeId', undefined as unknown as number)
                   }}
                   options={campusOptions}
                   placeholder="Select campus"

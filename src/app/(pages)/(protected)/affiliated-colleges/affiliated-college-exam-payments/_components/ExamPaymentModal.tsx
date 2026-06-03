@@ -136,7 +136,7 @@ export function ExamPaymentModal({
           onChange={setPaymentForCatDetId}
           options={paymentTypes.map((t) => ({
             value: String(t.generalDetailId),
-            label: t.generalDetailDisplayName ?? t.generalDetailCode ?? String(t.generalDetailId),
+            label: String(t.generalDetailDisplayName ?? t.generalDetailCode ?? t.generalDetailId),
           }))}
           placeholder="Select payment for"
           searchable
@@ -149,7 +149,7 @@ export function ExamPaymentModal({
             onChange={setPaymodeCatDetId}
             options={paymentModes.map((m) => ({
               value: String(m.generalDetailId),
-              label: m.generalDetailDisplayName ?? m.generalDetailCode ?? String(m.generalDetailId),
+              label: String(m.generalDetailDisplayName ?? m.generalDetailCode ?? m.generalDetailId),
             }))}
             placeholder="Select payment mode"
             searchable

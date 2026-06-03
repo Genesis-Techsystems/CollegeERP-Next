@@ -2,7 +2,7 @@ import { EXAM_EVAL_API } from '@/config/constants/api'
 import { fetchDetails, getAllRecords, postDetails, uploadFile, crud } from '@/services/crud'
 
 export async function runEvaluationProc<T = unknown>(procName: string, params: Record<string, unknown>): Promise<T> {
-  return getAllRecords<T>(procName, params)
+  return getAllRecords<T>(procName, params as Record<string, string | number>)
 }
 
 export async function uploadExamOmr(formData: FormData): Promise<unknown> {

@@ -1,8 +1,9 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ComponentType } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import type { DataTableProps } from '@/common/components/table'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import { PageContainer } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
@@ -18,7 +19,7 @@ import { PaymentWalletModal } from './PaymentWalletModal'
 const DataTable = dynamic(
   () => import('@/common/components/table').then((m) => ({ default: m.DataTable })),
   { loading: () => <WalletPageLoading /> },
-)
+) as ComponentType<DataTableProps<UnivPaymentWallet>>
 
 const COL_DEFS = {
   siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<UnivPaymentWallet>,
@@ -65,7 +66,7 @@ export function PaymentWalletPage() {
     queryFn: listUnivPaymentWallets,
   })
 
-  const columnDefs = useMemo(
+  const columnDefs = useMemo<ColDef<UnivPaymentWallet>[]>(
     () => [
       COL_DEFS.siNo,
       COL_DEFS.collegeCode,

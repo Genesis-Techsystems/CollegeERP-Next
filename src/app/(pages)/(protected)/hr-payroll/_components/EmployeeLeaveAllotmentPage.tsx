@@ -88,7 +88,7 @@ export function EmployeeLeaveAllotmentPage() {
         const filtered = orgId
           ? collegeList.filter((c) => Number(c.organizationId) === orgId)
           : collegeList
-        setCollegeRows(filtered as Record<string, unknown>[])
+        setCollegeRows(filtered as unknown as Record<string, unknown>[])
         setColleges(
           filtered.map((c) => ({
             value: String(c.collegeId),

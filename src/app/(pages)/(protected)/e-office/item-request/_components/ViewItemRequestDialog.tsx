@@ -52,7 +52,7 @@ export function ViewItemRequestDialog({
         <DataTable
           rowData={items}
           columnDefs={ITEM_COLS}
-          domLayout="autoHeight"
+          height="auto"
           pagination={false}
         />
       </DialogContent>

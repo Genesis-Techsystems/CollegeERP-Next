@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -67,7 +67,7 @@ export default function SupplierMasterModal({ open, onClose, editData, onSaved }
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: getDefaults(),
   })
 
@@ -190,8 +190,8 @@ export default function SupplierMasterModal({ open, onClose, editData, onSaved }
               render={({ field }) => (
                 <DatePicker
                   label="Start Date"
-                  value={field.value ?? null}
-                  onChange={field.onChange}
+                  value={field.value ? new Date(field.value) : null}
+                  onChange={(d) => field.onChange(d ? d.toISOString() : null)}
                 />
               )}
             />
@@ -201,8 +201,8 @@ export default function SupplierMasterModal({ open, onClose, editData, onSaved }
               render={({ field }) => (
                 <DatePicker
                   label="End Date"
-                  value={field.value ?? null}
-                  onChange={field.onChange}
+                  value={field.value ? new Date(field.value) : null}
+                  onChange={(d) => field.onChange(d ? d.toISOString() : null)}
                 />
               )}
             />

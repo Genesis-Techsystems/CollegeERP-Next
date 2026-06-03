@@ -306,7 +306,7 @@ export default function StudentDiscontinuePage() {
         return
       }
       try {
-        let rows = await listCourseGroups(courseId).catch(() => [])
+        let rows: AnyRow[] = await listCourseGroups(courseId).catch(() => [])
         if (!Array.isArray(rows) || rows.length === 0) {
           rows = await listCourseGroupsForCourseCascade(courseId)
         }

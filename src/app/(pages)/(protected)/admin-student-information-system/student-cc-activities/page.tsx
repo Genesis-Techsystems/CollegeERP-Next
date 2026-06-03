@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
-import { BookCopy, Plus, Pencil, Filter, ChevronDown } from 'lucide-react'
+import { Plus, Pencil, Filter, ChevronDown } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
@@ -234,7 +234,6 @@ export default function StudentCcActivitiesPage() {
       <PageHeader
         title="Student Co-Curriculum Activities"
         description="Search student and manage co-curriculum activities."
-        icon={<BookCopy className="h-5 w-5" />}
       />
 
       <div className="app-card overflow-hidden">

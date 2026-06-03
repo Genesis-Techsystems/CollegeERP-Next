@@ -44,7 +44,7 @@ export default function ConfigureAutoNumbersPage() {
   })
 
   const orgOptions = useMemo(
-    () => (orgQuery.data ?? []).map((row) => ({ value: String(row.organizationId), label: row.orgCode ?? row.organizationName })),
+    () => (orgQuery.data ?? []).map((row) => ({ value: String(row.organizationId), label: row.orgCode ?? row.orgName })),
     [orgQuery.data],
   )
   const collegeOptions = useMemo(

@@ -87,11 +87,12 @@ async function uploadExamOmrWithPath(file: File): Promise<string> {
     throw new Error(body?.message ?? 'Upload failed')
   }
 
-  const data = body?.data
+  const data = body?.data as { result?: unknown[]; path?: unknown } | unknown[] | string | undefined
   if (typeof data === 'string') return data
   if (Array.isArray(data) && typeof data[0] === 'string') return data[0]
-  if (Array.isArray(data?.result) && typeof data.result[0] === 'string') return data.result[0]
-  if (typeof data?.path === 'string') return data.path
+  const dataObj = data as { result?: unknown[]; path?: unknown } | undefined
+  if (Array.isArray(dataObj?.result) && typeof dataObj.result[0] === 'string') return dataObj.result[0]
+  if (typeof dataObj?.path === 'string') return dataObj.path
   return ''
 }
 

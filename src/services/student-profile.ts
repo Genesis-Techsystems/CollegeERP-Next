@@ -736,7 +736,7 @@ async function loadAttendance(student: AnyRow, ctx: StudentProfileContext): Prom
     ctx.groupSectionId
   ) {
     try {
-      const raw = await getAllRecords<unknown>(procName(ATTENDANCE_API.REP_TT_STD_ATTENDANCE_PER), {
+      const raw = await getAllRecords<unknown>(procName('getAllRecords/s_rep_tt_std_attendance_per'), {
         in_collegeId: ctx.collegeId,
         in_course_year_id: ctx.courseYearId,
         in_course_group_id: ctx.courseGroupId,

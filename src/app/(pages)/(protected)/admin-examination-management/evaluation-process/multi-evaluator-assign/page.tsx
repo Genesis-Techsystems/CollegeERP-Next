@@ -187,7 +187,10 @@ export default function MultiEvaluatorAssignPage() {
             .filter((v) => v > 0)
           const disabledByExclude = selectedEvaluatorId ? excluded.includes(num(selectedEvaluatorId)) : false
           const disabledByOmr = num(r.disable_omr) === 1
-          return { ...r, disabled: disabledByExclude || disabledByOmr, excludedByEvaluator: disabledByExclude }
+          return { ...r, disabled: disabledByExclude || disabledByOmr, excludedByEvaluator: disabledByExclude } as AnyRow & {
+            disabled: boolean
+            excludedByEvaluator: boolean
+          }
         })
         .sort((a, b) => {
           if (Boolean(a.disabled) !== Boolean(b.disabled)) return a.disabled ? 1 : -1

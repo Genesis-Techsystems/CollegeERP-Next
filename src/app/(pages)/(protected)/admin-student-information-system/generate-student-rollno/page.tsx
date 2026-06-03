@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Hash, Printer, Download } from 'lucide-react'
+import { Printer, Download } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
@@ -390,7 +390,6 @@ export default function GenerateStudentRollnoPage() {
       <PageHeader
         title="Assign student roll number"
         description="Load students by college and class, assign or edit roll numbers and hallticket numbers, then save."
-        icon={<Hash className="h-5 w-5" />}
       />
 
       <div className="space-y-4 print:space-y-2">

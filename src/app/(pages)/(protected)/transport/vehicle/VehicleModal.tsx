@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormModal } from '@/common/components/feedback'
@@ -59,7 +59,7 @@ export function VehicleModal({ open, onClose, row, onSaved }: Readonly<VehicleMo
     control,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: { isActive: true, reason: 'active' },
   })
 

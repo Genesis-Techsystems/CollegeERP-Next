@@ -999,7 +999,7 @@ export async function addListUnivEcStudents(payload: Record<string, unknown>[]):
 // ─── Exam Center Courses/Groups/Years/Subjects (`UnivEcCollegeDetails`) ──────
 
 export async function getExamCenterByCodeRows(args: {
-  flag: 'exam_center_clg_filters' | 'ec_grp_yr_subjects' | 'eg_filters'
+  flag: 'exam_center_clg_filters' | 'ec_grp_yr_subjects' | 'eg_filters' | 'eg_scan_filter'
   flagType?: string
   univExamcenterId?: number
   examGroupId?: number

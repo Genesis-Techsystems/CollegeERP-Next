@@ -146,6 +146,7 @@ export function CollegeUploadApprovalDetailPage({ kind }: CollegeUploadApprovalD
     if (!params) return null
     const extra = config.extraDetailParams?.(params) ?? {}
     return {
+      inFlag: '',
       collegeId: pickNum(params, 'fk_college_id'),
       academicYearId: pickNum(params, 'fk_academic_year_id'),
       courseId: pickNum(params, 'fk_course_id'),
@@ -307,7 +308,6 @@ export function CollegeUploadApprovalDetailPage({ kind }: CollegeUploadApprovalD
               loading={isFetching}
               emptyText="No records found"
               pageSize={25}
-              embedded
             />
           </div>
 

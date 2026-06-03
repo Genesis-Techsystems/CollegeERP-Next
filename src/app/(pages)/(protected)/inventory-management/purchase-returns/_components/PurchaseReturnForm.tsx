@@ -80,7 +80,7 @@ export function PurchaseReturnForm({
   const [srv, setSrv] = useState<InvStockReceiptVoucher | null>(null)
   const [itemList, setItemList] = useState<InvPurchaseReturnItemRow[]>([])
   const [purchaseReturnNo, setPurchaseReturnNo] = useState('')
-  const [purchaseReturnDate, setPurchaseReturnDate] = useState<Date | undefined>(new Date())
+  const [purchaseReturnDate, setPurchaseReturnDate] = useState<Date | null>(new Date())
   const [refFile1, setRefFile1] = useState<File | null>(null)
   const [refFile2, setRefFile2] = useState<File | null>(null)
 

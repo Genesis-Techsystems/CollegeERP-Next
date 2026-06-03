@@ -78,7 +78,7 @@ export function LeaveEntitlementPage() {
         setDepartments(
           depts.map((d) => ({
             value: String(d.departmentId),
-            label: String(d.deptCode ?? d.departmentName ?? d.departmentId),
+            label: String(d.deptCode ?? d.deptName ?? d.departmentId),
           })),
         )
         setLeaveTypes(types)
@@ -181,7 +181,7 @@ export function LeaveEntitlementPage() {
     setDepartmentId(v ? Number(v) : null)
   }
 
-  function onValidFromChange(date: Date | undefined) {
+  function onValidFromChange(date: Date | null) {
     if (!date) return
     setValidFrom(date)
     if (validTo && date > validTo) {
@@ -337,7 +337,7 @@ export function LeaveEntitlementPage() {
             </Label>
             <DatePicker
               value={validTo}
-              onChange={setValidTo}
+              onChange={(date) => { if (date) setValidTo(date) }}
               minDate={validFrom}
               className="h-9 text-[12px]"
             />

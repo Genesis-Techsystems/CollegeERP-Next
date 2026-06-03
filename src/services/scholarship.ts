@@ -84,11 +84,11 @@ function normalizeFeeSchStructure(row: FeeSchStructureRow): FeeSchStructureRow {
     academicYearId: academicYearId || undefined,
     universityId: num(row.universityId, r.universityId, college?.universityId) || undefined,
     scholarshipTypeId: scholarshipTypeId || undefined,
-    scholarshipType: str(row.scholarshipType, scholarshipType?.scholarshipTypeCode, row.scholarshipTypeCode),
+    scholarshipType: str(row.scholarshipType, scholarshipType?.scholarshipTypeCode, r.scholarshipTypeCode),
     scholarshipTypeDesc: str(
       row.scholarshipTypeDesc,
       scholarshipType?.scholarshipTypeDesc,
-      row.scholarshipTypeDescription,
+      r.scholarshipTypeDescription,
     ),
     scholarshipAmount: Number(row.scholarshipAmount ?? r.scholarshipAmount ?? 0),
     isForLateral: Boolean(row.isForLateral ?? r.isForLateral),

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -39,7 +39,7 @@ export default function CourseYearModal({
   const [courses, setCourses] = useState<Course[]>([])
   const [submitError, setSubmitError] = useState<string | null>(null)
   const { register, handleSubmit, reset, control, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: { universityId: undefined, courseId: undefined, yearNo: 1, courseYearCode: '', courseYearName: '', isActive: true, reason: '' },
   })
   const selectedUniversityId = watch('universityId')
@@ -74,7 +74,7 @@ export default function CourseYearModal({
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
           <Controller name="universityId" control={control} render={({ field }) => (
-            <Select label="University" required value={field.value ? String(field.value) : null} onChange={(v) => { field.onChange(v ? Number(v) : undefined); setValue('courseId', undefined) }}
+            <Select label="University" required value={field.value ? String(field.value) : null} onChange={(v) => { field.onChange(v ? Number(v) : undefined); setValue('courseId', undefined as unknown as number) }}
               options={universities.map((u) => ({ value: String(u.universityId), label: u.universityCode ?? u.universityName }))} placeholder="Select university" searchable error={errors.universityId?.message} />
           )} />
           <Controller name="courseId" control={control} render={({ field }) => (

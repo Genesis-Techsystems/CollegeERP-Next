@@ -415,6 +415,8 @@ export const EMPLOYEE_API = {
 // ─── Fee / Payment Management ────────────────────────────────────────────────
 
 export const FEE_API = {
+  /** GET: student fee ledger (`s_fee_std_ledger` proc) */
+  FEE_STD_LEDGER: 'getAllRecords/s_fee_std_ledger',
   /** GET: student payment due details */
   GET_STUDENT_DUE_DETAILS: 'getStudentPaymentDueDetails',
   /** POST: student fee payment */
@@ -477,14 +479,10 @@ export const FEE_API = {
   FEE_STRUCTURE_COURSEYR: 'FeeStructureCourseyr',
   /** GET: fee management student detail. */
   FEE_MANAGEMENT_STUDENT_DETAIL: 'feeManagmentStudentdDetail',
-  /** GET: fee management student details search. */
-  FEE_MANAGEMENT_SEARCH: 'feeManagementStdDetailSearch',
   /** POST: save student fee management row(s). */
   FEE_MANAGEMENT_SAVE: 'feeManagmentStdDetail',
   /** GET: fee due list for pay-link / notifications. */
   FEE_DUE_LIST: 'getAllRecords/s_fee_due_list',
-  /** POST: send payment mail with due list. */
-  SEND_PAYMENT_MAIL: 'sendPaymentMailNotification',
   /** GET: employee typeahead (`cms/employeesearch?q=&empStatus=ACTV` — Angular base URL includes `/cms`). */
   EMPLOYEE_SEARCH: 'cms/employeesearch',
   /** GET: transport allocation by employee. */
@@ -825,8 +823,6 @@ export const HR_PAYROLL_API = {
   DEPT_HEADS: 'EmpDeptHeads',
   /** CRUD: PayrollCategory */
   PAYROLL_CATEGORY: 'PayrollCategory',
-  /** POST: create / update payroll category (Angular `payRollCategoryUrl`) */
-  PAYROLL_CATEGORY_SAVE: 'payrollcategory',
   /** POST: create / update payroll category (Angular `payRollCategoryUrl`) */
   PAYROLL_CATEGORY_SAVE: 'payrollcategory',
   /** GET: payroll groups master list */
@@ -1321,6 +1317,7 @@ export const EVENTS_API = {
 // ─── Mentorship / counseling (Angular staff-mentorship + admin-counseling) ───
 
 export const MENTORSHIP_API = {
+  MAPPED_COUNSELOR_STUDENTS: 'mappedcounselorstudents',
   COUNSELOR_MAPPINGS: 'counselormappings',
   COUNSELOR_DETAILS: 'counselordetails',
   COUNSELOR_ACTIVITIES: 'counseloractivitys',

@@ -228,7 +228,7 @@ export default function UnivExamBagCollectionPage() {
             <Select
               options={bagOptions}
               value={formModal.univExamAnswerPaperBagsId}
-              onChange={(v) => setFormModal((f) => ({ ...f, univExamAnswerPaperBagsId: v }))}
+              onChange={(v) => setFormModal((f) => ({ ...f, univExamAnswerPaperBagsId: v ?? '' }))}
             />
           </div>
           <div className="space-y-1">

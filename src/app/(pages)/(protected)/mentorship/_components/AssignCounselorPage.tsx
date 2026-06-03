@@ -515,7 +515,7 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
 
             <div className="app-card p-3 space-y-2 min-h-[280px]">
               <p className="text-sm font-medium">
-                {employees.find((e) => Number(e.employeeId) === employeeId)?.firstName ?? 'Counselor'} (
+                {(employees.find((e) => Number(e.employeeId) === employeeId)?.firstName as string | undefined) ?? 'Counselor'} (
                 {assigned.length})
               </p>
               <SearchInput value={rightSearch} onChange={setRightSearch} placeholder="Search…" />

@@ -445,7 +445,7 @@ export function PaymentNoteRequestForm({
             options={accountOptions}
             placeholder="Select account"
           />
-          <DatePicker label="P.O. Date" value={poDate} onChange={setPoDate} />
+          <DatePicker label="P.O. Date" value={poDate ?? null} onChange={(d) => setPoDate(d ?? undefined)} />
           <div className="space-y-1.5">
             <Label>Invoice No</Label>
             <Input value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} />

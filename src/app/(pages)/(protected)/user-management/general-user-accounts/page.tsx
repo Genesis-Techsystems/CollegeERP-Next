@@ -332,7 +332,7 @@ export default function GeneralUserAccountsPage() {
         ...r,
         userId: activeUser.userId,
         userTypeId: activeUser.userTypeId ?? r.userTypeId,
-        userName: activeUser.userName ?? r.userName ?? null,
+        userName: activeUser.userName ?? r.userName ?? undefined,
         firstName: activeUser.firstName ?? r.firstName ?? null,
         lastName: activeUser.lastName ?? r.lastName ?? null,
         resetPasswordCode: r.resetPasswordCode ?? null,
@@ -473,7 +473,7 @@ export default function GeneralUserAccountsPage() {
             <Input className="h-10 text-[12px]" type="password" value={form.passwordConfirm} onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))} />
           </FormField>
           <FormField label="Password Expired Date">
-            <DatePicker value={form.passwordExpDate} onChange={(v) => setForm((s) => ({ ...s, passwordExpDate: v }))} />
+            <DatePicker value={form.passwordExpDate} onChange={(v) => setForm((s) => ({ ...s, passwordExpDate: v ?? s.passwordExpDate }))} />
           </FormField>
           <div className="flex items-end">
             <div className="flex items-center gap-5 text-[12px] text-slate-700">
@@ -532,7 +532,7 @@ export default function GeneralUserAccountsPage() {
             <Input className="h-10 text-[12px]" type="password" value={form.passwordConfirm} onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))} />
           </FormField>
           <FormField label="Password Expired Date">
-            <DatePicker value={form.passwordExpDate} onChange={(v) => setForm((s) => ({ ...s, passwordExpDate: v }))} />
+            <DatePicker value={form.passwordExpDate} onChange={(v) => setForm((s) => ({ ...s, passwordExpDate: v ?? s.passwordExpDate }))} />
           </FormField>
           <div className="flex items-end">
             <div className="flex items-center gap-5 text-[12px] text-slate-700">

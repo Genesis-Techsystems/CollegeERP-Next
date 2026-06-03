@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { getErrorMessage } from '@/lib/errors'
 import { listActiveCollegesForGeneralSettings, listSelfAppraisalFormsByCollege } from '@/services'
+import type { College } from '@/types/college'
 import { rowIndexGetter } from '@/lib/utils'
 import { SelfAppraisalFormModal } from './SelfAppraisalFormModal'
 import { SelfAppraisalFormDetailsModal } from './SelfAppraisalFormDetailsModal'
@@ -78,7 +79,7 @@ export function SelfAppraisalPage() {
   const queryClient = useQueryClient()
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [colleges, setColleges] = useState<SelectOption[]>([])
-  const [collegeRows, setCollegeRows] = useState<Record<string, unknown>[]>([])
+  const [collegeRows, setCollegeRows] = useState<College[]>([])
   const [collegesLoading, setCollegesLoading] = useState(true)
   const [formModalOpen, setFormModalOpen] = useState(false)
   const [detailsModalOpen, setDetailsModalOpen] = useState(false)
@@ -187,13 +188,13 @@ export function SelfAppraisalPage() {
               search: true,
               searchPlaceholder: 'Search appraisal forms…',
               pdfDocumentTitle: 'Self Appraisal Forms',
-              toolbarTrailing: (
-                <Button type="button" size="sm" className="h-8 gap-1" onClick={openAddForm}>
-                  <PlusIcon className="h-3.5 w-3.5" />
-                  Add Form
-                </Button>
-              ),
             }}
+            toolbarTrailing={
+              <Button type="button" size="sm" className="h-8 gap-1" onClick={openAddForm}>
+                <PlusIcon className="h-3.5 w-3.5" />
+                Add Form
+              </Button>
+            }
           />
         </TableCard>
       ) : null}

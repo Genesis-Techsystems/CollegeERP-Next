@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { GraduationCap } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { DatePicker } from '@/common/components/date-picker'
@@ -395,7 +394,6 @@ export default function StudentPassoutPage() {
       <PageHeader
         title="Student passout"
         description="Mark students as passed out for the selected course year and effective date."
-        icon={<GraduationCap className="h-5 w-5" />}
       />
 
       <div className="space-y-4">

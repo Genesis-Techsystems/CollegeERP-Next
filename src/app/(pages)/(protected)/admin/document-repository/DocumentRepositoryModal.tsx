@@ -97,7 +97,7 @@ export default function DocumentRepositoryModal({
   const universityId = watch('universityId')
 
   const organizationOptions = useMemo(
-    () => organizations.map((item) => ({ value: String(item.organizationId), label: item.orgCode ?? item.organizationName })),
+    () => organizations.map((item) => ({ value: String(item.organizationId), label: item.orgCode ?? item.orgName })),
     [organizations],
   )
   const universityOptions = useMemo(
@@ -237,8 +237,8 @@ export default function DocumentRepositoryModal({
                   onChange={(v) => {
                     const next = v ? Number(v) : undefined
                     field.onChange(next)
-                    setValue('collegeId', undefined)
-                    setValue('courseId', undefined)
+                    setValue('collegeId', undefined as unknown as number)
+                    setValue('courseId', undefined as unknown as number)
                   }}
                   options={universityOptions}
                   placeholder="Select university"

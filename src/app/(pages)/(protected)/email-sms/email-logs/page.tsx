@@ -239,10 +239,10 @@ export default function EmailLogsPage() {
               height="auto"
               getRowId={(p) => {
                 const d = p.data
-                if (!d) return `row-${p.node?.rowIndex ?? 0}`
+                if (!d) return 'row-0'
                 const id = Number(d.emailLogId ?? d.email_log_id ?? d.id ?? 0)
                 if (id > 0) return String(id)
-                return `${pickStr(d, ['createdDt', 'sentDate', 'sent_date'])}-${pickStr(d, ['subject', 'mailSubject'])}-${pickStr(d, ['toEmail', 'email'])}-${p.node?.rowIndex ?? 0}`
+                return `${pickStr(d, ['createdDt', 'sentDate', 'sent_date'])}-${pickStr(d, ['subject', 'mailSubject'])}-${pickStr(d, ['toEmail', 'email'])}`
               }}
               toolbar={{ search: true, searchPlaceholder: 'Search logs…', pdfDocumentTitle: 'Email logs' }}
             />

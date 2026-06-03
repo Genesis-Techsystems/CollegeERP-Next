@@ -17,8 +17,8 @@ import { toastError, toastSuccess } from '@/lib/toast'
 
 const schema = z.object({
   empDesignationId: z.number().min(1, 'Designation is required'),
-  fromDate: z.date({ required_error: 'From date is required' }),
-  toDate: z.date({ required_error: 'To date is required' }),
+  fromDate: z.date({ message: 'From date is required' }),
+  toDate: z.date({ message: 'To date is required' }),
   isActive: z.boolean(),
   reason: z.string().optional(),
 })

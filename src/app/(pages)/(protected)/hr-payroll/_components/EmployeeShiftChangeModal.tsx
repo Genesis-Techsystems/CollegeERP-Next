@@ -25,8 +25,8 @@ import { toast } from 'sonner'
 const schema = z
   .object({
     shiftId: z.number().min(1, 'Shift is required'),
-    fromDate: z.date({ required_error: 'From date is required' }),
-    toDate: z.date({ required_error: 'To date is required' }),
+    fromDate: z.date({ message: 'From date is required' }),
+    toDate: z.date({ message: 'To date is required' }),
     isActive: z.boolean(),
   })
   .refine((d) => d.toDate >= d.fromDate, {
@@ -150,7 +150,7 @@ export function EmployeeShiftChangeModal({
     })
   }
 
-  function onFromDateChange(date: Date | undefined) {
+  function onFromDateChange(date: Date | null) {
     if (!date) return
     setValue('fromDate', date)
     const to = watch('toDate')

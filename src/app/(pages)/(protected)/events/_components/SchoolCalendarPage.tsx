@@ -25,7 +25,7 @@ const COL_DEFS: ColDef<CollegeEventRow>[] = [
     minWidth: 130,
     flex: 1,
     valueGetter: (p) => {
-      const raw = p.data?.eventDate ?? p.data?.startDate
+      const raw = (p.data as { eventDate?: string } | undefined)?.eventDate ?? p.data?.startDate
       if (!raw) return '-'
       const dt = new Date(String(raw))
       if (Number.isNaN(dt.getTime())) return String(raw)

@@ -71,10 +71,11 @@ export function StockReceiptVoucherForm({
   const [purchaseOrder, setPurchaseOrder] = useState<PoWithTax | null>(null)
   const [itemList, setItemList] = useState<InvSrvItemRow[]>([])
   const [srvNo, setSrvNo] = useState('')
-  const [srvDate, setSrvDate] = useState<Date | undefined>(new Date())
+  const [srvDate, setSrvDate] = useState<Date | null>(new Date())
   const [deliveryChallanNo, setDeliveryChallanNo] = useState('')
-  const [deliveryChallanDate, setDeliveryChallanDate] = useState<Date | undefined>(new Date())
+  const [deliveryChallanDate, setDeliveryChallanDate] = useState<Date | null>(new Date())
   const [refFile1, setRefFile1] = useState<File | null>(null)
+  const [refFile2, setRefFile2] = useState<File | null>(null)
   const [itemsLoadedFromPo, setItemsLoadedFromPo] = useState(false)
 
   const { data: purchaseOrders = [] } = useQuery({

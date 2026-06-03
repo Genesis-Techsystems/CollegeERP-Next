@@ -94,7 +94,7 @@ export function MonthlyPayslipPage() {
       { value: '0', label: 'All' },
       ...depts.map((d) => ({
         value: String(d.departmentId),
-        label: String(d.deptCode ?? d.departmentName ?? d.departmentId),
+        label: String(d.deptCode ?? d.deptName ?? d.departmentId),
       })),
     ]
     setDepartments(opts)

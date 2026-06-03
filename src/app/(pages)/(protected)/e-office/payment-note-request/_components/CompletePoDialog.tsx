@@ -75,7 +75,7 @@ export function CompletePoDialog({
       <DataTable
         rowData={row?.invPoItems ?? []}
         columnDefs={ITEM_COLS}
-        domLayout="autoHeight"
+        height="auto"
         pagination={false}
       />
       <div className="mt-4">

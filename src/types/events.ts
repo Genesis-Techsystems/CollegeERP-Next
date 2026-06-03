@@ -16,6 +16,7 @@ export type CollegeEventRow = {
   eventStatusId?: number
   eventName?: string
   startDate?: string
+  eventDate?: string
   endDate?: string
   publishDate?: string
   isPublished?: boolean

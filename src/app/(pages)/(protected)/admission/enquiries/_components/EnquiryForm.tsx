@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Laptop } from 'lucide-react'
@@ -174,7 +174,7 @@ export function EnquiryForm({
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       mobileNumber: '',
       modeofenquiryId: undefined,
@@ -335,11 +335,11 @@ export function EnquiryForm({
         }
         if (row.countryId) {
           const st = await listStatesByCountry(row.countryId)
-          setStates(st as Record<string, unknown>[])
+          setStates(st as unknown as Record<string, unknown>[])
         }
         if (row.stateId) {
           const dist = await listDistrictsByState(row.stateId)
-          setDistricts(dist as Record<string, unknown>[])
+          setDistricts(dist as unknown as Record<string, unknown>[])
         }
         reset({
           mobileNumber: row.mobileNumber ?? '',
@@ -403,8 +403,8 @@ export function EnquiryForm({
       return
     }
     if (!isEdit) {
-      setValue('collegeId', undefined)
-      setValue('courseId', undefined)
+      setValue('collegeId', undefined as unknown as number)
+      setValue('courseId', undefined as unknown as number)
     }
     void loadColleges(organizationId)
     void loadQualifications(organizationId)
@@ -415,7 +415,7 @@ export function EnquiryForm({
       setCourses([])
       return
     }
-    if (!isEdit) setValue('courseId', undefined)
+    if (!isEdit) setValue('courseId', undefined as unknown as number)
     void loadCourses(collegeId)
   }, [collegeId, isEdit, loadCourses, setValue])
 
@@ -426,7 +426,7 @@ export function EnquiryForm({
     }
     setValue('stateId', undefined)
     setValue('districtId', undefined)
-    void listStatesByCountry(countryId).then((rows) => setStates(rows as Record<string, unknown>[]))
+    void listStatesByCountry(countryId).then((rows) => setStates(rows as unknown as Record<string, unknown>[]))
   }, [countryId, setValue])
 
   useEffect(() => {
@@ -435,7 +435,7 @@ export function EnquiryForm({
       return
     }
     setValue('districtId', undefined)
-    void listDistrictsByState(stateId).then((rows) => setDistricts(rows as Record<string, unknown>[]))
+    void listDistrictsByState(stateId).then((rows) => setDistricts(rows as unknown as Record<string, unknown>[]))
   }, [stateId, setValue])
 
   useEffect(() => {

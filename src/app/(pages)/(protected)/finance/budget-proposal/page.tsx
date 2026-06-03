@@ -93,15 +93,15 @@ export default function BudgetProposalPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Select
               label="Category"
-              value={finCategoryId || undefined}
+              value={finCategoryId ? String(finCategoryId) : null}
               onChange={(v) => { setFinCategoryId(Number(v)); setFinSubCategoryId(0) }}
-              options={categories.map((c) => ({ value: c.finCategoryId, label: c.categoryName }))}
+              options={categories.map((c) => ({ value: String(c.finCategoryId), label: c.categoryName }))}
             />
             <Select
               label="Sub category"
-              value={finSubCategoryId || undefined}
+              value={finSubCategoryId ? String(finSubCategoryId) : null}
               onChange={(v) => setFinSubCategoryId(Number(v))}
-              options={subCategories.map((s) => ({ value: s.finSubCategoryId, label: s.subCategoryName }))}
+              options={subCategories.map((s) => ({ value: String(s.finSubCategoryId), label: s.subCategoryName }))}
               disabled={!finCategoryId}
             />
             <div className="space-y-1.5">

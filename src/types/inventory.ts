@@ -168,6 +168,7 @@ export interface InvSrvItemRow {
   itemDiscountPercentage?: number
   itemTotalCost?: number
   receivedQty?: number
+  returnedQty?: number
   itemUnitAmount?: number
   itemTotalDiscountAmount?: number
   isActive?: boolean

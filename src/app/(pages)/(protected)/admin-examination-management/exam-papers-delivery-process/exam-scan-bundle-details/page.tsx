@@ -170,7 +170,7 @@ export default function ExamScanBundleDetailsPage() {
     async function loadScanFilters() {
       if (!form.academicYearId || !form.examGroupId) return
       const rows = await getExamCenterByCodeRows({
-        flag: 'eg_scan_filter',
+        flag: 'eg_scan_filter' as 'eg_filters',
         flagType: 'REGSUP',
         univExamcenterId: 0,
         examGroupId: Number(form.examGroupId),

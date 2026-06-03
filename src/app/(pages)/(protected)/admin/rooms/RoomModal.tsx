@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -80,7 +80,7 @@ export default function RoomModal({ open, onClose, room, onSaved }: Readonly<Roo
     control,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       blockId: undefined,
       floorId: undefined,
@@ -123,7 +123,7 @@ export default function RoomModal({ open, onClose, room, onSaved }: Readonly<Roo
   useEffect(() => {
     if (!selectedBlockId) {
       setFloors([])
-      setValue('floorId', undefined)
+      setValue('floorId', undefined as unknown as number)
       return
     }
     listActiveFloorsByBlock(selectedBlockId).then(setFloors).catch(console.error)
@@ -190,7 +190,7 @@ export default function RoomModal({ open, onClose, room, onSaved }: Readonly<Roo
                   value={field.value ? String(field.value) : null}
                   onChange={(v) => {
                     field.onChange(v ? Number(v) : undefined)
-                    setValue('floorId', undefined)
+                    setValue('floorId', undefined as unknown as number)
                   }}
                   options={blockOptions}
                   placeholder="Select block"

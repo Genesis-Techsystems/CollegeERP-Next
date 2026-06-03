@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen, ChevronDown, Filter } from 'lucide-react'
+import { ChevronDown, Filter } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
@@ -280,7 +280,6 @@ export default function StudentSubjectsPage() {
       <PageHeader
         title="Student Subjects"
         description="Search a student and view assigned subjects."
-        icon={<BookOpen className="h-5 w-5" />}
       />
 
       <div className="app-card overflow-hidden">

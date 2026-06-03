@@ -319,7 +319,7 @@ export async function listHostelRoomAllocationsByRoom(
   try {
     const data = await fetchDetails<unknown>(HOSTEL_API.ROOM_ALLOCATION_LIST, {
       hstlRoomId,
-      isActive: true,
+      isActive: 'true',
     })
     return normalizeHostelRoomAllocationRows(data)
   } catch {

@@ -77,7 +77,7 @@ export async function getCollegeCourseGroupFilters(orgId: number, employeeId: nu
   for (const group of groups) {
     if (!Array.isArray(group) || group.length === 0) continue
     const first = group[0]
-    if ((typeof first.flag === 'string' ? first.flag : '') === 'clg_filters') return group
+    if ((typeof first.flag === 'string' ? first.flag : '') === 'clg_filters') return group as CollegeFilterRow[]
   }
   return groups.flatMap((g) => (Array.isArray(g) ? g : [])) as CollegeFilterRow[]
 }

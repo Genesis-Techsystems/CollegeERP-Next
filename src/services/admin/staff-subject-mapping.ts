@@ -167,7 +167,7 @@ export async function listEmployeeMappedSubjects(params: {
     for (const path of paths) {
       for (const query of queries) {
         try {
-          const rows = await fetchDetails<T[]>(path, query)
+          const rows = await fetchDetails<T[]>(path, query as Record<string, string | number>)
           if (Array.isArray(rows) && rows.length > 0) return rows
         } catch {
           // try next path/query variant

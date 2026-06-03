@@ -392,7 +392,7 @@ export default function ExamGroupDetailsPage() {
               <Select
                 options={academicYearSelectOptions}
                 value={academicYearId}
-                onChange={(v) => setAcademicYearId(v)}
+                onChange={(v) => setAcademicYearId(v ?? '')}
                 placeholder="Select academic year"
                 disabled={academicYearSelectOptions.length === 0}
               />
@@ -413,7 +413,7 @@ export default function ExamGroupDetailsPage() {
               <Select
                 options={examSelectOptions}
                 value={selectedExamId}
-                onChange={(v) => setSelectedExamId(v)}
+                onChange={(v) => setSelectedExamId(v ?? '')}
                 placeholder={
                   effectiveUniversityId && academicYearId ? 'Select exam' : 'Set academic year first'
                 }

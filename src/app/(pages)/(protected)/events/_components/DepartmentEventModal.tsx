@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -29,8 +29,8 @@ const schema = z.object({
   departmentId: z.number().min(1, 'Department is required'),
   deptEventName: z.string().min(1, 'Event name is required'),
   venue: z.string().optional(),
-  startDate: z.date({ required_error: 'Start date is required' }),
-  endDate: z.date({ required_error: 'End date is required' }),
+  startDate: z.date({ message: 'Start date is required' }),
+  endDate: z.date({ message: 'End date is required' }),
   totalRegisrationAmount: z.coerce.number().optional(),
   totalExpenditure: z.coerce.number().optional(),
   totalFeeCollected: z.coerce.number().optional(),
@@ -74,7 +74,7 @@ export function DepartmentEventModal({
     control,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       departmentId: undefined,
       deptEventName: '',
@@ -96,7 +96,7 @@ export function DepartmentEventModal({
       setDepartments(
         list.map((d) => ({
           value: String(d.departmentId),
-          label: d.departmentName ?? d.departmentCode ?? String(d.departmentId),
+          label: d.deptName ?? d.deptCode ?? String(d.departmentId),
         })),
       )
     })

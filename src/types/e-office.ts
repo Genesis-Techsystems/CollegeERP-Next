@@ -69,6 +69,15 @@ export type InvPurchaseOrderRow = {
   invTranstypeCatdetCode?: string
   poActualAmount?: number
   poNetCost?: number
+  invoiceNo?: string
+  sgst?: number
+  igst?: number
+  shippingCharges?: number
+  otherCharges?: number
+  termsconditions?: string
+  subjectText?: string
+  requestText?: string
+  poComments?: string
   poStatusCatdetId?: number | null
   poWorkFlowName?: string
   poWorkFlowStage?: number
