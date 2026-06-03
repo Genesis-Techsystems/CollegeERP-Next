@@ -1,2 +1,5 @@
 export { ThemeSettingModal } from './ThemeSettingModal'
 export type { ThemeSettingModalProps } from './ThemeSettingModal'
+export { ThemeSwitcher } from './ThemeSwitcher'
+export { useTheme, COLOR_THEMES } from './useTheme'
+export type { ColorScheme, ThemeMode, ThemeSettings } from './useTheme'

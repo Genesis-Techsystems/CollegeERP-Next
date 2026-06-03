@@ -28,6 +28,7 @@ import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
 import { normalizeHref } from '@/lib/navigation'
 import { getUserAccess, logout } from '@/services/auth'
+import { ThemeSwitcher } from '@/common/components/theme-setting-modal'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -367,6 +368,9 @@ export function Topbar() {
             </div>
           )}
         </div>
+
+        {/* Theme switcher */}
+        <ThemeSwitcher />
 
         {/* Notification bell */}
         <Button

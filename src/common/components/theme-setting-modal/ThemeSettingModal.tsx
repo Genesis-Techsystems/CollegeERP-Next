@@ -99,12 +99,13 @@ function ToggleSwitch({ checked, onChange, id }: ToggleSwitchProps) {
 // ---------------------------------------------------------------------------
 
 const COLOR_SWATCHES: { scheme: ColorScheme; label: string; bg: string }[] = [
-  { scheme: 'default', label: 'Default', bg: 'bg-blue-600' },
-  { scheme: 'blue',    label: 'Blue',    bg: 'bg-sky-500' },
-  { scheme: 'green',   label: 'Green',   bg: 'bg-emerald-500' },
-  { scheme: 'purple',  label: 'Purple',  bg: 'bg-purple-500' },
-  { scheme: 'orange',  label: 'Orange',  bg: 'bg-orange-500' },
-  { scheme: 'red',     label: 'Red',     bg: 'bg-red-500' },
+  { scheme: 'indigo-teal', label: 'Indigo & Teal', bg: 'bg-indigo-600' },
+  { scheme: 'deep-blue',   label: 'Deep Blue',     bg: 'bg-blue-600' },
+  { scheme: 'emerald',     label: 'Emerald',       bg: 'bg-emerald-600' },
+  { scheme: 'violet',      label: 'Violet',        bg: 'bg-violet-600' },
+  { scheme: 'rose',        label: 'Rose',          bg: 'bg-rose-600' },
+  { scheme: 'amber',       label: 'Amber',         bg: 'bg-amber-600' },
+  { scheme: 'slate-teal',  label: 'Slate Teal',    bg: 'bg-cyan-700' },
 ]
 
 // ---------------------------------------------------------------------------

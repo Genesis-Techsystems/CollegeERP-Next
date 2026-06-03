@@ -8,13 +8,15 @@ import { useCallback, useEffect, useState } from 'react'
 
 export type SidebarPosition = 'left' | 'right'
 
+/** Switchable colour themes — each maps to a [data-theme] block in globals.css */
 export type ColorScheme =
-  | 'default'
-  | 'blue'
-  | 'green'
-  | 'purple'
-  | 'orange'
-  | 'red'
+  | 'indigo-teal'
+  | 'deep-blue'
+  | 'emerald'
+  | 'violet'
+  | 'rose'
+  | 'amber'
+  | 'slate-teal'
 
 export type FontSize = 'sm' | 'md' | 'lg'
 
@@ -23,7 +25,7 @@ export type ThemeMode = 'light' | 'dark' | 'system'
 export interface ThemeSettings {
   /** Which side the sidebar is docked to */
   sidebarPosition: SidebarPosition
-  /** Primary colour palette */
+  /** Active colour theme */
   colorScheme: ColorScheme
   /** Base font size for the application */
   fontSize: FontSize
@@ -33,46 +35,36 @@ export interface ThemeSettings {
   sidebarCollapsed: boolean
 }
 
+/** Theme metadata for switcher UIs (swatch = the visible accent colours). */
+export interface ColorThemeMeta {
+  id: ColorScheme
+  label: string
+  /** [primary, accent] swatch hex for previews */
+  swatch: [string, string]
+}
+
+export const COLOR_THEMES: ColorThemeMeta[] = [
+  { id: 'indigo-teal', label: 'Indigo & Teal', swatch: ['#4F46E5', '#14B8A6'] },
+  { id: 'deep-blue', label: 'Deep Blue', swatch: ['#2563EB', '#0EA5E9'] },
+  { id: 'emerald', label: 'Emerald', swatch: ['#059669', '#14B8A6'] },
+  { id: 'violet', label: 'Violet', swatch: ['#7C3AED', '#D946EF'] },
+  { id: 'rose', label: 'Rose', swatch: ['#E11D48', '#F97316'] },
+  { id: 'amber', label: 'Amber', swatch: ['#D97706', '#FBBF24'] },
+  { id: 'slate-teal', label: 'Slate Teal', swatch: ['#2A6F8E', '#3FB6A8'] },
+]
+
 // ---------------------------------------------------------------------------
 // Defaults & storage key
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = 'erp_theme_settings'
+export const STORAGE_KEY = 'erp_theme_settings'
 
 export const DEFAULT_THEME: ThemeSettings = {
   sidebarPosition: 'left',
-  colorScheme: 'default',
+  colorScheme: 'indigo-teal',
   fontSize: 'md',
   themeMode: 'light',
   sidebarCollapsed: false,
-}
-
-// CSS variable maps applied to :root so Tailwind utilities pick them up
-const COLOR_SCHEME_VARS: Record<ColorScheme, Record<string, string>> = {
-  default: {
-    '--color-primary': '221 83% 53%',
-    '--color-primary-foreground': '0 0% 100%',
-  },
-  blue: {
-    '--color-primary': '210 100% 50%',
-    '--color-primary-foreground': '0 0% 100%',
-  },
-  green: {
-    '--color-primary': '142 71% 45%',
-    '--color-primary-foreground': '0 0% 100%',
-  },
-  purple: {
-    '--color-primary': '270 60% 55%',
-    '--color-primary-foreground': '0 0% 100%',
-  },
-  orange: {
-    '--color-primary': '25 95% 53%',
-    '--color-primary-foreground': '0 0% 100%',
-  },
-  red: {
-    '--color-primary': '0 84% 60%',
-    '--color-primary-foreground': '0 0% 100%',
-  },
 }
 
 const FONT_SIZE_MAP: Record<FontSize, string> = {
@@ -104,16 +96,13 @@ function saveToStorage(settings: ThemeSettings): void {
   }
 }
 
-function applyToDocument(settings: ThemeSettings): void {
+export function applyToDocument(settings: ThemeSettings): void {
   if (typeof document === 'undefined') return
 
   const root = document.documentElement
 
-  // --- colour scheme ---
-  const vars = COLOR_SCHEME_VARS[settings.colorScheme]
-  Object.entries(vars).forEach(([key, value]) => {
-    root.style.setProperty(key, value)
-  })
+  // --- colour theme (CSS [data-theme] block in globals.css) ---
+  root.setAttribute('data-theme', settings.colorScheme)
 
   // --- font size ---
   root.style.setProperty('--font-size-base', FONT_SIZE_MAP[settings.fontSize])
