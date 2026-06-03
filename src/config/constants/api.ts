@@ -1195,6 +1195,8 @@ export const UNIV_EXAM_CENTER_API = {
   BAG_DISPATCH_STATUS: 'ExamBagDispatchStatus',
   /** POST: add list univ exam answer paper bags */
   ADD_ANSWER_PAPER_BAGS: 'addListUnivExamAnswerPaperBags',
+  /** GET: `getAllRecords/s_get_examcenter_bundle_bycode` — bundle OMR / student attendance lookup (CONSTANTS.getExamCenterBundleByCodeUrl) */
+  EXAM_CENTER_BUNDLE_BY_CODE: 's_get_examcenter_bundle_bycode',
 } as const
 
 // ─── University Committees ───────────────────────────────────────────────────
