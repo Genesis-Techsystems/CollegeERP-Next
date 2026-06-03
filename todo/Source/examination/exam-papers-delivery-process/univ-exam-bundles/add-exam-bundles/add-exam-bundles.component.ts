@@ -47,16 +47,16 @@ export class AddExamBundlesComponent implements OnInit {
     private crudService: CrudService, private spinner: NgxSpinnerService, public router: Router, private formBuilder: FormBuilder,  @Inject(MAT_DIALOG_DATA) private data,) {
  
    
-   this.getFiltersList();
+  //  this.getFiltersList();
    this.getData();
 }
   // tslint:disable-next-line:typedef
   ngOnInit() {
       this.dialogTitle = 'Add  Exam Bundles';
       this.staffForm = this.formBuilder.group({
-        courseId: ['', Validators.required],
-        academicYearId: ['', Validators.required],
-        examId: ['', Validators.required],
+        courseId: [''],
+        academicYearId: [''],
+        examId: [''],
         bundleNumber: ['', Validators.required],
         startSerialNo: ['', Validators.required],
         endSerialNo: ['', Validators.required],
@@ -72,10 +72,14 @@ export class AddExamBundlesComponent implements OnInit {
           this.staffForm.get('startSerialNo').setValue(this.data?.startSerialNo);
           this.staffForm.get('endSerialNo').setValue(this.data?.endSerialNo);
           this.staffForm.get('univExamBagId').setValue(this.data?.univExamBagId);
+          this.staffForm.get('univExamBagId').disable();
           this.staffForm.get('totalAnswerBooks').setValue(this.data?.totalAnswerBooks);
           this.staffForm.get('isActive').setValue(this.data.isActive);
           this.staffForm.get('reason').setValue(this.data.reason);
           this.dialogTitle = 'Edit Exam Bundles';
+      }else if(this.isEmptyObject(this.data) && this.data.univExamBagId !== 0){
+          this.staffForm.get('univExamBagId').setValue(this.data?.univExamBagId);
+          this.staffForm.get('univExamBagId').disable();
       }
   }
   getData(): void {
@@ -104,14 +108,12 @@ export class AddExamBundlesComponent implements OnInit {
       }
   });
  }
- 
-        
- 
+
   // tslint:disable-next-line:typedef
   isEmptyObject(obj) {
       return (obj && (Object.keys(obj).length === 0));
   }
- 
+
   getFiltersList(): void {
     this.spinner.show();
     let request = [
@@ -170,8 +172,7 @@ export class AddExamBundlesComponent implements OnInit {
         }
       });
   }
- 
- 
+
   // tslint:disable-next-line:typedef
   selectedCourse(courseId) {
     this.staffForm.get('examId').setValue(0);

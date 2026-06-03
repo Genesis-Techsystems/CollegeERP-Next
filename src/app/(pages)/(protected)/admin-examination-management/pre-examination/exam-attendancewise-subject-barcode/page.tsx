@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Eye, FileText, Filter } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Barcode, ChevronDown, Eye, FileText, Filter } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/common/components/select'
+import { DataTable, TableCard } from '@/common/components/table'
 import {
   generateBarcodesForExamStudents,
   getExamOmrStudents,
@@ -14,6 +15,8 @@ import {
   getUnivExamSubjectUc,
 } from '@/services/pre-examination'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { useAttendanceStickerPrint } from './_print/useAttendanceStickerPrint'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 
 type AnyRow = Record<string, any>
 const REG_ID_KEYS = [
@@ -105,9 +108,105 @@ function barcodeImgSrc(raw: unknown): string | null {
   return `data:image/jpeg;base64,${s}`
 }
 
+function barcodeImageRenderer(p: ICellRendererParams<AnyRow>) {
+  const img = barcodeImgSrc(p.data?.omr_barcode)
+  if (!img) return <span className="text-muted-foreground">—</span>
+  return <img src={img} alt="" className="h-5 w-auto max-w-[120px] object-contain" />
+}
+
+function makeOmrRenderer(onView: () => void) {
+  return function omrCell(_p: ICellRendererParams<AnyRow>) {
+    return (
+      <div className="flex justify-center">
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="View OMR page" onClick={onView}>
+          <Eye className="h-4 w-4" />
+        </Button>
+      </div>
+    )
+  }
+}
+
+function makeAnswerRenderer(onView: () => void) {
+  return function answerCell(_p: ICellRendererParams<AnyRow>) {
+    return (
+      <div className="flex justify-center">
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="View answer sheet" onClick={onView}>
+          <FileText className="h-4 w-4" />
+        </Button>
+      </div>
+    )
+  }
+}
+
+const COL_DEFS = {
+  slNo: {
+    colId: 'slNo',
+    headerName: 'S.No',
+    valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1,
+    width: 64,
+    minWidth: 56,
+    flex: 0,
+  } as ColDef<AnyRow>,
+  student: {
+    colId: 'student',
+    headerName: 'Student',
+    minWidth: 200,
+    flex: 1,
+    valueGetter: (p) => {
+      const r = p.data
+      if (!r) return '—'
+      const name = r.student_name ?? r.studentName ?? r.firstName ?? '—'
+      const ht = r.hallticket_number ?? r.hallticketNumber ?? r.rollNumber ?? '—'
+      return `${name} (${ht})`
+    },
+  } as ColDef<AnyRow>,
+  barcodeNo: {
+    colId: 'barcodeNo',
+    headerName: 'Barcode No',
+    minWidth: 120,
+    valueGetter: (p) => p.data?.omr_serial_no ?? p.data?.omrSerialNo ?? '—',
+  } as ColDef<AnyRow>,
+  barcode: {
+    colId: 'barcode',
+    headerName: 'Barcode',
+    minWidth: 130,
+    sortable: false,
+  } as ColDef<AnyRow>,
+  subject: {
+    colId: 'subject',
+    headerName: 'Subject',
+    minWidth: 200,
+    flex: 1,
+    valueGetter: (p) => {
+      const r = p.data
+      if (!r) return '—'
+      const name = r.subject_name ?? r.subjectName ?? '—'
+      const code = r.subject_code ?? r.subjectCode ?? '—'
+      return `${name} (${code})`
+    },
+  } as ColDef<AnyRow>,
+  omr: {
+    colId: 'omr',
+    headerName: 'OMR',
+    width: 72,
+    minWidth: 72,
+    flex: 0,
+    sortable: false,
+  } as ColDef<AnyRow>,
+  answer: {
+    colId: 'answer',
+    headerName: 'Answer',
+    width: 72,
+    minWidth: 72,
+    flex: 0,
+    sortable: false,
+  } as ColDef<AnyRow>,
+}
+
 export default function ExamAttendancewiseSubjectBarcodePage() {
   const [isMounted, setIsMounted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [tableLoading, setTableLoading] = useState(false)
   const [filterOpen, setFilterOpen] = useState(true)
   const [hasFetched, setHasFetched] = useState(false)
   const [rows, setRows] = useState<AnyRow[]>([])
@@ -238,6 +337,39 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
       pickText(subject, ['subject_name', 'subjectName']) || '-',
     ].join(' / ')
   }, [colleges, academicYears, courses, groups, years, subjects, collegeId, academicYearId, courseId, courseGroupId, courseYearId, subjectId])
+
+  const printStickersNotReady = useCallback((kind: string) => {
+    toast.info(`${kind} is not available in Next.js yet (legacy print route not migrated).`)
+  }, [])
+
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      COL_DEFS.slNo,
+      COL_DEFS.student,
+      COL_DEFS.barcodeNo,
+      { ...COL_DEFS.barcode, cellRenderer: barcodeImageRenderer },
+      COL_DEFS.subject,
+      { ...COL_DEFS.omr, cellRenderer: makeOmrRenderer(() => printStickersNotReady('OMR sheet view')) },
+      { ...COL_DEFS.answer, cellRenderer: makeAnswerRenderer(() => printStickersNotReady('Answer sheet view')) },
+    ],
+    [printStickersNotReady],
+  )
+
+  const getRowId = useCallback((p: { data?: AnyRow }) => {
+    const d = p.data
+    if (!d) return ''
+    const det = Number(d.fk_exam_std_det_id ?? d.examStdDetId ?? d.exam_std_det_id ?? 0)
+    if (det > 0) return String(det)
+    const sid = Number(d.student_id ?? d.studentId ?? d.fk_student_id ?? 0)
+    const sub = Number(d.fk_subject_id ?? d.subjectId ?? 0)
+    return `row-${sid}-${sub}-${String(d.omr_serial_no ?? d.hallticket_number ?? '')}`
+  }, [])
+
+  const printExamName = pickText(
+    exams.find((e) => pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']) === Number(examId)),
+    ['exam_name', 'examName'],
+  )
+  const { printMode, printButtons, printView } = useAttendanceStickerPrint(rows, printExamName)
 
   async function init() {
     setLoading(true)
@@ -404,45 +536,55 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
     return Boolean(r.is_present ?? r.isPresent)
   }
 
-  async function getList() {
+  async function fetchPresentOmrRows() {
     if (!examId || !collegeId || !courseGroupId || !courseYearId || !subjectId) return
     const selectedRegRow = regulations.find((r) => pickRegValue(r) === Number(regulationId ?? 0)) ?? null
     const backendRegulationId = selectedBackendRegulationId || pickBackendRegId(selectedRegRow)
-    setLoading(true)
+    const res = await getExamOmrStudents({
+      examId,
+      collegeId,
+      courseGroupId,
+      courseYearId,
+      regulationId: backendRegulationId > 0 ? backendRegulationId : 0,
+      subjectId,
+    }).catch(() => [])
+    const all = Array.isArray(res) ? res : []
+    setRows(all.filter(isPresentRow))
+  }
+
+  async function getList() {
+    if (!examId || !collegeId || !courseGroupId || !courseYearId || !subjectId) return
+    setTableLoading(true)
     setHasFetched(true)
     try {
-      const res = await getExamOmrStudents({
-        examId,
-        collegeId,
-        courseGroupId,
-        courseYearId,
-        regulationId: backendRegulationId > 0 ? backendRegulationId : 0,
-        subjectId,
-      }).catch(() => [])
-      const all = Array.isArray(res) ? res : []
-      setRows(all.filter(isPresentRow))
+      await fetchPresentOmrRows()
     } finally {
-      setLoading(false)
+      setTableLoading(false)
     }
   }
 
   async function generateBarcode() {
     const ids = rows.map((r) => Number(r.fk_exam_std_det_id ?? 0)).filter((x) => x > 0)
     if (ids.length === 0) return
-    await generateBarcodesForExamStudents(ids).catch(() => null)
-    await getList()
+    setTableLoading(true)
+    try {
+      await generateBarcodesForExamStudents(ids).catch(() => null)
+      await fetchPresentOmrRows()
+    } finally {
+      setTableLoading(false)
+    }
   }
 
-  function printStickersNotReady(kind: string) {
-    toast.info(`${kind} is not available in Next.js yet (legacy print route not migrated).`)
-  }
+  // When a sticker print is active, replace the page with the print layout
+  // (the AppShell @media print rules hide nav/aside so only stickers print).
+  if (printMode) return <>{printView}</>
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Exam Attendance-wise Subject Barcode" subtitle="Generate attendance-based subject barcodes" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Attendance-wise Subject Barcode</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Exam Attendance-wise Subject Barcode</h2>
           <Button
             type="button"
             variant="outline"
@@ -543,7 +685,7 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
               />
             </div>
             <div className="md:col-span-2">
-              <Button type="button" onClick={getList} disabled={loading} className="h-8 px-3 text-[12px] w-full">Get List</Button>
+              <Button type="button" onClick={getList} disabled={loading || tableLoading} className="h-8 px-3 text-[12px] w-full">Get List</Button>
             </div>
           </div>
         </div>
@@ -551,97 +693,41 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
       </div>
 
       {hasFetched && (
-        <div className="app-card p-3 space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-[12px] text-[hsl(var(--primary))] min-w-0 flex-1 overflow-hidden text-ellipsis">
-              {tableSummaryText}
-            </div>
-            <Button type="button" className="h-8 text-[12px] shrink-0" onClick={generateBarcode} disabled={rows.length === 0}>
-              Generate Barcode
-            </Button>
-          </div>
-
-          {rows.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => printStickersNotReady('Print stickers')}>
-                Print Stickers
-              </Button>
-              <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => printStickersNotReady('Print stickers with barcode no')}>
-                Print Stickers With Barcode No
-              </Button>
-              <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => printStickersNotReady('Print stickers without USN')}>
-                Print Stickers Without USN
-              </Button>
-            </div>
-          )}
-
-          <div className="overflow-auto rounded border">
-            <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-2 py-1 text-left">S.No</th>
-                  <th className="px-2 py-1 text-left">Student</th>
-                  <th className="px-2 py-1 text-left">Barcode No</th>
-                  <th className="px-2 py-1 text-left">Barcode</th>
-                  <th className="px-2 py-1 text-left">Subject</th>
-                  <th className="px-2 py-1 text-center w-[72px]">OMR</th>
-                  <th className="px-2 py-1 text-center w-[72px]">Answer</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  const img = barcodeImgSrc(r.omr_barcode)
-                  return (
-                    <tr key={`r-${i}`} className="border-t">
-                      <td className="px-2 py-1">{i + 1}</td>
-                      <td className="px-2 py-1">{r.student_name ?? '-'} ({r.hallticket_number ?? '-'})</td>
-                      <td className="px-2 py-1">{r.omr_serial_no ?? '-'}</td>
-                      <td className="px-2 py-1">
-                        {img ? (
-                          <img src={img} alt="" className="h-5 w-auto max-w-[120px] object-contain" />
-                        ) : (
-                          '-'
-                        )}
-                      </td>
-                      <td className="px-2 py-1">{r.subject_name ?? '-'} ({r.subject_code ?? '-'})</td>
-                      <td className="px-2 py-1 text-center">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          aria-label="View OMR page"
-                          onClick={() => printStickersNotReady('OMR sheet view')}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </td>
-                      <td className="px-2 py-1 text-center">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          aria-label="View answer sheet"
-                          onClick={() => printStickersNotReady('Answer sheet view')}
-                        >
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  )
-                })}
-                {!loading && rows.length === 0 && (
-                  <tr className="border-t">
-                    <td colSpan={7} className="px-2 py-6 text-center text-muted-foreground">
-                      No present students found for this subject.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <TableCard withHeaderBorder={false}>
+          <DataTable
+            rowData={rows}
+            columnDefs={columnDefs}
+            loading={tableLoading}
+            pagination
+            paginationPageSize={10}
+            getRowId={getRowId}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search students…',
+              pdfDocumentTitle: 'Exam Attendance-wise Subject Barcode',
+            }}
+            toolbarLeading={(
+              <span className="max-w-[min(100%,20rem)] truncate text-[12px] font-medium text-[hsl(var(--primary))]" title={tableSummaryText}>
+                {tableSummaryText}
+              </span>
+            )}
+            toolbarTrailing={(
+              <>
+                {printButtons}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={generateBarcode}
+                  disabled={tableLoading || rows.length === 0}
+                  className="h-[30px] px-3 text-[12px]"
+                >
+                  <Barcode className="mr-1.5 h-3.5 w-3.5" />
+                  Generate Barcode
+                </Button>
+              </>
+            )}
+          />
+        </TableCard>
       )}
     </PageContainer>
   )

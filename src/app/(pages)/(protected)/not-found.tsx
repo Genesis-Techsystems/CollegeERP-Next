@@ -1,31 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 /**
  * 404 handler inside the (protected) layout — renders WITH the sidebar intact.
  * Shows a slide-up toast and navigates back after 3 s.
  */
 export default function NotFound() {
-  const router = useRouter()
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
     const show = setTimeout(() => setVisible(true), 50)
-    const redirect = setTimeout(() => {
-      if (window.history.length > 1) {
-        router.back()
-      } else {
-        router.replace('/dashboard')
-      }
-    }, 3000)
 
     return () => {
       clearTimeout(show)
-      clearTimeout(redirect)
     }
-  }, [router])
+  }, [])
 
   return (
     <div
@@ -55,7 +45,7 @@ export default function NotFound() {
         <div>
           <p style={{ fontWeight: 600, marginBottom: '2px' }}>Page not found</p>
           <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.75rem' }}>
-            Taking you back…
+            This page route is not available yet.
           </p>
         </div>
       </div>

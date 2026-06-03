@@ -21,7 +21,7 @@ function LoadingSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="rounded-xl border border-slate-200 bg-white overflow-hidden animate-pulse">
+        <div key={i} className="rounded-xl border border-border bg-card overflow-hidden animate-pulse">
           <div className="bg-slate-100 h-16" />
           <div className="p-5 space-y-3">
             <div className="h-4 bg-slate-100 rounded w-3/4" />
@@ -48,22 +48,22 @@ function SubjectCard({ detail, onCheckPaper }: { detail: EvaluatorDetail; onChec
   const pending = pendingCount(detail)
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden flex flex-col">
+    <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col">
       {/* Card header */}
-      <div className="bg-slate-50 border-b border-slate-200 px-5 py-4 text-center">
+      <div className="bg-muted/40 border-b border-border px-5 py-4 text-center">
         <p className="font-semibold text-slate-800 text-sm leading-snug">{detail.subjectName}</p>
-        <p className="text-xs text-slate-500 mt-0.5">{detail.subjectCode}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{detail.subjectCode}</p>
       </div>
 
       {/* Card body */}
       <div className="p-5 flex-1 flex flex-col gap-4">
         <div className="space-y-1.5 text-sm">
           <div className="flex items-start gap-2">
-            <span className="text-slate-500 min-w-[110px]">Course</span>
+            <span className="text-muted-foreground min-w-[110px]">Course</span>
             <span className="text-slate-800 font-medium">{detail.courseName || '—'}</span>
           </div>
           <div className="flex items-start gap-2">
-            <span className="text-slate-500 min-w-[110px]">Evaluation Last Date</span>
+            <span className="text-muted-foreground min-w-[110px]">Evaluation Last Date</span>
             <span className="text-slate-800 font-medium">{formatDate(detail.validityEndDate)}</span>
           </div>
         </div>
@@ -72,15 +72,15 @@ function SubjectCard({ detail, onCheckPaper }: { detail: EvaluatorDetail; onChec
         <div className="rounded-lg border border-slate-100 divide-x divide-slate-100 flex text-center overflow-hidden">
           <div className="flex-1 py-2.5 px-2">
             <p className="text-lg font-bold text-slate-800">{assigned}</p>
-            <p className="text-xs text-slate-500 mt-0.5">Assigned</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Assigned</p>
           </div>
           <div className="flex-1 py-2.5 px-2">
             <p className="text-lg font-bold text-emerald-600">{completed}</p>
-            <p className="text-xs text-slate-500 mt-0.5">Evaluated</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Evaluated</p>
           </div>
           <div className="flex-1 py-2.5 px-2">
             <p className="text-lg font-bold text-amber-600">{pending}</p>
-            <p className="text-xs text-slate-500 mt-0.5">Due</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Due</p>
           </div>
         </div>
 
@@ -158,7 +158,7 @@ export default function EvaluationDashboardPage() {
       )}
 
       {!loading && !error && details.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-400">
+        <div className="flex flex-col items-center justify-center py-20 gap-4 text-muted-foreground">
           <ClipboardList className="h-12 w-12" />
           <p className="text-base font-medium">No subjects assigned for evaluation</p>
         </div>

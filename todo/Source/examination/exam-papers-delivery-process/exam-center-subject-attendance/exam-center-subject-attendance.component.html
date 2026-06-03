@@ -1,0 +1,247 @@
+<div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Papers Delivery Process</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>ExamCenter Subject Attendance</span>
+                </div>
+            </div>
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;" >
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">book</mat-icon>
+                                    <strong class="table-heads">ExamCenter Subject Attendance</strong>
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="staffForm" [formGroup]="staffForm" novalidate>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Academic Year" name="academicYearId"
+                                    formControlName="academicYearId"
+                                    (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)"
+                                    required>
+                                    <mat-option *ngFor="let obcjt of academicYears"
+                                        matTooltip="{{obcjt.academic_year}}"
+                                        [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30">
+                            <mat-select placeholder="Exam Group" name="examGroupId" formControlName="examGroupId" required  (selectionChange)="selectedExamGroup(staffForm.value.examGroupId)">
+                                <mat-option *ngFor="let obj of examGroups" [value]="obj.fk_univ_exam_group_id">{{obj.exam_group_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                fxFlex.gt-md="25">
+                                <mat-select placeholder="Exam Center" name="examCenterId" formControlName="examCenterId"
+                                    (selectionChange)="selectedExamCenter(staffForm.value.examCenterId)" required>
+                                    <ngx-mat-select-search (keyup)="searchExamCenter($event.target.value)"
+                                    [placeholderLabel]="'Search Exam Center...'"
+                                    [noEntriesFoundLabel]="'no matching data found'">
+                                    </ngx-mat-select-search>
+                                    <mat-option *ngFor="let examCenter of examCentersData" [value]="examCenter.fk_univ_ec_id" matTooltip="{{examCenter.ec_name}}">
+                                        {{examCenter.ec_name}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                    fxFlex.gt-md="25">
+                                    <mat-select placeholder="Exam Date" name="examDate"
+                                        formControlName="examDate"
+                                        (selectionChange)="selectedExamDate(staffForm.value.examDate)" required>
+                                        <ngx-mat-select-search (keyup)="searchExamDate($event.target.value)"
+                                        [placeholderLabel]="'Search Exam Date...'"
+                                        [noEntriesFoundLabel]="'no matching data found'">
+                                        </ngx-mat-select-search>
+                                        <mat-option *ngFor="let examDate of examDates"
+                                            [value]="examDate.exam_date">{{examDate.exam_date}}</mat-option>
+                                    </mat-select>
+                            </mat-form-field>
+                        </div>
+                        <div fxLayout="row" >
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                    fxFlex.gt-md="25">
+                                    <mat-select placeholder="QuestionPaperCode" name="questionPaperCode"
+                                        formControlName="questionPaperCode"
+                                        (selectionChange)="selectedQuestionPaper(staffForm.value.questionPaperCode)"
+                                        required>
+                                        <mat-option *ngFor="let obj of questionPaperCodes"
+                                            [value]="obj.questionpaper_code">{{obj.Questionpaper_name}}</mat-option>
+                                    </mat-select>
+                            </mat-form-field>
+                        <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
+                            <button mat-raised-button class="add-btn" color="accent" (click)="getStudentsList()">Get List</button>
+                        </div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                </mat-expansion-panel>
+            </mat-accordion>
+
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" *ngIf="this.examCenterStudentsList && this.examCenterStudentsList.length > 0"  >
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <!-- <mat-icon class="secondary-text icon-align ">table_chart</mat-icon> -->
+                        <i class="material-icons icon-align ">
+                                ballot
+                                </i>
+                        <!-- <h1 class="secondary-text table-head fs-20">Campus</h1> -->
+                        <strong class="table-heads">ExamCenter Subject Attendance - {{examGroupCode}} / {{examCenterCode}} / {{examDate}} / {{questionPaperCode}} </strong>
+                    </div>
+                </div>
+
+            </div>
+            <mat-card class="pd-card table-align " *ngIf="this.examCenterStudentsList && this.examCenterStudentsList.length > 0" >
+                <mat-card-content style="height: 70px !important;">
+                    <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between"
+                        fxLayoutGap="5">
+                        <mat-form-field fxFlex="20%" floatLabel="never">
+                            <input matInput [(ngModel)]="searchText" [ngModelOptions]="{standalone: true}"
+                                placeholder="Search" (keyup)="applyFilter($event.target.value)">
+                        </mat-form-field>
+                    </div>
+                </mat-card-content>
+                <div fxLayout="row">
+                    <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="70" fxFlex.gt-md="70">
+                        <div class="mat-elevation-z8 ">
+                            <div class="example-container ">
+                                <table mat-table [dataSource]="dataSource " matSort>
+
+                                    <ng-container matColumnDef="id">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                        <td mat-cell *matCellDef="let row" class="text-crt">
+                                            {{examCenterStudentsList.indexOf(row) + 1}} </td>
+                                    </ng-container>
+
+                                    <!-- Semisters Column -->
+                                    <ng-container matColumnDef="hallTicketNo">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Hall Ticket No.</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.hallticket_number}} </td>
+                                    </ng-container>
+
+                                    <!-- Semisters Column -->
+                                    <ng-container matColumnDef="omrSerialNo">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Omr Serial No.
+                                        </th>
+                                        <td mat-cell *matCellDef="let row"> {{row.omr_serial_no}} </td>
+                                    </ng-container>
+
+                                    <!-- Semisters Column -->
+                                    <ng-container matColumnDef="ecSeatNo">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Ec Seat No.</th>
+                                        <td mat-cell *matCellDef="let row"> {{row.ec_seatno}} </td>
+                                    </ng-container>
+
+                                    <ng-container matColumnDef="subjectCode">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject</th>
+                                        <td mat-cell *matCellDef="let row"> 
+                                            <span matTooltip = "{{row.subject_name}}">{{row.subject_code}}</span>
+                                        </td>
+                                    </ng-container>
+
+                                    <!-- Actions Column -->
+                                    <ng-container matColumnDef="isPresent">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+                                        <td mat-cell *matCellDef="let row">
+                                            <span *ngIf="row.is_present == null">NotTaken </span>
+                                            <span *ngIf="row.is_present == true">Present</span>
+                                            <span *ngIf="row.is_present == false">Absent</span>
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="mark">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>
+                                            <section class="mp-24 mb-24 p-8" (click)="markItems()" *ngIf="check">
+                                                <mat-checkbox name="check" [(ngModel)]="check"
+                                                    [ngModelOptions]="{standalone: true}">UnMark All</mat-checkbox>
+                                            </section>
+                                            <section class="mp-24 mb-24 p-8" (click)="markItems()" *ngIf="!check">
+                                                <mat-checkbox name="check" [(ngModel)]="check"
+                                                    [ngModelOptions]="{standalone: true}">Mark All</mat-checkbox>
+                                            </section>
+                                        </th>
+                                        <td mat-cell *matCellDef="let row; let i = index;">
+                                            <section class="mp-24 mb-24 p-8">
+                                                <mat-checkbox name="checked-{{i}}"
+                                                    (click)="checkedItems(!row.is_present,i,row)"
+                                                    [(ngModel)]="row.is_present" [ngModelOptions]="{standalone: true}">
+                                                    <span *ngIf="row.is_present==true"
+                                                        class="span-active">Present</span>
+                                                    <span *ngIf="row.is_present==false"
+                                                        class="span-inActive">Absent</span>
+                                                    <span *ngIf="row.is_present==null"
+                                                        class="span-active">NotTaken</span>
+
+                                                </mat-checkbox>
+                                            </section>
+                                        </td>
+                                    </ng-container>
+                                    <ng-container matColumnDef="isufm">
+                                        <th mat-header-cell *matHeaderCellDef mat-sort-header>
+                                                MalPractise
+                                        </th>
+                                        <td mat-cell *matCellDef="let row; let i = index;">
+                                            <section class="mp-24 mb-24 p-8">
+                                                <mat-checkbox 
+                                                    [(ngModel)]="row.isufm" [ngModelOptions]="{standalone: true}">
+                                                </mat-checkbox>
+                                            </section>
+                                        </td>
+                                    </ng-container>
+                                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                                    <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                                    </tr>
+                                </table>
+                            </div>
+                            <!-- <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator> -->
+
+                        </div>
+
+                    </div>
+                    <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30"
+                        style="padding-left: 20px;">
+                        <div class="mat-elevation-z8 weeday-bordr">
+                            <h3 class="absent">Absentees : &nbsp; <span
+                                    style="font-weight:bold;background-color: #00f7ff;border-radius: 10px;padding: 7px !important;">
+                                    {{absents.length}}</span></h3>
+                            <div class="abs-div" style="padding:10px">
+                                <p *ngFor="let absent of absents">{{absent.student_name}} (<span
+                                        style="color:blue">{{absent.hallticket_number}}</span>) </p>
+                                <p *ngIf="absents.length == 0">No absents found.</p>
+                            </div>
+                        </div>
+                        <div class="save-btn-align" *ngIf="examCenterStudentsList.length > 0 && flag">
+                            <!-- <span *ngIf="ExamAllotmentList[0]?.attendanceSheetFilePath != null || ExamAllotmentList[0]?.attendanceSheetFilePath ! = ''"><mat-icon  (click)="openFile()">remove_red_eye</mat-icon></span> -->
+                            <button mat-raised-button class="add-btn" color="accent" (click)="addAttendance()">Save
+                                Attendance</button>
+
+                        </div>
+                    </div>
+                </div>
+            </mat-card>
+
+            <!-- / CONTENT -->
+
+        </div>
+    </div>
+    </div>

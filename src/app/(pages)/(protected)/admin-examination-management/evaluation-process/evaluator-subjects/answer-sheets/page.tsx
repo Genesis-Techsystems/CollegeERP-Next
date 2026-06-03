@@ -20,7 +20,7 @@ import { formatDate } from '@/common/generic-functions'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MARKING_PATH = '/admin-examination-management/evaluation-process/evaluator-subjects/marking'
+const MARKING_PATH = '/admin-examination-management/evaluation-process/assign-answerpapers-dynamic'
 const BACK_PATH    = '/admin-examination-management/evaluation-process/evaluator-subjects'
 
 function isActionable(row: StudentAnswerPaper): boolean {
@@ -60,7 +60,7 @@ function serialRenderer(row: StudentAnswerPaper) {
   return (
     <div>
       <p className="font-semibold font-mono text-slate-800 text-sm">{row.omrSerialNo}</p>
-      {checkDate && <p className="text-[11px] text-slate-400 mt-0.5">Checked {checkDate}</p>}
+      {checkDate && <p className="text-[11px] text-muted-foreground mt-0.5">Checked {checkDate}</p>}
     </div>
   )
 }
@@ -74,7 +74,7 @@ function marksRenderer(row: StudentAnswerPaper) {
     return (
       <span>
         <span className="font-bold text-slate-800">{row.evaluatedTotalMarks}</span>
-        <span className="text-[11px] text-slate-400 ml-0.5">marks</span>
+        <span className="text-[11px] text-muted-foreground ml-0.5">marks</span>
       </span>
     )
   }
@@ -115,7 +115,7 @@ function EmptyState({ tab, hasSearch }: { tab: TabKey; hasSearch: boolean }) {
     : `No ${tab === 'todo' ? 'pending' : tab === 'in_progress' ? 'in-progress' : tab === 'done' ? 'evaluated' : 'rejected'} papers.`
 
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3 text-slate-400">
+    <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
       <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
         <ListFilter className="h-5 w-5 opacity-50" />
       </div>
@@ -240,13 +240,13 @@ export default function AnswerSheetsPage() {
     : `No ${activeTab === 'todo' ? 'pending' : activeTab === 'in_progress' ? 'in-progress' : activeTab === 'done' ? 'evaluated' : 'rejected'} papers.`
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
 
       {/* ── Header ── */}
       <div className="flex items-start gap-3">
         <button
           onClick={() => router.push(BACK_PATH)}
-          className="mt-0.5 flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors shrink-0"
+          className="mt-0.5 flex items-center justify-center w-8 h-8 rounded-lg border border-border bg-card hover:bg-muted/40 text-muted-foreground hover:text-slate-700 transition-colors shrink-0"
           title="Back to subjects"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -255,7 +255,7 @@ export default function AnswerSheetsPage() {
           <h1 className="text-lg font-bold text-slate-900 leading-tight">
             {subjectName || 'Answer Papers'}
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
         </div>
       </div>
 
@@ -288,8 +288,8 @@ export default function AnswerSheetsPage() {
                   className={[
                     'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-colors',
                     activeTab === tab.key
-                      ? 'bg-white text-slate-800 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700',
+                      ? 'bg-card text-slate-800 shadow-sm'
+                      : 'text-muted-foreground hover:text-slate-700',
                   ].join(' ')}
                 >
                   {tab.label}
@@ -298,7 +298,7 @@ export default function AnswerSheetsPage() {
                       'text-[10px] rounded-full px-1.5 py-px font-bold leading-none',
                       activeTab === tab.key
                         ? 'bg-slate-100 text-slate-600'
-                        : 'bg-slate-200 text-slate-500',
+                        : 'bg-slate-200 text-muted-foreground',
                     ].join(' ')}>
                       {tabCounts[tab.key]}
                     </span>
@@ -308,7 +308,7 @@ export default function AnswerSheetsPage() {
             </div>
 
             <SearchInput
-              className="sm:ml-auto sm:w-56"
+              className="w-full max-w-sm sm:ml-auto"
               placeholder="Search serial no…"
               value={searchValue}
               onChange={setSearchValue}
@@ -326,10 +326,10 @@ export default function AnswerSheetsPage() {
 
           {/* ── Progress bar footer ── */}
           {stats.total > 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+            <div className="rounded-xl border border-border bg-card px-5 py-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-slate-600">Evaluation Progress</span>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-muted-foreground">
                   <span className="font-bold text-slate-800">{stats.done}</span> / {stats.total} evaluated
                 </span>
               </div>
@@ -339,7 +339,7 @@ export default function AnswerSheetsPage() {
                   style={{ width: `${Math.round((stats.done / stats.total) * 100)}%` }}
                 />
               </div>
-              <div className="flex gap-4 mt-2.5 text-[11px] text-slate-500">
+              <div className="flex gap-4 mt-2.5 text-[11px] text-muted-foreground">
                 {stats.inProgress > 0 && (
                   <span><span className="font-semibold text-amber-600">{stats.inProgress}</span> in progress</span>
                 )}

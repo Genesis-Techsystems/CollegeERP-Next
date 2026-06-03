@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Filter, User } from 'lucide-react'
+import { ChevronDown, Filter, Trash2, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { SearchInput } from '@/common/components/search'
 import { Select, type SelectOption } from '@/common/components/select'
 import {
   deactivateRegisteredExamSubject,
@@ -348,11 +348,11 @@ export default function ExamRegisterSubjectsPage() {
   }
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Exam Register Subjects" subtitle="Register and update exam subjects" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Exam Register Subjects Update</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Exam Register Subjects Update</h2>
           <Button
             type="button"
             variant="outline"
@@ -408,11 +408,11 @@ export default function ExamRegisterSubjectsPage() {
                       ;(e.target as HTMLImageElement).style.display = 'none'
                     }}
                     alt="student"
-                    className="h-24 w-24 rounded object-cover border bg-white"
+                    className="h-24 w-24 rounded object-cover border bg-card"
                   />
                 ) : (
-                  <div className="h-24 w-24 rounded border bg-white flex items-center justify-center">
-                    <User className="h-10 w-10 text-slate-400" />
+                  <div className="h-24 w-24 rounded border bg-card flex items-center justify-center">
+                    <User className="h-10 w-10 text-muted-foreground" />
                   </div>
                 )}
               </div>
@@ -455,13 +455,13 @@ export default function ExamRegisterSubjectsPage() {
               </div>
 
               <div className="md:col-span-5 rounded border overflow-hidden">
-                <div className="px-3 py-2 border-b bg-slate-50 flex items-center justify-between gap-3">
-                  <div className="w-full max-w-[260px]">
-                    <Input
-                      className="h-8 text-[12px]"
-                      placeholder="Search..."
+                <div className="px-3 py-2 border-b bg-muted/40 flex items-center justify-between gap-3">
+                  <div className="w-full max-w-sm min-w-0">
+                    <SearchInput
+                      className="w-full"
+                      placeholder="Search subjects…"
                       value={subjectSearch}
-                      onChange={(e) => setSubjectSearch(e.target.value)}
+                      onChange={setSubjectSearch}
                     />
                   </div>
                   <div className="text-[12px] whitespace-nowrap">Total Subjects: <span className="font-semibold text-muted-foreground">{filteredSubjects.length}</span></div>
@@ -526,7 +526,7 @@ export default function ExamRegisterSubjectsPage() {
           {registeredSubjects.length > 0 && (
             <div className="rounded border overflow-auto">
               <table className="w-full text-[12px]">
-                <thead className="bg-slate-50">
+                <thead className="bg-muted/40">
                   <tr>
                     <th className="px-2 py-1 text-left">SI.No</th>
                     <th className="px-2 py-1 text-left">Course Year</th>
@@ -545,8 +545,16 @@ export default function ExamRegisterSubjectsPage() {
                       <td className="px-2 py-1">{r.subjectName ?? r.subject_name ?? '-'}</td>
                       <td className="px-2 py-1">{r.examtypeCatCode ?? r.exam_type_code ?? '-'}</td>
                       <td className="px-2 py-1">
-                        <Button type="button" variant="outline" className="h-7 text-[11px]" onClick={() => void onDeleteRegistered(r)}>
-                          Delete
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => void onDeleteRegistered(r)}
+                          aria-label="Delete subject"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </td>
                     </tr>

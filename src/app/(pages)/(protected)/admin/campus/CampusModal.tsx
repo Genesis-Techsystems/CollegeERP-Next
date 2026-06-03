@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogFooter,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -175,11 +174,12 @@ export default function CampusModal({
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Campus' : 'Add Campus'}</DialogTitle>
-          <DialogDescription>
-            {isEditing ? 'Update the campus details below.' : 'Fill in the details to create a new campus.'}
-          </DialogDescription>
+        <DialogHeader className="pr-8">
+          <div className="h-7 flex items-start">
+            <DialogTitle className="text-lg font-semibold leading-none text-[hsl(var(--primary))]">
+              {isEditing ? 'Edit Campus' : 'Add Campus'}
+            </DialogTitle>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
@@ -313,19 +313,21 @@ export default function CampusModal({
           </div>
 
           {/* ── Status ─────────────────────────────────────────────────── */}
-          <Controller
-            name="isActive"
-            control={control}
-            render={({ field }) => (
-              <ActiveStatusField
-                isActive={field.value}
-                reason={watch('reason') ?? ''}
-                onActiveChange={field.onChange}
-                onReasonChange={(v) => setValue('reason', v)}
-                reasonError={errors.reason?.message}
-              />
-            )}
-          />
+          {isEditing && (
+            <Controller
+              name="isActive"
+              control={control}
+              render={({ field }) => (
+                <ActiveStatusField
+                  isActive={field.value}
+                  reason={watch('reason') ?? ''}
+                  onActiveChange={field.onChange}
+                  onReasonChange={(v) => setValue('reason', v)}
+                  reasonError={errors.reason?.message}
+                />
+              )}
+            />
+          )}
 
           {/* ── Error ──────────────────────────────────────────────────── */}
           {submitError && (

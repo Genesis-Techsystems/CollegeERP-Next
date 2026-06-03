@@ -37,6 +37,23 @@ export async function listQuestionBanks(userId?: number): Promise<Assessment[]> 
   return rows.filter((r) => r.isForQuestionbank)
 }
 
+export async function listTests(userId?: number): Promise<Assessment[]> {
+  const query = userId !== undefined
+    ? buildQuery({ 'preparedbyUser.userId': userId }, { field: 'createdDt', direction: 'DESC' })
+    : buildQuery({}, { field: 'createdDt', direction: 'DESC' })
+  const rows = await domainList<Assessment>(ENTITIES.ASSESSMENT.name, query)
+  return rows.filter((r) => !r.isForQuestionbank)
+}
+
+export async function getAssessmentById(assessmentId: number): Promise<Assessment | null> {
+  if (!assessmentId) return null
+  const rows = await domainList<Assessment>(
+    ENTITIES.ASSESSMENT.name,
+    buildQuery({ assessmentId }),
+  )
+  return rows[0] ?? null
+}
+
 /** Create a new question bank. */
 export async function createQuestionBank(
   data: Omit<Assessment, 'assessmentId' | 'assessmentQuestionDTOs'>,
@@ -44,8 +61,26 @@ export async function createQuestionBank(
   return domainCreate<Assessment>(ENTITIES.ASSESSMENT.name, data)
 }
 
+export async function createTest(
+  data: Omit<Assessment, 'assessmentId' | 'assessmentQuestionDTOs'>,
+): Promise<Assessment> {
+  return domainCreate<Assessment>(ENTITIES.ASSESSMENT.name, data)
+}
+
 /** Update an existing question bank. */
 export async function updateQuestionBank(
+  assessmentId: number,
+  data: Partial<Omit<Assessment, 'assessmentId' | 'assessmentQuestionDTOs'>>,
+): Promise<Assessment> {
+  return domainUpdate<Assessment>(
+    ENTITIES.ASSESSMENT.name,
+    ENTITIES.ASSESSMENT.pk,
+    assessmentId,
+    data,
+  )
+}
+
+export async function updateTest(
   assessmentId: number,
   data: Partial<Omit<Assessment, 'assessmentId' | 'assessmentQuestionDTOs'>>,
 ): Promise<Assessment> {

@@ -1,0 +1,80 @@
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <!-- <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                        ballot
+                    </i>
+                    <span> {{dialogTitle}} -
+                        <span>{{dataDetails}}</span>
+                    </span>
+                </div> -->
+                <div fxLayout="row" fxLayoutAlign="start start" class="mod-head">
+                <i class="material-icons icon-align">
+                ballot
+                </i>
+
+                <span class="title-text">
+                {{dialogTitle}} -
+                <span><br>{{dataDetails}}</span>
+                </span>
+                </div>
+            </div>
+        </div>
+        <form name="addaddScanBundleForm" [formGroup]="addScanBundleForm" novalidate>
+            <mat-dialog-content>
+                <div fxLayout="column">
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25" fxFlex.gt-md="25">
+                            <input matInput placeholder="Bundle Number" name="bundleNumber" readonly
+                                formControlName="bundleNumber" required>
+                        </mat-form-field>
+                      
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                            <mat-select 
+                                placeholder="Exam Scan Profile" 
+                                name="scannerProfileDetailId" 
+                                formControlName="scannerProfileDetailId">
+
+                                <!-- ✅ Search Box -->
+                                <ngx-mat-select-search 
+                                (keyup)="searchScanProfile($event.target.value)"
+                                [placeholderLabel]="'Search Scan Profile...'"
+                                [noEntriesFoundLabel]="'No matching data found'">
+                                </ngx-mat-select-search>
+
+                                <!-- ✅ Filtered Data -->
+                                <mat-option 
+                                *ngFor="let obj of filteredScanProfiles" 
+                                [value]="obj.pk_exam_scan_profile_detail_id">
+                                {{ obj.scan_profile_name }}
+                                </mat-option>
+
+                            </mat-select>
+                            </mat-form-field>
+                    </div>
+                    
+                    <div fxLayout="row wrap " fxFlex="100">
+                        <section fxLayout="column" class="mp-24 mb-24 p-8" fxFlex="100" fxFlex.gt-xs="20"
+                            fxFlex.gt-md="20">
+                            <mat-checkbox name="isActive" formControlName="isActive">Active</mat-checkbox>
+                        </section>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="45" fxFlex.gt-md="45"
+                            *ngIf="addScanBundleForm.controls.isActive.value === false">
+                            <input matInput placeholder="Reason" name="reason" formControlName="reason">
+                        </mat-form-field>
+                    </div>
+                </div>
+            </mat-dialog-content>
+            <mat-dialog-actions>
+                <button mat-raised-button class="cls-btn" mat-dialog-close>
+                    Close
+                </button>
+                <button mat-raised-button class="add-btn" color="accent" (click)="submit()">
+                    Save
+                </button>
+            </mat-dialog-actions>
+        </form>
+    </div>
+</div>

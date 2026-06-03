@@ -70,8 +70,15 @@ function dateFormatter(p: ValueFormatterParams) {
 
 function makeActionsRenderer(openEdit: (row: AnyRow) => void) {
   return (p: ICellRendererParams) => (
-    <Button variant="ghost" size="sm" onClick={() => p.data && openEdit(p.data)}>
-      Edit
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-8 w-8 p-0"
+      aria-label="Edit invigilator remuneration"
+      onClick={() => p.data && openEdit(p.data)}
+    >
+      <Pencil className="h-3.5 w-3.5" />
     </Button>
   )
 }
@@ -80,7 +87,6 @@ export default function InvigilatorRemunerationPage() {
   const [rows, setRows] = useState<AnyRow[]>([])
   const [colleges, setColleges] = useState<AnyRow[]>([])
   const [designations, setDesignations] = useState<AnyRow[]>([])
-  const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<AnyRow | null>(null)
 
@@ -106,14 +112,6 @@ export default function InvigilatorRemunerationPage() {
   useEffect(() => {
     loadAll()
   }, [])
-
-  const filteredRows = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    if (!s) return rows
-    return rows.filter((r) =>
-      `${r.collegeCode ?? ''} ${r.invgdesignationCatCode ?? ''} ${r.amount ?? ''}`.toLowerCase().includes(s),
-    )
-  }, [rows, q])
 
   function openAdd() {
     setEditing(null)
@@ -203,18 +201,30 @@ export default function InvigilatorRemunerationPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Invigilator Remuneration" subtitle="Manage invigilator pay rates" />
 
-      <TableCard
-        headerLeft={
-          <Input className="h-8 text-[12px] max-w-sm" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
-        }
-        headerRight={
-          <Button className="h-8 text-[12px]" onClick={openAdd}>+ Add Invigilator Remuneration</Button>
-        }
-      >
-        <DataTable rowData={filteredRows} columnDefs={columnDefs} pagination />
+      <TableCard withHeaderBorder={false}>
+        <DataTable
+          rowData={rows}
+          columnDefs={columnDefs}
+          pagination
+          toolbar={{
+            search: true,
+            searchPlaceholder: 'Search by college, designation, amount…',
+            pdfDocumentTitle: 'Invigilator Remuneration',
+          }}
+          toolbarTrailing={(
+            <Button
+              type="button"
+              size="sm"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={openAdd}
+            >
+              + Add Invigilator Remuneration
+            </Button>
+          )}
+        />
       </TableCard>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -281,8 +291,8 @@ export default function InvigilatorRemunerationPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
-            <Button onClick={save}>Save</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Close</Button>
+            <Button type="button" onClick={save}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

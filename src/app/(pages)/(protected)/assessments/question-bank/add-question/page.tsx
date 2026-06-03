@@ -45,7 +45,7 @@ function QuestionTypeSelector({
             disabled={disabled}
             onClick={() => onChange(t.generalDetailCode)}
             className={cn(
-              'rounded-md border px-4 py-2 text-sm font-medium transition-colors',
+              'rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
               selected === t.generalDetailCode
                 ? 'border-primary bg-primary text-primary-foreground'
                 : 'border-border bg-background text-foreground hover:bg-muted',
@@ -321,13 +321,13 @@ export default function AddQuestionPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <PageContainer className="space-y-6 max-w-4xl">
+    <PageContainer className="space-y-6 max-w-none">
       <PageHeader
         title={`${permission} Question`}
         subtitle="Use $…$ for inline math, $$…$$ for display math, \\ce{…} for chemistry"
       />
 
-      <div className="rounded-lg border border-border bg-white p-6 space-y-6">
+      <div className="w-full rounded-lg border border-border bg-card p-6 space-y-6">
 
         {/* Question type selector — disabled when editing (type can't change) */}
         <QuestionTypeSelector
@@ -344,7 +344,7 @@ export default function AddQuestionPage() {
             value={question}
             onChange={setQuestion}
             placeholder="Enter question… $x^2 + y^2 = r^2$  or  \ce{H2O}"
-            minHeight={200}
+            minHeight={140}
           />
         </div>
 

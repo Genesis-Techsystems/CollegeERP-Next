@@ -4,6 +4,7 @@ import Link from 'next/link'
 
 export default function PreExaminationIndexPage() {
   const pages = [
+    'complete-exam-fee-registration',
     'student-exam-fee-registration',
     'exam-scheduling-forms',
     'exam-register-subjects',
@@ -23,8 +24,8 @@ export default function PreExaminationIndexPage() {
   return (
     <div className="p-6">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Pre Examination</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40">
+          <h2 className="app-card-title">Pre Examination</h2>
         </div>
         <div className="p-4 text-[13px] space-y-3">
           <p>Pre Examination tab is now active. Open any page below:</p>

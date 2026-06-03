@@ -14,7 +14,6 @@ import {
 } from '@/services/exam-master'
 import { distinct } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { SearchInput } from '@/common/components/search'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -51,14 +50,18 @@ export default function ExamMasterPage() {
   const [loadingExams, setLoadingExams] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingExam, setEditingExam] = useState<ExamMaster | null>(null)
-  const [searchValue, setSearchValue] = useState('')
   const [filterOpen, setFilterOpen] = useState(true)
 
   const fetchFilterDetails = useCallback(async () => {
     setLoadingFilters(true)
     try {
-      const orgId = user?.organizationId ?? 0
-      const empId = user?.employeeId ?? 0
+      const orgIdFromStorage = Number(globalThis.localStorage?.getItem('organizationId') ?? 0)
+      const empIdFromStorage = Number(globalThis.localStorage?.getItem('employeeId') ?? 0)
+      const orgIdFromSession = Number(user?.organizationId ?? 0)
+      const empIdFromSession = Number(user?.employeeId ?? 0)
+
+      const orgId = orgIdFromStorage || orgIdFromSession || 1
+      const empId = empIdFromStorage || empIdFromSession || 31754
       const { filtersData: filters, academicData: academic } = await getCollegeFilters(orgId, empId)
 
       setFiltersdata(filters)
@@ -233,12 +236,12 @@ export default function ExamMasterPage() {
 
   const columnDefs = useMemo<ColDef<ExamMaster>[]>(
     () => [
-      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70, flex: 0 },
-      { field: 'examName', headerName: 'Exam Name', minWidth: 160 },
-      { field: 'examShortName', headerName: 'Short Name', minWidth: 120 },
+      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 56, minWidth: 56, flex: 0 },
+      { field: 'examName', headerName: 'Exam Name', minWidth: 120 },
+      { field: 'examShortName', headerName: 'Short Name', minWidth: 96 },
       {
         headerName: 'Exam Type',
-        minWidth: 160,
+        minWidth: 120,
         valueGetter: (p) => {
           const types: string[] = []
           if (p.data?.isRegularExam) types.push('Regular')
@@ -250,24 +253,24 @@ export default function ExamMasterPage() {
       {
         field: 'examMonthYr',
         headerName: 'Month/Year',
-        minWidth: 120,
+        minWidth: 92,
         valueFormatter: (p) => (p.value ? format(new Date(p.value), 'MM/yyyy') : '—'),
       },
       {
         field: 'fromDate',
         headerName: 'From Date',
-        minWidth: 110,
+        minWidth: 90,
         valueFormatter: (p) => (p.value ? format(new Date(p.value), 'dd/MM/yyyy') : '—'),
       },
       {
         field: 'toDate',
         headerName: 'To Date',
-        minWidth: 110,
+        minWidth: 90,
         valueFormatter: (p) => (p.value ? format(new Date(p.value), 'dd/MM/yyyy') : '—'),
       },
       {
         headerName: 'Fee Notification',
-        minWidth: 110,
+        minWidth: 92,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) =>
           p.data?.feeNotificationFilePath ? (
             <a
@@ -276,17 +279,17 @@ export default function ExamMasterPage() {
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
               aria-label="Download fee notification"
-              className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+              className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border bg-muted/40 text-slate-700 hover:bg-slate-100"
             >
               <Download className="h-4 w-4" />
             </a>
           ) : (
-            <span className="text-slate-400">—</span>
+            <span className="text-muted-foreground">—</span>
           ),
       },
       {
         headerName: 'Notification',
-        minWidth: 110,
+        minWidth: 92,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) =>
           p.data?.notificationFilePath ? (
             <a
@@ -295,17 +298,17 @@ export default function ExamMasterPage() {
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
               aria-label="Download notification"
-              className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+              className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border bg-muted/40 text-slate-700 hover:bg-slate-100"
             >
               <Download className="h-4 w-4" />
             </a>
           ) : (
-            <span className="text-slate-400">—</span>
+            <span className="text-muted-foreground">—</span>
           ),
       },
       {
         headerName: 'Exam Labels',
-        minWidth: 110,
+        minWidth: 92,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) => (
           <button
             type="button"
@@ -318,7 +321,7 @@ export default function ExamMasterPage() {
               )
             }}
             aria-label="Create label"
-            className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+            className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border bg-muted/40 text-slate-700 hover:bg-slate-100"
           >
             <Tag className="h-4 w-4" />
           </button>
@@ -327,7 +330,7 @@ export default function ExamMasterPage() {
       {
         field: 'isActive',
         headerName: 'Status',
-        width: 90,
+        width: 76,
         flex: 0,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) => (
           <StatusBadge status={p.data?.isActive ?? false} />
@@ -335,9 +338,9 @@ export default function ExamMasterPage() {
       },
       {
         headerName: 'Actions',
-        minWidth: 100,
+        minWidth: 80,
         flex: 0,
-        width: 100,
+        width: 80,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) => (
           <Button
             size="icon"
@@ -358,14 +361,6 @@ export default function ExamMasterPage() {
     []
   )
 
-  const filteredExams = useMemo(() => {
-    if (!searchValue.trim()) return examsList
-    const lower = searchValue.toLowerCase()
-    return examsList.filter((row) =>
-      Object.values(row).some((val) => String(val).toLowerCase().includes(lower))
-    )
-  }, [searchValue, examsList])
-
   const onCellClicked = useCallback(
     (event: CellClickedEvent<ExamMaster>) => {
       if (event.colDef.headerName === 'Exam Labels') {
@@ -383,12 +378,12 @@ export default function ExamMasterPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Exam Master" subtitle="Configure and manage examinations" />
       <div className="app-card space-y-3 overflow-hidden">
-        <div className="px-4 py-2 border-b border-slate-200 bg-slate-50/60">
+        <div className="px-4 py-2 border-b border-border bg-muted/40">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Exam Master</h2>
+            <h2 className="app-card-title">Exam Master</h2>
             <Button
               type="button"
               variant="outline"
@@ -523,34 +518,30 @@ export default function ExamMasterPage() {
 
       {tableVisible && (
         <>
-          <TableCard
-            headerLeft={
-              <SearchInput
-                className="max-w-sm h-6 text-[12px]"
-                placeholder="Search exams…"
-                value={searchValue}
-                onChange={setSearchValue}
-              />
-            }
-            headerRight={
-              <Button size="sm" onClick={() => { setEditingExam(null); setModalOpen(true) }}>
-                <PlusIcon className="mr-1 h-4 w-4" />
-                Add Exam
-              </Button>
-            }
-          >
+          <TableCard withHeaderBorder={false}>
             {!loadingExams && examsList.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                 <ClipboardList className="h-10 w-10 mb-3 opacity-40" />
                 <p className="text-sm">No records found</p>
               </div>
             ) : (
               <DataTable
-                rowData={filteredExams}
+                rowData={examsList}
                 columnDefs={columnDefs}
                 loading={loadingExams}
                 onCellClicked={onCellClicked}
                 pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search exams…',
+                  pdfDocumentTitle: 'Exam Master',
+                }}
+                toolbarTrailing={(
+                  <Button size="sm" className="h-[30px] px-3 text-[12px]" onClick={() => { setEditingExam(null); setModalOpen(true) }}>
+                    <PlusIcon className="mr-1 h-3.5 w-3.5" />
+                    Add Exam
+                  </Button>
+                )}
               />
             )}
           </TableCard>

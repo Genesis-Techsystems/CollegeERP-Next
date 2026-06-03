@@ -239,15 +239,15 @@ export default function AddExamLabTimetablesPage() {
   }, [existingRows, groupCodes, dateColumns])
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Create College Timetable" subtitle="Schedule lab exam timetables" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Create College Timetable</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40">
+          <h2 className="app-card-title">Create College Timetable</h2>
         </div>
         <div className="p-3 space-y-3">
         {details[0] && (
-          <div className="rounded-md border bg-slate-50/50 px-3 py-2 text-[12px]">
+          <div className="rounded-md border bg-muted/40/50 px-3 py-2 text-[12px]">
             <span className="font-medium">
               {details[0]?.college_code ?? ''} / {details[0]?.course_code ?? ''} / {pageParams.courseYearName}
             </span>{' '}
@@ -298,7 +298,7 @@ export default function AddExamLabTimetablesPage() {
         {(courseGroupYears.length > 0 || staged.length > 0) && (
           <div className="grid grid-cols-12 gap-2 items-start">
             <div className="col-span-3 rounded-md border">
-              <div className="px-3 py-2 bg-slate-50 border-b text-[12px] font-medium">Select Course Group</div>
+              <div className="px-3 py-2 bg-muted/40 border-b text-[12px] font-medium">Select Course Group</div>
               <div className="p-2 space-y-1 max-h-72 overflow-auto text-[12px]">
                 {courseGroupYears.map((g) => (
                   <label key={g.key} className="flex items-center gap-2">
@@ -309,7 +309,7 @@ export default function AddExamLabTimetablesPage() {
               </div>
             </div>
             <div className="col-span-2 rounded-md border">
-              <div className="px-3 py-2 bg-slate-50 border-b text-[12px] font-medium">Selected Course Groups</div>
+              <div className="px-3 py-2 bg-muted/40 border-b text-[12px] font-medium">Selected Course Groups</div>
               <div className="p-2 space-y-1 min-h-32 text-[12px]">
                 {selectedCourseYears.map((g) => (
                   <div key={`sel-${g.key}`}>{g.groupName} <span className="text-blue-700">({g.reg})</span> {g.batch ? <span className="text-blue-700">({g.batch})</span> : null}</div>
@@ -320,12 +320,12 @@ export default function AddExamLabTimetablesPage() {
               </div>
             </div>
             <div className="col-span-7 rounded-md border w-full">
-              <div className="px-3 py-2 bg-slate-50 border-b text-[12px] font-medium">
+              <div className="px-3 py-2 bg-muted/40 border-b text-[12px] font-medium">
                 {staged[0]?.session} {staged[0]?.sessionStartTime ? `(${staged[0]?.sessionStartTime} - ${staged[0]?.sessionEndTime})` : ''}
               </div>
               <div className="overflow-auto">
                 <table className="w-full min-w-[780px] text-[12px]">
-                  <thead className="bg-slate-50">
+                  <thead className="bg-muted/40">
                     <tr>
                       <th className="px-2 py-1 text-left">SI.No</th>
                       <th className="px-2 py-1 text-left">Exam Date</th>
@@ -361,13 +361,13 @@ export default function AddExamLabTimetablesPage() {
 
       {existingRows.length > 0 && (
         <div className="app-card overflow-hidden">
-          <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
-            <h3 className="text-[14px] font-semibold text-[hsl(var(--primary))]">View Exam Lab Timetable</h3>
+          <div className="px-4 py-3 border-b border-border bg-muted/40">
+            <h3 className="app-card-title">View Exam Lab Timetable</h3>
           </div>
           <div className="p-3">
           <div className="overflow-auto">
             <table className="w-full text-[12px] border">
-              <thead className="bg-slate-50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="border px-2 py-1">Branch</th>
                   {dateColumns.map((d) => (

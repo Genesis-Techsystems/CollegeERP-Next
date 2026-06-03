@@ -58,7 +58,7 @@ export function Breadcrumb({ items, maxItems, className }: BreadcrumbProps) {
 
   return (
     <nav aria-label="Breadcrumb" className={cn(className)}>
-      <ol className="flex items-center flex-wrap gap-0.5 text-[10px] leading-5">
+      <ol className="flex items-center flex-wrap gap-0.5 text-[12px] leading-5">
         {visibleItems.map((item, index) => {
           const isFirst = index === 0
           const isEllipsis = item.label === '...' && item.href === undefined && shouldCollapse
@@ -66,10 +66,12 @@ export function Breadcrumb({ items, maxItems, className }: BreadcrumbProps) {
 
           return (
             <li key={index} className="flex items-center">
-              {/* Separator — omit before the very first item */}
               {!isFirst && (
                 <ChevronRight
-                  className="h-3.5 w-3.5 mx-1 text-muted-foreground shrink-0"
+                  className={cn(
+                    'mx-1.5 shrink-0 text-muted-foreground',
+                    isLast ? 'h-4 w-4' : 'h-3.5 w-3.5',
+                  )}
                   aria-hidden="true"
                 />
               )}
@@ -84,9 +86,11 @@ export function Breadcrumb({ items, maxItems, className }: BreadcrumbProps) {
               ) : isLast || !item.href ? (
                 <span
                   className={cn(
-                    'font-medium',
-                    isLast ? 'text-foreground' : 'text-muted-foreground',
+                    isLast
+                      ? 'text-[17px] font-semibold tracking-tight text-[hsl(var(--primary))]'
+                      : 'font-medium text-muted-foreground',
                   )}
+                  style={isLast ? { fontFamily: 'var(--font-heading), Sora, system-ui, sans-serif' } : undefined}
                   aria-current={isLast ? 'page' : undefined}
                 >
                   {item.label}

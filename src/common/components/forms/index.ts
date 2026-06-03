@@ -1,3 +1,6 @@
 export { ActiveStatusField } from './ActiveStatusField'
+export { FileDropzone } from './FileDropzone'
+export type { FileDropzoneProps } from './FileDropzone'
 export { CollegeFilterPanel } from './CollegeFilterPanel'
 export { FormField } from './FormField'
+export { TimePicker } from './TimePicker'

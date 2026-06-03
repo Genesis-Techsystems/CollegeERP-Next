@@ -1,0 +1,81 @@
+
+<div class="add-form">
+    <div class="content">
+        <div fxLayout="column" class="header-background" fxLayoutAlign="start" fxLayout.gt-md="row">
+            <div class="mr-24" fxLayout="column" fxLayoutAlign="start" fxFlex="1 0 auto">
+                <div fxLayoutAlign="start center" class="mod-head">
+                    <i class="material-icons icon-align ">
+                                ballot
+                                </i>
+                    <span> Bundle Details <span *ngIf="this.data.bundleNumber !== null && this.data.bundleNumber !== ''">
+                      &nbsp;-&nbsp; {{this.data?.bundleNumber}}
+                    </span></span>
+                </div>
+            </div>
+        </div>
+        <mat-dialog-content>
+
+        <div class="mat-elevation-z8">
+            <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between" fxLayoutGap="5">
+                <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="35" fxFlex.gt-md="35" fxLayout="row" fxLayoutAlign="start center">
+                    <label for="search" class="mr-8">
+                        <mat-icon class="secondary-text">search</mat-icon>
+                    </label>
+                    <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                        <input matInput [(ngModel)]="searchText" name="search" placeholder="Search">
+                    </mat-form-field>
+                </div>
+                <div fxFlex.gt-xs="65" fxFlex.gt-md="65" fxLayout="row" fxLayoutAlign="start end" class="buttons">
+                        </div>
+            </div>
+            <div class="example-container">
+                <table class="mar">
+  <thead>
+    <tr>
+      <th class="table-th" style="width: 15% !important;">
+        <mat-checkbox
+          [(ngModel)]="selectAll"
+          (change)="toggleSelectAll($event)">
+        </mat-checkbox>
+        All
+      </th>
+      <th class="table-th">Hall Ticket No</th>
+      <th class="table-th">Omr Serial No</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr *ngFor="let student of examCenterStudents | filter:searchText; let i = index">
+      
+      <!-- Checkbox -->
+      <td class="table-td">
+        <mat-checkbox
+          [(ngModel)]="student.selected"
+          (change)="onStudentChange(student)">
+        </mat-checkbox>
+      </td>
+
+      <td class="table-td">
+        {{ student?.hallticketNumber}}
+      </td>
+
+      <td class="table-td">
+          {{ student?.omr_serial_no }}
+      </td>
+    </tr>
+  </tbody>
+</table>
+            </div>
+</div>
+</mat-dialog-content>
+<mat-dialog-actions>
+<button mat-raised-button class="cls-btn" mat-dialog-close>
+            Close
+            </button>
+<button mat-raised-button class="add-btn" color="accent" (click)="submit()" *ngIf="this.selectedStudents && this.selectedStudents.length > 0">
+ Save
+ </button>
+</mat-dialog-actions>
+</div>
+</div>
+

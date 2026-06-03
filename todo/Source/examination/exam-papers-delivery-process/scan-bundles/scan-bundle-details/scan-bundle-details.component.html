@@ -1,0 +1,443 @@
+<div id="dashboard" class="page-layout simple">
+
+    <div class="center" fusePerfectScrollbar>
+
+        <!-- HEADER -->
+        <div class="header pd-dash" fxLayout="column" fxLayoutAlign="space-between">
+
+            <div fxLayout="column" class="link-header" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                fxLayoutAlign.gt-xs="center start">
+                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                    <mat-icon class="secondary-text s-18 cursr">home</mat-icon>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Papers Delivery Process</span>
+                    <mat-icon class="secondary-text s-16">chevron_right</mat-icon>
+                    <span>Exam Scan Bundle Details</span>
+                </div>
+            </div>
+
+        </div>
+        <!-- / HEADER -->
+
+        <!-- CONTENT -->
+        <div class="content">
+            <div fxLayout="column" class="radio-btn" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                <mat-radio-group style="width: 100% !important;" [(ngModel)]="check" [ngModelOptions]="{standalone: true}">
+                    <mat-radio-button [value]="1" (change)="clear($event)"> Manual bundle Capture</mat-radio-button>
+                    <mat-radio-button [value]="2" (change)="clear($event)" class="r-btn">Auto bundle Capture</mat-radio-button>
+                </mat-radio-group>
+            </div>
+            <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;">
+                <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                    <mat-expansion-panel-header>
+                        <mat-panel-title>
+                            <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                                fxLayoutAlign.gt-xs="center start">
+                                <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                    <mat-icon class="fs  icon-align ">money</mat-icon>
+                                    <strong class="table-heads">Exam Scan Bundle Details</strong>
+
+                                </div>
+                            </div>
+                        </mat-panel-title>
+                        <label class="filter-align">Filter</label>
+                        <mat-icon>filter_list</mat-icon>
+                    </mat-expansion-panel-header>
+                    <form name="staffForm" [formGroup]="staffForm" novalidate>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                fxFlex.gt-md="20">
+                                <mat-select placeholder="Academic Year" name="academicYearId"
+                                    formControlName="academicYearId"
+                                    (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)"
+                                    required>
+                                    <mat-option *ngFor="let obcjt of academicYears"
+                                        matTooltip="{{obcjt.academic_year}}"
+                                        [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30" fxFlex.gt-md="30">
+                            <mat-select placeholder="Exam Group" name="examGroupId" formControlName="examGroupId" required  (selectionChange)="selectedExamGroup(staffForm.value.examGroupId)">
+                                <mat-option *ngFor="let obj of examGroups" [value]="obj.fk_univ_exam_group_id">{{obj.exam_group_code}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                fxFlex.gt-md="25">
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                    (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                    <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">
+                                        {{course.course_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                    fxFlex.gt-md="25">
+                                    <mat-select placeholder="Course Years" name="courseYearId"
+                                        formControlName="courseYearId"
+                                        (selectionChange)="selectedYear(staffForm.value.courseYearId)" required>
+                                        <mat-option *ngFor="let courseYear of courseYears"
+                                            [value]="courseYear.fk_course_year_id">{{courseYear.course_year_code}}</mat-option>
+                                    </mat-select>
+                            </mat-form-field>
+                        </div>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                    fxFlex.gt-md="25">
+                                    <mat-select placeholder="Regulation" name="regulationId"
+                                        formControlName="regulationId"
+                                        (selectionChange)="selectedRegulation(staffForm.value.regulatonId)"
+                                        required>
+                                        <mat-option *ngFor="let obj of regulations"
+                                            [value]="obj.fk_regulation_id">{{obj.regulation_code}}</mat-option>
+                                    </mat-select>
+                            </mat-form-field>
+                        <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40"
+                                fxFlex.gt-md="40">
+                                <mat-select placeholder="Subjects" formControlName="subjectId"
+                                    (selectionChange)="selectedSubject(staffForm.value.subjectId)">
+                                    <mat-option *ngFor="let subject of subjectsData"
+                                        matTooltip="{{ subject.subject_name }}({{subject.subject_code}})"
+                                        [value]="subject.fk_subject_id">
+                                        {{ subject.subject_name }}
+                                        <span style="color:blue"> ({{subject.subject_code}}) </span>
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Exam Scan Bundle" name="univExamScanbundleId"
+                                        formControlName="univExamScanbundleId"
+                                        (selectionChange)="selectedScanBundle(staffForm.value.univExamScanbundleId)"
+                                        required>
+                                        <mat-option *ngFor="let obj of scanBundlesList"
+                                            [value]="obj.univExamScanbundleId">{{obj.bundleNumber}}</mat-option>
+                                    </mat-select>
+                            </mat-form-field>
+                        </div>
+                        <div fxLayout="row" *ngIf="this.check === 1">
+                            <div class="savebtn-align" fxLayout="column" class="p-8 padding" fxFlex="100"
+                                fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                <button mat-raised-button class="action-btn addBtn" color="accent"
+                                    (click)="getCenterStudents()">Get Details</button>
+                            </div>
+                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10" *ngIf="this.filtersSetArray.length > 0">
+                            <button mat-raised-button class="back-btn add-btn" (click)="goBack()">Back</button>
+                        </div>
+                        </div>
+                        <div fxLayout="row" *ngIf="this.check === 2">
+                            <div class="savebtn-align" fxLayout="column" class="p-8 padding" fxFlex="100"
+                                fxFlex.gt-xs="15" fxFlex.gt-md="15">
+                                <button mat-raised-button class="action-btn addBtn" color="accent"
+                                    (click)="getOmrScan()">Get Details</button>
+                            </div>
+                        <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10" *ngIf="this.filtersSetArray.length > 0">
+                            <button mat-raised-button class="back-btn add-btn" (click)="goBack()">Back</button>
+                        </div>
+                        </div>
+                    </form>
+                </mat-expansion-panel>
+                <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                </mat-expansion-panel>
+            </mat-accordion>
+
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" *ngIf="flag == true && this.check === 1">
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                    fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <!-- <mat-icon class="secondary-text icon-align ">table_chart</mat-icon> -->
+                        <i class="material-icons icon-align ">
+                            ballot
+                        </i>
+                        <!-- <h1 class="secondary-text table-head fs-20">Campus</h1> -->
+                        <strong class="table-heads">Exam Scan Bundle Details
+                            <span *ngIf="dataDetails != null && dataDetails != ''">&nbsp;-&nbsp;{{dataDetails}}</span>
+                        </strong>
+                    </div>
+                </div>
+            </div>
+            <div class="content pd-card" *ngIf="flag == true && this.check === 1">
+
+                <div class="mat-elevation-z8 bkgrd">
+                    <div fxLayout="row">
+                        <div fxLayout="column " fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+
+                            <div fxLayout="column" style="margin-top: 10px !important;" class="inner-bkgrd yar-bordr">
+                                <div fxLayout="row wrap " fxFlex="100">
+                                    <div fxLayout="column" class="bordr" fxFlex="100" fxFlex.gt-xs="38"
+                                        fxFlex.gt-md="38" style="background: white;">
+                                        <div fxLayout="row" fxLayoutAlign="space-between center">
+                                            <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="50"
+                                                fxFlex.gt-md="50" fxLayout="row" fxLayoutAlign="start center">
+                                                <div class="search-box">
+                                                    <i class="fa fa-search" aria-hidden="true"></i>
+                                                    <!-- <input matInput (keyup)="applyFilter($event.target.value)" placeholder="Search"> -->
+                                                    <input placeholder="Search..."
+                                                        (keyup)="searchOmrNo($event.target.value)"
+                                                        [ngModelOptions]="{standalone: true}">
+                                                </div>
+                                            </div>
+                                            <span class="roll-no" style="color: blue;font-weight:bold;">
+                                                Total Students : <span>{{this.examsubjectStudents.length}}</span>
+                                            </span>
+                                        </div>
+                                        <!-- <div class="firstTable"> -->
+                                        <table class="mar firstTable">
+                                            <thead>
+                                                <tr>
+                                                    <th class="table-th" style="width: 15% !important;">
+                                                        <mat-checkbox [(ngModel)]="checksubject" style=" padding: 5px;"
+                                                            (change)="markItems()"
+                                                            [ngModelOptions]="{standalone: true}"></mat-checkbox>All
+                                                    </th>
+                                                    <th class="table-th">Serial No</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr *ngFor="let  objct of examsubjectStudents  let i=index">
+                                                    <td class="table-td" style="width: 15% !important;">
+                                                        <mat-checkbox (click)="checkedserialNo(!objct.checked,objct)"
+                                                            style="text-align: center;" [(ngModel)]="objct.checked"
+                                                            [ngModelOptions]="{standalone: true}"></mat-checkbox>
+                                                    </td>
+                                                    <td class="table-td">
+                                                        {{objct?.hallticket_number}}({{objct?.omr_serial_no}})
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div fxLayout="column" class="bordr" fxFlex="100" fxFlex.gt-xs="38"
+                                        fxFlex.gt-md="38">
+                                        <table class="mar firstTable">
+                                            <thead>
+                                                <tr>
+                                                    <th class="table-th"
+                                                        style="color: blue !important;font-weight:bold;">Selected
+                                                        Students: <span>{{selectedCount}}</span></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr *ngFor="let  sub of selectedStudents; let i=index">
+                                                    <td class="table-td">
+                                                        <span *ngIf="sub.omr_serial_no == null"> -</span>
+                                                        <span style="color: blue;"
+                                                            *ngIf="sub.omr_serial_no !== null">{{sub?.hallticket_number}}({{sub?.omr_serial_no}})</span>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="11" fxFlex.gt-md="11"
+                                        style="position: relative;">
+                                        <button mat-raised-button class="add-btn" style="position: absolute;
+                                bottom: -12px;" color="accent" (click)="Assign()" *ngIf="flag == true && this.check === 1">
+                                            Assign
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div *ngIf="this.flag === true && this.check === 2">
+                <mat-accordion style="width: 100%;padding: 22px 24px 0px 24px;" >
+                    <mat-expansion-panel [expanded]="step === 0" hideToggle style="margin: 0px 25px;">
+                        <mat-expansion-panel-header>
+                            <mat-panel-title>
+                                <div fxLayout="column" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                        <mat-icon class="fs  icon-align ">money</mat-icon>
+                                        <strong class="table-heads">Exam Scan Bundle Details
+                                            <span *ngIf="dataDetails != null && dataDetails != ''">&nbsp;-&nbsp;{{dataDetails}}</span>
+                                        </strong>
+                                     
+                                    </div>
+                                </div>
+                            </mat-panel-title>
+                        </mat-expansion-panel-header>
+                        <form name="staffForm" [formGroup]="staffForm" novalidate>
+                            <div fxLayout="row">
+                                  <!-- <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="70" fxFlex.gt-md="70">
+                                    <input type="text" placeholder="Omr serial No" (keyup)="enteredOmr($event)"  #barcode    (keydown.enter)="$event.preventDefault()"   (window:keypress)="onKey($event)" aria-label="SubjectCode" matInput [formControl]="myControl1" [matAutocomplete]="auto1">
+                                    <mat-autocomplete #auto1="matAutocomplete" >
+                                    </mat-autocomplete>
+                                </mat-form-field> -->
+                                <mat-form-field class="barcode-field" appearance="outline">
+                                <mat-icon matPrefix>qr_code_scanner</mat-icon>
+                                <input
+                                matInput
+                                type="text"
+                                placeholder="Scan barcode here – Input always focused"
+                                #barcode
+                                (keyup)="enteredOmr($event)"
+                                (keydown.enter)="$event.preventDefault()"
+                                (window:keypress)="onKey($event)"
+                                [formControl]="myControl1"
+                                [matAutocomplete]="auto1"
+                                autofocus
+                                />
+                                <mat-autocomplete #auto1="matAutocomplete"></mat-autocomplete>
+                                </mat-form-field>
+                            </div>
+                            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" >
+                            </div>
+                            <div style="border: 3px #80a7eb solid; margin-bottom: 20px; " *ngIf="selectedOmrDetails.length>0">
+                            <mat-card class=" table-align ">
+                                <div class="mat-elevation-z8 " style="margin-top:20px !important">
+                                   
+                                    <div class="example-container " >
+                                        <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column" fxLayoutAlign.gt-xs="center start">
+                                            <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                                                 <!-- <mat-icon class="secondary-text icon-align ">table_chart</mat-icon> -->
+                                <i class="material-icons icon-align ">
+                                    ballot
+                                    </i>
+                            <strong class="table-heads">Exam Scan Bundle Details
+                                    <span *ngIf="dataDetails != null && dataDetails != ''">&nbsp;-&nbsp;{{dataDetails}}</span>
+                            </strong>
+                                            </div>
+                                        </div>
+                                        <table mat-table [dataSource]="DuplicatedataSource" style="margin-top:20px !important" matSort>
+                                            <!-- ID Column -->
+                                            <ng-container matColumnDef="id">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header>SL No. </th>
+                                                <td mat-cell *matCellDef="let row; let i=index">  {{i+ 1}}  </td>
+                                            </ng-container>
+                 
+                                            <!-- vehicleNumber Column -->
+                                            <ng-container matColumnDef="bagName">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Bundle Number</th>
+                                                <td mat-cell *matCellDef="let row">{{bundleName}}</td>
+                                            </ng-container>
+
+                                            <!-- vehicleDetails Code Column -->
+                                            <ng-container matColumnDef="omrSerialNo">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Omr Serial No.</th>
+                                                <td mat-cell *matCellDef="let row"> {{row?.omrSerialNo}}
+                                                 </td>
+                                            </ng-container>
+                 
+                                            <!-- vehicleDetails Code Column -->
+                                            <ng-container matColumnDef="stdFirstName">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Hall Ticket No.</th>
+                                                <td mat-cell *matCellDef="let row"> {{row?.hallticketNumber}}
+                                                 </td>
+                                            </ng-container>
+
+                                            <ng-container matColumnDef="subjectName">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Subject</th>
+                                                <td mat-cell *matCellDef="let row">{{subjectName}}
+                                                    <span style="color:blue" > ({{subjectCode}}) </span> </td>
+                                            </ng-container>
+                                            <!-- Actions Column -->
+                                            <ng-container matColumnDef="actions">
+                                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Actions </th>
+                                                <td mat-cell *matCellDef="let row; let i=index" class="text-ctr">
+                                                    <i class="fa fa-times edit" (click)="deleteOmr(row,i)"></i>
+                                                     </td>
+                                            </ng-container>
+                 
+                                            <tr mat-header-row *matHeaderRowDef="scannedDisplayedColoumns"></tr>
+                                            <tr mat-row *matRowDef="let row; columns: scannedDisplayedColoumns;">
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+                              
+                            </mat-card>
+                            <div class="savebtn-align" >
+                                    <button mat-raised-button class="add-btn" color="accent" (click)="AssignScanBundles()">Save</button>
+                                </div>
+                        </div>
+                        </form>
+                    </mat-expansion-panel>
+                    <mat-expansion-panel (opened)="panelOpenState = true" (closed)="panelOpenState = false">
+                    </mat-expansion-panel>
+                </mat-accordion>
+            </div>
+            <div class="header pd-page" fxLayout="column" fxLayoutAlign="space-between" *ngIf="this.examCenterStudents && this.examCenterStudents.length > 0">
+                <div fxLayout="column" class="page-table-head" fxLayoutAlign="center center" fxLayout.gt-xs="column"
+                    fxLayoutAlign.gt-xs="center start">
+                    <div class="black-fg" fxLayout="row" fxLayoutAlign="start center">
+                        <!-- <mat-icon class="secondary-text icon-align ">table_chart</mat-icon> -->
+                        <i class="material-icons icon-align ">
+                            ballot
+                        </i>
+                        <!-- <h1 class="secondary-text table-head fs-20">Campus</h1> -->
+                        <strong class="table-heads">Exam Scan Bundle Details
+                            <span *ngIf="dataDetails != null && dataDetails != ''"> &nbsp;-&nbsp;{{dataDetails}}</span>
+                        </strong>
+                    </div>
+                </div>
+            </div>
+            <mat-card class=" table-align" *ngIf="this.examCenterStudents && this.examCenterStudents.length > 0">
+                <mat-card-content>
+                    <div fxLayout="row" fxLayout.xs="column" class="search-align" fxLayoutAlign="space-between"
+                        fxLayoutGap="5">
+                        <div class="search-input-wrapper mx-24 m-md-0" fxFlex.gt-xs="30" fxFlex.gt-md="35"
+                            fxLayout="row" fxLayoutAlign="start center">
+                            <label for="search" class="mr-8">
+                                <mat-icon class="secondary-text">search</mat-icon>
+                            </label>
+                            <mat-form-field floatLabel="never" fxFlex="1 0 auto">
+                                <input matInput (keyup)="applyFilter($event.target.value)" name="search"
+                                    placeholder="Search">
+                            </mat-form-field>
+                        </div>
+                    </div>
+                </mat-card-content>
+
+                <div class="mat-elevation-z8">
+                    <div class="example-container" style="overflow: hidden !important;">
+                        <table mat-table [dataSource]="dataSource" matSort>
+
+                            <!-- S.NO Column -->
+                            <ng-container matColumnDef="id">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> SI.No </th>
+                                <td mat-cell *matCellDef="let row index as i"> {{i+1}} </td>
+                            </ng-container>
+
+                            <!-- student Column -->
+                            <ng-container matColumnDef="omrSerialNo">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> OMR Serial No </th>
+                                <td mat-cell *matCellDef="let row"> {{row.omr_serial_no}} </td>
+                            </ng-container>
+
+                            <!-- student Column -->
+                            <ng-container matColumnDef="student">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Student </th>
+                                <td mat-cell *matCellDef="let row"> {{row.hallticket_number}} </td>
+                            </ng-container>
+
+                            <!-- subject Column -->
+                            <ng-container matColumnDef="subject">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header> Subject</th>
+                                <td mat-cell *matCellDef="let row">{{subjectName}}
+                                    <span style="color:blue" > ({{subjectCode}}) </span> </td>
+                            </ng-container>
+
+                            <!-- Actions Column -->
+                            <ng-container matColumnDef="Actions">
+                                <th mat-header-cell *matHeaderCellDef mat-sort-header>Actions</th>
+                                <td mat-cell *matCellDef="let row">
+                                    <i class="material-icons edit" matTooltip="edit" (click)="editDialog(row)">
+                                        border_color</i>
+                                </td>
+                            </ng-container>
+
+                            <!-- Actions Column -->
+                            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                            <tr mat-row *matRowDef="let row; columns: displayedColumns;">
+                            </tr>
+                        </table>
+                    </div>
+                    <mat-paginator [pageSizeOptions]="[10, 25, 100]"></mat-paginator>
+                </div>
+
+            </mat-card>
+
+            <!-- / CONTENT -->
+        </div>
+    </div>
+</div>

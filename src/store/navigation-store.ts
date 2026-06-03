@@ -26,6 +26,18 @@ interface NavigationState {
   setSidebarPosition: (pos: 'left' | 'right') => void
 }
 
+function collectCollapsibleItemIds(items: NavItem[]): string[] {
+  const ids: string[] = []
+
+  for (const item of items) {
+    if (item.children && item.children.length > 0) {
+      ids.push(item.id, ...collectCollapsibleItemIds(item.children))
+    }
+  }
+
+  return ids
+}
+
 export const useNavigationStore = create<NavigationState>()(
   persist(
     (set) => ({
@@ -41,12 +53,13 @@ export const useNavigationStore = create<NavigationState>()(
       setNavItems: (items) =>
         set((state) => ({
           navItems: items,
-          // Seed collapsedItems with all top-level module IDs on first load so that
-          // every module starts collapsed. NavItem's isOpen logic forces the active
-          // module open via `isActive ? true : !collapsedItems.has(id)`.
+          // Seed collapsedItems with every collapsible node (top-level + nested)
+          // on first load so all submenus start closed by default. NavItem's
+          // isOpen logic still forces the active branch open via
+          // `isActive ? true : !collapsedItems.has(id)`.
           ...(state.navItemsSeeded
             ? {}
-            : { collapsedItems: new Set(items.map((item) => item.id)), navItemsSeeded: true }),
+            : { collapsedItems: new Set(collectCollapsibleItemIds(items)), navItemsSeeded: true }),
         })),
 
       toggleCollapsed: (id) =>

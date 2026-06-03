@@ -79,3 +79,32 @@ export async function springGetUserDetails(jwt: string): Promise<UserDTO> {
 
   return body.data
 }
+
+/**
+ * Resolve the employee record for a user — Angular login getEmployee():
+ * GET employeedetailsbyid?userId=<id>. The /api/authorization response does NOT
+ * include employeeId (it's null there); this endpoint provides it. Returns null
+ * if the user has no employee record (e.g. students) or on any error.
+ */
+export async function springGetEmployeeByUserId(
+  jwt: string,
+  userId: number,
+): Promise<Record<string, unknown> | null> {
+  if (!userId) return null
+  const url = `${process.env.SPRING_API_URL}/employeedetailsbyid?userId=${userId}`
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+    })
+  } catch {
+    return null
+  }
+  if (!res.ok) return null
+  const body = (await res.json().catch(() => null)) as
+    | { success?: boolean; data?: Record<string, unknown> }
+    | null
+  if (!body?.success || !body.data) return null
+  return body.data
+}

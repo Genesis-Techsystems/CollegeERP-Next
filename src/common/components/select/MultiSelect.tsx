@@ -156,11 +156,11 @@ export function MultiSelect({
     const overflow = selectedLabels.length - maxDisplay
 
     return (
-      <span className="flex min-w-0 flex-wrap items-center gap-1">
+      <span className="flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
         {visible.map((lbl, i) => (
           <span
             key={i}
-            className="inline-flex items-center rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary"
+            className="inline-flex max-w-full shrink items-center truncate rounded-md bg-primary/10 px-1.5 py-0 text-[length:var(--app-control-font-size)] font-medium text-primary"
           >
             {lbl}
           </span>
@@ -206,17 +206,18 @@ export function MultiSelect({
             aria-multiselectable="true"
             disabled={disabled}
             className={cn(
-              'flex min-h-10 w-full items-center justify-between rounded-lg border bg-white px-3 py-2 text-sm shadow-sm transition-colors',
-              'focus-visible:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/20',
+              'app-control flex w-full items-center justify-between rounded-md border bg-white px-3 py-1.5 text-[length:var(--app-control-font-size)] text-slate-900 shadow-sm transition-colors',
+              'focus-visible:outline-none focus:ring-0 focus-visible:ring-0',
               'disabled:cursor-not-allowed disabled:opacity-50',
-              open && 'border-indigo-500 ring-2 ring-indigo-500/20',
+              open && 'border-[hsl(var(--ring))]',
               error
-                ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20'
+                ? 'border-destructive focus-visible:border-destructive'
                 : 'border-slate-300',
+              !error && 'focus-visible:border-[hsl(var(--ring))]',
             )}
           >
             {/* Pills / placeholder */}
-            <span className="flex min-w-0 flex-1 items-center">
+            <span className="flex min-h-0 min-w-0 flex-1 items-center overflow-hidden">
               {renderTriggerContent()}
             </span>
 
@@ -271,7 +272,7 @@ export function MultiSelect({
                   aria-label="Search options"
                   value={searchTerm}
                   onChange={handleSearchChange}
-                  placeholder="Search..."
+                  placeholder="Search…"
                   className="h-8 w-full rounded-md bg-transparent pl-7 pr-2 text-sm placeholder:text-slate-400 focus:outline-none"
                 />
               </div>

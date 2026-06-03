@@ -1,6 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { AgGridReact } from 'ag-grid-react'
 import {
   ModuleRegistry,
@@ -13,20 +20,27 @@ import {
   type FirstDataRenderedEvent,
   type GridSizeChangedEvent,
   type RowDataUpdatedEvent,
+  type GridReadyEvent,
 } from 'ag-grid-community'
 import { Download, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { DataTableToolbar } from './DataTableToolbar'
 
 ModuleRegistry.registerModules([AllCommunityModule])
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface DataTableToolbarConfig {
+  /** Client-side filter across row values. Default **false** — set `true` when this grid is the only search UI (avoids duplicating a page-level search). */
+  search?: boolean
+  columnPicker?: boolean
+  exportPdf?: boolean
+  searchPlaceholder?: string
+  /** Sets `document.title` briefly while the print dialog is open */
+  pdfDocumentTitle?: string
+  /** Column `colId`s that cannot be hidden */
+  lockColumnIds?: string[]
+}
 
 export interface DataTableProps<T> {
   /** Array of row data to display */
@@ -74,8 +88,19 @@ export interface DataTableProps<T> {
   onPageChange?: (page: number, pageSize: number) => void
 
   // ── Toolbar ───────────────────────────────────────────────────────────────
-  /** Show an "Export CSV" button above the grid */
+  /**
+   * `false` — no toolbar.
+   * Omitted or object — column picker + Export PDF; **toolbar search is off by default** (set `search: true` when the grid is the only filter UI).
+   */
+  toolbar?: boolean | DataTableToolbarConfig
+  /** Content left of Columns / Export (e.g. record count); shows in toolbar row beside actions */
+  toolbarLeading?: ReactNode
+  /** Primary actions rendered after Export PDF (e.g. Add …) */
+  toolbarTrailing?: ReactNode
+  /** Show an "Export CSV" button in the toolbar */
   exportCsv?: boolean
+  /** Optional callback to access grid API from parent for external controls */
+  onGridApiReady?: (api: GridApi<T>) => void
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -92,68 +117,155 @@ const DEFAULT_COL_DEF: ColDef = {
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const
 type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number]
 
+// ─── Row search (toolbar) ─────────────────────────────────────────────────────
+
+const MAX_SEARCH_DEPTH = 8
+
+function collectStrings(value: unknown, depth: number, out: string[]): void {
+  if (depth > MAX_SEARCH_DEPTH) return
+  if (value == null) return
+  const t = typeof value
+  if (t === 'string' || t === 'number' || t === 'boolean' || t === 'bigint') {
+    out.push(String(value))
+    return
+  }
+  if (t !== 'object') return
+  if (Array.isArray(value)) {
+    for (const item of value) collectStrings(item, depth + 1, out)
+    return
+  }
+  for (const v of Object.values(value as Record<string, unknown>)) {
+    collectStrings(v, depth + 1, out)
+  }
+}
+
+function rowMatchesSearch<T>(row: T, q: string): boolean {
+  const needle = q.trim().toLowerCase()
+  if (!needle) return true
+  const hay: string[] = []
+  collectStrings(row, 0, hay)
+  return hay.some((s) => s.toLowerCase().includes(needle))
+}
+
+function resolveToolbar(
+  toolbar: boolean | DataTableToolbarConfig | undefined,
+  serverSide: boolean,
+): {
+  show: boolean
+  search: boolean
+  columnPicker: boolean
+  exportPdf: boolean
+  searchPlaceholder: string
+  pdfDocumentTitle?: string
+  lockColumnIds: string[]
+} {
+  if (toolbar === false) {
+    return {
+      show: false,
+      search: false,
+      columnPicker: false,
+      exportPdf: false,
+      searchPlaceholder: '',
+      lockColumnIds: [],
+    }
+  }
+  const t: DataTableToolbarConfig =
+    toolbar === true || toolbar === undefined ? {} : toolbar
+  return {
+    show: true,
+    /** Default off so pages can keep a single external search/input without duplicating the toolbar search. */
+    search: t.search === true,
+    columnPicker: t.columnPicker !== false,
+    exportPdf: t.exportPdf !== false,
+    searchPlaceholder: t.searchPlaceholder ?? 'Search…',
+    pdfDocumentTitle: t.pdfDocumentTitle,
+    lockColumnIds: t.lockColumnIds ?? [],
+  }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function DataTable<T>({
   rowData,
   columnDefs,
   loading = false,
-  // Default 'auto' lets the grid grow to fit rows (good for paginated tables).
-  // Pass a fixed height like '500px' for large unpaginated datasets that need
-  // their own scrollbar instead of pushing the page down.
   height = 'auto',
   getRowId,
   onCellClicked,
   onRowClick,
-  pagination = false,
+  pagination = true,
   paginationPageSize = 10,
   serverSide = false,
   totalCount = 0,
   currentPage = 0,
   onPageChange,
+  toolbar: toolbarProp,
+  toolbarLeading,
+  toolbarTrailing,
   exportCsv = false,
+  onGridApiReady,
 }: DataTableProps<T>) {
+  const tb = useMemo(
+    () => resolveToolbar(toolbarProp, serverSide),
+    [toolbarProp, serverSide],
+  )
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [gridApi, setGridApi] = useState<GridApi<T> | null>(null)
+
+  const clientPaginationEnabled = pagination && !serverSide
+
   const gridRef = useRef<AgGridReact<T>>(null)
 
+  const filteredRowData = useMemo(() => {
+    if (!tb.show || !tb.search || !searchQuery.trim()) return rowData
+    return rowData.filter((r) => rowMatchesSearch(r, searchQuery))
+  }, [rowData, tb.show, tb.search, searchQuery])
+
   // ── Client-side pagination state ─────────────────────────────────────────────
-  // We manage pagination ourselves so the grid only ever receives the current
-  // page's rows — this makes autoHeight size exactly to the visible rows.
   const [clientPage, setClientPage] = useState(0)
   const [clientPageSize, setClientPageSize] = useState<PageSizeOption>(
     (paginationPageSize as PageSizeOption) ?? 10,
   )
 
-  // Reset to page 0 when the source data changes (e.g. search filter applied)
   useEffect(() => {
     setClientPage(0)
-  }, [rowData])
+  }, [rowData, searchQuery])
 
   // ── Server-side pagination state ─────────────────────────────────────────────
-  const [serverPageSize, setServerPageSize] = useState<PageSizeOption>(10)
+  const [serverPageSize, setServerPageSize] = useState<PageSizeOption>(() => {
+    const n = Number(paginationPageSize)
+    return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n) ? (n as PageSizeOption) : 10
+  })
 
   const defaultColDef = useMemo<ColDef>(() => DEFAULT_COL_DEF, [])
 
-  // Paginated/serverSide tables always use autoHeight — no fixed-height scroll box.
   const isAutoHeight = height === 'auto' || pagination || serverSide
 
   // ── Client pagination derived values ─────────────────────────────────────────
-  const clientTotalRows = rowData.length
+  const dataForPaging = clientPaginationEnabled ? filteredRowData : rowData
+  const clientTotalRows = dataForPaging.length
   const clientTotalPages = Math.max(1, Math.ceil(clientTotalRows / clientPageSize))
-  // Clamp current page in case rowData shrinks (e.g. search narrows results)
   const safePage = Math.min(clientPage, clientTotalPages - 1)
 
   const pagedRowData = useMemo(() => {
-    if (!pagination) return rowData
+    if (serverSide) return rowData
+    if (!clientPaginationEnabled) return filteredRowData
     const start = safePage * clientPageSize
-    return rowData.slice(start, start + clientPageSize)
-  }, [rowData, pagination, safePage, clientPageSize])
+    return filteredRowData.slice(start, start + clientPageSize)
+  }, [
+    rowData,
+    filteredRowData,
+    clientPaginationEnabled,
+    serverSide,
+    safePage,
+    clientPageSize,
+  ])
 
   // ── Server pagination derived values ─────────────────────────────────────────
   const totalPages = serverSide ? Math.max(1, Math.ceil(totalCount / serverPageSize)) : 1
   const rangeStart = serverSide ? currentPage * serverPageSize + 1 : 0
   const rangeEnd = serverSide ? Math.min(rangeStart + serverPageSize - 1, totalCount) : 0
-
-  // ── Column fit helpers ────────────────────────────────────────────────────────
 
   function fitColumns(api: GridApi<T>) {
     api.sizeColumnsToFit()
@@ -171,7 +283,10 @@ export function DataTable<T>({
     fitColumns(event.api)
   }
 
-  // ── Client pagination handlers ────────────────────────────────────────────────
+  function handleGridReady(event: GridReadyEvent<T>) {
+    setGridApi(event.api)
+    onGridApiReady?.(event.api)
+  }
 
   function handleClientPrevPage() {
     setClientPage((p) => Math.max(0, p - 1))
@@ -185,8 +300,6 @@ export function DataTable<T>({
     setClientPageSize(Number(value) as PageSizeOption)
     setClientPage(0)
   }
-
-  // ── Server pagination handlers ────────────────────────────────────────────────
 
   function handlePrevPage() {
     if (currentPage > 0) onPageChange?.(currentPage - 1, serverPageSize)
@@ -202,44 +315,103 @@ export function DataTable<T>({
     onPageChange?.(0, newSize)
   }
 
-  // ── Misc ──────────────────────────────────────────────────────────────────────
-
   function handleExportCsv() {
     gridRef.current?.api.exportDataAsCsv()
   }
+
+  const handleExportPdf = useCallback(() => {
+    const title = tb.pdfDocumentTitle
+    const prev = document.title
+    if (title) document.title = title
+    globalThis.print()
+    if (title) document.title = prev
+  }, [tb.pdfDocumentTitle])
+
+  const getColumns = useCallback(() => {
+    const api = gridRef.current?.api ?? gridApi
+    if (!api) return null
+    return api.getAllGridColumns() ?? null
+  }, [gridApi])
+
+  const applyColumnVisible = useCallback((colId: string, visible: boolean) => {
+    const api = gridRef.current?.api ?? gridApi
+    if (!api) return
+
+    api.applyColumnState({ state: [{ colId, hide: !visible }] })
+    // Ensure the grid (and then the column picker checkbox states) updates immediately.
+    api.refreshHeader()
+  }, [gridApi])
+
 
   function handleRowClicked(event: RowClickedEvent<T>) {
     if (onRowClick && event.data !== undefined) onRowClick(event.data)
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  const showMainToolbar =
+    tb.show &&
+    (tb.search ||
+      tb.columnPicker ||
+      tb.exportPdf ||
+      Boolean(toolbarTrailing) ||
+      Boolean(toolbarLeading) ||
+      exportCsv)
 
   return (
-    <div className="flex flex-col gap-2">
-      {/* ── Toolbar ── */}
-      {exportCsv && (
-        <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" size="sm" onClick={handleExportCsv} aria-label="Export to CSV">
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
+    <div className="app-data-table flex flex-col">
+      {(showMainToolbar || (!showMainToolbar && exportCsv)) && (
+        <div className="border-b border-border bg-muted/40 px-3 py-2">
+          {showMainToolbar ? (
+            <DataTableToolbar
+              leading={toolbarLeading}
+              searchEnabled={tb.search}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder={tb.searchPlaceholder}
+              columnPickerEnabled={tb.columnPicker}
+              exportPdfEnabled={tb.exportPdf}
+              onExportPdf={handleExportPdf}
+              lockColumnIds={tb.lockColumnIds}
+              getColumns={getColumns}
+              applyColumnVisible={applyColumnVisible}
+              endActions={
+                <>
+                  {exportCsv ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-[30px] px-3 text-[12px]"
+                      onClick={handleExportCsv}
+                      aria-label="Export to CSV"
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Export CSV
+                    </Button>
+                  ) : null}
+                  {toolbarTrailing}
+                </>
+              }
+            />
+          ) : (
+            <div className="flex items-center justify-end gap-3">
+              <Button variant="outline" size="sm" onClick={handleExportCsv} aria-label="Export to CSV">
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── Grid ── */}
       <div className="ag-theme-quartz" style={isAutoHeight ? undefined : { height }}>
         <AgGridReact<T>
           ref={gridRef}
           rowData={pagedRowData}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
-          // domLayout must be conditional: 'autoHeight' sizes the grid to its rows
-          // (no inner scrollbar), but when a fixed height is passed the grid needs
-          // its own vertical scroll — forcing autoHeight would ignore the height prop.
-          // Do NOT add suppressHorizontalScroll — wide tables with many columns must
-          // remain horizontally scrollable or right-side columns get clipped.
           domLayout={isAutoHeight ? 'autoHeight' : undefined}
           loading={loading}
+          onGridReady={handleGridReady}
           onFirstDataRendered={handleFirstDataRendered}
           onRowDataUpdated={handleRowDataUpdated}
           onGridSizeChanged={handleGridSizeChanged}
@@ -250,9 +422,8 @@ export function DataTable<T>({
         />
       </div>
 
-      {/* ── Client-side pagination bar ── */}
-      {pagination && (
-        <div className="flex items-center justify-between gap-4 px-1 py-1 text-sm text-muted-foreground flex-wrap">
+      {clientPaginationEnabled && (
+        <div className="flex items-center justify-between gap-4 px-1 py-1 text-[11px] text-muted-foreground flex-wrap">
           <span className="whitespace-nowrap">
             {clientTotalRows === 0
               ? 'No results'
@@ -262,18 +433,18 @@ export function DataTable<T>({
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="whitespace-nowrap">Rows per page</span>
-              <Select value={String(clientPageSize)} onValueChange={handleClientPageSizeChange}>
-                <SelectTrigger className="h-8 w-20 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <SelectItem key={size} value={String(size)}>
-                      {size}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                aria-label="Rows per page"
+                className="h-7 w-20 rounded-md border border-input bg-background px-2 text-[11px]"
+                value={String(clientPageSize)}
+                onChange={(e) => handleClientPageSizeChange(e.target.value)}
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={String(size)}>
+                    {size}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <span className="whitespace-nowrap">
@@ -284,7 +455,7 @@ export function DataTable<T>({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 w-8 p-0"
+                className="h-7 w-7 p-0"
                 onClick={handleClientPrevPage}
                 disabled={safePage <= 0}
                 aria-label="Previous page"
@@ -294,7 +465,7 @@ export function DataTable<T>({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 w-8 p-0"
+                className="h-7 w-7 p-0"
                 onClick={handleClientNextPage}
                 disabled={safePage >= clientTotalPages - 1}
                 aria-label="Next page"
@@ -306,9 +477,8 @@ export function DataTable<T>({
         </div>
       )}
 
-      {/* ── Server-side pagination bar ── */}
       {serverSide && (
-        <div className="flex items-center justify-between gap-4 px-1 py-1 text-sm text-muted-foreground flex-wrap">
+        <div className="flex items-center justify-between gap-4 px-1 py-1 text-[11px] text-muted-foreground flex-wrap">
           <span className="whitespace-nowrap">
             {totalCount === 0
               ? 'No results'
@@ -318,18 +488,18 @@ export function DataTable<T>({
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="whitespace-nowrap">Rows per page</span>
-              <Select value={String(serverPageSize)} onValueChange={handlePageSizeChange}>
-                <SelectTrigger className="h-8 w-20 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <SelectItem key={size} value={String(size)}>
-                      {size}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                aria-label="Rows per page"
+                className="h-7 w-20 rounded-md border border-input bg-background px-2 text-[11px]"
+                value={String(serverPageSize)}
+                onChange={(e) => handlePageSizeChange(e.target.value)}
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={String(size)}>
+                    {size}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <span className="whitespace-nowrap">
@@ -340,7 +510,7 @@ export function DataTable<T>({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 w-8 p-0"
+                className="h-7 w-7 p-0"
                 onClick={handlePrevPage}
                 disabled={currentPage <= 0}
                 aria-label="Previous page"
@@ -350,7 +520,7 @@ export function DataTable<T>({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 w-8 p-0"
+                className="h-7 w-7 p-0"
                 onClick={handleNextPage}
                 disabled={currentPage >= totalPages - 1}
                 aria-label="Next page"

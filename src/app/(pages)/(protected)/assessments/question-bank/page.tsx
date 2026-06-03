@@ -42,7 +42,7 @@ const COL_DEFS = {
   createdDt:   { field: 'createdDt',           headerName: 'Created On',     valueFormatter: (p) => formatDate(p.value), width: 130, flex: 0             } as ColDef<Assessment>,
   isActive:    { field: 'isActive',            headerName: 'Status',                                                               width: 90,  flex: 0 } as ColDef<Assessment>,
   questions:   { headerName: 'Questions',                                                                                          width: 115, flex: 0 } as ColDef<Assessment>,
-  actions:     { headerName: 'Actions',                                                                                            width: 220, flex: 0 } as ColDef<Assessment>,
+  actions:     { headerName: 'Actions',                                                                                            width: 200, flex: 0 } as ColDef<Assessment>,
 }
 
 // ─── Pure renderers ───────────────────────────────────────────────────────────
@@ -78,11 +78,12 @@ function makeActionsRenderer(
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => { setEditing(p.data ?? null); setModalOpen(true) }}
+        className="h-8 w-8 p-0"
+        aria-label="Edit question bank"
         title="Edit question bank"
+        onClick={() => { setEditing(p.data ?? null); setModalOpen(true) }}
       >
-        <PencilIcon className="h-3.5 w-3.5 mr-1" />
-        Edit
+        <PencilIcon className="h-3.5 w-3.5" />
       </Button>
       <Button
         size="sm"
@@ -204,7 +205,7 @@ export default function QuestionBankPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader
         title="Question Bank"
         subtitle="Manage question banks and their questions"
@@ -229,7 +230,7 @@ export default function QuestionBankPage() {
       />
 
       <SearchInput
-        className="max-w-sm"
+        className="w-full max-w-sm"
         placeholder="Search question banks…"
         value={searchValue}
         onChange={setSearchValue}
@@ -244,9 +245,9 @@ export default function QuestionBankPage() {
         onChange={handleFileChange}
       />
 
-      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
         {!loading && banks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <BookOpen className="h-10 w-10 mb-3 opacity-40" />
             <p className="text-sm">No question banks found</p>
           </div>

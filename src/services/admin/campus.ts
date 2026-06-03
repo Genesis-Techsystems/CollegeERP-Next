@@ -24,6 +24,10 @@ export async function listCampuses(): Promise<Campus[]> {
   )
 }
 
+export async function listActiveCampuses(): Promise<Campus[]> {
+  return domainList<Campus>(ENTITIES.CAMPUS.name, buildQuery({ isActive: true }))
+}
+
 /**
  * Create a new campus.
  * POST /domain/create/Campus

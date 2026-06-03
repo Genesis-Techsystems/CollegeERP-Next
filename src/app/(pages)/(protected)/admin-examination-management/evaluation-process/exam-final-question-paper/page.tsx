@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -57,7 +56,6 @@ function questionPaperStatusRenderer(p: { value?: string }) {
 export default function ExamFinalQuestionPaperPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
   const [hasFetched, setHasFetched] = useState(false)
   const [rows, setRows] = useState<AnyRow[]>([])
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
@@ -201,19 +199,50 @@ export default function ExamFinalQuestionPaperPage() {
 
   async function onFinalize() {
     if (rows.length === 0) return
-    const candidates = rows.filter((r) => pickNum(r, ['pk_exam_questionpaper_id', 'questionPaperId', 'examQuestionPaperId']) > 0)
-    if (candidates.length === 0) {
+    // Angular Finalize(): pick a RANDOM question paper from the list, then
+    // re-send its full record with questionPaperStatusCatDetId = 623 (Approved).
+    const ids = rows
+      .map((r) => pickNum(r, ['pk_exam_questionpaper_id', 'questionPaperId', 'examQuestionPaperId']))
+      .filter((n) => n > 0)
+    if (ids.length === 0) {
       toastError('No eligible question paper found to finalize.')
       return
     }
-    const selected = candidates[Math.floor(Math.random() * candidates.length)]
-    const qpId = pickNum(selected, ['pk_exam_questionpaper_id', 'questionPaperId', 'examQuestionPaperId'])
+    const queid = ids[Math.floor(Math.random() * ids.length)]
+    const selected = rows.find(
+      (r) => pickNum(r, ['pk_exam_questionpaper_id', 'questionPaperId', 'examQuestionPaperId']) === queid,
+    )
+    if (!selected) return
+    // Map the proc row to the ExamQuestionPapers update shape (mirrors Angular).
+    const data = {
+      organizationId: selected.organizationId,
+      examMonthYear: selected.exam_month_yr,
+      courseCode: selected.coursecode,
+      courseYearCode: selected.courseyearcode,
+      courseYearId: selected.fk_course_year_id,
+      courseGroupCodes: selected.coursegroupcodes,
+      regulationCode: selected.regulationcode,
+      subjectCode: selected.subjectcode,
+      examDate: selected.exam_date,
+      questionPaperTitle: selected.questionpaper_title,
+      setNumber: selected.setnumber,
+      passMarks: selected.passmarks,
+      totalMarks: selected.totalmarks,
+      totalQuestions: selected.totalquestions,
+      preparedByEmpId: selected.fk_preparedby_emp_id,
+      preparedDate: selected.prepared_date,
+      questionPaperStatusCatDetId: 623,
+      statusComments: selected.status_comments,
+      isApproved: selected.is_approved,
+      approvedByEmpId: selected.approvedByEmpId,
+      questionPaperPath: selected.questionpaper_path,
+      modelAnswerSheetPath: selected.modelanswersheet_path,
+      approvedDate: selected.approvedDate,
+      isActive: selected.is_active,
+    }
     setLoading(true)
     try {
-      await finalizeOneQuestionPaper({
-        questionPaperId: qpId,
-        approvedByEmpId: employeeId,
-      })
+      await finalizeOneQuestionPaper({ questionPaperId: queid, data })
       toastSuccess('Question paper finalized successfully.')
       await getList()
     } catch (error: any) {
@@ -223,17 +252,11 @@ export default function ExamFinalQuestionPaperPage() {
     }
   }
 
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
-
   const cols = useMemo<ColDef[]>(
     () => [
       { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
       { field: 'courseYearCode', headerName: 'Course Year', minWidth: 130, valueGetter: (p) => p.data?.courseyearcode ?? p.data?.courseYearCode ?? '-' },
-      { field: 'preparedBy', headerName: 'Prepared By', minWidth: 170, valueGetter: (p) => p.data?.prepareby_emp ?? p.data?.preparedBy ?? '-' },
+      { field: 'preparedBy', headerName: 'Prepared By', minWidth: 170, valueGetter: (p) => p.data?.preparedby_emp_name ?? p.data?.prepareby_emp ?? p.data?.preparedBy ?? '-' },
       { field: 'questionPaperTitle', headerName: 'Question Paper Title', minWidth: 280, valueGetter: (p) => p.data?.questionpaper_title ?? p.data?.questionPaperTitle ?? '-' },
       {
         field: 'questionPaperStatus',
@@ -247,11 +270,11 @@ export default function ExamFinalQuestionPaperPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Finalize Exam Question Paper" subtitle="Finalize question papers for examination" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Finalize Exam Question Paper</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Finalize Exam Question Paper</h2>
           <Button
             type="button"
             variant="outline"
@@ -336,31 +359,40 @@ export default function ExamFinalQuestionPaperPage() {
       </div>
 
       {hasFetched && (
-        <div className="app-card overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="w-full max-w-sm">
-                <SearchInput
-                  className="w-full"
-                  placeholder="Search"
-                  value={search}
-                  onChange={setSearch}
-                />
-              </div>
-              {isFinalized ? (
-                <Button size="sm" disabled className="bg-slate-500 hover:bg-slate-500 text-white">
+        <div className="app-card overflow-hidden p-4">
+          <DataTable
+            rowData={rows}
+            columnDefs={cols}
+            pagination
+            loading={loading}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search…',
+              pdfDocumentTitle: 'Finalize exam question paper',
+            }}
+            toolbarTrailing={
+              isFinalized ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled
+                  className="h-[30px] px-3 text-[12px] bg-slate-500 hover:bg-slate-500 text-white"
+                >
                   Finalized
                 </Button>
               ) : (
-                <Button size="sm" onClick={() => void onFinalize()} disabled={loading || rows.length === 0}>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-[30px] px-3 text-[12px]"
+                  onClick={() => void onFinalize()}
+                  disabled={loading || rows.length === 0}
+                >
                   Finalize
                 </Button>
-              )}
-            </div>
-          </div>
-          <div className="p-4">
-            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
-          </div>
+              )
+            }
+          />
         </div>
       )}
     </PageContainer>

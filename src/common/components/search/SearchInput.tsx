@@ -1,15 +1,47 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+/** Inline SVG avoids lucide SSR/client attribute drift during hydration */
+function SvgSearch({ className, 'aria-hidden': ariaHidden = true }: { className?: string; 'aria-hidden'?: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden={ariaHidden}
+      className={className}
+    >
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.34-4.34" />
+    </svg>
+  )
+}
+
+function SvgX({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <path
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        d="M18 6 6 18M6 6l12 12"
+      />
+    </svg>
+  )
+}
 
 export interface SearchInputProps {
   /** Optional controlled value. When omitted the component manages its own state. */
   value?: string
   /** Called with the (debounced) search term on every change. */
   onChange: (value: string) => void
-  /** Placeholder text shown inside the input. Default: "Search..." */
+  /** Placeholder text shown inside the input. Default: "Search…" */
   placeholder?: string
   /**
    * Set to true when onChange triggers a server/API call. Applies a 300ms
@@ -29,6 +61,7 @@ export interface SearchInputProps {
    * value collapses back to the icon.
    */
   collapsible?: boolean
+  disabled?: boolean
 }
 
 /**
@@ -45,12 +78,13 @@ export interface SearchInputProps {
 export function SearchInput({
   value,
   onChange,
-  placeholder = 'Search...',
+  placeholder = 'Search…',
   serverSearch = false,
   debounceMs,
   className,
   autoFocus = false,
   collapsible = false,
+  disabled = false,
 }: SearchInputProps) {
   const resolvedDebounceMs = serverSearch ? 300 : (debounceMs ?? 0)
   const isControlled = value !== undefined
@@ -67,8 +101,10 @@ export function SearchInput({
     }
   }, [isControlled, value])
 
-  // Debounce: schedule onChange after the user stops typing.
+  // Debounce: schedule onChange after the user stops typing (skipped in instant mode).
   useEffect(() => {
+    if (resolvedDebounceMs === 0) return
+
     timerRef.current = setTimeout(() => {
       onChange(localValue)
     }, resolvedDebounceMs)
@@ -78,13 +114,19 @@ export function SearchInput({
         clearTimeout(timerRef.current)
       }
     }
-  }, [localValue, debounceMs, onChange])
+  }, [localValue, resolvedDebounceMs, onChange])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
     if (timerRef.current !== null) {
       clearTimeout(timerRef.current)
     }
-    setLocalValue(e.target.value)
+    const term = e.target.value
+    setLocalValue(term)
+    // Instant mode: notify parent synchronously so actions (e.g. Search buttons)
+    // see the latest text without waiting for a debounced effect tick.
+    if (resolvedDebounceMs === 0) {
+      onChange(term)
+    }
   }
 
   // Bypass debounce on clear: reset immediately and refocus.
@@ -129,17 +171,14 @@ export function SearchInput({
           className,
         )}
       >
-        <Search className="h-4 w-4" aria-hidden="true" />
+        <SvgSearch className="h-4 w-4 text-muted-foreground" />
       </button>
     )
   }
 
   return (
     <div className={cn('relative flex items-center', className)}>
-      <Search
-        className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none"
-        aria-hidden="true"
-      />
+      <SvgSearch className="pointer-events-none absolute left-3 h-4 w-4 text-muted-foreground" />
 
       <input
         ref={inputRef}
@@ -148,19 +187,21 @@ export function SearchInput({
         onChange={handleChange}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
+        disabled={disabled}
         placeholder={placeholder}
         autoComplete="off"
-        autoFocus={autoFocus}
-        aria-label="Search"
+        inputMode="search"
+        aria-label={placeholder || 'Search'}
         className={cn(
           'h-8 w-full rounded-md border border-input bg-background',
-          'pl-9 pr-9 text-[12px] text-foreground placeholder:text-muted-foreground',
-          'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0',
+          'pl-9 pr-9 text-[13px] text-foreground placeholder:text-muted-foreground',
+          'focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 focus:ring-offset-0',
           'transition-colors duration-150',
         )}
+        {...(autoFocus ? { autoFocus: true } : {})}
       />
 
-      {localValue && (
+      {localValue ? (
         <button
           type="button"
           onClick={handleClear}
@@ -170,9 +211,9 @@ export function SearchInput({
             'text-muted-foreground hover:text-foreground transition-colors',
           )}
         >
-          <X className="h-4 w-4" />
+          <SvgX className="h-4 w-4 shrink-0" />
         </button>
-      )}
+      ) : null}
     </div>
   )
 }

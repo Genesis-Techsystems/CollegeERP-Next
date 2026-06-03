@@ -33,7 +33,7 @@ const COLOR_MAP: Record<TagColor, string> = {
   blue: 'bg-sky-50 text-sky-700 border-sky-200',
   geekblue: 'bg-indigo-50 text-indigo-700 border-indigo-200',
   purple: 'bg-violet-50 text-violet-700 border-violet-200',
-  gray: 'bg-slate-50 text-slate-700 border-slate-200',
+  gray: 'bg-muted/40 text-slate-700 border-border',
 }
 
 export function Tag({ color = 'gray', compact = true, className, children, ...rest }: TagProps) {

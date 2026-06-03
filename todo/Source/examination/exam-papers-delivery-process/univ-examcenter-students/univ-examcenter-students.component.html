@@ -39,70 +39,86 @@
                     </mat-expansion-panel-header>
                     <form name="staffForm" [formGroup]="staffForm" novalidate>
                         <div fxLayout="row">
-
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
+                                    fxFlex.gt-md="20">
+                                    <mat-select placeholder="Academic Year" name="academicYearId"
+                                        formControlName="academicYearId"
+                                        (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)"
+                                        required>
+                                        <mat-option *ngFor="let obcjt of academicYears"
+                                            matTooltip="{{obcjt.academic_year}}"
+                                            [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40" fxFlex.gt-md="40">
+                            <mat-select placeholder="Exam Group" name="examGroupId" formControlName="examGroupId" required  (selectionChange)="selectedExamGroup(staffForm.value.examGroupId)">
+                                <mat-option *ngFor="let obj of examGroups" [value]="obj.fk_univ_exam_group_id">{{obj.exam_group_code}}</mat-option>
+                            </mat-select>
+                            </mat-form-field>
                             <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
                                 fxFlex.gt-md="20">
-                                <mat-select placeholder="Program" name="courseId" formControlName="courseId"
-                                    (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
-                                    <mat-option *ngFor="let course of courses"
-                                        [value]="course.fk_course_ids">{{course.course_code}}</mat-option>
+                                <mat-select placeholder="Exam Center" name="univExamcenterId"
+                                    formControlName="univExamcenterId"
+                                    (selectionChange)="selectedExamCenter(staffForm.value.univExamcenterId)" required>
+                                    <mat-option *ngFor="let obj of univExamCenters"
+                                        [value]="obj.fk_univ_ec_id">{{obj.ec_code}}</mat-option>
                                 </mat-select>
                             </mat-form-field>
-
                             <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
                                 fxFlex.gt-md="20">
-                                <mat-select placeholder="Academic Year" name="academicYearId"
-                                    formControlName="academicYearId"
-                                    (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)" required>
-                                    <mat-option *ngFor="let obcjt of academicYears"
-                                        [value]="obcjt.pk_academic_year_id">{{obcjt.academic_year}}</mat-option>
-                                </mat-select>
-                            </mat-form-field>
-
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
-                                fxFlex.gt-md="60">
-                                <mat-select placeholder="Exam" name="examId" formControlName="examId"
-                                    (selectionChange)="selectedExam(staffForm.value.examId)">
-                                    <ngx-mat-select-search [placeholderLabel]="'Search Exam...'"
-                                        [noEntriesFoundLabel]="'no matching data found'"
-                                        (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>
-                                    <mat-option *ngFor="let exam of examData" [value]="exam.pk_exam_id"
-                                        matTooltip="{{exam.exam_name}} ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})">{{exam.exam_name}}
-                                        ({{exam.from_date | date:'MMM d, y'}} - {{exam.to_date | date:'MMM d, y'}})
-                                        <span *ngIf="exam.is_internal_exam"
-                                            style="color: #0014ff;font-weight: 500;">(Internal)</span>
-                                        <span *ngIf="exam.is_regular_exam"
-                                            style="color: #0014ff;font-weight: 500;">(Regular)</span>
-                                        <span *ngIf="exam.is_supply_exam"
-                                            style="color: #0014ff;font-weight: 500;">(Supple)</span>
-                                    </mat-option>
+                                <mat-select placeholder="Exam Center college" name="univEcCollegeId" formControlName="univEcCollegeId"
+                                    (selectionChange)="selectedExamCentersColleges(staffForm.value.univEcCollegeId)">
+                                    <mat-option *ngFor="let college of ExamCentersCollegesList"
+                                        [value]="college.fk_college_id">{{college.college_code}}</mat-option>
                                 </mat-select>
                             </mat-form-field>
                             </div>
                         <div fxLayout="row">
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
-                                    fxFlex.gt-md="20">
-                                    <mat-select placeholder="Course Years" name="courseYearId"
-                                        formControlName="courseYearId"
-                                        (selectionChange)="selectedYear(staffForm.value.courseYearId)" required>
-                                        <mat-option *ngFor="let courseYear of courseYears"
-                                            [value]="courseYear.fk_course_year_ids">{{courseYear.course_year_code}}</mat-option>
-                                    </mat-select>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                fxFlex.gt-md="25">
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId"
+                                    (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                    <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">
+                                        {{course.course_code}}</mat-option>
+                                </mat-select>
                             </mat-form-field>
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20"
-                                    fxFlex.gt-md="20">
+                             <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                    fxFlex.gt-md="25">
                                     <mat-select placeholder="Regulation" name="regulationId"
                                         formControlName="regulationId"
                                         (selectionChange)="selectedRegulation(staffForm.value.regulatonId)"
                                         required>
                                         <mat-option *ngFor="let obj of regulationList"
-                                            [value]="obj.pk_regulation_id">{{obj.regulation_code}}</mat-option>
+                                            [value]="obj.fk_regulation_id">{{obj.regulation_code}}</mat-option>
                                     </mat-select>
                             </mat-form-field>
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60"
-                                fxFlex.gt-md="60">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                fxFlex.gt-md="25">
+                                <mat-select placeholder="Course Group" name="courseGroupId"
+                                    formControlName="courseGroupId"
+                                    (selectionChange)="selectedGroup(staffForm.value.courseGroupId)">
+                                    <mat-option [value]="0">All</mat-option>
+                                    <mat-option *ngFor="let courseGroup of courseGroups"
+                                        [value]="courseGroup.fk_course_group_id">{{courseGroup.group_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="25"
+                                    fxFlex.gt-md="25">
+                                    <mat-select placeholder="Course Years" name="courseYearId"
+                                        formControlName="courseYearId"
+                                        (selectionChange)="selectedYear(staffForm.value.courseYearId)" required>
+                                        <mat-option [value]="0"> All </mat-option>
+                                        <mat-option *ngFor="let courseYear of courseYears"
+                                            [value]="courseYear.fk_course_year_id">{{courseYear.course_year_code}}</mat-option>
+                                    </mat-select>
+                            </mat-form-field>
+                        </div>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="40"
+                                fxFlex.gt-md="40">
                                 <mat-select placeholder="Subjects" formControlName="subjectId"
                                     (selectionChange)="selectedSubject()">
+                                    <mat-option [value]="0"> All </mat-option>
                                     <mat-option *ngFor="let subject of subjectsData"
                                         matTooltip="{{ subject.subject_name }}({{subject.subject_code}})"
                                         [value]="subject.fk_subject_id">
@@ -111,28 +127,8 @@
                                     </mat-option>
                                 </mat-select>
                             </mat-form-field>
-                        </div>
-                        <div fxLayout="row">
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="30"
-                                fxFlex.gt-md="30">
-                                <mat-select placeholder="Exam Center" name="univExamcenterId"
-                                    formControlName="univExamcenterId"
-                                    (selectionChange)="getCenterColleges(staffForm.value.univExamcenterId)" required>
-                                    <mat-option *ngFor="let obj of univExamCenters"
-                                        [value]="obj.univExamcenterId">{{obj.examcenterCode}}</mat-option>
-                                </mat-select>
-                            </mat-form-field>
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15"
-                                fxFlex.gt-md="16">
-                                <mat-select placeholder="Exam Center college" name="collegeId" formControlName="collegeId"
-                                    (selectionChange)="headerData()">
-                                    <mat-option [value]="0"> All </mat-option>
-                                    <mat-option *ngFor="let college of examCenterColleges"
-                                        [value]="college.collegeId">{{college.collegeCode}}</mat-option>
-                                </mat-select>
-                            </mat-form-field>
                             <div class="savebtn-align" fxLayout="column" class="p-8 padding" fxFlex="100"
-                                fxFlex.gt-xs="13" fxFlex.gt-md="13">
+                                fxFlex.gt-xs="20" fxFlex.gt-md="20">
                                 <button mat-raised-button class="action-btn addBtn" color="accent"
                                     (click)="GetExamStudents()">Get Students</button>
                             </div>
@@ -152,8 +148,9 @@
                             ballot
                         </i>
                         <!-- <h1 class="secondary-text table-head fs-20">Campus</h1> -->
-                        <strong class="table-heads">Exam Center Students - {{courseName}} / {{academicYearName}} /
-                            {{examsName}} / {{subjectCode}} / {{examCenterName}}</strong>
+                        <strong class="table-heads">Exam Center Students 
+                            <span *ngIf="dataDetails != null && dataDetails != ''">&nbsp;-&nbsp;{{dataDetails}}</span>
+                        </strong>
                     </div>
                 </div>
             </div>
@@ -253,8 +250,9 @@
                             ballot
                         </i>
                         <!-- <h1 class="secondary-text table-head fs-20">Campus</h1> -->
-                        <strong class="table-heads">Exam Center Students - {{courseName}} / {{academicYearName}} /
-                            {{examsName}} / {{subjectCode}} / {{examCenterName}}</strong>
+                        <strong class="table-heads">Exam Center Students
+                            <span *ngIf="dataDetails != null && dataDetails != ''"> &nbsp;-&nbsp;{{dataDetails}}</span>
+                        </strong>
                     </div>
                 </div>
             </div>
@@ -288,25 +286,25 @@
                             <!-- examcenter Column -->
                             <ng-container matColumnDef="examcenter">
                                 <th mat-header-cell *matHeaderCellDef mat-sort-header> Exam Center</th>
-                                <td mat-cell *matCellDef="let row"> {{row.examcenterCode}} </td>
+                                <td mat-cell *matCellDef="let row"> {{row.ec_code}} </td>
                             </ng-container>
 
                             <!-- exam Column -->
                             <ng-container matColumnDef="exam">
                                 <th mat-header-cell *matHeaderCellDef mat-sort-header> Exam</th>
-                                <td mat-cell *matCellDef="let row"> {{row.examName}} </td>
+                                <td mat-cell *matCellDef="let row"> {{row.exam_name}} </td>
                             </ng-container>
 
                             <!-- subject Column -->
                             <ng-container matColumnDef="subject">
                                 <th mat-header-cell *matHeaderCellDef mat-sort-header> Subject Code</th>
-                                <td mat-cell *matCellDef="let row">{{row.subjectCode}}</td>
+                                <td mat-cell *matCellDef="let row">{{row.subject_code}}</td>
                             </ng-container>
 
                             <!-- student Column -->
                             <ng-container matColumnDef="student">
                                 <th mat-header-cell *matHeaderCellDef mat-sort-header> Student </th>
-                                <td mat-cell *matCellDef="let row"> {{row.hallticketNumber}} </td>
+                                <td mat-cell *matCellDef="let row"> {{row.hallticket_number}} </td>
                             </ng-container>
 
                             <!-- Isactive Column -->

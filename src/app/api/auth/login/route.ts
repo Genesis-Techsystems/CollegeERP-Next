@@ -19,7 +19,7 @@ import { getIronSession } from 'iron-session'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 import { sessionOptions } from '@/lib/session'
-import { springLogin, springGetUserDetails } from '@/integrations/spring-api'
+import { springLogin, springGetUserDetails, springGetEmployeeByUserId } from '@/integrations/spring-api'
 import type { IronSessionData, SessionUser } from '@/types/user'
 import { APP_CONFIG } from '@/config/constants/app'
 
@@ -102,6 +102,17 @@ export async function POST(request: NextRequest) {
         userTypeCode.toUpperCase().includes('MGNT') ||
         roleName.toUpperCase().includes('MANAGEMENT'),
       defaultDashboardPath: '/dashboard',
+    }
+
+    // /api/authorization returns employeeId=null. Angular login getEmployee()
+    // resolves it via employeedetailsbyid?userId=<id> for staff-type users.
+    // Skip for students/parents (they have no employee record).
+    const role = userRole.toUpperCase()
+    const isStudentLike = role === 'STUDENT' || role === 'MSTUDENT' || role === 'PARENT'
+    if (!sessionUser.employeeId && userDto.userId && !isStudentLike) {
+      const emp = await springGetEmployeeByUserId(jwt, Number(userDto.userId)).catch(() => null)
+      const empId = Number(emp?.employeeId ?? 0)
+      if (empId > 0) sessionUser.employeeId = empId
     }
 
     // 6. Store { jwt, user, issuedAt } in Iron Session — JWT never leaves the server

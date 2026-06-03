@@ -189,7 +189,7 @@
                         <div fxLayout="row">
                        
                             <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20" >
-                                <mat-select placeholder="Program" name="courseId" formControlName="courseId"   (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId"   (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
                                     <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">{{course.course_code}}</mat-option>
                                 </mat-select>
                             </mat-form-field>

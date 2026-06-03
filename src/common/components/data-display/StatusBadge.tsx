@@ -7,6 +7,8 @@ interface StatusBadgeProps {
   status: StatusVariant | boolean
   /** Override the display label. Defaults to capitalized variant name. */
   label?: string
+  /** Legacy alias for `label` when status is active */
+  activeLabel?: string
   /** Additional CSS classes */
   className?: string
 }
@@ -23,17 +25,17 @@ const STATUS_STYLES: Record<StatusVariant, string> = {
  * Consistent status indicator badge across the app.
  * Maps status strings to semantic color tokens from CSS variables.
  */
-export function StatusBadge({ status, label, className }: StatusBadgeProps) {
+export function StatusBadge({ status, label, activeLabel, className }: StatusBadgeProps) {
   const variant: StatusVariant = typeof status === 'boolean'
     ? status ? 'active' : 'inactive'
     : status
 
-  const displayLabel = label ?? (variant.charAt(0).toUpperCase() + variant.slice(1))
+  const displayLabel = label ?? activeLabel ?? (variant.charAt(0).toUpperCase() + variant.slice(1))
 
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-[var(--radius-badge)] border px-2.5 py-0.5 text-xs font-medium',
+        'inline-flex items-center rounded-[var(--radius-badge)] border px-2.5 py-0.5 text-[10px] font-medium',
         STATUS_STYLES[variant],
         className,
       )}

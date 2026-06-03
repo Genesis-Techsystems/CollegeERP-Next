@@ -360,11 +360,11 @@ export default function ExamHallticketPage() {
   }, [mode, studentId, studentExamId])
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Hall Tickets" subtitle="Generate and download hall tickets" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Hallticket</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40">
+          <h2 className="app-card-title">Exam Hallticket</h2>
         </div>
 
         <div className="p-3 space-y-2">
@@ -525,17 +525,30 @@ export default function ExamHallticketPage() {
       </div>
 
       {(hasFetched || displayRows.length > 0) && (
-        <TableCard
-          headerLeft={
-            <span className="text-[12px] text-muted-foreground">{displayRows.length} records</span>
-          }
-          headerRight={
-            <Button type="button" className="h-8 text-[12px]" onClick={() => window.print()}>
-              {mode === 'student' ? 'Print' : 'Print All'}
-            </Button>
-          }
-        >
-          <DataTable rowData={displayRows} columnDefs={HALLTICKET_COL_DEFS} pagination />
+        <TableCard withHeaderBorder={false}>
+          <DataTable
+            rowData={displayRows}
+            columnDefs={HALLTICKET_COL_DEFS}
+            pagination
+            toolbar={{
+              pdfDocumentTitle: 'Exam hallticket list',
+            }}
+            toolbarLeading={(
+              <span className="text-[12px] text-muted-foreground whitespace-nowrap">
+                {displayRows.length} records
+              </span>
+            )}
+            toolbarTrailing={(
+              <Button
+                type="button"
+                size="sm"
+                className="h-[30px] px-3 text-[12px]"
+                onClick={() => window.print()}
+              >
+                {mode === 'student' ? 'Print' : 'Print All'}
+              </Button>
+            )}
+          />
         </TableCard>
       )}
     </PageContainer>

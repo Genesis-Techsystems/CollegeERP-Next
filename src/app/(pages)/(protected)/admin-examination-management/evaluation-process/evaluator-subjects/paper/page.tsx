@@ -47,25 +47,25 @@ export default function EvaluationPaperPage() {
       />
 
       <div className="max-w-2xl mx-auto space-y-6">
-        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center space-y-4">
+        <div className="rounded-xl border border-border bg-card p-8 text-center space-y-4">
           <div className="flex justify-center">
             <div className="h-16 w-16 rounded-full bg-indigo-50 flex items-center justify-center">
               <CheckCircle className="h-8 w-8 text-indigo-500" />
             </div>
           </div>
           <h2 className="text-xl font-semibold text-slate-800">Welcome</h2>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             You are about to begin the evaluation process.
             {subjectName && (
               <span className="block mt-1 font-medium text-slate-700">
                 {subjectName}
-                {subjectCode && <span className="text-slate-500 font-normal"> ({subjectCode})</span>}
+                {subjectCode && <span className="text-muted-foreground font-normal"> ({subjectCode})</span>}
               </span>
             )}
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-3">
+        <div className="rounded-xl border border-border bg-card p-6 space-y-3">
           <div className="flex items-center gap-2 mb-2">
             <Info className="h-5 w-5 text-indigo-500" />
             <h3 className="text-base font-semibold text-slate-800">Instructions</h3>

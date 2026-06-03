@@ -19,19 +19,20 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table'
+import { DataTable, TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer, PageHeader } from '@/components/layout'
 import {
   getUnivExamFilters,
   getUnivExamRestNoTimetable,
   getLabSubjects,
+  listExamLabBatchExamTypes,
   listExamLabBatches,
   createExamLabBatch,
   updateExamLabBatch,
 } from '@/services/exam-lab-batches'
-import { ChevronDown, Filter } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ChevronDown, Filter, PencilIcon, Plus } from 'lucide-react'
 
 type Row = Record<string, any>
 
@@ -53,8 +54,16 @@ function statusRenderer(p: ICellRendererParams) {
 
 function makeActionsRenderer(openEdit: (row: Row) => void) {
   return (p: ICellRendererParams) => (
-    <Button variant="ghost" size="sm" onClick={() => p.data && openEdit(p.data)}>
-      Edit
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8"
+      aria-label="Edit exam batch"
+      title="Edit"
+      onClick={() => p.data && openEdit(p.data)}
+    >
+      <PencilIcon className="h-3.5 w-3.5" />
     </Button>
   )
 }
@@ -66,7 +75,6 @@ export default function ExamLabBatchesPage() {
   const [restFilters, setRestFilters] = useState<Row[]>([])
   const [subjects, setSubjects] = useState<Row[]>([])
   const [rows, setRows] = useState<Row[]>([])
-  const [q, setQ] = useState('')
   const [loading, setLoading] = useState(true)
   const [filterOpen, setFilterOpen] = useState(true)
   const [hasFetched, setHasFetched] = useState(false)
@@ -82,19 +90,26 @@ export default function ExamLabBatchesPage() {
 
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Row | null>(null)
-  const [examTypeCode, setExamTypeCode] = useState('')
+  const [examFeeTypes, setExamFeeTypes] = useState<Row[]>([])
+  const [examTypeId, setExamTypeId] = useState<number | null>(null)
   const [batchName, setBatchName] = useState('')
   const [capacity, setCapacity] = useState('')
   const [sortOrder, setSortOrder] = useState('')
   const [isActive, setIsActive] = useState(true)
-  const [reason, setReason] = useState('')
+  const [reason, setReason] = useState<string>('active')
+  const [saveError, setSaveError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     async function load() {
       setLoading(true)
-      const data = await getUnivExamFilters(empId).catch(() => [])
+      const [data, types] = await Promise.all([
+        getUnivExamFilters(empId).catch(() => []),
+        listExamLabBatchExamTypes().catch(() => []),
+      ])
       const univ = data.filter((x) => x.flag === 'univ_exam_filters')
       setAllFilters(univ)
+      setExamFeeTypes(Array.isArray(types) ? types : [])
       const courseList = dedupeBy(univ, 'fk_course_id')
       if (courseList[0]?.fk_course_id) setCourseId(Number(courseList[0].fk_course_id))
       setLoading(false)
@@ -115,6 +130,21 @@ export default function ExamLabBatchesPage() {
     ),
     [allFilters, courseId, academicYearId],
   )
+  const selectedExamRow = useMemo(
+    () => exams.find((x) => Number(x.fk_exam_id) === Number(examId)) ?? null,
+    [exams, examId],
+  )
+  const availableExamTypes = useMemo(() => {
+    const exam = selectedExamRow
+    if (!exam) return []
+    return examFeeTypes.filter((t) => {
+      const code = String(t.generalDetailCode ?? '').toLowerCase()
+      if (code === 'regular') return Boolean(exam.is_regular_exam)
+      if (code === 'supple') return Boolean(exam.is_supply_exam)
+      if (code === 'internal') return Boolean(exam.is_internal_exam)
+      return false
+    })
+  }, [examFeeTypes, selectedExamRow])
 
   useEffect(() => {
     if (academicYears[0]?.fk_academic_year_id) setAcademicYearId(Number(academicYears[0].fk_academic_year_id))
@@ -147,6 +177,7 @@ export default function ExamLabBatchesPage() {
   useEffect(() => {
     async function loadSubjects() {
       setSubjects([])
+      setSubjectId(null)
       if (!collegeId || !courseId || !courseGroupId || !courseYearId || !examId || !academicYearId || !regulationId) return
       const data = await getLabSubjects({
         collegeId, courseId, courseGroupId, courseYearId, examId, academicYearId, regulationId, empId,
@@ -154,7 +185,7 @@ export default function ExamLabBatchesPage() {
       const sub = data.filter((x) => x.flag === 'univ_exam_sub_uc')
       const ded = dedupeBy(sub, 'fk_subject_id')
       setSubjects(ded)
-      if (ded[0]?.fk_subject_id) setSubjectId(Number(ded[0].fk_subject_id))
+      setSubjectId(ded[0]?.fk_subject_id ? Number(ded[0].fk_subject_id) : null)
     }
     loadSubjects()
   }, [collegeId, courseId, courseGroupId, courseYearId, examId, academicYearId, regulationId])
@@ -167,57 +198,91 @@ export default function ExamLabBatchesPage() {
   }
 
   const openAdd = useCallback(() => {
+    if (!collegeId || !examId || !courseYearId || !courseGroupId || !regulationId) return
     setEditing(null)
-    setExamTypeCode('Regular')
+    setSaveError('')
+    setExamTypeId(availableExamTypes[0]?.generalDetailId ? Number(availableExamTypes[0].generalDetailId) : null)
     setBatchName('')
     setCapacity('')
     setSortOrder('')
     setIsActive(true)
     setReason('active')
+    if (!subjectId && subjects[0]?.fk_subject_id) {
+      setSubjectId(Number(subjects[0].fk_subject_id))
+    }
     setOpen(true)
-  }, [])
+  }, [availableExamTypes, collegeId, courseGroupId, courseYearId, examId, regulationId, subjectId, subjects])
 
   const openEdit = useCallback((r: Row) => {
+    setSaveError('')
     setEditing(r)
-    setExamTypeCode(String(r.examtypeCatdetCode ?? 'Regular'))
+    const rowTypeId = Number(r.examtypeCatdetId ?? r.fk_examtype_catdet_id ?? 0)
+    if (rowTypeId > 0) {
+      setExamTypeId(rowTypeId)
+    } else {
+      const rowCode = String(r.examtypeCatdetCode ?? r.examTypeCatCode ?? '').toLowerCase()
+      const matched = availableExamTypes.find((t) => String(t.generalDetailCode ?? '').toLowerCase() === rowCode)
+      setExamTypeId(matched?.generalDetailId ? Number(matched.generalDetailId) : null)
+    }
     setBatchName(String(r.batchName ?? ''))
     setCapacity(String(r.capacity ?? ''))
     setSortOrder(String(r.sortOrder ?? ''))
     setIsActive(Boolean(r.isActive))
-    setReason(String(r.reason ?? ''))
+    setReason(String(r.reason ?? (r.isActive ? 'active' : '')))
     setOpen(true)
-  }, [])
+  }, [availableExamTypes])
 
   async function saveBatch() {
-    if (!collegeId || !examId || !courseYearId || !courseGroupId || !regulationId || !subjectId || !batchName) return
+    setSaveError('')
+    const cleanBatchName = batchName.trim()
+    if (!collegeId || !examId || !courseYearId || !courseGroupId || !regulationId || !subjectId || !examTypeId || !cleanBatchName) {
+      setSaveError('Please select all filters and enter a batch name before saving.')
+      return
+    }
+    setIsSaving(true)
+    const selectedExamType = availableExamTypes.find((t) => Number(t.generalDetailId) === Number(examTypeId))
+    const examTypeCode = String(selectedExamType?.generalDetailCode ?? '')
     const payload = {
+      // Legacy backend expects flat ids; keep nested relations too for compatibility.
+      collegeId,
+      examMasterId: examId,
+      subjectId,
+      courseGroupId,
+      courseYearId,
+      regulationId,
       college: { collegeId },
       examMaster: { examId },
       subject: { subjectId },
       courseGroup: { courseGroupId },
       courseYear: { courseYearId },
       Regulation: { regulationId },
-      batchName,
+      batchName: cleanBatchName,
       sortOrder: sortOrder ? Number(sortOrder) : null,
       capacity: capacity ? Number(capacity) : null,
       isActive,
-      reason,
+      reason: isActive ? 'active' : (reason || '').trim(),
+      examtypeCatdetId: examTypeId,
       examtypeCatdetCode: examTypeCode,
     }
-    if (editing?.eaxmLabBatchId) {
-      await updateExamLabBatch(Number(editing.eaxmLabBatchId), payload).catch(() => null)
-    } else {
-      await createExamLabBatch(payload).catch(() => null)
+    try {
+      const editId = Number(editing?.eaxmLabBatchId ?? editing?.examLabBatchId ?? 0)
+      if (editId > 0) {
+        await updateExamLabBatch(editId, { ...payload, eaxmLabBatchId: editId })
+      } else {
+        await createExamLabBatch(payload)
+      }
+      setOpen(false)
+      await getList()
+    } catch (err: any) {
+      setSaveError(err?.message || 'Unable to save exam batch. Please try again.')
+    } finally {
+      setIsSaving(false)
     }
-    setOpen(false)
-    await getList()
   }
 
-  const filteredRows = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    if (!s) return rows
-    return rows.filter((r) => `${r.batchName ?? ''} ${r.examtypeCatdetCode ?? ''} ${r.capacity ?? ''}`.toLowerCase().includes(s))
-  }, [rows, q])
+  const canManageBatches = Boolean(
+    collegeId && examId && courseYearId && courseGroupId && regulationId && subjectId,
+  )
 
   // ── Column assembly ─────────────────────────────────────────────────────────
   const columnDefs = useMemo<ColDef[]>(
@@ -234,12 +299,12 @@ export default function ExamLabBatchesPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Exam Lab Batches" subtitle="Manage examination lab batches" />
 
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Lab Batches</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Exam Lab Batches</h2>
           <Button
             type="button"
             variant="outline"
@@ -268,34 +333,91 @@ export default function ExamLabBatchesPage() {
         )}
       </div>
 
-      <TableCard
-        headerLeft={
-          <Input className="h-8 text-[12px] max-w-sm" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
-        }
-        headerRight={
-          <Button className="h-8 text-[12px]" onClick={openAdd}>+ Add Exam Batch</Button>
-        }
-      >
-        <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loading} pagination />
-      </TableCard>
+      {hasFetched && (
+        <TableCard withHeaderBorder={false}>
+          <DataTable
+            rowData={rows}
+            columnDefs={columnDefs}
+            loading={loading}
+            pagination
+            paginationPageSize={10}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search exam batches…',
+              pdfDocumentTitle: 'Exam Lab Batches',
+            }}
+            toolbarTrailing={(
+              <Button
+                size="sm"
+                onClick={openAdd}
+                disabled={!canManageBatches}
+                className="h-[30px] px-3 text-[12px]"
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Add Exam Batch
+              </Button>
+            )}
+          />
+        </TableCard>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-xl p-0 overflow-hidden" hideClose>
-          <DialogHeader className="px-4 py-3 border-b border-slate-200 bg-slate-50/60">
+          <DialogHeader className="px-4 py-3 border-b border-border bg-muted/40">
             <DialogTitle className="text-[15px] text-[hsl(var(--primary))]">
               {editing ? 'Edit Exam Lab Batch' : 'Add Exam Lab Batch'}
             </DialogTitle>
           </DialogHeader>
           <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1"><Label>Exam Type</Label><Select value={examTypeCode || undefined} onValueChange={setExamTypeCode}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Type" /></SelectTrigger><SelectContent><SelectItem value="Regular">Regular</SelectItem><SelectItem value="Supple">Supple</SelectItem><SelectItem value="Internal">Internal</SelectItem></SelectContent></Select></div>
+            <div className="space-y-1"><Label>Exam Type</Label><Select value={examTypeId ? String(examTypeId) : undefined} onValueChange={(v) => setExamTypeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Type" /></SelectTrigger><SelectContent>{availableExamTypes.map((t) => <SelectItem key={String(t.generalDetailId)} value={String(t.generalDetailId)}>{String(t.generalDetailCode ?? '')}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-1"><Label>Batch Name</Label><Input className="h-8 text-[12px]" value={batchName} onChange={(e) => setBatchName(e.target.value)} /></div>
             <div className="space-y-1"><Label>Capacity</Label><Input className="h-8 text-[12px]" type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} /></div>
             <div className="space-y-1"><Label>Sort Order</Label><Input className="h-8 text-[12px]" type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} /></div>
-            {/* Status/Reason removed per latest UX requirement */}
+            <div
+              role="button"
+              tabIndex={0}
+              className="flex h-8 min-w-0 cursor-pointer items-center gap-2 self-end"
+              onClick={() => {
+                const next = !isActive
+                setIsActive(next)
+                setReason(next ? 'active' : '')
+              }}
+              onKeyDown={(e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                  e.preventDefault()
+                  const next = !isActive
+                  setIsActive(next)
+                  setReason(next ? 'active' : '')
+                }
+              }}
+            >
+              <Checkbox
+                checked={isActive}
+                onCheckedChange={(v) => {
+                  const next = !!v
+                  setIsActive(next)
+                  setReason(next ? 'active' : '')
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span className="text-[12px] text-slate-700 select-none">Active</span>
+            </div>
+            {!isActive && (
+              <div className="space-y-1 md:col-span-2">
+                <Label className="text-[12px]">Reason</Label>
+                <Input
+                  className="h-8 text-[12px]"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Reason for deactivation"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter className="px-4 pb-4">
+            {saveError ? <p className="mr-auto text-[12px] text-red-600">{saveError}</p> : null}
             <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
-            <Button onClick={saveBatch}>Save</Button>
+            <Button onClick={saveBatch} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

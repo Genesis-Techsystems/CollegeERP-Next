@@ -1,12 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
+import { use, useMemo } from 'react'
 
 type CatchAllPageProps = {
-  params: {
+  params: Promise<{
     slug?: string[]
-  }
+  }>
 }
 
 function toTitle(parts: string[]) {
@@ -22,14 +22,15 @@ function toTitle(parts: string[]) {
 }
 
 export default function EvaluationProcessCatchAllPage({ params }: CatchAllPageProps) {
-  const slug = params.slug ?? []
+  const { slug: slugParam } = use(params)
+  const slug = slugParam ?? []
   const label = useMemo(() => toTitle(slug), [slug])
 
   return (
     <div className="p-6">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">
+        <div className="px-4 py-3 border-b border-border bg-muted/40">
+          <h2 className="app-card-title">
             {label || 'Evaluation Process'}
           </h2>
         </div>

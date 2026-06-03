@@ -1,8 +1,65 @@
 export * from './query'
 export * from './crud'
+export * from './auth'
 export * from './admin/organization'
 export * from './admin/campus'
+export * from './admin/academic-year'
+export * from './admin/financial-year'
+export * from './admin/college-courses-groups'
+export * from './admin/course-type'
+export * from './admin/course'
+export * from './admin/course-group'
+export * from './admin/subject'
+export * from './admin/university-curriculum'
+export * from './admin/semester-subject-allocation'
+export * from './admin/staff-subject-mapping'
+export * from './admin/subject-book-assignment'
+export * from './admin/subject-unit-topics'
+export * from './admin/course-year'
+export * from './admin/regulation'
+export {
+  listGroupSectionsAdmin,
+  listActiveCollegesForSections,
+  listActiveCourseGroupsByCollege,
+  listActiveCourseYearsByCourse as listActiveCourseYearsByCourseForGroupSection,
+  createGroupSection,
+  updateGroupSection,
+} from './admin/group-section'
+export * from './admin/batch'
+export * from './admin/student-batch'
+export * from './admin/university'
+export * from './admin/college'
+export * from './admin/department'
+export * from './admin/designation'
+export * from './admin/building'
+export * from './admin/block'
+export * from './admin/floor'
+export * from './admin/room-detail'
+export * from './admin/room-type'
+export * from './admin/room'
+export * from './admin/general-setting'
+export * from './admin/general-master'
+export * from './admin/bank'
+export * from './admin/caste'
+export * from './admin/sub-caste'
+export * from './admin/qualification'
+export * from './admin/qualification-group'
+export * from './admin/holiday-calendar'
+export * from './admin/workflow-stage'
+export * from './admin/student-category'
+export * from './admin/workflow-member-authorization'
+export * from './admin/college-certificate'
+export * from './admin/document-repository'
+export * from './admin/weekday'
+export * from './admin/config-auto-number'
+export * from './admin/digital-online-sync'
 export * from './admin/question-bank'
+export * from './admin/general-user-accounts'
+export * from './admin/staff-accounts'
+export * from './admin/examination-accounts'
+export * from './admin/parent-accounts'
+export * from './admin/student-accounts'
+export * from './admin/bulk-upload'
 export * from './evaluation'
 export * from './evaluation-process'
 // pre-examination: listActiveColleges conflicts with invigilator-remuneration; listCoursesByUniversity
@@ -12,6 +69,11 @@ export * from './pre-examination'
 // examination: CollegeFiltersResult and getCollegeFilters conflict with evaluation.ts (already exported)
 // and exam-master.ts; use named re-exports to avoid ambiguity.
 export {
+  resolveExamLoginEmpId,
+  getUnivExamFiltersAll,
+  getUnivExamFiltersForExamFeeSetup,
+  getUnivExamRestCollegesForRevaluationFee,
+  getMarksSetupFilters,
   listExamSessions,
   createExamSession,
   updateExamSession,
@@ -23,9 +85,11 @@ export {
   updateExamMasterSvc,
   uploadExamNotificationFiles,
   listExamFeeStructures,
+  getExamFeeStructure,
   createExamFeeStructure,
   updateExamFeeStructure,
   listGeneralDetailsByMaster,
+  listExamFeeTypeGeneralDetails,
   listRegulations,
   listCourseGroups,
   listCourseYears,
@@ -57,8 +121,20 @@ export {
   saveExamMasterDetails,
 } from './exam-master'
 export type { CollegeFiltersResult as ExamMasterCollegeFiltersResult } from './exam-master'
+export * from './exam-fcar-setup-master'
 export * from './exam-lab-batches'
 export * from './exam-lab-timetable'
+export * from './student-information'
+export * from './student-profile'
+export * from './student-timetable'
+export * from './student-attendance'
+export * from './attendance-management'
+export * from './mentorship'
+export * from './events'
+export * from './student-fee'
+export * from './fee-masters'
+export * from './fees-collection'
+export * from './email-sms'
 // invigilator-remuneration: listActiveColleges conflicts with pre-examination.
 export {
   listInvigilatorRemunerations,
@@ -86,5 +162,27 @@ export {
   listExamInvigilationAllotments as listSeatingPlanInvigilationAllotments,
   listRoomwiseOmrStudents,
   listExamStdAttDetails,
+  assignSeatingAllSession,
+  getExamRoomDetails,
+  copyExamRoomAllotmentSessions,
+  createExamRoomAllotments,
 } from './seating-plan'
 export type { ListRoomsParams, GenerateSeatingParams, SaveSeatingRequest } from './seating-plan'
+export * from './post-examination'
+export * from './scholarship'
+export * from './admission'
+export * from './e-office'
+export * from './affiliated-colleges'
+export * from './hr-payroll'
+export * from './timetable-management'
+export * from './library'
+export * from './transport'
+export * from './tc-no-due'
+export * from './hostel'
+export * from './campus-maintenance'
+export * from './trainings'
+export * from './placements'
+export * from './committees'
+export * from './inventory'
+export * from './finance'
+export * from './univ-wallet'

@@ -50,8 +50,8 @@ export default function EvaluationProcessIndexPage() {
   return (
     <div className="p-6">
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Evaluation Process</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40">
+          <h2 className="app-card-title">Evaluation Process</h2>
         </div>
         <div className="p-4 text-[13px] space-y-3">
           <p>Evaluation Process module is now active. Open any submenu page below:</p>

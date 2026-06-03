@@ -50,7 +50,7 @@ export class ExamCenterCoursesModalComponent implements OnInit {
         updatedUser:+localStorage.getItem('employeeId'),
         courseGroupId :this.data.fk_course_group_id,
         courseYearId:this.data.fk_course_year_id,
-        univEcCollegeDetailId:this.data.pk_univ_ec_collegedetail_id,
+        univEcCollegeDetailId:this.data.pk_univ_ec_college_detail_id,
         subjectId :this.data.fk_subject_id,
         univEcCollegeId:this.data.fk_univ_ec_college_id
       }

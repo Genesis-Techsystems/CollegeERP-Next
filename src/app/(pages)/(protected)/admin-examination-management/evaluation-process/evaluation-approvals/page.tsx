@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -63,7 +62,7 @@ function makeSelectionRenderer(selectedIds: number[], toggleOne: (id: number, ch
 function evaluationStatusRenderer(p: { value?: string }) {
   const value = p.value ?? ''
   if (value === 'Finalised') {
-    return <Badge className="bg-slate-100 text-slate-700 border border-slate-200">Finalised</Badge>
+    return <Badge className="bg-slate-100 text-slate-700 border border-border">Finalised</Badge>
   }
   return <Badge className="bg-amber-50 text-amber-700 border border-amber-200">Evaluated</Badge>
 }
@@ -75,7 +74,7 @@ function makeActionsRenderer(loading: boolean, approveOne: (row: AnyRow) => Prom
     ) : (
       <button
         type="button"
-        className="text-[12px] text-blue-700 hover:underline disabled:text-slate-400 disabled:no-underline"
+        className="text-[12px] text-blue-700 hover:underline disabled:text-muted-foreground disabled:no-underline"
         disabled={loading}
         onClick={() => void approveOne(p.data ?? {})}
       >
@@ -87,7 +86,6 @@ function makeActionsRenderer(loading: boolean, approveOne: (row: AnyRow) => Prom
 export default function EvaluationApprovalsPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
   const [hasFetched, setHasFetched] = useState(false)
   const [filters, setFilters] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnyRow[]>([])
@@ -149,12 +147,6 @@ export default function EvaluationApprovalsPage() {
     const s = String(total % 60).padStart(2, '0')
     return `${h}:${m}:${s}`
   }
-
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
 
   useEffect(() => {
     async function init() {
@@ -299,11 +291,11 @@ export default function EvaluationApprovalsPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Moderator Approvals" subtitle="Review and approve evaluation assignments" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Moderator Approvals</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Moderator Approvals</h2>
           <Button
             type="button"
             variant="outline"
@@ -359,39 +351,39 @@ export default function EvaluationApprovalsPage() {
 
       {hasFetched && (
         <div className="app-card overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="w-full max-w-sm">
-                <SearchInput
-                  className="w-full"
-                  placeholder="Search"
-                  value={search}
-                  onChange={setSearch}
-                />
-              </div>
-              <div className="inline-flex items-center gap-3">
-                <label
-                  className={`inline-flex items-center gap-2 text-[12px] ${
-                    allEvaluatedSelected ? 'text-[hsl(var(--primary))]' : ''
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="h-3 w-3 accent-[hsl(var(--primary))]"
-                    checked={allEvaluatedSelected}
-                    disabled={evaluatableRows.length === 0}
-                    onChange={(e) => toggleAll(e.target.checked)}
-                  />
-                  <span>All</span>
-                </label>
-                <Button size="sm" disabled={selectedIds.length === 0 || loading} onClick={() => void approveSelected()}>
-                  Approve
-                </Button>
-              </div>
-            </div>
-          </div>
           <div className="p-4">
-            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
+            <DataTable
+              rowData={rows}
+              columnDefs={cols}
+              pagination
+              loading={loading}
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search…',
+                pdfDocumentTitle: 'Evaluation Approvals',
+              }}
+              toolbarTrailing={
+                <>
+                  <label
+                    className={`inline-flex items-center gap-2 text-[12px] shrink-0 ${
+                      allEvaluatedSelected ? 'text-[hsl(var(--primary))]' : ''
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3 accent-[hsl(var(--primary))]"
+                      checked={allEvaluatedSelected}
+                      disabled={evaluatableRows.length === 0}
+                      onChange={(e) => toggleAll(e.target.checked)}
+                    />
+                    <span>All</span>
+                  </label>
+                  <Button type="button" size="sm" disabled={selectedIds.length === 0 || loading} onClick={() => void approveSelected()}>
+                    Approve
+                  </Button>
+                </>
+              }
+            />
           </div>
         </div>
       )}

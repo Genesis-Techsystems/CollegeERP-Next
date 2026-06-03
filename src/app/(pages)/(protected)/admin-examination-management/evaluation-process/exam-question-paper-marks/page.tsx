@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { MINIO_URL } from '@/config/constants/api'
+import { useSessionContext } from '@/context/SessionContext'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,14 +12,18 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select } from '@/common/components/select'
-import { ChevronDown, Filter } from 'lucide-react'
+import { ChevronDown, Eye, Filter } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   createExamQuestionPaper,
+  getAssignQuestionPaperTemplateList,
   getEvaluationExamFilters,
   getEvaluationExamRestBundle,
+  getQuestionPaperTemplateViewRows,
   listEvaluationSubjects,
-  listExamQuestionPapers,
+  listFinalizableQuestionPapers,
+  updateExamQuestionPaper,
+  uploadQuestionPaperFiles,
 } from '@/services/evaluation-process'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
@@ -51,11 +57,23 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
 }
 
 export default function ExamQuestionPaperMarksPage() {
+  const router = useRouter()
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
   const [hasFetched, setHasFetched] = useState(false)
   const [openAddModal, setOpenAddModal] = useState(false)
+  const [editingRow, setEditingRow] = useState<AnyRow | null>(null)
+  const [uploadRow, setUploadRow] = useState<AnyRow | null>(null)
+  const [uploadQpFiles, setUploadQpFiles] = useState<File[]>([])
+  const [uploadAsFiles, setUploadAsFiles] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [templateRows, setTemplateRows] = useState<AnyRow[]>([])
+  const [templateId, setTemplateId] = useState<number>(0)
+  const [viewTemplateOpen, setViewTemplateOpen] = useState(false)
+  const [viewTemplateTitle, setViewTemplateTitle] = useState('')
+  const [viewTemplateMode, setViewTemplateMode] = useState<'questions' | 'template'>('template')
+  const [viewTemplateLoading, setViewTemplateLoading] = useState(false)
+  const [viewTemplateRows, setViewTemplateRows] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnyRow[]>([])
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
@@ -67,7 +85,52 @@ export default function ExamQuestionPaperMarksPage() {
   const [regulationId, setRegulationId] = useState<number | null>(null)
   const [courseYearId, setCourseYearId] = useState<number | null>(null)
   const [subjectId, setSubjectId] = useState<number | null>(null)
-  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const { user } = useSessionContext()
+  const employeeId = Number(
+    user?.employeeId ?? globalThis?.localStorage?.getItem('employeeId') ?? 0,
+  )
+  const empNumber =
+    String(globalThis?.localStorage?.getItem('empNumber') ?? '') ||
+    String(user?.userName ?? '')
+  const userName =
+    String(user?.firstName ?? '') ||
+    String(globalThis?.localStorage?.getItem('uName') ?? '') ||
+    String(globalThis?.localStorage?.getItem('userName') ?? '') ||
+    String(user?.userName ?? '')
+  const preparedEmpLabel = userName
+    ? empNumber
+      ? `${empNumber} (${userName})`
+      : userName
+    : empNumber || `Employee ${employeeId}`
+  const preparedEmpOptions = useMemo(() => {
+    const options: { value: string; label: string }[] = []
+    if (employeeId > 0) {
+      options.push({ value: String(employeeId), label: preparedEmpLabel })
+    }
+    if (editingRow) {
+      const priorId = pickNum(editingRow, [
+        'preparedByEmpId',
+        'fk_preparedby_emp_id',
+        'preparedbyEmpId',
+      ])
+      if (priorId > 0 && priorId !== employeeId) {
+        const priorName =
+          pickText(editingRow, [
+            'preparedby_emp_name',
+            'preparedByEmpName',
+            'preparedBy',
+            'preparedByEmp',
+          ]) || `Employee ${priorId}`
+        const priorNumber = pickText(editingRow, [
+          'preparedby_emp_number',
+          'preparedByEmpNumber',
+        ])
+        const label = priorNumber ? `${priorNumber} (${priorName})` : priorName
+        options.push({ value: String(priorId), label })
+      }
+    }
+    return options
+  }, [employeeId, preparedEmpLabel, editingRow])
   const [form, setForm] = useState({
     questionPaperTitle: '',
     questionPaperCode: '',
@@ -75,7 +138,7 @@ export default function ExamQuestionPaperMarksPage() {
     totalQuestions: '',
     totalMarks: '',
     passMarks: '',
-    preparedByEmp: 'Praveen Reddy',
+    preparedByEmpId: employeeId,
     preparedDate: toDateOnlyISO(new Date()),
     questionPaperStatus: 'Prepared',
     statusComments: '',
@@ -91,7 +154,7 @@ export default function ExamQuestionPaperMarksPage() {
       totalQuestions: '',
       totalMarks: '',
       passMarks: '',
-      preparedByEmp: 'Praveen Reddy',
+      preparedByEmpId: employeeId,
       preparedDate: toDateOnlyISO(new Date()),
       questionPaperStatus: 'Prepared',
       statusComments: '',
@@ -111,14 +174,14 @@ export default function ExamQuestionPaperMarksPage() {
     }
     setLoading(true)
     try {
-      await createExamQuestionPaper({
+      const payload = {
         questionPaperTitle: form.questionPaperTitle,
         questionPaperCode: form.questionPaperCode,
         setNumber: form.setNumber || null,
         totalQuestions: Number(form.totalQuestions || 0),
         totalMarks: Number(form.totalMarks || 0),
         passMarks: Number(form.passMarks || 0),
-        preparedByEmp: form.preparedByEmp || null,
+        preparedByEmpId: form.preparedByEmpId || employeeId || null,
         preparedDate: form.preparedDate || null,
         questionPaperStatus: form.questionPaperStatus || null,
         statusComments: form.statusComments || null,
@@ -130,9 +193,18 @@ export default function ExamQuestionPaperMarksPage() {
         regulationId: regulationId ?? undefined,
         academicYearId: academicYearId ?? undefined,
         courseId: courseId ?? undefined,
-      })
-      toastSuccess('Question paper saved successfully.')
+        examQuestionPaperTemplateId: templateId || null,
+      }
+      const editingId = editingRow ? rowQuestionPaperId(editingRow) : 0
+      if (editingId > 0) {
+        await updateExamQuestionPaper(editingId, payload)
+        toastSuccess('Question paper updated successfully.')
+      } else {
+        await createExamQuestionPaper(payload)
+        toastSuccess('Question paper saved successfully.')
+      }
       setOpenAddModal(false)
+      setEditingRow(null)
       resetForm()
       await getList()
     } catch (error: any) {
@@ -141,12 +213,6 @@ export default function ExamQuestionPaperMarksPage() {
       setLoading(false)
     }
   }
-
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
 
   const courses = useMemo(() => dedupeBy(baseRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])), [baseRows])
   const academicYears = useMemo(
@@ -201,6 +267,28 @@ export default function ExamQuestionPaperMarksPage() {
     () => subjects.find((r) => pickNum(r, ['fk_subject_id', 'subjectId']) === Number(subjectId)) ?? null,
     [subjects, subjectId],
   )
+
+  // AG Grid caches the action-cell renderers, so a closure over filter state
+  // goes stale (it captures the first render's null/0 ids). Read the current
+  // selection from a ref that we refresh every render — this guarantees the
+  // navigation carries the live subjectId/subjectCode to manage-questions /
+  // question-bank (Angular passes these via parameters.manageQuestions).
+  const navStateRef = useRef({
+    courseId,
+    academicYearId,
+    examId,
+    subjectId,
+    regulationId,
+    selectedSubject,
+  })
+  navStateRef.current = {
+    courseId,
+    academicYearId,
+    examId,
+    subjectId,
+    regulationId,
+    selectedSubject,
+  }
 
   useEffect(() => {
     async function init() {
@@ -261,6 +349,15 @@ export default function ExamQuestionPaperMarksPage() {
   useEffect(() => {
     if (!subjectId && subjects[0]) setSubjectId(pickNum(subjects[0], ['fk_subject_id', 'subjectId']))
   }, [subjects, subjectId])
+
+  // Hydrate preparedByEmpId once user data is available -- handles the
+  // SSR/hydration race where employeeId is 0 on first render.
+  useEffect(() => {
+    if (employeeId > 0) {
+      setForm((s) => (s.preparedByEmpId === employeeId || editingRow ? s : { ...s, preparedByEmpId: employeeId }))
+    }
+  }, [employeeId, editingRow])
+
   useEffect(() => {
     setRows([])
     setHasFetched(false)
@@ -269,15 +366,235 @@ export default function ExamQuestionPaperMarksPage() {
   async function getList() {
     setLoading(true)
     try {
-      const list = await listExamQuestionPapers({
-        examId: examId ?? undefined,
+      const list = await listFinalizableQuestionPapers({
+        employeeId,
+        examId: examId ?? 0,
+        courseId: courseId ?? undefined,
+        academicYearId: academicYearId ?? undefined,
         courseYearId: courseYearId ?? undefined,
         subjectId: subjectId ?? undefined,
+        regulationId: regulationId ?? undefined,
       }).catch(() => [])
       setRows(Array.isArray(list) ? list : [])
       setHasFetched(true)
+      // Angular's getTemplateDetails() runs after the list call -- fetch
+      // assigned templates here so the modal's Template dropdown is ready
+      // by the time the user clicks "+ Exam Question Paper".
+      if (examId && courseYearId && regulationId && subjectId) {
+        const tmpls = await getAssignQuestionPaperTemplateList({
+          examId,
+          courseYearId,
+          regulationId,
+          subjectId,
+        }).catch(() => [])
+        const tmplList = Array.isArray(tmpls) ? tmpls : []
+        setTemplateRows(tmplList)
+        const firstId = pickNum(tmplList[0] ?? {}, [
+          'fk_exam_questionpaper_template_id',
+          'examQuestionPaperTemplateId',
+          'questionPaperTemplateId',
+        ])
+        if (firstId > 0) setTemplateId(firstId)
+      } else {
+        setTemplateRows([])
+      }
     } finally {
       setLoading(false)
+    }
+  }
+
+  function rowQuestionPaperId(row: AnyRow): number {
+    return pickNum(row, [
+      'examQuestionPaperId',
+      'exam_questionpaper_id',
+      'questionPaperId',
+      'pk_exam_questionpaper_id',
+      'id',
+    ])
+  }
+  function rowTemplateId(row: AnyRow): number {
+    return pickNum(row, [
+      'examQuestionPaperTemplateId',
+      'fk_exam_questionpaper_template_id',
+      'questionPaperTemplateId',
+    ])
+  }
+  function navigateWithRow(path: string, row: AnyRow) {
+    // Read the live filter selection from the ref (see navStateRef above) so
+    // the ids are never the stale first-render values.
+    const { courseId, academicYearId, examId, subjectId, regulationId, selectedSubject } =
+      navStateRef.current
+    const params = new URLSearchParams({
+      examQuestionPaperId: String(rowQuestionPaperId(row)),
+      questionPaperId: String(rowQuestionPaperId(row)),
+      examQuestionPaperTemplateId: String(rowTemplateId(row)),
+      pkEQPTid: String(rowTemplateId(row)),
+      questionPaperTitle: pickText(row, ['questionPaperTitle', 'questionpaper_title']),
+      questionpaper_title: pickText(row, ['questionPaperTitle', 'questionpaper_title']),
+      questionPaperCode: pickText(row, ['questionPaperCode', 'questionpaper_code', 'paperCode']),
+      examName: pickText(row, ['exam_name', 'examName']),
+      // Angular derives subjectName/subjectCode from the selected subject
+      // filter (exam-question-paper-marks.component getQuestionpapers), not
+      // from the question-paper row -- the list proc doesn't return them.
+      // Prefer the row when present, otherwise fall back to the filter.
+      subjectName:
+        pickText(row, ['subject_name', 'subjectName']) ||
+        pickText(selectedSubject, ['subject_name', 'subjectName']),
+      subjectCode:
+        pickText(row, ['subject_code', 'subjectCode']) ||
+        pickText(selectedSubject, ['subjectCode', 'subject_code']),
+      totalmarks: String(pickNum(row, ['totalmarks', 'totalMarks'])),
+      courseId: String(courseId ?? 0),
+      academicYearId: String(academicYearId ?? 0),
+      examId: String(examId ?? 0),
+      subjectId: String(subjectId ?? 0),
+      regulationId: String(regulationId ?? 0),
+    })
+    router.push(`${path}?${params.toString()}`)
+  }
+  function viewQuestions(row: AnyRow) {
+    const tplId = rowTemplateId(row)
+    const qpId = rowQuestionPaperId(row)
+    const title =
+      pickText(row, ['questionPaperTitle', 'questionpaper_title']) ||
+      pickText(row, ['template_title', 'templateTitle']) ||
+      ''
+    if (tplId > 0) {
+      void openViewTemplateModal(tplId, title, qpId, 'questions')
+    } else {
+      navigateWithRow(
+        '/admin-examination-management/evaluation-process/exam-question-paper-marks/view-template',
+        row,
+      )
+    }
+  }
+
+  async function openViewTemplateModal(
+    tplId: number,
+    title: string,
+    qpId?: number,
+    mode: 'questions' | 'template' = 'template',
+  ) {
+    if (!tplId) return
+    setViewTemplateTitle(title)
+    setViewTemplateMode(mode)
+    setViewTemplateRows([])
+    setViewTemplateOpen(true)
+    setViewTemplateLoading(true)
+    try {
+      const rows = await getQuestionPaperTemplateViewRows(tplId, qpId).catch(() => [])
+      setViewTemplateRows(Array.isArray(rows) ? rows : [])
+    } finally {
+      setViewTemplateLoading(false)
+    }
+  }
+  function printQP(row: AnyRow) {
+    // Angular Print QP navigates to /view-template (the print-friendly
+    // template view) with the row context. Match that.
+    navigateWithRow(
+      '/admin-examination-management/evaluation-process/exam-question-paper-marks/view-template',
+      row,
+    )
+  }
+  function printQA(row: AnyRow) {
+    // Angular Print QA navigates to /print-qa with the row context.
+    navigateWithRow(
+      '/admin-examination-management/evaluation-process/exam-question-paper-marks/print-qa',
+      row,
+    )
+  }
+  function editRow(row: AnyRow) {
+    setEditingRow(row)
+    setTemplateId(rowTemplateId(row))
+    setForm({
+      questionPaperTitle: pickText(row, ['questionPaperTitle', 'questionpaper_title']),
+      questionPaperCode: pickText(row, ['questionPaperCode', 'questionpaper_code', 'paperCode']),
+      setNumber: pickText(row, ['setNumber', 'setnumber', 'setNo']),
+      totalQuestions: String(pickNum(row, ['totalQuestions', 'totalquestions']) || ''),
+      totalMarks: String(pickNum(row, ['totalMarks', 'totalmarks']) || ''),
+      passMarks: String(pickNum(row, ['passMarks', 'passmarks']) || ''),
+      preparedByEmpId:
+        pickNum(row, ['preparedByEmpId', 'fk_preparedby_emp_id', 'preparedbyEmpId']) || employeeId,
+      preparedDate: pickText(row, ['preparedDate', 'prepared_date']) || toDateOnlyISO(new Date()),
+      questionPaperStatus: pickText(row, ['questionPaperStatus', 'question_status']) || 'Prepared',
+      statusComments: pickText(row, ['statusComments', 'status_comments']),
+      isActive: row.isActive === true || row.is_active === true,
+      reason: pickText(row, ['reason']) || 'active',
+    })
+    setOpenAddModal(true)
+  }
+  function openFile(path: string | null | undefined) {
+    if (!path) return
+    if (/^https?:\/\//i.test(path)) {
+      globalThis?.open?.(path, '_blank', 'width=900,height=700,noopener,noreferrer')
+      return
+    }
+    // Derive MinIO base from the Spring API URL (Angular: miniopath =
+    // serverUrl + ':9000/cms/'). NEXT_PUBLIC_MINIO_URL is preferred when
+    // explicitly set; otherwise swap the :8443 API port for :9000 on the
+    // same host. If both are missing, fall back to a relative path.
+    let base = MINIO_URL
+    if (!base) {
+      const spring = process.env.NEXT_PUBLIC_SPRING_API_URL ?? ''
+      if (spring) {
+        try {
+          const u = new URL(spring)
+          base = `${u.protocol}//${u.hostname}:9000/cms/`
+        } catch {
+          base = spring.replace(/:8443\/cms\/?$/i, ':9000/cms/')
+          if (!base.endsWith('/')) base += '/'
+        }
+      }
+    }
+    const clean = path.replace(/^\/+/, '')
+    const url = `${base}${clean}`
+    globalThis?.open?.(url, '_blank', 'width=900,height=700,noopener,noreferrer')
+  }
+  function manageQuestions(row: AnyRow) {
+    navigateWithRow(
+      '/admin-examination-management/evaluation-process/exam-question-paper-marks/manage-questions-paper',
+      row,
+    )
+  }
+  function assignTemplate(row: AnyRow) {
+    navigateWithRow(
+      '/admin-examination-management/evaluation-process/exam-question-paper-marks/assign-question-template',
+      row,
+    )
+  }
+  function uploadPapers(row: AnyRow) {
+    setUploadRow(row)
+    setUploadQpFiles([])
+    setUploadAsFiles([])
+  }
+
+  async function submitUpload() {
+    if (!uploadRow) return
+    const id = rowQuestionPaperId(uploadRow)
+    if (!id) {
+      toastError('Question paper id is missing on this row.')
+      return
+    }
+    if (uploadQpFiles.length === 0 && uploadAsFiles.length === 0) {
+      toastError('Choose at least one file to upload.')
+      return
+    }
+    setUploading(true)
+    try {
+      const { message } = await uploadQuestionPaperFiles({
+        examQuestionPaperId: id,
+        questionPapers: uploadQpFiles,
+        modelAnswerPapers: uploadAsFiles,
+      })
+      toastSuccess(message || 'Files uploaded.')
+      setUploadRow(null)
+      setUploadQpFiles([])
+      setUploadAsFiles([])
+      await getList()
+    } catch (error: any) {
+      toastError(error?.message ?? 'Failed to upload files.')
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -287,54 +604,223 @@ export default function ExamQuestionPaperMarksPage() {
       {
         field: 'questionPaperTitle',
         headerName: 'Question Paper Title',
-        minWidth: 240,
-        cellRenderer: (p: { data?: any }) => (
-          <div className="py-1">
-            <p className="font-medium text-[12px]">{p.data?.questionPaperTitle}</p>
-            <p className="text-[11px] text-blue-700">
-              View Questions | Print QP | Print QA | Edit
-            </p>
-          </div>
-        ),
+        minWidth: 280,
+        autoHeight: true,
+        cellRenderer: (p: { data?: AnyRow }) => {
+          const row = p.data ?? {}
+          return (
+            <div className="py-1">
+              <p className="font-medium text-[12px]">
+                {pickText(row, ['questionPaperTitle', 'questionpaper_title']) || '-'}
+              </p>
+              <p className="text-[11px] text-blue-700">
+                <button
+                  type="button"
+                  className="hover:underline"
+                  onClick={() => viewQuestions(row)}
+                >
+                  View Questions
+                </button>
+                {' | '}
+                <button
+                  type="button"
+                  className="hover:underline"
+                  onClick={() => printQP(row)}
+                >
+                  Print QP
+                </button>
+                {' | '}
+                <button
+                  type="button"
+                  className="hover:underline"
+                  onClick={() => printQA(row)}
+                >
+                  Print QA
+                </button>
+                {' | '}
+                <button
+                  type="button"
+                  className="hover:underline"
+                  onClick={() => editRow(row)}
+                >
+                  Edit
+                </button>
+              </p>
+            </div>
+          )
+        },
       },
-      { field: 'paperCode', headerName: 'QP Code', minWidth: 110, valueGetter: (p) => p.data?.paperCode ?? p.data?.questionPaperCode ?? '-' },
-      { field: 'courseYearCode', headerName: 'Course Year', minWidth: 120, valueGetter: (p) => p.data?.courseYearCode ?? p.data?.courseYearName ?? '-' },
-      { field: 'setNo', headerName: 'Set No.', minWidth: 95, valueGetter: (p) => p.data?.setNo ?? p.data?.setNumber ?? '-' },
-      { field: 'totalQuestions', headerName: 'Total Questions', minWidth: 130 },
-      { field: 'totalMarks', headerName: 'Total Marks', minWidth: 120 },
-      { field: 'passMarks', headerName: 'Pass Marks', minWidth: 110 },
-      { field: 'preparedBy', headerName: 'Prepared By', minWidth: 130, valueGetter: (p) => p.data?.preparedBy ?? p.data?.preparedByEmp ?? '-' },
-      { field: 'questionPaper', headerName: 'Question Paper', minWidth: 130 },
-      { field: 'answerSheet', headerName: 'Answer Sheet', minWidth: 120 },
-      { field: 'viewTemplate', headerName: 'View Template', minWidth: 125 },
+      {
+        field: 'paperCode',
+        headerName: 'QP Code',
+        minWidth: 110,
+        valueGetter: (p) =>
+          pickText(p.data, ['questionPaperCode', 'questionpaper_code', 'paperCode']) || '-',
+      },
+      {
+        field: 'courseYearCode',
+        headerName: 'Course Year',
+        minWidth: 120,
+        valueGetter: (p) => pickText(p.data, ['courseYearCode', 'courseYearName']) || '-',
+      },
+      {
+        field: 'setNo',
+        headerName: 'Set No.',
+        minWidth: 95,
+        valueGetter: (p) => pickText(p.data, ['setNumber', 'setnumber', 'setNo']) || '-',
+      },
+      {
+        headerName: 'Total Questions',
+        minWidth: 130,
+        valueGetter: (p) => pickNum(p.data, ['totalQuestions', 'totalquestions']) || '-',
+      },
+      {
+        headerName: 'Total Marks',
+        minWidth: 120,
+        valueGetter: (p) => pickNum(p.data, ['totalMarks', 'totalmarks']) || '-',
+      },
+      {
+        headerName: 'Pass Marks',
+        minWidth: 110,
+        valueGetter: (p) => pickNum(p.data, ['passMarks', 'passmarks']) || '-',
+      },
+      {
+        headerName: 'Question Paper',
+        minWidth: 130,
+        cellRenderer: (p: { data?: AnyRow }) => {
+          const url = pickText(p.data, ['questionPaperPath', 'questionpaper_path'])
+          if (!url) return <span className="text-[11px] text-muted-foreground">No Docs Uploaded</span>
+          return (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0"
+              onClick={() => openFile(url)}
+              aria-label="View question paper"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          )
+        },
+      },
+      {
+        headerName: 'Answer Sheet',
+        minWidth: 120,
+        cellRenderer: (p: { data?: AnyRow }) => {
+          const url = pickText(p.data, ['modelAnswerSheetPath', 'modelanswersheet_path'])
+          if (!url) return <span className="text-[11px] text-muted-foreground">No Docs Uploaded</span>
+          return (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0"
+              onClick={() => openFile(url)}
+              aria-label="View answer sheet"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          )
+        },
+      },
+      {
+        headerName: 'View Template',
+        minWidth: 125,
+        cellRenderer: (p: { data?: AnyRow }) => {
+          if (!rowTemplateId(p.data ?? {}))
+            return <span className="text-[11px] text-muted-foreground">No Docs Uploaded</span>
+          return (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0"
+              onClick={() => p.data && viewQuestions(p.data)}
+              aria-label="View template"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          )
+        },
+      },
+      {
+        headerName: 'Prepared By',
+        minWidth: 130,
+        valueGetter: (p) => pickText(p.data, ['preparedByEmp', 'preparedby_emp_name', 'preparedBy']) || '-',
+      },
+      {
+        headerName: 'Prepared Date',
+        minWidth: 130,
+        valueGetter: (p) => pickText(p.data, ['preparedDate', 'prepared_date']) || '-',
+      },
+      {
+        headerName: 'Question Paper Status',
+        minWidth: 150,
+        valueGetter: (p) => pickText(p.data, ['questionPaperStatus', 'question_status']) || '-',
+      },
+      {
+        headerName: 'Status Comments',
+        minWidth: 160,
+        valueGetter: (p) => pickText(p.data, ['statusComments', 'status_comments']) || '-',
+      },
+      {
+        headerName: 'Approved By',
+        minWidth: 130,
+        valueGetter: (p) => pickText(p.data, ['approvedByEmp', 'approvedby_emp_name']) || '-',
+      },
+      {
+        headerName: 'Approved Date',
+        minWidth: 130,
+        valueGetter: (p) => pickText(p.data, ['approvedDate', 'approved_date']) || '-',
+      },
       {
         field: 'isActive',
         headerName: 'Status',
         minWidth: 105,
         cellRenderer: (p: { data?: AnyRow }) => (
-          <StatusBadge status={p.data?.isActive === true || p.data?.isActive === 'Active'} />
+          <StatusBadge status={p.data?.isActive === true || p.data?.is_active === true} />
         ),
       },
       {
         headerName: 'Actions',
-        minWidth: 190,
-        cellRenderer: () => (
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="h-7">Manage Question</Button>
-            <Button size="sm" className="h-7">Upload QP & AS</Button>
-          </div>
-        ),
+        minWidth: 290,
+        width: 290,
+        flex: 0,
+        pinned: 'right',
+        cellRenderer: (p: { data?: AnyRow }) => {
+          const row = p.data ?? {}
+          const hasTemplate = rowTemplateId(row) > 0
+          return (
+            <div className="flex items-center gap-1.5 flex-nowrap">
+              {hasTemplate ? (
+                <Button size="sm" variant="outline" className="h-7 text-[11px] whitespace-nowrap shrink-0" onClick={() => manageQuestions(row)}>
+                  Manage Question
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" className="h-7 text-[11px] whitespace-nowrap shrink-0" onClick={() => assignTemplate(row)}>
+                  Assign Template
+                </Button>
+              )}
+              {hasTemplate && (
+                <Button size="sm" className="h-7 text-[11px] whitespace-nowrap shrink-0" onClick={() => uploadPapers(row)}>
+                  Upload QP &amp; AS
+                </Button>
+              )}
+            </div>
+          )
+        },
       },
     ],
-    [],
+    [router],
   )
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Exam Question Paper" subtitle="Manage question paper marks setup" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Question Paper</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Exam Question Paper</h2>
           <Button
             type="button"
             variant="outline"
@@ -417,29 +903,63 @@ export default function ExamQuestionPaperMarksPage() {
 
       {hasFetched && (
         <div className="app-card overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="w-full max-w-sm">
-                <SearchInput
-                  className="w-full"
-                  placeholder="Search"
-                  value={search}
-                  onChange={setSearch}
-                />
-              </div>
-              <Button size="sm" onClick={() => setOpenAddModal(true)}>+ Exam Question Paper</Button>
-            </div>
-          </div>
           <div className="p-4">
-            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
+            <DataTable
+              rowData={rows}
+              columnDefs={cols}
+              pagination
+              loading={loading}
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search…',
+                pdfDocumentTitle: 'Exam Question Paper',
+              }}
+              toolbarTrailing={(
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-[30px] px-3 text-[12px]"
+                  onClick={() => {
+                    setEditingRow(null)
+                    resetForm()
+                    // Re-anchor templateId / preparedByEmpId on open so a
+                    // template loaded during Get List + the current login
+                    // user appear pre-selected (Angular parity).
+                    const firstTemplateId = pickNum(templateRows[0] ?? {}, [
+                      'fk_exam_questionpaper_template_id',
+                      'examQuestionPaperTemplateId',
+                      'questionPaperTemplateId',
+                    ])
+                    if (firstTemplateId > 0) setTemplateId(firstTemplateId)
+                    setForm((s) => ({ ...s, preparedByEmpId: employeeId }))
+                    setOpenAddModal(true)
+                  }}
+                >
+                  + Exam Question Paper
+                </Button>
+              )}
+            />
           </div>
         </div>
       )}
 
-      <Dialog open={openAddModal} onOpenChange={setOpenAddModal}>
+      <Dialog
+        open={openAddModal}
+        onOpenChange={(v) => {
+          setOpenAddModal(v)
+          if (!v) {
+            setEditingRow(null)
+            // Keep templateRows / templateId loaded from Get List so the
+            // next "+ Exam Question Paper" click still has them.
+            resetForm()
+          }
+        }}
+      >
         <DialogContent className="max-w-5xl max-h-[85vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle className="text-[18px] text-[hsl(var(--primary))]">Create Question Paper</DialogTitle>
+            <DialogTitle className="text-[18px] text-[hsl(var(--primary))]">
+              {editingRow ? 'Edit Question Paper' : 'Create Question Paper'}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 text-[13px]">
@@ -469,7 +989,57 @@ export default function ExamQuestionPaperMarksPage() {
             </div>
             <div className="md:col-span-3 space-y-1">
               <Label>Template</Label>
-              <Input value="B.Tech DS Template A" disabled className="h-9 text-[12px]" />
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <Select
+                    value={templateId ? String(templateId) : null}
+                    onChange={(v) => setTemplateId(Number(v) || 0)}
+                    options={templateRows.map((t) => ({
+                      value: String(
+                        pickNum(t, [
+                          'fk_exam_questionpaper_template_id',
+                          'examQuestionPaperTemplateId',
+                          'questionPaperTemplateId',
+                        ]),
+                      ),
+                      label:
+                        pickText(t, [
+                          'template_title',
+                          'templateTitle',
+                          'template_name',
+                          'templateName',
+                        ]) || '-',
+                    }))}
+                    placeholder={templateRows.length === 0 ? 'No template assigned' : 'Template'}
+                    disabled={templateRows.length === 0}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-9 w-9 p-0"
+                  aria-label="View Template"
+                  title="View Template"
+                  disabled={!templateId}
+                  onClick={() => {
+                    if (!templateId) return
+                    const selected = templateRows.find(
+                      (t) =>
+                        pickNum(t, [
+                          'fk_exam_questionpaper_template_id',
+                          'examQuestionPaperTemplateId',
+                          'questionPaperTemplateId',
+                        ]) === Number(templateId),
+                    )
+                    const title =
+                      pickText(selected ?? {}, ['template_title', 'templateTitle']) || ''
+                    void openViewTemplateModal(templateId, title)
+                  }}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="md:col-span-12 border-t pt-3 mt-1" />
@@ -524,10 +1094,19 @@ export default function ExamQuestionPaperMarksPage() {
             </div>
             <div className="md:col-span-4 space-y-1">
               <Label>Prepared Employee</Label>
-              <Input
-                className="h-9 text-[12px]"
-                value={form.preparedByEmp}
-                onChange={(e) => setForm((s) => ({ ...s, preparedByEmp: e.target.value }))}
+              <Select
+                value={
+                  form.preparedByEmpId
+                    ? String(form.preparedByEmpId)
+                    : employeeId > 0
+                      ? String(employeeId)
+                      : null
+                }
+                onChange={(v) =>
+                  setForm((s) => ({ ...s, preparedByEmpId: Number(v) || employeeId }))
+                }
+                options={preparedEmpOptions}
+                placeholder="Prepared Employee"
               />
             </div>
             <div className="md:col-span-4 space-y-1">
@@ -583,6 +1162,159 @@ export default function ExamQuestionPaperMarksPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenAddModal(false)}>Close</Button>
             <Button onClick={() => void saveQuestionPaper()} disabled={loading}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(uploadRow)}
+        onOpenChange={(v) => {
+          if (!v) {
+            setUploadRow(null)
+            setUploadQpFiles([])
+            setUploadAsFiles([])
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-[16px] text-[hsl(var(--primary))]">
+              Upload Question Paper &amp; Model Answer Paper
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-[13px]">
+            {uploadRow ? (
+              <p className="text-[12px] text-muted-foreground">
+                {pickText(uploadRow, ['questionPaperTitle', 'questionpaper_title'])} (
+                {pickText(uploadRow, ['questionPaperCode', 'questionpaper_code', 'paperCode']) || '-'})
+              </p>
+            ) : null}
+            <div className="flex items-center gap-3">
+              <b className="shrink-0 w-44 text-[13px]">Question Paper :-</b>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,image/*"
+                className="text-[12px] file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1"
+                onChange={(e) => setUploadQpFiles(Array.from(e.target.files ?? []))}
+              />
+            </div>
+            {uploadQpFiles.length > 0 ? (
+              <p className="ml-44 -mt-2 text-[11px] text-muted-foreground">
+                Selected: {uploadQpFiles.map((f) => f.name).join(', ')}
+              </p>
+            ) : null}
+            <div className="flex items-center gap-3">
+              <b className="shrink-0 w-44 text-[13px]">Model Answer Paper :-</b>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,image/*"
+                className="text-[12px] file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1"
+                onChange={(e) => setUploadAsFiles(Array.from(e.target.files ?? []))}
+              />
+            </div>
+            {uploadAsFiles.length > 0 ? (
+              <p className="ml-44 -mt-2 text-[11px] text-muted-foreground">
+                Selected: {uploadAsFiles.map((f) => f.name).join(', ')}
+              </p>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUploadRow(null)
+                setUploadQpFiles([])
+                setUploadAsFiles([])
+              }}
+              disabled={uploading}
+            >
+              Close
+            </Button>
+            <Button onClick={() => void submitUpload()} disabled={uploading}>
+              {uploading ? 'Uploading…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={viewTemplateOpen} onOpenChange={setViewTemplateOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[16px] text-[hsl(var(--primary))]">
+              {viewTemplateMode === 'questions' ? 'View Questions' : 'Template View'}
+              {viewTemplateTitle ? <span className="text-slate-700"> - {viewTemplateTitle}</span> : null}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="text-[13px]">
+            {viewTemplateLoading ? (
+              <p className="py-6 text-center text-muted-foreground">Loading…</p>
+            ) : viewTemplateRows.length === 0 ? (
+              <p className="py-6 text-center text-muted-foreground">No template details found.</p>
+            ) : (
+              <table className="w-full border-collapse" id="template-view-table">
+                <tbody>
+                  {viewTemplateRows.map((t, i) => {
+                    const level1 = Number(t.level1no ?? 0)
+                    const groupNo = Number(t.groupno ?? 0)
+                    const subGroupNo = Number(t.subgroupno ?? 0)
+                    const code = t.questioncode ?? null
+                    const down = String(t.displaydowntext ?? '').trim()
+                    const cells: React.ReactNode[] = []
+                    if (level1 > 0 && groupNo === 0 && subGroupNo === 0) {
+                      cells.push(
+                        <tr key={`vt-${i}-title`}>
+                          <td colSpan={4} className="text-center font-semibold py-1">
+                            {t.QuestionTitle}
+                          </td>
+                        </tr>,
+                      )
+                    }
+                    if (level1 > 0 && groupNo > 0 && subGroupNo === 0) {
+                      cells.push(
+                        <tr key={`vt-${i}-grp`}>
+                          <td className="py-1 pr-2"><b>{groupNo}.</b></td>
+                          <td className="py-1 pr-2">&nbsp;&nbsp;</td>
+                          <td className="w-full py-1">{t.QuestionTitle}</td>
+                          <td className="py-1 pl-2 text-right"><b>{t.question_marks}</b></td>
+                        </tr>,
+                      )
+                    }
+                    if (code != null) {
+                      cells.push(
+                        <tr key={`vt-${i}-code`}>
+                          <td className="py-1 pr-2 align-top">&nbsp;&nbsp;</td>
+                          <td className="py-1 pr-2 align-top">{code})</td>
+                          <td
+                            className="w-full py-1 align-top"
+                            dangerouslySetInnerHTML={{
+                              __html: String(t.question ?? t.QuestionTitle ?? ''),
+                            }}
+                          />
+                          <td className="py-1 pl-2 text-right align-top">
+                            {t.individual_question_marks}
+                          </td>
+                        </tr>,
+                      )
+                    }
+                    if (down) {
+                      cells.push(
+                        <tr key={`vt-${i}-down`}>
+                          <td colSpan={4} className="text-center py-1">
+                            <b>{down}</b>
+                          </td>
+                        </tr>,
+                      )
+                    }
+                    return cells
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewTemplateOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,11 +1,15 @@
 import type { Module, SubModule, Page, NavItem } from '@/types/navigation'
+import { ensureErpModuleNavChildren, mapErpModuleNavRoute } from './erp-modules-navigation'
+import { ensureTimetableNavChildren, mapTimetableNavRoute } from './timetable-navigation'
 
 /**
  * Removes any doubled leading segment from a URL path.
  * e.g. "a/b/a/b/c" → "/a/b/c"
  * Also ensures the result always starts with "/".
+ *
+ * Maps legacy Angular nav paths (e.g. admin-post-examination) onto App Router routes.
  */
-function normalizeHref(path: string): string {
+export function normalizeHref(path: string): string {
   let raw = (path ?? '').trim()
 
   // Convert Angular/hash URLs to app-router paths.
@@ -36,6 +40,15 @@ function normalizeHref(path: string): string {
       /\/admin-examination-management\/pre-examinations\//i,
       '/admin-examination-management/pre-examination/',
     )
+    // Student Information System legacy path variants.
+    .replace(
+      /\/admin-student-information-system\/student-readmission$/i,
+      '/admin-student-information-system/student-re-admission',
+    )
+    .replace(
+      /\/admin-student-information-system\/readmission-application$/i,
+      '/admin-student-information-system/readmission-application',
+    )
     // Legacy short page slugs used in old pre-examination sidebar.
     .replace(
       /\/admin-examination-management\/pre-examination\/subject-barcode$/i,
@@ -48,6 +61,246 @@ function normalizeHref(path: string): string {
     .replace(
       /\/admin-examination-management\/pre-examination\/exam-hall-ticket$/i,
       '/admin-examination-management/pre-examination/exam-hallticket',
+    )
+    // Legacy post-examination module segment (singular + typo plural) → post-examination.
+    .replace(
+      /\/admin-examination-management\/admin-post-examinations\//i,
+      '/admin-examination-management/post-examination/',
+    )
+    .replace(
+      /\/admin-examination-management\/admin-post-examination\//i,
+      '/admin-examination-management/post-examination/',
+    )
+    // Angular source folder `exam-re-valuation-fee-setup` vs route `revaluation-fee-setup` — canonical Next slug.
+    .replace(
+      /\/admin-examination-management\/admin-exam-masters\/exam-re-valuation-fee-setup/gi,
+      '/admin-examination-management/admin-exam-masters/re-valuation-fee-setup',
+    )
+    // Angular exam-grades folder → App Router grade-setup slug.
+    .replace(
+      /\/admin-examination-management\/admin-exam-masters\/exam-grades(?=\/|$)/gi,
+      '/admin-examination-management/admin-exam-masters/grade-setup',
+    )
+    // Legacy post-examination attendance slugs → canonical App Router paths (sidebar active state + links).
+    .replace(
+      /\/admin-examination-management\/post-examination\/staff-internal-attendance-marking(?=\/|$)/i,
+      '/admin-examination-management/post-examination/internal-exam-attendance-marking',
+    )
+    .replace(
+      /\/admin-examination-management\/post-examination\/exam-attendance-marking(?=\/|$)/i,
+      '/admin-examination-management/post-examination/internal-exam-attendance-marking',
+    )
+    .replace(
+      /\/admin-examination-management\/post-examination\/internal-exams-avg(?=\/|$)/i,
+      '/admin-examination-management/post-examination/internal-exams-average',
+    )
+    // Angular Assessments module folder typo `assissments` → canonical `assessments`.
+    .replace(/\/apps\/assissments\//gi, '/assessments/')
+    .replace(/\/assissments\//gi, '/assessments/')
+    // Angular Accounts & Fees module (`accounts-fees` in router) → App Router path.
+    .replace(/\/accounts-fees\//gi, '/accounts-and-fees/')
+    .replace(/\/apps\/accounts-and-fees\//gi, '/accounts-and-fees/')
+    // Angular Scholarship Management module → App Router path.
+    .replace(/\/apps\/scholarship-management\//gi, '/scholarship-management/')
+    .replace(/\/scholarship\//gi, '/scholarship-management/')
+    // Angular Admission module → App Router path (`enquiry-form` folder routes as `enquiries`).
+    .replace(/\/apps\/admission\//gi, '/admission/')
+    .replace(/\/admission\/enquiry-form\//gi, '/admission/enquiries/')
+    // Angular Accounts & Fees — hostel payment (Student Fee Collection).
+    .replace(/\/fees-collection\/hostel-payment(?=\/|$)/gi, '/accounts-and-fees/fees-collection/hostel-payment')
+    .replace(
+      /\/fees-collection\/hostel-payment\/hostel-fee-payment/gi,
+      '/accounts-and-fees/fees-collection/hostel-payment/hostel-fee-payment',
+    )
+    .replace(
+      /\/fees-collection\/hostel-payment\/hostel-fee-list/gi,
+      '/accounts-and-fees/fees-collection/hostel-payment/hostel-fee-payment',
+    )
+    // Angular Wallet module — legacy slugs map to Angular-parity App Router paths.
+    .replace(/\/wallet\/university-wallet-transactions(?=\/|$)/gi, '/wallet/university-payment-wallet-transactions')
+    .replace(/\/wallet\/wallet-transactions(?=\/|$)/gi, '/wallet/university-payment-wallet-transactions')
+    .replace(/\/wallet\/university-wallet-recharge(?=\/|$)/gi, '/wallet/recharge-wallet')
+    // Angular Admin institutional masters → App Router admin pages.
+    .replace(/\/institutional-masters\/rooms-type(?=\/|$)/gi, '/admin/room-types')
+    .replace(/\/institutional-masters\/rooms(?=\/|$)/gi, '/admin/rooms')
+    .replace(/\/institutional-masters\/room-details(?=\/|$)/gi, '/admin/room-details')
+    .replace(/\/institutional-masters\/room-detail(?=\/|$)/gi, '/admin/room-details')
+    // Angular E-Office module (`Office/` menu prefix) → App Router path.
+    .replace(/\/Office\//gi, '/e-office/')
+    .replace(/\/apps\/e-office\//gi, '/e-office/')
+    // Angular Affiliated Colleges module → App Router path.
+    .replace(/\/apps\/affiliated-colleges\//gi, '/affiliated-colleges/')
+    // Angular Attendance Management → App Router path.
+    .replace(/\/admin-attendance-management\//gi, '/attendance-management/')
+    .replace(/\/apps\/admin-attendance-management\//gi, '/attendance-management/')
+    .replace(/\/staff-classes\/attendance-update\//gi, '/attendance-management/mark-attendance/')
+    .replace(/\/exam-attendance\//gi, '/attendance-management/exam-attendance/')
+    // Angular Mentorship / Counseling → App Router path.
+    .replace(/\/staff-mentorship\//gi, '/mentorship/')
+    .replace(/\/admin-counseling\//gi, '/mentorship/')
+    // Angular Library module → App Router path.
+    .replace(/\/apps\/library\//gi, '/library/')
+    .replace(/\/pages\/library\//gi, '/library/')
+    // Angular Notifications & Announcements (`notifications-&-announcements`) → App Router path.
+    .replace(/\/notifications-&-announcements\//gi, '/notifications-and-announcements/')
+    .replace(/\/notifications-%26-announcements\//gi, '/notifications-and-announcements/')
+    .replace(
+      /\/notifications-&-announcements$/i,
+      '/notifications-and-announcements/employee-inbox',
+    )
+    // Student my notifications → App Router path.
+    .replace(/\/student-communications\/student-announcements\/?/gi, '/my-notifications/')
+    // Angular Timetable module (`/apps/timetable/` or nested `timetable/` segment) → App Router path.
+    .replace(/\/apps\/time-table\//gi, '/time-table-management/')
+    .replace(/\/apps\/timetable\//gi, '/time-table-management/')
+    .replace(/\/time-table-management\/timetable\//gi, '/time-table-management/')
+    .replace(/^\/timetable\//i, '/time-table-management/')
+    // Legacy/hash paths that pointed at SIS student-subjects but belong to Affiliated Colleges.
+    .replace(
+      /\/affiliated-colleges\/student-subjects(?=\/|$)/gi,
+      '/affiliated-colleges/assign-student-subjects',
+    )
+    .replace(
+      /\/apps\/affiliated-colleges\/student-subjects(?=\/|$)/gi,
+      '/affiliated-colleges/assign-student-subjects',
+    )
+    // Angular module prefix `/apps/user-management/` → App Router path.
+    .replace(/\/apps\/user-management\//gi, '/user-management/')
+    // Angular Email & SMS app folder → Next routes.
+    .replace(/\/apps\/email-sms\//gi, '/email-sms/')
+    /** SKOLO / some builds: module segment `email-&-sms` (ampersand) e.g. `#/email-&-sms/principal-to-Dept-email`. */
+    .replace(/\/email-&-sms\//gi, '/email-sms/')
+    .replace(/\/email-%26-sms\//gi, '/email-sms/')
+    /** Canonical department-wise email; typo `depart-wise-email` (`ment` omitted). */
+    .replace(/\/email-sms\/depart(?:ment)?-wise-email(?=\/|$)/gi, '/email-sms/department-wise-email')
+    /** Shorthand slug sometimes used in menus. */
+    .replace(/\/email-sms\/dept-wise-email(?=\/|$)/gi, '/email-sms/department-wise-email')
+    /** Angular source folder `principal-to-dpt-email` (abbrev.) → App Router slug. */
+    .replace(/\/email-sms\/principal-to-dpt-email(?=\/|$)/gi, '/email-sms/principal-to-dept-email')
+    /** Legacy casing `principal-to-Dept-email` → canonical segment. */
+    .replace(/\/email-sms\/principal-to-dept-email(?=\/|$)/gi, '/email-sms/principal-to-dept-email')
+    /** Common menu typo `emial` → `email`. */
+    .replace(/\/email-sms\/department-wise-emial(?=\/|$)/gi, '/email-sms/department-wise-email')
+    .replace(/\/email-sms\/send-student-sms(?=\/|$)/gi, '/email-sms/send-sms-to-students')
+    .replace(/\/email-sms\/send-login-details(?=\/|$)/gi, '/email-sms/send-login-details')
+    .replace(/\/email-sms\/send-absent-sms(?=\/|$)/gi, '/email-sms/send-sms-to-absents')
+    .replace(/\/email-sms\/send-staff-sms(?=\/|$)/gi, '/email-sms/send-sms-to-staff-attendance')
+    /** Email & SMS — sent email audit trail. */
+    .replace(/\/email-sms\/email-log(?=\/|$)/gi, '/email-sms/email-logs')
+    .replace(/\/email-sms\/emaillogs(?=\/|$)/gi, '/email-sms/email-logs')
+    /** Angular `principal-staff-to-admin-email` (folder variants) → App Router slug. */
+    .replace(/\/email-sms\/principal-and-staff-to-admin-email(?=\/|$)/gi, '/email-sms/principal-staff-to-admin-email')
+    .replace(/\/email-sms\/principal-staff-to-admin-emial(?=\/|$)/gi, '/email-sms/principal-staff-to-admin-email')
+    .replace(/\/email-sms\/staff-principal-to-admin-email(?=\/|$)/gi, '/email-sms/principal-staff-to-admin-email')
+    /** Angular `principal-to-staff-email` — minimal "Send Email To Admin" screen. */
+    .replace(/\/email-sms\/send-email-to-admin(?=\/|$)/gi, '/email-sms/principal-to-staff-email')
+    .replace(/\/email-sms\/principal-to-staff-emial(?=\/|$)/gi, '/email-sms/principal-to-staff-email')
+    // Security/User Management legacy routes.
+    .replace(
+      /\/admin-user-management\/general-users-accounts(?=\/|$)/i,
+      '/user-management/general-user-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/general-user-accounts(?=\/|$)/i,
+      '/user-management/general-user-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/general-user-account(?=\/|$)/i,
+      '/user-management/general-user-accounts',
+    )
+    .replace(
+      /\/user-management\/general-users-accounts(?=\/|$)/i,
+      '/user-management/general-user-accounts',
+    )
+    .replace(
+      /\/user-management\/general-user-account(?=\/|$)/i,
+      '/user-management/general-user-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/staff-accounts(?=\/|$)/i,
+      '/user-management/staff-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/staff-account(?=\/|$)/i,
+      '/user-management/staff-accounts',
+    )
+    .replace(
+      /\/user-management\/staff-account(?=\/|$)/i,
+      '/user-management/staff-accounts',
+    )
+    .replace(
+      /\/user-management\/staff-accounts-list(?=\/|$)/i,
+      '/user-management/staff-accounts',
+    )
+    .replace(
+      /\/user-management\/staffs(?=\/|$)/i,
+      '/user-management/staff-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/parent-accounts(?=\/|$)/i,
+      '/user-management/parent-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/parent\/manage(?=\/|$)/i,
+      '/user-management/parent-accounts/manage',
+    )
+    .replace(
+      /\/user-management\/parent\/manage(?=\/|$)/i,
+      '/user-management/parent-accounts/manage',
+    )
+    .replace(
+      /\/admin-user-management\/parent-accounts\/add-sibling(?=\/|$)/i,
+      '/user-management/parent-accounts/add-sibling',
+    )
+    .replace(
+      /\/admin-user-management\/student-accounts(?=\/|$)/i,
+      '/user-management/student-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/student-account(?=\/|$)/i,
+      '/user-management/student-accounts',
+    )
+    .replace(
+      /\/user-management\/student-account(?=\/|$)/i,
+      '/user-management/student-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/student\/manage(?=\/|$)/i,
+      '/user-management/student-accounts?add=1',
+    )
+    .replace(
+      /\/user-management\/student\/manage(?=\/|$)/i,
+      '/user-management/student-accounts?add=1',
+    )
+    .replace(
+      /\/admin-user-management\/examination-accounts(?=\/|$)/i,
+      '/user-management/examination-accounts',
+    )
+    .replace(
+      /\/admin-user-management\/examination-account(?=\/|$)/i,
+      '/user-management/examination-accounts',
+    )
+    .replace(
+      /\/user-management\/examination-account(?=\/|$)/i,
+      '/user-management/examination-accounts',
+    )
+    // Placements & Achievements — Angular `placement-companies` / legacy component slug.
+    .replace(/\/apps\/placements-achievements\//gi, '/placements-achievements/')
+    .replace(
+      /\/placements-achievements\/placements\/company-placements-requirements(?=\/|$)/gi,
+      '/placements-achievements/placements/placement-companies',
+    )
+    .replace(
+      /\/placements-achievements\/company-placements-requirements(?=\/|$)/gi,
+      '/placements-achievements/placements/placement-companies',
+    )
+    .replace(
+      /\/placements-achievements\/placements\/placement-registered-studentslist(?=\/|$)/gi,
+      '/placements-achievements/placements/placement-registered-list',
+    )
+    .replace(
+      /\/placements-achievements\/placement-registered-studentslist(?=\/|$)/gi,
+      '/placements-achievements/placements/placement-registered-list',
     )
 
   // Normalize slashes and trim trailing slash.
@@ -94,6 +347,62 @@ function overrideLegacyPreExamHref(href: string, label: string): string {
   return href
 }
 
+/** Backend page.url often keeps Angular slugs; map by label to Next routes under post-examination. */
+function overrideLegacyPostExamHref(href: string, label: string): string {
+  const lower = (label ?? '').toLowerCase()
+  const base = '/admin-examination-management/post-examination'
+
+  const isInternalAttendance =
+    lower.includes('internal') &&
+    lower.includes('exam') &&
+    lower.includes('attendance') &&
+    (lower.includes('marking') || lower.includes('attendance marking')) &&
+    !lower.includes('external')
+  if (isInternalAttendance) {
+    return `${base}/internal-exam-attendance-marking`
+  }
+
+  const isExternalAttendance =
+    lower.includes('external') &&
+    lower.includes('exam') &&
+    lower.includes('attendance') &&
+    (lower.includes('marking') || lower.includes('attendance marking'))
+  if (isExternalAttendance) {
+    return `${base}/external-exam-attendance-marking`
+  }
+
+  if (
+    lower.includes('internal') &&
+    (lower.includes('exams average') || lower.includes('exam average') || lower.includes('internal exams avg'))
+  ) {
+    return `${base}/internal-exams-average`
+  }
+
+  return href
+}
+
+function overrideTimetableHref(href: string, pageLabel: string): string {
+  const mapped = mapTimetableNavRoute(href, pageLabel)
+  return mapped ?? href
+}
+
+function overrideErpModuleHref(href: string, pageLabel: string): string {
+  const mapped = mapErpModuleNavRoute(href, pageLabel)
+  return mapped ?? href
+}
+
+function normalizePageHref(href: string, pageLabel: string): string {
+  return normalizeHref(
+    overrideErpModuleHref(
+      overrideTimetableHref(
+        overrideLegacyPostExamHref(overrideLegacyPreExamHref(href, pageLabel), pageLabel),
+        pageLabel,
+      ),
+      pageLabel,
+    ),
+  )
+}
+
 /**
  * Replicates Angular's addModuleToNavigation + addPagesToNavigation logic.
  * Takes raw modules[] and pages[] from UserDTO/SessionUser and builds a
@@ -111,17 +420,67 @@ function overrideLegacyPreExamHref(href: string, label: string): string {
  *   href built from moduleName/submoduleName/page.url parts
  * - Default icon: modules → 'dashboard', pages → 'arrow_forward'
  */
+function normalizeModuleKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
+/** Attach top-level `pages[]` entries to their parent module (Spring often sends them separately). */
+function mergeFlatPagesIntoModules(modules: Module[], flatPages: Page[]): Module[] {
+  if (!flatPages.length) return modules
+
+  return modules.map((module) => {
+    const moduleKeys = new Set([
+      normalizeModuleKey(module.moduleName),
+      normalizeModuleKey(module.displayName ?? ''),
+    ])
+    const attached = flatPages.filter((page) => {
+      if (page.moduleId != null && page.moduleId === module.moduleId) return true
+      const pageKey = normalizeModuleKey(page.moduleName ?? '')
+      return pageKey.length > 0 && moduleKeys.has(pageKey)
+    })
+    if (attached.length === 0) return module
+
+    const existingIds = new Set((module.pages ?? []).map((p) => p.pageId))
+    const mergedPages = [...(module.pages ?? [])]
+    for (const page of attached) {
+      if (!existingIds.has(page.pageId)) mergedPages.push(page)
+    }
+    return { ...module, pages: mergedPages }
+  })
+}
+
+/** Pages that are not linked to any module — shown as top-level nav items. */
+function getOrphanPages(flatPages: Page[], modules: Module[]): Page[] {
+  return flatPages.filter((page) => {
+    if (page.moduleId != null) {
+      return !modules.some((m) => m.moduleId === page.moduleId)
+    }
+    const pageKey = normalizeModuleKey(page.moduleName ?? '')
+    if (!pageKey) return true
+    return !modules.some((m) => {
+      const keys = [normalizeModuleKey(m.moduleName), normalizeModuleKey(m.displayName ?? '')]
+      return keys.includes(pageKey)
+    })
+  })
+}
+
 export function buildNavTree(modules: Module[], pages: Page[]): NavItem[] {
-  const hasModules = modules && modules.length > 0
-  const hasPages = pages && pages.length > 0
+  const safeModules = modules ?? []
+  const safePages = pages ?? []
+  const hasModules = safeModules.length > 0
+  const hasPages = safePages.length > 0
 
   if (!hasModules && hasPages) {
-    return buildStandalonePages(pages)
+    return ensureErpModuleNavChildren(ensureTimetableNavChildren(buildStandalonePages(safePages)))
   }
 
   if (!hasModules) return []
 
-  return buildModuleTree(modules, pages)
+  const mergedModules = mergeFlatPagesIntoModules(safeModules, safePages)
+  const orphanPages = getOrphanPages(safePages, mergedModules)
+  return ensureErpModuleNavChildren(
+    ensureTimetableNavChildren(buildModuleTree(mergedModules, orphanPages)),
+  )
 }
 
 /** addPagesToNavigation path — flat pages with no module grouping */
@@ -154,7 +513,7 @@ function buildStandalonePages(pages: Page[]): NavItem[] {
         : `${subModuleUrl}/${rawUrl}`
     }
 
-    const normalizedHref = normalizeHref(overrideLegacyPreExamHref(href, page.displayName))
+    const normalizedHref = normalizePageHref(href, page.displayName)
 
     return {
       id: `page_${page.pageId}`,
@@ -205,7 +564,7 @@ function buildModuleTree(modules: Module[], pages: Page[]): NavItem[] {
           const href = rawUrl.startsWith(moduleUrl + '/') || rawUrl === moduleUrl
             ? rawUrl
             : `${moduleUrl}/${rawUrl}`
-          const normalizedHref = normalizeHref(overrideLegacyPreExamHref(href, page.displayName))
+          const normalizedHref = normalizePageHref(href, page.displayName)
           children.push({
             id: `page_${page.pageId}`,
             label: page.displayName,
@@ -250,7 +609,7 @@ function buildSubModuleItem(subModule: SubModule, moduleUrl: string): NavItem {
       const href = rawUrl.startsWith(fullPrefix + '/') || rawUrl === fullPrefix
         ? rawUrl
         : `${fullPrefix}/${rawUrl}`
-      const normalizedHref = normalizeHref(overrideLegacyPreExamHref(href, page.displayName))
+      const normalizedHref = normalizePageHref(href, page.displayName)
       subChildren.push({
         id: `page_${page.pageId}`,
         label: page.displayName,

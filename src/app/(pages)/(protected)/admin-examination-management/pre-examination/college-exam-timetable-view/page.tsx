@@ -195,11 +195,11 @@ export default function CollegeExamTimetableViewPage() {
   }, [courseId, courseYearId, examId, collegeId])
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="College Exam Timetable View" subtitle="View college examination timetables" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">College Exam Timetable View</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">College Exam Timetable View</h2>
           <Button
             type="button"
             variant="outline"
@@ -280,7 +280,7 @@ export default function CollegeExamTimetableViewPage() {
 
           <div className="overflow-auto rounded border">
             <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="px-2 py-1 border-r min-w-[90px]">Branch</th>
                   {dateArray.map((d) => (

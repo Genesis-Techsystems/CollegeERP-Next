@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ColDef } from 'ag-grid-community'
-import { LayoutList, Settings } from 'lucide-react'
+import { LayoutList, PencilIcon, Settings } from 'lucide-react'
 import { Select, MultiSelect, type SelectOption } from '@/common/components/select'
-import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -19,12 +18,17 @@ import { toDateOnlyISO } from '@/common/generic-functions'
 import { listActiveColleges } from '@/services/pre-examination'
 import { listRegulations } from '@/services/examination'
 import {
+  createEvaluatorBankDetails,
   createEvaluatorProfile,
   getEvaluationExamFilters,
+  getEvaluatorBankDetails,
   listActiveCourses,
   listEvaluatorProfiles,
+  listEvaluatorTitles,
+  updateEvaluatorBankDetails,
   listExamEvaluatorPreferences,
   listSubjectsByCourseForPreferences,
+  searchEvaluatorEmployees,
   sendEvaluatorCredentials,
   updateEvaluatorProfile,
   updateExamEvaluatorPreferences,
@@ -94,7 +98,7 @@ function makeDetailsRenderer(
       <button type="button" className="text-blue-700 hover:underline" onClick={() => openSubjects(p.data ?? {})}>
         Subjects
       </button>
-      <span className="px-1 text-slate-500">|</span>
+      <span className="px-1 text-muted-foreground">|</span>
       <button type="button" className="text-blue-700 hover:underline" onClick={() => openPreferences(p.data ?? {})}>
         Preferences
       </button>
@@ -102,22 +106,39 @@ function makeDetailsRenderer(
   )
 }
 
-function makeActionsRenderer(openEdit: (row: AnyRow) => void, sendOne: (row: AnyRow) => void) {
+function makeActionsRenderer(
+  openEdit: (row: AnyRow) => void,
+  sendOne: (row: AnyRow) => void,
+  openBank: (row: AnyRow) => void,
+) {
   return (p: { data?: AnyRow }) => (
-    <div className="flex items-center gap-2">
-      <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => openEdit(p.data ?? {})}>
-        Edit
-      </button>
+    <div className="flex items-center gap-1.5">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0"
+        aria-label="Edit evaluator"
+        onClick={() => openEdit(p.data ?? {})}
+      >
+        <PencilIcon className="h-3.5 w-3.5" />
+      </Button>
       <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => sendOne(p.data ?? {})}>
         Mail
+      </button>
+      <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => openBank(p.data ?? {})}>
+        Bank Copy
       </button>
     </div>
   )
 }
 
 type FormState = {
-  collegeCode: string
-  title: string
+  collegeId: string
+  isEmp: boolean
+  evaluatorEmpId: string
+  userId: number | null
+  titleId: string
   evaluatorName: string
   email: string
   phoneNumber: string
@@ -133,8 +154,11 @@ type FormState = {
 function emptyForm(): FormState {
   const today = toDateOnlyISO(new Date())
   return {
-    collegeCode: '',
-    title: '',
+    collegeId: '',
+    isEmp: false,
+    evaluatorEmpId: '',
+    userId: null,
+    titleId: '',
     evaluatorName: '',
     email: '',
     phoneNumber: '',
@@ -148,17 +172,25 @@ function emptyForm(): FormState {
   }
 }
 
+// Validation patterns mirror the Angular create-evaluator form.
+const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const RE_PHONE = /^[0-9]{10}$/
+const RE_AADHAR = /^[0-9]{12}$/
+const RE_PAN = /^[A-Z]{5}[0-9]{4}[A-Z]$/
+
 export default function CreateEvaluatorsPage() {
   const router = useRouter()
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
 
   const [rows, setRows] = useState<AnyRow[]>([])
   const [colleges, setColleges] = useState<AnyRow[]>([])
+  const [titles, setTitles] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editRow, setEditRow] = useState<AnyRow | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
+  const [employees, setEmployees] = useState<AnyRow[]>([])
+  const [empQuery, setEmpQuery] = useState('')
 
   const [prefOpen, setPrefOpen] = useState(false)
   const [prefRow, setPrefRow] = useState<AnyRow | null>(null)
@@ -180,6 +212,22 @@ export default function CreateEvaluatorsPage() {
   const [credExamId, setCredExamId] = useState<number | null>(null)
   const [credExamSearch, setCredExamSearch] = useState('')
 
+  const [bankOpen, setBankOpen] = useState(false)
+  const [bankProfile, setBankProfile] = useState<AnyRow | null>(null)
+  const [bankEditId, setBankEditId] = useState<number | null>(null)
+  const [bankForm, setBankForm] = useState({
+    bankName: '',
+    branchName: '',
+    bankAddress: '',
+    phone: '',
+    ifscCode: '',
+    accountNumber: '',
+    ddPayableAddress: '',
+    upi: '',
+    isActive: true,
+    reason: '',
+  })
+
   async function loadList() {
     setLoading(true)
     try {
@@ -198,7 +246,20 @@ export default function CreateEvaluatorsPage() {
       const onlyUniversity = all.filter((c) => c?.isUniversity === true || c?.is_university === true)
       setColleges(onlyUniversity.length > 0 ? onlyUniversity : all)
     })()
+    void (async () => {
+      const list = await listEvaluatorTitles().catch(() => [])
+      setTitles(Array.isArray(list) ? list : [])
+    })()
   }, [])
+
+  const titleOptions: SelectOption[] = useMemo(
+    () =>
+      titles.map((t) => ({
+        value: String(pickNum(t, ['generalDetailId'])),
+        label: pickText(t, ['generalDetailDisplayName', 'generalDetailName']),
+      })),
+    [titles],
+  )
 
   const credCourses = useMemo(
     () => dedupeBy(credFilterRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])),
@@ -301,17 +362,131 @@ export default function CreateEvaluatorsPage() {
     }
   }
 
+  // Angular AddBankDetails(): look up existing bank row by profile; edit it if
+  // present, else open a blank create form (phone defaults to the evaluator's).
+  async function openBank(row: AnyRow) {
+    const profileId = Number(row?.examEvaluatorProfileId ?? 0)
+    if (profileId <= 0) {
+      toastError('Invalid evaluator profile.')
+      return
+    }
+    setBankProfile(row)
+    setLoading(true)
+    try {
+      const existing = await getEvaluatorBankDetails(profileId)
+      const b = Array.isArray(existing) && existing.length > 0 ? existing[0] : null
+      if (b) {
+        setBankEditId(Number(b.evaluatorBankDetailId) || null)
+        setBankForm({
+          bankName: String(b.bankName ?? ''),
+          branchName: String(b.branchName ?? ''),
+          bankAddress: String(b.bankAddress ?? ''),
+          phone: String(b.phone ?? row.phoneNumber ?? ''),
+          ifscCode: String(b.ifscCode ?? ''),
+          accountNumber: String(b.accountNumber ?? ''),
+          ddPayableAddress: String(b.ddPayableAddress ?? ''),
+          upi: String(b.upi ?? ''),
+          isActive: b.isActive !== false,
+          reason: String(b.reason ?? ''),
+        })
+      } else {
+        setBankEditId(null)
+        setBankForm({
+          bankName: '',
+          branchName: '',
+          bankAddress: '',
+          phone: String(row.phoneNumber ?? ''),
+          ifscCode: '',
+          accountNumber: '',
+          ddPayableAddress: '',
+          upi: '',
+          isActive: true,
+          reason: '',
+        })
+      }
+      setBankOpen(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function saveBank() {
+    if (!bankForm.phone || !bankForm.ifscCode || !bankForm.accountNumber) {
+      toastError('Phone, IFSC code and account number are required.')
+      return
+    }
+    const profileId = Number(bankProfile?.examEvaluatorProfileId ?? 0)
+    setLoading(true)
+    try {
+      const payload: AnyRow = {
+        bankName: bankForm.bankName || null,
+        branchName: bankForm.branchName || null,
+        bankAddress: bankForm.bankAddress || null,
+        phone: bankForm.phone,
+        ifscCode: bankForm.ifscCode,
+        accountNumber: bankForm.accountNumber,
+        ddPayableAddress: bankForm.ddPayableAddress || null,
+        upi: bankForm.upi || null,
+        isActive: bankForm.isActive,
+        reason: bankForm.isActive ? null : bankForm.reason || null,
+      }
+      if (bankEditId) {
+        await updateEvaluatorBankDetails(bankEditId, { ...payload, evaluatorBankDetailId: bankEditId })
+      } else {
+        await createEvaluatorBankDetails({ ...payload, examEvaluatorProfilesId: profileId })
+      }
+      toastSuccess('Bank details saved.')
+      setBankOpen(false)
+      await loadList()
+    } catch (e: any) {
+      toastError(e?.message ?? 'Failed to save bank details.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Angular enteredEmployee(): search once the term exceeds 4 chars.
+  async function searchEmployees(q: string) {
+    setEmpQuery(q)
+    if (!q || q.trim().length <= 4) {
+      setEmployees([])
+      return
+    }
+    const list = await searchEvaluatorEmployees(q.trim()).catch(() => [])
+    setEmployees(Array.isArray(list) ? list : [])
+  }
+
+  // Angular setEmployee(): autofill college/email/name/phone/userId from the pick.
+  function onSelectEmployee(emp: AnyRow) {
+    setForm((p) => ({
+      ...p,
+      evaluatorEmpId: emp?.employeeId != null ? String(emp.employeeId) : '',
+      userId: emp?.userId != null ? Number(emp.userId) : null,
+      collegeId: emp?.collegeId != null ? String(emp.collegeId) : p.collegeId,
+      email: emp?.email != null ? String(emp.email) : p.email,
+      evaluatorName: emp?.firstName != null ? String(emp.firstName) : p.evaluatorName,
+      phoneNumber: emp?.mobile != null ? String(emp.mobile) : p.phoneNumber,
+    }))
+    setEmpQuery(`${emp?.empNumber ?? ''}${emp?.firstName ? ` (${emp.firstName})` : ''}`)
+    setEmployees([])
+  }
+
   function openAdd() {
     setEditRow(null)
     setForm(emptyForm())
+    setEmployees([])
+    setEmpQuery('')
     setModalOpen(true)
   }
 
   function openEdit(row: AnyRow) {
     setEditRow(row)
     setForm({
-      collegeCode: String(row?.collegeCode ?? ''),
-      title: String(row?.title ?? ''),
+      collegeId: row?.collegeId != null ? String(row.collegeId) : '',
+      isEmp: false,
+      evaluatorEmpId: row?.evaluatorEmpId != null ? String(row.evaluatorEmpId) : '',
+      userId: row?.userId != null ? Number(row.userId) : null,
+      titleId: row?.titleId != null ? String(row.titleId) : '',
       evaluatorName: String(row?.evaluatorName ?? ''),
       email: String(row?.email ?? ''),
       phoneNumber: String(row?.phoneNumber ?? ''),
@@ -326,24 +501,47 @@ export default function CreateEvaluatorsPage() {
     setModalOpen(true)
   }
 
+  function validateEvaluatorForm(): string | null {
+    // Required + pattern checks mirror the Angular create-evaluator form.
+    if (!form.isEmp && !form.collegeId) return 'University College is required.'
+    if (!form.titleId) return 'Title is required.'
+    if (!form.evaluatorName.trim()) return 'Name is required.'
+    if (!form.email.trim() || !RE_EMAIL.test(form.email.trim())) return 'A valid Email is required.'
+    if (!RE_PHONE.test(form.phoneNumber.trim())) return 'Phone Number must be 10 digits.'
+    if (!RE_PHONE.test(form.alternatePhoneNumber.trim())) return 'Alternate Phone must be 10 digits.'
+    if (!RE_AADHAR.test(form.aadhar.trim())) return 'Aadhar must be 12 digits.'
+    if (!RE_PAN.test(form.panCardNo.trim().toUpperCase())) return 'PAN must be like ABCDE1234F.'
+    if (!form.profileValidFromDate) return 'Start Date is required.'
+    if (!form.profileValidToDate) return 'End Date is required.'
+    if (!form.isActive && !form.reason.trim()) return 'Reason is required when inactive.'
+    return null
+  }
+
   async function onSave() {
-    if (!form.evaluatorName || !form.phoneNumber || !form.aadhar) {
-      toastError('Please fill required fields.')
+    const err = validateEvaluatorForm()
+    if (err) {
+      toastError(err)
       return
     }
-    const payload = {
-      collegeCode: form.collegeCode,
-      title: form.title,
+    // Mirror Angular submit() Obj exactly (same JSON for add + edit).
+    const payload: AnyRow = {
+      collegeId: form.collegeId ? Number(form.collegeId) : null,
+      evaluatorEmpId: form.evaluatorEmpId ? Number(form.evaluatorEmpId) : null,
+      userId: form.userId ?? null,
+      roleId: null,
+      titleId: form.titleId ? Number(form.titleId) : null,
       evaluatorName: form.evaluatorName,
-      email: form.email,
       phoneNumber: form.phoneNumber,
       alternatePhoneNumber: form.alternatePhoneNumber,
+      email: form.email,
       aadhar: form.aadhar,
-      panCardNo: form.panCardNo,
+      panCardNo: form.panCardNo.toUpperCase(),
       profileValidFromDate: form.profileValidFromDate,
       profileValidToDate: form.profileValidToDate,
       isActive: form.isActive,
-      reason: form.reason || null,
+      reason: form.isActive ? null : form.reason,
+      createdUser: employeeId || null,
+      examEvaluatorProfileDetailsDTOS: editRow?.examEvaluatorProfileDetailsDTOS ?? [],
     }
     setLoading(true)
     try {
@@ -366,8 +564,11 @@ export default function CreateEvaluatorsPage() {
     (row: AnyRow) => {
       const profileId = Number(row?.examEvaluatorProfileId ?? 0)
       if (profileId > 0) {
+        // Angular viewSubjects(): navigate to the evaluator-subject-roles page
+        // with the profile row (that page reads examEvaluatorProfileId + the
+        // cached evaluatorSubjectRoleProfile).
         globalThis?.localStorage?.setItem('evaluatorSubjectRoleProfile', JSON.stringify(row))
-        router.push(`/admin-examination-management/evaluation-process/assign-evaluator-subject?examEvaluatorProfileId=${profileId}`)
+        router.push(`/admin-examination-management/evaluation-process/create-evaluators/evaluator-subject-roles?examEvaluatorProfileId=${profileId}`)
         return
       }
       toastError('Invalid evaluator profile.')
@@ -512,12 +713,6 @@ export default function CreateEvaluatorsPage() {
     }
   }
 
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
-
   const cols = useMemo<ColDef[]>(
     () => [
       { headerName: 'No.', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70 },
@@ -530,8 +725,8 @@ export default function CreateEvaluatorsPage() {
       { field: 'isActive', headerName: 'Status', minWidth: 100, cellRenderer: statusRenderer },
       {
         headerName: 'Actions',
-        minWidth: 150,
-        cellRenderer: makeActionsRenderer(openEdit, (row) => openSendCredentialsModal('single', row)),
+        minWidth: 220,
+        cellRenderer: makeActionsRenderer(openEdit, (row) => openSendCredentialsModal('single', row), openBank),
       },
     ],
     [openSubjects, openPreferences],
@@ -540,27 +735,34 @@ export default function CreateEvaluatorsPage() {
   const evaluatorName = pickText(prefRow, ['evaluatorName'])
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Create Evaluators" subtitle="Assign evaluators to examinations" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Evaluator&apos;s Profile</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40">
+          <h2 className="app-card-title">Evaluator&apos;s Profile</h2>
         </div>
         <div className="p-4 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="w-full max-w-sm">
-              <SearchInput className="w-full" placeholder="Search" value={search} onChange={setSearch} />
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => openSendCredentialsModal('bulk')} disabled={loading}>
-                Send Evaluator Credentials
-              </Button>
-              <Button onClick={openAdd} disabled={loading}>
-                Create Evaluator
-              </Button>
-            </div>
-          </div>
-          <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
+          <DataTable
+            rowData={rows}
+            columnDefs={cols}
+            pagination
+            loading={loading}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search…',
+              pdfDocumentTitle: "Create Evaluators",
+            }}
+            toolbarTrailing={
+              <>
+                <Button type="button" variant="outline" onClick={() => openSendCredentialsModal('bulk')} disabled={loading}>
+                  Send Evaluator Credentials
+                </Button>
+                <Button type="button" onClick={openAdd} disabled={loading}>
+                  Create Evaluator
+                </Button>
+              </>
+            }
+          />
         </div>
       </div>
 
@@ -570,52 +772,96 @@ export default function CreateEvaluatorsPage() {
             <DialogTitle>{editRow ? 'Edit Evaluator Profile' : 'Create Evaluator Profile'}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {!editRow && (
+              <div className="md:col-span-3 flex items-center gap-2">
+                <Checkbox
+                  checked={form.isEmp}
+                  onCheckedChange={(v) => {
+                    setForm((p) => ({ ...p, isEmp: v === true, evaluatorEmpId: '', userId: null }))
+                    setEmployees([])
+                    setEmpQuery('')
+                  }}
+                />
+                <span className="text-[12px]">Existing Employee</span>
+              </div>
+            )}
+            {form.isEmp ? (
+              <div className="md:col-span-2 relative">
+                <Label className="text-[12px]">Employee</Label>
+                <Input
+                  value={empQuery}
+                  onChange={(e) => void searchEmployees(e.target.value)}
+                  placeholder="Search by employee name or number…"
+                />
+                {employees.length > 0 && (
+                  <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-md border border-border bg-popover shadow">
+                    {employees.map((emp, i) => (
+                      <button
+                        type="button"
+                        key={`emp-${emp?.employeeId ?? i}`}
+                        className="block w-full px-3 py-1.5 text-left text-[12px] hover:bg-muted"
+                        onClick={() => onSelectEmployee(emp)}
+                      >
+                        {String(emp?.empNumber ?? '')}
+                        {emp?.firstName ? <span className="text-blue-700"> ({String(emp.firstName)})</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <Label className="text-[12px]">University College <span className="text-red-600">*</span></Label>
+                <Select
+                  value={form.collegeId || null}
+                  onChange={(v) => setForm((p) => ({ ...p, collegeId: v ?? '' }))}
+                  options={colleges.map((c) => ({
+                    value: String(c?.collegeId ?? c?.pk_college_id ?? ''),
+                    label: String(c?.collegeCode ?? c?.college_code ?? c?.collegeName ?? c?.college_name ?? ''),
+                  } as SelectOption))}
+                  placeholder="University College"
+                />
+              </div>
+            )}
             <div>
-              <Label className="text-[12px]">University College</Label>
+              <Label className="text-[12px]">Title <span className="text-red-600">*</span></Label>
               <Select
-                value={form.collegeCode || null}
-                onChange={(v) => setForm((p) => ({ ...p, collegeCode: v ?? '' }))}
-                options={colleges.map((c) => {
-                  const value = String(c?.collegeCode ?? c?.college_code ?? c?.collegeId ?? c?.pk_college_id ?? '')
-                  return { value, label: String(c?.collegeCode ?? c?.college_code ?? c?.collegeName ?? c?.college_name ?? value) } as SelectOption
-                })}
-                placeholder="University College"
+                value={form.titleId || null}
+                onChange={(v) => setForm((p) => ({ ...p, titleId: v ?? '' }))}
+                options={titleOptions}
+                placeholder="Title"
               />
             </div>
             <div>
-              <Label className="text-[12px]">Title</Label>
-              <Input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
-            </div>
-            <div>
-              <Label className="text-[12px]">Name</Label>
+              <Label className="text-[12px]">Name <span className="text-red-600">*</span></Label>
               <Input value={form.evaluatorName} onChange={(e) => setForm((p) => ({ ...p, evaluatorName: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">Email</Label>
+              <Label className="text-[12px]">Email <span className="text-red-600">*</span></Label>
               <Input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">Phone Number</Label>
+              <Label className="text-[12px]">Phone Number <span className="text-red-600">*</span></Label>
               <Input value={form.phoneNumber} onChange={(e) => setForm((p) => ({ ...p, phoneNumber: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">Alternate Phone</Label>
+              <Label className="text-[12px]">Alternate Phone <span className="text-red-600">*</span></Label>
               <Input value={form.alternatePhoneNumber} onChange={(e) => setForm((p) => ({ ...p, alternatePhoneNumber: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">Aadhar</Label>
+              <Label className="text-[12px]">Aadhar <span className="text-red-600">*</span></Label>
               <Input value={form.aadhar} onChange={(e) => setForm((p) => ({ ...p, aadhar: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">Pan Card No.</Label>
+              <Label className="text-[12px]">Pan Card No. <span className="text-red-600">*</span></Label>
               <Input value={form.panCardNo} onChange={(e) => setForm((p) => ({ ...p, panCardNo: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">Start Date</Label>
+              <Label className="text-[12px]">Start Date <span className="text-red-600">*</span></Label>
               <Input type="date" value={form.profileValidFromDate} onChange={(e) => setForm((p) => ({ ...p, profileValidFromDate: e.target.value }))} />
             </div>
             <div>
-              <Label className="text-[12px]">End Date</Label>
+              <Label className="text-[12px]">End Date <span className="text-red-600">*</span></Label>
               <Input type="date" value={form.profileValidToDate} onChange={(e) => setForm((p) => ({ ...p, profileValidToDate: e.target.value }))} />
             </div>
             <div className="md:col-span-3 flex items-center gap-2">
@@ -642,7 +888,7 @@ export default function CreateEvaluatorsPage() {
 
       <Dialog open={prefOpen} onOpenChange={setPrefOpen}>
         <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden sm:max-w-4xl">
-          <div className="bg-white px-4 py-3">
+          <div className="bg-card px-4 py-3">
             <div className="flex items-center gap-2 text-[15px] font-semibold text-[hsl(var(--primary))]">
               <Settings className="h-5 w-5 shrink-0 text-[hsl(var(--primary))]" aria-hidden />
               <span>Add Preferences — {evaluatorName}</span>
@@ -693,10 +939,10 @@ export default function CreateEvaluatorsPage() {
             </div>
 
             {prefTableRows.length > 0 && (
-              <div className="max-h-[210px] overflow-auto rounded border border-slate-200">
+              <div className="max-h-[210px] overflow-auto rounded border border-border">
                 <table className="w-full text-[12px]">
-                  <thead className="bg-slate-50 sticky top-0">
-                    <tr className="border-b border-slate-200 text-left">
+                  <thead className="bg-muted/40 sticky top-0">
+                    <tr className="border-b border-border text-left">
                       <th className="p-2 font-medium">Course</th>
                       <th className="p-2 font-medium">Regulation</th>
                       <th className="p-2 font-medium">Subject</th>
@@ -725,7 +971,7 @@ export default function CreateEvaluatorsPage() {
               </div>
             )}
           </div>
-          <DialogFooter className="border-t border-slate-200 px-4 py-3 sm:justify-end gap-2">
+          <DialogFooter className="border-t border-border px-4 py-3 sm:justify-end gap-2">
             <Button variant="outline" onClick={() => setPrefOpen(false)} disabled={loading}>
               Close
             </Button>
@@ -738,7 +984,7 @@ export default function CreateEvaluatorsPage() {
 
       <Dialog open={credOpen} onOpenChange={setCredOpen}>
         <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden sm:max-w-2xl">
-          <div className="bg-white px-4 py-3">
+          <div className="bg-card px-4 py-3">
             <div className="flex items-center gap-2 text-[15px] font-semibold text-[hsl(var(--primary))]">
               <LayoutList className="h-5 w-5 shrink-0 text-[hsl(var(--primary))]" aria-hidden />
               <span>Send Credentials</span>
@@ -790,12 +1036,79 @@ export default function CreateEvaluatorsPage() {
               )}
             </p>
           </div>
-          <DialogFooter className="border-t border-slate-200 px-4 py-3 sm:justify-end gap-2">
+          <DialogFooter className="border-t border-border px-4 py-3 sm:justify-end gap-2">
             <Button onClick={() => void submitSendCredentials()} disabled={loading}>
               Send
             </Button>
             <Button variant="outline" onClick={() => setCredOpen(false)} disabled={loading}>
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bankOpen} onOpenChange={setBankOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {bankEditId ? 'Edit Bank Details' : 'Add Bank Details'}
+              {pickText(bankProfile, ['evaluatorName']) ? (
+                <span className="ml-2 text-[13px] font-medium text-blue-700">
+                  — {pickText(bankProfile, ['evaluatorName'])}
+                </span>
+              ) : null}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-[12px]">Bank Name</Label>
+              <Input value={bankForm.bankName} onChange={(e) => setBankForm((p) => ({ ...p, bankName: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-[12px]">Branch Name</Label>
+              <Input value={bankForm.branchName} onChange={(e) => setBankForm((p) => ({ ...p, branchName: e.target.value }))} />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-[12px]">Bank Address</Label>
+              <Input value={bankForm.bankAddress} onChange={(e) => setBankForm((p) => ({ ...p, bankAddress: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-[12px]">Phone <span className="text-red-600">*</span></Label>
+              <Input value={bankForm.phone} onChange={(e) => setBankForm((p) => ({ ...p, phone: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-[12px]">IFSC Code <span className="text-red-600">*</span></Label>
+              <Input value={bankForm.ifscCode} onChange={(e) => setBankForm((p) => ({ ...p, ifscCode: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-[12px]">Account Number <span className="text-red-600">*</span></Label>
+              <Input value={bankForm.accountNumber} onChange={(e) => setBankForm((p) => ({ ...p, accountNumber: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-[12px]">UPI</Label>
+              <Input value={bankForm.upi} onChange={(e) => setBankForm((p) => ({ ...p, upi: e.target.value }))} />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-[12px]">DD Payable Address</Label>
+              <Input value={bankForm.ddPayableAddress} onChange={(e) => setBankForm((p) => ({ ...p, ddPayableAddress: e.target.value }))} />
+            </div>
+            <div className="md:col-span-2 flex items-center gap-2">
+              <Checkbox checked={bankForm.isActive} onCheckedChange={(v) => setBankForm((p) => ({ ...p, isActive: v === true }))} />
+              <span className="text-[12px]">Active</span>
+            </div>
+            {!bankForm.isActive && (
+              <div className="md:col-span-2">
+                <Label className="text-[12px]">Reason</Label>
+                <Input value={bankForm.reason} onChange={(e) => setBankForm((p) => ({ ...p, reason: e.target.value }))} />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBankOpen(false)} disabled={loading}>
+              Close
+            </Button>
+            <Button onClick={() => void saveBank()} disabled={loading}>
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>

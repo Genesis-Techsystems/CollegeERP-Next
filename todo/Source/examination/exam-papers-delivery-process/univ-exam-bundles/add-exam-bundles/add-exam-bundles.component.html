@@ -14,10 +14,10 @@
             <mat-dialog-content>
                 <div fxLayout="column">
                     <form name="staffForm" [formGroup]="staffForm" novalidate>
-                        <div fxLayout="row">
+                        <!-- <div fxLayout="row">
                        
                             <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20" >
-                                <mat-select placeholder="Program" name="courseId" formControlName="courseId"   (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId"   (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
                                     <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">{{course.course_code}}</mat-option>
                                 </mat-select>
                             </mat-form-field>
@@ -27,7 +27,6 @@
                                     <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
                                 </mat-select>
                             </mat-form-field>
-                           
                             <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="60" fxFlex.gt-md="60">
                               <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExam()">
                                   <ngx-mat-select-search [placeholderLabel]="'Search Exam...'"
@@ -40,8 +39,7 @@
                                   </mat-option>
                               </mat-select>
                           </mat-form-field>
-                        </div>
-                     
+                        </div> -->
                     </form>
                     <div fxLayout="row wrap " fxFlex="100">
                         <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">

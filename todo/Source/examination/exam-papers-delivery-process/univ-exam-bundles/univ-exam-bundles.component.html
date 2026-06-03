@@ -37,20 +37,27 @@
                     </mat-expansion-panel-header>
                     <form name="staffForm" [formGroup]="staffForm" novalidate>
                         <div fxLayout="row">
-                       
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20" >
-                                <mat-select placeholder="Program" name="courseId" formControlName="courseId"   (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15"
+                                fxFlex.gt-md="15">
+                                <mat-select placeholder="Exam Center" name="univExamcenterId"
+                                    formControlName="univExamcenterId" (selectionChange)="selectedExamCenter(staffForm.value.univExamcenterId)" required>
+                                    <mat-option *ngFor="let obj of univExamCenters"
+                                        [value]="obj.fk_univ_examcenter_id">{{obj.examcenter_code}}</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" >
+                                <mat-select placeholder="Course" name="courseId" formControlName="courseId"   (selectionChange)="selectedCourse(staffForm.value.courseId)" required>
                                     <mat-option *ngFor="let course of courses" [value]="course.fk_course_id">{{course.course_code}}</mat-option>
                                 </mat-select>
                             </mat-form-field>
  
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="20" fxFlex.gt-md="20">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15">
                                 <mat-select placeholder="Academic Year" name="academicYearId" formControlName="academicYearId" (selectionChange)="selectedAcademicYear(staffForm.value.academicYearId)" required>
                                     <mat-option *ngFor="let obcjt of academicYears" [value]="obcjt.fk_academic_year_id">{{obcjt.academic_year}}</mat-option>
                                 </mat-select>
                             </mat-form-field>
                            
-                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="50" fxFlex.gt-md="50">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="55" fxFlex.gt-md="55">
                               <mat-select placeholder="Exam" name="examId" formControlName="examId" (selectionChange)="selectedExam(staffForm.value.examId)">
                                   <ngx-mat-select-search [placeholderLabel]="'Search Exam...'"
                                   [noEntriesFoundLabel]="'no matching data found'" (keyup)="searchExam($event.target.value)"></ngx-mat-select-search>  
@@ -62,12 +69,17 @@
                                   </mat-option>
                               </mat-select>
                           </mat-form-field>
+                        </div>
+                        <div fxLayout="row">
+                            <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="33" fxFlex.gt-md="33">
+                            <mat-select placeholder="Univ Exam Bag" name="univExamBagId" formControlName="univExamBagId" (selectionChange)="selectedExamBag(staffForm.value.univExamBagId)" required>
+                                <mat-option [value]="0"> All </mat-option>
+                                <mat-option *ngFor="let obj of examBagsList" [value]="obj.fk_univ_examcenter_id">{{obj.bag_serial_no}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
                           <div class="savebtn-align" fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="10" fxFlex.gt-md="10">
                             <button mat-raised-button class="add-btn" color="accent" (click)="getDetails()">Get List</button>
                         </div>
-                         
-                      
-                       
                         </div>
                         <!-- <div fxLayout="row" >
                             <mat-form-field fxLayout="column" class="p-8" fxFlex="100" fxFlex.gt-xs="15" fxFlex.gt-md="15" >

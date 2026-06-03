@@ -40,6 +40,8 @@ export interface TableProps<T = any> {
   onRowClick?: (row: T) => void
   /** Number of rows per page (0 = disable pagination) */
   pageSize?: number
+  /** Tighter row/header padding (e.g. dense exam lists) */
+  density?: 'default' | 'compact'
   /** Extra CSS class for the wrapping element */
   className?: string
 }
@@ -93,9 +95,13 @@ export default function Table<T = any>({
   emptyText = 'No records found.',
   onRowClick,
   pageSize = 10,
+  density = 'default',
   className,
 }: TableProps<T>) {
   const [page, setPage] = useState(0)
+  const cellPad = density === 'compact' ? 'px-2 py-0.5' : 'px-3 py-1.5'
+  const headPad = density === 'compact' ? 'px-2 py-1' : 'px-3 py-2'
+  const emptyPad = density === 'compact' ? 'px-2 py-6' : 'px-3 py-8'
 
   const paginate = pageSize > 0
   const totalPages = paginate ? Math.ceil(rows.length / pageSize) : 1
@@ -176,7 +182,7 @@ export default function Table<T = any>({
       )}
 
       <div className="rounded-lg border border-border bg-card overflow-auto">
-        <table className="min-w-full divide-y divide-border text-xs">
+        <table className="min-w-full divide-y divide-border">
           <thead className="bg-muted/50">
             <tr>
               {columns.map((col) => (
@@ -184,7 +190,7 @@ export default function Table<T = any>({
                   key={col.id as string}
                   scope="col"
                   style={col.width ? { width: `${col.width}%` } : undefined}
-                  className="px-3 py-2.5 text-left font-semibold text-foreground"
+                  className={cn('app-table-head-cell text-left font-semibold text-foreground', headPad)}
                 >
                   {col.label}
                 </th>
@@ -197,7 +203,7 @@ export default function Table<T = any>({
               Array.from({ length: pageSize || 5 }).map((_, i) => (
                 <tr key={i}>
                   {columns.map((col) => (
-                    <td key={col.id as string} className="px-3 py-2.5">
+                    <td key={col.id as string} className={cellPad}>
                       <div className="h-3.5 w-3/4 animate-pulse rounded bg-muted" />
                     </td>
                   ))}
@@ -207,7 +213,7 @@ export default function Table<T = any>({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-3 py-8 text-center text-muted-foreground"
+                  className={cn('text-center text-muted-foreground', emptyPad)}
                 >
                   {emptyText}
                 </td>
@@ -226,7 +232,7 @@ export default function Table<T = any>({
                     <td
                       key={col.id as string}
                       style={col.width ? { width: `${col.width}%` } : undefined}
-                      className="px-3 py-2.5 text-foreground"
+                      className={cn('app-table-value-cell text-foreground', cellPad)}
                     >
                       {renderCell(col, row, localIndex)}
                     </td>

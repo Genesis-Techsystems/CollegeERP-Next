@@ -56,6 +56,20 @@ async function proxyRequest(request: NextRequest, context: Context): Promise<Nex
 
   // 4. Return Spring Boot response body as-is — jwt is never in response body
   const data = await upstreamRes.json().catch(() => null)
+  // TEMP DEBUG (remove): inspect exam_center_bycode group shapes
+  try {
+    if (path.join('/').includes('exam_center_bycode')) {
+      const flag = request.nextUrl.searchParams.get('in_flag')
+      const result = (data as { data?: { result?: unknown[] } })?.data?.result
+      const groups = Array.isArray(result) ? result : []
+      const summary = groups.map((g, i) =>
+        Array.isArray(g)
+          ? { i, len: g.length, flag: (g[0] as Record<string, unknown>)?.flag, keys: Object.keys((g[0] as object) ?? {}).slice(0, 18) }
+          : { i, type: typeof g },
+      )
+      console.log('[DEBUG exam_center_bycode] in_flag=', flag, 'groups', groups.length, JSON.stringify(summary))
+    }
+  } catch {}
   return NextResponse.json(data, { status: upstreamRes.status })
 }
 

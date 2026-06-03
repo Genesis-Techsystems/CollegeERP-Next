@@ -79,7 +79,7 @@ function LoadingSkeleton() {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="rounded-xl border border-slate-200 bg-white overflow-hidden border-l-4 border-l-slate-200 animate-pulse">
+          <div key={i} className="rounded-xl border border-border bg-card overflow-hidden border-l-4 border-l-slate-200 animate-pulse">
             <div className="bg-slate-100 h-16" />
             <div className="p-5 space-y-3">
               <div className="h-4 bg-slate-100 rounded w-3/4" />
@@ -129,14 +129,14 @@ function ProcessCard({
     'Start Evaluation'
 
   return (
-    <div className={`rounded-xl border border-slate-200 bg-white overflow-hidden flex flex-col border-l-4 ${STATUS_ACCENT[status]}`}>
+    <div className={`rounded-xl border border-border bg-card overflow-hidden flex flex-col border-l-4 ${STATUS_ACCENT[status]}`}>
 
       {/* Card header */}
-      <div className="bg-slate-50 border-b border-slate-200 px-5 py-4">
+      <div className="bg-muted/40 border-b border-border px-5 py-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="font-semibold text-slate-800 text-sm leading-snug truncate">{detail.subjectName}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{detail.subjectCode}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{detail.subjectCode}</p>
           </div>
           <StatusPill status={status} />
         </div>
@@ -149,14 +149,14 @@ function ProcessCard({
         <div className="space-y-1.5 text-sm">
           {detail.courseName && (
             <div className="flex items-center gap-2">
-              <span className="text-slate-400 text-xs w-16 shrink-0">Course</span>
+              <span className="text-muted-foreground text-xs w-16 shrink-0">Course</span>
               <span className="text-slate-700 font-medium text-xs truncate" title={detail.courseName}>
                 {detail.courseName}
               </span>
             </div>
           )}
           <div className="flex items-center gap-2">
-            <span className="text-slate-400 text-xs w-16 shrink-0">Deadline</span>
+            <span className="text-muted-foreground text-xs w-16 shrink-0">Deadline</span>
             <span className={`text-xs flex items-center gap-1 ${deadlineClasses[urgency]}`}>
               {urgency === 'overdue' && <AlertTriangle className="h-3 w-3 shrink-0" />}
               {urgency === 'soon'    && <AlertTriangle className="h-3 w-3 shrink-0" />}
@@ -171,22 +171,22 @@ function ProcessCard({
         <div className="rounded-lg border border-slate-100 divide-x divide-slate-100 flex text-center overflow-hidden">
           <div className="flex-1 py-2.5 px-2">
             <p className="text-lg font-bold text-slate-800">{assigned}</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">Assigned</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Assigned</p>
           </div>
           <div className="flex-1 py-2.5 px-2">
             <p className="text-lg font-bold text-emerald-600">{completed}</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">Done</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Done</p>
           </div>
           <div className="flex-1 py-2.5 px-2">
             <p className="text-lg font-bold text-amber-600">{pending}</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">Pending</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Pending</p>
           </div>
         </div>
 
         {/* Progress bar */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] text-slate-400">Progress</span>
+            <span className="text-[11px] text-muted-foreground">Progress</span>
             <span className="text-[11px] font-bold text-slate-600">{pct}%</span>
           </div>
           <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
@@ -204,7 +204,7 @@ function ProcessCard({
           onClick={() => onNavigate(detail)}
           className={`mt-auto w-full h-9 rounded-lg text-sm font-semibold transition-colors ${
             status === 'completed'
-              ? 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+              ? 'border border-border text-slate-600 hover:bg-muted/40'
               : 'bg-primary text-primary-foreground hover:opacity-90'
           }`}
         >
@@ -281,7 +281,7 @@ export default function EvaluatorSubjectsPage() {
       )}
 
       {!loading && !error && details.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-400">
+        <div className="flex flex-col items-center justify-center py-20 gap-4 text-muted-foreground">
           <ClipboardCheck className="h-12 w-12 opacity-40" />
           <p className="text-base font-medium">No evaluation processes assigned</p>
         </div>

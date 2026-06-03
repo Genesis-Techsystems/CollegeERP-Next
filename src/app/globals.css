@@ -1,69 +1,83 @@
 @import "tailwindcss";
-/* Inter is loaded via next/font in app/layout.tsx and exposed as --font-inter */
+/* Manrope (body) + Sora (headings) loaded via next/font in app/layout.tsx,
+   exposed as --font-body and --font-heading.
+   Design tokens mirror the EduPulse reference (academy-arc-vision.lovable.app). */
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   DESIGN TOKENS — Light Mode
+   DESIGN TOKENS — Light Mode (EduPulse)
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   /* Semantic surface tokens */
-  --background: 220 33% 97%;         /* cool app canvas (matches reference UI) */
-  --foreground: 222 47% 11%;         /* deep navy text */
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --background: 210 20% 97%;          /* pale blue-grey canvas */
+  --foreground: 210 50% 10%;          /* deep navy text */
+  --card: 0 0% 100%;                  /* pure white */
+  --card-foreground: 210 50% 10%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover-foreground: 210 50% 10%;
 
-  /* Brand: cyan/blue (requested) */
-  --primary: 199 89% 48%;            /* hsl(199 89% 48% / 1) */
+  /* Brand: deep teal-blue primary, bright teal accent */
+  --primary: 200 55% 35%;
   --primary-foreground: 0 0% 100%;
 
-  /* Secondary accent — dark amber-orange */
-  --secondary: 35 90% 48%;             /* amber-600 */
-  --secondary-foreground: 0 0% 100%;
-  --muted: 220 14% 96%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 220 14% 96%;
-  --accent-foreground: 222 47% 11%;
+  /* Secondary — soft blue surface */
+  --secondary: 200 30% 92%;
+  --secondary-foreground: 210 50% 15%;
+
+  --muted: 210 20% 94%;
+  --muted-foreground: 210 15% 45%;
+  --accent: 174 45% 48%;              /* bright teal */
+  --accent-foreground: 0 0% 100%;
 
   /* Status */
-  --destructive: 0 84% 60%;
+  --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
-  --success: 142 71% 45%;
+  --success: 160 60% 40%;
+  --success-foreground: 0 0% 100%;
   --warning: 38 92% 50%;
+  --info: 200 80% 50%;
+  --info-foreground: 0 0% 100%;
 
   /* Borders & inputs */
-  --border: 220 16% 90%;
-  --input: 220 16% 90%;
-  --ring: 199 89% 48%;               /* match primary */
-  --radius: 0.5rem;
+  --border: 214 20% 90%;
+  --input: 214 20% 90%;
+  --ring: 200 55% 35%;
+  --radius: 0.625rem;
 
-  /* Sidebar — deep navy (reference) */
-  --sidebar-background: 222 55% 10%;    /* deep navy */
-  --sidebar-surface: 222 45% 14%;       /* hover surface */
-  --sidebar-foreground: 215 22% 72%;    /* muted text */
-  --sidebar-foreground-active: 0 0% 100%;
-  --sidebar-primary: 199 89% 48%;       /* match primary */
+  /* Sidebar — DARK navy (EduPulse default, matches --gradient-sidebar) */
+  --sidebar-background: 210 60% 11%;        /* deep navy top */
+  --sidebar-background-end: 210 55% 8%;     /* deep navy bottom (gradient) */
+  --sidebar-surface: 210 45% 14%;
+  --sidebar-foreground: 210 22% 70%;        /* muted slate text */
+  --sidebar-foreground-active: 0 0% 100%;   /* white on active */
+  --sidebar-primary: 174 55% 55%;           /* bright teal — readable on dark */
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 199 89% 55%;        /* cyan/blue accent */
+  --sidebar-accent: 174 55% 55%;
   --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-border: 222 40% 16%;
-  --sidebar-ring: 243 75% 59%;
-  /* Active item pill + hover (for 100% screenshot match) */
-  --sidebar-active-bg: 222 40% 15%;
-  --sidebar-active-border: 0 0% 100% / 0.08;
-  --sidebar-hover-bg: 222 40% 13%;
+  --sidebar-border: 210 40% 16%;
+  --sidebar-ring: 174 55% 55%;
+  /* Active item pill + hover (dark variant) */
+  --sidebar-active-bg: 174 55% 55% / 0.12;
+  --sidebar-active-border: 174 55% 55% / 0.30;
+  --sidebar-hover-bg: 210 45% 14%;
+  --sidebar-section-label: 210 18% 55%;
 
   /* Custom brand vars */
   --amber: 35 90% 48%;               /* matches --secondary */
   --amber-light: 40 95% 58%;
   --navy-deep: 225 47% 7%;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(15,23,42,0.06);
-  --shadow-md: 0 4px 12px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.05);
-  --shadow-lg: 0 12px 32px rgba(15,23,42,0.10), 0 4px 8px rgba(15,23,42,0.06);
-  --shadow-card-hover: 0 16px 40px rgba(79,70,229,0.12), 0 4px 12px rgba(15,23,42,0.08);
-  --shadow-indigo: 0 4px 20px rgba(79,70,229,0.25);
+  /* Shadows (EduPulse scale) */
+  --shadow-sm: 0 1px 2px 0 hsl(210 50% 10% / 0.04);
+  --shadow-md: 0 4px 12px -2px hsl(210 50% 10% / 0.08);
+  --shadow-lg: 0 12px 32px -4px hsl(210 50% 10% / 0.12);
+  --shadow-glow: 0 0 20px -4px hsl(174 45% 48% / 0.30);
+  --shadow-card-hover: 0 4px 12px -2px hsl(210 50% 10% / 0.08);
+  --shadow-indigo: 0 4px 20px hsl(200 55% 35% / 0.18);
+
+  /* Brand gradients */
+  --gradient-primary: linear-gradient(135deg, hsl(200 55% 35%), hsl(174 45% 48%));
+  --gradient-card-hover: linear-gradient(135deg, hsl(200 55% 35% / 0.05), hsl(174 45% 48% / 0.05));
+  --gradient-sidebar: linear-gradient(180deg, hsl(210 60% 12%), hsl(210 55% 8%));
 
   /* Headings (centralized) */
   --page-title: 222 47% 15%;          /* main page H1 */
@@ -90,15 +104,25 @@
 
   /* ── Spacing ────────────────────────────────────────────────────────────── */
   --spacing-page-x: 1.5rem;
-  --spacing-page-y: 1rem;
+  --spacing-page-y: 1.25rem;
   --spacing-card-x: 1.25rem;
   --spacing-card-y: 1rem;
+  --spacing-stack: 1rem;   /* default vertical gap between page sections */
 
   /* ── Typography ─────────────────────────────────────────────────────────── */
-  --font-size-page-title: 1.5rem;
-  --font-size-section-title: 1.125rem;
-  --font-size-label: 0.875rem;
-  --font-size-caption: 0.75rem;
+  --font-size-page-title: 1.375rem;     /* 22px — H1 */
+  --font-size-section-title: 1rem;      /* 16px — H2 */
+  --font-size-label: 0.8125rem;         /* 13px */
+  --font-size-caption: 0.75rem;         /* 12px */
+  --font-size-body: 0.875rem;           /* 14px base */
+  --font-size-nav: 0.8125rem;           /* 13px nav items */
+  --font-size-nav-section: 0.6875rem;   /* 11px uppercase section label */
+  --app-control-height: 32px;
+  --app-control-font-size: 13px;
+  --app-label-font-size: 13px;
+  --app-table-header-font-size: 12px;
+  --app-table-row-font-size: 12.5px;
+  --app-table-row-height: 32px;
 
   /* ── Border radius ──────────────────────────────────────────────────────── */
   --radius-card: 0.5rem;
@@ -107,20 +131,179 @@
 }
 
 /* ── AG Grid (Quartz) density tweaks for app tables ─────────────────────────── */
-.ag-theme-quartz {
-  --ag-font-size: 12px;
-  --ag-grid-size: 3px;           /* compacts padding */
+.app-data-table .ag-theme-quartz {
+  --ag-font-size: var(--app-table-row-font-size);
+  --ag-grid-size: 4px;
   --ag-list-item-height: 22px;
-  --ag-header-height: 32px;
-  --ag-row-height: 30px;
+  --ag-header-height: 38px;
+  --ag-row-height: var(--app-table-row-height);
+  --ag-cell-horizontal-padding: 14px;
+  --ag-font-family: var(--font-body), 'Manrope', system-ui, sans-serif;
+  --ag-background-color: hsl(var(--card));
+  --ag-header-background-color: hsl(var(--muted));
+  --ag-border-color: hsl(var(--border));
+  --ag-row-border-color: hsl(var(--border));
+  --ag-row-hover-color: hsl(var(--muted) / 0.6);
+  --ag-selected-row-background-color: hsl(var(--primary) / 0.08);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.app-data-table .ag-theme-quartz .ag-header-cell-text {
+  font-size: var(--app-table-header-font-size);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+}
+
+.app-data-table .ag-theme-quartz .ag-header-row {
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.app-data-table .ag-theme-quartz .ag-cell,
+.app-data-table .ag-theme-quartz .ag-cell-value {
+  font-size: var(--app-table-row-font-size) !important;
+  line-height: 1.35;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  color: hsl(var(--foreground));
+}
+
+.app-data-table .ag-theme-quartz .ag-row {
+  min-height: var(--app-table-row-height) !important;
+}
+
+.app-data-table .ag-theme-quartz .ag-root-wrapper {
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* College Counselling — fit all columns without horizontal scroll */
+.college-counselling-table .app-data-table .ag-theme-quartz {
+  --ag-cell-horizontal-padding: 6px;
+}
+
+.college-counselling-table .app-data-table .ag-theme-quartz .ag-body-horizontal-scroll,
+.college-counselling-table .app-data-table .ag-theme-quartz .ag-horizontal-left-spacer,
+.college-counselling-table .app-data-table .ag-theme-quartz .ag-horizontal-right-spacer {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Student Fee Management — column dividers + multi-line student name */
+.fee-mgmt-data-table .ag-theme-quartz {
+  --ag-row-height: 72px;
+  --ag-cell-horizontal-border: solid 1px #cbd5e1;
+  --ag-header-column-separator-display: block;
+  --ag-header-column-separator-color: #cbd5e1;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-row {
+  min-height: 72px !important;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-header-cell.fee-mgmt-grid-cell,
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-grid-cell {
+  border-right: 1px solid #cbd5e1 !important;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-header-cell.fee-mgmt-grid-cell:last-child,
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-grid-cell:last-child {
+  border-right: none !important;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-student-cell,
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-student-cell .ag-cell-value {
+  align-items: flex-start !important;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  white-space: normal;
+  line-height: 1.35;
+  overflow: visible;
+}
+
+.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-compact-cell,
+.fee-mgmt-data-table .ag-theme-quartz .ag-header-cell.fee-mgmt-compact-cell {
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  justify-content: center;
+}
+
+/* University wallet passbook — Angular light-blue table header + search row */
+.wallet-passbook-table .app-data-table > div:first-child {
+  background: transparent;
+  border-bottom: 0;
+  padding: 0 0 0.75rem;
+}
+
+.wallet-passbook-table .app-data-table .ag-theme-quartz {
+  --ag-header-background-color: #e8f4fc;
+  --ag-border-color: #dbeafe;
+  border: 1px solid #dbeafe;
+}
+
+.wallet-passbook-table .app-data-table .ag-theme-quartz .ag-header-cell-text {
+  color: #1e293b;
+  text-transform: none;
+  font-weight: 600;
+}
+
+.wallet-passbook-table .app-data-table > div:last-child {
+  padding-top: 0;
+}
+
+.app-data-table .ag-theme-quartz .ag-pinned-right-header,
+.app-data-table .ag-theme-quartz .ag-pinned-left-header {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Reusable control tokens */
+.app-control {
+  height: var(--app-control-height);
+  font-size: var(--app-control-font-size);
+}
+
+.app-label {
+  font-size: var(--app-label-font-size);
+}
+
+.app-table-head-cell {
+  font-size: var(--app-table-header-font-size);
+}
+
+.app-table-value-cell {
+  font-size: var(--app-table-row-font-size);
+}
+
+/* Native table typography baseline (for pages not using DataTable yet) */
+.app-card table th {
+  font-size: var(--app-table-header-font-size);
+  font-weight: 600;
+}
+
+.app-card table td {
+  font-size: var(--app-table-row-font-size);
+  line-height: 1.2;
+  font-weight: 500;
+  vertical-align: middle;
 }
 
 /* ── App-wide card shadow utility ─────────────────────────────────────────── */
 .app-card {
   border: 1px solid hsl(var(--border));
   background: hsl(var(--card));
-  border-radius: 0.75rem; /* ~rounded-xl */
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 30px rgba(15, 23, 42, 0.04);
+  border-radius: 0.625rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+.app-card:hover {
+  border-color: hsl(var(--border) / 0.8);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 16px rgba(15, 23, 42, 0.04);
 }
 
 /* Global compact spacing between stacked cards */
@@ -134,10 +317,10 @@ main .app-card + .app-card {
    ───────────────────────────────────────────────────────────────────────── */
 .theme-examination {
   /* Typography */
-  font-family: var(--font-inter), var(--font-geist-sans), system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: 'Inter', sans-serif;
 
   /* Canvas and surfaces (warm, subtle contrast) */
-  --background: 220 33% 97%;           /* cool app canvas (reference) */
+  --background: 220 24% 94%;           /* slightly darker canvas for clearer card contrast */
   --foreground: 222 47% 12%;           /* near-navy text */
   --card: 0 0% 100%;                   /* pure white cards */
   --card-foreground: 222 47% 12%;
@@ -145,7 +328,7 @@ main .app-card + .app-card {
   --popover-foreground: 222 47% 12%;
 
   /* Brand and accents */
-  --primary: 199 89% 48%;              /* hsl(199 89% 48% / 1) */
+  --primary: 175 42% 48%;              /* teal */
   --primary-foreground: 0 0% 100%;
   --secondary: 39 84% 55%;             /* amber-500 */
   --secondary-foreground: 0 0% 100%;
@@ -163,7 +346,7 @@ main .app-card + .app-card {
   /* Borders & focus */
   --border: 220 13% 92%;
   --input: 220 13% 92%;
-  --ring: 199 89% 48%;                 /* match primary */
+  --ring: 175 42% 48%;                 /* match primary */
 
   /* Radii — slightly rounder */
   --radius: 0.625rem;
@@ -176,7 +359,7 @@ main .app-card + .app-card {
   --sidebar-surface: 217 33% 17%;
   --sidebar-foreground: 215 20% 70%;
   --sidebar-foreground-active: 0 0% 100%;
-  --sidebar-primary: 199 89% 48%;
+  --sidebar-primary: 175 42% 48%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 223 92% 62%;
   --sidebar-border: 217 33% 20%;
@@ -202,33 +385,37 @@ main .app-card + .app-card {
    DESIGN TOKENS — Dark Mode
    ───────────────────────────────────────────────────────────────────────── */
 .dark {
-  --background: 222 47% 7%;
-  --foreground: 210 40% 96%;
-  --card: 222 47% 10%;
-  --card-foreground: 210 40% 96%;
-  --popover: 222 47% 10%;
-  --popover-foreground: 210 40% 96%;
-  --primary: 199 89% 48%;
+  --background: 210 30% 8%;
+  --foreground: 210 30% 96%;
+  --card: 210 30% 11%;
+  --card-foreground: 210 30% 96%;
+  --popover: 210 30% 11%;
+  --popover-foreground: 210 30% 96%;
+  --primary: 200 65% 55%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 32 80% 38%;             /* darker amber for dark bg */
-  --secondary-foreground: 0 0% 100%;
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 60%;
-  --accent: 217 33% 17%;
-  --accent-foreground: 210 40% 96%;
-  --destructive: 0 63% 31%;
-  --destructive-foreground: 210 40% 96%;
-  --border: 217 33% 18%;
-  --input: 217 33% 18%;
-  --ring: 199 89% 48%;
-  --sidebar-background: 225 47% 5%;
-  --sidebar-surface: 222 47% 10%;
-  --sidebar-foreground: 215 20% 55%;
+  --secondary: 210 20% 18%;
+  --secondary-foreground: 210 30% 92%;
+  --muted: 210 20% 16%;
+  --muted-foreground: 210 15% 65%;
+  --accent: 174 50% 50%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 65% 50%;
+  --destructive-foreground: 210 30% 96%;
+  --border: 210 20% 20%;
+  --input: 210 20% 20%;
+  --ring: 200 65% 55%;
+  --sidebar-background: 210 30% 9%;
+  --sidebar-surface: 210 25% 13%;
+  --sidebar-foreground: 210 18% 65%;
   --sidebar-foreground-active: 0 0% 100%;
-  --sidebar-primary: 199 89% 48%;
+  --sidebar-primary: 200 65% 55%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 234 89% 74%;
-  --sidebar-border: 222 47% 13%;
+  --sidebar-accent: 174 50% 50%;
+  --sidebar-accent-foreground: 0 0% 100%;
+  --sidebar-border: 210 22% 16%;
+  --sidebar-active-bg: 200 65% 55% / 0.18;
+  --sidebar-hover-bg: 210 22% 14%;
+  --sidebar-section-label: 210 14% 55%;
 
   /* Headings (dark mode) */
   --page-title: 210 40% 96%;
@@ -400,8 +587,94 @@ html {
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
-  line-height: 1.6;
+  font-family: var(--font-body), 'Manrope', system-ui, -apple-system, sans-serif;
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+}
+
+/* Heading rhythm — apply Sora for display headings but let pages keep their own
+   size via Tailwind utilities. Only utility classes .h1/.h2 carry the full
+   token-driven sizing; raw <h1>/<h2> get font-family + color only so existing
+   page-level `text-[Npx]` overrides are honored. */
+h1, h2, h3, h4, .h1, .h2, .h3 {
+  font-family: var(--font-heading), 'Sora', system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.015em;
+}
+.h1 {
+  font-size: var(--font-size-page-title);
+  font-weight: 600;
+  line-height: 1.25;
+  color: hsl(var(--page-title));
+}
+.h2 {
+  font-size: var(--font-size-section-title);
+  font-weight: 600;
+  line-height: 1.35;
+  color: hsl(var(--section-title));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CARD TITLE — kept as a hook (semantic & for any future themes) but hidden,
+   since the page title is now carried by the breadcrumb's last segment.
+   The wrapper row containing this element is also hidden via :has() so the
+   card chrome collapses to just the toolbar row + table.
+   ───────────────────────────────────────────────────────────────────────── */
+.app-card-title {
+  display: none;
+}
+.app-card > div:has(> .app-card-title),
+.app-card > div:has(> * > .app-card-title),
+/* Catch any bespoke heading that still references the card-title or primary
+   color tokens — these are page titles we want to hide and let the breadcrumb
+   carry. The :has(>) restricts to direct children so it won't hide content
+   inside nested cards/sections. */
+.app-card > div:has(> h1[class*="card-title"]),
+.app-card > div:has(> h2[class*="card-title"]),
+.app-card > div:has(> h3[class*="card-title"]),
+.app-card > div:has(> h1[class*="#007e7a"]),
+.app-card > div:has(> h2[class*="#007e7a"]),
+.app-card > div:has(> h3[class*="#007e7a"]),
+/* Catch h2/h3 titles that just use "text-primary" or "text-teal-600" tokens
+   (no card-title var). These are bespoke page titles introduced ad-hoc by
+   individual pages and would otherwise duplicate the breadcrumb. We only
+   match these when the heading is a DIRECT child of the card's first wrapper
+   div — keeps legitimate section subheaders untouched. */
+.app-card > div:first-child:has(> h2[class*="text-primary"]),
+.app-card > div:first-child:has(> h3[class*="text-primary"]),
+.app-card > div:first-child:has(> h2[class*="text-teal-600"]),
+.app-card > div:first-child:has(> h3[class*="text-teal-600"]) {
+  display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SIDEBAR — section labels, nav item, active pill
+   ───────────────────────────────────────────────────────────────────────── */
+.sidebar-section-label {
+  font-size: var(--font-size-nav-section);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--sidebar-section-label));
+  padding: 0.875rem 0.875rem 0.375rem;
+  line-height: 1;
+}
+
+.nav-item {
+  font-size: var(--font-size-nav);
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+}
+
+.nav-item-active {
+  background: hsl(var(--sidebar-active-bg));
+  color: hsl(var(--sidebar-foreground-active));
+  font-weight: 600;
+}
+
+.nav-item-hover:hover {
+  background: hsl(var(--sidebar-hover-bg));
+  color: hsl(var(--sidebar-foreground-active));
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -437,11 +710,11 @@ textarea:focus-visible,
   background: transparent;
 }
 .scrollbar-sidebar::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.12);
+  background: hsl(var(--sidebar-foreground) / 0.18);
   border-radius: 2px;
 }
 .scrollbar-sidebar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.22);
+  background: hsl(var(--sidebar-foreground) / 0.35);
 }
 
 /* Standard thin scrollbar for content areas */
@@ -501,13 +774,13 @@ textarea:focus-visible,
 .table-toolbar input[type="text"],
 .table-toolbar input[type="search"],
 .table-toolbar .search-input {
-  height: 2rem; /* 32px ≈ h-8 */
-  font-size: 12px;
+  height: 2rem;
+  font-size: var(--app-control-font-size);
 }
 .table-toolbar button {
-  height: 2rem; /* h-8 */
-  font-size: 12px;
-  padding-left: 0.75rem;  /* px-3 */
+  height: 2rem;
+  font-size: var(--app-control-font-size);
+  padding-left: 0.75rem;
   padding-right: 0.75rem;
 }
 
@@ -554,5 +827,94 @@ textarea:focus-visible,
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   PRINT — minimal chrome-free print sheet
+   ─────────────────────────────────────────────────────────────────────────────
+   Per-button selective printing is done in the page (conditional-render: the
+   print mode unmounts the normal UI and renders just the chosen print layout
+   while window.print() runs, then resets on afterprint).
+   This block is the housekeeping CSS that applies to every print regardless:
+   - hide app chrome (aside / nav / header / .print-hide / [data-print-hide]);
+   - force white background and black text;
+   - 1cm page margin;
+   - keep rows together where possible;
+   - flip .print-only blocks on, .screen-only blocks off.
+*/
+
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  [data-print-hide],
+  .print-hide,
+  aside,
+  nav,
+  header {
+    display: none !important;
+  }
+
+  /* AppShell uses flex containers that, with sidebar+topbar hidden, can
+     leave the content visually off-centre. Strip layout padding/margin on
+     html/body/main and reset Tailwind utility classes that trap print
+     content into a single screen-sized box (overflow-hidden, h-screen,
+     overflow-y-auto). */
+  html, body, main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .h-screen,
+  .overflow-hidden,
+  .overflow-y-auto,
+  .overflow-x-hidden,
+  div.flex.h-screen,
+  div.flex.min-w-0.flex-1.flex-col {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Force white background everywhere — Tailwind bg-[hsl(var(--background))]
+     and friends were bleeding through and printing as a grey sheet when the
+     browser was set to use default margins. */
+  html, body, main, .bg-card, .bg-background, .bg-muted, .bg-muted\/40 {
+    background: #fff !important;
+    background-color: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Render background colours / images during print. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    margin: 1cm;
+  }
+
+  tr,
+  thead,
+  tfoot {
+    page-break-inside: avoid;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .screen-only {
+    display: none !important;
+  }
+
+  /* Page-break helper for stickers / multi-section prints. */
+  .page-break {
+    page-break-before: always;
   }
 }

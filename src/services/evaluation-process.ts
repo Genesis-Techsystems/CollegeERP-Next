@@ -1,7 +1,6 @@
 import { buildQuery, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords, postDetails } from '@/services/crud'
-import { EXAM_EVAL_API, NEXT_API } from '@/config/constants/api'
+import { EXAM_EVAL_API, NEXT_API, QUESTION_PAPER_API } from '@/config/constants/api'
 import { getUnivExamFiltersByType, getUnivExamRestNoTtBundle, getUnivExamSubjectUc } from '@/services/pre-examination'
-import { toDateOnlyISO } from '@/common/generic-functions'
 
 type AnyRow = Record<string, any>
 
@@ -89,6 +88,355 @@ export async function createExamQuestionPaper(payload: Record<string, unknown>):
     }
   }
   throw new Error('Unable to create exam question paper.')
+}
+
+export async function updateExamQuestionPaper(
+  examQuestionPaperId: number,
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  // Angular calls the dedicated /updateExamQuestionPapers endpoint, not
+  // the generic /domain/update path. The endpoint expects the payload
+  // shape from createExamQuestionPaper plus the primary key.
+  const body = { ...payload, examQuestionPaperId, pkExamQuestionpaperId: examQuestionPaperId }
+  const res = await fetch(NEXT_API.PROXY('/updateExamQuestionPapers'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const json = (await res.json().catch(() => null)) as
+    | { success?: boolean; message?: string; data?: AnyRow }
+    | null
+  if (!res.ok || (json && json.success === false)) {
+    throw new Error(json?.message ?? `Update failed (${res.status}).`)
+  }
+  return (json?.data ?? {}) as AnyRow
+}
+
+/**
+ * Upload Question Paper and/or Model Answer Paper files for an
+ * exam question paper. Mirrors Angular UploadPapersComponent which
+ * builds a FormData with {questionPaperId, questionPaper, modelAnswerPaper}
+ * and POSTs to CONSTANTS.PaperPathUploadUrl ("examQuestionPaperPathUpload").
+ */
+export async function uploadQuestionPaperFiles(params: {
+  examQuestionPaperId: number
+  questionPapers?: File[] | null
+  modelAnswerPapers?: File[] | null
+}): Promise<{ message: string; data?: AnyRow }> {
+  const formData = new FormData()
+  formData.append('questionPaperId', String(params.examQuestionPaperId))
+  for (const f of params.questionPapers ?? []) {
+    formData.append('questionPaper', f, f.name)
+  }
+  for (const f of params.modelAnswerPapers ?? []) {
+    formData.append('modelAnswerPaper', f, f.name)
+  }
+  // Angular target endpoint:
+  //   /cms/uploadquestionpapermodelanswerpapers
+  const res = await fetch(NEXT_API.PROXY('/uploadquestionpapermodelanswerpapers'), {
+    method: 'POST',
+    body: formData,
+  })
+  const body = (await res.json().catch(() => null)) as
+    | { success?: boolean; message?: string; data?: AnyRow }
+    | null
+  if (!res.ok || (body && body.success === false)) {
+    throw new Error(body?.message ?? `Upload failed (${res.status}).`)
+  }
+  return { message: body?.message ?? 'Uploaded successfully.', data: body?.data }
+}
+
+export async function getAssignQuestionPaperTemplateList(params: {
+  examId: number
+  courseYearId: number
+  regulationId: number
+  subjectId?: number
+}): Promise<AnyRow[]> {
+  const unpackRows = (payload: unknown): AnyRow[] => {
+    if (Array.isArray(payload)) return payload as AnyRow[]
+    const obj = (payload ?? {}) as Record<string, unknown>
+    const result0 = (obj.result as unknown[] | undefined)?.[0]
+    if (Array.isArray(result0)) return result0 as AnyRow[]
+    const nestedData = (obj.data ?? {}) as Record<string, unknown>
+    const nestedResult0 = (nestedData.result as unknown[] | undefined)?.[0]
+    if (Array.isArray(nestedResult0)) return nestedResult0 as AnyRow[]
+    return []
+  }
+
+  const payload = {
+    in_exam_id: params.examId,
+    in_course_year_id: params.courseYearId,
+    in_regulation_id: params.regulationId,
+    in_subject_id: params.subjectId ?? 0,
+  }
+
+  // Primary backend proc (confirmed): s_get_question_paper_assignments
+  try {
+    const primary = await getAllRecords<unknown>('s_get_question_paper_assignments', payload)
+    const rows = unpackRows(primary)
+    if (rows.length > 0) return rows
+  } catch {
+    // fall through to legacy endpoint/proc candidates
+  }
+
+  const endpointCandidates = ['getQuestionPaperAssignments', 'getQPAssignments']
+  for (const endpoint of endpointCandidates) {
+    try {
+      const data = await fetchDetails<unknown>(endpoint, payload)
+      const rows = unpackRows(data)
+      if (rows.length > 0) return rows
+    } catch {
+      // try next candidate
+    }
+  }
+
+  const procCandidates = ['s_get_examquestionpaper_details', 's_get_examevaluation_bycodes']
+  for (const proc of procCandidates) {
+    try {
+      const data = await getAllRecords<unknown>(proc, {
+        in_flag: 'getQuestionPaperAssignments',
+        ...payload,
+      })
+      const rows = unpackRows(data)
+      if (rows.length > 0) return rows
+    } catch {
+      // try next proc
+    }
+  }
+  return []
+}
+
+export async function getQuestionPaperTemplateViewRows(
+  templateId: number,
+  examQuestionPaperId?: number,
+): Promise<AnyRow[]> {
+  if (!templateId) return []
+  const payload = {
+    in_flag: 'list_exam_questionpaper_details',
+    in_orgid: 1,
+    in_fdate: '1990-01-01',
+    in_tdate: '1990-01-01',
+    in_exam_questionpaper_template_id: templateId,
+    // Angular's "View Questions" path (view-template-questions) passes the
+    // question paper id so the proc returns the actual saved questions for
+    // that paper, not the blank template skeleton. The "View Template"
+    // path (view-template-modal) passes 0.
+    in_exam_questionpaper_id: examQuestionPaperId ?? 0,
+    in_exam_id: 0,
+    in_course_year_id: 0,
+    in_subject_id: 0,
+    in_evalutor_profileid: 0,
+    in_exam_date: '1990-01-01',
+    in_regulation_id: 0,
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: 0,
+    in_exam_evaluationassignment_id: 0,
+  }
+  const data = await getAllRecords<{ result?: AnyRow[][] }>('s_get_examquestionpaper_details', payload).catch(() => ({ result: [] }))
+  return Array.isArray(data?.result?.[0]) ? data.result?.[0] ?? [] : []
+}
+
+/**
+ * Fetch a single QuestionPaperMarks row by id (used to pre-fill the
+ * "Edit Question" modal on manage-questions-paper). Angular calls
+ * listDetailsById on CONSTANTS.ExamQuestionPaperMarksCrudUrl.
+ */
+export async function getQuestionPaperMarksById(
+  questionPaperMarksId: number,
+): Promise<AnyRow | null> {
+  if (!questionPaperMarksId) return null
+  const rows = await domainList<AnyRow>(
+    'ExamQuestionPaperMarks',
+    buildQuery({ questionPaperMarksId }),
+  ).catch(() => [])
+  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+}
+
+/**
+ * Update a QuestionPaperMarks row (question text / isActive). Mirrors
+ * Angular updateQuestion() -> crudService.updateDetails on the same
+ * CRUD url with key = questionPaperMarksId.
+ */
+export async function updateQuestionPaperMarks(
+  questionPaperMarksId: number,
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  return domainUpdate<AnyRow>(
+    'ExamQuestionPaperMarks',
+    'questionPaperMarksId',
+    questionPaperMarksId,
+    payload,
+  )
+}
+
+/**
+ * Create a QuestionPaperMarks row (used by Question Bank + Add Manual
+ * Question flows). Mirrors Angular addDetails on
+ * CONSTANTS.ExamQuestionPaperMarksCrudUrl.
+ */
+export async function createQuestionPaperMarks(
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  // Angular posts to ExamQuestionPaperMarksCrudUrl ('ExamQuestionPaperMarks').
+  // Do NOT fall back to 'QuestionPaperMarks' — that entity persists the row
+  // without the level/group/subgroup positional fields, so the question-paper
+  // detail proc can't match it to its template slot (question never shows).
+  return domainCreate<AnyRow>('ExamQuestionPaperMarks', payload)
+}
+
+/**
+ * List Assessment rows for a subject (used by Question Bank flow as
+ * the "question paper banks" the user picks from). Mirrors Angular
+ * listDetailsByTwoIdWithSort on CONSTANTS.assessmentCrudUrl with
+ * onlineCourses.onlineCourseCode == subjectCode, sorted by createdDt
+ * DESC. Each Assessment carries assessmentQuestionDTOs[] with the
+ * questions inside the bank.
+ */
+export async function listAssessmentsBySubjectCode(
+  subjectCode: string,
+): Promise<AnyRow[]> {
+  const code = String(subjectCode ?? '').trim()
+  if (!code) return []
+  // Join conditions with the backend's '.and.' operator (NOT a literal '&',
+  // which crud.list() percent-encodes to %26 -> Spring 400s). Produces:
+  //   onlineCourses.onlineCourseCode==U21HSN02EG.and.isActive==true.order(createdDt=DESC)
+  const q = buildQuery(
+    { 'onlineCourses.onlineCourseCode': code, isActive: true },
+    { field: 'createdDt', direction: 'DESC' },
+  )
+  return domainList<AnyRow>('Assessment', q)
+}
+
+/**
+ * Resolve a subject's code from its id via the Subject domain entity.
+ * Fallback for the Question Bank flow: the evaluation subject-filter proc
+ * (univ_exam_subject_uc) doesn't reliably expose subject_code, so when the
+ * code isn't carried in the URL we look it up here. Subject.subjectCode is
+ * the same value the Assessment list matches against onlineCourses.onlineCourseCode.
+ */
+export async function getSubjectCodeById(subjectId: number): Promise<string> {
+  if (!subjectId) return ''
+  const rows = await domainList<AnyRow>('Subject', buildQuery({ subjectId })).catch(() => [])
+  const row = Array.isArray(rows) ? rows[0] : null
+  return String(row?.subjectCode ?? row?.subject_code ?? '').trim()
+}
+
+/** Recursively find the first non-empty value for any of `keys` anywhere in `obj`. */
+function deepFindValue(obj: unknown, keys: string[], depth = 0): unknown {
+  if (obj == null || typeof obj !== 'object' || depth > 6) return undefined
+  const record = obj as Record<string, unknown>
+  // Direct keys on this object first.
+  for (const k of keys) {
+    const v = record[k]
+    if (v != null && String(v).trim() !== '') return v
+  }
+  // Then descend into nested objects/arrays.
+  for (const v of Object.values(record)) {
+    if (v && typeof v === 'object') {
+      const found = deepFindValue(v, keys, depth + 1)
+      if (found != null) return found
+    }
+  }
+  return undefined
+}
+
+/**
+ * Resolve a subject code from a question-paper id. Ultimate fallback for the
+ * Question Bank flow: questionPaperId is always carried in the URL, so even if
+ * subjectCode and subjectId are missing we can still fire the Assessment list.
+ * The ExamQuestionPaper record exposes a `subjectCode` field; we deep-scan the
+ * response for it (it may sit on a nested relation), then fall back to a
+ * subjectId lookup.
+ */
+export async function getSubjectCodeByQuestionPaperId(questionPaperId: number): Promise<string> {
+  if (!questionPaperId) return ''
+  // The CRUD entity is 'ExamQuestionPapers' and its primary key is
+  // 'questionPaperId' (Angular ExamQuestionPaperCrudUrl, updateDetails key
+  // 'questionPaperId'). 'ExamQuestionPaper' (singular) does not exist and
+  // querying by 'examQuestionPaperId' 500s. The row carries the subject
+  // relation; deep-scan it for the code, else fall back to a subjectId lookup.
+  const rows = await domainList<AnyRow>(
+    'ExamQuestionPapers',
+    buildQuery({ questionPaperId }),
+  ).catch(() => [])
+  const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null
+  if (!row) return ''
+  const code = deepFindValue(row, ['subjectCode', 'subject_code'])
+  if (code != null && String(code).trim() !== '') return String(code).trim()
+  const sid = Number(deepFindValue(row, ['subjectId', 'fk_subject_id']) ?? 0)
+  return sid ? getSubjectCodeById(sid) : ''
+}
+
+/**
+ * GeneralDetail rows for the Question Type modal "Difficulty Level" dropdown.
+ * Mirrors Angular listDetailsByTwoIds(generalDetailsUrl, QuestionDifficulty,
+ * 'true', generalDetailsByCodeUrl, isActive) — GM code 'QuestionDifficulty'.
+ */
+export async function listQuestionDifficultyLevels(): Promise<AnyRow[]> {
+  const q = buildQuery({ 'GeneralMaster.generalMasterCode': 'QuestionDifficulty', isActive: true })
+  return domainList<AnyRow>('GeneralDetail', q)
+}
+
+/**
+ * GeneralDetail rows for the Question Type modal "Taxonomy Level" dropdown.
+ * Mirrors Angular listDetailsByTwoIdsWithSort(generalDetailsUrl,
+ * QuestionTaxonomyLevel, 'true', 'ASC', generalDetailsByCodeUrl, isActive,
+ * 'generalDetailSortOrder') — GM code 'QuestionTaxonomyLevel', ordered.
+ */
+export async function listQuestionTaxonomyLevels(): Promise<AnyRow[]> {
+  const q = buildQuery(
+    { 'GeneralMaster.generalMasterCode': 'QuestionTaxonomyLevel', isActive: true },
+    { field: 'generalDetailSortOrder', direction: 'ASC' },
+  )
+  return domainList<AnyRow>('GeneralDetail', q)
+}
+
+export async function listQuestionPaperTemplates(): Promise<AnyRow[]> {
+  const entities = [
+    QUESTION_PAPER_API.QP_TEMPLATE,
+    'ExamQuestionpaperTemplate',
+    'ExamQuestionPaperTemplate',
+    'ExamQpTemplate',
+  ].filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+  const queries = ['order(examQuestionPaperTemplateId=ASC)', buildQuery({ isActive: true })]
+  for (const entity of entities) {
+    for (const query of queries) {
+      try {
+        const rows = await domainList<AnyRow>(entity, query)
+        if (Array.isArray(rows) && rows.length > 0) return rows
+      } catch {
+        // try next entity/query
+      }
+    }
+  }
+  return []
+}
+
+export async function createQuestionPaperTemplateAssignment(payload: {
+  examMasterId: number
+  regulationId: number
+  subjectId: number
+  examQuestionpaperTemplateId: number
+  courseYearId: number
+  isActive: boolean
+}): Promise<AnyRow> {
+  return domainCreate<AnyRow>(QUESTION_PAPER_API.QP_TEMP_ASSIGN, payload)
+}
+
+export async function updateQuestionPaperTemplateAssignment(
+  assignmentId: number,
+  payload: {
+    examQptempAssignId: number
+    examMasterId: number
+    regulationId: number
+    subjectId: number
+    examQuestionpaperTemplateId: number
+    courseYearId: number
+    isActive: boolean
+  },
+): Promise<AnyRow> {
+  return domainUpdate<AnyRow>(QUESTION_PAPER_API.QP_TEMP_ASSIGN, 'examQptempAssignId', assignmentId, payload)
 }
 
 export async function getEvaluationApprovalsFilters(employeeId: number): Promise<AnyRow[]> {
@@ -260,27 +608,18 @@ export async function listFinalizableQuestionPapers(params: {
 
 export async function finalizeOneQuestionPaper(params: {
   questionPaperId: number
-  approvedByEmpId: number
+  data?: Record<string, unknown>
   statusCatDetId?: number
 }): Promise<AnyRow> {
+  // Angular Finalize(): updateDetails(ExamQuestionPaperCrudUrl, fullRecord,
+  // questionPaperId, 'questionPaperId') with questionPaperStatusCatDetId = 623
+  // (Approved). Re-send the full mapped record so the update does not null out
+  // the paper's other columns. Entity = 'ExamQuestionPapers', PK = questionPaperId.
   const payload = {
+    ...(params.data ?? {}),
     questionPaperStatusCatDetId: params.statusCatDetId ?? 623,
-    approvedByEmpId: params.approvedByEmpId || 0,
-    approvedDate: toDateOnlyISO(new Date()),
-    isActive: true,
   }
-  const entities = ['ExamQuestionPaper', 'ExamQuestionPapers']
-  const pks = ['questionPaperId', 'examQuestionPaperId', 'pk_exam_questionpaper_id']
-  for (const entity of entities) {
-    for (const pk of pks) {
-      try {
-        return await domainUpdate<AnyRow>(entity, pk, params.questionPaperId, payload)
-      } catch {
-        // try next variant
-      }
-    }
-  }
-  throw new Error('Unable to finalize question paper.')
+  return domainUpdate<AnyRow>('ExamQuestionPapers', 'questionPaperId', params.questionPaperId, payload)
 }
 
 export async function listViewFinalQuestionPapers(params: {
@@ -503,21 +842,35 @@ export async function listEvaluationModerationData(params: {
     in_academic_year_id: params.academicYearId,
     in_loginuser_empid: params.employeeId || 0,
   }
-  const evaluatorData = await getAllRecords<{ result: AnyRow[][] }>('s_get_examevaluation_bycodes', {
-    in_flag: 'list_evaluatorassignment_list',
-    ...common,
-    in_evaluator_role_id: 64,
-  })
-  const studentData = await getAllRecords<{ result: AnyRow[][] }>('s_get_examevaluation_bycodes', {
-    in_flag: 'list_evaluationstudent_list',
-    ...common,
-    in_evaluator_role_id: 0,
-  })
+  const toResultGroups = async (
+    flag: 'list_evaluatorassignment_list' | 'list_evaluationstudent_list',
+    evaluatorRoleId: number,
+  ): Promise<AnyRow[][]> => {
+    try {
+      const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_examevaluation_bycodes', {
+        in_flag: flag,
+        ...common,
+        in_evaluator_role_id: evaluatorRoleId,
+      })
+      return data?.result ?? []
+    } catch (error: any) {
+      // "No Records(s) found." is a valid empty-state for this flow.
+      const msg = String(error?.message ?? '')
+      if (msg.toLowerCase().includes('no records')) return []
+      throw error
+    }
+  }
+
+  const evaluatorGroups = await toResultGroups('list_evaluatorassignment_list', 64)
+  const studentGroups = await toResultGroups('list_evaluationstudent_list', 0)
   return {
-    evaluators: evaluatorData?.result?.[0] ?? [],
-    totals: studentData?.result?.[1] ?? [],
-    omrRows: evaluatorData?.result?.[2] ?? [],
-    students: studentData?.result?.[0] ?? [],
+    // Angular getEvaluationList(): result[0]=evaluators, result[1]=stats
+    // (totalStudents/NoOfAnswerpapersUploaded/UnAssinged), result[2]=omr-per-evaluator.
+    evaluators: evaluatorGroups[0] ?? [],
+    totals: evaluatorGroups[1] ?? [],
+    omrRows: evaluatorGroups[2] ?? [],
+    // Angular getstudentList(): result[0]=students (OMRs to assign).
+    students: studentGroups[0] ?? [],
   }
 }
 
@@ -528,7 +881,9 @@ export async function assignModerationEvaluation(params: {
   courseYearId: number
   omrSerialNos: string
 }): Promise<AnyRow> {
-  return getAllRecords<AnyRow>('s_get_examevaluation_bycodes', {
+  // Angular Assign(): evaluatorassignmentUrl = s_pop_exam_evaluatorassignment
+  // (NOT the read proc s_get_examevaluation_bycodes).
+  return getAllRecords<AnyRow>('s_pop_exam_evaluatorassignment', {
     in_flag: 'AssignModerationEvaluation',
     in_profileids: params.profileId,
     in_exam_evaluationassignment_ids: '',
@@ -538,6 +893,151 @@ export async function assignModerationEvaluation(params: {
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
   })
+}
+
+export async function getChiefEvaluationFilters(employeeId: number): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
+    in_flag: 'univ_exam_inep_filters',
+    in_flag_type: 'CHIEF_EVAL',
+    in_university_id: 0,
+    in_college_id: 0,
+    in_course_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_exam_id: 0,
+    in_academic_year_id: 0,
+    in_regulation_id: 0,
+    in_subject_id: 0,
+    in_loginuser_empid: employeeId || 0,
+    in_loginuser_roleid: 0,
+    in_sub_flag_type: 'ALL',
+    in_param1: 0,
+    in_param2: 'REGSUP',
+  }).catch(() => ({ result: [] }))
+  const groups = data?.result ?? []
+  return groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_inep_filters') ?? []
+}
+
+export async function getChiefEvaluationSubjectFilters(params: {
+  courseId: number
+  examId: number
+  academicYearId: number
+  employeeId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
+    in_flag: 'univ_exam_subject_inep',
+    in_flag_type: 'CHIEF_EVAL',
+    in_university_id: 0,
+    in_college_id: 0,
+    in_course_id: params.courseId,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_exam_id: params.examId,
+    in_academic_year_id: params.academicYearId,
+    in_regulation_id: 0,
+    in_subject_id: 0,
+    in_loginuser_empid: params.employeeId || 0,
+    in_loginuser_roleid: 0,
+    in_sub_flag_type: 'NoLAB',
+    in_param1: 0,
+    in_param2: 0,
+  }).catch(() => ({ result: [] }))
+  const groups = data?.result ?? []
+  return groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_sub_inep') ?? []
+}
+
+export async function listChiefEvaluationRows(params: {
+  employeeId: number
+  organizationId: number
+  examId: number
+  courseId: number
+  academicYearId: number
+  courseYearId: number
+  regulationId: number
+  subjectId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_examevaluation_bycodes', {
+    in_flag: 'list_evaluationApprovalstudent_list',
+    in_orgid: params.organizationId || 1,
+    in_fdate: '1990-01-01',
+    in_tdate: '1990-01-01',
+    in_evalutor_profileid: 0,
+    in_exam_date: '1990-01-01',
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: 0,
+    in_academic_year: '',
+    in_exam_short_name: '',
+    in_affiliatedto_catdet_id: 0,
+    in_exam_id: params.examId,
+    in_course_year_id: params.courseYearId,
+    in_subject_id: params.subjectId,
+    in_regulation_id: params.regulationId,
+    in_course_id: params.courseId,
+    in_academic_year_id: params.academicYearId,
+    in_loginuser_empid: params.employeeId || 0,
+  }).catch(() => ({ result: [] }))
+  return (data?.result?.[0] ?? []).filter(Boolean)
+}
+
+export async function getChiefEvaluatorDetails(params: {
+  employeeId: number
+  organizationId: number
+  examId: number
+  courseId: number
+  academicYearId: number
+  courseYearId: number
+  regulationId: number
+  subjectId: number
+}): Promise<{ chiefDetails: AnyRow[]; marks: AnyRow[]; chiefEvaluations: AnyRow[] }> {
+  // Angular getChiefEvaluatorDetails() reads ALL three result groups:
+  //   result[0] = chief details (assignment_allowed),
+  //   result[1] = per-evaluator marks list (the pivot source, has evaluator_number),
+  //   result[2] = the chief's own evaluations ("My Evaluations" column).
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_examevaluation_bycodes', {
+    in_flag: 'chief_evaluator_details',
+    in_orgid: params.organizationId || 1,
+    in_fdate: '1990-01-01',
+    in_tdate: '1990-01-01',
+    in_evalutor_profileid: 0,
+    in_exam_date: '1990-01-01',
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: 0,
+    in_academic_year: '',
+    in_exam_short_name: '',
+    in_affiliatedto_catdet_id: 0,
+    in_exam_id: params.examId,
+    in_course_year_id: params.courseYearId,
+    in_subject_id: params.subjectId,
+    in_regulation_id: params.regulationId,
+    in_course_id: params.courseId,
+    in_academic_year_id: params.academicYearId,
+    in_loginuser_empid: params.employeeId || 0,
+  }).catch(() => ({ result: [] }))
+  const groups = data?.result ?? []
+  return {
+    chiefDetails: (groups[0] ?? []).filter(Boolean),
+    marks: (groups[1] ?? []).filter(Boolean),
+    chiefEvaluations: (groups[2] ?? []).filter(Boolean),
+  }
+}
+
+export async function assignChiefEvaluation(params: {
+  evaluatorProfileId: number
+  evaluatorProfileDetId: number
+  examEvaluationAssignmentId: number
+  omrSerialNo: string
+}): Promise<AnyRow> {
+  const payload = {
+    in_flag: 'chief_eval_assignment',
+    in_evaluator_profile_id: params.evaluatorProfileId,
+    in_evaluator_profiledet_id: params.evaluatorProfileDetId,
+    in_exam_evaluationassignment_id: params.examEvaluationAssignmentId,
+    in_omr_serial_no: params.omrSerialNo,
+  }
+  // Angular popExamChiefEvalAssign = s_pop_exam_chief_eval_assgn (note 'assgn').
+  return getAllRecords<AnyRow>('s_pop_exam_chief_eval_assgn', payload)
 }
 
 export async function getAssignSubjectsEvaluatorRoles(): Promise<AnyRow[]> {
@@ -649,17 +1149,38 @@ export async function getEvaluatorSubjectRolesSubjects(params: {
   return groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_sub_regexamstd') ?? []
 }
 
+/**
+ * Post-save "map evaluators" side effects fired by the Angular subject-roles
+ * submit(): populate the profile→employee mapping, then set up exam committees.
+ * Both are fire-and-forget stored procs (responses are ignored).
+ */
+export async function popProfileEmployees(profileId: number): Promise<void> {
+  if (!profileId) return
+  await getAllRecords('s_pop_profile_employees', { in_profile_id: profileId }).catch(() => null)
+}
+
+export async function setupExamCommittees(): Promise<void> {
+  await getAllRecords('s_pop_exam_committees', { in_flag: 'exam_committees' }).catch(() => null)
+}
+
 /** Child rows for an evaluator profile (domain list; entity name may vary by backend). */
 export async function listExamEvaluatorProfileDetails(profileId: number): Promise<AnyRow[]> {
-  const q = buildQuery({ examEvaluatorProfileId: profileId })
-  const entities = ['ExamEvaluatorProfileDetails', 'ExamEvaluatorProfileDetail']
-  for (const entity of entities) {
-    try {
-      const rows = await domainList<AnyRow>(entity, q)
-      if (Array.isArray(rows) && rows.length) return rows
-    } catch {
-      // try next entity name
-    }
+  if (!profileId) return []
+  // Angular uses the dedicated getExamEvaluatorProfileDetails endpoint
+  // (?examEvaluatorProfileId=<id>), NOT the generic domain/list.
+  const res = await fetch(
+    NEXT_API.PROXY(`getExamEvaluatorProfileDetails?examEvaluatorProfileId=${profileId}`),
+  ).catch(() => null)
+  if (!res || !res.ok) return []
+  const body = (await res.json().catch(() => null)) as
+    | AnyRow[]
+    | { data?: AnyRow[] | { resultList?: AnyRow[] } }
+    | null
+  if (Array.isArray(body)) return body
+  const data = (body as { data?: AnyRow[] | { resultList?: AnyRow[] } } | null)?.data
+  if (Array.isArray(data)) return data
+  if (data && Array.isArray((data as { resultList?: AnyRow[] }).resultList)) {
+    return (data as { resultList?: AnyRow[] }).resultList ?? []
   }
   return []
 }
@@ -704,7 +1225,63 @@ export async function updateExamEvaluationSetting(
 }
 
 export async function listEvaluatorProfiles(): Promise<AnyRow[]> {
-  return domainList<AnyRow>(EXAM_EVAL_API.EVALUATOR_PROFILES)
+  // Newest first (Angular list adds query=order(createdDt=desc)).
+  return domainList<AnyRow>(EXAM_EVAL_API.EVALUATOR_PROFILES, 'order(createdDt=desc)')
+}
+
+/**
+ * Title (salutation) options for the Create/Edit Evaluator dialog. Mirrors
+ * Angular getTitle() -> GeneralDetail by generalMasterCode 'TITLE'. Each row
+ * has generalDetailId + generalDetailName/generalDetailDisplayName.
+ */
+export async function listEvaluatorTitles(): Promise<AnyRow[]> {
+  const q = buildQuery({ 'GeneralMaster.generalMasterCode': 'TITLE', isActive: true })
+  return domainList<AnyRow>('GeneralDetail', q)
+}
+
+/**
+ * Evaluator bank details (Angular AddBankDetails/postBankDetails/UpdateBankDetails
+ * on ExamEvaluatorBankDetailsUrl). Existing rows are looked up by the nested
+ * examEvaluatorProfiles.examEvaluatorProfileId; create sends examEvaluatorProfilesId,
+ * update keys on evaluatorBankDetailId.
+ */
+export async function getEvaluatorBankDetails(profileId: number): Promise<AnyRow[]> {
+  if (!profileId) return []
+  const q = buildQuery({ 'examEvaluatorProfiles.examEvaluatorProfileId': profileId })
+  return domainList<AnyRow>(EXAM_EVAL_API.EVALUATOR_BANK_DETAILS, q).catch(() => [])
+}
+
+export async function createEvaluatorBankDetails(payload: Record<string, unknown>): Promise<AnyRow> {
+  return domainCreate<AnyRow>(EXAM_EVAL_API.EVALUATOR_BANK_DETAILS, payload)
+}
+
+export async function updateEvaluatorBankDetails(
+  evaluatorBankDetailId: number,
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  return domainUpdate<AnyRow>(
+    EXAM_EVAL_API.EVALUATOR_BANK_DETAILS,
+    'evaluatorBankDetailId',
+    evaluatorBankDetailId,
+    payload,
+  )
+}
+
+/**
+ * Employee name/number search for the "Existing Employee" picker in the
+ * Create Evaluator dialog. Mirrors Angular enteredEmployee() ->
+ * listByIds(employeeSearchUrl, term, 'q') i.e. GET <employeeSearchUrl>?q=<term>.
+ * TODO: confirm the exact employeeSearchUrl from the legacy global constants.
+ */
+export async function searchEvaluatorEmployees(q: string): Promise<AnyRow[]> {
+  const term = String(q ?? '').trim()
+  if (!term) return []
+  const res = await fetch(NEXT_API.PROXY(`employeesearch?q=${encodeURIComponent(term)}`)).catch(() => null)
+  if (!res || !res.ok) return []
+  const body = (await res.json().catch(() => null)) as { data?: AnyRow[] } | AnyRow[] | null
+  if (Array.isArray(body)) return body
+  if (body && Array.isArray(body.data)) return body.data
+  return []
 }
 
 export async function createEvaluatorProfile(payload: Record<string, unknown>): Promise<AnyRow> {

@@ -12,11 +12,13 @@ import { toastError, toastSuccess } from '@/lib/toast'
 import { listExamLabBatches } from '@/services/exam-lab-batches'
 import {
   getAssignSubjectsEvaluatorRoles,
-  getEvaluationExamFilters,
+  getEvaluatorSubjectRolesExamFilters,
   getEvaluationModerationRest,
   getEvaluatorSubjectRolesSubjects,
   listEvaluatorProfiles,
   listExamEvaluatorProfileDetails,
+  popProfileEmployees,
+  setupExamCommittees,
   updateEvaluatorProfile,
 } from '@/services/evaluation-process'
 import { PageContainer, PageHeader } from '@/components/layout'
@@ -290,7 +292,8 @@ export default function EvaluatorSubjectRolesPage() {
     void (async () => {
       setLoading(true)
       try {
-        const filters = await getEvaluationExamFilters(employeeId).catch(() => [])
+        // Angular getExamFiltersList(): univ_exam_filters with REGSUP flag_type.
+        const filters = await getEvaluatorSubjectRolesExamFilters(employeeId).catch(() => [])
         const f = Array.isArray(filters) ? filters : []
         setFilterRows(f)
         if (f[0]) setCourseId(pickNum(f[0], ['fk_course_id', 'courseId']))
@@ -416,15 +419,11 @@ export default function EvaluatorSubjectRolesPage() {
   }
 
   function addToTable() {
+    // Required only up to Role; college / course group / course year / lab
+    // batch are optional (Angular: the form is valid once role is chosen).
     if (!courseId || !academicYearId || !examId || !regulationId || !subjectId || !roleId) {
       toastError('Please select course, academic year, exam, regulation, subject, and role.')
       return
-    }
-    if (displayFilters) {
-      if (!collegeId || !courseGroupId || !courseYearId) {
-        toastError('Please select course year, college, and course group for this role.')
-        return
-      }
     }
 
     const exam = getExamRow(examId)
@@ -449,10 +448,10 @@ export default function EvaluatorSubjectRolesPage() {
             evaluatorRoleId: roleId,
             regulationId,
             subjectId,
-            collegeId: collegeId ?? 0,
-            courseGroupId: courseGroupId ?? 0,
-            courseYearId: courseYearId ?? 0,
-            examLabBatchesId: examLabBatchesId ?? 0,
+            collegeId: collegeId ?? null,
+            courseGroupId: courseGroupId ?? null,
+            courseYearId: courseYearId ?? null,
+            examLabBatchesId: examLabBatchesId ?? null,
             isReEvaluation,
             maxNoOfEvaluationsAssign: isReEvaluation ? undefined : Number(maxNoOfEvaluationsAssign || 0),
             maxNoOfReevaluationsAssign: isReEvaluation ? Number(maxNoOfReevaluationsAssign || 0) : undefined,
@@ -466,10 +465,10 @@ export default function EvaluatorSubjectRolesPage() {
             regulationId,
             evaluatorRoleId: roleId,
             subjectId,
-            collegeId: collegeId ?? 0,
-            courseGroupId: courseGroupId ?? 0,
-            courseYearId: courseYearId ?? 0,
-            examLabBatchesId: examLabBatchesId ?? 0,
+            collegeId: collegeId ?? null,
+            courseGroupId: courseGroupId ?? null,
+            courseYearId: courseYearId ?? null,
+            examLabBatchesId: examLabBatchesId ?? null,
             isReEvaluation,
             maxNoOfEvaluationsAssign: isReEvaluation ? undefined : Number(maxNoOfEvaluationsAssign || 0),
             maxNoOfReevaluationsAssign: isReEvaluation ? Number(maxNoOfReevaluationsAssign || 0) : undefined,
@@ -545,6 +544,10 @@ export default function EvaluatorSubjectRolesPage() {
         examEvaluatorProfileId: profileId,
         examEvaluatorProfileDetailsDTOS: detailPayloads,
       })
+      // Angular submit() success chain: map profile→employees, then set up
+      // exam committees (the implicit "Map evaluators" side effects).
+      await popProfileEmployees(profileId)
+      await setupExamCommittees()
       toastSuccess('Saved successfully.')
       router.push('/admin-examination-management/evaluation-process/create-evaluators')
     } catch (e: any) {
@@ -570,12 +573,12 @@ export default function EvaluatorSubjectRolesPage() {
   }
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Evaluator Subject Roles" subtitle="Manage evaluator subject role assignments" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center gap-2">
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-[hsl(var(--primary))]" />
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">
+          <h2 className="app-card-title">
             {dialogTitle} — {evaluatorName}
           </h2>
         </div>
@@ -677,7 +680,10 @@ export default function EvaluatorSubjectRolesPage() {
                 <Select
                   value={examLabBatchesId ? String(examLabBatchesId) : null}
                   onChange={(v) => setExamLabBatchesId(v ? Number(v) : null)}
-                  options={examLabBatches.map((b) => ({ value: String(pickNum(b, ['eaxmLabBatchId', 'examLabBatchesId'])), label: pickText(b, ['batchName']) } as SelectOption))}
+                  options={examLabBatches.map((b) => ({
+                    value: String(pickNum(b, ['eaxmLabBatchId', 'examLabBatchesId', 'exam_lab_batches_id', 'pk_eaxm_lab_batch_id'])),
+                    label: pickText(b, ['batchName', 'examLabBatchName', 'batch_name', 'exam_lab_batch_name']),
+                  } as SelectOption))}
                   placeholder="Lab batch"
                 />
               </div>
@@ -746,11 +752,11 @@ export default function EvaluatorSubjectRolesPage() {
 
       {tableRows.length > 0 && (
         <div className="app-card overflow-hidden">
-          <div className="px-3 py-2 border-b border-slate-200 bg-slate-50/60 text-[13px] font-medium">{dialogTitle}</div>
+          <div className="px-3 py-2 border-b border-border bg-muted/40 text-[13px] font-medium">{dialogTitle}</div>
           <div className="overflow-x-auto p-2">
             <table className="w-full text-[12px] border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 text-left text-muted-foreground">
+                <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="p-2 font-medium">Exam</th>
                   <th className="p-2 font-medium">Role</th>
                   <th className="p-2 font-medium">Regulation</th>

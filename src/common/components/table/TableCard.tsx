@@ -26,12 +26,12 @@ export function TableCard({
   return (
     <div className={cn('app-card overflow-hidden', className)}>
       {(headerLeft || headerRight) && (
-        <div className="table-toolbar flex items-center justify-between gap-2.5 p-2.5">
-          <div className="flex items-center gap-3">{headerLeft}</div>
-          <div className="flex items-center gap-2">{headerRight}</div>
+        <div className="table-toolbar flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-3 min-w-0">{headerLeft}</div>
+          <div className="flex items-center gap-2 shrink-0">{headerRight}</div>
         </div>
       )}
-      <div className={cn(withHeaderBorder && 'border-t border-slate-200', 'p-1.5')}>
+      <div className={cn(withHeaderBorder && 'border-t border-border', 'p-2')}>
         {children}
       </div>
     </div>

@@ -1,0 +1,45 @@
+<div class="layout">
+   <div class="printbtn">
+      <button id="printPageButton" mat-raised-button class="back-btn" (click)="printBack()">Back</button>
+      <button id="printPageButton" mat-raised-button color="accent" (click)="printPage('printsection')">Print</button>
+   </div>
+   <div *ngFor="let bundleGroup of groupedByBundleData; let i = index" class="room-section">
+
+      <div fxLayout="row">
+         <div fxLayout="column" fxFlex="100" fxFlex.gt-xs="100" fxFlex.gt-md="100">
+            <table id="table-print">
+               <thead>
+                  <tr>
+                     <td class="header-cell">
+                        <span class="span-1">{{bundleGroup[1][0]?.exam_group_code}}</span><br>
+                        <span>{{bundleGroup[1][0]?.ec_code}}</span><br>
+                        <span>{{bundleGroup[1][0]?.exam_date}}</span><br>
+                        <span>{{bundleGroup[1][0]?.subject_name}}-{{bundleGroup[1][0]?.subject_code}}</span>
+                     </td>
+                  </tr>
+               </thead>
+               <tbody>
+                  <tr style="margin:0px 35px; display: block;">
+                     <td *ngFor="let data of bundleGroup[1]" class="sticker-td">
+                        <span
+                           style="display: flex; justify-content: center; margin-bottom: -3px; font-size: 12px !important;">
+                           <span><b>{{data?.ec_seat_no}}</b>({{data?.hallticket_number}})</span>
+                        </span>
+                        <img [src]="'data:image/jpg;base64,'+data?.omr_barcode"
+                           style="height:30px; width:180px !important;" />
+                        <span style="display: flex; justify-content: center; font-size:6.5px; margin-top: 1px;">
+                           {{data?.exam_date}}({{data?.session_time}}){{data?.subject_code}}
+                        </span>
+                     </td>
+                  </tr>
+               </tbody>
+            </table>
+         </div>
+      </div>
+   </div>
+
+   <div class="printbtn">
+      <button id="printPageButton" mat-raised-button class="back-btn" (click)="printBack()">Back</button>
+      <button id="printPageButton" mat-raised-button color="accent" (click)="printPage('printsection')">Print</button>
+   </div>
+</div>

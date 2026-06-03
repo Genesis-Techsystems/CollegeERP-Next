@@ -29,14 +29,23 @@ export interface FormModalProps {
   title: string
   description?: string
   /** Called when the <form> fires its submit event. */
-  onSubmit: (e: React.FormEvent) => void
+  onSubmit: (e: { preventDefault: () => void }) => void
   isSubmitting?: boolean
   submitLabel?: string
+  cancelLabel?: string
   children: React.ReactNode
   /** Controls DialogContent max-width. Defaults to 'md'. */
   size?: 'sm' | 'md' | 'lg' | 'xl'
   /** Extra class applied to the inner form element. */
   formClassName?: string
+  /** Extra class applied to DialogContent wrapper. */
+  contentClassName?: string
+  /** Extra class applied to title. */
+  titleClassName?: string
+  /** Hide top-right close icon when false. */
+  showCloseButton?: boolean
+  /** Render a full-width divider under modal header. */
+  showHeaderDivider?: boolean
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -52,41 +61,56 @@ export function FormModal({
   onSubmit,
   isSubmitting = false,
   submitLabel = 'Save',
+  cancelLabel = 'Cancel',
   children,
   size = 'md',
   formClassName,
-}: FormModalProps) {
+  contentClassName,
+  titleClassName,
+  showCloseButton = true,
+  showHeaderDivider = false,
+}: Readonly<FormModalProps>) {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent
         className={cn(
-          'max-h-[90vh] overflow-y-auto',
+          'flex max-h-[90vh] flex-col overflow-hidden sm:max-h-[92vh]',
+          !showCloseButton && '[&>button]:hidden',
           sizeClass[size],
+          contentClassName,
         )}
       >
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+        <DialogHeader
+          className={cn('shrink-0', showHeaderDivider && 'border-b border-border pb-3')}
+        >
+          <DialogTitle className={titleClassName}>{title}</DialogTitle>
           {description && (
             <DialogDescription>{description}</DialogDescription>
           )}
         </DialogHeader>
 
-        <form
-          onSubmit={onSubmit}
-          className={cn('space-y-4 py-2', formClassName)}
-        >
-          {children}
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div
+            className={cn(
+              'min-h-0 flex-1 space-y-4 overflow-y-auto py-2 scrollbar-hidden',
+              formClassName,
+            )}
+          >
+            {children}
+          </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 gap-2 border-t border-border/60 bg-background pt-3 sm:justify-end">
             <Button
               type="button"
               variant="outline"
+              size="sm"
+              className="h-9 min-w-[5.5rem]"
               onClick={onClose}
               disabled={isSubmitting}
             >
-              Cancel
+              {cancelLabel}
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" size="sm" className="h-9 min-w-[5.5rem]" disabled={isSubmitting}>
               {isSubmitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}

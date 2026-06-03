@@ -1,779 +1,557 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Label } from '@/components/ui/label'
+import { useSessionContext } from '@/context/SessionContext'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { TableCard, DataTable } from '@/common/components/table'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
+import { Select } from '@/common/components/select'
 import { distinct } from '@/lib/utils'
-import { buildQuery } from '@/services/crud'
-import { createExamFeeStructure, getCollegeFilters, listCourseYears, listExamFeeStructures, listExamMasters, updateExamFeeStructure } from '@/services/examination'
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Pencil, Plus, ChevronDown, Filter } from 'lucide-react'
-import { Checkbox } from '@/components/ui/checkbox'
+  computeCascadeFromRows,
+  deriveExamOptions,
+  sortAcademicYearsDesc,
+} from '@/lib/univ-exam-filter-cascade'
+import { buildQuery } from '@/services/crud'
+import {
+  getUnivExamFiltersForExamFeeSetup,
+  getUnivExamRestCollegesForRevaluationFee,
+  listExamFeeStructures,
+  resolveExamLoginEmpId,
+} from '@/services'
+import { Pencil, Plus, Filter, ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { format } from 'date-fns'
 
-// ── Pure renderer ─────────────────────────────────────────────────────────────
 function statusRenderer(p: ICellRendererParams) {
-	return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />
+}
+
+function formatExamMasterLabel(e: {
+  examName: string
+  fromDate?: unknown
+  toDate?: unknown
+  isInternalExam?: boolean
+  isRegularExam?: boolean
+  isSupplyExam?: boolean
+}): string {
+  let datePart = ''
+  try {
+    const fd = e.fromDate ? new Date(String(e.fromDate)) : null
+    const td = e.toDate ? new Date(String(e.toDate)) : null
+    if (fd && !Number.isNaN(fd.getTime()) && td && !Number.isNaN(td.getTime())) {
+      datePart = ` (${format(fd, 'dd MMM, yyyy')} - ${format(td, 'dd MMM, yyyy')})`
+    }
+  } catch {
+    datePart = ''
+  }
+  let tags = ''
+  if (e.isInternalExam) tags += ' (Internal)'
+  if (e.isRegularExam) tags += ' (Regular)'
+  if (e.isSupplyExam) tags += ' (Supple)'
+  return `${e.examName}${datePart}${tags}`.trim()
+}
+
+function getSuppleFeeText(row: Record<string, unknown>): string {
+  const asText = (value: unknown): string => {
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value)
+    return ''
+  }
+  const subjectFees = [
+    row.subject1Fee,
+    row.subject2Fee,
+    row.subject3Fee,
+    row.subject4Fee,
+    row.subject5Fee,
+    row.subject6Fee,
+    row.subject7Fee,
+  ]
+  const parts = subjectFees
+    .map((value, idx) => ({ idx: idx + 1, value }))
+    .map((x) => ({ ...x, text: asText(x.value).trim() }))
+    .filter((x) => x.text !== '')
+    .map((x) => `Subject-${x.idx} - ${x.text}`)
+  if (parts.length > 0) return parts.join(', ')
+  const direct = asText(row.suppleFee ?? row.supplyFee).trim()
+  return direct !== '' ? direct : '—'
 }
 
 export default function RevaluationFeeSetupPage() {
-	const router = useRouter()
-	const [loadingFilters, setLoadingFilters] = useState(true)
-	const [filtersData, setFiltersData] = useState<any[]>([])
-	const [academicData, setAcademicData] = useState<any[]>([])
-	const [filterOpen, setFilterOpen] = useState(true)
+  const { user } = useSessionContext()
+  const router = useRouter()
 
-	const [universities, setUniversities] = useState<any[]>([])
-	const [courses, setCourses] = useState<any[]>([])
-	const [academicYears, setAcademicYears] = useState<any[]>([])
-	const [examMasters, setExamMasters] = useState<any[]>([])
-	const [colleges, setColleges] = useState<any[]>([])
+  const [loadingFilters, setLoadingFilters] = useState(true)
+  const [filtersData, setFiltersData] = useState<any[]>([])
+  const [filterOpen, setFilterOpen] = useState(true)
 
-	const [selectedUniversityId, setSelectedUniversityId] = useState<number | null>(null)
-	const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
-	const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<number | null>(null)
-	const [selectedExamId, setSelectedExamId] = useState<number | null>(null)
-	const [selectedCollegeId, setSelectedCollegeId] = useState<number | null>(null)
+  const [universities, setUniversities] = useState<any[]>([])
+  const [courses, setCourses] = useState<any[]>([])
+  const [academicYears, setAcademicYears] = useState<any[]>([])
+  const [examMasters, setExamMasters] = useState<any[]>([])
+  const [colleges, setColleges] = useState<any[]>([])
 
-	const [rows, setRows] = useState<any[]>([])
-	const [loadingList, setLoadingList] = useState(false)
-	const [q, setQ] = useState('')
-	const [hasFetched, setHasFetched] = useState(false)
+  const [selectedUniversityId, setSelectedUniversityId] = useState<number | null>(null)
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
+  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<number | null>(null)
+  const [selectedExamId, setSelectedExamId] = useState<number | null>(null)
+  const [selectedCollegeId, setSelectedCollegeId] = useState<number | null>(null)
 
-	// Modal state
-	const [modalOpen, setModalOpen] = useState(false)
-	const [editing, setEditing] = useState<any | null>(null)
-	const [saving, setSaving] = useState(false)
-	const [form, setForm] = useState({
-		examFeeStructureName: '',
-		collectionStartDate: '',
-		collectionEndDate: '',
-		regularFee: '',
-		suppleFee: '',
-		isActive: true,
-	})
+  const [rows, setRows] = useState<any[]>([])
+  const [loadingList, setLoadingList] = useState(false)
+  const [loadingColleges, setLoadingColleges] = useState(false)
 
-	// Add-page specific state
-	const [courseYears, setCourseYears] = useState<any[]>([])
-	const [selectedCourseYearIds, setSelectedCourseYearIds] = useState<number[]>([])
-	const [revalSubjectFees, setRevalSubjectFees] = useState<{ one?: string; two?: string; three?: string; four?: string; five?: string }>({
-		one: '',
-		two: '',
-		three: '',
-		four: '',
-		five: '',
-	})
-	type LateFeeFine = { name: string; startDate: string; endDate: string; regFeeFine?: string; suppleFeeFine?: string }
-	const [lateFeeName, setLateFeeName] = useState('')
-	const [lateFeeStart, setLateFeeStart] = useState('')
-	const [lateFeeEnd, setLateFeeEnd] = useState('')
-	const [lateFeeReg, setLateFeeReg] = useState('')
-	const [lateFeeSupple, setLateFeeSupple] = useState('')
-	const [lateFeeFines, setLateFeeFines] = useState<LateFeeFine[]>([])
+  const fetchFilters = useCallback(async () => {
+    setLoadingFilters(true)
+    try {
+      const empId = resolveExamLoginEmpId(user?.employeeId)
+      const rows = await getUnivExamFiltersForExamFeeSetup(empId)
+      const list = Array.isArray(rows) ? rows : []
+      setFiltersData(list)
 
-	type AdditionalFee = { name: string; type: 'regular' | 'supple'; amount: string }
-	const [addFeeName, setAddFeeName] = useState('')
-	const [addFeeType, setAddFeeType] = useState<'regular' | 'supple'>('regular')
-	const [addFeeAmount, setAddFeeAmount] = useState('')
-	const [additionalFees, setAdditionalFees] = useState<AdditionalFee[]>([])
+      const unis = distinct(
+        list.filter((r: any) => r && r.fk_university_id != null && r.fk_university_id !== ''),
+        (r: any) => r.fk_university_id,
+      )
+      setUniversities(unis)
 
-	const fetchFilters = useCallback(async () => {
-		setLoadingFilters(true)
-		try {
-			const { filtersData: filters, academicData: academic } = await getCollegeFilters(0, 0)
-			setFiltersData(filters ?? [])
-			setAcademicData(academic ?? [])
-			const unis = distinct(filters ?? [], (r) => r.fk_university_id)
-			setUniversities(unis)
-			if (unis.length > 0) {
-				handleUniversityChange(unis[0].fk_university_id, filters, academic)
-			}
-		} finally {
-			setLoadingFilters(false)
-		}
-	}, [])
+      if (unis.length > 0) {
+        const uniId = unis[0].fk_university_id
+        setSelectedUniversityId(uniId)
+        const c = computeCascadeFromRows(uniId, list)
+        setCourses(c.courses)
+        setSelectedCourseId(c.firstCourse)
+        setAcademicYears(c.academicYears)
+        setSelectedAcademicYearId(c.firstAy)
+        setExamMasters(c.exams)
+        setSelectedExamId(c.firstExam)
+      } else {
+        setSelectedUniversityId(null)
+        setCourses([])
+        setSelectedCourseId(null)
+        setAcademicYears([])
+        setSelectedAcademicYearId(null)
+        setExamMasters([])
+        setSelectedExamId(null)
+      }
+      setColleges([])
+      setSelectedCollegeId(null)
+      setRows([])
+    } finally {
+      setLoadingFilters(false)
+    }
+  }, [user?.employeeId])
 
-	useEffect(() => {
-		fetchFilters()
-	}, [fetchFilters])
+  useEffect(() => {
+    fetchFilters()
+  }, [fetchFilters])
 
-	function handleUniversityChange(universityId: number, filtersRef = filtersData, academicRef = academicData) {
-		setSelectedUniversityId(universityId)
-		setSelectedCourseId(null)
-		setSelectedAcademicYearId(null)
-		setSelectedExamId(null)
-		setSelectedCollegeId(null)
-		setRows([])
-		setHasFetched(false)
+  function handleUniversityChange(universityId: number, filtersRef = filtersData) {
+    setSelectedUniversityId(universityId)
+    setSelectedCourseId(null)
+    setSelectedAcademicYearId(null)
+    setSelectedExamId(null)
+    setSelectedCollegeId(null)
+    setColleges([])
+    setRows([])
 
-		const filtered = (filtersRef ?? []).filter((r: any) => r.fk_university_id === universityId)
-		const distinctCourses = distinct(filtered, (r: any) => r.fk_course_id)
-		setCourses(distinctCourses)
+    const ref = filtersRef ?? []
+    const c = computeCascadeFromRows(universityId, ref)
+    setCourses(c.courses)
+    setSelectedCourseId(c.firstCourse)
+    setAcademicYears(c.academicYears)
+    setSelectedAcademicYearId(c.firstAy)
+    setExamMasters(c.exams)
+    setSelectedExamId(c.firstExam)
+  }
 
-		const years = distinct((academicRef ?? []).filter((a: any) => a.fk_university_id === universityId), (a: any) => a.fk_academic_year_id)
-		setAcademicYears(years)
-		setColleges([])
-	}
+  function handleCourseChange(courseId: number) {
+    if (!selectedUniversityId) return
+    setSelectedCourseId(courseId)
+    setSelectedAcademicYearId(null)
+    setSelectedExamId(null)
+    setSelectedCollegeId(null)
+    setColleges([])
+    setRows([])
 
-	useEffect(() => {
-		if (!selectedUniversityId || !selectedCourseId) {
-			setColleges([])
-			setSelectedCollegeId(null)
-			return
-		}
-		const filtered = (filtersData ?? []).filter(
-			(r: any) => r.fk_university_id === selectedUniversityId && r.fk_course_id === selectedCourseId,
-		)
-		const distinctColleges = distinct(filtered, (r: any) => r.fk_college_id)
-		setColleges(distinctColleges)
-		setSelectedCollegeId(distinctColleges.length > 0 ? distinctColleges[0].fk_college_id : null)
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [selectedCourseId, selectedUniversityId])
+    const ref = filtersData
+    const aySource = ref.filter(
+      (r: any) =>
+        r &&
+        Number(r.fk_university_id) === Number(selectedUniversityId) &&
+        Number(r.fk_course_id) === Number(courseId),
+    )
+    const ayDistinct = sortAcademicYearsDesc(
+      distinct(aySource, (r: any) => r.fk_academic_year_id).filter((r: any) => r.fk_academic_year_id != null),
+    )
+    setAcademicYears(ayDistinct)
+    const firstAy = ayDistinct[0]?.fk_academic_year_id ?? null
+    setSelectedAcademicYearId(firstAy)
+    if (firstAy != null) {
+      const examOpts = deriveExamOptions(ref, selectedUniversityId, courseId, firstAy)
+      setExamMasters(examOpts)
+      setSelectedExamId(examOpts[0]?.examId ?? null)
+    } else {
+      setExamMasters([])
+      setSelectedExamId(null)
+    }
+  }
 
-	useEffect(() => {
-		async function loadExamMasters() {
-			setExamMasters([])
-			setSelectedExamId(null)
-			setRows([])
-			if (!selectedCourseId || !selectedAcademicYearId) return
+  function handleAcademicYearChange(ayId: number) {
+    if (!selectedUniversityId || !selectedCourseId) return
+    setSelectedAcademicYearId(ayId)
+    setSelectedExamId(null)
+    setSelectedCollegeId(null)
+    setColleges([])
+    setRows([])
+    const examOpts = deriveExamOptions(filtersData, selectedUniversityId, selectedCourseId, ayId)
+    setExamMasters(examOpts)
+    setSelectedExamId(examOpts[0]?.examId ?? null)
+  }
 
-			const query = buildQuery({
-				'Course.courseId': selectedCourseId,
-				'AcademicYear.academicYearId': selectedAcademicYearId,
-				isActive: true,
-			})
-			const exams = await listExamMasters(query)
-			const list = Array.isArray(exams) ? exams : []
-			setExamMasters(list)
-			if (list.length > 0) setSelectedExamId(list[0].examId ?? list[0].id ?? null)
+  function handleExamChange(examId: number | null) {
+    setSelectedExamId(examId)
+    setSelectedCollegeId(null)
+    setColleges([])
+    setRows([])
+  }
 
-			// Also load Course Years for the selected course
-			const years = selectedCourseId ? await listCourseYears(selectedCourseId) : []
-			setCourseYears(Array.isArray(years) ? years : [])
-			setSelectedCourseYearIds([])
-			setHasFetched(false)
-		}
-		loadExamMasters()
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [selectedCourseId, selectedAcademicYearId])
+  useEffect(() => {
+    if (!selectedUniversityId || !selectedCourseId || !selectedAcademicYearId || !selectedExamId) {
+      setColleges([])
+      setSelectedCollegeId(null)
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      setLoadingColleges(true)
+      try {
+        const empId = resolveExamLoginEmpId(user?.employeeId)
+        const raw = await getUnivExamRestCollegesForRevaluationFee({
+          employeeId: empId,
+          universityId: selectedUniversityId,
+          courseId: selectedCourseId,
+          examId: selectedExamId,
+          academicYearId: selectedAcademicYearId,
+        })
+        if (cancelled) return
+        const list = distinct(Array.isArray(raw) ? raw : [], (r: any) => Number(r.fk_college_id))
+        setColleges(list)
+        // No default college — user must choose; table shows only after selection (Angular parity).
+        setSelectedCollegeId(null)
+      } finally {
+        if (!cancelled) setLoadingColleges(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedUniversityId, selectedCourseId, selectedAcademicYearId, selectedExamId, user?.employeeId])
 
-	async function handleGetList() {
-		if (!selectedExamId) return
-		setLoadingList(true)
-		try {
-			const where: Record<string, string | number | boolean> = {
-				'ExamMaster.examId': selectedExamId,
-				isActive: true,
-			}
-			if (selectedCollegeId) where['College.collegeId'] = selectedCollegeId
-			const query = buildQuery(where)
-			const data = await listExamFeeStructures(query)
-			setRows(Array.isArray(data) ? data : [])
-			setHasFetched(true)
-		} finally {
-			setLoadingList(false)
-		}
-	}
+  const loadFeeStructures = useCallback(async () => {
+    if (!selectedExamId || !selectedCollegeId) return
+    setLoadingList(true)
+    try {
+      const query = buildQuery({
+        'examMaster.examId': selectedExamId,
+        'College.collegeId': selectedCollegeId,
+        isActive: true,
+      })
+      const data = await listExamFeeStructures(query)
+      setRows(Array.isArray(data) ? data : [])
+    } finally {
+      setLoadingList(false)
+    }
+  }, [selectedExamId, selectedCollegeId])
 
-	const filteredRows = useMemo(() => {
-		if (!q.trim()) return rows
-		const lower = q.toLowerCase()
-		return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(lower))
-	}, [q, rows])
+  useEffect(() => {
+    if (!selectedExamId || !selectedCollegeId) {
+      setRows([])
+      return
+    }
+    void loadFeeStructures()
+  }, [selectedExamId, selectedCollegeId, loadFeeStructures])
 
-	const cols = useMemo<ColDef<any>[]>(() => [
-		{ headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
-		{ field: 'examFeeStructureName', headerName: 'Re-Valuation Fee Structure', minWidth: 260 },
-		{
-			headerName: 'Exam Master',
-			minWidth: 260,
-			valueGetter: (p) => p.data?.examMaster?.examName ?? p.data?.examMasterName ?? p.data?.examName ?? '—',
-		},
-		{
-			headerName: 'Collection Start Date',
-			minWidth: 170,
-			valueGetter: (p) => {
-				const v = p.data?.collectionStartDate ?? p.data?.collectionStartOn ?? p.data?.fromDate
-				if (!v) return '—'
-				const d = new Date(v)
-				return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString()
-			},
-		},
-		{
-			headerName: 'Collection End Date',
-			minWidth: 170,
-			valueGetter: (p) => {
-				const v = p.data?.collectionEndDate ?? p.data?.collectionEndOn ?? p.data?.toDate
-				if (!v) return '—'
-				const d = new Date(v)
-				return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString()
-			},
-		},
-		{ headerName: 'Regular Fee', minWidth: 130, valueGetter: (p) => p.data?.regularFee ?? p.data?.regFee ?? '—' },
-		{ headerName: 'Supple Fee', minWidth: 130, valueGetter: (p) => p.data?.suppleFee ?? p.data?.supplyFee ?? '—' },
-		{ field: 'isActive', headerName: 'Status', minWidth: 110, cellRenderer: statusRenderer },
-		{
-			headerName: 'Actions',
-			minWidth: 110,
-			cellRenderer: (p: any) => (
-				<Button
-					type="button"
-					size="sm"
-					variant="ghost"
-					onClick={(e) => {
-						e.preventDefault()
-						e.stopPropagation()
-						openEdit(p.data)
-					}}
-					disabled={!selectedExamId}
-				>
-					<Pencil className="h-4 w-4" />
-				</Button>
-			),
-		},
-	], [selectedExamId])
+  const titleLine = useMemo(() => {
+    const col = colleges.find((c) => Number(c.fk_college_id) === Number(selectedCollegeId))
+    const ay = academicYears.find((a) => Number(a.fk_academic_year_id) === Number(selectedAcademicYearId))
+    const course = courses.find((c) => Number(c.fk_course_id) === Number(selectedCourseId))
+    const exam = examMasters.find((e) => Number(e.examId ?? e.id) === Number(selectedExamId))
+    const parts = [
+      col?.college_code ?? col?.college_name,
+      ay?.academic_year,
+      course?.course_code ?? course?.course_name,
+      exam ? formatExamMasterLabel(exam) : null,
+    ].filter(Boolean)
+    return parts.join(' / ')
+  }, [
+    colleges,
+    selectedCollegeId,
+    academicYears,
+    selectedAcademicYearId,
+    courses,
+    selectedCourseId,
+    examMasters,
+    selectedExamId,
+  ])
 
-	function openAdd() {
-		setEditing(null)
-		setForm({
-			examFeeStructureName: '',
-			collectionStartDate: '',
-			collectionEndDate: '',
-			regularFee: '',
-			suppleFee: '',
-			isActive: true,
-		})
-		setSelectedCourseYearIds([])
-		setRevalSubjectFees({ one: '', two: '', three: '', four: '', five: '' })
-		setLateFeeName(''); setLateFeeStart(''); setLateFeeEnd(''); setLateFeeReg(''); setLateFeeSupple('')
-		setLateFeeFines([])
-		setAddFeeName(''); setAddFeeType('regular'); setAddFeeAmount('')
-		setAdditionalFees([])
-		setModalOpen(true)
-	}
+  const examSelectOptions = useMemo(
+    () =>
+      examMasters.map((e) => ({
+        value: String(e.examId ?? e.id),
+        label: formatExamMasterLabel(e),
+      })),
+    [examMasters],
+  )
 
-	function openEdit(row: any) {
-		setEditing(row)
-		setForm({
-			examFeeStructureName: row?.examFeeStructureName ?? '',
-			collectionStartDate: String(row?.collectionStartDate ?? ''),
-			collectionEndDate: String(row?.collectionEndDate ?? ''),
-			regularFee: String(row?.regularFee ?? row?.regFee ?? ''),
-			suppleFee: String(row?.suppleFee ?? row?.supplyFee ?? ''),
-			isActive: row?.isActive !== undefined ? !!row.isActive : true,
-		})
-		setModalOpen(true)
-	}
+  const cols = useMemo<ColDef<any>[]>(() => [
+    { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
+    { field: 'examFeeStructureName', headerName: 'Re-Valuation Fee Structure', minWidth: 260 },
+    {
+      headerName: 'Exam Master',
+      minWidth: 260,
+      valueGetter: (p) => p.data?.examMaster?.examName ?? p.data?.examMasterName ?? p.data?.examName ?? '—',
+    },
+    {
+      headerName: 'Collection Start Date',
+      minWidth: 170,
+      valueGetter: (p) => {
+        const v = p.data?.collectionStartDate ?? p.data?.collectionStartOn ?? p.data?.fromDate
+        if (!v) return '—'
+        const d = new Date(v)
+        return Number.isNaN(d.getTime()) ? String(v) : format(d, 'dd MMM, yyyy')
+      },
+    },
+    {
+      headerName: 'Collection End Date',
+      minWidth: 170,
+      valueGetter: (p) => {
+        const v = p.data?.collectionEndDate ?? p.data?.collectionEndOn ?? p.data?.toDate
+        if (!v) return '—'
+        const d = new Date(v)
+        return Number.isNaN(d.getTime()) ? String(v) : format(d, 'dd MMM, yyyy')
+      },
+    },
+    { headerName: 'Regular Fee', minWidth: 130, valueGetter: (p) => p.data?.regularFee ?? p.data?.regFee ?? '—' },
+    {
+      headerName: 'Supple Fee',
+      minWidth: 130,
+      valueGetter: (p) => getSuppleFeeText((p.data ?? {}) as Record<string, unknown>),
+    },
+    { field: 'isActive', headerName: 'Status', minWidth: 110, cellRenderer: statusRenderer },
+    {
+      headerName: 'Actions',
+      minWidth: 110,
+      cellRenderer: (p: any) => (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            openEdit(p.data)
+          }}
+          disabled={!selectedExamId}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+      ),
+    },
+  ], [selectedExamId, colleges, selectedCollegeId, examMasters, courses, academicYears, selectedCourseId, selectedAcademicYearId, router])
 
-	function closeModal() {
-		setModalOpen(false)
-		setEditing(null)
-		setSaving(false)
-	}
+  function openEdit(row: any) {
+    const selectedExam = examMasters.find((e: any) => Number(e.examId ?? e.id) === Number(selectedExamId))
+    const selectedCourse = courses.find((c: any) => Number(c.fk_course_id) === Number(selectedCourseId))
+    const selectedYear = academicYears.find((a: any) => Number(a.fk_academic_year_id) === Number(selectedAcademicYearId))
+    const id = Number(row?.examFeeStructureId ?? row?.id ?? 0)
+    if (!id) return
+    const col = colleges.find((c) => Number(c.fk_college_id) === Number(selectedCollegeId))
+    const params = new URLSearchParams({
+      examFeeStructureId: String(id),
+      collegeId: String(selectedCollegeId ?? ''),
+      collegeName: String(col?.college_code ?? col?.college_name ?? ''),
+      courseId: String(selectedCourseId ?? ''),
+      academicYearId: String(selectedAcademicYearId ?? ''),
+      examId: String(selectedExamId ?? ''),
+      courseName: String(selectedCourse?.course_name ?? selectedCourse?.course_code ?? ''),
+      academicYear: String(selectedYear?.academic_year ?? ''),
+      examName: String(selectedExam?.examName ?? ''),
+      fromDate: String(selectedExam?.fromDate ?? ''),
+      toDate: String(selectedExam?.toDate ?? ''),
+    })
+    router.push(`/admin-examination-management/admin-exam-masters/re-valuation-fee-setup/create?${params.toString()}`)
+  }
 
-	async function save(e: any) {
-		e.preventDefault()
-		if (!selectedExamId) return
-		setSaving(true)
-		try {
-			const payload: Record<string, unknown> = {
-				examFeeStructureName: form.examFeeStructureName,
-				collectionStartDate: form.collectionStartDate || null,
-				collectionEndDate: form.collectionEndDate || null,
-				regularFee: form.regularFee === '' ? null : Number(form.regularFee),
-				suppleFee: form.suppleFee === '' ? null : Number(form.suppleFee),
-				isActive: form.isActive,
-				examId: selectedExamId,
-				examMaster: { examId: selectedExamId },
-			}
-			if (selectedCollegeId) {
-				payload['collegeId'] = selectedCollegeId
-				payload['College'] = { collegeId: selectedCollegeId } as any
-			}
-			// Extended fields (backend may ignore if not mapped)
-			payload['courseYearIds'] = selectedCourseYearIds
-			payload['revaluationSubjectFees'] = revalSubjectFees
-			payload['lateFeeFines'] = lateFeeFines
-			payload['additionalFees'] = additionalFees
-			const id = editing?.examFeeStructureId ?? editing?.id
-			if (id != null) await updateExamFeeStructure(Number(id), payload)
-			else await createExamFeeStructure(payload)
+  function openAdd() {
+    const selectedExam = examMasters.find((e: any) => Number(e.examId ?? e.id) === Number(selectedExamId))
+    const selectedCourse = courses.find((c: any) => Number(c.fk_course_id) === Number(selectedCourseId))
+    const selectedYear = academicYears.find((a: any) => Number(a.fk_academic_year_id) === Number(selectedAcademicYearId))
+    const col = colleges.find((c) => Number(c.fk_college_id) === Number(selectedCollegeId))
+    const params = new URLSearchParams({
+      collegeId: String(selectedCollegeId ?? ''),
+      collegeName: String(col?.college_code ?? col?.college_name ?? ''),
+      universityId: String(selectedUniversityId ?? ''),
+      courseId: String(selectedCourseId ?? ''),
+      academicYearId: String(selectedAcademicYearId ?? ''),
+      examId: String(selectedExamId ?? ''),
+      courseName: String(selectedCourse?.course_name ?? selectedCourse?.course_code ?? ''),
+      academicYear: String(selectedYear?.academic_year ?? ''),
+      examName: String(selectedExam?.examName ?? ''),
+      fromDate: String(selectedExam?.fromDate ?? ''),
+      toDate: String(selectedExam?.toDate ?? ''),
+    })
+    router.push(`/admin-examination-management/admin-exam-masters/re-valuation-fee-setup/create?${params.toString()}`)
+  }
 
-			closeModal()
-			await handleGetList()
-		} finally {
-			setSaving(false)
-		}
-	}
+  return (
+    <PageContainer className="space-y-4">
+      <PageHeader title="Exam Re-Valuation Fee Setup" subtitle="Configure re-valuation fee structures per college and exam" />
+      <div className="app-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Exam Re-Valuation Fee Setup</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-6 px-2.5 text-[12px]"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+          </Button>
+        </div>
+        {filterOpen && (
+          <div className="px-3 py-3 bg-card">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+              <div className="min-w-0 lg:col-span-2">
+                <Select
+                  label="University *"
+                  required
+                  className="[&_button]:h-8 [&_button]:text-[12px]"
+                  value={selectedUniversityId != null ? String(selectedUniversityId) : null}
+                  onChange={(v) => {
+                    if (!v) return
+                    handleUniversityChange(Number(v))
+                  }}
+                  options={universities.map((u) => ({
+                    value: String(u.fk_university_id),
+                    label: String(u.university_code ?? u.university_name ?? '—'),
+                  }))}
+                  disabled={loadingFilters}
+                  placeholder={loadingFilters ? 'Loading…' : 'Select University'}
+                />
+              </div>
+              <div className="min-w-0 lg:col-span-2">
+                <Select
+                  label="Course *"
+                  required
+                  className="[&_button]:h-8 [&_button]:text-[12px]"
+                  value={selectedCourseId != null ? String(selectedCourseId) : null}
+                  onChange={(v) => {
+                    if (!v) return
+                    handleCourseChange(Number(v))
+                  }}
+                  options={courses.map((c) => ({
+                    value: String(c.fk_course_id),
+                    label: String(c.course_code ?? c.course_name ?? '—'),
+                  }))}
+                  disabled={courses.length === 0}
+                  placeholder="Select Course"
+                />
+              </div>
+              <div className="min-w-0 lg:col-span-2">
+                <Select
+                  label="Exam Year *"
+                  required
+                  className="[&_button]:h-8 [&_button]:text-[12px]"
+                  value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
+                  onChange={(v) => {
+                    if (!v) return
+                    handleAcademicYearChange(Number(v))
+                  }}
+                  options={academicYears.map((a) => ({
+                    value: String(a.fk_academic_year_id),
+                    label: String(a.academic_year ?? '—'),
+                  }))}
+                  disabled={academicYears.length === 0}
+                  placeholder="Select Exam Year"
+                />
+              </div>
+              <div className="min-w-0 lg:col-span-4">
+                <Select
+                  label="Exam Master *"
+                  required
+                  searchable
+                  className="[&_button]:h-8 [&_button]:text-[12px]"
+                  value={selectedExamId != null ? String(selectedExamId) : null}
+                  onChange={(v) => handleExamChange(v != null ? Number(v) : null)}
+                  options={examSelectOptions}
+                  disabled={examMasters.length === 0}
+                  placeholder="Select Exam Master"
+                />
+              </div>
+              <div className="min-w-0 lg:col-span-2">
+                <Select
+                  label="College"
+                  clearable
+                  className="[&_button]:h-8 [&_button]:text-[12px]"
+                  value={selectedCollegeId != null ? String(selectedCollegeId) : null}
+                  onChange={(v) => {
+                    setSelectedCollegeId(v != null ? Number(v) : null)
+                    setRows([])
+                  }}
+                  options={colleges.map((c) => ({
+                    value: String(c.fk_college_id),
+                    label: String(c.college_code ?? c.college_name ?? '—'),
+                  }))}
+                  disabled={colleges.length === 0 || loadingColleges}
+                  placeholder={loadingColleges ? 'Loading…' : colleges.length === 0 ? 'No colleges' : 'Select College'}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
-	return (
-		<PageContainer className="space-y-5">
-		<PageHeader title="Re-Evaluation Fee Setup" subtitle="Configure re-evaluation fee structures" />
-			<div className="app-card overflow-hidden">
-				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-					<h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Re-Evaluation Fee Setup</h2>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						className="h-6 px-2.5 text-[12px]"
-						onClick={() => setFilterOpen((v) => !v)}
-						aria-expanded={filterOpen}
-					>
-						<Filter className="mr-1.5 h-3.5 w-3.5" />
-						Filter
-						<ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-					</Button>
-				</div>
-				{filterOpen && (
-				<div className="px-3 py-3">
-					<div className="rounded-xl border border-slate-200 bg-white p-4">
-						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
-							<div className="space-y-1 lg:col-span-2">
-								<Label>University *</Label>
-								<Select
-									value={selectedUniversityId != null ? String(selectedUniversityId) : undefined}
-									onValueChange={(v) => handleUniversityChange(Number(v))}
-									disabled={loadingFilters}
-								>
-									<SelectTrigger className="h-8 text-[12px]">
-										<SelectValue placeholder={loadingFilters ? 'Loading…' : 'Select University'} />
-									</SelectTrigger>
-									<SelectContent>
-										{universities.map((u) => (
-											<SelectItem key={u.fk_university_id} value={String(u.fk_university_id)}>
-												{u.university_code ?? u.university_name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
+      {selectedCollegeId != null && (
+        <>
+          <div className="app-card p-3 flex flex-wrap items-center gap-2">
+            <span className="text-[13px] font-medium text-slate-800">Re-Valuation Fee Structure :</span>
+            <span className="text-[13px] text-[hsl(var(--primary))] font-semibold">{titleLine || '—'}</span>
+          </div>
 
-							<div className="space-y-1 lg:col-span-2">
-								<Label>Course *</Label>
-								<Select
-									value={selectedCourseId != null ? String(selectedCourseId) : undefined}
-									onValueChange={(v) => setSelectedCourseId(Number(v))}
-									disabled={courses.length === 0}
-								>
-									<SelectTrigger className="h-8 text-[12px]">
-										<SelectValue placeholder="Select Course" />
-									</SelectTrigger>
-									<SelectContent>
-										{courses.map((c) => (
-											<SelectItem key={c.fk_course_id} value={String(c.fk_course_id)}>
-												{c.course_code ?? c.course_name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="space-y-1 lg:col-span-2">
-								<Label>College</Label>
-								<Select
-									value={selectedCollegeId != null ? String(selectedCollegeId) : undefined}
-									onValueChange={(v) => setSelectedCollegeId(Number(v))}
-									disabled={colleges.length === 0}
-								>
-									<SelectTrigger className="h-8 text-[12px]">
-										<SelectValue placeholder="Select College" />
-									</SelectTrigger>
-									<SelectContent>
-										{colleges.map((c) => (
-											<SelectItem key={c.fk_college_id} value={String(c.fk_college_id)}>
-												{c.college_code ?? c.college_name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="space-y-1 lg:col-span-2">
-								<Label>Exam Year *</Label>
-								<Select
-									value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : undefined}
-									onValueChange={(v) => setSelectedAcademicYearId(Number(v))}
-									disabled={academicYears.length === 0}
-								>
-									<SelectTrigger className="h-8 text-[12px]">
-										<SelectValue placeholder="Select Exam Year" />
-									</SelectTrigger>
-									<SelectContent>
-										{academicYears.map((a) => (
-											<SelectItem key={a.fk_academic_year_id} value={String(a.fk_academic_year_id)}>
-												{a.academic_year}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="space-y-1 lg:col-span-3">
-								<Label>Exam Master *</Label>
-								<Select
-									value={selectedExamId != null ? String(selectedExamId) : undefined}
-									onValueChange={(v) => { setSelectedExamId(Number(v)); setRows([]); setHasFetched(false) }}
-									disabled={examMasters.length === 0}
-								>
-									<SelectTrigger className="h-8 text-[12px]">
-										<SelectValue placeholder="Select Exam Master" />
-									</SelectTrigger>
-									<SelectContent>
-										{examMasters.map((e) => (
-											<SelectItem key={e.examId ?? e.id} value={String(e.examId ?? e.id)}>
-												{e.examName ?? '—'}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="lg:col-span-1 flex items-end justify-end">
-								<Button onClick={handleGetList} disabled={!selectedExamId || loadingList} className="h-8 px-3 text-[12px] w-full lg:w-auto">
-									Get List
-								</Button>
-							</div>
-						</div>
-					</div>
-				</div>
-				)}
-			</div>
-
-			{hasFetched && (
-			<TableCard
-				headerLeft={
-					<Input
-						className="h-9 max-w-sm text-[12px]"
-						placeholder="Search…"
-						value={q}
-						onChange={(e) => setQ(e.target.value)}
-						disabled={rows.length === 0}
-					/>
-				}
-				headerRight={
-					<Button
-						className="h-8 text-[12px]"
-						onClick={() => {
-							if (!selectedExamId) return
-							const selectedExam = examMasters.find((e: any) => Number(e.examId ?? e.id) === Number(selectedExamId))
-							const selectedCourse = courses.find((c: any) => Number(c.fk_course_id) === Number(selectedCourseId))
-							const selectedYear = academicYears.find((a: any) => Number(a.fk_academic_year_id) === Number(selectedAcademicYearId))
-							const params = new URLSearchParams({
-								courseId: String(selectedCourseId ?? ''),
-								academicYearId: String(selectedAcademicYearId ?? ''),
-								examId: String(selectedExamId ?? ''),
-								courseName: String(selectedCourse?.course_name ?? selectedCourse?.course_code ?? ''),
-								academicYear: String(selectedYear?.academic_year ?? ''),
-								examName: String(selectedExam?.examName ?? ''),
-								fromDate: String(selectedExam?.fromDate ?? selectedExam?.examFromDate ?? ''),
-								toDate: String(selectedExam?.toDate ?? selectedExam?.examToDate ?? ''),
-							})
-							router.push(`/admin-examination-management/admin-exam-masters/re-valuation-fee-setup/create?${params.toString()}`)
-						}}
-						disabled={!selectedExamId}
-					>
-						<Plus className="mr-1.5 h-4 w-4" />
-						Add Exam Fee Structure
-					</Button>
-				}
-			>
-				<DataTable rowData={filteredRows} columnDefs={cols} loading={loadingList} pagination />
-			</TableCard>
-			)}
-
-			<Dialog open={modalOpen} onOpenChange={setModalOpen}>
-				<DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-y-auto">
-					<DialogHeader>
-						<DialogTitle className="text-[16px] font-semibold text-[hsl(var(--primary))]">
-							{editing ? 'Edit Exam Fee Structure' : 'Add Exam Fee Structure'}
-						</DialogTitle>
-					</DialogHeader>
-					<form onSubmit={save} className="space-y-4">
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-							<div className="space-y-1">
-								<Label>Re-Valuation Fee Structure *</Label>
-								<Input
-									value={form.examFeeStructureName}
-									onChange={(e) => setForm((s) => ({ ...s, examFeeStructureName: e.target.value }))}
-									required
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label>Regular Fee</Label>
-								<Input
-									type="number"
-									value={form.regularFee}
-									onChange={(e) => setForm((s) => ({ ...s, regularFee: e.target.value }))}
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label>Supple Fee</Label>
-								<Input
-									type="number"
-									value={form.suppleFee}
-									onChange={(e) => setForm((s) => ({ ...s, suppleFee: e.target.value }))}
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label>Collection Start Date</Label>
-								<Input
-									type="date"
-									value={form.collectionStartDate}
-									onChange={(e) => setForm((s) => ({ ...s, collectionStartDate: e.target.value }))}
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label>Collection End Date</Label>
-								<Input
-									type="date"
-									value={form.collectionEndDate}
-									onChange={(e) => setForm((s) => ({ ...s, collectionEndDate: e.target.value }))}
-								/>
-							</div>
-							<div className="flex items-center gap-2 pt-5">
-								<Checkbox
-									id="rvIsActive"
-									checked={form.isActive}
-									onCheckedChange={(v) => setForm((s) => ({ ...s, isActive: Boolean(v) }))}
-								/>
-								<Label htmlFor="rvIsActive">Active</Label>
-							</div>
-						</div>
-
-						<div className="app-card border rounded-md">
-							<div className="px-3 py-2 border-b bg-slate-50/60">
-								<h3 className="text-[13px] font-medium">Course Years</h3>
-							</div>
-							<div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-auto">
-								{courseYears.map((cy: any) => {
-									const id = cy.courseYearId ?? cy.id ?? cy.yearId
-									const label = cy.courseYearName ?? cy.yearName ?? cy.name ?? ''
-									const checked = selectedCourseYearIds.includes(id)
-									return (
-										<label key={id} className="flex items-center gap-2 text-[12px]">
-											<input
-												type="checkbox"
-												checked={checked}
-												onChange={(e) => {
-													setSelectedCourseYearIds((prev) =>
-														e.target.checked ? [...prev, id] : prev.filter((x) => x !== id),
-													)
-												}}
-											/>
-											<span>{label}</span>
-										</label>
-									)
-								})}
-							</div>
-						</div>
-
-						<div className="app-card border rounded-md">
-							<div className="px-3 py-2 border-b bg-slate-50/60">
-								<h3 className="text-[13px] font-medium">Exam Re-Valuation Fee</h3>
-							</div>
-							<div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-								<div className="space-y-1">
-									<Label>1 Subject Fee</Label>
-									<Input type="number" value={revalSubjectFees.one} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, one: e.target.value }))} />
-								</div>
-								<div className="space-y-1">
-									<Label>2 Subjects Fee</Label>
-									<Input type="number" value={revalSubjectFees.two} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, two: e.target.value }))} />
-								</div>
-								<div className="space-y-1">
-									<Label>3 Subjects Fee</Label>
-									<Input type="number" value={revalSubjectFees.three} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, three: e.target.value }))} />
-								</div>
-								<div className="space-y-1">
-									<Label>4 Subjects Fee</Label>
-									<Input type="number" value={revalSubjectFees.four} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, four: e.target.value }))} />
-								</div>
-								<div className="space-y-1">
-									<Label>5 Subjects Fee</Label>
-									<Input type="number" value={revalSubjectFees.five} onChange={(e) => setRevalSubjectFees((s) => ({ ...s, five: e.target.value }))} />
-								</div>
-							</div>
-						</div>
-
-						<div className="app-card border rounded-md">
-							<div className="px-3 py-2 border-b bg-slate-50/60">
-								<h3 className="text-[13px] font-medium">Late Fee Fines</h3>
-							</div>
-							<div className="p-3 space-y-3">
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-									<div className="space-y-1">
-										<Label>Late Fee Fine Name</Label>
-										<Input value={lateFeeName} onChange={(e) => setLateFeeName(e.target.value)} />
-									</div>
-									<div className="space-y-1">
-										<Label>Reg Fee Fine</Label>
-										<Input type="number" value={lateFeeReg} onChange={(e) => setLateFeeReg(e.target.value)} />
-									</div>
-									<div className="space-y-1">
-										<Label>Supple Fee Fine</Label>
-										<Input type="number" value={lateFeeSupple} onChange={(e) => setLateFeeSupple(e.target.value)} />
-									</div>
-									<div className="grid grid-cols-2 gap-3">
-										<div className="space-y-1">
-											<Label>Fine Start Date</Label>
-											<Input type="date" value={lateFeeStart} onChange={(e) => setLateFeeStart(e.target.value)} />
-										</div>
-										<div className="space-y-1">
-											<Label>Fine End Date</Label>
-											<Input type="date" value={lateFeeEnd} onChange={(e) => setLateFeeEnd(e.target.value)} />
-										</div>
-									</div>
-								</div>
-								<div className="flex justify-end">
-									<Button
-										type="button"
-										onClick={() => {
-											if (!lateFeeName.trim()) return
-											setLateFeeFines((prev) => [...prev, { name: lateFeeName, startDate: lateFeeStart, endDate: lateFeeEnd, regFeeFine: lateFeeReg, suppleFeeFine: lateFeeSupple }])
-											setLateFeeName(''); setLateFeeStart(''); setLateFeeEnd(''); setLateFeeReg(''); setLateFeeSupple('')
-										}}
-									>
-										Add
-									</Button>
-								</div>
-								<div className="rounded-md border">
-									<table className="w-full text-left text-[12px]">
-										<thead className="bg-slate-50">
-											<tr>
-												<th className="px-2 py-1 w-12">Sl.No</th>
-												<th className="px-2 py-1">Fine Name</th>
-												<th className="px-2 py-1">Fine Date</th>
-												<th className="px-2 py-1">Reg Fee Fine</th>
-												<th className="px-2 py-1">Supple Fee Fine</th>
-												<th className="px-2 py-1 w-16">Actions</th>
-											</tr>
-										</thead>
-										<tbody>
-											{lateFeeFines.map((f, i) => (
-												<tr key={i} className="border-t">
-													<td className="px-2 py-1">{i + 1}</td>
-													<td className="px-2 py-1">{f.name}</td>
-													<td className="px-2 py-1">{[f.startDate, f.endDate].filter(Boolean).join(' to ') || '—'}</td>
-													<td className="px-2 py-1">{f.regFeeFine || '—'}</td>
-													<td className="px-2 py-1">{f.suppleFeeFine || '—'}</td>
-													<td className="px-2 py-1">
-														<Button type="button" size="sm" variant="ghost" onClick={() => setLateFeeFines((prev) => prev.filter((_, idx) => idx !== i))}>
-															Remove
-														</Button>
-													</td>
-												</tr>
-											))}
-											{lateFeeFines.length === 0 && (
-												<tr>
-													<td className="px-2 py-3 text-center text-muted-foreground" colSpan={6}>No fines added</td>
-												</tr>
-											)}
-										</tbody>
-									</table>
-								</div>
-							</div>
-						</div>
-
-						<div className="app-card border rounded-md">
-							<div className="px-3 py-2 border-b bg-slate-50/60">
-								<h3 className="text-[13px] font-medium">List of Additional Fees Applicable</h3>
-							</div>
-							<div className="p-3 space-y-3">
-								<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-									<div className="space-y-1">
-										<Label>Additional Fees *</Label>
-										<Input value={addFeeName} onChange={(e) => setAddFeeName(e.target.value)} placeholder="Fee name" />
-									</div>
-									<div className="space-y-1">
-										<Label>Type</Label>
-										<div className="flex items-center gap-5 text-[12px]">
-											<label className="flex items-center gap-2">
-												<input type="radio" checked={addFeeType === 'regular'} onChange={() => setAddFeeType('regular')} />
-												Regular
-											</label>
-											<label className="flex items-center gap-2">
-												<input type="radio" checked={addFeeType === 'supple'} onChange={() => setAddFeeType('supple')} />
-												Supple
-											</label>
-										</div>
-									</div>
-									<div className="space-y-1">
-										<Label>Amount</Label>
-										<Input type="number" value={addFeeAmount} onChange={(e) => setAddFeeAmount(e.target.value)} />
-									</div>
-								</div>
-								<div className="flex justify-end">
-									<Button
-										type="button"
-										onClick={() => {
-											if (!addFeeName.trim()) return
-											setAdditionalFees((prev) => [...prev, { name: addFeeName, type: addFeeType, amount: addFeeAmount }])
-											setAddFeeName(''); setAddFeeAmount('')
-										}}
-									>
-										Add
-									</Button>
-								</div>
-								<div className="rounded-md border">
-									<table className="w-full text-left text-[12px]">
-										<thead className="bg-slate-50">
-											<tr>
-												<th className="px-2 py-1 w-12">Sl.No</th>
-												<th className="px-2 py-1">Type</th>
-												<th className="px-2 py-1">Exam Type</th>
-												<th className="px-2 py-1">Amount</th>
-												<th className="px-2 py-1 w-16">Actions</th>
-											</tr>
-										</thead>
-										<tbody>
-											{additionalFees.map((f, i) => (
-												<tr key={i} className="border-t">
-													<td className="px-2 py-1">{i + 1}</td>
-													<td className="px-2 py-1">{f.name}</td>
-													<td className="px-2 py-1" style={{ textTransform: 'capitalize' }}>{f.type}</td>
-													<td className="px-2 py-1">{f.amount || '—'}</td>
-													<td className="px-2 py-1">
-														<Button type="button" size="sm" variant="ghost" onClick={() => setAdditionalFees((prev) => prev.filter((_, idx) => idx !== i))}>
-															Remove
-														</Button>
-													</td>
-												</tr>
-											))}
-											{additionalFees.length === 0 && (
-												<tr>
-													<td className="px-2 py-3 text-center text-muted-foreground" colSpan={5}>No additional fees</td>
-												</tr>
-											)}
-										</tbody>
-									</table>
-								</div>
-							</div>
-						</div>
-						<DialogFooter className="pt-3">
-							<Button type="button" variant="outline" onClick={closeModal}>
-								Cancel
-							</Button>
-							<Button type="submit" disabled={saving}>
-								{editing ? 'Update' : 'Save'}
-							</Button>
-						</DialogFooter>
-					</form>
-				</DialogContent>
-			</Dialog>
-		</PageContainer>
-	)
+          <TableCard withHeaderBorder={false}>
+            <DataTable
+              rowData={rows}
+              columnDefs={cols}
+              loading={loadingList}
+              pagination
+              paginationPageSize={10}
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search re-valuation fee structures…',
+                pdfDocumentTitle: 'Re-valuation fee structures',
+              }}
+              toolbarTrailing={(
+                <Button
+                  size="sm"
+                  onClick={openAdd}
+                  disabled={!selectedExamId || !selectedCollegeId}
+                  className="h-[30px] px-3 text-[12px]"
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Add Exam Fee Structure
+                </Button>
+              )}
+            />
+          </TableCard>
+        </>
+      )}
+    </PageContainer>
+  )
 }
-

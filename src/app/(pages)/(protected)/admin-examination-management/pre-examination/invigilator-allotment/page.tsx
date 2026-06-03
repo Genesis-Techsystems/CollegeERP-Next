@@ -363,11 +363,11 @@ export default function InvigilatorAllotmentPage() {
   }
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Invigilation Allotment" subtitle="Assign invigilators to exam rooms" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Invigilation Allotment</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Invigilation Allotment</h2>
           <Button
             type="button"
             variant="outline"
@@ -464,7 +464,7 @@ export default function InvigilatorAllotmentPage() {
                     type="button"
                     onClick={() => setSelectedRoomId(roomId)}
                     className={`rounded-md border p-3 text-left transition-colors ${
-                      Number(selectedRoomId) === roomId ? 'border-blue-600 bg-blue-50/40' : 'hover:bg-slate-50'
+                      Number(selectedRoomId) === roomId ? 'border-blue-600 bg-blue-50/40' : 'hover:bg-muted/40'
                     }`}
                   >
                     <div className="font-semibold text-[13px]">{r.roomName ?? r.roomCode ?? '-'}</div>
@@ -544,7 +544,7 @@ export default function InvigilatorAllotmentPage() {
 
               <div className="rounded-md border overflow-hidden">
                 <table className="w-full text-[12px]">
-                  <thead className="bg-slate-50">
+                  <thead className="bg-muted/40">
                     <tr>
                       <th className="px-2 py-1 text-left w-12">#</th>
                       <th className="px-2 py-1 text-left">Name</th>

@@ -173,11 +173,11 @@ export default function ExamLabTimetablePage() {
   }, [gridRows, courseGroups, dateColumns])
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Lab Timetable" subtitle="View examination lab schedules" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam College Timetable</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Exam College Timetable</h2>
           <Button
             type="button"
             variant="outline"
@@ -238,7 +238,7 @@ export default function ExamLabTimetablePage() {
             <p className="text-right text-[12px] mb-2"><span className="px-1 border bg-sky-200">M</span> MORNING <span className="px-1 border bg-yellow-200 ml-2">A</span> AFTERNOON</p>
             <div className="overflow-auto">
               <table className="w-full text-[12px] border">
-                <thead className="bg-slate-50">
+                <thead className="bg-muted/40">
                   <tr>
                     <th className="border px-2 py-1">Branch</th>
                     {dateColumns.map((d) => (

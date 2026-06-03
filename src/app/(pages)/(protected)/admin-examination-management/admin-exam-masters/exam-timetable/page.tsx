@@ -11,22 +11,36 @@ import {
 	SelectValue,
 } from '@/components/ui/select'
 import { distinct } from '@/lib/utils'
-import { getCollegeFilters, getExamFiltersNoTimetable, getExamTimetableDetails, listCourseGroups, listCourseYears, listExamMasters } from '@/services/examination'
-import { buildQuery } from '@/services/crud'
+import {
+	getUnivExamFiltersAll,
+	resolveExamLoginEmpId,
+	getExamFiltersNoTimetable,
+	getExamTimetableDetails,
+	listCourseGroups,
+	listCourseYears,
+} from '@/services/examination'
+import { useSessionContext } from '@/context/SessionContext'
 import { toDateOnlyISO } from '@/common/generic-functions'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useRouter } from 'next/navigation'
-import { ChevronDown, Filter } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ChevronDown, Filter, LayoutGrid, ShieldAlert } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
+import CheckConflictsModal from './CheckConflictsModal'
+
+function pickAyId(row: any): number {
+	return Number(row?.fk_academic_year_id ?? row?.academicYearId ?? row?.fk_academicYearId ?? 0)
+}
 
 export default function ExamTimetablePage() {
 	const router = useRouter()
+	const searchParams = useSearchParams()
+	const { user } = useSessionContext()
 	// Filters
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [filtersData, setFiltersData] = useState<any[]>([])
-	const [academicData, setAcademicData] = useState<any[]>([])
 
 	const [courses, setCourses] = useState<any[]>([])
 	const [academicYears, setAcademicYears] = useState<any[]>([])
@@ -38,6 +52,10 @@ export default function ExamTimetablePage() {
 	const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<number | null>(null)
 	const [selectedExamId, setSelectedExamId] = useState<number | null>(null)
 	const [selectedCourseYearId, setSelectedCourseYearId] = useState<number | null>(null)
+	/** Course years scoped from {@link getExamFiltersNoTimetable} (Angular CollegesListDetails), not raw domain course years only. */
+	const [examScopedCourseYears, setExamScopedCourseYears] = useState<{ courseYearId: number; courseYearName: string }[]>(
+		[],
+	)
 
 	// Branch rows and date columns
 	const [branches, setBranches] = useState<any[]>([])
@@ -59,42 +77,96 @@ export default function ExamTimetablePage() {
 		isActive: true,
 	})
 
+	const [conflictsOpen, setConflictsOpen] = useState(false)
+	const [loadingGrid, setLoadingGrid] = useState(false)
+	const [editOpen, setEditOpen] = useState(false)
+	const [editContext, setEditContext] = useState<{
+		branchId: string | number
+		branchCode?: string
+		branchLabel: string
+		dateStr: string
+		session: 'M' | 'A'
+		original: Record<string, unknown>
+	} | null>(null)
+	const [editForm, setEditForm] = useState({
+		examDate: '',
+		session: 'M' as 'M' | 'A',
+		examType: 'regular' as 'regular' | 'supplementary',
+	})
+
 	const fetchFilters = useCallback(async () => {
 		setLoadingFilters(true)
 		try {
-			const { filtersData: f, academicData: ay } = await getCollegeFilters(0, 0)
-			setFiltersData(f ?? [])
-			setAcademicData(ay ?? [])
+			const empId = resolveExamLoginEmpId(user?.employeeId)
+			const flat = await getUnivExamFiltersAll(empId)
+			const f = flat.filter((r: any) => !r.flag || r.flag === 'univ_exam_filters')
+			setFiltersData(f)
 			const distinctCourses = distinct(f ?? [], (r) => r.fk_course_id)
 			setCourses(distinctCourses)
 			if (distinctCourses.length > 0) {
-				const firstCourseId = distinctCourses[0].fk_course_id
-				handleCourseChange(firstCourseId, f, ay)
+				const urlCourseId = Number(searchParams.get('courseId') ?? 0)
+				const target =
+					urlCourseId > 0 && distinctCourses.some((c) => Number(c.fk_course_id) === urlCourseId)
+						? urlCourseId
+						: distinctCourses[0].fk_course_id
+				handleCourseChange(target, f)
 			}
 		} finally {
 			setLoadingFilters(false)
 		}
-	}, [])
+	}, [user?.employeeId, searchParams])
 
 	useEffect(() => {
 		fetchFilters()
 	}, [fetchFilters])
 
-	async function handleCourseChange(courseId: number, fRef = filtersData, ayRef = academicData) {
+	// Restore academicYearId from URL once the academic-year list is available.
+	useEffect(() => {
+		const ayId = Number(searchParams.get('academicYearId') ?? 0)
+		if (ayId > 0 && academicYears.some((a: any) => pickAyId(a) === ayId)) {
+			setSelectedAcademicYearId(ayId)
+		}
+	}, [academicYears, searchParams])
+
+	// Restore examId from URL once exam masters load.
+	useEffect(() => {
+		const examId = Number(searchParams.get('examId') ?? 0)
+		if (examId > 0 && examMasters.some((e: any) => Number(e.examId ?? e.id) === examId)) {
+			setSelectedExamId(examId)
+		}
+	}, [examMasters, searchParams])
+
+	// Restore courseYearId from URL once the effective course-year list resolves.
+	useEffect(() => {
+		const cyId = Number(searchParams.get('courseYearId') ?? 0)
+		if (cyId <= 0) return
+		const list = examScopedCourseYears.length > 0 ? examScopedCourseYears : null
+		if (list && list.some((y) => y.courseYearId === cyId)) {
+			setSelectedCourseYearId(cyId)
+		}
+	}, [examScopedCourseYears, searchParams])
+
+	async function handleCourseChange(courseId: number, fRef = filtersData) {
 		setSelectedCourseId(courseId)
 		setSelectedAcademicYearId(null)
 		setSelectedExamId(null)
 		setSelectedCourseYearId(null)
+		setExamScopedCourseYears([])
 		setBranches([])
 		setDates([])
 
 		// Branches are typically departments within the course
-		const filtered = (fRef ?? []).filter((r: any) => r.fk_course_id === courseId)
+		const filtered = (fRef ?? []).filter((r: any) => Number(r.fk_course_id) === Number(courseId))
 		const distinctBranches = distinct(filtered, (r: any) => r.fk_dept_id ?? r.fk_branch_id ?? r.dept_id ?? r.branch_id)
 		setBranches(distinctBranches)
 
-		// Academic years are per-university but acceptable as a global list here
-		const distinctYears = distinct(ayRef ?? [], (a: any) => a.fk_academic_year_id)
+		const withAyIds = filtered.filter((r: any) => pickAyId(r) > 0)
+		const yearSource = withAyIds.length > 0 ? withAyIds : filtered
+		const distinctYears = distinct(yearSource, (r: any) => pickAyId(r)).sort(
+			(a: any, b: any) =>
+				Number(String(b.academic_year ?? '').split('-')[0] || 0) -
+				Number(String(a.academic_year ?? '').split('-')[0] || 0),
+		)
 		setAcademicYears(distinctYears)
 
 		// Load course years for the grid label (I/II/III Year ...)
@@ -103,30 +175,107 @@ export default function ExamTimetablePage() {
 	}
 
 	useEffect(() => {
-		async function loadExamMasters() {
-			setExamMasters([])
-			setSelectedExamId(null)
-			setDates([])
-			if (!selectedCourseId || !selectedAcademicYearId) return
+		setExamMasters([])
+		setSelectedExamId(null)
+		setDates([])
+		setExamScopedCourseYears([])
+		setSelectedCourseYearId(null)
+		if (!selectedCourseId || !selectedAcademicYearId) return
+		const rows = filtersData.filter(
+			(r: any) =>
+				Number(r.fk_course_id) === Number(selectedCourseId) &&
+				pickAyId(r) === Number(selectedAcademicYearId),
+		)
+		const uniqByExam = distinct(rows, (r: any) => Number(r.fk_exam_id ?? r.exam_id ?? r.examId ?? 0))
+		const list = uniqByExam
+			.map((r: any) => ({
+				examId: Number(r.fk_exam_id ?? r.exam_id ?? r.examId ?? 0),
+				examName: String(r.exam_name ?? r.exam_Name ?? r.exam_short_name ?? r.short_name ?? '—'),
+			}))
+			.filter((e: { examId: number }) => e.examId > 0)
+		setExamMasters(list)
+		if (list.length > 0) setSelectedExamId(list[0].examId)
+	}, [selectedCourseId, selectedAcademicYearId, filtersData])
 
-			const q = buildQuery({
-				'Course.courseId': selectedCourseId,
-				'AcademicYear.academicYearId': selectedAcademicYearId,
-				isActive: true,
+	const domainCourseYearChoices = useMemo(
+		() =>
+			courseYears
+				.map((y: any) => ({
+					courseYearId: Number(y.courseYearId ?? y.id ?? 0),
+					courseYearName:
+						String(y.courseYearName ?? y.yearName ?? y.course_year_name ?? '').trim() ||
+						`Course year ${Number(y.courseYearId ?? y.id ?? 0)}`,
+				}))
+				.filter((o) => o.courseYearId > 0),
+		[courseYears],
+	)
+
+	const effectiveCourseYears =
+		examScopedCourseYears.length > 0 ? examScopedCourseYears : domainCourseYearChoices
+
+	useEffect(() => {
+		let cancelled = false
+		async function loadScopedCourseYears() {
+			if (!selectedCourseId || !selectedAcademicYearId || !selectedExamId) {
+				setExamScopedCourseYears([])
+				setSelectedCourseYearId(null)
+				return
+			}
+			const filterRows = await getExamFiltersNoTimetable({
+				courseId: selectedCourseId,
+				examId: selectedExamId,
+				academicYearId: selectedAcademicYearId ?? 0,
+				courseYearId: 0,
+				employeeId: resolveExamLoginEmpId(user?.employeeId),
 			})
-			const exams = await listExamMasters(q).catch(() => [])
-			const list = Array.isArray(exams) ? exams : []
-			setExamMasters(list)
-			if (list.length > 0) setSelectedExamId(list[0].examId ?? list[0].id ?? null)
+			if (cancelled) return
+			const rows = Array.isArray(filterRows) ? filterRows : []
+			const seen = new Set<number>()
+			const scoped: { courseYearId: number; courseYearName: string }[] = []
+			for (const r of rows) {
+				const id = Number(r.fk_course_year_id ?? r.courseYearId ?? 0)
+				if (id <= 0 || seen.has(id)) continue
+				seen.add(id)
+				scoped.push({
+					courseYearId: id,
+					courseYearName:
+						String(
+							r.course_year_name ??
+								r.course_year_code ??
+								r.courseYearName ??
+								r.yearName ??
+								r.course_year_short_name ??
+								'',
+						).trim() || `Year ${id}`,
+				})
+			}
+			scoped.sort((a, b) => a.courseYearId - b.courseYearId)
+			setExamScopedCourseYears(scoped)
+			const fallback = courseYears
+				.map((y: any) => ({
+					courseYearId: Number(y.courseYearId ?? y.id ?? 0),
+					courseYearName:
+						String(y.courseYearName ?? y.yearName ?? y.course_year_name ?? '').trim() ||
+						`Year ${Number(y.courseYearId ?? y.id ?? 0)}`,
+				}))
+				.filter((o) => o.courseYearId > 0)
+			const next = scoped.length > 0 ? scoped : fallback
+			setSelectedCourseYearId((prev) => {
+				if (prev != null && next.some((o) => o.courseYearId === prev)) return prev
+				return next[0]?.courseYearId ?? null
+			})
 		}
-		loadExamMasters()
-	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [selectedCourseId, selectedAcademicYearId])
+		void loadScopedCourseYears()
+		return () => {
+			cancelled = true
+		}
+	}, [selectedCourseId, selectedAcademicYearId, selectedExamId, user?.employeeId, courseYears])
 
 	// When exam changes, build date headers
 	useEffect(() => {
 		async function hydrateFromApi() {
 			if (!selectedExamId || !selectedCourseId || !selectedCourseYearId) return
+			setLoadingGrid(true)
 			try {
 				// We'll accumulate branches from filters/entities first,
 				// then merge with any discovered in timetable rows.
@@ -151,8 +300,8 @@ export default function ExamTimetablePage() {
 					courseId: selectedCourseId,
 					examId: selectedExamId,
 					academicYearId: selectedAcademicYearId ?? 0,
-					// Use 0 as in the Angular API reference to fetch the complete branch list
 					courseYearId: 0,
+					employeeId: resolveExamLoginEmpId(user?.employeeId),
 				})
 				if (Array.isArray(filterRows) && filterRows.length > 0) {
 					// Try to find rows having group code/name
@@ -207,7 +356,31 @@ export default function ExamTimetablePage() {
 					// branches
 					const brIdx = new Map<string | number, any>()
 					const dateIdx = new Map<string, Date>()
-					const map: Record<string, any> = {}
+					const map: Record<string, any[]> = {}
+
+					function entrySignature(entry: Record<string, unknown>) {
+						const sid = Number(
+							entry.examTimetableDetId ??
+								entry.examTimetableDetailId ??
+								entry.fk_exam_timetable_det_id ??
+								entry.exam_time_table_det_id ??
+								0,
+						)
+						if (sid > 0) return `id:${sid}`
+						const subject = String(entry.subjectCode ?? '')
+						const sess = String(entry.session ?? '')
+						const reg = String(entry.isRegular ?? true)
+						return `s:${subject}|${sess}|${reg}`
+					}
+
+					function pushScheduleEntry(scheduleKey: string, payload: Record<string, unknown>) {
+						if (!map[scheduleKey]) map[scheduleKey] = []
+						const sig = entrySignature(payload)
+						if (!map[scheduleKey].some((existing) => entrySignature(existing) === sig)) {
+							map[scheduleKey].push(payload)
+						}
+					}
+
 					for (const row of data) {
 						// Prefer matching by group/branch code; fall back to ids
 						const groupCodeRaw =
@@ -242,16 +415,39 @@ export default function ExamTimetablePage() {
 						const dateKey = ds ? (ds.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? fmtYMD(new Date(ds))) : ''
 						const sessRaw = row.session ?? row.examSession ?? row.sessionCode ?? row.examSessionName ?? row.examsessioninCatCode ?? ''
 						const sess = String(sessRaw).trim().toUpperCase().startsWith('A') ? 'A' : 'M'
-						const key = `${bid ?? groupCode}-${dateKey}-${sess}`
-						map[key] = {
+						const supp =
+							row.isSupplementary === true ||
+							row.is_supplementary === true ||
+							String(row.examPaperType ?? row.paperType ?? row.examAppearingType ?? '').toUpperCase().includes('SUP')
+						const isRegularExplicit = row.isRegular !== undefined && row.isRegular !== null ? !!row.isRegular : undefined
+						const isRegular = isRegularExplicit !== undefined ? isRegularExplicit : !supp
+						const payload = {
 							branchId: bid ?? groupCode,
 							date: dateKey,
 							session: sess,
 							subjectCode: row.subjectCode ?? row.paperCode ?? row.subCode ?? '',
+							subjectName:
+								row.subjectName ??
+								row.subject_name ??
+								row.sub_name ??
+								row.paperTitle ??
+								row.paper_title ??
+								'',
 							room: row.room ?? row.block ?? '',
 							remarks: row.remarks ?? '',
-							isRegular: row.isRegular ?? true,
+							isRegular,
 							isActive: row.isActive ?? true,
+							examTimetableDetId:
+								row.examTimetableDetId ??
+								row.examTimetableDetailId ??
+								row.fk_exam_timetable_det_id ??
+								row.exam_time_table_det_id,
+						}
+						const branchPrefixes = Array.from(
+							new Set([bid, groupCode].filter((x) => x != null && String(x).trim() !== '').map(String)),
+						)
+						for (const p of branchPrefixes) {
+							pushScheduleEntry(`${p}-${dateKey}-${sess}`, payload)
 						}
 					}
 					// Merge with previously found branches, de-dupe by code
@@ -284,6 +480,8 @@ export default function ExamTimetablePage() {
 				}
 			} catch {
 				// ignore network errors for now
+			} finally {
+				setLoadingGrid(false)
 			}
 		}
 		hydrateFromApi()
@@ -315,20 +513,167 @@ export default function ExamTimetablePage() {
 			cur.setDate(cur.getDate() + 1)
 		}
 		setDates(arr)
-	}, [selectedExamId, examMasters, selectedCourseId, selectedCourseYearId])
+	}, [selectedExamId, examMasters, selectedCourseId, selectedCourseYearId, selectedAcademicYearId, user?.employeeId])
 
 	const titleLine = useMemo(() => {
 		const course = courses.find((c) => c.fk_course_id === selectedCourseId)
-		const ay = academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)
-		const cy = courseYears.find((y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId)
+		const ay = academicYears.find((a) => pickAyId(a) === Number(selectedAcademicYearId))
+		const cyEff = effectiveCourseYears.find((y) => Number(y.courseYearId) === Number(selectedCourseYearId))
+		const cyLegacy = courseYears.find((y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId)
+		const cyLabel = cyEff?.courseYearName ?? cyLegacy?.courseYearName ?? cyLegacy?.yearName
 		const exam = examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)
 		return [
 			course?.course_code ?? course?.course_name,
-			ay?.academic_year,
-			cy?.courseYearName ?? cy?.yearName,
+			ay?.academic_year ?? ay?.academicYear,
+			cyLabel,
 			exam?.examName,
 		].filter(Boolean).join(' / ')
-	}, [academicYears, courseYears, courses, examMasters, selectedAcademicYearId, selectedCourseId, selectedCourseYearId, selectedExamId])
+	}, [
+		academicYears,
+		courseYears,
+		courses,
+		effectiveCourseYears,
+		examMasters,
+		selectedAcademicYearId,
+		selectedCourseId,
+		selectedCourseYearId,
+		selectedExamId,
+	])
+
+	const regulationLabel = useMemo(() => {
+		const cy = courseYears.find((y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId)
+		const row =
+			(filtersData ?? []).find(
+				(r: any) =>
+					Number(r.fk_course_id) === Number(selectedCourseId) &&
+					pickAyId(r) === Number(selectedAcademicYearId) &&
+					Number(r.fk_exam_id) === Number(selectedExamId),
+			) ?? null
+		const fromCy =
+			String(
+				cy?.regulationName ??
+					cy?.regulationCode ??
+					cy?.regulation_name ??
+					cy?.regulationShortName ??
+					'',
+			).trim()
+		const fromRow = String(row?.regulation_code ?? row?.regulation_short_name ?? row?.reg_short_name ?? '').trim()
+		return fromCy || fromRow || ''
+	}, [courseYears, filtersData, selectedAcademicYearId, selectedCourseId, selectedCourseYearId, selectedExamId])
+
+	function formatExamMasterRange(ex: Record<string, unknown>) {
+		const fmt = (v: unknown) => {
+			if (v == null || v === '') return ''
+			try {
+				const d = new Date(String(v))
+				if (Number.isNaN(d.getTime())) return String(v)
+				return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+			} catch {
+				return String(v)
+			}
+		}
+		const a = fmt(ex.examStartDate ?? ex.examFromDate ?? ex.fromDate ?? ex.startDate)
+		const b = fmt(ex.examEndDate ?? ex.examToDate ?? ex.toDate ?? ex.endDate)
+		if (!a || !b) return ''
+		return `(${a} - ${b})`
+	}
+
+	const editExamRangeText = useMemo(() => {
+		const ex = examMasters.find((e) => (e.examId ?? e.id) === selectedExamId) ?? {}
+		return formatExamMasterRange(ex as Record<string, unknown>)
+	}, [examMasters, selectedExamId])
+
+	function matchesTimetableEntry(a: Record<string, unknown>, b: Record<string, unknown>) {
+		const sidA = Number(a.examTimetableDetId ?? a.fk_exam_timetable_det_id ?? 0)
+		const sidB = Number(b.examTimetableDetId ?? b.fk_exam_timetable_det_id ?? 0)
+		if (sidA > 0 && sidB > 0 && sidA === sidB) return true
+		if (sidA > 0 || sidB > 0) return false
+		return (
+			String(a.subjectCode ?? '') === String(b.subjectCode ?? '') &&
+			Boolean(a.isRegular) === Boolean(b.isRegular) &&
+			String(a.session ?? '') === String(b.session ?? '')
+		)
+	}
+
+	function openEditTimetable(branch: any, dateStr: string, sess: 'M' | 'A', slot: Record<string, unknown>) {
+		const bid = branch.fk_dept_id ?? branch.fk_branch_id ?? branch.dept_id ?? branch.branch_id ?? branch.dept_code
+		const bcode = branch.dept_code ?? branch.branch_code
+		const branchLabel =
+			bcode ??
+			branch.dept_name ??
+			branch.branch_name ??
+			String(bid ?? '')
+		setEditContext({
+			branchId: bid,
+			branchCode: bcode ? String(bcode) : undefined,
+			branchLabel: String(branchLabel),
+			dateStr,
+			session: sess,
+			original: { ...slot, session: sess },
+		})
+		setEditForm({
+			examDate: dateStr,
+			session: sess,
+			examType: slot.isRegular === false ? 'supplementary' : 'regular',
+		})
+		setEditOpen(true)
+	}
+
+	function saveEditTimetable(e: React.FormEvent) {
+		e.preventDefault()
+		if (!editContext) return
+		const { branchId, branchCode, dateStr, session, original } = editContext
+		const prefixes = Array.from(new Set([branchId, branchCode].filter((x) => x != null && String(x).trim() !== '').map(String)))
+		const newDate = editForm.examDate
+		const newSess = editForm.session
+		const isRegular = editForm.examType === 'regular'
+
+		setScheduleMap((prev) => {
+			const next: Record<string, unknown> = { ...prev }
+			const normalizeList = (v: unknown) => (Array.isArray(v) ? [...v] : v != null ? [v] : [])
+			const inPlace = newDate === dateStr && newSess === session
+
+			if (inPlace) {
+				for (const p of prefixes) {
+					const cellKey = `${p}-${dateStr}-${session}`
+					let list = normalizeList(next[cellKey])
+					const idx = list.findIndex((entry) => matchesTimetableEntry(entry as Record<string, unknown>, original))
+					if (idx >= 0) {
+						list[idx] = { ...(list[idx] as Record<string, unknown>), date: newDate, session: newSess, isRegular }
+						next[cellKey] = list
+					}
+				}
+				return next
+			}
+
+			for (const p of prefixes) {
+				const oldKey = `${p}-${dateStr}-${session}`
+				const newKey = `${p}-${newDate}-${newSess}`
+				let listOld = normalizeList(next[oldKey])
+				const idx = listOld.findIndex((entry) => matchesTimetableEntry(entry as Record<string, unknown>, original))
+				const base =
+					idx >= 0 ? { ...(listOld[idx] as Record<string, unknown>) } : ({ ...original } as Record<string, unknown>)
+				const updated: Record<string, unknown> = {
+					...base,
+					date: newDate,
+					session: newSess,
+					isRegular,
+				}
+
+				if (idx >= 0) listOld = listOld.filter((_, i) => i !== idx)
+				next[oldKey] = listOld.length ? listOld : []
+
+				let listNew = normalizeList(next[newKey])
+				listNew = listNew.filter((entry) => !matchesTimetableEntry(entry as Record<string, unknown>, original))
+				listNew.push(updated)
+				next[newKey] = listNew
+			}
+
+			return next
+		})
+		setEditOpen(false)
+		setEditContext(null)
+	}
 
 	function openCreateSchedule() {
 		if (!selectedCourseId || !selectedAcademicYearId || !selectedExamId || !selectedCourseYearId) {
@@ -336,8 +681,9 @@ export default function ExamTimetablePage() {
 			return
 		}
 		const course = courses.find((c) => c.fk_course_id === selectedCourseId)
-		const ay = academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)
-		const cy = courseYears.find((y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId)
+		const ay = academicYears.find((a) => pickAyId(a) === Number(selectedAcademicYearId))
+		const cyEff = effectiveCourseYears.find((y) => Number(y.courseYearId) === Number(selectedCourseYearId))
+		const cyLegacy = courseYears.find((y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId)
 		const exam = examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)
 		const params = new URLSearchParams({
 			courseId: String(selectedCourseId),
@@ -345,8 +691,8 @@ export default function ExamTimetablePage() {
 			examId: String(selectedExamId),
 			courseYearId: String(selectedCourseYearId),
 			courseName: String(course?.course_code ?? course?.course_name ?? ''),
-			academicYear: String(ay?.academic_year ?? ''),
-			courseYearName: String(cy?.courseYearName ?? cy?.yearName ?? ''),
+			academicYear: String(ay?.academic_year ?? ay?.academicYear ?? ''),
+			courseYearName: String(cyEff?.courseYearName ?? cyLegacy?.courseYearName ?? cyLegacy?.yearName ?? ''),
 			examName: String(exam?.examName ?? ''),
 			fromDate: String(exam?.examFromDate ?? exam?.fromDate ?? ''),
 			toDate: String(exam?.examToDate ?? exam?.toDate ?? ''),
@@ -357,12 +703,18 @@ export default function ExamTimetablePage() {
 	function saveSchedule(e: any) {
 		e.preventDefault()
 		const key = `${modal.branchId}-${modal.date}-${modal.session}`
-		setScheduleMap((prev) => ({
-			...prev,
-			[key]: {
+		setScheduleMap((prev) => {
+			const next = { ...prev } as Record<string, any[]>
+			const entry = {
 				...modal,
-			},
-		}))
+				examTimetableDetId: undefined as unknown,
+			}
+			const cur = next[key]
+			const list = Array.isArray(cur) ? [...cur] : cur ? [cur] : []
+			list.push(entry)
+			next[key] = list
+			return next
+		})
 		setOpen(false)
 	}
 
@@ -373,43 +725,80 @@ export default function ExamTimetablePage() {
 		return `${y}-${m}-${d2}`
 	}
 
+	function listForSession(branchId: string | number, branchCode: string | undefined, dateStr: string, sess: 'M' | 'A') {
+		const k1 = `${branchId}-${dateStr}-${sess}`
+		const k2 = branchCode ? `${branchCode}-${dateStr}-${sess}` : ''
+		const merged: any[] = []
+		const seen = new Set<string>()
+		function addFrom(key: string) {
+			const raw = scheduleMap[key]
+			const arr = Array.isArray(raw) ? raw : raw != null ? [raw] : []
+			for (const item of arr) {
+				const code = String(item?.subjectCode ?? '')
+				const sid = Number(item?.examTimetableDetId ?? item?.fk_exam_timetable_det_id ?? 0)
+				const sig = sid > 0 ? `id:${sid}` : `${code}|${String(item?.isRegular ?? true)}`
+				if (!seen.has(sig)) {
+					seen.add(sig)
+					merged.push(item)
+				}
+			}
+		}
+		addFrom(k1)
+		if (k2 && k2 !== k1) addFrom(k2)
+		return merged
+	}
+
 	function getCellBadge(branch: any, d: Date) {
 		const branchId = branch.fk_dept_id ?? branch.fk_branch_id ?? branch.dept_id ?? branch.branch_id ?? branch.dept_code
 		const branchCode = branch.dept_code ?? branch.branch_code
 		const dateStr = fmtYMD(d)
-		// Try both ID- and CODE-based keys
-		const mKey = `${branchId}-${dateStr}-M`
-		const aKey = `${branchId}-${dateStr}-A`
-		const mAltKey = branchCode ? `${branchCode}-${dateStr}-M` : ''
-		const aAltKey = branchCode ? `${branchCode}-${dateStr}-A` : ''
-		const m = scheduleMap[mKey] ?? (mAltKey ? scheduleMap[mAltKey] : undefined)
-		const a = scheduleMap[aKey] ?? (aAltKey ? scheduleMap[aAltKey] : undefined)
+		const mList = listForSession(branchId, branchCode, dateStr, 'M')
+		const aList = listForSession(branchId, branchCode, dateStr, 'A')
+
+		function renderChip(item: any, sess: 'M' | 'A', index: number, branchRow: any) {
+			const cls =
+				sess === 'M'
+					? 'border-yellow-200 bg-yellow-50 text-yellow-800'
+					: 'border-indigo-200 bg-indigo-50 text-indigo-700'
+			const badge = sess === 'M' ? 'bg-yellow-600' : 'bg-indigo-600'
+			const rs = item?.isRegular === false ? 'S' : 'R'
+			return (
+				<button
+					type="button"
+					key={`${sess}-${index}-${item?.examTimetableDetId ?? ''}-${item?.subjectCode ?? ''}-${String(item?.isRegular)}`}
+					className={`inline-flex max-w-full cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-left text-[11px] font-medium transition-opacity hover:opacity-90 hover:ring-2 hover:ring-sky-400/50 ${cls}`}
+					title="Click to edit"
+					onClick={() => openEditTimetable(branchRow, dateStr, sess, item as Record<string, unknown>)}
+				>
+					{item?.subjectCode || '—'}
+					<span className={`inline-block shrink-0 rounded px-1 text-[10px] text-white ${badge}`}>{sess}</span>
+					<span className="inline-block shrink-0 rounded bg-red-600 px-0.5 text-[9px] font-bold leading-4 text-white">{rs}</span>
+				</button>
+			)
+		}
+
+		if (!mList.length && !aList.length) {
+			return (
+				<div className="flex min-h-[44px] items-center justify-center px-0.5">
+					<span className="text-slate-300 text-[12px] leading-5">—</span>
+				</div>
+			)
+		}
+
 		return (
-			<div className="flex items-center justify-center gap-1">
-				{m ? (
-					<span className="inline-flex items-center gap-1 rounded-md border-yellow-200 bg-yellow-50 text-yellow-800 h-5 px-2 text-[11px] font-medium">
-						{m.subjectCode || '—'} <span className="inline-block rounded bg-yellow-600 text-white h-4 px-1 text-[10px]">M</span>
-					</span>
-				) : (
-					<span className="text-slate-300 text-[12px]">—</span>
-				)}
-				{a ? (
-					<span className="inline-flex items-center gap-1 rounded-md border-indigo-200 bg-indigo-50 text-indigo-700 h-5 px-2 text-[11px] font-medium">
-						{a.subjectCode || '—'} <span className="inline-block rounded bg-indigo-600 text-white h-4 px-1 text-[10px]">A</span>
-					</span>
-				) : (
-					<span className="text-slate-300 text-[12px]">—</span>
-				)}
+			<div className="flex min-h-[44px] flex-col items-center justify-center gap-1.5 px-0.5 py-1">
+				{mList.map((item, i) => renderChip(item, 'M', i, branch))}
+				{aList.map((item, i) => renderChip(item, 'A', i, branch))}
 			</div>
 		)
 	}
 
 	return (
-		<PageContainer className="space-y-5">
+		<PageContainer className="space-y-4">
 		<PageHeader title="Exam University Timetable" subtitle="Manage university exam timetables" />
 			<div className="app-card overflow-hidden">
-				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-					<h2 className="text-[16px] font-semibold text-[hsl(var(--card-title))]">Exam University Timetable</h2>
+				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+					<h2 className="app-card-title">Exam University Timetable</h2>
 					<Button
 						type="button"
 						variant="outline"
@@ -430,7 +819,7 @@ export default function ExamTimetablePage() {
 							<Label>Course *</Label>
 							<Select
 								value={selectedCourseId != null ? String(selectedCourseId) : undefined}
-								onValueChange={(v) => handleCourseChange(Number(v))}
+								onValueChange={(v) => handleCourseChange(Number(v), filtersData)}
 								disabled={loadingFilters}
 							>
 								<SelectTrigger className="h-8 text-[12px]">
@@ -488,15 +877,15 @@ export default function ExamTimetablePage() {
 							<Select
 								value={selectedCourseYearId != null ? String(selectedCourseYearId) : undefined}
 								onValueChange={(v) => setSelectedCourseYearId(Number(v))}
-								disabled={courseYears.length === 0}
+								disabled={effectiveCourseYears.length === 0}
 							>
 								<SelectTrigger className="h-8 text-[12px]">
 									<SelectValue placeholder="Select Course Year" />
 								</SelectTrigger>
 								<SelectContent>
-									{courseYears.map((y: any) => (
-										<SelectItem key={y.courseYearId ?? y.id} value={String(y.courseYearId ?? y.id)}>
-											{y.courseYearName ?? y.yearName}
+									{effectiveCourseYears.map((y) => (
+										<SelectItem key={y.courseYearId} value={String(y.courseYearId)}>
+											{y.courseYearName}
 										</SelectItem>
 									))}
 								</SelectContent>
@@ -509,7 +898,7 @@ export default function ExamTimetablePage() {
 
 			{selectedCourseYearId != null && titleLine && (
 				<div className="app-card">
-					<div className="px-3 py-2.5 border-b border-slate-200 bg-white">
+					<div className="px-4 py-3 border-b border-border bg-card">
 						<p className="text-[13px] font-medium text-[hsl(var(--primary))]">{titleLine}</p>
 					</div>
 					<div className="px-3 py-3 flex items-center justify-between">
@@ -521,21 +910,47 @@ export default function ExamTimetablePage() {
 								<span className="inline-block rounded bg-indigo-600 text-white h-4 px-1 text-[10px] leading-4">A</span> AFTERNOON
 							</span>
 						</div>
-						<Button size="sm" onClick={openCreateSchedule} disabled={!selectedExamId || dates.length === 0 || branches.length === 0}>
-							+ Create Schedule
-						</Button>
+						<div className="flex items-center gap-2">
+							<Button
+								type="button"
+								size="sm"
+								variant="outline"
+								onClick={() => setConflictsOpen(true)}
+								disabled={!selectedExamId || !selectedAcademicYearId}
+							>
+								<ShieldAlert className="h-3.5 w-3.5 mr-1.5" />
+								Check Conflicts
+							</Button>
+							<Button
+								type="button"
+								size="sm"
+								onClick={openCreateSchedule}
+							>
+								+ Create Schedule
+							</Button>
+						</div>
 					</div>
 
+					{loadingGrid && (
+						<div className="px-4 py-8 text-center text-[13px] text-muted-foreground">
+							Loading timetable…
+						</div>
+					)}
+
 					<div className="overflow-auto">
-						<table className="w-full border-t border-slate-200">
-							<thead className="bg-slate-50">
+						<table className="w-full border-t border-border">
+							<thead className="bg-muted/40">
 								<tr>
-									<th className="sticky left-0 bg-slate-50 border-r border-slate-200 px-3 py-2 text-left text-[12px] font-semibold w-48">BRANCH</th>
+									<th className="sticky left-0 bg-muted/40 border-r border-border px-3 py-2 text-left text-[12px] font-semibold w-48">BRANCH</th>
 									{dates.map((d) => {
-										const day = d.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()
-										const dayNum = d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+										const day = d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()
+										const dayNum = d.toLocaleDateString('en-GB', {
+											day: '2-digit',
+											month: 'short',
+											year: 'numeric',
+										}).replace(/(\d+) (\w+) (\d+)/, '$1 $2, $3')
 										return (
-											<th key={d.toISOString()} className="min-w-[160px] px-3 py-2 text-[12px] font-semibold border-r border-slate-200">
+											<th key={d.toISOString()} className="min-w-[160px] px-3 py-2 text-[12px] font-semibold border-r border-border">
 												<div>{dayNum}</div>
 												<div className="text-[11px] text-muted-foreground">({day})</div>
 											</th>
@@ -558,12 +973,12 @@ export default function ExamTimetablePage() {
 										b.branchName ??
 										`Branch ${i + 1}`
 									return (
-										<tr key={id ?? `row-${i}`} className="even:bg-white odd:bg-slate-50/40">
-											<td className="sticky left-0 bg-white odd:bg-slate-50/40 border-r border-slate-200 px-3 py-2 text-[12px] font-medium w-48 text-blue-700">
+										<tr key={id ?? `row-${i}`} className="even:bg-card odd:bg-muted/40/40">
+											<td className="sticky left-0 bg-card odd:bg-muted/40/40 border-r border-border px-3 py-2 text-[12px] font-medium w-48 text-blue-700">
 												{name}
 											</td>
 											{dates.map((d) => (
-												<td key={`${id}-${d.toISOString()}`} className="border-l border-slate-200 px-2 py-2 text-center align-middle">
+												<td key={`${id}-${d.toISOString()}`} className="border-l border-border px-2 py-2 text-center align-top">
 													{getCellBadge(b, d)}
 												</td>
 											))}
@@ -583,6 +998,107 @@ export default function ExamTimetablePage() {
 				</div>
 			)}
 
+			<CheckConflictsModal
+				open={conflictsOpen}
+				onClose={() => setConflictsOpen(false)}
+				examId={selectedExamId}
+				academicYearId={selectedAcademicYearId}
+			/>
+
+			<Dialog
+				open={editOpen}
+				onOpenChange={(v) => {
+					setEditOpen(v)
+					if (!v) setEditContext(null)
+				}}
+			>
+				<DialogContent className="gap-2 px-6 pb-6 pt-4 sm:max-w-lg">
+					<DialogHeader className="space-y-0 p-0">
+						<DialogTitle className="flex items-center gap-1.5 text-[15px] font-semibold leading-snug text-[#1565C0]">
+							<LayoutGrid className="h-4 w-4 shrink-0" aria-hidden />
+							Edit Exam University Timetable
+						</DialogTitle>
+					</DialogHeader>
+					<Separator className="-mx-6 shrink-0" />
+					{editContext && (
+						<form onSubmit={saveEditTimetable} className="space-y-4">
+							<div className="space-y-2 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-[13px] leading-relaxed text-[#1565C0]">
+								<p>
+									<span className="font-semibold">Course details: </span>
+									{(() => {
+										const cyEff = effectiveCourseYears.find((y) => Number(y.courseYearId) === Number(selectedCourseYearId))
+										const cyLegacy = courseYears.find((y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId)
+										const yr = cyEff?.courseYearName ?? cyLegacy?.courseYearName ?? cyLegacy?.yearName ?? ''
+										return [editContext.branchLabel, yr, regulationLabel].filter(Boolean).join(' / ')
+									})()}
+								</p>
+								{editExamRangeText ? (
+									<p>
+										<span className="font-semibold">Exam details: </span>
+										{editExamRangeText}
+									</p>
+								) : null}
+								<p>
+									<span className="font-semibold">Subject details: </span>
+									{(() => {
+										const name = String(editContext.original.subjectName ?? '').trim()
+										const code = String(editContext.original.subjectCode ?? '')
+										return name ? `${name} (${code})` : code || '—'
+									})()}
+								</p>
+							</div>
+							<div className="space-y-1">
+								<Label>Exam Date</Label>
+								<Input
+									type="date"
+									className="h-9 text-[12px]"
+									value={editForm.examDate}
+									onChange={(e) => setEditForm((s) => ({ ...s, examDate: e.target.value }))}
+									required
+								/>
+							</div>
+							<div className="space-y-1">
+								<Label>Exam Session *</Label>
+								<Select value={editForm.session} onValueChange={(v) => setEditForm((s) => ({ ...s, session: v as 'M' | 'A' }))}>
+									<SelectTrigger className="h-9 text-[12px]">
+										<SelectValue placeholder="Select session" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="M">Morning</SelectItem>
+										<SelectItem value="A">Afternoon</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-1">
+								<Label>Exam Type *</Label>
+								<Select
+									value={editForm.examType}
+									onValueChange={(v) =>
+										setEditForm((s) => ({ ...s, examType: v as 'regular' | 'supplementary' }))
+									}
+								>
+									<SelectTrigger className="h-9 text-[12px]">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="regular">Regular</SelectItem>
+										<SelectItem value="supplementary">Supplementary</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<DialogFooter className="gap-2 sm:gap-0">
+								<Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+									Close
+								</Button>
+								<Button type="submit" className="bg-[#1565C0] hover:bg-[#0D47A1]">
+									Save
+								</Button>
+							</DialogFooter>
+						</form>
+					)}
+				</DialogContent>
+			</Dialog>
+
 			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogContent className="sm:max-w-[560px]">
 					<DialogHeader>
@@ -592,7 +1108,12 @@ export default function ExamTimetablePage() {
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 							<div className="space-y-1">
 								<Label>Branch</Label>
-								<Select value={String(modal.branchId)} onValueChange={(v) => setModal((s) => ({ ...s, branchId: v }))}>
+								<Select
+									value={
+										modal.branchId === '' || modal.branchId === undefined ? undefined : String(modal.branchId)
+									}
+									onValueChange={(v) => setModal((s) => ({ ...s, branchId: v }))}
+								>
 									<SelectTrigger className="h-8 text-[12px]">
 										<SelectValue placeholder="Select Branch" />
 									</SelectTrigger>
@@ -611,14 +1132,22 @@ export default function ExamTimetablePage() {
 							</div>
 							<div className="space-y-1">
 								<Label>Date</Label>
-								<Select value={modal.date} onValueChange={(v) => setModal((s) => ({ ...s, date: v }))}>
+								<Select
+									value={modal.date ? modal.date : undefined}
+									onValueChange={(v) => setModal((s) => ({ ...s, date: v }))}
+								>
 									<SelectTrigger className="h-8 text-[12px]">
 										<SelectValue placeholder="Select Date" />
 									</SelectTrigger>
 									<SelectContent>
 										{dates.map((d) => {
 											const val = toDateOnlyISO(d)
-											const label = d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric', weekday: 'short' })
+											const label = d.toLocaleDateString('en-GB', {
+												day: '2-digit',
+												month: 'short',
+												year: 'numeric',
+												weekday: 'short',
+											})
 											return (
 												<SelectItem key={val} value={val}>
 													{label}

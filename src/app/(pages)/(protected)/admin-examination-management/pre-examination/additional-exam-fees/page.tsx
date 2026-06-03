@@ -270,49 +270,37 @@ export default function AdditionalExamFeesPage() {
           )
         }
       } else {
-        setFeeTypes([])
+        // Same data as `sourceList` — broader mapping when exam-type filter yields no rows (single API call).
+        const mapped = sourceList.map((row) => {
+          const name =
+            row.addtExamFeeTypeName ??
+            row.addtFeeTypeName ??
+            row.generalDetailName ??
+            row.generalDetailDisplayName ??
+            row?.adtExamfeetypeCat?.generalDetailName ??
+            row?.adtExamfeetypeCat?.generalDetailDisplayName ??
+            row?.addtExamFeeTypeCat?.generalDetailName ??
+            row?.addtExamFeeTypeCat?.generalDetailDisplayName ??
+            'Additional Fee'
+          return {
+            ...row,
+            generalDetailId: Number(
+              row.adtExamfeetypeCatId ??
+                row.addtExamFeeTypeCatId ??
+                row.addtFeeTypeCatId ??
+                row?.adtExamfeetypeCat?.generalDetailId ??
+                row?.addtExamFeeTypeCat?.generalDetailId ??
+                0,
+            ),
+            generalDetailName: name,
+            fee: Boolean(row.includeInReg) === false && Boolean(row.includeInRev) === false ? Number(row.fee ?? 0) : 0,
+          }
+        })
+        setFeeTypes(dedupeFeeTypes(mapped))
       }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [structure, examType, examId])
-
-  // Safety net: if list is still empty, load exact ExamFeeAdditionalStructure once more.
-  useEffect(() => {
-    if (!examId || !student) return
-    if (Array.isArray(feeTypes) && feeTypes.length > 0) return
-    ;(async () => {
-      const isRegular = examType === 'Regular'
-      const list = await listExamFeeAdditionalStructureByExamType(isRegular ? 405 : 406)
-      if (!Array.isArray(list) || list.length === 0) return
-      const mapped = list.map((row) => {
-        const name =
-          row.addtExamFeeTypeName ??
-          row.addtFeeTypeName ??
-          row.generalDetailName ??
-          row.generalDetailDisplayName ??
-          row?.adtExamfeetypeCat?.generalDetailName ??
-          row?.adtExamfeetypeCat?.generalDetailDisplayName ??
-          row?.addtExamFeeTypeCat?.generalDetailName ??
-          row?.addtExamFeeTypeCat?.generalDetailDisplayName ??
-          'Additional Fee'
-        return {
-          ...row,
-          generalDetailId: Number(
-            row.adtExamfeetypeCatId ??
-              row.addtExamFeeTypeCatId ??
-              row.addtFeeTypeCatId ??
-              row?.adtExamfeetypeCat?.generalDetailId ??
-              row?.addtExamFeeTypeCat?.generalDetailId ??
-              0,
-          ),
-          generalDetailName: name,
-          fee: Boolean(row.includeInReg) === false && Boolean(row.includeInRev) === false ? Number(row.fee ?? 0) : 0,
-        }
-      })
-      setFeeTypes(dedupeFeeTypes(mapped))
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [examId, student, examType])
 
   // Keep the side-box amount in sync with the selected fee type default
   useEffect(() => {
@@ -744,11 +732,11 @@ export default function AdditionalExamFeesPage() {
   }
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Additional Fee Collection" subtitle="Manage additional exam fee receipts" />
-      <div className="app-card overflow-hidden bg-white">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-white flex items-center justify-between gap-2">
-          <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Additional Fee Collection</h2>
+      <div className="app-card overflow-hidden bg-card">
+        <div className="px-4 py-3 border-b border-border bg-card flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Additional Fee Collection</h2>
           <Button
             type="button"
             variant="outline"
@@ -771,7 +759,7 @@ export default function AdditionalExamFeesPage() {
                 value={studentId ? String(studentId) : null}
                 onChange={(v) => setStudentId(v ? Number(v) : null)}
                 options={studentOptions}
-                placeholder="Search by student name or roll no..."
+                placeholder="Search by student name or roll no…"
                 searchable
                 onSearch={(term) => setStudentSearch(term)}
                 isLoading={studentsLoading}
@@ -788,7 +776,7 @@ export default function AdditionalExamFeesPage() {
                   setExamSearch('')
                 }}
                 options={examOptions}
-                placeholder="Search exam..."
+                placeholder="Search exam…"
                 searchable
                 onSearch={(term) => setExamSearch(term)}
               />
@@ -805,7 +793,7 @@ export default function AdditionalExamFeesPage() {
       </div>
 
       {student && examId && (
-        <div className="app-card p-3 text-[12px] border border-slate-200 bg-white">
+        <div className="app-card p-3 text-[12px] border border-border bg-card">
           <div className="font-medium">
             {(student.firstName ?? student.studentName ?? '-') +
               ' (' +
@@ -836,11 +824,11 @@ export default function AdditionalExamFeesPage() {
       )}
 
       {student && examId && (
-        <div className="app-card overflow-hidden border border-slate-200 bg-white">
-          <div className="px-3 py-2.5 border-b border-slate-200 bg-white">
-            <h3 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Select Exam Fee Subjects</h3>
+        <div className="app-card overflow-hidden border border-border bg-card">
+          <div className="px-4 py-3 border-b border-border bg-card">
+            <h3 className="app-card-title">Select Exam Fee Subjects</h3>
           </div>
-          <div className="p-2.5">
+          <div className="p-3">
           <div className="mt-2.5 flex items-center gap-5 text-[12px]">
             <label className="flex items-center gap-2">
               <input type="radio" checked={examType === 'Regular'} onChange={() => setExamType('Regular')} />
@@ -851,7 +839,7 @@ export default function AdditionalExamFeesPage() {
               Supplementary
             </label>
           </div>
-          <div className="mt-2.5 grid grid-cols-1 md:grid-cols-12 gap-2 items-end border p-2.5">
+          <div className="mt-2.5 grid grid-cols-1 md:grid-cols-12 gap-2 items-end border p-3">
             <div className="md:col-span-4 space-y-1">
               <Label>Semester *</Label>
               <Select
@@ -886,8 +874,8 @@ export default function AdditionalExamFeesPage() {
                 Add Fee
               </Button>
             </div>
-            <div className="md:col-span-3 border border-slate-200">
-              <div className="border-b border-slate-200 bg-white px-2 py-1 text-[12px] font-semibold text-[hsl(var(--primary))]">Additional Fee</div>
+            <div className="md:col-span-3 border border-border">
+              <div className="border-b border-border bg-card px-2 py-1 text-[12px] font-semibold text-[hsl(var(--primary))]">Additional Fee</div>
               <div className="flex items-center gap-3 px-2 py-2 text-[13px]">
                 <span className="flex-1">
                   {getFeeTypeLabel(
@@ -913,9 +901,9 @@ export default function AdditionalExamFeesPage() {
       )}
 
       {addedFees.length > 0 && (
-        <div className="app-card overflow-hidden border border-slate-200 bg-white">
-          <div className="px-3 py-2.5 border-b border-slate-200 bg-white">
-            <h3 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Exam Fee Payment</h3>
+        <div className="app-card overflow-hidden border border-border bg-card">
+          <div className="px-4 py-3 border-b border-border bg-card">
+            <h3 className="app-card-title">Exam Fee Payment</h3>
           </div>
           <div className="overflow-auto p-2">
             <table className="w-full text-[12px]">
@@ -952,9 +940,9 @@ export default function AdditionalExamFeesPage() {
                     </td>
                   </tr>
                 ))}
-                <tr className="bg-white">
+                <tr className="bg-card">
                   <td className="px-2 py-2" />
-                  <td className="px-2 py-2 text-[14px] font-semibold text-[hsl(var(--primary))]" colSpan={6}>Summary</td>
+                  <td className="px-2 py-2 app-card-title" colSpan={6}>Summary</td>
                 </tr>
                 <tr>
                   <td className="px-2 py-2" />
@@ -965,7 +953,7 @@ export default function AdditionalExamFeesPage() {
             </table>
           </div>
 
-          <div className="mt-2.5 border border-slate-200 bg-white p-2.5">
+          <div className="mt-2.5 border border-border bg-card p-3">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <div className="md:col-span-3 space-y-1">
                 <Label>Pay Mode *</Label>
@@ -995,7 +983,7 @@ export default function AdditionalExamFeesPage() {
               </div>
               <div className="md:col-span-2">
                 <div className="text-right text-[11px] mb-1">Payment Amount</div>
-                <div className="h-8 rounded border bg-white px-2 py-1 text-right text-[18px] font-semibold">{totalFees}</div>
+                <div className="h-8 rounded border bg-card px-2 py-1 text-right text-[18px] font-semibold">{totalFees}</div>
               </div>
               <div className="md:col-span-12 flex justify-end">
                 <Button
@@ -1012,12 +1000,12 @@ export default function AdditionalExamFeesPage() {
       )}
 
       {rows.length > 0 && (
-        <div className="app-card overflow-auto bg-white border border-slate-200">
-          <h3 className="m-0 rounded border border-slate-200 bg-white px-3 py-2 text-[14px] font-semibold text-[hsl(var(--primary))]">
+        <div className="app-card overflow-auto bg-card border border-border">
+          <h3 className="m-0 rounded border border-border bg-card px-3 py-2 app-card-title">
             Exam Fee Receipts
           </h3>
           <table className="w-full text-[12px]">
-            <thead className="bg-slate-50">
+            <thead className="bg-muted/40">
               <tr>
                 <th className="px-2 py-1 text-left">SI.No</th>
                 <th className="px-2 py-1 text-left">Course Year</th>
@@ -1078,7 +1066,7 @@ export default function AdditionalExamFeesPage() {
           <DialogHeader><DialogTitle>Subjects</DialogTitle></DialogHeader>
           <div className="overflow-auto border rounded">
             <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="px-2 py-1 text-left">SI.No</th>
                   <th className="px-2 py-1 text-left">Subject</th>
@@ -1147,7 +1135,7 @@ export default function AdditionalExamFeesPage() {
 
           <div className="overflow-auto border rounded mt-2">
             <table className="w-full text-[12px]">
-              <thead className="bg-slate-50">
+              <thead className="bg-muted/40">
                 <tr>
                   <th className="px-2 py-1 text-left">Sl.No.</th>
                   <th className="px-2 py-1 text-left">Course Year</th>

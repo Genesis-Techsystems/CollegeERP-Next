@@ -1,0 +1,101 @@
+'use client'
+
+import type React from 'react'
+import { getHrPayrollConfig } from '../_lib/route-config'
+import { DepartmentHeadsPage } from './DepartmentHeadsPage'
+import { EmployeeListPage } from './EmployeeListPage'
+import { HrDashboardPage } from './HrDashboardPage'
+import { HrPayrollPlaceholder } from './HrPayrollPlaceholder'
+import { LeaveApplicationsPage } from './LeaveApplicationsPage'
+import { LeaveTypesPage } from './LeaveTypesPage'
+import { LeaveEntitlementPage } from './LeaveEntitlementPage'
+import { EmployeeLeaveAllotmentPage } from './EmployeeLeaveAllotmentPage'
+import { PayrollCategoryPage } from './PayrollCategoryPage'
+import { PayrollCategoryFormPage } from './PayrollCategoryFormPage'
+import { PayrollGroupPage } from './PayrollGroupPage'
+import { PayrollGroupFormPage } from './PayrollGroupFormPage'
+import { PayrollSettingsPage } from './PayrollSettingsPage'
+import { EnterLossOfPayPage } from './EnterLossOfPayPage'
+import { PayslipForEmployeesPage } from './PayslipForEmployeesPage'
+import { MonthlyPayslipPage } from './MonthlyPayslipPage'
+import { PrePayrollAuditReportPage } from './PrePayrollAuditReportPage'
+import { MonthlyPayrollReportPage } from './MonthlyPayrollReportPage'
+import { PayrollReportsPage } from './PayrollReportsPage'
+import { AddPerformanceAssessmentPage } from './AddPerformanceAssessmentPage'
+import { AssignReportingManagerPage } from './AssignReportingManagerPage'
+import { PerformanceAssessmentPage } from './PerformanceAssessmentPage'
+import { ReportingManagerPage } from './ReportingManagerPage'
+import { SelfAppraisalPage } from './SelfAppraisalPage'
+import { BiometricEmployeesPage } from './BiometricEmployeesPage'
+
+const LIST_PAGES: Record<string, () => React.ReactElement> = {
+  'department-heads': () => <DepartmentHeadsPage />,
+  'employee/employee-list': () => <EmployeeListPage />,
+  'employee/reporting-manager': () => <ReportingManagerPage />,
+  'payroll/payroll-category': () => <PayrollCategoryPage />,
+  'payroll/payroll-group': () => <PayrollGroupPage />,
+  'payroll/payroll-settings': () => <PayrollSettingsPage />,
+  'payroll/enter-loss-of-pay': () => <EnterLossOfPayPage />,
+  'payroll/payslip-for-employees': () => <PayslipForEmployeesPage />,
+  'payroll/monthly-playslip': () => <MonthlyPayslipPage />,
+  'payroll/pre-payroll-audit-report': () => <PrePayrollAuditReportPage />,
+  'payroll/monthly-payroll-report': () => <MonthlyPayrollReportPage />,
+  'payroll-reports': () => <PayrollReportsPage />,
+  'leave-management/leave-type': () => <LeaveTypesPage />,
+  'leave-management/leave-entitlement': () => <LeaveEntitlementPage />,
+  'leave-management/employee-leave-allotment': () => <EmployeeLeaveAllotmentPage />,
+  'leave-management/leave-application': () => <LeaveApplicationsPage />,
+}
+
+type HrPayrollRoutePageProps = { slug: string }
+
+export function HrPayrollRoutePage({ slug }: HrPayrollRoutePageProps) {
+  const config = getHrPayrollConfig(slug)
+
+  if (config.kind === 'hub' || slug === 'hr-dashboard') {
+    return <HrDashboardPage />
+  }
+
+  if (slug === 'employee/assign-reporting-manager') {
+    return <AssignReportingManagerPage />
+  }
+
+  if (slug === 'employee/performance-assessment') {
+    return <PerformanceAssessmentPage />
+  }
+
+  if (slug === 'employee/performance-assessment/add-performance') {
+    return <AddPerformanceAssessmentPage />
+  }
+
+  if (slug === 'employee/self-appraisal') {
+    return <SelfAppraisalPage />
+  }
+
+  if (slug === 'employee/biometric-employees') {
+    return <BiometricEmployeesPage />
+  }
+
+  if (slug === 'payroll/add-payroll-category') {
+    return <PayrollCategoryFormPage mode="add" />
+  }
+
+  if (slug === 'payroll/edit-payroll-category') {
+    return <PayrollCategoryFormPage mode="edit" />
+  }
+
+  if (slug === 'payroll/payroll-group/add-payroll-group') {
+    return <PayrollGroupFormPage mode="add" />
+  }
+
+  if (slug === 'payroll/payroll-group/edit-payroll-group') {
+    return <PayrollGroupFormPage mode="edit" />
+  }
+
+  const ListPage = LIST_PAGES[slug]
+  if (ListPage) {
+    return <ListPage />
+  }
+
+  return <HrPayrollPlaceholder slug={slug} />
+}

@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/common/components/select'
+import { SearchInput } from '@/common/components/search'
 import { ChevronDown, Filter } from 'lucide-react'
 import {
   getUnivExamFiltersRegSup,
@@ -397,7 +397,7 @@ export default function StudentExamLabBatchesPage() {
   if (isPrintMode) {
     const first = studentBatchesData[0] ?? {}
     return (
-      <div className="p-4 text-[12px] text-black bg-white">
+      <div className="p-4 text-[12px] text-black bg-card">
         <div className="text-[20px] font-semibold mb-3">Practical Exam Batch List</div>
         <table className="w-full border mb-3">
           <thead>
@@ -463,11 +463,11 @@ export default function StudentExamLabBatchesPage() {
   }
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Exam Lab Batches Students" subtitle="Manage student lab batch assignments" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Lab Batches Students</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Exam Lab Batches Students</h2>
           <Button
             type="button"
             onClick={() => setFiltersCollapsed((v) => !v)}
@@ -508,12 +508,12 @@ export default function StudentExamLabBatchesPage() {
           {notice && <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">{notice}</div>}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <div className="md:col-span-4 border rounded">
-              <div className="p-2 border-b">
-                <Input className="h-8 text-[12px]" placeholder="Search..." value={searchStudent} onChange={(e) => onSearchStudent(e.target.value)} />
+              <div className="border-b p-2">
+                <SearchInput className="w-full max-w-sm" placeholder="Search students…" value={searchStudent} onChange={onSearchStudent} />
               </div>
               <div className="max-h-[360px] overflow-auto">
                 <table className="w-full text-[12px]">
-                  <thead className="bg-slate-50">
+                  <thead className="bg-muted/40">
                     <tr>
                       <th className="px-2 py-1 text-left w-10">
                         <input type="checkbox" checked={checkAll} onChange={(e) => onToggleAll(e.target.checked)} />
@@ -557,7 +557,7 @@ export default function StudentExamLabBatchesPage() {
               <div className="max-h-[360px] overflow-auto">
                 {batchesData.map((b, i) => (
                   <table key={`b-${i}`} className="w-full text-[12px] mb-2">
-                    <thead className="bg-slate-50"><tr><th className="px-2 py-1 text-left">{pickText(b, ['labbatch_name', 'batchName'])}</th></tr></thead>
+                    <thead className="bg-muted/40"><tr><th className="px-2 py-1 text-left">{pickText(b, ['labbatch_name', 'batchName'])}</th></tr></thead>
                     <tbody>
                       {studentBatchesData.filter((x) => pickNum(x, ['fk_exam_labbatch_id', 'examLabBatchId']) === pickNum(b, ['fk_exam_labbatch_id', 'examLabBatchId', 'eaxmLabBatchId'])).map((x, j) => {
                         const stdDetId = pickNum(x, ['fk_exam_std_det_id', 'examLabBatchStdId', 'examStdDetId'])

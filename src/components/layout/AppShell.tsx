@@ -9,13 +9,14 @@ import { cn } from '@/lib/utils'
 import type { NavItem } from '@/types/navigation'
 import { IS_DEBUG_MODE, DebugPanel } from '@/debug'
 import { Breadcrumb, useBreadcrumb } from '@/common/components/breadcrumb'
+import { Toaster } from 'sonner'
 
 interface AppShellProps {
   children: ReactNode
   initialNavItems: NavItem[]
 }
 
-export function AppShell({ children, initialNavItems }: AppShellProps) {
+export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>) {
   const {
     isSidebarOpen,
     isSidebarCollapsed,
@@ -49,8 +50,26 @@ export function AppShell({ children, initialNavItems }: AppShellProps) {
     prevPathname.current = pathname
   }, [pathname, autoCollapse, isSidebarHovered, setSidebarCollapsed])
 
-  // Before mount: render as expanded to match server HTML (avoids hydration mismatch)
-  const sidebarIsExpanded = !mounted ? true : !isSidebarCollapsed || isSidebarHovered
+  // Prevent full-tree hydration drift in protected pages (sidebar/topbar are highly
+  // interactive and depend on client-only persisted state and browser environment).
+  // We render a stable shell frame first, then mount the interactive tree on client.
+  if (!mounted) {
+    return (
+      <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
+        <div className="relative z-30 w-[260px] shrink-0" style={{ height: '100vh', position: 'sticky', top: 0 }} />
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="sticky top-0 z-20 h-14 border-b border-border bg-card" />
+          <main className="flex-1 overflow-y-auto bg-[hsl(var(--background))]">
+            <div className="mx-auto w-full max-w-none px-0 py-0">
+              <div className="px-6 pt-3 pb-1" />
+            </div>
+          </main>
+        </div>
+      </div>
+    )
+  }
+
+  const sidebarIsExpanded = !isSidebarCollapsed || isSidebarHovered
 
   return (
     <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
@@ -64,12 +83,16 @@ export function AppShell({ children, initialNavItems }: AppShellProps) {
       )}
 
       {/* -- Sidebar --------------------------------------------------------- */}
+      {/* data-print-hide on the wrapper too — hiding <aside> alone leaves a
+          260px / 56px gutter on the printed sheet because this wrapper div
+          carries the width. */}
       <div
+        data-print-hide
         className={cn(
           'relative z-30 shrink-0 overflow-hidden transition-all duration-200 ease-in-out',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           // Match reference UI widths (tighter)
-          sidebarIsExpanded ? 'w-[220px]' : 'w-[56px]',
+          sidebarIsExpanded ? 'w-[260px]' : 'w-[56px]',
         )}
         style={{ height: '100vh', position: 'sticky', top: 0 }}
       >
@@ -78,7 +101,7 @@ export function AppShell({ children, initialNavItems }: AppShellProps) {
 
       {/* -- Main content area ---------------------------------------------- */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="sticky top-0 z-20">
+        <div data-print-hide className="sticky top-0 z-20">
           <Topbar />
         </div>
 
@@ -88,19 +111,19 @@ export function AppShell({ children, initialNavItems }: AppShellProps) {
         >
           {/* Page container without outer card; sections control their own surfaces */}
           <div className="mx-auto w-full max-w-none px-0 py-0">
-            <div className="px-6 pt-1 pb-0.5">
-              <div className="app-card px-4 py-1.5">
-                <Breadcrumb
-                  items={breadcrumbs}
-                  maxItems={4}
-                  className="text-[12px] text-slate-600"
-                />
-              </div>
+            <div data-print-hide className="px-6 pt-3 pb-1">
+              <Breadcrumb
+                items={breadcrumbs}
+                maxItems={4}
+                className="text-[12px] text-muted-foreground"
+              />
             </div>
             {children}
           </div>
         </main>
       </div>
+
+      <Toaster richColors closeButton position="top-center" />
     </div>
   )
 }

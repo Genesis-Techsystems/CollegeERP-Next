@@ -65,7 +65,7 @@ export default function EvaluationProcessPage() {
         subtitle="Start or continue evaluation for assigned subjects"
       />
 
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-base font-semibold text-slate-800 mb-3">Instructions</h2>
         <p className="text-sm text-slate-600 mb-4">
           Please follow the steps below to start the evaluation:
@@ -82,7 +82,7 @@ export default function EvaluationProcessPage() {
           {[...Array(3)].map((_, i) => (
             <div
               key={i}
-              className="rounded-lg border border-slate-200 bg-white p-4 space-y-3 animate-pulse"
+              className="rounded-lg border border-border bg-card p-4 space-y-3 animate-pulse"
             >
               <div className="h-5 w-3/4 bg-slate-100 rounded" />
               <div className="h-4 w-1/2 bg-slate-100 rounded" />
@@ -91,7 +91,7 @@ export default function EvaluationProcessPage() {
           ))}
         </div>
       ) : processes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <ClipboardCheck className="h-12 w-12 mb-3 opacity-40" />
           <p className="text-sm">No evaluation processes available</p>
         </div>
@@ -100,12 +100,12 @@ export default function EvaluationProcessPage() {
           {processes.map((process) => (
             <div
               key={process.processId}
-              className="rounded-lg border border-slate-200 bg-white overflow-hidden"
+              className="rounded-lg border border-border bg-card overflow-hidden"
             >
-              <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+              <div className="bg-muted/40 border-b border-border px-4 py-3 flex items-center justify-between">
                 <p className="text-sm font-semibold text-slate-800">
                   {process.subjectName}{' '}
-                  <span className="text-slate-400 font-normal">({process.subjectCode})</span>
+                  <span className="text-muted-foreground font-normal">({process.subjectCode})</span>
                 </p>
                 {getStatusBadge(process.status)}
               </div>

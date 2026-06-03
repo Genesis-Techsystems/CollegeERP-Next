@@ -26,6 +26,7 @@ import {
 import { useSessionContext } from '@/context/SessionContext'
 import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
+import { normalizeHref } from '@/lib/navigation'
 import { getUserAccess, logout } from '@/services/auth'
 
 // ---------------------------------------------------------------------------
@@ -95,7 +96,10 @@ export function Topbar() {
           }>
         }
       } = await getUserAccess(userId)
-      if (!body.success) return
+      if (!body.success) {
+        setPages([])
+        return
+      }
 
       const modules = body.data?.modules ?? []
       const collected: SearchPage[] = []
@@ -132,8 +136,10 @@ export function Topbar() {
           }
         }
       }
-
       setPages(collected)
+    } catch {
+      // Keep Topbar usable even when user-access API is temporarily unavailable.
+      setPages([])
     } finally {
       setPagesLoading(false)
     }
@@ -188,7 +194,7 @@ export function Topbar() {
   }
 
   function navigateTo(page: SearchPage) {
-    router.push('/' + page.url)
+    router.push(normalizeHref(page.url))
     setSearchTerm('')
     setIsSearchOpen(false)
     setActiveResultIndex(-1)
@@ -249,7 +255,7 @@ export function Topbar() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card px-4">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-5">
 
       {/* ── Mobile hamburger ─────────────────────────────────────────── */}
       <Button
@@ -299,7 +305,7 @@ export function Topbar() {
                     ? `search-result-${activeResultIndex}`
                     : undefined
                 }
-                placeholder="Search pages..."
+                placeholder="Search pages…"
                 value={searchTerm}
                 onChange={handleSearchChange}
                 onKeyDown={handleKeyDown}
@@ -309,9 +315,9 @@ export function Topbar() {
                   }
                 }}
                 className={cn(
-                  'h-8 w-52 rounded border border-input bg-background',
-                  'pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground',
-                  'focus:border-ring focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring/20',
+                  'h-9 w-64 rounded-md border border-input bg-background',
+                  'pl-9 pr-4 text-[13px] text-foreground placeholder:text-muted-foreground',
+                  'focus:border-primary focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/15',
                   'transition-all duration-150',
                 )}
               />
@@ -366,12 +372,12 @@ export function Topbar() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          className="relative h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           aria-label="Notifications"
         >
           <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
           <span
-            className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"
+            className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-card"
             aria-hidden="true"
           />
         </Button>
@@ -380,7 +386,7 @@ export function Topbar() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           aria-label="All apps"
         >
           <LayoutGrid className="h-[18px] w-[18px]" aria-hidden="true" />
@@ -390,35 +396,33 @@ export function Topbar() {
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           aria-label="Help"
         >
           <HelpCircle className="h-[18px] w-[18px]" aria-hidden="true" />
         </Button>
 
         {/* Divider */}
-        <div className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+        <div className="mx-2 h-6 w-px bg-border" aria-hidden="true" />
 
         {/* User menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
               aria-label="User menu"
             >
-              {/* Name + role stacked */}
               <div className="hidden text-right md:block">
-                <p className="text-[13px] font-semibold text-foreground leading-none">
+                <p className="text-[13px] font-semibold text-foreground leading-tight tracking-tight">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground leading-none">
-                  {user?.roleName ?? 'User'}
+                <p className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
+                  {user?.roleName ?? user?.userRole ?? 'User'}
                 </p>
               </div>
 
-              {/* Avatar */}
-              <Avatar className="h-8 w-8 shrink-0">
-                <AvatarFallback className={cn('text-xs font-bold', avatarStyle)}>
+              <Avatar className="h-9 w-9 shrink-0 ring-1 ring-border">
+                <AvatarFallback className={cn('text-[12px] font-semibold', avatarStyle)}>
                   {initials}
                 </AvatarFallback>
               </Avatar>

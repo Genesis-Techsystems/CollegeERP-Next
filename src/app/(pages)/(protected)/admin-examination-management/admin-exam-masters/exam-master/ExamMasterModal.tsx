@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Paperclip, X } from 'lucide-react'
+import { format } from 'date-fns'
+import { Eye, Paperclip, X } from 'lucide-react'
 import type { ExamMaster } from '@/types/exam-master'
 import { createExamMaster, updateExamMaster, uploadExamFiles } from '@/services/exam-master'
 import {
@@ -67,11 +68,24 @@ function FileInput({
   existingPath?: string
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const [localUrl, setLocalUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!file) {
+      setLocalUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(file)
+    setLocalUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+
   const displayName = file
     ? file.name
     : existingPath
       ? (existingPath.split('cms/')[1] ?? existingPath).split('/').pop()
       : null
+  const viewUrl = localUrl ?? existingPath ?? null
 
   return (
     <div className="mt-1">
@@ -90,6 +104,18 @@ function FileInput({
         {displayName && (
           <div className="flex items-center gap-1 min-w-0">
             <span className="text-xs text-slate-500 truncate max-w-[140px]">{displayName}</span>
+            {viewUrl && (
+              <a
+                href={viewUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="View uploaded file"
+                title="View file"
+                className="inline-flex items-center justify-center h-5 w-5 shrink-0 rounded text-slate-400 hover:text-slate-600"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </a>
+            )}
             {file && (
               <Button
                 type="button"
@@ -118,8 +144,8 @@ function parseDate(val: string | undefined | null): Date | null {
   return isNaN(d.getTime()) ? null : d
 }
 
-function toISOOrNull(val: Date | null): string | null {
-  return val ? val.toISOString() : null
+function toYMDOrNull(val: Date | null): string | null {
+  return val ? format(val, 'yyyy-MM-dd') : null
 }
 
 export default function ExamMasterModal({ open, onClose, exam, context, onSaved }: ExamMasterModalProps) {
@@ -204,7 +230,7 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent hideClose className="max-w-4xl p-0 overflow-hidden">
-        <DialogHeader className="border-b border-slate-200 px-6 py-4">
+        <DialogHeader className="border-b border-border px-6 py-4">
           <DialogTitle className="text-[hsl(var(--primary))]">{isEdit ? 'Edit Exam' : 'Add Exam'}</DialogTitle>
         </DialogHeader>
 
@@ -421,9 +447,10 @@ function buildPayload(values: FormValues, exam: ExamMaster | null, ctx: ExamMast
     ...(exam ? { examId: exam.examId } : {}),
     examName: values.examName,
     examShortName: values.examShortName,
-    examMonthYr: toISOOrNull(values.examMonthYr),
-    fromDate: toISOOrNull(values.fromDate),
-    toDate: toISOOrNull(values.toDate),
+    // Backend expects date-only strings (Angular sends yyyy-MM-dd), not ISO timestamps.
+    examMonthYr: toYMDOrNull(values.examMonthYr),
+    fromDate: toYMDOrNull(values.fromDate),
+    toDate: toYMDOrNull(values.toDate),
     isRegularExam: values.isRegularExam,
     isSupplyExam: values.isSupplyExam,
     isInternalExam: values.isInternalExam,
@@ -431,8 +458,8 @@ function buildPayload(values: FormValues, exam: ExamMaster | null, ctx: ExamMast
     isResultprocessStarted: values.isResultprocessStarted,
     isActive: values.isActive,
     reason: values.reason,
-    notificationPublishedOn: toISOOrNull(values.notificationPublishedOn),
-    feeNotificationPublishedOn: toISOOrNull(values.feeNotificationPublishedOn),
+    notificationPublishedOn: toYMDOrNull(values.notificationPublishedOn),
+    feeNotificationPublishedOn: toYMDOrNull(values.feeNotificationPublishedOn),
     universityId: ctx.universityId ?? undefined,
     collegeId: ctx.collegeId ?? undefined,
     courseId: ctx.courseId ?? undefined,

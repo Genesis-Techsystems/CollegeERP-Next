@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -13,13 +14,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table'
+import { DataTable, TableCard } from '@/common/components/table'
+import { TimePicker } from '@/common/components'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { listExamSessions, createExamSession, updateExamSession, getCollegeFilters } from '@/services/examination'
+import { PageContainer } from '@/components/layout'
+import { useSessionContext } from '@/context/SessionContext'
+import { listExamSessions, createExamSession, updateExamSession, getCollegeFilters, listGeneralDetailsByMaster } from '@/services/examination'
+import { GM_CODES } from '@/config/constants/ui'
 import { distinct } from '@/lib/utils'
+import { toastError, toastSuccess } from '@/lib/toast'
 
 // ── Column shape ─────────────────────────────────────────────────────────────
 const COL_DEFS = {
@@ -28,8 +32,8 @@ const COL_DEFS = {
   sessionIn: { field: 'examsessioninCatCode', headerName: 'Session In', minWidth: 120 } as ColDef,
   uniCode:   { field: 'universityCode', headerName: 'University Code', minWidth: 140 } as ColDef,
   startEnd:  {
-    headerName: 'Start - End',
-    minWidth: 180,
+    headerName: 'Session Start - End Times',
+    minWidth: 200,
     valueGetter: (p: any) =>
       p.data?.sessionStartTime && p.data?.sessionEndTime
         ? `${p.data.sessionStartTime} - ${p.data.sessionEndTime}`
@@ -51,8 +55,10 @@ function makeActionsRenderer(
 ) {
   return (p: ICellRendererParams) => (
     <Button
+      type="button"
       size="sm"
       variant="ghost"
+      aria-label="Edit exam session"
       onClick={() => {
         setEditing(p.data)
         setForm({
@@ -67,20 +73,21 @@ function makeActionsRenderer(
         setOpen(true)
       }}
     >
-      Edit
+      <Pencil className="h-4 w-4" />
     </Button>
   )
 }
 
 export default function ExamSessionPage() {
+  const { user } = useSessionContext()
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
-  const [filterOpen, setFilterOpen] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [universityOptions, setUniversityOptions] = useState<{ code: string; name?: string }[]>([])
+  const [universityOptionsLoaded, setUniversityOptionsLoaded] = useState(false)
+  const [sessionInOptions, setSessionInOptions] = useState<{ code: string; label: string }[]>([])
+  const [sessionInOptionsLoaded, setSessionInOptionsLoaded] = useState(false)
 
   const [form, setForm] = useState({
     examSessionName: '',
@@ -106,31 +113,49 @@ export default function ExamSessionPage() {
     refresh()
   }, [])
 
+  const ensureUniversityOptionsLoaded = useCallback(async () => {
+    if (universityOptionsLoaded) return
+    const orgIdFromStorage = Number(globalThis.localStorage?.getItem('organizationId') ?? 0)
+    const empIdFromStorage = Number(globalThis.localStorage?.getItem('employeeId') ?? 0)
+    const orgIdFromSession = Number(user?.organizationId ?? 0)
+    const empIdFromSession = Number(user?.employeeId ?? 0)
+    const orgId = orgIdFromStorage || orgIdFromSession || 1
+    const empId = empIdFromStorage || empIdFromSession || 31754
+    const { filtersData } = await getCollegeFilters(orgId, empId).catch(() => ({ filtersData: [] as any[] }))
+    const uniRows = distinct(filtersData ?? [], (r: any) => r.fk_university_id)
+    const options = uniRows
+      .map((u: any) => ({
+        code: String(u.university_code ?? '').trim(),
+        name: String(u.university_name ?? '').trim(),
+      }))
+      .filter((u: any) => u.code)
+    setUniversityOptions(options)
+    setUniversityOptionsLoaded(true)
+  }, [universityOptionsLoaded, user?.employeeId, user?.organizationId])
+
   useEffect(() => {
-    async function loadUniversities() {
-      const { filtersData } = await getCollegeFilters(0, 0).catch(() => ({ filtersData: [] as any[] }))
-      const uniRows = distinct(filtersData ?? [], (r: any) => r.fk_university_id)
-      const options = uniRows
-        .map((u: any) => ({
-          code: String(u.university_code ?? '').trim(),
-          name: String(u.university_name ?? '').trim(),
-        }))
-        .filter((u: any) => u.code)
-      setUniversityOptions(options)
-    }
-    loadUniversities()
-  }, [])
+    if (!open) return
+    void ensureUniversityOptionsLoaded()
+  }, [ensureUniversityOptionsLoaded, open])
 
-  const filtered = useMemo(() => {
-    if (!q.trim()) return rows
-    const lower = q.toLowerCase()
-    return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(lower))
-  }, [q, rows])
+  const ensureSessionInOptionsLoaded = useCallback(async () => {
+    if (sessionInOptionsLoaded) return
+    const rows = await listGeneralDetailsByMaster(GM_CODES.EXAM_SESSION).catch(() => [] as any[])
+    const opts = (Array.isArray(rows) ? rows : [])
+      .map((r: any) => ({
+        code: String(r.generalDetailCode ?? '').trim(),
+        label: String(r.generalDetailDisplayName ?? r.generalDetailName ?? r.generalDetailCode ?? '').trim(),
+      }))
+      .filter((o) => o.code)
+    setSessionInOptions(opts)
+    setSessionInOptionsLoaded(true)
+  }, [sessionInOptionsLoaded])
 
-  const filteredByStatus = useMemo(() => {
-    if (statusFilter === 'all') return filtered
-    return filtered.filter((r) => statusFilter === 'active' ? !!r.isActive : !r.isActive)
-  }, [filtered, statusFilter])
+  useEffect(() => {
+    if (!open) return
+    void ensureSessionInOptionsLoaded()
+  }, [ensureSessionInOptionsLoaded, open])
+
   function formatTime12h(value?: string) {
     if (!value) return ''
     const raw = String(value).trim()
@@ -148,9 +173,9 @@ export default function ExamSessionPage() {
   const columnDefs = useMemo<ColDef[]>(
     () => [
       COL_DEFS.siNo,
+      COL_DEFS.uniCode,
       COL_DEFS.name,
       COL_DEFS.sessionIn,
-      COL_DEFS.uniCode,
       COL_DEFS.startEnd,
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
       { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditing, setForm, setOpen) },
@@ -159,100 +184,114 @@ export default function ExamSessionPage() {
   )
 
   async function save() {
-    const payload = { ...form, reason: form.isActive ? 'active' : (form.reason || '') }
-    if (editing?.examSessionId) {
-      await updateExamSession(editing.examSessionId, payload)
-    } else {
-      await createExamSession(payload)
+    const payload: Record<string, unknown> = {
+      examSessionName: form.examSessionName.trim(),
+      examsessioninCatCode: form.examsessioninCatCode.trim(),
+      // Some backends still bind this camel-case variant.
+      examSessionInCatCode: form.examsessioninCatCode.trim(),
+      universityCode: form.universityCode.trim(),
+      sessionStartTime: form.sessionStartTime || null,
+      sessionEndTime: form.sessionEndTime || null,
+      isActive: form.isActive,
+      reason: form.isActive ? 'active' : (form.reason || '').trim(),
     }
+
+    try {
+      if (editing?.examSessionId) {
+        payload.examSessionId = editing.examSessionId
+        await updateExamSession(editing.examSessionId, payload)
+        toastSuccess('Exam session updated successfully')
+      } else {
+        await createExamSession(payload)
+        toastSuccess('Exam session created successfully')
+      }
+    } catch (error) {
+      toastError(error, `Failed to ${editing?.examSessionId ? 'update' : 'create'} exam session`)
+      return
+    }
+
     setOpen(false)
     setEditing(null)
     await refresh()
   }
 
   return (
-    <PageContainer className="space-y-5">
-      <PageHeader title="Exam Sessions" subtitle="Create and manage exam time slots" />
-
-      <div className="app-card overflow-hidden">
-        <div className="px-3 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className={`h-5 rounded-md border px-2 text-[11px] font-medium ${statusFilter === 'all' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-600'}`}
-              onClick={() => setStatusFilter('all')}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className={`h-5 rounded-md border px-2 text-[11px] font-medium ${statusFilter === 'active' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-600'}`}
-              onClick={() => setStatusFilter('active')}
-            >
-              Active
-            </button>
-            <button
-              type="button"
-              className={`h-5 rounded-md border px-2 text-[11px] font-medium ${statusFilter === 'inactive' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-slate-200 text-slate-600'}`}
-              onClick={() => setStatusFilter('inactive')}
-            >
-              InActive
-            </button>
-          </div>
-        </div>
+    <PageContainer className="space-y-4">
+      <div className="app-card overflow-hidden px-4 py-3">
+        <h1 className="app-card-title">
+          Exam Sessions
+        </h1>
       </div>
 
-      <TableCard
-        headerLeft={
-          <Input
-            className="h-9 max-w-sm text-[12px]"
-            placeholder="Search…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        }
-        headerRight={
-          <Button
-            size="sm"
-            onClick={() => {
-              setEditing(null)
-              setForm({
-                examSessionName: '',
-                examsessioninCatCode: '',
-                universityCode: '',
-                sessionStartTime: '',
-                sessionEndTime: '',
-                isActive: true,
-                reason: 'active',
-              })
-              setOpen(true)
-            }}
-          >
-            Add Exam Session
-          </Button>
-        }
-      >
-        <DataTable rowData={filteredByStatus} columnDefs={columnDefs} loading={loading} pagination />
+      <TableCard withHeaderBorder={false}>
+        <DataTable
+          rowData={rows}
+          columnDefs={columnDefs}
+          loading={loading}
+          pagination
+          toolbar={{
+            search: true,
+            searchPlaceholder: 'Search exam sessions…',
+            pdfDocumentTitle: 'Exam Sessions',
+          }}
+          toolbarTrailing={(
+            <Button
+              type="button"
+              size="sm"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={() => {
+                setEditing(null)
+                setForm({
+                  examSessionName: '',
+                  examsessioninCatCode: '',
+                  universityCode: '',
+                  sessionStartTime: '',
+                  sessionEndTime: '',
+                  isActive: true,
+                  reason: 'active',
+                })
+                setOpen(true)
+              }}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Add Exam Session
+            </Button>
+          )}
+        />
       </TableCard>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) { setOpen(false); setEditing(null) } }}>
         <DialogContent hideClose className="max-w-2xl p-0 overflow-hidden">
-          <DialogHeader className="px-4 py-3 border-b border-slate-200 bg-slate-50/60">
+          <DialogHeader className="px-4 py-3 border-b border-border bg-muted/40">
             <DialogTitle className="text-[16px] font-semibold text-[hsl(var(--primary))]">
               {editing ? 'Edit Exam Session' : 'Add Exam Session'}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1">
+          <div className="grid min-w-0 grid-cols-1 gap-3 p-4 md:grid-cols-2">
+            <div className="min-w-0 space-y-1">
               <Label className="text-[12px]">Exam Session Name</Label>
               <Input className="h-9 text-[12px]" value={form.examSessionName} onChange={(e) => setForm((s) => ({ ...s, examSessionName: e.target.value }))} />
             </div>
-            <div className="space-y-1">
-              <Label className="text-[12px]">Session In (Code)</Label>
-              <Input className="h-9 text-[12px]" value={form.examsessioninCatCode} onChange={(e) => setForm((s) => ({ ...s, examsessioninCatCode: e.target.value }))} />
+            <div className="min-w-0 space-y-1">
+              <Label className="text-[12px]">Session In</Label>
+              <Select
+                value={form.examsessioninCatCode || undefined}
+                onValueChange={(v) => setForm((s) => ({ ...s, examsessioninCatCode: v }))}
+              >
+                <SelectTrigger className="h-9 text-[12px]">
+                  <SelectValue placeholder="Select Session In" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sessionInOptions.map((o) => (
+                    <SelectItem key={o.code} value={o.code}>
+                      {o.code}{o.label && o.label !== o.code ? ` - ${o.label}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <Label className="text-[12px]">University Code</Label>
               <Select
                 value={form.universityCode || undefined}
@@ -270,20 +309,26 @@ export default function ExamSessionPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[12px]">Start Time</Label>
-              <Input type="time" step="1" className="h-9 text-[12px]" value={form.sessionStartTime} onChange={(e) => setForm((s) => ({ ...s, sessionStartTime: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[12px]">End Time</Label>
-              <Input type="time" step="1" className="h-9 text-[12px]" value={form.sessionEndTime} onChange={(e) => setForm((s) => ({ ...s, sessionEndTime: e.target.value }))} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[12px]">&nbsp;</Label>
-              <label className="flex h-9 items-center gap-2 rounded-md border border-slate-200 px-2">
+            <div className="min-w-0 space-y-1">
+              <Label className="text-[12px]">Active</Label>
+              <label className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-border bg-card px-2">
                 <Checkbox checked={form.isActive} onCheckedChange={(v) => setForm((s) => ({ ...s, isActive: !!v }))} />
-                <span className="text-[12px] text-slate-700">Active</span>
+                <span className="text-[12px] text-slate-700">Session is active</span>
               </label>
+            </div>
+            <div className="min-w-0 space-y-1">
+              <TimePicker
+                value={form.sessionStartTime}
+                onChange={(next) => setForm((s) => ({ ...s, sessionStartTime: next }))}
+                label="Start Time"
+              />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <TimePicker
+                value={form.sessionEndTime}
+                onChange={(next) => setForm((s) => ({ ...s, sessionEndTime: next }))}
+                label="End Time"
+              />
             </div>
             {!form.isActive && (
               <div className="space-y-1 md:col-span-2">
@@ -294,8 +339,8 @@ export default function ExamSessionPage() {
           </div>
 
           <DialogFooter className="px-4 pb-4">
-            <Button variant="outline" onClick={() => { setOpen(false); setEditing(null) }}>Close</Button>
-            <Button onClick={save}>Save</Button>
+            <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditing(null) }}>Close</Button>
+            <Button type="button" onClick={save}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

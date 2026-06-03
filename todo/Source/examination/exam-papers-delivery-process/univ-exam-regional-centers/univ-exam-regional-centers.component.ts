@@ -111,7 +111,7 @@ export class UnivExamRegionalCentersComponent implements OnInit {
     selectedUniversity(universityId) {
       this.universityCode = this.universites.filter(x => (x.universityId === this.examCenterForm.value.universityId))[0].universityCode;
       this.examRedionalCenterList =[]
-        this.crudService.listDetailsByTwoIds(this.UnivExamRegionalCentersUrl, universityId, 'true', 'Universities.universityId', this.isActive)
+        this.crudService.listDetailsByIdsWithSort(this.UnivExamRegionalCentersUrl, universityId, 'Universities.universityId')
             .subscribe(result => {
                 if (result.statusCode === 200) {
                     if (result.data.resultList && result.data.resultList !== '') {

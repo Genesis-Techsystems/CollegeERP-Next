@@ -3,30 +3,25 @@
 import type { ReactNode } from 'react'
 
 /**
- * Page-level header with title, optional subtitle, and an optional action slot.
- * Use the `action` prop to render CTA buttons, dropdowns, or any header controls.
+ * Page-level header chrome. By app convention the visible page title lives in
+ * the card / filter-panel header, not at the top of the route. This component
+ * only renders when an `action` slot is supplied (right-aligned controls).
+ *
+ * `title`, `subtitle`, `description` are accepted for call-site compatibility
+ * but intentionally not rendered.
  */
 interface PageHeaderProps {
-  /** Primary page title displayed as an h1 */
   title: string
-  /** Optional descriptive subtitle rendered below the title */
   subtitle?: string
-  /** Optional slot for action controls (buttons, menus, etc.) rendered on the right */
+  description?: string
   action?: ReactNode
 }
 
-export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
+export function PageHeader({ action }: PageHeaderProps) {
+  if (!action) return null
   return (
-    <div className="pb-2 border-b border-[hsl(var(--border))] mb-3">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="font-bold text-[hsl(var(--page-title))] text-[20px] leading-[1.15]">
-            {title}
-          </h1>
-          {/* Subtitle intentionally hidden globally per UI preference */}
-        </div>
-        {action && <div>{action}</div>}
-      </div>
+    <div className="mb-3 flex items-start justify-end border-b border-[hsl(var(--border))] pb-3">
+      <div className="flex items-center gap-2">{action}</div>
     </div>
   )
 }

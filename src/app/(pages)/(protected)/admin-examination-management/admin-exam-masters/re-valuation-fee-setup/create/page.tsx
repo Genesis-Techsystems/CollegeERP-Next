@@ -1,34 +1,44 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSessionContext } from '@/context/SessionContext'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { DatePicker } from '@/common/components/date-picker'
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toDateOnlyISO } from '@/common/generic-functions'
 import { distinct } from '@/lib/utils'
-import { crud, buildQuery } from '@/services/crud'
+import { buildQuery } from '@/services/crud'
 import {
 	getCollegeFilters,
+	getExamFeeStructure,
 	listCourseGroups,
 	listCourseYears,
 	listExamMasters,
 	createExamFeeStructure,
+	updateExamFeeStructure,
 } from '@/services/examination'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronDown, Filter } from 'lucide-react'
+import { Filter } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
 
 type LateFeeFine = { name: string; startDate: string; endDate: string; regFeeFine?: string; suppleFeeFine?: string }
 type AdditionalFee = { name: string; type: 'regular' | 'supple'; amount: string }
+
+// Angular `courseGroupYears` row — one selectable entry per course-group × course-year
+// combination. `examFeeCourseyrId` is only present when editing an existing structure.
+type CourseGroupYear = {
+	courseGroupId: number
+	groupCode: string
+	courseYearName: string
+	courseYearId: number
+	courseYearCode: string
+	check: boolean
+	examFeeStructureId?: number
+	examFeeCourseyrId?: number
+}
 
 function formatDisplayDate(value?: string) {
 	if (!value) return ''
@@ -48,7 +58,14 @@ function toDateString(value: Date | null) {
 	return toDateOnlyISO(value)
 }
 
+function parseNumberOrNull(v: string): number | null {
+	if (v === '' || v == null) return null
+	const n = Number(v)
+	return Number.isFinite(n) ? n : null
+}
+
 export default function CreateRevaluationFeeStructurePage() {
+	const { user } = useSessionContext()
 	const router = useRouter()
 	const searchParams = useSearchParams()
 
@@ -56,13 +73,10 @@ export default function CreateRevaluationFeeStructurePage() {
 	const [loadingFilters, setLoadingFilters] = useState(true)
 	const [filtersData, setFiltersData] = useState<any[]>([])
 	const [academicData, setAcademicData] = useState<any[]>([])
-	const [filterOpen, setFilterOpen] = useState(true)
+	const [filterOpen] = useState(true)
 
 	const [courses, setCourses] = useState<any[]>([])
 	const [academicYears, setAcademicYears] = useState<any[]>([])
-	const [courseYears, setCourseYears] = useState<any[]>([])
-	const [courseGroups, setCourseGroups] = useState<any[]>([])
-	const [courseGroupCodeById, setCourseGroupCodeById] = useState<Record<number, string>>({})
 	const [examMasters, setExamMasters] = useState<any[]>([])
 
 	// Params from previous page (if present)
@@ -74,14 +88,17 @@ export default function CreateRevaluationFeeStructurePage() {
 	const [paramExamName, setParamExamName] = useState('')
 	const [paramExamFromDate, setParamExamFromDate] = useState('')
 	const [paramExamToDate, setParamExamToDate] = useState('')
+	const [editId, setEditId] = useState<number | null>(null)
+
+	useBreadcrumbLabel(editId ? 'Edit Re Valuation Fee Setup' : 'Create Re Valuation Fee Setup')
 
 	const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
 	const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<number | null>(null)
 	const [selectedExamId, setSelectedExamId] = useState<number | null>(null)
 
-	// Course years
+	// Course years — Angular `courseGroupYears` (course groups × course years).
 	const [q, setQ] = useState('')
-	const [selectedCourseYearKeys, setSelectedCourseYearKeys] = useState<Set<string>>(new Set())
+	const [courseGroupYears, setCourseGroupYears] = useState<CourseGroupYear[]>([])
 
 	// Form
 	const [form, setForm] = useState({
@@ -116,82 +133,34 @@ export default function CreateRevaluationFeeStructurePage() {
 	const [addFeeAmount, setAddFeeAmount] = useState('')
 	const [additionalFees, setAdditionalFees] = useState<AdditionalFee[]>([])
 
-	const groupCodes = useMemo(
-		() =>
-			Array.from(
-				new Set(
-					(courseGroups ?? [])
-						.map((g: any) => String(g.group_code ?? g.groupCode ?? g.courseGroupCode ?? g.course_group_code ?? '').trim())
-						.filter(Boolean)
-				)
-			),
-		[courseGroups]
-	)
-
-	const displayCourseYears = useMemo(() => {
-		if (!Array.isArray(courseYears) || courseYears.length === 0) return []
-
-		const hasRowLevelGroup = courseYears.some((y: any) =>
-			Boolean(
-				y.__groupCodeFromApi ||
-				y.groupCode ||
-				y.group_code ||
-				y.courseGroupCode ||
-				y.course_group_code ||
-				y.branchCode ||
-				y.branch_code ||
-				(String(y.courseYearCode ?? y.course_year_code ?? '').includes('-'))
-			)
-		)
-
-		if (hasRowLevelGroup || groupCodes.length === 0) return courseYears
-
-		return courseYears.flatMap((y: any) =>
-			groupCodes.map((gc) => ({
-				...y,
-				__displayGroupCode: gc,
-				__rowKey: `${y.courseYearId ?? y.id ?? y.course_year_id ?? y.fk_course_year_id ?? 'row'}-${gc}`,
-			}))
-		)
-	}, [courseYears, groupCodes])
-
-	const filteredCourseYears = useMemo(() => {
-		const list = displayCourseYears
-		if (!q.trim()) return list
+	// Filtered view of the course-group/year list (Angular `courseFilter` pipe over
+	// `courseGroupYears`, matched against "groupCode - courseYearCode").
+	const filteredCourseGroupYears = useMemo(() => {
+		if (!q.trim()) return courseGroupYears
 		const lower = q.toLowerCase()
-		return list.filter((y: any) => {
-			const yearCode = String(y.courseYearCode ?? y.course_year_code ?? '')
-			const branchFromYear = yearCode.includes('-') ? yearCode.split('-')[0].trim() : ''
-			const groupCode =
-				y.__groupCodeFromApi ??
-				y.__displayGroupCode ??
-				y.groupCode ??
-				y.group_code ??
-				y.courseGroupCode ??
-				y.course_group_code ??
-				y.branchCode ??
-				y.branch_code ??
-				branchFromYear
-			const label = `${groupCode ?? ''} ${y.courseYearName ?? y.yearName ?? yearCode ?? ''}`.toLowerCase()
-			return label.includes(lower)
-		})
-	}, [q, displayCourseYears])
+		return courseGroupYears.filter((c) =>
+			`${c.groupCode} ${c.courseYearCode} ${c.courseYearName}`.toLowerCase().includes(lower),
+		)
+	}, [q, courseGroupYears])
 
 	const fetchFilters = useCallback(async () => {
 		setLoadingFilters(true)
 		try {
-			const { filtersData: f, academicData: ay } = await getCollegeFilters(0, 0)
+			const orgIdFromStorage = Number(globalThis.localStorage?.getItem('organizationId') ?? 0)
+			const empIdFromStorage = Number(globalThis.localStorage?.getItem('employeeId') ?? 0)
+			const orgIdFromSession = Number(user?.organizationId ?? 0)
+			const empIdFromSession = Number(user?.employeeId ?? 0)
+			const orgId = orgIdFromStorage || orgIdFromSession || 1
+			const empId = empIdFromStorage || empIdFromSession || 31754
+			const { filtersData: f, academicData: ay } = await getCollegeFilters(orgId, empId)
 			setFiltersData(f ?? [])
 			setAcademicData(ay ?? [])
 			const distinctCourses = distinct(f ?? [], (r) => r.fk_course_id)
 			setCourses(distinctCourses)
-			if (distinctCourses.length > 0) {
-				handleCourseChange(distinctCourses[0].fk_course_id, f, ay)
-			}
 		} finally {
 			setLoadingFilters(false)
 		}
-	}, [])
+	}, [user?.employeeId, user?.organizationId])
 
 	useEffect(() => {
 		// Read params first
@@ -203,6 +172,7 @@ export default function CreateRevaluationFeeStructurePage() {
 		const examName = searchParams?.get('examName') ?? ''
 		const fromDate = searchParams?.get('fromDate') ?? ''
 		const toDate = searchParams?.get('toDate') ?? ''
+		const id = searchParams?.get('examFeeStructureId')
 		setParamCourseId(c ? Number(c) : null)
 		setParamYearId(y ? Number(y) : null)
 		setParamExamId(e ? Number(e) : null)
@@ -211,18 +181,18 @@ export default function CreateRevaluationFeeStructurePage() {
 		setParamExamName(examName)
 		setParamExamFromDate(fromDate)
 		setParamExamToDate(toDate)
+		setEditId(id ? Number(id) : null)
 
 		fetchFilters()
 	}, [fetchFilters])
 
-	async function handleCourseChange(courseId: number, fRef = filtersData, ayRef = academicData) {
+	// Header context only: academic years + exam masters. The Course Years panel is
+	// populated separately from `paramCourseId` (see loadCourseGroupYears).
+	function handleCourseChange(courseId: number, fRef = filtersData, ayRef = academicData) {
 		setSelectedCourseId(courseId)
 		setSelectedAcademicYearId(null)
 		setSelectedExamId(null)
 		setExamMasters([])
-		setCourseGroups([])
-		setCourseYears([])
-		setSelectedCourseYearKeys(new Set())
 
 		const years = distinct(ayRef ?? [], (a: any) => a.fk_academic_year_id)
 		setAcademicYears(years)
@@ -231,43 +201,74 @@ export default function CreateRevaluationFeeStructurePage() {
 		} else if (years.length > 0) {
 			setSelectedAcademicYearId(years[0].fk_academic_year_id)
 		}
+	}
 
-		const yrs = await listCourseYears(courseId).catch(() => [])
+	// Angular selectedCourse() → getCourseYears(): load the course groups and course
+	// years for `courseId`, then build one selectable row per group × year combination.
+	// `structureRow` (edit mode) pre-checks the combinations already saved.
+	const loadCourseGroupYears = useCallback(async (courseId: number, structureRow: any | null) => {
+		if (!courseId) {
+			setCourseGroupYears([])
+			return
+		}
 		const groups = await listCourseGroups(courseId).catch(() => [])
 		const groupList = Array.isArray(groups) ? groups : []
-		setCourseGroups(groupList)
-		const cgRows = await crud.list('CourseGroup', `Course.courseId==${courseId}.and.isActive==true`).catch(() => groupList)
-		const groupMap: Record<number, string> = {}
-		for (const g of cgRows as any[]) {
-			const gid = Number(
-				g.fk_course_group_id ??
-				g.courseGroupId ??
-				g.course_group_id ??
-				g.fk_coursegroup_id ??
-				g.id ??
-				0
-			)
-			const code = String(g.groupCode ?? g.group_code ?? g.courseGroupCode ?? g.course_group_code ?? '').trim()
-			if (gid && code) groupMap[gid] = code
+		// Angular only proceeds to course years when at least one group exists.
+		if (groupList.length === 0) {
+			setCourseGroupYears([])
+			return
 		}
-		setCourseGroupCodeById(groupMap)
-		setCourseYears(
-			Array.isArray(yrs)
-				? yrs.map((y: any) => {
-					const gid = Number(
-						y.fk_course_group_id ??
-						y.courseGroupId ??
-						y.course_group_id ??
-						0
-					)
-					return {
-						...y,
-						__groupCodeFromApi: gid ? groupMap[gid] : undefined,
-					}
-				})
-				: []
-		)
-	}
+		const yrs = await listCourseYears(courseId).catch(() => [])
+		const yearList = Array.isArray(yrs) ? yrs : []
+		const savedCourseyr: any[] = Array.isArray(structureRow?.examFeeStructureCourseyr)
+			? structureRow.examFeeStructureCourseyr
+			: []
+
+		const built: CourseGroupYear[] = []
+		for (const g of groupList) {
+			const courseGroupId = Number(g.courseGroupId ?? g.fk_course_group_id ?? g.course_group_id ?? g.id ?? 0)
+			const groupCode = String(g.groupCode ?? g.group_code ?? g.courseGroupCode ?? g.course_group_code ?? '').trim()
+			for (const yr of yearList) {
+				const courseYearId = Number(yr.courseYearId ?? yr.fk_course_year_id ?? yr.course_year_id ?? yr.id ?? 0)
+				if (!courseGroupId || !courseYearId) continue
+				if (built.some((b) => b.courseGroupId === courseGroupId && b.courseYearId === courseYearId)) continue
+				const courseYearName = String(yr.courseYearName ?? yr.course_year_name ?? yr.yearName ?? '')
+				const courseYearCode = String(yr.courseYearCode ?? yr.course_year_code ?? '')
+				const match = savedCourseyr.find(
+					(x) =>
+						Number(x.courseGroupId ?? x.fk_course_group_id) === courseGroupId &&
+						Number(x.courseYearId ?? x.fk_course_year_id) === courseYearId,
+				)
+				if (match) {
+					built.push({
+						courseGroupId,
+						groupCode,
+						courseYearName,
+						courseYearId,
+						courseYearCode,
+						check: true,
+						examFeeStructureId: Number(match.examFeeStructureId ?? structureRow?.examFeeStructureId ?? 0) || undefined,
+						examFeeCourseyrId: Number(match.examFeeCourseyrId ?? 0) || undefined,
+					})
+				} else {
+					built.push({ courseGroupId, groupCode, courseYearName, courseYearId, courseYearCode, check: false })
+				}
+			}
+		}
+		setCourseGroupYears(built)
+	}, [])
+
+	// Create mode: populate the Course Years panel from the course passed in the URL
+	// (Angular ngOnInit → selectedCourse(pageParams.courseId)). Edit mode builds it in
+	// loadExisting once the saved structure is known (so saved combinations pre-check).
+	useEffect(() => {
+		if (editId) return
+		if (!paramCourseId) {
+			setCourseGroupYears([])
+			return
+		}
+		void loadCourseGroupYears(paramCourseId, null)
+	}, [editId, paramCourseId, loadCourseGroupYears])
 
 	useEffect(() => {
 		async function loadExamMasters() {
@@ -304,19 +305,68 @@ export default function CreateRevaluationFeeStructurePage() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [loadingFilters])
 
-	function toggleCourseYear(key: string) {
-		setSelectedCourseYearKeys((s) => {
-			const next = new Set(s)
-			if (next.has(key)) next.delete(key)
-			else next.add(key)
-			return next
-		})
-	}
+	useEffect(() => {
+		async function loadExisting() {
+			if (!editId) return
+			const row = await getExamFeeStructure(editId).catch(() => null)
+			if (!row) return
 
-	function parseNumberOrNull(v: string): number | null {
-		if (v === '' || v == null) return null
-		const n = Number(v)
-		return Number.isFinite(n) ? n : null
+			setForm({
+				examFeeStructureName: String(row.examFeeStructureName ?? ''),
+				collectionStartDate: String(row.collectionStartDate ?? row.collectionStartOn ?? ''),
+				collectionEndDate: String(row.collectionEndDate ?? row.collectionEndOn ?? ''),
+				regularFee: String(row.regularFee ?? row.regFee ?? ''),
+				suppleFee: String(row.suppleFee ?? row.supplyFee ?? ''),
+				isActive: row.isActive !== false,
+			})
+
+			const rv: any = row.revaluationSubjectFees ?? row.revaluationFee ?? {}
+			setRevalSubjectFees({
+				one: String(rv.one ?? rv.subject1Fee ?? ''),
+				two: String(rv.two ?? rv.subject2Fee ?? ''),
+				three: String(rv.three ?? rv.subject3Fee ?? ''),
+				four: String(rv.four ?? rv.subject4Fee ?? ''),
+				five: String(rv.five ?? rv.subject5Fee ?? ''),
+			})
+
+			const fines = Array.isArray(row.examFeeFine) ? row.examFeeFine : []
+			setLateFeeFines(
+				fines.map((f: any) => ({
+					name: String(f.fineName ?? ''),
+					startDate: String(f.fineFromDate ?? ''),
+					endDate: String(f.fineToDate ?? ''),
+					regFeeFine: String(f.regFeeFine ?? ''),
+					suppleFeeFine: String(f.supplyFeeFine ?? f.suppleFeeFine ?? ''),
+				})),
+			)
+
+			const adt = Array.isArray(row.examFeeAdditionalStructure) ? row.examFeeAdditionalStructure : []
+			setAdditionalFees(
+				adt.map((f: any) => ({
+					name: String(f.name ?? f.feeName ?? ''),
+					type: String(f.type ?? '').toLowerCase().includes('supple') ? 'supple' : 'regular',
+					amount: String(f.fee ?? f.amount ?? ''),
+				})),
+			)
+
+			// Build the course-group/year list for the structure's course and pre-check
+			// the saved combinations (Angular getExamFeeStructure → selectedCourse → getCourseYears).
+			const structureCourseId = Number(
+				(Array.isArray(row.examFeeStructureCourseyr) ? row.examFeeStructureCourseyr : [])[0]?.courseId ??
+					paramCourseId ??
+					0,
+			)
+			await loadCourseGroupYears(structureCourseId, row)
+		}
+		void loadExisting()
+	}, [editId, paramCourseId, loadCourseGroupYears])
+
+	function toggleCourseGroupYear(courseGroupId: number, courseYearId: number) {
+		setCourseGroupYears((prev) =>
+			prev.map((c) =>
+				c.courseGroupId === courseGroupId && c.courseYearId === courseYearId ? { ...c, check: !c.check } : c,
+			),
+		)
 	}
 
 	function saveLateFeeRow() {
@@ -337,37 +387,75 @@ export default function CreateRevaluationFeeStructurePage() {
 		setAdditionalFees((s) => s.filter((_, idx) => idx !== i))
 	}
 
+	// Angular drives course/exam from the URL params; fall back to them when the
+	// college-filter lookups did not resolve a selection (e.g. admins with no employeeId).
+	const effectiveCourseId = selectedCourseId ?? paramCourseId
+	const effectiveExamId = selectedExamId ?? paramExamId
+	const hasCheckedCourseYear = courseGroupYears.some((c) => c.check)
+
 	const canSave = useMemo(() => {
 		return (
-			!!selectedCourseId &&
-			!!selectedAcademicYearId &&
-			!!selectedExamId &&
+			!!effectiveCourseId &&
+			!!effectiveExamId &&
 			form.examFeeStructureName.trim().length > 0 &&
-			selectedCourseYearKeys.size > 0
+			hasCheckedCourseYear
 		)
-	}, [form.examFeeStructureName, selectedAcademicYearId, selectedCourseId, selectedCourseYearKeys.size, selectedExamId])
+	}, [form.examFeeStructureName, effectiveCourseId, effectiveExamId, hasCheckedCourseYear])
+
+	const selectedCourseRow = courses.find((c) => c.fk_course_id === selectedCourseId)
+	const selectedAcademicYear = selectedAcademicYearId
+		? academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)?.academic_year
+		: paramAcademicYear
+	const programText = `${selectedCourseRow?.course_code ?? selectedCourseRow?.course_name ?? paramCourseName ?? '—'}${
+		selectedAcademicYear ? ` / (${selectedAcademicYear})` : ''
+	}`
 
 	async function save() {
 		if (!canSave) return
-		const selectedCourseYearIds = Array.from(
-			new Set(
-				filteredCourseYears
-					.filter((y: any) => selectedCourseYearKeys.has(String(y.__rowKey ?? y.courseYearId ?? y.id)))
-					.map((y: any) => Number(y.courseYearId ?? y.id))
-					.filter((v) => Number.isFinite(v))
-			)
-		)
+
+		// Angular addExamFeestructurePost(): one examFeeStructureCourseyr per group+year
+		// combination. New rows only when checked; existing rows (examFeeCourseyrId) are
+		// always sent with their current isActive so unchecking deactivates them.
+		const examFeeStructureCourseyr = courseGroupYears.flatMap((c) => {
+			if (c.examFeeCourseyrId) {
+				return [{
+					courseId: effectiveCourseId ?? undefined,
+					isActive: c.check,
+					courseGroupId: c.courseGroupId,
+					courseYearId: c.courseYearId,
+					examFeeCourseyrId: c.examFeeCourseyrId,
+				}]
+			}
+			if (c.check) {
+				return [{
+					courseId: effectiveCourseId ?? undefined,
+					isActive: true,
+					courseGroupId: c.courseGroupId,
+					courseYearId: c.courseYearId,
+				}]
+			}
+			return []
+		})
 
 		const payload: Record<string, unknown> = {
 			examFeeStructureName: form.examFeeStructureName,
 			collectionStartDate: form.collectionStartDate || null,
 			collectionEndDate: form.collectionEndDate || null,
+			// keep both naming styles for backend compatibility
+			regFee: parseNumberOrNull(form.regularFee),
+			supplyFee: parseNumberOrNull(form.suppleFee),
 			regularFee: parseNumberOrNull(form.regularFee),
 			suppleFee: parseNumberOrNull(form.suppleFee),
+			subject1Fee: parseNumberOrNull(revalSubjectFees.one ?? ''),
+			subject2Fee: parseNumberOrNull(revalSubjectFees.two ?? ''),
+			subject3Fee: parseNumberOrNull(revalSubjectFees.three ?? ''),
+			subject4Fee: parseNumberOrNull(revalSubjectFees.four ?? ''),
+			subject5Fee: parseNumberOrNull(revalSubjectFees.five ?? ''),
 			isActive: form.isActive,
+			reason: null,
 			// relationships
-			examId: selectedExamId,
-			examMaster: { examId: selectedExamId },
+			examId: effectiveExamId,
+			examMaster: { examId: effectiveExamId },
 			// revaluation subject fees
 			revaluationSubjectFees: {
 				one: parseNumberOrNull(revalSubjectFees.one ?? ''),
@@ -376,12 +464,8 @@ export default function CreateRevaluationFeeStructurePage() {
 				four: parseNumberOrNull(revalSubjectFees.four ?? ''),
 				five: parseNumberOrNull(revalSubjectFees.five ?? ''),
 			},
-			// nested: course years
-			examFeeStructureCourseyr: selectedCourseYearIds.map((cyId) => ({
-				courseId: selectedCourseId ?? undefined,
-				courseYearId: cyId,
-				isActive: true,
-			})),
+			// nested: course years (group × year combinations)
+			examFeeStructureCourseyr,
 			// nested: fines
 			examFeeFine: lateFeeFines.map((f) => ({
 				fineName: f.name,
@@ -393,57 +477,40 @@ export default function CreateRevaluationFeeStructurePage() {
 			})),
 			// nested: additional
 			examFeeAdditionalStructure: additionalFees.map((r) => ({
-				adtExamfeetypeCatId: undefined,
+				adtExamfeetypeCatId: null,
 				type: r.type === 'regular' ? 'Regular' : 'Supple',
 				includeInReg: r.type === 'regular',
 				fee: parseNumberOrNull(r.amount),
 				isActive: true,
 			})),
 		}
-		await createExamFeeStructure(payload)
+		if (editId) await updateExamFeeStructure(editId, payload)
+		else await createExamFeeStructure(payload)
 		router.push('/admin-examination-management/admin-exam-masters/re-valuation-fee-setup')
 	}
 
 	return (
-		<PageContainer className="space-y-5">
-		<PageHeader title="Add Re-Evaluation Fee" subtitle="Create a new re-evaluation fee structure" />
+		<PageContainer className="space-y-4">
+		<PageHeader title={editId ? 'Edit Re-Evaluation Fee' : 'Add Re-Evaluation Fee'} subtitle={editId ? 'Update re-evaluation fee structure' : 'Create a new re-evaluation fee structure'} />
 			
 
 			<div className="app-card overflow-hidden">
-				<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-					<h2 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">Add Re-Evaluation Fee Structure</h2>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						className="h-6 px-2.5 text-[12px]"
-						onClick={() => setFilterOpen((v) => !v)}
-						aria-expanded={filterOpen}
-					>
-						<Filter className="mr-1.5 h-3.5 w-3.5" />
-						Filter
-						<ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-					</Button>
+				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+					<h2 className="app-card-title">{editId ? 'Edit Re-Evaluation Fee Structure' : 'Add Re-Evaluation Fee Structure'}</h2>
+					<div className="inline-flex items-center gap-1.5 text-[12px] text-slate-700">
+						<span>Filter</span>
+						<Filter className="h-3.5 w-3.5" />
+					</div>
 				</div>
 
 				{filterOpen && (
 				<div className="px-3 py-3 space-y-3">
-					<div className="rounded-md border bg-slate-50/50 px-4 py-3 text-[12px]">
+					<div className="rounded-md border bg-muted/40/50 px-4 py-3 text-[12px]">
 						<div className="grid grid-cols-1 md:grid-cols-[0.9fr_1.1fr] gap-2">
 							<div className="min-w-0 flex items-center gap-1">
 								<span className="font-semibold text-slate-900 whitespace-nowrap">Program :</span>
 								<span className="text-[hsl(var(--primary))] whitespace-nowrap overflow-hidden text-ellipsis">
-									{courses.find((c) => c.fk_course_id === selectedCourseId)?.course_code ??
-										courses.find((c) => c.fk_course_id === selectedCourseId)?.course_name ??
-										paramCourseName ??
-										'—'}
-									{(selectedAcademicYearId
-										? academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)?.academic_year
-										: paramAcademicYear)
-										? ` / (${(selectedAcademicYearId
-											? academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)?.academic_year
-											: paramAcademicYear) ?? ''})`
-										: ''}
+									{programText}
 								</span>
 							</div>
 							<div className="min-w-0 flex items-center gap-1 md:-ml-2">
@@ -495,40 +562,24 @@ export default function CreateRevaluationFeeStructurePage() {
 			<div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
 				{/* Left: Course Years */}
 				<div className="lg:col-span-2 app-card p-0 overflow-hidden">
-					<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+					<div className="px-4 py-3 border-b border-border bg-muted/40">
 						<h3 className="text-[14px] font-semibold">Course Years</h3>
 					</div>
 					<div className="p-3 space-y-3">
 						<Input className="h-8 text-[12px]" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} />
 						<div className="max-h-[360px] overflow-auto space-y-1">
-							{filteredCourseYears.map((y: any) => {
-								const id = y.courseYearId ?? y.id
-								if (id == null) return null
-								const rowKey = String(y.__rowKey ?? id)
-								const checked = selectedCourseYearKeys.has(rowKey)
-								const yearCode = String(y.courseYearCode ?? y.course_year_code ?? '')
-								const branchFromYear = yearCode.includes('-') ? yearCode.split('-')[0].trim() : ''
-								const groupCode =
-									y.__groupCodeFromApi ??
-									y.__displayGroupCode ??
-									y.groupCode ??
-									y.group_code ??
-									y.courseGroupCode ??
-									y.course_group_code ??
-									(y.fk_course_group_id ? courseGroupCodeById[Number(y.fk_course_group_id)] : undefined) ??
-									(y.courseGroupId ? courseGroupCodeById[Number(y.courseGroupId)] : undefined) ??
-									y.branchCode ??
-									y.branch_code ??
-									branchFromYear
-								const yearLabel = y.courseYearName ?? y.yearName ?? yearCode ?? `Year ${id}`
+							{filteredCourseGroupYears.map((c) => {
+								const key = `${c.courseGroupId}-${c.courseYearId}`
+								// Angular label: "{{groupCode}} - {{courseYearCode}}".
+								const yearLabel = c.courseYearCode || c.courseYearName || `Year ${c.courseYearId}`
 								return (
-									<label key={String(y.__rowKey ?? id)} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-50 text-[12px]">
-										<Checkbox checked={checked} onCheckedChange={() => toggleCourseYear(rowKey)} />
-										<span>{groupCode ? `${groupCode} - ${yearLabel}` : yearLabel}</span>
+									<label key={key} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 text-[12px]">
+										<Checkbox checked={c.check} onCheckedChange={() => toggleCourseGroupYear(c.courseGroupId, c.courseYearId)} />
+										<span>{c.groupCode ? `${c.groupCode} - ${yearLabel}` : yearLabel}</span>
 									</label>
 								)
 							})}
-							{filteredCourseYears.length === 0 && <div className="text-[12px] text-muted-foreground px-2">No items</div>}
+							{filteredCourseGroupYears.length === 0 && <div className="text-[12px] text-muted-foreground px-2">No items</div>}
 						</div>
 					</div>
 				</div>
@@ -537,10 +588,10 @@ export default function CreateRevaluationFeeStructurePage() {
 					<div className="grid grid-cols-1 lg:grid-cols-10 gap-2 items-start">
 						{/* Middle: Exam Re-Valuation Fee */}
 						<div className="lg:col-span-3 app-card p-0 overflow-hidden">
-							<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+							<div className="px-4 py-3 border-b border-border bg-muted/40">
 								<h3 className="text-[14px] font-semibold">Exam Re-Valuation Fee</h3>
 							</div>
-							<div className="p-2.5">
+							<div className="p-3">
 								<div className="space-y-0.5">
 									<div className="text-[13px] font-semibold text-blue-600">Regular Fee</div>
 									<div className="grid grid-cols-2 items-center gap-x-2 gap-y-1.5 max-w-md">
@@ -573,7 +624,7 @@ export default function CreateRevaluationFeeStructurePage() {
 
 						{/* Right: Late Fee Fines */}
 						<div className="lg:col-span-7 app-card p-0 overflow-hidden">
-						<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+						<div className="px-4 py-3 border-b border-border bg-muted/40">
 							<h3 className="text-[14px] font-semibold">Late Fee Fines</h3>
 						</div>
 						<div className="p-3 space-y-3">
@@ -586,7 +637,7 @@ export default function CreateRevaluationFeeStructurePage() {
 								<Label className="whitespace-nowrap">Start Date</Label>
 							<input
 								type="date"
-								className="h-8 text-[12px] w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+								className="h-8 text-[12px] w-full rounded-md border border-border bg-card px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
 								value={lateFeeStart}
 								onChange={(e) => setLateFeeStart(e.target.value)}
 							/>
@@ -595,7 +646,7 @@ export default function CreateRevaluationFeeStructurePage() {
 								<Label className="whitespace-nowrap">End Date</Label>
 							<input
 								type="date"
-								className="h-8 text-[12px] w-full rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+								className="h-8 text-[12px] w-full rounded-md border border-border bg-card px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
 								value={lateFeeEnd}
 								onChange={(e) => setLateFeeEnd(e.target.value)}
 							/>
@@ -616,7 +667,7 @@ export default function CreateRevaluationFeeStructurePage() {
 
 						<div className="rounded-md border overflow-auto">
 							<table className="w-full text-[12px]">
-								<thead className="bg-slate-50">
+								<thead className="bg-muted/40">
 									<tr>
 										<th className="px-2 py-1 w-14 text-left">Sl.No</th>
 										<th className="px-2 py-1 text-left">Name</th>
@@ -659,7 +710,7 @@ export default function CreateRevaluationFeeStructurePage() {
 
 					{/* Additional fees applicable below the two cards */}
 			<div className="app-card p-0 overflow-hidden">
-						<div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60">
+						<div className="px-4 py-3 border-b border-border bg-muted/40">
 							<h3 className="text-[14px] font-semibold">List of Additional Fees Applicable</h3>
 						</div>
 						<div className="p-3 space-y-3">
@@ -673,11 +724,11 @@ export default function CreateRevaluationFeeStructurePage() {
 									<div className="flex items-center gap-6 h-8">
 										<label className="inline-flex items-center gap-2 text-[12px]">
 											<input type="radio" checked={addFeeType === 'regular'} onChange={() => setAddFeeType('regular')} />
-											Regular
+											<span>Regular</span>
 										</label>
 										<label className="inline-flex items-center gap-2 text-[12px]">
 											<input type="radio" checked={addFeeType === 'supple'} onChange={() => setAddFeeType('supple')} />
-											Supple
+											<span>Supple</span>
 										</label>
 									</div>
 								</div>
@@ -693,7 +744,7 @@ export default function CreateRevaluationFeeStructurePage() {
 
 							<div className="rounded-md border overflow-auto">
 								<table className="w-full text-[12px]">
-									<thead className="bg-slate-50">
+									<thead className="bg-muted/40">
 										<tr>
 											<th className="px-2 py-1 w-14 text-left">Sl.No</th>
 											<th className="px-2 py-1 text-left">Type</th>
@@ -729,7 +780,7 @@ export default function CreateRevaluationFeeStructurePage() {
 
 					<div className="flex items-center justify-end gap-2">
 						<Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => router.push('/admin-examination-management/admin-exam-masters/re-valuation-fee-setup')}>Cancel</Button>
-						<Button type="button" className="h-8 text-[12px]" onClick={save} disabled={!canSave}>Save</Button>
+						<Button type="button" className="h-8 text-[12px]" onClick={save} disabled={!canSave}>{editId ? 'Update' : 'Save'}</Button>
 					</div>
 
 		</PageContainer>

@@ -88,7 +88,7 @@ function DashboardSkeleton() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="rounded-xl border border-slate-100 bg-white p-5 space-y-3">
+          <div key={i} className="rounded-xl border border-slate-100 bg-card p-5 space-y-3">
             <div className="flex items-center justify-between">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-9 w-9 rounded-lg" />
@@ -111,7 +111,7 @@ export default function DashboardPage() {
   if (!user) return null
 
   const statCards = getStatCards(user.userRole)
-  const badgeClass = roleBadge[user.userRole] ?? 'bg-slate-50 text-slate-700 ring-1 ring-slate-200'
+  const badgeClass = roleBadge[user.userRole] ?? 'bg-muted/40 text-slate-700 ring-1 ring-slate-200'
 
   return (
     <PageContainer className="space-y-4">
@@ -133,9 +133,9 @@ export default function DashboardPage() {
             {user.roleName}
           </span>
           <span className="text-slate-300 select-none">·</span>
-          <span className="text-sm text-slate-500">{user.collegeName}</span>
+          <span className="text-sm text-muted-foreground">{user.collegeName}</span>
           <span className="text-slate-300 select-none">·</span>
-          <span className="text-sm text-slate-500">{user.academicYear}</span>
+          <span className="text-sm text-muted-foreground">{user.academicYear}</span>
         </div>
       </div>
 
@@ -158,7 +158,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-slate-800 tracking-tight">Recent Activity</h2>
         </div>
-        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-10 flex flex-col items-center justify-center gap-2 text-slate-400">
+        <div className="rounded-xl border border-dashed border-border bg-muted/40/50 py-10 flex flex-col items-center justify-center gap-2 text-muted-foreground">
           <BarChart3 className="h-8 w-8 opacity-40" />
           <p className="text-sm">Activity feed coming soon</p>
         </div>

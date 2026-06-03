@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { SearchInput } from '@/common/components/search'
-import { DataTable } from '@/common/components/table'
+import { DataTable, TableCard } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -11,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, type SelectOption } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
-import { ChevronDown, Filter } from 'lucide-react'
+import { ChevronDown, Filter, PencilIcon, Plus } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { toDateOnlyISO } from '@/common/generic-functions'
 import {
@@ -68,9 +67,16 @@ function statusRenderer(p: { value?: boolean }) {
 
 function makeActionsRenderer(openEdit: (row: AnyRow) => void) {
   return (p: { data?: AnyRow }) => (
-    <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => openEdit(p.data ?? {})}>
-      Edit
-    </button>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-8 w-8 p-0"
+      aria-label="Edit evaluation settings"
+      onClick={() => openEdit(p.data ?? {})}
+    >
+      <PencilIcon className="h-3.5 w-3.5" />
+    </Button>
   )
 }
 
@@ -113,7 +119,6 @@ export default function ExamEvaluationSettingsPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
-  const [search, setSearch] = useState('')
 
   const [filterRows, setFilterRows] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnyRow[]>([])
@@ -257,12 +262,6 @@ export default function ExamEvaluationSettingsPage() {
     }
   }
 
-  const filteredRows = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return rows
-    return rows.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(term)))
-  }, [rows, search])
-
   const cols = useMemo<ColDef[]>(
     () => [
       { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
@@ -282,17 +281,17 @@ export default function ExamEvaluationSettingsPage() {
       { field: 'evaluationStartDate', headerName: 'Evaluation Start Date', minWidth: 160, valueGetter: (p) => toYmd(p.data?.evaluationStartDate) || '-' },
       { field: 'evaluationEndDate', headerName: 'Evaluation End Date', minWidth: 160, valueGetter: (p) => toYmd(p.data?.evaluationEndDate) || '-' },
       { field: 'isActive', headerName: 'Status', minWidth: 110, cellRenderer: statusRenderer },
-      { headerName: 'Actions', minWidth: 110, cellRenderer: makeActionsRenderer(openEdit) },
+      { headerName: 'Actions', width: 72, flex: 0, cellRenderer: makeActionsRenderer(openEdit) },
     ],
     [],
   )
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Exam Evaluation Settings" subtitle="Configure evaluation parameters" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[16px] font-semibold text-[hsl(var(--primary))]">Exam Evaluation Settings</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Exam Evaluation Settings</h2>
           <Button type="button" variant="outline" size="sm" className="h-6 px-2.5 text-[12px]" onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen}>
             <Filter className="mr-1.5 h-3.5 w-3.5" />
             Filter
@@ -338,19 +337,26 @@ export default function ExamEvaluationSettingsPage() {
       </div>
 
       {hasFetched && (
-        <div className="app-card overflow-hidden">
-          <div className="p-4 border-b border-slate-200 bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="w-full max-w-sm">
-                <SearchInput className="w-full" placeholder="Search" value={search} onChange={setSearch} />
-              </div>
-              <Button onClick={openAdd}>Add Evaluation Settings</Button>
-            </div>
-          </div>
-          <div className="p-4">
-            <DataTable rowData={filteredRows} columnDefs={cols} pagination loading={loading} />
-          </div>
-        </div>
+        <TableCard withHeaderBorder={false}>
+          <DataTable
+            rowData={rows}
+            columnDefs={cols}
+            pagination
+            paginationPageSize={10}
+            loading={loading}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search…',
+              pdfDocumentTitle: 'Exam Evaluation Settings',
+            }}
+            toolbarTrailing={(
+              <Button type="button" size="sm" onClick={openAdd} className="h-[30px] px-3 text-[12px]">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Add Evaluation Settings
+              </Button>
+            )}
+          />
+        </TableCard>
       )}
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -360,7 +366,7 @@ export default function ExamEvaluationSettingsPage() {
               {editRow ? 'Edit Existing Evaluation Settings' : 'Add New Evaluation Settings'} - {pickText(exams.find((e) => pickNum(e, ['fk_exam_id']) === Number(examId)), ['exam_name'])}
             </DialogTitle>
           </DialogHeader>
-          <div className="-mx-6 border-b border-slate-200 mt-1" />
+          <div className="-mx-6 border-b border-border mt-1" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Input placeholder="Evaluation Time" type="number" value={form.minEvaluationTIme} onChange={(e) => setForm((p) => ({ ...p, minEvaluationTIme: e.target.value }))} />
             <Input placeholder="Evaluation Start Date" type="date" value={form.evaluationStartDate} onChange={(e) => setForm((p) => ({ ...p, evaluationStartDate: e.target.value }))} />

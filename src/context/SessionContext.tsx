@@ -17,6 +17,29 @@ const SessionContext = createContext<SessionContextValue>({
   refetch: () => {},
 })
 
+// Mirror the logged-in user's key fields into localStorage so the many pages
+// that read localStorage.getItem('employeeId'/'organizationId'/…) (Angular
+// convention) get real values from the /api/authorization session — not 0.
+// Done in render (idempotent, only writes when changed) so the values are set
+// before child pages' effects fire.
+function syncUserToLocalStorage(user: SessionUser): void {
+  if (typeof window === 'undefined') return
+  const pairs: Array<[string, unknown]> = [
+    ['employeeId', user.employeeId],
+    ['organizationId', user.organizationId],
+    ['collegeId', user.collegeId],
+    ['academicYearId', user.academicYearId],
+    ['userId', user.userId],
+    ['userName', user.userName],
+    ['userRole', user.userRole],
+  ]
+  for (const [key, value] of pairs) {
+    if (value == null || value === '') continue
+    const next = String(value)
+    if (window.localStorage.getItem(key) !== next) window.localStorage.setItem(key, next)
+  }
+}
+
 // Inner component that uses useSession (must be inside QueryClientProvider)
 function SessionProviderInner({
   children,
@@ -31,6 +54,8 @@ function SessionProviderInner({
   const user = session.user ?? initialUser ?? null
   const isLoading = session.isLoading && !initialUser
 
+  if (user) syncUserToLocalStorage(user)
+
   return (
     <SessionContext.Provider value={{ user, isLoading, refetch: session.refetch }}>
       {children}
@@ -38,7 +63,14 @@ function SessionProviderInner({
   )
 }
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      throwOnError: false,
+      retry: false,
+    },
+  },
+})
 
 export function SessionProvider({
   children,

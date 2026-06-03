@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select } from '@/common/components/select'
+import { SearchInput } from '@/common/components/search'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   getUnivExamFiltersByType,
@@ -214,19 +214,21 @@ export default function InternalExamRegistrationMultiplePage() {
   }, [courseId, academicYearId, baseRows])
 
   useEffect(() => {
-    async function loadRest() {
-      if (!courseId || !academicYearId || !examId) return
-      const rows = await getUnivExamRestNoTt({
-        courseId,
-        examId,
-        academicYearId,
-        employeeId,
-      }).catch(() => [])
-      const list = Array.isArray(rows) ? rows : []
-      setRestRows(list)
-      setCollegeId(Number(list[0]?.fk_college_id ?? 0) || null)
-    }
-    void loadRest()
+    if (!courseId || !academicYearId || !examId) return
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const rows = await getUnivExamRestNoTt({
+          courseId,
+          examId,
+          academicYearId,
+          employeeId,
+        }).catch(() => [])
+        const list = Array.isArray(rows) ? rows : []
+        setRestRows(list)
+        setCollegeId(Number(list[0]?.fk_college_id ?? 0) || null)
+      })()
+    }, 100)
+    return () => window.clearTimeout(timer)
   }, [courseId, academicYearId, examId, employeeId])
 
   useEffect(() => {
@@ -247,23 +249,25 @@ export default function InternalExamRegistrationMultiplePage() {
   }, [restRows, collegeId, courseGroupId])
 
   useEffect(() => {
-    async function loadSubjectsFilters() {
-      if (!collegeId || !courseId || !courseGroupId || !courseYearId || !examId || !academicYearId) return
-      const rows = await getUnivExamSubjectInss({
-        collegeId,
-        courseId,
-        courseGroupId,
-        courseYearId,
-        examId,
-        academicYearId,
-        employeeId,
-      }).catch(() => [])
-      const list = Array.isArray(rows) ? rows : []
-      setSubjectFilterRows(list)
-      // Keep regulation unselected until user picks it explicitly.
-      setRegulationId(null)
-    }
-    void loadSubjectsFilters()
+    if (!collegeId || !courseId || !courseGroupId || !courseYearId || !examId || !academicYearId) return
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const rows = await getUnivExamSubjectInss({
+          collegeId,
+          courseId,
+          courseGroupId,
+          courseYearId,
+          examId,
+          academicYearId,
+          employeeId,
+        }).catch(() => [])
+        const list = Array.isArray(rows) ? rows : []
+        setSubjectFilterRows(list)
+        // Keep regulation unselected until user picks it explicitly.
+        setRegulationId(null)
+      })()
+    }, 120)
+    return () => window.clearTimeout(timer)
   }, [collegeId, courseId, courseGroupId, courseYearId, examId, academicYearId, employeeId])
 
   useEffect(() => {
@@ -287,46 +291,48 @@ export default function InternalExamRegistrationMultiplePage() {
   }, [subjectFilterRows, regulationId, subjectTypeId])
 
   useEffect(() => {
-    async function loadStudents() {
-      if (!collegeId || !academicYearId || !courseId || !courseGroupId || !courseYearId || !regulationId || !subjectId || !subjectTypeId || !examId) return
-      const [all, reg] = await Promise.all([
-        listExamSubjectStudents({
-          collegeId,
-          academicYearId,
-          courseId,
-          courseGroupId,
-          courseYearId,
-          regulationId,
-          subjectId,
-          subjectTypeId,
-        }).catch(() => []),
-        listRegisteredStudentsForExam({
-          collegeId,
-          academicYearId,
-          courseId,
-          courseGroupId,
-          courseYearId,
-          regulationId,
-          subjectId,
-          examId,
-        }).catch(() => []),
-      ])
+    if (!collegeId || !academicYearId || !courseId || !courseGroupId || !courseYearId || !regulationId || !subjectId || !subjectTypeId || !examId) return
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const [all, reg] = await Promise.all([
+          listExamSubjectStudents({
+            collegeId,
+            academicYearId,
+            courseId,
+            courseGroupId,
+            courseYearId,
+            regulationId,
+            subjectId,
+            subjectTypeId,
+          }).catch(() => []),
+          listRegisteredStudentsForExam({
+            collegeId,
+            academicYearId,
+            courseId,
+            courseGroupId,
+            courseYearId,
+            regulationId,
+            subjectId,
+            examId,
+          }).catch(() => []),
+        ])
 
-      const allList = Array.isArray(all) ? all : []
-      const regList = Array.isArray(reg) ? reg : []
-      const stableRegList = (regList.length > 0 ? regList : lastNonEmptyRegisteredRef.current).map(normalizeStudentRow)
-      setRegisteredStudents(stableRegList)
-      const regSet = new Set(stableRegList.map((s) => getStudentKey(s)))
+        const allList = Array.isArray(all) ? all : []
+        const regList = Array.isArray(reg) ? reg : []
+        const stableRegList = (regList.length > 0 ? regList : lastNonEmptyRegisteredRef.current).map(normalizeStudentRow)
+        setRegisteredStudents(stableRegList)
+        const regSet = new Set(stableRegList.map((s) => getStudentKey(s)))
 
-      const mapped = allList.map((s) => {
-        const sid = getStudentKey(s)
-        const already = regSet.has(sid)
-        return { ...s, checked: true, c: true, already }
-      })
-      setStudents(mapped)
-      setSelectedStudents(mapped.filter((s) => s.c))
-    }
-    void loadStudents()
+        const mapped = allList.map((s) => {
+          const sid = getStudentKey(s)
+          const already = regSet.has(sid)
+          return { ...s, checked: true, c: true, already }
+        })
+        setStudents(mapped)
+        setSelectedStudents(mapped.filter((s) => s.c))
+      })()
+    }, 120)
+    return () => window.clearTimeout(timer)
   }, [collegeId, academicYearId, courseId, courseGroupId, courseYearId, regulationId, subjectId, subjectTypeId, examId])
 
   function toggleAll(checked: boolean) {
@@ -448,11 +454,11 @@ export default function InternalExamRegistrationMultiplePage() {
   }
 
   return (
-    <PageContainer className="space-y-5">
+    <PageContainer className="space-y-4">
       <PageHeader title="Internal Exam Registration" subtitle="Register multiple students for internal exams" />
       <div className="app-card overflow-hidden">
-        <div className="px-3 py-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-2">
-          <h2 className="text-[14px] font-semibold text-[hsl(var(--primary))]">Internal Exam Registration Multiple Students</h2>
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Internal Exam Registration Multiple Students</h2>
           <Button
             type="button"
             variant="outline"
@@ -539,7 +545,7 @@ export default function InternalExamRegistrationMultiplePage() {
 
       {!!regulationId && (
       <div className="app-card p-3 space-y-2">
-        <div className="text-[14px] font-medium rounded bg-blue-100 border px-3 py-2">Select Exam Subjects</div>
+        <div className="text-[13px] font-medium rounded bg-blue-100 border px-3 py-2">Select Exam Subjects</div>
 
         <div className="border rounded overflow-hidden">
           <div className="border-b p-3">
@@ -567,8 +573,8 @@ export default function InternalExamRegistrationMultiplePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-0 border-b">
           <div className="md:col-span-4 border-r overflow-hidden">
-            <div className="p-2 border-b bg-slate-50 flex items-center gap-2">
-              <Input className="h-8 text-[12px]" placeholder="Search..." value={searchAll} onChange={(e) => setSearchAll(e.target.value)} />
+            <div className="flex items-center gap-2 border-b bg-muted/40 p-2">
+              <SearchInput className="w-full min-w-0" placeholder="Search…" value={searchAll} onChange={setSearchAll} />
             </div>
             <div className="p-2 border-b text-[12px] flex items-center gap-2">
               <Checkbox checked={students.length > 0 && selectedStudents.length > 0 && selectedStudents.length === students.filter((s) => !s.already).length} onCheckedChange={(v) => toggleAll(!!v)} />
@@ -580,7 +586,7 @@ export default function InternalExamRegistrationMultiplePage() {
                 const sid = getStudentId(s)
                 const checked = !!s.c
                 return (
-                  <div key={`a-${sid || i}`} className="px-2 py-2 flex items-center gap-2">
+                <div key={`a-${sid || i}`} className="px-2 py-2 text-[12px] flex items-center gap-2">
                     <Checkbox checked={checked} onCheckedChange={(v) => toggleStudent(sid, !!v)} />
                     <span className={s.already ? 'text-muted-foreground' : ''}>
                       {s.firstName ?? s.studentName ?? '-'} ({s.hallticketNumber ?? '-'})
@@ -592,21 +598,25 @@ export default function InternalExamRegistrationMultiplePage() {
           </div>
 
           <div className="md:col-span-4 border-r overflow-hidden">
-            <div className="p-2 border-b bg-slate-50"><Input className="h-8 text-[12px]" placeholder="Search..." value={searchSelected} onChange={(e) => setSearchSelected(e.target.value)} /></div>
-            <div className="p-2 border-b">Selected Students: <span className="text-blue-600">{selectedStudents.length}</span></div>
+            <div className="border-b bg-muted/40 p-2">
+              <SearchInput className="w-full min-w-0" placeholder="Search…" value={searchSelected} onChange={setSearchSelected} />
+            </div>
+            <div className="p-2 border-b text-[12px]">Selected Students: <span className="text-blue-600">{selectedStudents.length}</span></div>
             <div className="max-h-[300px] overflow-auto divide-y">
               {selectedFiltered.map((s, i) => (
-                <div key={`sel-${i}`} className="px-2 py-2">{s.firstName ?? s.studentName ?? '-'} ({s.hallticketNumber ?? '-'})</div>
+                <div key={`sel-${i}`} className="px-2 py-2 text-[12px]">{s.firstName ?? s.studentName ?? '-'} ({s.hallticketNumber ?? '-'})</div>
               ))}
             </div>
           </div>
 
           <div className="md:col-span-4 overflow-hidden">
-            <div className="p-2 border-b bg-slate-50"><Input className="h-8 text-[12px]" placeholder="Search..." value={searchRegistered} onChange={(e) => setSearchRegistered(e.target.value)} /></div>
-            <div className="p-2 border-b">Registered Students: <span className="text-blue-600">{registeredStudents.length}</span></div>
+            <div className="border-b bg-muted/40 p-2">
+              <SearchInput className="w-full min-w-0" placeholder="Search…" value={searchRegistered} onChange={setSearchRegistered} />
+            </div>
+            <div className="p-2 border-b text-[12px]">Registered Students: <span className="text-blue-600">{registeredStudents.length}</span></div>
             <div className="max-h-[300px] overflow-auto divide-y">
               {registeredFiltered.map((s, i) => (
-                <div key={`reg-${i}`} className="px-2 py-2">{s.firstName ?? s.studentName ?? '-'} ({s.hallticketNumber ?? '-'})</div>
+                <div key={`reg-${i}`} className="px-2 py-2 text-[12px]">{s.firstName ?? s.studentName ?? '-'} ({s.hallticketNumber ?? '-'})</div>
               ))}
             </div>
           </div>

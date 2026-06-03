@@ -39,10 +39,10 @@ export class EditUnivExamcenterStudentsComponent implements OnInit {
 
     });
     if (!this.isEmptyObject(this.data)) {
-      this.examCenterForm.get('univExamCentersId').setValue(this.data?.univExamCentersId);
+      this.examCenterForm.get('univExamCentersId').setValue(this.data?.fk_univ_ec_id);
       this.examCenterForm.get('isActive').setValue(this.data?.isActive);
       this.examCenterForm.get('reason').setValue(this.data?.reason);
-      this.examCenterForm.get('univExamCentersId').setValue(this.data?.univExamCentersId);
+      this.examCenterForm.get('univExamCentersId').setValue(this.data?.fk_univ_ec_id);
       this.dialogTitle = 'Edit Exam Center Student';
 
     }

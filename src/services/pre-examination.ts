@@ -1,23 +1,62 @@
-import { buildQuery, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords, postDetails } from '@/services/crud'
+import { buildQuery, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords, postDetails, uploadFile } from '@/services/crud'
 import { EXAM_API } from '@/config/constants/api'
 import { GM_CODES } from '@/config/constants/ui'
 import { toDateStr } from '@/common/generic-functions'
 
 type AnyRow = Record<string, any>
 
+/** Share one in-flight promise per key (Strict Mode double effects + overlapping UI cascades). */
+function dedupeInflight<T>(cache: Map<string, Promise<T>>, key: string, run: () => Promise<T>): Promise<T> {
+  const existing = cache.get(key)
+  if (existing) return existing
+  const p = run().finally(() => {
+    if (cache.get(key) === p) cache.delete(key)
+  })
+  cache.set(key, p)
+  return p
+}
+
+const inflightExamFeeAddlByType = new Map<string, Promise<AnyRow[]>>()
+const inflightUnivExamSubjectInss = new Map<string, Promise<AnyRow[]>>()
+const inflightExamSubjectStudents = new Map<string, Promise<AnyRow[]>>()
+const inflightRegisteredStudentsForExam = new Map<string, Promise<AnyRow[]>>()
+
 export async function listActiveColleges(): Promise<AnyRow[]> {
   return domainList<AnyRow>('College', buildQuery({ isActive: true }))
 }
 
 export async function listAcademicYearsByUniversity(universityId: number): Promise<AnyRow[]> {
-  return domainList<AnyRow>(
-    'AcademicYear',
+  if (!universityId) return []
+  const queries = [
+    buildQuery({ 'Universities.universityId': universityId, isActive: true }, { field: 'fromDate', direction: 'DESC' }),
     buildQuery({ 'University.universityId': universityId, isActive: true }, { field: 'fromDate', direction: 'DESC' }),
-  )
+  ]
+  for (const query of queries) {
+    try {
+      const rows = await domainList<AnyRow>('AcademicYear', query)
+      if (Array.isArray(rows) && rows.length > 0) return rows
+    } catch {
+      // try next query shape
+    }
+  }
+  return []
 }
 
 export async function listCoursesByUniversity(universityId: number): Promise<AnyRow[]> {
-  return domainList<AnyRow>('Course', buildQuery({ 'University.universityId': universityId, isActive: true }))
+  if (!universityId) return []
+  const queries = [
+    buildQuery({ 'Universities.universityId': universityId, isActive: true }),
+    buildQuery({ 'University.universityId': universityId, isActive: true }),
+  ]
+  for (const query of queries) {
+    try {
+      const rows = await domainList<AnyRow>('Course', query)
+      if (Array.isArray(rows) && rows.length > 0) return rows
+    } catch {
+      // try next query shape
+    }
+  }
+  return []
 }
 
 export async function listExamMastersByCourseAndAy(courseId: number, academicYearId: number): Promise<AnyRow[]> {
@@ -105,42 +144,62 @@ export async function listExamTimetablesByExam(examId: number): Promise<AnyRow[]
   return []
 }
 
+/** Angular parity: listByThreeIds(..., collegeId, examId, examTimetableId, collegeId/examMasterId/examTimetableId). */
 export async function listExamRoomAllotments(collegeId: number, examId: number, examTimetableId: number): Promise<AnyRow[]> {
-  const { NEXT_API } = await import('@/config/constants/api')
-  const queries = [
-    `examMaster.examId==${examId}.and.ExamTimetable.examTimetableId==${examTimetableId}.and.College.collegeId==${collegeId}`,
-    `examMaster.examId==${examId}.and.ExamTimetable.examTimetableId==${examTimetableId}`,
-    `examMasterId==${examId}.and.examTimetableId==${examTimetableId}`,
+  const angularMatch = buildQuery({ collegeId, examMasterId: examId, examTimetableId })
+  const fallbacksEmptyOnly = [
+    buildQuery({
+      'College.collegeId': collegeId,
+      examMasterId: examId,
+      examTimetableId,
+    }),
+    buildQuery({
+      'examMaster.examId': examId,
+      'ExamTimetable.examTimetableId': examTimetableId,
+      'College.collegeId': collegeId,
+    }),
   ]
 
-  for (const query of queries) {
+  async function rowsFor(q: string): Promise<AnyRow[]> {
     try {
-      const res = await fetch(
-        NEXT_API.PROXY(`/domain/list/ExamRoomAllotment?size=99999&query=${encodeURIComponent(query)}`),
-      )
-      const body = await res.json().catch(() => null)
-      const rows = (
-        body?.data?.resultList ??
-        body?.resultList ??
-        body?.data ??
-        body?.result ??
-        body ??
-        []
-      ) as AnyRow[]
-      if (Array.isArray(rows) && rows.length > 0) return rows
+      const r = await domainList<AnyRow>('ExamRoomAllotment', q)
+      return Array.isArray(r) ? r : []
     } catch {
-      // try next query shape
+      return []
     }
+  }
+
+  const primary = await rowsFor(angularMatch)
+  if (primary.length > 0) return primary
+
+  for (const q of fallbacksEmptyOnly) {
+    const next = await rowsFor(q)
+    if (next.length > 0) return next
   }
 
   return []
 }
 
 export async function listExamInvigilationAllotments(examTimetableId: number, collegeId: number): Promise<AnyRow[]> {
-  return domainList<AnyRow>(
-    'ExamInvigilationAllotment',
-    buildQuery({ 'ExamTimetable.examTimetableId': examTimetableId, 'College.collegeId': collegeId, isActive: true }),
-  )
+  try {
+    return await domainList<AnyRow>(
+      'ExamInvigilationAllotment',
+      buildQuery({ examTimetableId, collegeId, isActive: true }),
+    )
+  } catch {
+    try {
+      return await domainList<AnyRow>(
+        'ExamInvigilationAllotment',
+        buildQuery({
+          'ExamTimetable.examTimetableId': examTimetableId,
+          'College.collegeId': collegeId,
+          isActive: true,
+        }),
+      )
+    } catch {
+      return []
+    }
+  }
 }
 
 export async function listInvigilatorDesignations(): Promise<AnyRow[]> {
@@ -186,7 +245,13 @@ export async function listStudents(q: string): Promise<AnyRow[]> {
   } catch {
     // fallback below
   }
-  return domainList<AnyRow>('Student', buildQuery({ isActive: true, firstName: term }))
+  // Domain fallback in some environments uses StudentProfile (not Student).
+  // Keep this best-effort and never throw from search.
+  try {
+    return await domainList<AnyRow>('StudentProfile', buildQuery({ isActive: true, firstName: term }))
+  } catch {
+    return []
+  }
 }
 
 export async function getExamHalltickets(params: {
@@ -382,27 +447,30 @@ export async function getUnivExamSubjectInss(params: {
   academicYearId: number
   employeeId: number
 }): Promise<AnyRow[]> {
-  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
-    in_flag: 'univ_exam_subject_inss',
-    in_flag_type: 'ALL',
-    in_university_id: 0,
-    in_college_id: params.collegeId,
-    in_course_id: params.courseId,
-    in_course_group_id: params.courseGroupId,
-    in_course_year_id: params.courseYearId,
-    in_exam_id: params.examId,
-    in_academic_year_id: params.academicYearId,
-    in_regulation_id: 0,
-    in_subject_id: 0,
-    in_loginuser_empid: params.employeeId || 0,
-    in_loginuser_roleid: 0,
-    in_sub_flag_type: 'ALL',
-    in_param1: 0,
-    in_param2: 0,
+  const key = `inss:${params.collegeId}:${params.courseId}:${params.courseGroupId}:${params.courseYearId}:${params.examId}:${params.academicYearId}:${params.employeeId}`
+  return dedupeInflight(inflightUnivExamSubjectInss, key, async () => {
+    const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
+      in_flag: 'univ_exam_subject_inss',
+      in_flag_type: 'ALL',
+      in_university_id: 0,
+      in_college_id: params.collegeId,
+      in_course_id: params.courseId,
+      in_course_group_id: params.courseGroupId,
+      in_course_year_id: params.courseYearId,
+      in_exam_id: params.examId,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_loginuser_empid: params.employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_sub_flag_type: 'ALL',
+      in_param1: 0,
+      in_param2: 0,
+    })
+    const groups = data?.result ?? []
+    const subInss = groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_sub_inss') ?? []
+    return subInss
   })
-  const groups = data?.result ?? []
-  const subInss = groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_sub_inss') ?? []
-  return subInss
 }
 
 export async function listExamSubjectStudents(params: {
@@ -415,28 +483,31 @@ export async function listExamSubjectStudents(params: {
   subjectId: number
   subjectTypeId: number
 }): Promise<AnyRow[]> {
-  const variants = ['examSubjectStudents', 'examsubjectstudents']
-  for (const path of variants) {
-    try {
-      const rows = await fetchDetails<any>(path, {
-        collegeId: params.collegeId,
-        academicYearId: params.academicYearId,
-        courseId: params.courseId,
-        courseGroupId: params.courseGroupId,
-        courseYearId: params.courseYearId,
-        regulationId: params.regulationId,
-        subjectId: params.subjectId,
-        subjectTypeId: params.subjectTypeId,
-      })
-      if (Array.isArray(rows)) return rows
-      if (Array.isArray(rows?.resultList)) return rows.resultList
-      if (Array.isArray(rows?.result)) return rows.result
-      if (Array.isArray(rows?.data)) return rows.data
-    } catch {
-      // try next path
+  const key = `ess:${params.collegeId}:${params.academicYearId}:${params.courseId}:${params.courseGroupId}:${params.courseYearId}:${params.regulationId}:${params.subjectId}:${params.subjectTypeId}`
+  return dedupeInflight(inflightExamSubjectStudents, key, async () => {
+    const variants = ['examsubjectstudents', 'examSubjectStudents']
+    for (const path of variants) {
+      try {
+        const rows = await fetchDetails<any>(path, {
+          collegeId: params.collegeId,
+          academicYearId: params.academicYearId,
+          courseId: params.courseId,
+          courseGroupId: params.courseGroupId,
+          courseYearId: params.courseYearId,
+          regulationId: params.regulationId,
+          subjectId: params.subjectId,
+          subjectTypeId: params.subjectTypeId,
+        })
+        if (Array.isArray(rows)) return rows
+        if (Array.isArray(rows?.resultList)) return rows.resultList
+        if (Array.isArray(rows?.result)) return rows.result
+        if (Array.isArray(rows?.data)) return rows.data
+      } catch {
+        // try next path
+      }
     }
-  }
-  return []
+    return []
+  })
 }
 
 export async function listRegisteredStudentsForExam(params: {
@@ -449,71 +520,74 @@ export async function listRegisteredStudentsForExam(params: {
   subjectId: number
   examId: number
 }): Promise<AnyRow[]> {
-  const variants = ['registeredStudentForExam', 'registeredstudentforexam']
-  for (const path of variants) {
-    try {
-      const rows = await fetchDetails<any>(path, {
-        collegeId: params.collegeId,
-        academicYearId: params.academicYearId,
-        courseId: params.courseId,
+  const key = `rsfe:${params.collegeId}:${params.academicYearId}:${params.courseId}:${params.courseGroupId}:${params.courseYearId}:${params.regulationId}:${params.subjectId}:${params.examId}`
+  return dedupeInflight(inflightRegisteredStudentsForExam, key, async () => {
+    const variants = ['registeredstudentforexam', 'registeredStudentForExam']
+    for (const path of variants) {
+      try {
+        const rows = await fetchDetails<any>(path, {
+          collegeId: params.collegeId,
+          academicYearId: params.academicYearId,
+          courseId: params.courseId,
+          courseGroupId: params.courseGroupId,
+          courseYearId: params.courseYearId,
+          regulationId: params.regulationId,
+          subjectId: params.subjectId,
+          examId: params.examId,
+        })
+        if (Array.isArray(rows)) return rows
+        if (Array.isArray(rows?.resultList)) return rows.resultList
+        if (Array.isArray(rows?.result)) return rows.result
+        if (Array.isArray(rows?.data)) return rows.data
+      } catch {
+        // try next path
+      }
+    }
+
+    // Fallback: derive registered students from ExamStudent domain records.
+    // Some environments don't expose the legacy endpoint but keep domain data consistent.
+    const queries = [
+      buildQuery({
+        'College.collegeId': params.collegeId,
+        'courseGroupId': params.courseGroupId,
+        'courseYearId': params.courseYearId,
+        'regulationId': params.regulationId,
+        'examId': params.examId,
+        isActive: true,
+      }),
+      buildQuery({
+        'college.collegeId': params.collegeId,
         courseGroupId: params.courseGroupId,
         courseYearId: params.courseYearId,
         regulationId: params.regulationId,
-        subjectId: params.subjectId,
         examId: params.examId,
-      })
-      if (Array.isArray(rows)) return rows
-      if (Array.isArray(rows?.resultList)) return rows.resultList
-      if (Array.isArray(rows?.result)) return rows.result
-      if (Array.isArray(rows?.data)) return rows.data
-    } catch {
-      // try next path
-    }
-  }
+        isActive: true,
+      }),
+    ]
 
-  // Fallback: derive registered students from ExamStudent domain records.
-  // Some environments don't expose the legacy endpoint but keep domain data consistent.
-  const queries = [
-    buildQuery({
-      'College.collegeId': params.collegeId,
-      'courseGroupId': params.courseGroupId,
-      'courseYearId': params.courseYearId,
-      'regulationId': params.regulationId,
-      'examId': params.examId,
-      isActive: true,
-    }),
-    buildQuery({
-      'college.collegeId': params.collegeId,
-      courseGroupId: params.courseGroupId,
-      courseYearId: params.courseYearId,
-      regulationId: params.regulationId,
-      examId: params.examId,
-      isActive: true,
-    }),
-  ]
-
-  for (const q of queries) {
-    try {
-      const rows = await domainList<AnyRow>('ExamStudent', q)
-      if (!Array.isArray(rows) || rows.length === 0) continue
-      const out: AnyRow[] = []
-      for (const row of rows) {
-        const details = row.examStudentDetailDTOs ?? row.examStudentDetails ?? row.examStudentDetailList ?? []
-        const hasSubject = Array.isArray(details) && details.some((d: AnyRow) => Number(d.subjectId ?? d.fk_subject_id ?? d.subject_id ?? 0) === Number(params.subjectId))
-        if (!hasSubject) continue
-        out.push({
-          ...row,
-          studentId: row.studentId ?? row.fk_student_id ?? row.student_id ?? row.std_id,
-          firstName: row.firstName ?? row.studentName ?? row.stdName ?? row.student_name,
-          hallticketNumber: row.hallticketNumber ?? row.rollNumber ?? row.roll_number,
-        })
+    for (const q of queries) {
+      try {
+        const rows = await domainList<AnyRow>('ExamStudent', q)
+        if (!Array.isArray(rows) || rows.length === 0) continue
+        const out: AnyRow[] = []
+        for (const row of rows) {
+          const details = row.examStudentDetailDTOs ?? row.examStudentDetails ?? row.examStudentDetailList ?? []
+          const hasSubject = Array.isArray(details) && details.some((d: AnyRow) => Number(d.subjectId ?? d.fk_subject_id ?? d.subject_id ?? 0) === Number(params.subjectId))
+          if (!hasSubject) continue
+          out.push({
+            ...row,
+            studentId: row.studentId ?? row.fk_student_id ?? row.student_id ?? row.std_id,
+            firstName: row.firstName ?? row.studentName ?? row.stdName ?? row.student_name,
+            hallticketNumber: row.hallticketNumber ?? row.rollNumber ?? row.roll_number,
+          })
+        }
+        if (out.length > 0) return out
+      } catch {
+        // try next fallback query
       }
-      if (out.length > 0) return out
-    } catch {
-      // try next fallback query
     }
-  }
-  return []
+    return []
+  })
 }
 
 export async function getExamOmrStudents(params: {
@@ -563,22 +637,86 @@ export async function listStudentExamFeeRegistrationPayments(params: {
   )
 }
 
-export async function listStudentExamFeeRegistrations(params: {
+function flattenExamStudentDetailRows(rows: AnyRow[]): AnyRow[] {
+  const out: AnyRow[] = []
+  for (const row of rows) {
+    const details = row.examStudentDetailDTOs ?? row.examStudentDetails ?? row.examStudentDetailList ?? []
+    if (!Array.isArray(details)) continue
+    for (const d of details) {
+      out.push({
+        ...d,
+        courseYearId: row.courseYearId ?? d.courseYearId,
+        courseYearName: row.courseYearName ?? d.courseYearName,
+        examtypeCatCode: row.examtypeCatCode ?? d.examtypeCatCode,
+      })
+    }
+  }
+  return out
+}
+
+/**
+ * One ordered pass over ExamStudent query shapes (with optional college filter).
+ * Replaces duplicate parallel ExamStudent list calls across fee registration + subject lists.
+ */
+export async function listExamStudentRowsForStudentAndExam(
+  studentId: number,
+  examId: number,
+  collegeId?: number | null,
+): Promise<AnyRow[]> {
+  const queryStrings: string[] = []
+  const cid = collegeId != null ? Number(collegeId) : 0
+  if (cid > 0) {
+    queryStrings.push(
+      buildQuery({
+        'College.collegeId': cid,
+        'ExamMaster.examId': examId,
+        'StudentDetail.studentId': studentId,
+        isActive: true,
+      }),
+      buildQuery({
+        'college.collegeId': cid,
+        'examMaster.examId': examId,
+        'studentDetail.studentId': studentId,
+        isActive: true,
+      }),
+      buildQuery({ collegeId: cid, examId, studentId, isActive: true }),
+    )
+  }
+  queryStrings.push(
+    buildQuery({ 'studentDetail.studentId': studentId, 'examMaster.examId': examId, isActive: true }),
+    buildQuery({ 'StudentDetail.studentId': studentId, 'ExamMaster.examId': examId, isActive: true }),
+    buildQuery({ studentId, examId, isActive: true }),
+  )
+  const seen = new Set<string>()
+  for (const q of queryStrings) {
+    if (seen.has(q)) continue
+    seen.add(q)
+    try {
+      const rows = await domainList<AnyRow>('ExamStudent', q)
+      if (Array.isArray(rows) && rows.length > 0) return rows
+    } catch {
+      // try next query shape
+    }
+  }
+  return []
+}
+
+async function listStudentExamFeeRegistrationsRegistrationOnly(params: {
   collegeId: number
   examId: number
   studentId: number
 }): Promise<AnyRow[]> {
   const queries = [
     buildQuery({
-      'college.collegeId': params.collegeId,
-      'examMaster.examId': params.examId,
-      'studentDetail.studentId': params.studentId,
-      isActive: true,
-    }),
-    buildQuery({
       'College.collegeId': params.collegeId,
       'ExamMaster.examId': params.examId,
       'StudentDetail.studentId': params.studentId,
+      isActive: true,
+    }),
+    buildQuery({
+      'college.collegeId': params.collegeId,
+      'examMaster.examId': params.examId,
+      'studentDetail.studentId': params.studentId,
       isActive: true,
     }),
     buildQuery({
@@ -588,20 +726,25 @@ export async function listStudentExamFeeRegistrations(params: {
       isActive: true,
     }),
   ]
-
-  const entities = ['ExamStudentRegistration', 'ExamStudent']
-
-  for (const entity of entities) {
-    for (const query of queries) {
-      try {
-        const rows = await domainList<AnyRow>(entity, query)
-        if (Array.isArray(rows) && rows.length > 0) return rows
-      } catch {
-        // try next fallback
-      }
+  for (const query of queries) {
+    try {
+      const rows = await domainList<AnyRow>('ExamStudentRegistration', query)
+      if (Array.isArray(rows) && rows.length > 0) return rows
+    } catch {
+      // try next
     }
   }
   return []
+}
+
+export async function listStudentExamFeeRegistrations(params: {
+  collegeId: number
+  examId: number
+  studentId: number
+}): Promise<AnyRow[]> {
+  const reg = await listStudentExamFeeRegistrationsRegistrationOnly(params)
+  if (reg.length > 0) return reg
+  return listExamStudentRowsForStudentAndExam(params.studentId, params.examId, params.collegeId)
 }
 
 export async function listRegisteredExamSubjects(studentId: number, examId: number): Promise<AnyRow[]> {
@@ -610,25 +753,11 @@ export async function listRegisteredExamSubjects(studentId: number, examId: numb
     buildQuery({ 'StudentDetail.studentId': studentId, 'ExamMaster.examId': examId, isActive: true }),
     buildQuery({ studentId, examId, isActive: true }),
   ]
-
   for (const q of queries) {
     try {
       const rows = await domainList<AnyRow>('ExamStudent', q)
       if (!Array.isArray(rows) || rows.length === 0) continue
-      const out: AnyRow[] = []
-      for (const row of rows) {
-        const details = row.examStudentDetailDTOs ?? row.examStudentDetails ?? row.examStudentDetailList ?? []
-        if (Array.isArray(details) && details.length > 0) {
-          for (const d of details) {
-            out.push({
-              ...d,
-              courseYearId: row.courseYearId ?? d.courseYearId,
-              courseYearName: row.courseYearName ?? d.courseYearName,
-              examtypeCatCode: row.examtypeCatCode ?? d.examtypeCatCode,
-            })
-          }
-        }
-      }
+      const out = flattenExamStudentDetailRows(rows)
       if (out.length > 0) return out
     } catch {
       // try next query
@@ -694,7 +823,8 @@ export async function listStudentSubjects(params: {
     `College.collegeId==${params.collegeId}.and.AcademicYear.academicYearId==${params.academicYearId}.and.StudentDetail.studentId==${params.studentId}.and.CourseYear.courseYearId==${params.courseYearId}.and.isActive==true`,
   ]
 
-  for (const q of rawQueries) {
+  for (let i = 0; i < rawQueries.length; i += 1) {
+    const q = rawQueries[i]!
     try {
       const res = await fetch(
         NEXT_API.PROXY(`/domain/list/StudentSubject?size=99999&query=${encodeURIComponent(q)}`),
@@ -708,7 +838,11 @@ export async function listStudentSubjects(params: {
         body ??
         []
       ) as AnyRow[]
-      if (Array.isArray(rows) && rows.length > 0) return rows
+      if (Array.isArray(rows)) {
+        if (rows.length > 0) return rows
+        // Same as domain list: empty with OK + success means no rows — skip redundant casing retry.
+        if (res.ok && body?.success !== false) return []
+      }
     } catch {
       // try next query variant
     }
@@ -742,18 +876,30 @@ export async function saveRegisteredExamSubjects(payload: AnyRow[]): Promise<any
   }
 }
 
+/**
+ * Upload a student's exam registration form (PDF) — Angular UploadPapers/PayDialog:
+ * crudService.upload(uploadExamRegFormsUrl, formData). Multipart fields: file, collegeCode,
+ * examId, collegeId, courseId.
+ */
+export async function uploadExamRegForms(formData: FormData): Promise<void> {
+  return uploadFile('uploadExamRegForms', formData)
+}
+
 export async function listExamFeeAdditionalStructureByExamType(examTypeGeneralDetailId: number): Promise<AnyRow[]> {
-  try {
-    return await domainList<AnyRow>(
-      'ExamFeeAdditionalStructure',
-      buildQuery(
-        { 'examTypeCat.generalDetailId': examTypeGeneralDetailId, isActive: true },
-        { field: 'createdDt', direction: 'DESC' },
-      ),
-    )
-  } catch {
-    return []
-  }
+  const key = `efa:${examTypeGeneralDetailId}`
+  return dedupeInflight(inflightExamFeeAddlByType, key, async () => {
+    try {
+      return await domainList<AnyRow>(
+        'ExamFeeAdditionalStructure',
+        buildQuery(
+          { 'examTypeCat.generalDetailId': examTypeGeneralDetailId, isActive: true },
+          { field: 'createdDt', direction: 'DESC' },
+        ),
+      )
+    } catch {
+      return []
+    }
+  })
 }
 export async function deactivateRegisteredExamSubject(examStdDetId: number, reason?: string): Promise<any> {
   const { NEXT_API } = await import('@/config/constants/api')
@@ -801,7 +947,11 @@ export async function listExamFeeReceipts(params: {
       body ??
       []
     ) as AnyRow[]
-    if (Array.isArray(rows) && rows.length > 0) return rows
+    if (Array.isArray(rows)) {
+      if (rows.length > 0) return rows
+      // Successful empty list — do not fan out through every fallback query.
+      if (res.ok && body?.success !== false) return []
+    }
   } catch {
     // continue to fallback variants
   }
@@ -818,28 +968,8 @@ export async function listExamFeeReceipts(params: {
       isActive: true,
     }),
     buildQuery({
-      'student.studentId': params.studentId,
-      'exam.examId': params.examId,
-      isActive: true,
-    }),
-    buildQuery({
-      'Student.studentId': params.studentId,
-      'Exam.examId': params.examId,
-      isActive: true,
-    }),
-    buildQuery({
       'examMaster.examId': params.examId,
       studentId: params.studentId,
-      isActive: true,
-    }),
-    buildQuery({
-      examId: params.examId,
-      studentId: params.studentId,
-      isActive: true,
-    }),
-    buildQuery({
-      studentId: params.studentId,
-      examId: params.examId,
       isActive: true,
     }),
   ]
@@ -847,7 +977,7 @@ export async function listExamFeeReceipts(params: {
   for (const q of queries) {
     try {
       const rows = await domainList<AnyRow>('ExamFeeReceipt', q)
-      if (Array.isArray(rows) && rows.length > 0) return rows
+      if (Array.isArray(rows)) return rows
     } catch {
       // fallback query shape
     }
@@ -870,6 +1000,32 @@ export async function listExamFeeReceipts(params: {
   return []
 }
 
+/**
+ * Single “Get list” bundle for student exam fee registration: one ExamStudent list pass
+ * (shared with subject flattening) + ExamStudentRegistration in parallel with receipts.
+ */
+export async function fetchStudentExamFeeRegistrationGridData(params: {
+  collegeId: number
+  examId: number
+  studentId: number
+}): Promise<{
+  receipts: AnyRow[]
+  registrations: AnyRow[]
+  registeredSubjects: AnyRow[]
+}> {
+  const [receipts, examRows, regRows] = await Promise.all([
+    listExamFeeReceipts({ studentId: params.studentId, examId: params.examId }),
+    listExamStudentRowsForStudentAndExam(params.studentId, params.examId, params.collegeId),
+    listStudentExamFeeRegistrationsRegistrationOnly(params),
+  ])
+  let registeredSubjects = flattenExamStudentDetailRows(examRows)
+  if (registeredSubjects.length === 0) {
+    registeredSubjects = await listRegisteredExamSubjects(params.studentId, params.examId)
+  }
+  const registrations = regRows.length > 0 ? regRows : examRows
+  return { receipts, registrations, registeredSubjects }
+}
+
 export async function listAdditionalExamFeeTypes(): Promise<AnyRow[]> {
   return domainList<AnyRow>(
     'GeneralDetail',
@@ -879,6 +1035,118 @@ export async function listAdditionalExamFeeTypes(): Promise<AnyRow[]> {
 
 export async function addExamAdditionalFeeReceipt(payload: AnyRow): Promise<any> {
   return postDetails<any>('addExamAdditionalFeeReceipt', payload)
+}
+
+/**
+ * Payment modes — Angular getGeneralDetails() loads paymentMode via
+ * generalDetailsByCode (GeneralDetail where GeneralMaster.generalMasterCode == PYMNTMDE).
+ */
+export async function listPaymentModes(): Promise<AnyRow[]> {
+  return domainList<AnyRow>(
+    'GeneralDetail',
+    buildQuery({ 'GeneralMaster.generalMasterCode': GM_CODES.PAYMENT_MODE, isActive: true }),
+  )
+}
+
+/**
+ * Exam fee receipt save — Angular payExamFees(): crudService.add(examFeeReceiptUrl, examFeeReceipt[]).
+ * POSTs the array of receipt objects (one per course-year) to the legacy save endpoint.
+ */
+export async function payExamFeeReceipts(payload: AnyRow[]): Promise<any> {
+  return postDetails<any>('examFeeReceipt', payload)
+}
+
+/**
+ * Exams for a student's course — Angular getExamsList():
+ * ExamMaster where Course.courseId == courseId, ordered by createdDt DESC.
+ * (The page filters out isInternalExam rows.)
+ */
+export async function listExamMastersByCourse(courseId: number): Promise<AnyRow[]> {
+  if (!courseId) return []
+  return domainList<AnyRow>(
+    'ExamMaster',
+    buildQuery({ 'Course.courseId': courseId, isActive: true }, { field: 'createdDt', direction: 'DESC' }),
+  )
+}
+
+/**
+ * Student academic batches — Angular selectedStudent():
+ * StudentAcademicbatch where studentDetail.studentId == studentId (deduped by fromCourseYearId in page).
+ */
+export async function getStudentAcademicBatches(studentId: number): Promise<AnyRow[]> {
+  if (!studentId) return []
+  return domainList<AnyRow>(
+    'StudentAcademicbatch',
+    buildQuery({ 'studentDetail.studentId': studentId, isActive: true }),
+  )
+}
+
+/**
+ * Exam master details — Angular getExamDetails():
+ * ExamMasterDetails by exam + courseGroup + regulation. Used to derive Regular/Supple course-years.
+ */
+export async function getExamMasterDetailsByGroup(params: {
+  examId: number
+  courseGroupId: number
+  regulationId: number
+}): Promise<AnyRow[]> {
+  return domainList<AnyRow>(
+    'ExamMasterDetails',
+    buildQuery({
+      'examMaster.examId': params.examId,
+      'courseGroup.courseGroupId': params.courseGroupId,
+      'regulation.regulationId': params.regulationId,
+      isActive: true,
+    }),
+  )
+}
+
+/**
+ * Regular-exam student subjects — Angular getStudentSubjects() regular branch:
+ * studentsubjectsforregularexam?collegeId=&academicYearId=&studentId=&courseYearId=&examId=
+ */
+export async function getStudentSubjectsForRegularExam(params: {
+  collegeId: number
+  academicYearId: number
+  studentId: number
+  courseYearId: number
+  examId: number
+}): Promise<AnyRow[]> {
+  try {
+    const rows = await fetchDetails<AnyRow[]>('studentsubjectsforregularexam', {
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      studentId: params.studentId,
+      courseYearId: params.courseYearId,
+      examId: params.examId,
+    })
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Supply-exam student subjects — Angular getStudentSubjects() supply branch / getExamCourseYearSubjets():
+ * studentsubjectsforsupplyexam?collegeId=&courseYearId=&studentId=&examId=
+ */
+export async function getStudentSubjectsForSupplyExam(params: {
+  collegeId: number
+  courseYearId: number
+  studentId: number
+  examId: number
+}): Promise<AnyRow[]> {
+  try {
+    const rows = await fetchDetails<AnyRow[]>('studentsubjectsforsupplyexam', {
+      collegeId: params.collegeId,
+      courseYearId: params.courseYearId,
+      studentId: params.studentId,
+      examId: params.examId,
+    })
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -975,6 +1243,9 @@ export async function getExamLabBatchesReport(params: {
   subjectId: number
   examTypeId: number
 }): Promise<AnyRow[]> {
+  // Angular getDetails(): stored proc `s_get_exam_labbatches_report`
+  // (called via getAllRecords/<proc>). result[0] is the flat student array;
+  // the page splits it into unassigned (fk_exam_labbatch_id == null) vs assigned.
   const payload = {
     in_flag: '',
     in_exam_id: params.examId,
@@ -988,17 +1259,9 @@ export async function getExamLabBatchesReport(params: {
     in_exam_type: params.examTypeId,
   }
 
-  const paths = ['getexamLabBatchesReport', 'getExamLabBatchesReport']
-  for (const p of paths) {
-    try {
-      const data = await fetchDetails<any>(p, payload)
-      const rows = data?.result?.[0] ?? data?.result ?? data?.data ?? data ?? []
-      if (Array.isArray(rows)) return rows
-    } catch {
-      // try next path
-    }
-  }
-  return []
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_labbatches_report', payload).catch(() => null)
+  const rows = data?.result?.[0] ?? []
+  return Array.isArray(rows) ? rows : []
 }
 
 export async function addExamLabBatchesStudentsList(payload: AnyRow[]): Promise<any> {

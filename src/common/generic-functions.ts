@@ -14,6 +14,11 @@
 
 import { GENERALCONSTANTS } from './general-constants'
 
+/** Coerce an API payload field to a record array for safe iteration. */
+export function asRecordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? (value as Record<string, unknown>[]) : []
+}
+
 // ─── Session Storage ─────────────────────────────────────────────────────────
 
 /**

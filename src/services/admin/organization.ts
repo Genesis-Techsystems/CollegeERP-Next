@@ -86,24 +86,24 @@ export async function listCountries(): Promise<Country[]> {
 
 /**
  * List states for a given country.
- * GET /domain/list/State?query=Organization.countryId=={countryId}
+ * GET /domain/list/State?query=Country.countryId=={countryId}
  */
 export async function listStatesByCountry(countryId: number): Promise<State[]> {
-  return domainList<State>(ENTITIES.STATE.name, buildQuery({ 'Organization.countryId': countryId }))
+  return domainList<State>(ENTITIES.STATE.name, buildQuery({ 'Country.countryId': countryId }))
 }
 
 /**
  * List districts for a given state.
- * GET /domain/list/District?query=Organization.stateId=={stateId}
+ * GET /domain/list/District?query=State.stateId=={stateId}
  */
 export async function listDistrictsByState(stateId: number): Promise<District[]> {
-  return domainList<District>(ENTITIES.DISTRICT.name, buildQuery({ 'Organization.stateId': stateId }))
+  return domainList<District>(ENTITIES.DISTRICT.name, buildQuery({ 'State.stateId': stateId }))
 }
 
 /**
  * List cities for a given district.
- * GET /domain/list/City?query=Organization.districtId=={districtId}
+ * GET /domain/list/City?query=District.districtId=={districtId}
  */
 export async function listCitiesByDistrict(districtId: number): Promise<City[]> {
-  return domainList<City>(ENTITIES.CITY.name, buildQuery({ 'Organization.districtId': districtId }))
+  return domainList<City>(ENTITIES.CITY.name, buildQuery({ 'District.districtId': districtId }))
 }

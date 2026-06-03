@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -15,15 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { ActiveStatusField } from '@/common/components/forms'
-import { SearchInput } from '@/common/components/search'
+import { Select } from '@/common/components/select'
 import { createQuestionBank, updateQuestionBank, searchCourses } from '@/services/admin/question-bank'
 import type { Assessment, OnlineCourse, CourseLesson, CourseLessonTopic } from '@/types/question-bank'
 
@@ -74,12 +66,7 @@ function getDefaults(bank: Assessment | null): FormValues {
 export default function QuestionBankModal({ open, onClose, bank, onSaved, userId }: Props) {
   const isEditing = bank !== null
   const [submitError, setSubmitError] = useState<string | null>(null)
-
-  // Course search state
-  const [courseSearch, setCourseSearch] = useState('')
   const [courses, setCourses] = useState<OnlineCourse[]>([])
-  const [searching, setSearching] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Cascaded dropdown data
   const [lessons, setLessons] = useState<CourseLesson[]>([])
@@ -98,7 +85,6 @@ export default function QuestionBankModal({ open, onClose, bank, onSaved, userId
     defaultValues: getDefaults(null),
   })
 
-  const isOnlineCourse = watch('isOnlineCourse')
   const selectedCourseId = watch('onlineCourseId')
   const selectedLessonId = watch('courseLessonId')
 
@@ -107,8 +93,9 @@ export default function QuestionBankModal({ open, onClose, bank, onSaved, userId
     if (open) {
       reset(getDefaults(bank))
       setSubmitError(null)
-      setCourseSearch('')
-      setCourses([])
+      searchCourses('')
+        .then((results) => setCourses(results))
+        .catch(() => setCourses([]))
       setLessons([])
       setTopics([])
 
@@ -128,23 +115,6 @@ export default function QuestionBankModal({ open, onClose, bank, onSaved, userId
       }
     }
   }, [open, bank, reset])
-
-  // Debounced course search
-  useEffect(() => {
-    if (!isOnlineCourse) return
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(async () => {
-      if (!courseSearch.trim()) { setCourses([]); return }
-      setSearching(true)
-      try {
-        const results = await searchCourses(courseSearch)
-        setCourses(results)
-      } finally {
-        setSearching(false)
-      }
-    }, 300)
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [courseSearch, isOnlineCourse])
 
   // Populate lessons when course changes
   useEffect(() => {
@@ -188,213 +158,131 @@ export default function QuestionBankModal({ open, onClose, bank, onSaved, userId
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Question Bank' : 'Add Question Bank'}</DialogTitle>
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-hidden border-border bg-slate-100 p-0">
+        <DialogHeader className="border-b border-amber-300 bg-white pt-8 pb-3 pl-[48px] pr-6">
+          <DialogTitle className="text-base font-semibold text-teal-600">
+            {isEditing ? 'Edit Question Bank' : 'Add Question Bank'}
+          </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
-          {/* Name */}
-          <div className="space-y-1">
-            <Label htmlFor="assessmentName">Name *</Label>
-            <Input id="assessmentName" {...register('assessmentName')} placeholder="e.g. Mathematics Unit 1" />
-            {errors.assessmentName && (
-              <p className="text-xs text-red-500">{errors.assessmentName.message}</p>
-            )}
-          </div>
-
-          {/* Number */}
-          <div className="space-y-1">
-            <Label htmlFor="assessmentNo">Assessment No *</Label>
-            <Input
-              id="assessmentNo"
-              type="number"
-              {...register('assessmentNo', { valueAsNumber: true })}
-              placeholder="e.g. 1"
-            />
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 px-6 py-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+            <div className="space-y-1 md:col-span-8">
+              <Label htmlFor="assessmentName" className="text-sm text-slate-700">Question Bank Name *</Label>
+              <Input id="assessmentName" {...register('assessmentName')} className="h-11 rounded-md border-slate-300 bg-white" />
+              {errors.assessmentName && (
+                <p className="text-xs text-red-500">{errors.assessmentName.message}</p>
+              )}
+            </div>
+            <div className="space-y-1 md:col-span-4">
+              <Label htmlFor="assessmentNo" className="text-sm text-slate-500">Question Bank No. *</Label>
+              <Input
+                id="assessmentNo"
+                type="number"
+                {...register('assessmentNo', { valueAsNumber: true })}
+                className="h-11 rounded-md border-slate-300 bg-white"
+              />
             {errors.assessmentNo && (
               <p className="text-xs text-red-500">{errors.assessmentNo.message}</p>
             )}
+            </div>
           </div>
 
-          {/* Description */}
           <div className="space-y-1">
-            <Label htmlFor="assessmentDescription">Description</Label>
+            <Label htmlFor="assessmentDescription" className="text-sm text-slate-500">Description</Label>
             <Input
               id="assessmentDescription"
               {...register('assessmentDescription')}
-              placeholder="Optional description"
+              className="h-11 rounded-md border-slate-300 bg-white"
             />
           </div>
 
-          {/* Flags row */}
-          <div className="flex flex-wrap gap-6">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <Controller
-              name="isPublic"
+              name="onlineCourseId"
               control={control}
               render={({ field }) => (
-                <label className="flex items-center gap-2 cursor-pointer text-sm">
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    id="isPublic"
-                  />
-                  <span>Public</span>
-                </label>
+                <Select
+                  label="Subject"
+                  value={field.value ? String(field.value) : null}
+                  onChange={(v) => field.onChange(v ? Number(v) : null)}
+                  options={courses.map((c) => ({
+                    value: String(c.onlineCourseId),
+                    label: c.onlineCourseName || c.onlineCourseCode,
+                  }))}
+                  placeholder="Select subject"
+                  className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-md [&_button[role='combobox']]:border-slate-300"
+                />
               )}
             />
+            <Controller
+              name="courseLessonId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="Lesson"
+                  value={field.value ? String(field.value) : null}
+                  onChange={(v) => field.onChange(v ? Number(v) : null)}
+                  options={lessons.map((l) => ({
+                    value: String(l.courseLessonId),
+                    label: l.lessonName,
+                  }))}
+                  placeholder="Select lesson"
+                  className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-md [&_button[role='combobox']]:border-slate-300"
+                />
+              )}
+            />
+            <Controller
+              name="courseLessonTopicId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="Lesson Topic"
+                  value={field.value ? String(field.value) : null}
+                  onChange={(v) => field.onChange(v ? Number(v) : null)}
+                  options={topics.map((t) => ({
+                    value: String(t.courseLessonTopicId),
+                    label: t.topicName,
+                  }))}
+                  placeholder="Select lesson topic"
+                  className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-md [&_button[role='combobox']]:border-slate-300"
+                />
+              )}
+            />
+          </div>
 
+          <div className="flex flex-wrap gap-10 pt-2">
             <Controller
               name="isOnlineCourse"
               control={control}
               render={({ field }) => (
-                <label className="flex items-center gap-2 cursor-pointer text-sm">
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={(v) => {
-                      field.onChange(v)
-                      if (!v) {
-                        setValue('onlineCourseId', null)
-                        setValue('courseLessonId', null)
-                        setValue('courseLessonTopicId', null)
-                        setCourses([])
-                        setLessons([])
-                        setTopics([])
-                      }
-                    }}
-                    id="isOnlineCourse"
-                  />
-                  <span>Link to Online Course</span>
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} id="isOnlineCourse" />
+                  <span>Online Course</span>
+                </label>
+              )}
+            />
+            <Controller
+              name="isActive"
+              control={control}
+              render={({ field }) => (
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} id="isActive" />
+                  <span>Active</span>
                 </label>
               )}
             />
           </div>
 
-          {/* Course cascade — only when isOnlineCourse is checked */}
-          {isOnlineCourse && (
-            <div className="space-y-3 rounded-md border p-3">
-              {/* Course search */}
-              <div className="space-y-1">
-                <Label>Course</Label>
-                <SearchInput
-                  placeholder="Search course…"
-                  value={courseSearch}
-                  onChange={setCourseSearch}
-                  serverSearch
-                />
-                {searching && (
-                  <p className="text-xs text-muted-foreground">Searching…</p>
-                )}
-                {courses.length > 0 && (
-                  <Controller
-                    name="onlineCourseId"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value ? String(field.value) : ''}
-                        onValueChange={(v) => field.onChange(Number(v))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select course" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {courses.map((c) => (
-                            <SelectItem key={c.onlineCourseId} value={String(c.onlineCourseId)}>
-                              {c.onlineCourseName} ({c.onlineCourseCode})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                )}
-              </div>
-
-              {/* Lesson — shown when a course is selected */}
-              {lessons.length > 0 && (
-                <div className="space-y-1">
-                  <Label>Lesson</Label>
-                  <Controller
-                    name="courseLessonId"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value ? String(field.value) : ''}
-                        onValueChange={(v) => field.onChange(Number(v))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select lesson" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {lessons.map((l) => (
-                            <SelectItem key={l.courseLessonId} value={String(l.courseLessonId)}>
-                              {l.lessonName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </div>
-              )}
-
-              {/* Topic — shown when a lesson is selected */}
-              {topics.length > 0 && (
-                <div className="space-y-1">
-                  <Label>Topic</Label>
-                  <Controller
-                    name="courseLessonTopicId"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        value={field.value ? String(field.value) : ''}
-                        onValueChange={(v) => field.onChange(Number(v))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select topic" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {topics.map((t) => (
-                            <SelectItem
-                              key={t.courseLessonTopicId}
-                              value={String(t.courseLessonTopicId)}
-                            >
-                              {t.topicName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Active / Reason */}
-          <Controller
-            name="isActive"
-            control={control}
-            render={({ field }) => (
-              <ActiveStatusField
-                isActive={field.value}
-                reason={watch('reason') ?? ''}
-                onActiveChange={field.onChange}
-                onReasonChange={(v) => setValue('reason', v)}
-                reasonError={errors.reason?.message}
-              />
-            )}
-          />
-
           {submitError && (
-            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>
+            <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-600">{submitError}</p>
           )}
 
-          <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              Cancel
+          <DialogFooter className="pt-3">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting} className="border-cyan-100 bg-cyan-50 text-teal-600 hover:bg-cyan-100 hover:text-teal-700">
+              Close
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} className="bg-[#0b3f78] hover:bg-[#0a3768]">
               {isSubmitting ? 'Saving…' : isEditing ? 'Update' : 'Save'}
             </Button>
           </DialogFooter>

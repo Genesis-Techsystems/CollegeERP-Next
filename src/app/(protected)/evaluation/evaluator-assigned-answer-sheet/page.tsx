@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { ColDef, CellClickedEvent, ICellRendererParams } from 'ag-grid-community'
 import { FileText } from 'lucide-react'
@@ -23,7 +23,7 @@ function evaluatedRenderer(p: ICellRendererParams<AnswerPaper>) {
   return <StatusBadge status={p.data?.isEvaluated ?? false} label={p.data?.isEvaluated ? 'Evaluated' : 'Pending'} />
 }
 
-export default function EvaluatorAssignedAnswerSheetPage() {
+function EvaluatorAssignedAnswerSheetContent() {
   const searchParams = useSearchParams()
   const subjectCode = searchParams.get('subjectCode') ?? ''
   const subjectName = searchParams.get('subjectName') ?? 'Assigned Answer Papers'
@@ -88,15 +88,15 @@ export default function EvaluatorAssignedAnswerSheetPage() {
       />
 
       <SearchInput
-        className="max-w-sm"
-        placeholder="Search answer papers..."
+        className="w-full max-w-sm"
+        placeholder="Search answer papers…"
         value={searchValue}
         onChange={setSearchValue}
       />
 
-      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
         {!loading && filteredData.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <FileText className="h-10 w-10 mb-3 opacity-40" />
             <p className="text-sm">No answer papers assigned</p>
           </div>
@@ -111,5 +111,13 @@ export default function EvaluatorAssignedAnswerSheetPage() {
         )}
       </div>
     </PageContainer>
+  )
+}
+
+export default function EvaluatorAssignedAnswerSheetPage() {
+  return (
+    <Suspense fallback={<PageContainer className="py-8 text-sm text-muted-foreground">Loading…</PageContainer>}>
+      <EvaluatorAssignedAnswerSheetContent />
+    </Suspense>
   )
 }

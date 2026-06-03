@@ -16,7 +16,7 @@ const STATUS_CONFIG: Record<number, Config> = {
   [EVAL_STATUS.UFM]:         { dot: 'bg-purple-500',  badge: 'bg-purple-50 text-purple-700 border-purple-200' },
 }
 
-const FALLBACK: Config = { dot: 'bg-slate-400', badge: 'bg-slate-50 text-slate-600 border-slate-200' }
+const FALLBACK: Config = { dot: 'bg-slate-400', badge: 'bg-muted/40 text-slate-600 border-border' }
 
 interface EvalStatusBadgeProps {
   statusId: number
