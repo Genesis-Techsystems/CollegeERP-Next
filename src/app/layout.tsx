@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
-import { Manrope, Sora } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 
-const manrope = Manrope({
+// Premium "Indigo / Inter" theme — Inter for both body and headings.
+const inter = Inter({
   variable: "--font-body",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const sora = Sora({
+const interHeading = Inter({
   variable: "--font-heading",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
@@ -33,7 +34,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${manrope.variable} ${sora.variable} h-full antialiased`}
+      className={`${inter.variable} ${interHeading.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>{children}</body>

@@ -7,11 +7,10 @@ import {
   LogOut,
   User,
   Bell,
-  LayoutGrid,
-  HelpCircle,
   Search,
   ChevronDown,
   Loader2,
+  Palette,
 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -28,6 +27,8 @@ import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
 import { normalizeHref } from '@/lib/navigation'
 import { getUserAccess, logout } from '@/services/auth'
+import { Breadcrumb, useBreadcrumb } from '@/common/components/breadcrumb'
+import { ThemeSettingModal } from '@/common/components/theme-setting-modal'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,11 +44,11 @@ interface SearchPage {
 // ---------------------------------------------------------------------------
 
 const roleAvatarStyle: Record<string, string> = {
-  ADMIN:     'bg-red-100    text-red-700',
-  PRINCIPAL: 'bg-red-100    text-red-700',
-  STAFF:     'bg-blue-100   text-blue-700',
+  ADMIN:     'bg-indigo-100  text-indigo-700',
+  PRINCIPAL: 'bg-indigo-100  text-indigo-700',
+  STAFF:     'bg-blue-100    text-blue-700',
   STUDENT:   'bg-emerald-100 text-emerald-700',
-  PARENT:    'bg-purple-100 text-purple-700',
+  PARENT:    'bg-purple-100  text-purple-700',
 }
 
 function slugify(name: string): string {
@@ -66,6 +67,8 @@ export function Topbar() {
   const router = useRouter()
   const { user } = useSessionContext()
   const { toggleSidebar } = useNavigationStore()
+  const breadcrumbs = useBreadcrumb()
+  const [themeOpen, setThemeOpen] = useState(false)
 
   // ── Search state ────────────────────────────────────────────────────────
   const [pages, setPages] = useState<SearchPage[]>([])
@@ -243,7 +246,7 @@ export function Topbar() {
     : '?'
 
   const avatarStyle =
-    roleAvatarStyle[user?.userRole ?? ''] ?? 'bg-cyan-100 text-cyan-700'
+    roleAvatarStyle[user?.userRole ?? ''] ?? 'bg-indigo-100 text-indigo-700'
 
   async function handleLogout() {
     await logout()
@@ -255,6 +258,7 @@ export function Topbar() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
+    <>
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-5">
 
       {/* ── Mobile hamburger ─────────────────────────────────────────── */}
@@ -267,6 +271,15 @@ export function Topbar() {
       >
         <Menu className="h-5 w-5" aria-hidden="true" />
       </Button>
+
+      {/* ── Breadcrumb / page location ───────────────────────────────── */}
+      <div className="hidden min-w-0 flex-1 items-center overflow-hidden md:flex">
+        <Breadcrumb
+          items={breadcrumbs}
+          maxItems={4}
+          className="text-[12px] text-muted-foreground"
+        />
+      </div>
 
       {/* ── Right side ───────────────────────────────────────────────── */}
       <div className="ml-auto flex items-center gap-1">
@@ -368,6 +381,18 @@ export function Topbar() {
           )}
         </div>
 
+        {/* Theme selector */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          aria-label="Change theme"
+          title="Change theme"
+          onClick={() => setThemeOpen(true)}
+        >
+          <Palette className="h-[18px] w-[18px]" aria-hidden="true" />
+        </Button>
+
         {/* Notification bell */}
         <Button
           variant="ghost"
@@ -380,26 +405,6 @@ export function Topbar() {
             className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-card"
             aria-hidden="true"
           />
-        </Button>
-
-        {/* Apps / grid */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          aria-label="All apps"
-        >
-          <LayoutGrid className="h-[18px] w-[18px]" aria-hidden="true" />
-        </Button>
-
-        {/* Help */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          aria-label="Help"
-        >
-          <HelpCircle className="h-[18px] w-[18px]" aria-hidden="true" />
         </Button>
 
         {/* Divider */}
@@ -462,5 +467,8 @@ export function Topbar() {
         </DropdownMenu>
       </div>
     </header>
+
+    <ThemeSettingModal isOpen={themeOpen} onClose={() => setThemeOpen(false)} />
+    </>
   )
 }

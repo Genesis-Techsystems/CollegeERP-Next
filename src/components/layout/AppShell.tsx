@@ -8,7 +8,7 @@ import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
 import type { NavItem } from '@/types/navigation'
 import { IS_DEBUG_MODE, DebugPanel } from '@/debug'
-import { Breadcrumb, useBreadcrumb } from '@/common/components/breadcrumb'
+import { useTheme } from '@/common/components/theme-setting-modal'
 import { Toaster } from 'sonner'
 
 interface AppShellProps {
@@ -27,8 +27,10 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
   } = useNavigationStore()
 
   const pathname = usePathname()
-  const breadcrumbs = useBreadcrumb()
   const prevPathname = useRef(pathname)
+
+  // Apply the persisted theme (primary + sidebar palette) on every app load.
+  useTheme()
 
   // Prevents hydration mismatch: Zustand persist reads localStorage on client but
   // server has no access to it. Render with default (expanded) state until mounted,
@@ -56,7 +58,7 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
   if (!mounted) {
     return (
       <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
-        <div className="relative z-30 w-[260px] shrink-0" style={{ height: '100vh', position: 'sticky', top: 0 }} />
+        <div className="relative z-30 w-[248px] shrink-0" style={{ height: '100vh', position: 'sticky', top: 0 }} />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="sticky top-0 z-20 h-14 border-b border-border bg-card" />
           <main className="flex-1 overflow-y-auto bg-[hsl(var(--background))]">
@@ -92,7 +94,7 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
           'relative z-30 shrink-0 overflow-hidden transition-all duration-200 ease-in-out',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           // Match reference UI widths (tighter)
-          sidebarIsExpanded ? 'w-[260px]' : 'w-[56px]',
+          sidebarIsExpanded ? 'w-[248px]' : 'w-[56px]',
         )}
         style={{ height: '100vh', position: 'sticky', top: 0 }}
       >
@@ -109,15 +111,9 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
           key={pathname}
           className="flex-1 overflow-y-auto scrollbar-thin animate-fade-up bg-[hsl(var(--background))]"
         >
-          {/* Page container without outer card; sections control their own surfaces */}
+          {/* Page container without outer card; sections control their own surfaces.
+              Breadcrumb now lives in the Topbar (left of the toolbar). */}
           <div className="mx-auto w-full max-w-none px-0 py-0">
-            <div data-print-hide className="px-6 pt-3 pb-1">
-              <Breadcrumb
-                items={breadcrumbs}
-                maxItems={4}
-                className="text-[12px] text-muted-foreground"
-              />
-            </div>
             {children}
           </div>
         </main>

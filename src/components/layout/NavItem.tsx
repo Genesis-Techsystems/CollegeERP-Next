@@ -650,14 +650,14 @@ function NavIcon({
         primarySurface && 'text-[hsl(var(--primary-foreground))]',
         !primarySurface && (
           active
-            ? 'text-[hsl(var(--sidebar-primary))]'
+            ? 'text-white'
             : kind === 'module'
               ? 'text-[hsl(var(--sidebar-foreground))]'
               : 'text-[hsl(var(--sidebar-foreground))]/80'
         ),
       )}
     >
-      <Icon className="h-[15px] w-[15px]" strokeWidth={1.75} aria-hidden="true" />
+      <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
     </span>
   )
 }
@@ -952,14 +952,17 @@ function navCollapsibleTriggerClasses(
   isActive: boolean,
 ): string {
   if (isSelfActive) {
+    // The module page itself is current — soft tint (the left accent bar marks it).
     return cn(
-      'text-[hsl(var(--sidebar-primary))]',
+      'text-[hsl(var(--sidebar-foreground-active))]',
       'font-semibold',
-      'bg-[hsl(var(--sidebar-active-bg))]',
-      'hover:bg-[hsl(var(--sidebar-active-bg))]',
+      'bg-[hsl(var(--sidebar-primary))]/15',
+      'hover:bg-[hsl(var(--sidebar-primary))]/20',
     )
   }
   if (isChildActive) {
+    // Ancestor of the active page — keep it light: bright bold text only, no fill.
+    // (Stacked solid pills on every ancestor looked heavy/cluttered.)
     return cn(
       'text-[hsl(var(--sidebar-foreground-active))]',
       'font-semibold',
@@ -981,14 +984,14 @@ function navCollapsibleTriggerClasses(
   )
 }
 
-/** Leaf row: teal accent + bg pill on active (matches EduPulse reference). */
+/** Leaf row: solid vivid-blue pill + white text on active (matches reference screenshot). */
 function navLeafClasses(_examMasters: boolean, isSelfActive: boolean): string {
   if (isSelfActive) {
     return cn(
-      'text-[hsl(var(--sidebar-primary))]',
+      'text-white',
       'font-semibold',
-      'bg-[hsl(var(--sidebar-active-bg))]',
-      'hover:bg-[hsl(var(--sidebar-active-bg))]',
+      'bg-[hsl(var(--sidebar-primary))]',
+      'hover:bg-[hsl(var(--sidebar-primary))]/95',
     )
   }
   return cn(
@@ -2095,7 +2098,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     depth === 0 ? 'pl-2.5' : depth === 1 ? 'pl-7' : depth === 2 ? 'pl-10' : 'pl-12'
 
   const baseLinkClasses = cn(
-    'group relative flex items-center gap-2.5 rounded-md py-1.5 nav-item font-medium',
+    'group relative flex items-center gap-2.5 rounded-md h-10 nav-item font-medium',
     'transition-colors duration-150 ease-out',
     `pr-3 ${paddingLeft}`,
   )
@@ -2158,7 +2161,8 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           </span>
           <span
             className={cn(
-              'ml-auto shrink-0 text-[hsl(var(--sidebar-foreground))]/60 transition-transform duration-200',
+              'ml-auto shrink-0 transition-transform duration-200',
+              isActive ? 'text-white/80' : 'text-[hsl(var(--sidebar-foreground))]/60',
               isOpen && 'rotate-90',
             )}
           >

@@ -205,7 +205,7 @@ export function Sidebar() {
               {user?.collegeName ?? 'Smart Campus'}
             </p>
             <p className="mt-0.5 text-[10.5px] text-[hsl(var(--sidebar-foreground))] leading-tight uppercase tracking-[0.12em] font-medium truncate">
-              Connect ERP
+              College ERP
             </p>
           </div>
         )}
@@ -269,7 +269,7 @@ export function Sidebar() {
         {isExpanded && !searchTerm && (
           <div className="sidebar-section-label">Main Menu</div>
         )}
-        <ul className="space-y-0.5">
+        <ul className="space-y-1">
           {displayedItems.map((item) => (
             <li key={item.id}>
               <NavItem item={item} depth={0} layoutHydrated={mounted} />

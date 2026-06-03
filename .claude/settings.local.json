@@ -3,7 +3,9 @@
     "allow": [
       "PowerShell(New-Item *)",
       "Bash(git config *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "mcp__ide__getDiagnostics",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Admin\\\\Pictures\\\\Screenshots\" -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 8 Name, LastWriteTime, @{N='KB';E={[math]::Round\\($_.Length/1KB\\)}} | Format-Table -AutoSize)"
     ]
   }
 }

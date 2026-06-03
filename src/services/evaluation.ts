@@ -1404,7 +1404,9 @@ export async function getMultiEvaluatorAssignBundle(params: {
   ])
   return {
     evaluators: Array.isArray(evalData?.result?.[0]) ? evalData.result[0] : [],
-    summary: Array.isArray(stdData?.result?.[1]) ? stdData.result[1] : [],
+    // Angular: StudentEvaluationAssignment summary = result[1] of the
+    // list_evaluatorassignment_list (evaluator) call — NOT the student call.
+    summary: Array.isArray(evalData?.result?.[1]) ? evalData.result[1] : [],
     evaluatorOmrRows: Array.isArray(evalData?.result?.[2]) ? evalData.result[2] : [],
     students: Array.isArray(stdData?.result?.[0]) ? stdData.result[0] : [],
   }
@@ -1417,7 +1419,9 @@ export async function assignMultipleUpdateEvaluationAssignment(params: {
   subjectId: number
   courseYearId: number
 }): Promise<void> {
-  await crud.getAllRecords('s_get_examevaluation_bycodes', {
+  // Multi-evaluator-assign page only: Assign runs s_pop_exam_evaluatorassignment
+  // (not the shared s_get_examevaluation_bycodes). Same flag + params.
+  await crud.getAllRecords('s_pop_exam_evaluatorassignment', {
     in_flag: 'MultipleUpdateEvaluationAssignment',
     in_profileids: params.profileId,
     in_exam_evaluationassignment_ids: '',

@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Emit a self-contained deployable at .next/standalone (server.js + minimal
+  // node_modules). After build, copy .next/static and public/ alongside it.
+  output: "standalone",
   typescript: {
     // Migration in progress — strict checks run via `npx tsc --noEmit` in CI when ready.
     ignoreBuildErrors: true,

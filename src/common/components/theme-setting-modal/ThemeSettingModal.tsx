@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import {
   useTheme,
+  THEME_META,
   type ColorScheme,
   type FontSize,
   type SidebarPosition,
@@ -98,14 +99,7 @@ function ToggleSwitch({ checked, onChange, id }: ToggleSwitchProps) {
 // Color swatches
 // ---------------------------------------------------------------------------
 
-const COLOR_SWATCHES: { scheme: ColorScheme; label: string; bg: string }[] = [
-  { scheme: 'default', label: 'Default', bg: 'bg-blue-600' },
-  { scheme: 'blue',    label: 'Blue',    bg: 'bg-sky-500' },
-  { scheme: 'green',   label: 'Green',   bg: 'bg-emerald-500' },
-  { scheme: 'purple',  label: 'Purple',  bg: 'bg-purple-500' },
-  { scheme: 'orange',  label: 'Orange',  bg: 'bg-orange-500' },
-  { scheme: 'red',     label: 'Red',     bg: 'bg-red-500' },
-]
+const THEME_ORDER: ColorScheme[] = ['royal-blue', 'indigo', 'emerald', 'violet', 'slate', 'rose']
 
 // ---------------------------------------------------------------------------
 // Component
@@ -170,39 +164,52 @@ export function ThemeSettingModal({ isOpen, onClose }: ThemeSettingModalProps) {
 
           <Separator />
 
-          {/* ── Color Scheme ────────────────────────────────────────────── */}
+          {/* ── Theme ───────────────────────────────────────────────────── */}
           <section className="flex flex-col gap-2">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-              Color Scheme
+              Theme
             </Label>
-            <div className="flex flex-wrap gap-2">
-              {COLOR_SWATCHES.map(({ scheme, label, bg }) => (
-                <button
-                  key={scheme}
-                  type="button"
-                  title={label}
-                  aria-label={`Color scheme: ${label}`}
-                  aria-pressed={settings.colorScheme === scheme}
-                  onClick={() => updateSettings({ colorScheme: scheme })}
-                  className={cn(
-                    'relative flex h-8 w-8 items-center justify-center rounded-full transition-all',
-                    bg,
-                    settings.colorScheme === scheme
-                      ? 'ring-2 ring-offset-2 ring-primary scale-110'
-                      : 'opacity-70 hover:opacity-100',
-                  )}
-                >
-                  {settings.colorScheme === scheme && (
-                    <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">
-                      ✓
+            <div className="grid grid-cols-3 gap-2">
+              {THEME_ORDER.map((scheme) => {
+                const meta = THEME_META[scheme]
+                const active = settings.colorScheme === scheme
+                return (
+                  <button
+                    key={scheme}
+                    type="button"
+                    title={meta.label}
+                    aria-label={`Theme: ${meta.label}`}
+                    aria-pressed={active}
+                    onClick={() => updateSettings({ colorScheme: scheme })}
+                    className={cn(
+                      'group flex flex-col items-center gap-1.5 rounded-lg border p-2 transition-all',
+                      active
+                        ? 'border-primary ring-2 ring-primary/30'
+                        : 'border-border hover:border-primary/50',
+                    )}
+                  >
+                    {/* Mini shell preview: sidebar bar + content with accent button */}
+                    <span className="relative flex h-10 w-full overflow-hidden rounded-md border border-border/60">
+                      <span className="h-full w-1/3" style={{ background: meta.sidebar }} />
+                      <span className="flex h-full w-2/3 items-center justify-center bg-white">
+                        <span className="h-2.5 w-6 rounded-full" style={{ background: meta.accent }} />
+                      </span>
+                      {active && (
+                        <span
+                          className="absolute right-1 top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                          style={{ background: meta.accent }}
+                        >
+                          ✓
+                        </span>
+                      )}
                     </span>
-                  )}
-                </button>
-              ))}
+                    <span className={cn('text-[11px] font-medium', active ? 'text-foreground' : 'text-muted-foreground')}>
+                      {meta.label}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
-            <p className="text-xs text-muted-foreground capitalize">
-              Selected: {settings.colorScheme}
-            </p>
           </section>
 
           <Separator />
