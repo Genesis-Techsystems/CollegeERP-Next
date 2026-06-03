@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Upload as AntUpload, type UploadFile, type UploadProps } from 'antd'
 import { FileSpreadsheet, Upload, X } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
@@ -18,17 +17,9 @@ export function AffiliatedBulkUploadPage({ slug }: AffiliatedBulkUploadPageProps
   const router = useRouter()
   const searchParams = useSearchParams()
   const cascade = useAffiliatedCascade({ autoSelectFirst: !searchParams.has('collegeId') })
-  const [fileList, setFileList] = useState<UploadFile[]>([])
+  const [file, setFile] = useState<File | null>(null)
   const [verified, setVerified] = useState(false)
-
-  const uploadProps: UploadProps = {
-    accept: '.xls,.xlsx',
-    multiple: false,
-    fileList,
-    showUploadList: false,
-    beforeUpload: () => false,
-    onChange: ({ fileList: next }) => setFileList(next.slice(-1)),
-  }
+  const inputRef = useRef<HTMLInputElement>(null)
 
   return (
     <PageContainer>
@@ -47,16 +38,33 @@ export function AffiliatedBulkUploadPage({ slug }: AffiliatedBulkUploadPageProps
           <h2 className="font-semibold text-base">Upload Excel</h2>
         </div>
         <div className="p-4 space-y-4">
-          <AntUpload {...uploadProps}>
-            <Button type="button" variant="outline" className="gap-2">
-              <Upload className="h-4 w-4" />
-              Select file
-            </Button>
-          </AntUpload>
-          {fileList[0]?.name ? (
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".xls,.xlsx"
+            className="hidden"
+            onChange={(e) => {
+              setFile(e.target.files?.[0] ?? null)
+              setVerified(false)
+            }}
+          />
+          <Button type="button" variant="outline" className="gap-2" onClick={() => inputRef.current?.click()}>
+            <Upload className="h-4 w-4" />
+            Select file
+          </Button>
+          {file?.name ? (
             <div className="flex items-center gap-2 text-sm">
-              <span>{fileList[0].name}</span>
-              <Button type="button" size="icon" variant="ghost" onClick={() => setFileList([])}>
+              <span>{file.name}</span>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  setFile(null)
+                  setVerified(false)
+                  if (inputRef.current) inputRef.current.value = ''
+                }}
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -76,9 +84,9 @@ export function AffiliatedBulkUploadPage({ slug }: AffiliatedBulkUploadPageProps
             <Button
               type="button"
               variant="secondary"
-              disabled={!fileList.length || !cascade.filtersValid}
+              disabled={!file || !cascade.filtersValid}
               onClick={() => {
-                if (!fileList.length) {
+                if (!file) {
                   toastError('Select an Excel file first.')
                   return
                 }
