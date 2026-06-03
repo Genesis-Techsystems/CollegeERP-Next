@@ -198,7 +198,7 @@ export function Sidebar() {
         {isExpanded && (
           <div className="min-w-0 flex-1 mr-2">
             <p
-              className="text-[15px] font-bold text-[hsl(var(--sidebar-foreground-active))] leading-tight tracking-tight truncate"
+              className="text-[13px] font-bold text-[hsl(var(--sidebar-foreground-active))] leading-[1.18] tracking-tight break-words"
               style={{ fontFamily: 'var(--font-heading), Sora, system-ui, sans-serif' }}
               title={user?.collegeName ?? 'Smart Campus'}
             >
