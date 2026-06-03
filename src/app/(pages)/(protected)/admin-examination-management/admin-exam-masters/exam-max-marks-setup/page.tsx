@@ -280,7 +280,7 @@ export default function ExamMaxMarksSetupPage() {
             <div className="md:col-span-1">
               <Button
                 onClick={getDetails}
-                className="h-[30px] w-full px-4 text-[12px] rounded-[10px] text-white border-0 bg-[linear-gradient(135deg,#1D9E75_0%,#1a6fa0_100%)] hover:bg-[linear-gradient(135deg,#1D9E75_0%,#1a6fa0_100%)]"
+                className="h-[30px] w-full px-4 text-[12px] rounded-[10px] text-white border-0 bg-primary hover:bg-primary/90"
               >
                 Get List
               </Button>

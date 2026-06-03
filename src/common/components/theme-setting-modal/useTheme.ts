@@ -10,6 +10,7 @@ export type SidebarPosition = 'left' | 'right'
 
 /** Switchable colour themes — each maps to a [data-theme] block in globals.css */
 export type ColorScheme =
+  | 'university-blue'
   | 'indigo-teal'
   | 'deep-blue'
   | 'emerald'
@@ -44,6 +45,7 @@ export interface ColorThemeMeta {
 }
 
 export const COLOR_THEMES: ColorThemeMeta[] = [
+  { id: 'university-blue', label: 'University Blue', swatch: ['#185FA5', '#0C447C'] },
   { id: 'indigo-teal', label: 'Indigo & Teal', swatch: ['#4F46E5', '#14B8A6'] },
   { id: 'deep-blue', label: 'Deep Blue', swatch: ['#2563EB', '#0EA5E9'] },
   { id: 'emerald', label: 'Emerald', swatch: ['#059669', '#14B8A6'] },
@@ -61,7 +63,7 @@ export const STORAGE_KEY = 'erp_theme_settings'
 
 export const DEFAULT_THEME: ThemeSettings = {
   sidebarPosition: 'left',
-  colorScheme: 'indigo-teal',
+  colorScheme: 'university-blue',
   fontSize: 'md',
   themeMode: 'light',
   sidebarCollapsed: false,

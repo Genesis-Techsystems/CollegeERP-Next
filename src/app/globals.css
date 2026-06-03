@@ -493,6 +493,43 @@ main .app-card + .app-card {
   --shadow-glow: 0 0 20px -4px hsl(174 45% 48% / 0.30);
 }
 
+/* University Blue (UniERP reference) — medium-blue sidebar + #185FA5 primary.
+   Unlike the accent-only themes, this also recolours the sidebar + canvas. */
+[data-theme="university-blue"] {
+  --background: 220 33% 97%;            /* #F4F6FA canvas */
+  --foreground: 218 32% 15%;           /* #1A2433 */
+  --muted-foreground: 218 10% 47%;     /* #6B7384 */
+  --border: 218 25% 91%;               /* #E2E6EE thin light border */
+  --input: 218 25% 91%;
+  --primary: 208 75% 37%;              /* #185FA5 */
+  --primary-foreground: 0 0% 100%;
+  --ring: 208 75% 37%;
+  --accent: 210 70% 54%;               /* #378ADD */
+  --accent-foreground: 0 0% 100%;
+  --card-title: var(--primary);
+  --section-title: 218 32% 18%;
+
+  /* Sidebar — solid medium blue with translucent-white active pill */
+  --sidebar-background: 210 82% 27%;        /* #0C447C */
+  --sidebar-background-end: 210 82% 23%;
+  --sidebar-surface: 210 55% 36%;
+  --sidebar-foreground: 210 75% 83%;        /* #B5D4F4 */
+  --sidebar-foreground-active: 0 0% 100%;
+  --sidebar-section-label: 210 71% 72%;     /* #85B7EB */
+  --sidebar-primary: 0 0% 100%;
+  --sidebar-primary-foreground: 210 82% 27%;
+  --sidebar-accent: 0 0% 100%;
+  --sidebar-border: 210 55% 33%;
+  --sidebar-ring: 0 0% 100%;
+  --sidebar-active-bg: 0 0% 100% / 0.16;
+  --sidebar-active-border: 0 0% 100% / 0.22;
+  --sidebar-hover-bg: 0 0% 100% / 0.08;
+
+  --gradient-sidebar: linear-gradient(180deg, hsl(210 82% 27%), hsl(210 82% 23%));
+  --gradient-primary: linear-gradient(135deg, hsl(208 75% 37%), hsl(210 70% 54%));
+  --shadow-glow: 0 0 20px -4px hsl(208 75% 37% / 0.30);
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    TAILWIND V4 THEME MAPPING
    ───────────────────────────────────────────────────────────────────────── */

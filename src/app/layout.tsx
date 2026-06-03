@@ -40,7 +40,7 @@ export default function RootLayout({
         {/* Apply saved colour theme + dark mode before first paint (no flash) */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=JSON.parse(localStorage.getItem('erp_theme_settings')||'{}');var t=s.colorScheme||'indigo-teal';document.documentElement.setAttribute('data-theme',t);var m=s.themeMode||'light';if(m==='system'){m=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(m==='dark'){document.documentElement.classList.add('dark');}}catch(e){document.documentElement.setAttribute('data-theme','indigo-teal');}})();`,
+            __html: `(function(){try{var s=JSON.parse(localStorage.getItem('erp_theme_settings')||'{}');var t=s.colorScheme||'university-blue';document.documentElement.setAttribute('data-theme',t);var m=s.themeMode||'light';if(m==='system'){m=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(m==='dark'){document.documentElement.classList.add('dark');}}catch(e){document.documentElement.setAttribute('data-theme','university-blue');}})();`,
           }}
         />
       </head>

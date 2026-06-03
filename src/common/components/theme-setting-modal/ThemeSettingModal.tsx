@@ -99,6 +99,7 @@ function ToggleSwitch({ checked, onChange, id }: ToggleSwitchProps) {
 // ---------------------------------------------------------------------------
 
 const COLOR_SWATCHES: { scheme: ColorScheme; label: string; bg: string }[] = [
+  { scheme: 'university-blue', label: 'University Blue', bg: 'bg-[#185FA5]' },
   { scheme: 'indigo-teal', label: 'Indigo & Teal', bg: 'bg-indigo-600' },
   { scheme: 'deep-blue',   label: 'Deep Blue',     bg: 'bg-blue-600' },
   { scheme: 'emerald',     label: 'Emerald',       bg: 'bg-emerald-600' },
