@@ -23,17 +23,29 @@ interface StatCardProps {
   trend?: StatCardTrend
   /** Whether data is loading — shows skeleton */
   isLoading?: boolean
-  /** Color variant for the icon background */
-  colorVariant?: 'default' | 'success' | 'warning' | 'error'
+  /** Color variant for the icon chip — semantic (theme-aware) or categorical (fixed) */
+  colorVariant?:
+    | 'default' | 'success' | 'warning' | 'error'
+    | 'indigo' | 'teal' | 'emerald' | 'amber' | 'rose' | 'violet' | 'cyan' | 'sky'
   /** Additional CSS classes */
   className?: string
 }
 
-const VARIANT_STYLES = {
+const VARIANT_STYLES: Record<string, string> = {
+  // Semantic — follow the active theme / status tokens
   default: 'bg-primary/10 text-primary',
   success: 'bg-[var(--color-success)]/10 text-[var(--color-success)]',
   warning: 'bg-[var(--color-warning)]/10 text-[var(--color-warning)]',
   error: 'bg-[var(--color-error)]/10 text-[var(--color-error)]',
+  // Categorical — fixed pastel chips (dashboard metric coding, like the reference)
+  indigo:  'bg-indigo-100 text-indigo-600',
+  teal:    'bg-teal-100 text-teal-600',
+  emerald: 'bg-emerald-100 text-emerald-600',
+  amber:   'bg-amber-100 text-amber-600',
+  rose:    'bg-rose-100 text-rose-600',
+  violet:  'bg-violet-100 text-violet-600',
+  cyan:    'bg-cyan-100 text-cyan-600',
+  sky:     'bg-sky-100 text-sky-600',
 }
 
 /**
