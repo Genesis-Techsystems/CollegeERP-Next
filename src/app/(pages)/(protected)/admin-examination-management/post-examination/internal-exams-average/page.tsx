@@ -64,7 +64,7 @@ function resolveTypeId(regulation: AnyRow | null, first: AnyRow): number {
 }
 
 function buildAverageMatrix(rows: AnyRow[], selectedExams: AnyRow[]) {
-  const normalized = rows.map((r) => ({ ...r, marks: Number(r.marks ?? 0) }))
+  const normalized: AnyRow[] = rows.map((r) => ({ ...r, marks: Number(r.marks ?? 0) }))
   const examNameList = [...selectedExams.map((e) => strFrom(e, ['examShortName', 'examName', 'exam_name'])), 'Final']
   const subjectMap = new Map<string, { subject_code: string; subject_name: string }>()
   for (const row of normalized) {

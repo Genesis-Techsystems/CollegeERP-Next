@@ -29,7 +29,7 @@ const COL_DEFS = {
 }
 
 function statusRenderer(p: ICellRendererParams<CounselorRow>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={Boolean(p.data?.isActive)} />
 }
 
 function readStorage(key: string): string {

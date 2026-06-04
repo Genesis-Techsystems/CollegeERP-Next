@@ -179,7 +179,7 @@ export async function createCasteQuota(payload: CasteQuotaPayload): Promise<void
 
 export async function updateCasteQuota(payload: CasteQuotaPayload): Promise<void> {
   const id = payload.casteQuotaId
-  if (!id) throw new AppError('casteQuotaId is required for update')
+  if (!id) throw new AppError('VALIDATION', 'casteQuotaId is required for update')
   await domainUpdate(UNIVERSITY_API.CASTE_QUOTA, ENTITIES.CASTE_QUOTA.pk, id, payload)
 }
 
@@ -206,7 +206,7 @@ export async function createCollegeCounselling(payload: CollegeCounsellingPayloa
 
 export async function updateCollegeCounselling(payload: CollegeCounsellingPayload): Promise<void> {
   const id = payload.univCollegeCounsellingId
-  if (!id) throw new AppError('univCollegeCounsellingId is required for update')
+  if (!id) throw new AppError('VALIDATION', 'univCollegeCounsellingId is required for update')
   await domainUpdate(
     UNIVERSITY_API.COLLEGE_COUNSELLING,
     ENTITIES.UNIV_COLLEGE_COUNSELLING.pk,
@@ -231,7 +231,7 @@ export async function updateUnivStdApplication(formData: FormData): Promise<void
     throw parseApiError(res, body)
   }
   const body = (await res.json()) as ApiResponse<unknown>
-  if (!body.success) throw new AppError(body.message ?? 'Update failed')
+  if (!body.success) throw new AppError('API_ERROR', body.message ?? 'Update failed')
 }
 
 export async function searchUnivStdApplications(q: string): Promise<UnivStdApplicationRow[]> {

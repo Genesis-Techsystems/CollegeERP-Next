@@ -233,7 +233,8 @@ export async function listIncomeExpenseTypes(): Promise<GeneralDetailOption[]> {
     generalDetailId: r.generalDetailId,
     generalDetailCode: r.generalDetailCode,
     generalDetailName: r.generalDetailName,
-    generalDetailDisplayName: r.generalDetailDisplayName,
+    generalDetailDisplayName:
+      r.generalDetailDisplayName != null ? String(r.generalDetailDisplayName) : undefined,
   }))
 }
 

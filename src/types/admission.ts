@@ -30,6 +30,7 @@ export type StudentEnquiryRow = {
   returnDate?: string
   sourceofenquiry?: string
   counseledBy?: string
+  remarks?: string
   mobileNumber?: string
   mobileNumber1?: string
   enquirystatusName?: string

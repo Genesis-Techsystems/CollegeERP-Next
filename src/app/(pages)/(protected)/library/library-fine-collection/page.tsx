@@ -7,7 +7,7 @@ import { LibraryScreenShell } from '../_components/LibraryScreenShell'
 
 /** Library fine collection — Angular filter + day-wise collection table. */
 export default function LibraryFineCollectionPage() {
-  const [collectedDate, setCollectedDate] = useState<Date | undefined>(undefined)
+  const [collectedDate, setCollectedDate] = useState<Date | null>(null)
 
   return (
     <LibraryScreenShell title="Library Fine Collection">

@@ -354,11 +354,11 @@ export default function UnivExamBundlesPage() {
 
         {filtersOpen && (
           <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="space-y-1 md:col-span-2"><Label>Exam Center *</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v }))} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Course *</Label><Select options={courses.map((r) => ({ value: String(num(r.fk_course_id)), label: txt(r.course_code) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v }))} disabled={loadingFilters} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><Select options={academicYears.map((r) => ({ value: String(num(r.fk_academic_year_id)), label: txt(r.academic_year) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v }))} /></div>
-            <div className="space-y-1 md:col-span-6"><Label>Exam</Label><Select options={exams.map((r) => ({ value: String(num(r.fk_exam_id)), label: `${txt(r.exam_name)} (${txt(r.from_date)} - ${txt(r.to_date)})` }))} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v }))} /></div>
-            <div className="space-y-1 md:col-span-4"><Label>Univ Exam Bag *</Label><Select options={bagsOptions} value={form.univExamBagId} onChange={(v) => setForm((f) => ({ ...f, univExamBagId: v }))} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Exam Center *</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Course *</Label><Select options={courses.map((r) => ({ value: String(num(r.fk_course_id)), label: txt(r.course_code) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} disabled={loadingFilters} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><Select options={academicYears.map((r) => ({ value: String(num(r.fk_academic_year_id)), label: txt(r.academic_year) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-6"><Label>Exam</Label><Select options={exams.map((r) => ({ value: String(num(r.fk_exam_id)), label: `${txt(r.exam_name)} (${txt(r.from_date)} - ${txt(r.to_date)})` }))} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-4"><Label>Univ Exam Bag *</Label><Select options={bagsOptions} value={form.univExamBagId} onChange={(v) => setForm((f) => ({ ...f, univExamBagId: v ?? '' }))} /></div>
             <div className="md:col-span-2"><Button type="button" onClick={() => void onGetList()} disabled={loadingList}>Get List</Button></div>
           </div>
         )}
@@ -404,7 +404,7 @@ export default function UnivExamBundlesPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1 md:col-span-2">
             <Label>Univ Exam Bag</Label>
-            <Select options={bagsOptions} value={formModal.univExamBagId} onChange={(v) => setFormModal((f) => ({ ...f, univExamBagId: v }))} />
+            <Select options={bagsOptions} value={formModal.univExamBagId} onChange={(v) => setFormModal((f) => ({ ...f, univExamBagId: v ?? '' }))} />
           </div>
           <div className="space-y-1">
             <Label>Bundle Number</Label>

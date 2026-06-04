@@ -1,7 +1,8 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useMemo } from 'react'
+import { useMemo, type ComponentType } from 'react'
+import type { DataTableProps } from '@/common/components/table'
 import type { UnivPaymentWalletTransaction } from '@/types/univ-wallet'
 import { WalletPageLoading } from './WalletPageLoading'
 import { buildWalletTransactionColumnDefs } from '../_lib/wallet-transaction-columns'
@@ -9,7 +10,7 @@ import { buildWalletTransactionColumnDefs } from '../_lib/wallet-transaction-col
 const DataTable = dynamic(
   () => import('@/common/components/table').then((m) => ({ default: m.DataTable })),
   { loading: () => <WalletPageLoading /> },
-)
+) as ComponentType<DataTableProps<UnivPaymentWalletTransaction>>
 
 type WalletTransactionTableProps = {
   rowData: UnivPaymentWalletTransaction[]

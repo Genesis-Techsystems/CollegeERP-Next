@@ -309,9 +309,9 @@ export default function UnivExamBagTransportationPage() {
 
         {filtersOpen && (
           <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="space-y-1 md:col-span-4"><Label>Exam Regional Center</Label><Select options={regionalOptions} value={form.univExamReionalCenterId} onChange={(v) => setForm((f) => ({ ...f, univExamReionalCenterId: v }))} disabled={loadingFilters} /></div>
-            <div className="space-y-1 md:col-span-4"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v }))} /></div>
-            <div className="space-y-1 md:col-span-3"><Label>Exam Bags</Label><Select options={bagOptions} value={form.univExamBagId} onChange={(v) => setForm((f) => ({ ...f, univExamBagId: v }))} /></div>
+            <div className="space-y-1 md:col-span-4"><Label>Exam Regional Center</Label><Select options={regionalOptions} value={form.univExamReionalCenterId} onChange={(v) => setForm((f) => ({ ...f, univExamReionalCenterId: v ?? '' }))} disabled={loadingFilters} /></div>
+            <div className="space-y-1 md:col-span-4"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-3"><Label>Exam Bags</Label><Select options={bagOptions} value={form.univExamBagId} onChange={(v) => setForm((f) => ({ ...f, univExamBagId: v ?? '' }))} /></div>
             <div className="md:col-span-1"><Button type="button" onClick={() => void onGetList()} disabled={loadingList}>Get List</Button></div>
           </div>
         )}

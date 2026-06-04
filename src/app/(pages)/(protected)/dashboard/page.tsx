@@ -19,7 +19,9 @@ interface StatCardData {
   label: string
   value: string | number
   icon: LucideIcon
-  colorVariant: 'default' | 'success' | 'warning' | 'error'
+  colorVariant:
+    | 'default' | 'success' | 'warning' | 'error'
+    | 'indigo' | 'teal' | 'emerald' | 'amber' | 'rose' | 'violet' | 'cyan' | 'sky'
   /** Tailwind left-border accent class, e.g. "border-l-4 border-l-indigo-500" */
   borderAccent: string
 }
@@ -31,10 +33,10 @@ function getStatCards(userRole: string): StatCardData[] {
     case 'ADMIN':
     case 'PRINCIPAL':
       return [
-        { label: 'Total Students',    value: 0,    icon: GraduationCap, colorVariant: 'default', borderAccent: 'border-l-4 border-l-indigo-500' },
-        { label: 'Active Staff',       value: 0,    icon: Users,         colorVariant: 'success', borderAccent: 'border-l-4 border-l-emerald-500' },
-        { label: 'Pending Fees',       value: '₹0', icon: Receipt,       colorVariant: 'warning', borderAccent: 'border-l-4 border-l-amber-500' },
-        { label: "Today's Attendance", value: '0%', icon: ScanFace,      colorVariant: 'default', borderAccent: 'border-l-4 border-l-indigo-400' },
+        { label: 'Total Students',    value: 0,    icon: GraduationCap, colorVariant: 'indigo',  borderAccent: 'border-l-4 border-l-indigo-500' },
+        { label: 'Active Staff',       value: 0,    icon: Users,         colorVariant: 'emerald', borderAccent: 'border-l-4 border-l-emerald-500' },
+        { label: 'Pending Fees',       value: '₹0', icon: Receipt,       colorVariant: 'amber',   borderAccent: 'border-l-4 border-l-amber-500' },
+        { label: "Today's Attendance", value: '0%', icon: ScanFace,      colorVariant: 'cyan',    borderAccent: 'border-l-4 border-l-cyan-500' },
       ]
     case 'STAFF':
       return [
@@ -59,10 +61,10 @@ function getStatCards(userRole: string): StatCardData[] {
       ]
     default:
       return [
-        { label: 'Total Students',    value: 0,    icon: GraduationCap, colorVariant: 'default', borderAccent: 'border-l-4 border-l-indigo-500' },
-        { label: 'Active Staff',       value: 0,    icon: Users,         colorVariant: 'success', borderAccent: 'border-l-4 border-l-emerald-500' },
-        { label: 'Pending Fees',       value: '₹0', icon: Receipt,       colorVariant: 'warning', borderAccent: 'border-l-4 border-l-amber-500' },
-        { label: "Today's Attendance", value: '0%', icon: ScanFace,      colorVariant: 'default', borderAccent: 'border-l-4 border-l-indigo-400' },
+        { label: 'Total Students',    value: 0,    icon: GraduationCap, colorVariant: 'indigo',  borderAccent: 'border-l-4 border-l-indigo-500' },
+        { label: 'Active Staff',       value: 0,    icon: Users,         colorVariant: 'emerald', borderAccent: 'border-l-4 border-l-emerald-500' },
+        { label: 'Pending Fees',       value: '₹0', icon: Receipt,       colorVariant: 'amber',   borderAccent: 'border-l-4 border-l-amber-500' },
+        { label: "Today's Attendance", value: '0%', icon: ScanFace,      colorVariant: 'cyan',    borderAccent: 'border-l-4 border-l-cyan-500' },
       ]
   }
 }

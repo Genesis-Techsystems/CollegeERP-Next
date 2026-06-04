@@ -111,7 +111,7 @@ export async function listUserTypesByOrganization(organizationId: number): Promi
   }
 
   return rows
-    .map((row) => {
+    .map((row): UserTypeOption | null => {
       if (!row || typeof row !== 'object') return null
       const src = row as Record<string, unknown>
       const nested = (src.UserType ?? src.userType ?? null) as Record<string, unknown> | null
@@ -123,7 +123,7 @@ export async function listUserTypesByOrganization(organizationId: number): Promi
         userTypeCode: toText(src.userTypeCode ?? src.usertypeCode ?? src.code ?? nested?.userTypeCode),
         organizationId: Number(src.organizationId ?? src.orgId ?? nested?.organizationId ?? 0) || undefined,
         isActive: src.isActive === undefined ? true : Boolean(src.isActive),
-      } satisfies UserTypeOption
+      }
     })
     .filter((row): row is UserTypeOption => row !== null)
 }

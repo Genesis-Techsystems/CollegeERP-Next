@@ -329,7 +329,7 @@ export function PayrollGroupFormPage({ mode }: PayrollGroupFormPageProps) {
       setAvailableCategories(
         all
           .filter((c) => !selectedIds.has(Number(c.payrollCategoryId)))
-          .map((c) => ({ ...c, sortOrder: c.sortOrder ?? '' })),
+          .map((c): CatRow => ({ ...c, sortOrder: (c.sortOrder ?? '') as string | number })),
       )
     },
     [],

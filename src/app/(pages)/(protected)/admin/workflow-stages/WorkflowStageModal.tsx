@@ -86,7 +86,7 @@ export default function WorkflowStageModal({
   useEffect(() => {
     if (!selectedOrganizationId) {
       setColleges([])
-      setValue('collegeId', undefined)
+      setValue('collegeId', undefined as unknown as number)
       return
     }
     listActiveCollegesByOrganizationForWorkflowStages(selectedOrganizationId)

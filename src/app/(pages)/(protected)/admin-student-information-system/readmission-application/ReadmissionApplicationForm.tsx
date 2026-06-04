@@ -132,7 +132,7 @@ export function ReadmissionApplicationForm() {
         const fromDetail = num(row, [...COLLEGE_ID_KEYS])
         const fromUrl = collegeIdParam > 0 ? collegeIdParam : 0
         const fromSession =
-          Number(user?.collegeId) > 0 && (fromDetail <= 0 && fromUrl <= 0) ? Number(user.collegeId) : 0
+          Number(user?.collegeId) > 0 && (fromDetail <= 0 && fromUrl <= 0) ? Number(user?.collegeId) : 0
         const merged: AnyRow =
           fromDetail <= 0 && (fromUrl > 0 || fromSession > 0)
             ? { ...row, collegeId: fromUrl || fromSession }

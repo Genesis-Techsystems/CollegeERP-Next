@@ -176,7 +176,7 @@ export default function ExamScanProfilePage() {
         setTitleOptions(
           (rows ?? []).map((r) => ({
             value: String(r.generalDetailId ?? ''),
-            label: r.generalDetailDisplayName ?? r.generalDetailCode ?? String(r.generalDetailId),
+            label: String(r.generalDetailDisplayName ?? r.generalDetailCode ?? r.generalDetailId),
           })),
         )
       } catch {

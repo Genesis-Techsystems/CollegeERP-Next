@@ -91,7 +91,6 @@ const SLUG_ALIASES: Record<string, string> = {
   timingslots: 'timing-slots',
   'weekday-class-timings': 'weekDay-class-timings',
   'weekday-classtimings': 'weekDay-class-timings',
-  'weekday-class-timings': 'weekDay-class-timings',
   'manage-timetable': 'manage-timetable',
   'create-class-timetable': 'manage-timetable',
   'create-classtimetable': 'manage-timetable',

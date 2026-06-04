@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormModal } from '@/common/components/feedback'
@@ -27,7 +27,7 @@ const schema = z.object({
   routeId: z.coerce.number().min(1, 'Route is required'),
   pickupRouteStopId: z.coerce.number().min(1, 'Pickup stop is required'),
   dropRouteStopId: z.coerce.number().min(1, 'Drop stop is required'),
-  fromDate: z.date({ required_error: 'From date is required' }),
+  fromDate: z.date({ message: 'From date is required' }),
   toDate: z.date().optional().nullable(),
   isActive: z.boolean(),
   reason: z.string().optional(),
@@ -56,7 +56,7 @@ export function EditTransportAllocationModal({
     control,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: { isActive: true, reason: 'active' },
   })
 

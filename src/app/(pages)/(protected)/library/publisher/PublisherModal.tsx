@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -19,7 +19,7 @@ const schema = z.object({
   libraryId: z.coerce.number().min(1, 'Library is required'),
   publishername: z.string().min(1, 'Publisher name is required'),
   shortName: z.string().min(1, 'Short name is required'),
-  date: z.date({ required_error: 'Date is required' }),
+  date: z.date({ message: 'Date is required' }),
   isActive: z.boolean(),
   reason: z.string().optional(),
 })
@@ -46,7 +46,7 @@ export function PublisherModal({ open, onClose, row, onSaved }: Readonly<Publish
     control,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       libraryId: undefined,
       publishername: '',

@@ -82,6 +82,7 @@ export interface SessionUser {
   academicYear: string
   employeeId?: number
   studentId?: number
+  libraryId?: number
   // Derived server-side — never trust client-provided values:
   isAdmin: boolean            // userRole === 'ADMIN' || userRole === 'SUPERADMIN'
   isPrincipal: boolean        // roleName includes 'PRINCIPAL'

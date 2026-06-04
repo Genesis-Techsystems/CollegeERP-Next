@@ -11,6 +11,7 @@ import {
   Sector,
 } from 'recharts'
 import type { PieSectorDataItem } from 'recharts'
+import { useThemeColors } from './useThemeColors'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -141,9 +142,11 @@ export function PieChart({
   renderTooltip,
 }: PieChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined)
+  const themeColors = useThemeColors()
+  const palette = themeColors.series.length ? themeColors.series : DEFAULT_COLORS
 
   function resolveColor(entry: PieDataEntry, index: number): string {
-    return entry.color ?? colors?.[index] ?? DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+    return entry.color ?? colors?.[index] ?? palette[index % palette.length]
   }
 
   const buildActiveShape = (sectorIndex: number) =>

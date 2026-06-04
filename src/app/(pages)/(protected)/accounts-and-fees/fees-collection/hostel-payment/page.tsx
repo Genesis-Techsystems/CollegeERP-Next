@@ -37,7 +37,7 @@ function formatDueDate(value?: string): string {
 }
 
 function paymentStatusLabel(row: HostelRoomAllocationRow): string {
-  const settled = row.isAmountSetteled === true || row.isAmountSetteled === 'true'
+  const settled = row.isAmountSetteled === true || (row.isAmountSetteled as unknown) === 'true'
   return settled ? 'Setteled' : 'Pending'
 }
 

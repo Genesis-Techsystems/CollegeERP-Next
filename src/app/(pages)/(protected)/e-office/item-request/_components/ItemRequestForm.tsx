@@ -53,7 +53,7 @@ export function ItemRequestForm({
 
   const [storeId, setStoreId] = useState<string | null>(null)
   const [transTypeId, setTransTypeId] = useState<string | null>(null)
-  const [indentDate, setIndentDate] = useState<Date | undefined>(new Date())
+  const [indentDate, setIndentDate] = useState<Date | null>(new Date())
   const [internalIndNo, setInternalIndNo] = useState('')
   const [purpose, setPurpose] = useState('')
   const [isActive, setIsActive] = useState(true)

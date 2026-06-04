@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -28,7 +28,7 @@ const schema = z.object({
   costprice: z.coerce.number().min(0, 'Item price is required'),
   itemQty: z.coerce.number().min(0, 'Quantity is required'),
   transactionno: z.string().min(1, 'Transaction number is required'),
-  transactionDate: z.date({ required_error: 'Transaction date is required' }),
+  transactionDate: z.date({ message: 'Transaction date is required' }),
   invTranstypeCatdetId: z.coerce.number().min(1, 'Transaction type is required'),
   isActive: z.boolean(),
   reason: z.string().optional(),
@@ -71,7 +71,7 @@ export default function StockLedgerModal({ open, onClose, editData, onSaved }: P
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: getDefaults(),
   })
 

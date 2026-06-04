@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format } from 'date-fns'
@@ -40,8 +40,8 @@ const schema = z.object({
   courseGroupId: optionalId,
   roomTypeId: optionalId,
   roomId: optionalId,
-  fromDate: z.date({ required_error: 'From date is required' }),
-  toDate: z.date({ required_error: 'To date is required' }),
+  fromDate: z.date({ message: 'From date is required' }),
+  toDate: z.date({ message: 'To date is required' }),
   comments: z.string().optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),
@@ -95,7 +95,7 @@ export function DepartmentHeadsModal({
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       collegeId: undefined,
       employeeId: undefined,
@@ -173,8 +173,8 @@ export function DepartmentHeadsModal({
       setUniversityId(univId)
       setValue('courseId', undefined)
       setValue('courseGroupId', undefined)
-      setValue('departmentId', undefined)
-      setValue('employeeId', undefined)
+      setValue('departmentId', undefined as unknown as number)
+      setValue('employeeId', undefined as unknown as number)
       setEmployeeOptions([])
       setEmployeeRows([])
       if (univId) {

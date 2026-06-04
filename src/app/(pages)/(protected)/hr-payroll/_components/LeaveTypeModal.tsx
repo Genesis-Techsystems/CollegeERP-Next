@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -39,8 +39,8 @@ const schema = z
     allowCarryForward: carrySchema,
     carryAll: carrySchema,
     specificCount: z.coerce.number().optional(),
-    validFrom: z.date({ required_error: 'Valid from is required' }),
-    validTo: z.date({ required_error: 'Valid to is required' }),
+    validFrom: z.date({ error: 'Valid from is required' }),
+    validTo: z.date({ error: 'Valid to is required' }),
     isActive: z.boolean(),
     reason: z.string().optional(),
   })
@@ -87,7 +87,7 @@ export function LeaveTypeModal({ open, onClose, row, onSaved }: Readonly<LeaveTy
     control,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       organizationId: undefined as unknown as number,
       leaveName: '',
@@ -168,7 +168,7 @@ export function LeaveTypeModal({ open, onClose, row, onSaved }: Readonly<LeaveTy
     )
   }, [open, isEditing, row, reset])
 
-  function onValidFromChange(date: Date | undefined) {
+  function onValidFromChange(date: Date | null) {
     if (!date) return
     setValue('validFrom', date)
     const to = watch('validTo')

@@ -39,7 +39,7 @@ function bookOptionLabel(b: LibraryRow): string {
 }
 
 function statusRenderer(p: ICellRendererParams<LibraryRow>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={Boolean(p.data?.isActive)} />
 }
 
 function makeActionsRenderer(

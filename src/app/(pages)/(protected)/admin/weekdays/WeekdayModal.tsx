@@ -1,6 +1,6 @@
 'use client'
 
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -43,7 +43,7 @@ interface WeekdayModalProps {
 export default function WeekdayModal({ open, onClose, row, onSaved }: Readonly<WeekdayModalProps>) {
   const isEditing = Boolean(row)
   const { register, handleSubmit, reset, control, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     values: {
       weekDay: row?.weekDay ?? '',
       name: row?.name ?? '',

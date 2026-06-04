@@ -15,17 +15,17 @@
   --popover: 0 0% 100%;
   --popover-foreground: 210 50% 10%;
 
-  /* Brand: indigo primary, bright indigo accent */
-  --primary: 243 76% 59%;
+  /* Brand: INDIGO primary + TEAL accent (default theme = "indigo-teal") */
+  --primary: 243 75% 59%;            /* indigo #4F46E5 */
   --primary-foreground: 0 0% 100%;
 
-  /* Secondary — soft blue surface */
+  /* Secondary — soft surface */
   --secondary: 200 30% 92%;
   --secondary-foreground: 210 50% 15%;
 
   --muted: 210 20% 94%;
   --muted-foreground: 210 15% 45%;
-  --accent: 239 84% 67%;              /* bright indigo */
+  --accent: 173 70% 41%;              /* teal #14B8A6 */
   --accent-foreground: 0 0% 100%;
 
   /* Status */
@@ -40,27 +40,26 @@
   /* Borders & inputs */
   --border: 214 20% 90%;
   --input: 214 20% 90%;
-  --ring: 243 76% 59%;
+  --ring: 243 75% 59%;
   --radius: 0.625rem;
 
-  /* Sidebar — deep royal navy (#001846) with vivid blue (#1538F0) active pill.
-     Sampled pixel-exact from the SKOLO Colleges reference screenshot. */
-  --sidebar-background: 219 100% 14%;       /* #001846 deep royal navy top */
-  --sidebar-background-end: 220 100% 11%;   /* slightly deeper navy bottom (subtle gradient) */
-  --sidebar-surface: 222 60% 22%;
-  --sidebar-foreground: 214 35% 84%;        /* bright light-slate text */
+  /* Sidebar — DARK navy (EduPulse default, matches --gradient-sidebar) */
+  --sidebar-background: 210 60% 11%;        /* deep navy top */
+  --sidebar-background-end: 210 55% 8%;     /* deep navy bottom (gradient) */
+  --sidebar-surface: 210 45% 14%;
+  --sidebar-foreground: 210 22% 70%;        /* muted slate text */
   --sidebar-foreground-active: 0 0% 100%;   /* white on active */
-  --sidebar-primary: 230 88% 52%;           /* #1538F0 vivid royal blue */
+  --sidebar-primary: 174 55% 55%;           /* bright teal — readable on dark */
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 230 88% 52%;
+  --sidebar-accent: 174 55% 55%;
   --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-border: 220 60% 18%;
-  --sidebar-ring: 230 88% 52%;
-  /* Active item pill — SOLID vivid blue (matches screenshot, not a tint) */
-  --sidebar-active-bg: 230 88% 52%;
-  --sidebar-active-border: 230 88% 52%;
-  --sidebar-hover-bg: 220 55% 20%;
-  --sidebar-section-label: 214 25% 70%;
+  --sidebar-border: 210 40% 16%;
+  --sidebar-ring: 174 55% 55%;
+  /* Active item pill + hover (dark variant) */
+  --sidebar-active-bg: 174 55% 55% / 0.12;
+  --sidebar-active-border: 174 55% 55% / 0.30;
+  --sidebar-hover-bg: 210 45% 14%;
+  --sidebar-section-label: 210 18% 55%;
 
   /* Custom brand vars */
   --amber: 35 90% 48%;               /* matches --secondary */
@@ -71,14 +70,14 @@
   --shadow-sm: 0 1px 2px 0 hsl(210 50% 10% / 0.04);
   --shadow-md: 0 4px 12px -2px hsl(210 50% 10% / 0.08);
   --shadow-lg: 0 12px 32px -4px hsl(210 50% 10% / 0.12);
-  --shadow-glow: 0 0 20px -4px hsl(239 84% 67% / 0.35);
-  --shadow-card-hover: 0 4px 12px -2px hsl(224 48% 12% / 0.10);
-  --shadow-indigo: 0 4px 20px hsl(243 76% 59% / 0.22);
+  --shadow-glow: 0 0 20px -4px hsl(174 45% 48% / 0.30);
+  --shadow-card-hover: 0 4px 12px -2px hsl(210 50% 10% / 0.08);
+  --shadow-indigo: 0 4px 20px hsl(243 75% 59% / 0.18);
 
   /* Brand gradients */
-  --gradient-primary: linear-gradient(135deg, hsl(243 76% 59%), hsl(239 84% 67%));
-  --gradient-card-hover: linear-gradient(135deg, hsl(243 76% 59% / 0.05), hsl(239 84% 67% / 0.05));
-  --gradient-sidebar: linear-gradient(180deg, hsl(224 48% 10%), hsl(224 48% 6%));
+  --gradient-primary: linear-gradient(135deg, hsl(243 75% 59%), hsl(173 70% 41%));
+  --gradient-card-hover: linear-gradient(135deg, hsl(200 55% 35% / 0.05), hsl(174 45% 48% / 0.05));
+  --gradient-sidebar: linear-gradient(180deg, hsl(210 60% 12%), hsl(210 55% 8%));
 
   /* Headings (centralized) */
   --page-title: 222 47% 15%;          /* main page H1 */
@@ -328,9 +327,9 @@ main .app-card + .app-card {
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 12%;
 
-  /* Brand and accents — primary/ring intentionally NOT set here so the global
-     theme (selected via the toolbar theme picker) flows through to examination
-     page content (buttons, links, focus rings) and stays in sync with the sidebar. */
+  /* Brand and accents — NOTE: --primary/--ring intentionally NOT set here so
+     the active [data-theme] brand color flows into exam pages too. */
+  --primary-foreground: 0 0% 100%;
   --secondary: 39 84% 55%;             /* amber-500 */
   --secondary-foreground: 0 0% 100%;
   --muted: 220 14% 97%;
@@ -347,7 +346,7 @@ main .app-card + .app-card {
   /* Borders & focus */
   --border: 220 13% 92%;
   --input: 220 13% 92%;
-  /* --ring inherits the themed primary (see note above) */
+  /* --ring inherits the active theme (see note above) */
 
   /* Radii — slightly rounder */
   --radius: 0.625rem;
@@ -355,18 +354,15 @@ main .app-card + .app-card {
   --radius-modal: 0.875rem;
   --radius-badge: 9999px;
 
-  /* Sidebar palette — deep royal navy with vivid blue active (screenshot match) */
-  --sidebar-background: 219 100% 14%;
-  --sidebar-background-end: 220 100% 11%;
-  --sidebar-surface: 222 60% 22%;
-  --sidebar-foreground: 214 35% 84%;
+  /* Sidebar palette — deep navy with soft hover */
+  --sidebar-background: 222 47% 11%;
+  --sidebar-surface: 217 33% 17%;
+  --sidebar-foreground: 215 20% 70%;
   --sidebar-foreground-active: 0 0% 100%;
-  --sidebar-primary: 230 88% 52%;
+  --sidebar-primary: 175 42% 48%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 230 88% 52%;
-  --sidebar-border: 220 60% 18%;
-  --sidebar-active-bg: 230 88% 52%;
-  --sidebar-hover-bg: 220 55% 20%;
+  --sidebar-accent: 223 92% 62%;
+  --sidebar-border: 217 33% 20%;
 
   /* Typography scale tuning for the reference */
   --font-size-page-title: 2rem;        /* 32px */
@@ -395,37 +391,143 @@ main .app-card + .app-card {
   --card-foreground: 210 30% 96%;
   --popover: 210 30% 11%;
   --popover-foreground: 210 30% 96%;
-  --primary: 239 84% 67%;
+  --primary: 200 65% 55%;
   --primary-foreground: 0 0% 100%;
   --secondary: 210 20% 18%;
   --secondary-foreground: 210 30% 92%;
   --muted: 210 20% 16%;
   --muted-foreground: 210 15% 65%;
-  --accent: 239 84% 67%;
+  --accent: 174 50% 50%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 65% 50%;
   --destructive-foreground: 210 30% 96%;
   --border: 210 20% 20%;
   --input: 210 20% 20%;
-  --ring: 239 84% 67%;
-  --sidebar-background: 219 100% 13%;
-  --sidebar-background-end: 220 100% 10%;
-  --sidebar-surface: 222 60% 21%;
-  --sidebar-foreground: 214 35% 82%;
+  --ring: 200 65% 55%;
+  --sidebar-background: 210 30% 9%;
+  --sidebar-surface: 210 25% 13%;
+  --sidebar-foreground: 210 18% 65%;
   --sidebar-foreground-active: 0 0% 100%;
-  --sidebar-primary: 230 88% 52%;
+  --sidebar-primary: 200 65% 55%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 230 88% 52%;
+  --sidebar-accent: 174 50% 50%;
   --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-border: 220 60% 17%;
-  --sidebar-active-bg: 230 88% 52%;
-  --sidebar-hover-bg: 220 55% 19%;
-  --sidebar-section-label: 214 25% 68%;
+  --sidebar-border: 210 22% 16%;
+  --sidebar-active-bg: 200 65% 55% / 0.18;
+  --sidebar-hover-bg: 210 22% 14%;
+  --sidebar-section-label: 210 14% 55%;
 
   /* Headings (dark mode) */
   --page-title: 210 40% 96%;
   --card-title: var(--primary);
   --section-title: 210 40% 86%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   COLOR THEMES — switchable via [data-theme] on <html>
+   Each theme overrides only the brand/accent + sidebar-accent tokens; the
+   dark-navy sidebar, light canvas, and surfaces stay constant across themes.
+   Default (no attribute) = "indigo-teal" defined in :root above.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Indigo + Teal (explicit; identical to :root default) */
+[data-theme="indigo-teal"] {
+  --primary: 243 75% 59%;  --ring: 243 75% 59%;  --accent: 173 70% 41%;
+  --sidebar-primary: 243 80% 74%; --sidebar-accent: 243 80% 74%; --sidebar-ring: 243 80% 74%;
+  --sidebar-active-bg: 243 80% 74% / 0.14; --sidebar-active-border: 243 80% 74% / 0.32;
+  --gradient-primary: linear-gradient(135deg, hsl(243 75% 59%), hsl(173 70% 41%));
+  --shadow-glow: 0 0 20px -4px hsl(243 75% 59% / 0.30);
+}
+
+/* Deep Blue (corporate) */
+[data-theme="deep-blue"] {
+  --primary: 221 83% 53%;  --ring: 221 83% 53%;  --accent: 199 89% 48%;
+  --sidebar-primary: 217 91% 72%; --sidebar-accent: 217 91% 72%; --sidebar-ring: 217 91% 72%;
+  --sidebar-active-bg: 217 91% 72% / 0.14; --sidebar-active-border: 217 91% 72% / 0.32;
+  --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(199 89% 48%));
+  --shadow-glow: 0 0 20px -4px hsl(221 83% 53% / 0.30);
+}
+
+/* Emerald */
+[data-theme="emerald"] {
+  --primary: 160 84% 36%;  --ring: 160 84% 36%;  --accent: 173 70% 41%;
+  --sidebar-primary: 152 70% 60%; --sidebar-accent: 152 70% 60%; --sidebar-ring: 152 70% 60%;
+  --sidebar-active-bg: 152 70% 60% / 0.14; --sidebar-active-border: 152 70% 60% / 0.32;
+  --gradient-primary: linear-gradient(135deg, hsl(160 84% 36%), hsl(173 70% 41%));
+  --shadow-glow: 0 0 20px -4px hsl(160 84% 36% / 0.30);
+}
+
+/* Violet */
+[data-theme="violet"] {
+  --primary: 262 83% 58%;  --ring: 262 83% 58%;  --accent: 292 84% 61%;
+  --sidebar-primary: 255 92% 78%; --sidebar-accent: 255 92% 78%; --sidebar-ring: 255 92% 78%;
+  --sidebar-active-bg: 255 92% 78% / 0.14; --sidebar-active-border: 255 92% 78% / 0.32;
+  --gradient-primary: linear-gradient(135deg, hsl(262 83% 58%), hsl(292 84% 61%));
+  --shadow-glow: 0 0 20px -4px hsl(262 83% 58% / 0.30);
+}
+
+/* Rose */
+[data-theme="rose"] {
+  --primary: 347 77% 50%;  --ring: 347 77% 50%;  --accent: 25 95% 53%;
+  --sidebar-primary: 350 89% 72%; --sidebar-accent: 350 89% 72%; --sidebar-ring: 350 89% 72%;
+  --sidebar-active-bg: 350 89% 72% / 0.14; --sidebar-active-border: 350 89% 72% / 0.32;
+  --gradient-primary: linear-gradient(135deg, hsl(347 77% 50%), hsl(25 95% 53%));
+  --shadow-glow: 0 0 20px -4px hsl(347 77% 50% / 0.30);
+}
+
+/* Amber */
+[data-theme="amber"] {
+  --primary: 32 95% 44%;  --ring: 32 95% 44%;  --accent: 173 70% 41%;
+  --sidebar-primary: 43 96% 64%; --sidebar-accent: 43 96% 64%; --sidebar-ring: 43 96% 64%;
+  --sidebar-active-bg: 43 96% 64% / 0.14; --sidebar-active-border: 43 96% 64% / 0.32;
+  --gradient-primary: linear-gradient(135deg, hsl(32 95% 44%), hsl(43 96% 64%));
+  --shadow-glow: 0 0 20px -4px hsl(32 95% 44% / 0.30);
+}
+
+/* Slate Teal (original EduPulse) */
+[data-theme="slate-teal"] {
+  --primary: 200 55% 35%;  --ring: 200 55% 35%;  --accent: 174 45% 48%;
+  --sidebar-primary: 174 55% 55%; --sidebar-accent: 174 55% 55%; --sidebar-ring: 174 55% 55%;
+  --sidebar-active-bg: 174 55% 55% / 0.12; --sidebar-active-border: 174 55% 55% / 0.30;
+  --gradient-primary: linear-gradient(135deg, hsl(200 55% 35%), hsl(174 45% 48%));
+  --shadow-glow: 0 0 20px -4px hsl(174 45% 48% / 0.30);
+}
+
+/* University Blue (UniERP reference) — medium-blue sidebar + #185FA5 primary.
+   Unlike the accent-only themes, this also recolours the sidebar + canvas. */
+[data-theme="university-blue"] {
+  --background: 220 33% 97%;            /* #F4F6FA canvas */
+  --foreground: 218 32% 15%;           /* #1A2433 */
+  --muted-foreground: 218 10% 47%;     /* #6B7384 */
+  --border: 218 25% 91%;               /* #E2E6EE thin light border */
+  --input: 218 25% 91%;
+  --primary: 208 75% 37%;              /* #185FA5 */
+  --primary-foreground: 0 0% 100%;
+  --ring: 208 75% 37%;
+  --accent: 210 70% 54%;               /* #378ADD */
+  --accent-foreground: 0 0% 100%;
+  --card-title: var(--primary);
+  --section-title: 218 32% 18%;
+
+  /* Sidebar — deep navy (#0A2F5C) + white text + solid blue active pill (Option C) */
+  --sidebar-background: 213 80% 20%;        /* #0A2F5C deep navy */
+  --sidebar-background-end: 213 82% 15%;
+  --sidebar-surface: 213 45% 28%;
+  --sidebar-foreground: 210 35% 92%;        /* near-white nav text + icons */
+  --sidebar-foreground-active: 0 0% 100%;   /* pure white on active */
+  --sidebar-section-label: 210 58% 74%;     /* light blue MAIN MENU label */
+  --sidebar-primary: 0 0% 100%;
+  --sidebar-primary-foreground: 213 80% 20%;
+  --sidebar-accent: 0 0% 100%;
+  --sidebar-border: 213 45% 26%;
+  --sidebar-ring: 0 0% 100%;
+  --sidebar-active-bg: 213 52% 44%;         /* solid medium-blue pill */
+  --sidebar-active-border: 213 60% 62% / 0.55;
+  --sidebar-hover-bg: 0 0% 100% / 0.07;
+
+  --gradient-sidebar: linear-gradient(180deg, hsl(213 80% 20%), hsl(213 82% 15%));
+  --gradient-primary: linear-gradient(135deg, hsl(208 75% 37%), hsl(210 70% 54%));
+  --shadow-glow: 0 0 20px -4px hsl(208 75% 37% / 0.30);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -671,18 +773,14 @@ h1, h2, h3, h4, .h1, .h2, .h3 {
   letter-spacing: -0.005em;
 }
 
-/* Active item — solid indigo full-width pill, white text */
 .nav-item-active {
-  background: hsl(var(--sidebar-primary));
-  color: #ffffff;
+  background: hsl(var(--sidebar-active-bg));
+  color: hsl(var(--sidebar-foreground-active));
   font-weight: 600;
-}
-.nav-item-active * {
-  color: #ffffff;
 }
 
 .nav-item-hover:hover {
-  background: hsl(var(--sidebar-primary) / 0.14);
+  background: hsl(var(--sidebar-hover-bg));
   color: hsl(var(--sidebar-foreground-active));
 }
 

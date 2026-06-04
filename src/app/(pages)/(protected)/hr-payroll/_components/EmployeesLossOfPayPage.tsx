@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import type { ColDef } from 'ag-grid-community'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { DataTable, TableCard } from '@/common/components/table'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
@@ -108,7 +108,7 @@ export function EmployeesLossOfPayPage() {
         headerName: 'Enter Loss Of Pay',
         minWidth: 140,
         flex: 0,
-        cellRenderer: (p) => (
+        cellRenderer: (p: ICellRendererParams<EmpRow>) => (
           <Input
             type="number"
             className="h-8"

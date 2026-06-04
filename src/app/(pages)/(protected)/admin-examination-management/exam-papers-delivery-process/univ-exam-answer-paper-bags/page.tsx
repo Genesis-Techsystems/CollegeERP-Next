@@ -39,7 +39,7 @@ function statusRenderer(p: ICellRendererParams<Row>) {
 }
 
 function sealedRenderer(p: ICellRendererParams<Row>) {
-  return <StatusBadge status={Boolean(p.data?.isSealed)} activeLabel="Yes" inactiveLabel="No" />
+  return <StatusBadge status={Boolean(p.data?.isSealed)} label={p.data?.isSealed ? 'Yes' : 'No'} />
 }
 
 function makeEditRenderer(onEdit: (row: Row) => void) {

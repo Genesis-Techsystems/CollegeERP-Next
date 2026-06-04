@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -56,7 +56,7 @@ export default function NewAttributeModal({ open, onClose, onSaved }: Readonly<P
   const [colleges, setColleges] = useState<College[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const { register, control, watch, setValue, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: { isAutoIncRequired: false, isActive: true, reason: '' },
   })
 
@@ -73,7 +73,7 @@ export default function NewAttributeModal({ open, onClose, onSaved }: Readonly<P
       setColleges([])
       return
     }
-    setValue('collegeId', undefined)
+    setValue('collegeId', undefined as unknown as number)
     setValue('courseId', undefined)
     listActiveCollegesByOrganizationForConfigAutoNumber(organizationId).then(setColleges).catch(console.error)
   }, [organizationId, setValue])
@@ -93,7 +93,7 @@ export default function NewAttributeModal({ open, onClose, onSaved }: Readonly<P
   }, [watch, colleges])
 
   const orgOptions = useMemo(
-    () => organizations.map((item) => ({ value: String(item.organizationId), label: item.orgCode ?? item.organizationName })),
+    () => organizations.map((item) => ({ value: String(item.organizationId), label: item.orgCode ?? item.orgName })),
     [organizations],
   )
   const collegeOptions = useMemo(

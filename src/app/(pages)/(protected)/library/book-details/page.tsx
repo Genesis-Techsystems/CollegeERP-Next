@@ -14,7 +14,7 @@ import { getLibraryBookById, listBookDetailsByBookId } from '@/services'
 import type { LibraryRow } from '@/services'
 
 function statusRenderer(p: ICellRendererParams<LibraryRow>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={Boolean(p.data?.isActive)} />
 }
 
 function positionRenderer(p: ICellRendererParams<LibraryRow>) {

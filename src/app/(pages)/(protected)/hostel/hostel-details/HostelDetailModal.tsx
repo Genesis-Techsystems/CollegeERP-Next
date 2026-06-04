@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormModal } from '@/common/components/feedback'
@@ -60,7 +60,7 @@ export function HostelDetailModal({ open, onClose, row, onSaved }: Readonly<Host
     setValue,
     control,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { isActive: true, reason: 'active' } })
+  } = useForm<FormValues>({ resolver: zodResolver(schema) as Resolver<FormValues>, defaultValues: { isActive: true, reason: 'active' } })
 
   const organizationId = watch('organizationId')
 

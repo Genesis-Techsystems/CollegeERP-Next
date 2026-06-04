@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -86,6 +86,10 @@ function pickRoomLabelFromRow(row: RoomDetail): string {
 }
 
 const schema = z.object({
+  campusId: z.number().optional(),
+  buildingId: z.number().optional(),
+  blockId: z.number().optional(),
+  floorId: z.number().optional(),
   roomId: z.number().min(1, 'Room is required'),
   ettlDeviceId: z.number().min(1, 'Device is required'),
   roomDetailId: z.number().optional(),
@@ -169,7 +173,7 @@ export default function RoomDetailModal({
     control,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       campusId: undefined,
       buildingId: undefined,
@@ -382,7 +386,7 @@ export default function RoomDetailModal({
                     setValue('buildingId', undefined)
                     setValue('blockId', undefined)
                     setValue('floorId', undefined)
-                    setValue('roomId', undefined)
+                    setValue('roomId', undefined as unknown as number)
                   }}
                   options={campusOptions}
                   placeholder="Select campus"
@@ -401,7 +405,7 @@ export default function RoomDetailModal({
                     field.onChange(v ? Number(v) : undefined)
                     setValue('blockId', undefined)
                     setValue('floorId', undefined)
-                    setValue('roomId', undefined)
+                    setValue('roomId', undefined as unknown as number)
                   }}
                   options={buildingOptions}
                   placeholder="Select building"
@@ -420,7 +424,7 @@ export default function RoomDetailModal({
                   onChange={(v) => {
                     field.onChange(v ? Number(v) : undefined)
                     setValue('floorId', undefined)
-                    setValue('roomId', undefined)
+                    setValue('roomId', undefined as unknown as number)
                   }}
                   options={blockOptions}
                   placeholder="Select block"
@@ -438,7 +442,7 @@ export default function RoomDetailModal({
                   value={field.value ? String(field.value) : null}
                   onChange={(v) => {
                     field.onChange(v ? Number(v) : undefined)
-                    setValue('roomId', undefined)
+                    setValue('roomId', undefined as unknown as number)
                   }}
                   options={floorOptions}
                   placeholder="Select floor"

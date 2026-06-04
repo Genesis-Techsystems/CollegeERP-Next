@@ -129,7 +129,10 @@ export function ApproveApplicationModal({
       open={open}
       onClose={onClose}
       title="Approve Application"
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={(e) => {
+        e.preventDefault()
+        void handleSubmit(onSubmit)()
+      }}
       isSubmitting={isSubmitting}
     >
       {row && (

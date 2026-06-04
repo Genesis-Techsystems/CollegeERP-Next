@@ -34,34 +34,34 @@ export function FinanceReportFilters({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <Select
           label="College"
-          value={cascade.collegeId || undefined}
+          value={cascade.collegeId ? String(cascade.collegeId) : null}
           onChange={(v) => cascade.setCollegeId(Number(v))}
-          options={cascade.colleges}
+          options={cascade.colleges.map((o) => ({ value: String(o.value), label: o.label }))}
           placeholder="Select college"
           isLoading={cascade.isLoading}
         />
         <Select
           label="Entity"
-          value={cascade.accountEntityId || undefined}
+          value={cascade.accountEntityId ? String(cascade.accountEntityId) : null}
           onChange={(v) => cascade.setAccountEntityId(Number(v))}
-          options={cascade.entities}
+          options={cascade.entities.map((o) => ({ value: String(o.value), label: o.label }))}
           placeholder="Select entity"
           disabled={!cascade.collegeId}
         />
         <Select
           label="Financial year"
-          value={cascade.financialYearId || undefined}
+          value={cascade.financialYearId ? String(cascade.financialYearId) : null}
           onChange={(v) => cascade.setFinancialYearId(Number(v))}
-          options={cascade.years}
+          options={cascade.years.map((o) => ({ value: String(o.value), label: o.label }))}
           placeholder="Select year"
           disabled={!cascade.accountEntityId}
         />
         {showAccountType ? (
           <Select
             label="Account type"
-            value={cascade.accountTypeId || undefined}
+            value={cascade.accountTypeId ? String(cascade.accountTypeId) : null}
             onChange={(v) => cascade.setAccountTypeId(Number(v))}
-            options={cascade.accountTypes}
+            options={cascade.accountTypes.map((o) => ({ value: String(o.value), label: o.label }))}
             placeholder="Select account type"
             disabled={!cascade.financialYearId}
           />

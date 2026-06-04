@@ -216,7 +216,6 @@ export function UnivUploadDetailPage({ kind }: UnivUploadDetailPageProps) {
               loading={isFetching}
               emptyText="No records found"
               pageSize={25}
-              embedded
             />
           </div>
         </div>

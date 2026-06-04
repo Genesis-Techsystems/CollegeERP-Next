@@ -283,7 +283,6 @@ export async function updateAffiliatedStudentSubject(
   ]
 
   const paths = [
-    STUDENT_API.UPDATE_STUDENT_SUBJECTS,
     'updateStudentSubjects',
     'updatestudnetsubjects',
   ]

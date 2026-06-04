@@ -75,7 +75,6 @@ export function ViewPaymentNoteDialog({
         <DataTable
           rowData={row?.invPoItems ?? []}
           columnDefs={ITEM_COLS}
-          domLayout="autoHeight"
           pagination={false}
         />
       </DialogContent>

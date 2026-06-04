@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -44,7 +44,7 @@ const schema = z.object({
   transactionNumber: z.string().optional(),
   title: z.string().min(1, 'Transaction title is required'),
   amount: z.coerce.number().optional(),
-  transactionDate: z.date({ required_error: 'Date is required' }),
+  transactionDate: z.date({ message: 'Date is required' }),
   description: z.string().optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),
@@ -109,7 +109,7 @@ export default function TransactionModal({ open, onClose, editData, onSaved }: P
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: getDefaults(null, defaultTypeId),
   })
 

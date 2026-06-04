@@ -7,10 +7,11 @@ import {
   LogOut,
   User,
   Bell,
-  Search,
+  LayoutGrid,
+  HelpCircle,
+  Sparkles,
   ChevronDown,
   Loader2,
-  Palette,
 } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -27,8 +28,7 @@ import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
 import { normalizeHref } from '@/lib/navigation'
 import { getUserAccess, logout } from '@/services/auth'
-import { Breadcrumb, useBreadcrumb } from '@/common/components/breadcrumb'
-import { ThemeSettingModal } from '@/common/components/theme-setting-modal'
+import { ThemeSwitcher } from '@/common/components/theme-setting-modal'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,11 +44,11 @@ interface SearchPage {
 // ---------------------------------------------------------------------------
 
 const roleAvatarStyle: Record<string, string> = {
-  ADMIN:     'bg-indigo-100  text-indigo-700',
-  PRINCIPAL: 'bg-indigo-100  text-indigo-700',
-  STAFF:     'bg-blue-100    text-blue-700',
+  ADMIN:     'bg-red-100    text-red-700',
+  PRINCIPAL: 'bg-red-100    text-red-700',
+  STAFF:     'bg-blue-100   text-blue-700',
   STUDENT:   'bg-emerald-100 text-emerald-700',
-  PARENT:    'bg-purple-100  text-purple-700',
+  PARENT:    'bg-purple-100 text-purple-700',
 }
 
 function slugify(name: string): string {
@@ -67,15 +67,12 @@ export function Topbar() {
   const router = useRouter()
   const { user } = useSessionContext()
   const { toggleSidebar } = useNavigationStore()
-  const breadcrumbs = useBreadcrumb()
-  const [themeOpen, setThemeOpen] = useState(false)
 
   // ── Search state ────────────────────────────────────────────────────────
   const [pages, setPages] = useState<SearchPage[]>([])
   const [pagesLoading, setPagesLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false)
   const [activeResultIndex, setActiveResultIndex] = useState(-1)
 
   const searchContainerRef = useRef<HTMLDivElement>(null)
@@ -162,7 +159,6 @@ export function Topbar() {
         !searchContainerRef.current.contains(e.target as Node)
       ) {
         setIsSearchOpen(false)
-        setIsSearchExpanded(false)
         setSearchTerm('')
         setActiveResultIndex(-1)
       }
@@ -170,13 +166,6 @@ export function Topbar() {
     document.addEventListener('pointerdown', handlePointerDown)
     return () => document.removeEventListener('pointerdown', handlePointerDown)
   }, [])
-
-  // ── Open search and focus input ──────────────────────────────────────────
-  function openSearch() {
-    setIsSearchExpanded(true)
-    // wait for input to mount then focus
-    setTimeout(() => searchInputRef.current?.focus(), 0)
-  }
 
   // ── Derived: filtered pages ──────────────────────────────────────────────
   const filteredPages =
@@ -234,7 +223,6 @@ export function Topbar() {
       case 'Escape':
         setSearchTerm('')
         setIsSearchOpen(false)
-        setIsSearchExpanded(false)
         setActiveResultIndex(-1)
         break
     }
@@ -246,7 +234,7 @@ export function Topbar() {
     : '?'
 
   const avatarStyle =
-    roleAvatarStyle[user?.userRole ?? ''] ?? 'bg-indigo-100 text-indigo-700'
+    roleAvatarStyle[user?.userRole ?? ''] ?? 'bg-cyan-100 text-cyan-700'
 
   async function handleLogout() {
     await logout()
@@ -258,7 +246,6 @@ export function Topbar() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <>
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-5">
 
       {/* ── Mobile hamburger ─────────────────────────────────────────── */}
@@ -272,126 +259,80 @@ export function Topbar() {
         <Menu className="h-5 w-5" aria-hidden="true" />
       </Button>
 
-      {/* ── Breadcrumb / page location ───────────────────────────────── */}
-      <div className="hidden min-w-0 flex-1 items-center overflow-hidden md:flex">
-        <Breadcrumb
-          items={breadcrumbs}
-          maxItems={4}
-          className="text-[12px] text-muted-foreground"
+      {/* ── AI search bar (persistent, left-aligned) ─────────────────── */}
+      <div
+        ref={searchContainerRef}
+        className="relative flex w-full max-w-md items-center"
+        role="combobox"
+        aria-expanded={isSearchOpen && filteredPages.length > 0}
+        aria-haspopup="listbox"
+        aria-owns="search-results-listbox"
+      >
+        {pagesLoading ? (
+          <Loader2 className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 animate-spin text-primary" aria-hidden="true" />
+        ) : (
+          <Sparkles className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-primary" aria-hidden="true" />
+        )}
+        <input
+          ref={searchInputRef}
+          type="search"
+          role="searchbox"
+          aria-label="Search across the project"
+          aria-autocomplete="list"
+          aria-controls="search-results-listbox"
+          aria-activedescendant={activeResultIndex >= 0 ? `search-result-${activeResultIndex}` : undefined}
+          placeholder="Ask anything across the project…"
+          value={searchTerm}
+          onChange={handleSearchChange}
+          onKeyDown={handleKeyDown}
+          onFocus={() => {
+            if (searchTerm.trim().length > 0 && filteredPages.length > 0) setIsSearchOpen(true)
+          }}
+          className={cn(
+            'h-9 w-full rounded-[10px] border border-input bg-[hsl(var(--background))]',
+            'pl-10 pr-14 text-[13px] text-foreground placeholder:text-muted-foreground',
+            'focus:border-primary focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/15',
+            'transition-all duration-150',
+          )}
         />
+        <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground">
+          ⌘K
+        </kbd>
+
+        {/* ── Dropdown results ───────────────────────────────────── */}
+        {isSearchOpen && filteredPages.length > 0 && (
+          <div
+            id="search-results-listbox"
+            role="listbox"
+            aria-label="Search results"
+            className="absolute top-full left-0 z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-72 overflow-y-auto"
+          >
+            {filteredPages.map((page, index) => (
+              <button
+                key={page.url}
+                id={`search-result-${index}`}
+                role="option"
+                aria-selected={index === activeResultIndex}
+                type="button"
+                className={cn(
+                  'w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors',
+                  index === activeResultIndex && 'bg-accent',
+                )}
+                onPointerDown={(e) => { e.preventDefault() }}
+                onClick={() => navigateTo(page)}
+              >
+                {page.displayName}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Right side ───────────────────────────────────────────────── */}
       <div className="ml-auto flex items-center gap-1">
 
-        {/* ── Search icon / expanded input ─────────────────────────── */}
-        <div
-          ref={searchContainerRef}
-          className="relative flex items-center"
-          role="combobox"
-          aria-expanded={isSearchOpen && filteredPages.length > 0}
-          aria-haspopup="listbox"
-          aria-owns="search-results-listbox"
-        >
-          {isSearchExpanded ? (
-            <>
-              {pagesLoading ? (
-                <Loader2
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
-                  aria-hidden="true"
-                />
-              ) : (
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-                />
-              )}
-              <input
-                ref={searchInputRef}
-                type="search"
-                role="searchbox"
-                aria-label="Search pages"
-                aria-autocomplete="list"
-                aria-controls="search-results-listbox"
-                aria-activedescendant={
-                  activeResultIndex >= 0
-                    ? `search-result-${activeResultIndex}`
-                    : undefined
-                }
-                placeholder="Search pages…"
-                value={searchTerm}
-                onChange={handleSearchChange}
-                onKeyDown={handleKeyDown}
-                onFocus={() => {
-                  if (searchTerm.trim().length > 0 && filteredPages.length > 0) {
-                    setIsSearchOpen(true)
-                  }
-                }}
-                className={cn(
-                  'h-9 w-64 rounded-md border border-input bg-background',
-                  'pl-9 pr-4 text-[13px] text-foreground placeholder:text-muted-foreground',
-                  'focus:border-primary focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/15',
-                  'transition-all duration-150',
-                )}
-              />
-            </>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              aria-label="Open search"
-              onClick={openSearch}
-            >
-              {pagesLoading
-                ? <Loader2 className="h-[18px] w-[18px] animate-spin" aria-hidden="true" />
-                : <Search className="h-[18px] w-[18px]" aria-hidden="true" />
-              }
-            </Button>
-          )}
-
-          {/* ── Dropdown results ───────────────────────────────────── */}
-          {isSearchOpen && filteredPages.length > 0 && (
-            <div
-              id="search-results-listbox"
-              role="listbox"
-              aria-label="Page search results"
-              className="absolute top-full right-0 z-50 mt-1 w-64 bg-card border border-border rounded-md shadow-lg max-h-64 overflow-y-auto"
-            >
-              {filteredPages.map((page, index) => (
-                <button
-                  key={page.url}
-                  id={`search-result-${index}`}
-                  role="option"
-                  aria-selected={index === activeResultIndex}
-                  type="button"
-                  className={cn(
-                    'w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors',
-                    index === activeResultIndex && 'bg-accent',
-                  )}
-                  onPointerDown={(e) => {
-                    e.preventDefault()
-                  }}
-                  onClick={() => navigateTo(page)}
-                >
-                  {page.displayName}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Theme selector */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          aria-label="Change theme"
-          title="Change theme"
-          onClick={() => setThemeOpen(true)}
-        >
-          <Palette className="h-[18px] w-[18px]" aria-hidden="true" />
-        </Button>
+        {/* Theme switcher */}
+        <ThemeSwitcher />
 
         {/* Notification bell */}
         <Button
@@ -405,6 +346,26 @@ export function Topbar() {
             className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-card"
             aria-hidden="true"
           />
+        </Button>
+
+        {/* Apps / grid */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          aria-label="All apps"
+        >
+          <LayoutGrid className="h-[18px] w-[18px]" aria-hidden="true" />
+        </Button>
+
+        {/* Help */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          aria-label="Help"
+        >
+          <HelpCircle className="h-[18px] w-[18px]" aria-hidden="true" />
         </Button>
 
         {/* Divider */}
@@ -467,8 +428,5 @@ export function Topbar() {
         </DropdownMenu>
       </div>
     </header>
-
-    <ThemeSettingModal isOpen={themeOpen} onClose={() => setThemeOpen(false)} />
-    </>
   )
 }

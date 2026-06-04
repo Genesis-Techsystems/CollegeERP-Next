@@ -50,7 +50,7 @@ function makeEditRenderer(onEdit: (row: Row) => void) {
   return (p: ICellRendererParams<Row>) => {
     if (!p.data) return null
     return (
-      <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-700" onClick={() => onEdit(p.data)}>
+      <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-700" onClick={() => onEdit(p.data!)}>
         <Pencil className="h-4 w-4" />
       </Button>
     )
@@ -294,7 +294,8 @@ export default function ExamCenterCoursesPage() {
     setSubjectRows(subjects)
   }
 
-  function onSelectCourseGroup(value: string) {
+  function onSelectCourseGroup(valueArg: string | null) {
+    const value = valueArg ?? ''
     const groupId = Number(value)
     const years = dedupeBy(
       groupSubjectRows.filter((r) => num(r.fk_course_group_id) === groupId),
@@ -309,7 +310,8 @@ export default function ExamCenterCoursesPage() {
     setSubjectRows(subjects)
   }
 
-  function onSelectCourseYear(value: string) {
+  function onSelectCourseYear(valueArg: string | null) {
+    const value = valueArg ?? ''
     const groupId = Number(form.courseGroupId)
     const yearId = Number(value)
     setForm((f) => ({ ...f, courseYearId: value }))
@@ -410,12 +412,12 @@ export default function ExamCenterCoursesPage() {
 
         {filtersOpen && (
           <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
-            <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courseOptions} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v }))} disabled={loadingFilters} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={ayOptions} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v }))} /></div>
-            <div className="space-y-1 md:col-span-3"><Label>Exam</Label><Select options={examOptions} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v }))} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v }))} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Exam Center Colleges</Label><Select options={collegeOptions} value={form.univEcCollegeId} onChange={(v) => setForm((f) => ({ ...f, univEcCollegeId: v }))} /></div>
-            <div className="space-y-1 md:col-span-1"><Label>Regulation</Label><Select options={regulationOptions} value={form.regulationId} onChange={(v) => setForm((f) => ({ ...f, regulationId: v }))} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courseOptions} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} disabled={loadingFilters} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={ayOptions} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-3"><Label>Exam</Label><Select options={examOptions} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Exam Center Colleges</Label><Select options={collegeOptions} value={form.univEcCollegeId} onChange={(v) => setForm((f) => ({ ...f, univEcCollegeId: v ?? '' }))} /></div>
+            <div className="space-y-1 md:col-span-1"><Label>Regulation</Label><Select options={regulationOptions} value={form.regulationId} onChange={(v) => setForm((f) => ({ ...f, regulationId: v ?? '' }))} /></div>
             <div className="md:col-span-12 flex justify-end"><Button type="button" onClick={() => void onGetList()} disabled={loadingList}>Get List</Button></div>
           </div>
         )}

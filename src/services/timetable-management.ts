@@ -100,7 +100,7 @@ export async function saveTimetable(payload: TimetableFormPayload): Promise<unkn
 }
 
 export async function listCollegesForTimetable(): Promise<AnyRow[]> {
-  return listActiveCollegesForGeneralSettings()
+  return listActiveCollegesForGeneralSettings() as unknown as Promise<AnyRow[]>
 }
 
 export async function listAcademicYearsForCollege(collegeId: number): Promise<AnyRow[]> {

@@ -273,7 +273,7 @@ export default function ExaminationAccountsPage() {
           ...r,
           userId: roleSheetUser.userId,
           userTypeId: roleSheetUser.userTypeId ?? r.userTypeId ?? userTypeId,
-          userName: roleSheetUser.userName ?? r.userName ?? null,
+          userName: roleSheetUser.userName ?? r.userName ?? undefined,
           firstName: roleSheetUser.firstName ?? r.firstName ?? null,
           lastName: roleSheetUser.lastName ?? r.lastName ?? null,
           resetPasswordCode: r.resetPasswordCode ?? null,

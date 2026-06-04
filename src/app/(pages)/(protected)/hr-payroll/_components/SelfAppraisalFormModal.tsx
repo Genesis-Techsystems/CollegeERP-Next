@@ -16,8 +16,8 @@ import { toast } from 'sonner'
 const schema = z
   .object({
     title: z.string().min(1, 'Title is required'),
-    startDate: z.date({ required_error: 'Start date is required' }),
-    endDate: z.date({ required_error: 'End date is required' }),
+    startDate: z.date({ error: 'Start date is required' }),
+    endDate: z.date({ error: 'End date is required' }),
     isActive: z.boolean(),
     reason: z.string().optional(),
   })
@@ -164,7 +164,7 @@ export function SelfAppraisalFormModal({
               render={({ field }) => (
                 <DatePicker
                   value={field.value}
-                  onChange={(d) => onStartDateChange(d)}
+                  onChange={(d) => onStartDateChange(d ?? undefined)}
                   className="h-9 text-[12px]"
                 />
               )}

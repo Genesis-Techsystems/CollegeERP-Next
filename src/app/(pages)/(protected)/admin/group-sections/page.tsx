@@ -34,7 +34,7 @@ export default function GroupSectionsPage() {
     { ...COLS.courseYear, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['courseYearCode', 'courseYearName']) },
     { ...COLS.academicYear, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['academicYear', 'academicYearCode', 'academicYearName']) },
     { ...COLS.section, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['groupSectionName', 'groupSectionCode']) },
-    { ...COLS.sortOrder, valueGetter: (p) => (p.data as Record<string, unknown>)?.sortOrder ?? '' },
+    { ...COLS.sortOrder, valueGetter: (p) => ((p.data ?? {}) as Record<string, unknown>).sortOrder ?? '' },
     { ...COLS.isActive, cellRenderer: statusRenderer },
     { ...COLS.actions, cellRenderer: actionRenderer(setRow, setOpen) },
   ], [])

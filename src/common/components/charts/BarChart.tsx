@@ -12,6 +12,7 @@ import {
   Legend,
 } from 'recharts'
 import type { BarRectangleItem } from 'recharts'
+import { useThemeColors } from './useThemeColors'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,9 +105,11 @@ export function BarChart({
 }: BarChartProps) {
   const isHorizontal = type === 'column'
   const legendProps = resolveLegendProps(legendPosition)
+  const themeColors = useThemeColors()
+  const palette = themeColors.series.length ? themeColors.series : DEFAULT_COLORS
 
   function resolveColor(index: number): string {
-    return colors?.[index] ?? DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+    return colors?.[index] ?? palette[index % palette.length]
   }
 
   function handleBarClick(barData: BarRectangleItem, key: string) {

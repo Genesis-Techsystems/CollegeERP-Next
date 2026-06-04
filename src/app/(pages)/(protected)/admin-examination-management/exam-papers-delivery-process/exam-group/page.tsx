@@ -58,11 +58,12 @@ function pickUniversityIdFromGroup(row: GroupRow): number {
 function pickUniCell(row: GroupRow): string {
   const nested = 'university' in row ? row.university : undefined
   if (nested && typeof nested === 'object') {
+    const n = nested as AnyRow
     return String(
-      nested.universityName ??
-        nested.university_name ??
-        nested.universityCode ??
-        nested.university_code ??
+      n.universityName ??
+        n.university_name ??
+        n.universityCode ??
+        n.university_code ??
         '-',
     )
   }
@@ -317,7 +318,7 @@ export default function ExamGroupPage() {
   const columnDefs = useMemo<ColDef<GroupRow>[]>(
     () => [
       { headerName: 'Sl No.', valueGetter: rowIndexGetter, width: 80, flex: 0 },
-      { headerName: 'University', minWidth: 110, valueGetter: (p) => pickUniCell(p.data) },
+      { headerName: 'University', minWidth: 110, valueGetter: (p) => pickUniCell(p.data ?? {}) },
       { headerName: 'Academic Year', minWidth: 120, valueGetter: (p) => pickAy(p.data ?? {}) },
       { headerName: 'Exam Month Year', minWidth: 130, valueGetter: (p) => pickExamMonthYr(p.data ?? {}) },
       { headerName: 'Exam Group Code', minWidth: 150, valueGetter: (p) => pickCode(p.data ?? {}) },
@@ -507,7 +508,7 @@ export default function ExamGroupPage() {
             <Select
               options={academicYearOptions}
               value={form.academicYearId}
-              onChange={(v) => setForm((f) => ({ ...f, academicYearId: v }))}
+              onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))}
               placeholder="Select academic year"
               disabled={academicYearOptions.length === 0}
             />

@@ -256,8 +256,8 @@ export default function AddMoreBooksPage() {
             </div>
             <DatePicker
               label="Date Of Purchase"
-              value={watch('dateOfPurchase')}
-              onChange={(d) => setValue('dateOfPurchase', d)}
+              value={watch('dateOfPurchase') ?? null}
+              onChange={(d) => setValue('dateOfPurchase', d ?? undefined)}
             />
             <div className="space-y-1">
               <Label className={LIBRARY_FIELD_LABEL_CLASS}>Receipt file</Label>

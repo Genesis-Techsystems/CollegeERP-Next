@@ -64,7 +64,7 @@ export default function CourseModal({ open, onClose, row, onSaved }: Readonly<{ 
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <Controller name="universityId" control={control} render={({ field }) => <Select className="[&>label]:text-xs" label="University" required value={field.value ? String(field.value) : null} onChange={(v) => { field.onChange(v ? Number(v) : undefined); setValue('courseTypeId', undefined) }} options={universities.map((u) => ({ value: String(u.universityId), label: u.universityCode ?? u.universityName }))} placeholder="Select university" searchable />} />
+            <Controller name="universityId" control={control} render={({ field }) => <Select className="[&>label]:text-xs" label="University" required value={field.value ? String(field.value) : null} onChange={(v) => { field.onChange(v ? Number(v) : undefined); setValue('courseTypeId', undefined as unknown as number) }} options={universities.map((u) => ({ value: String(u.universityId), label: u.universityCode ?? u.universityName }))} placeholder="Select university" searchable />} />
             <Controller name="courseTypeId" control={control} render={({ field }) => <Select className="[&>label]:text-xs" label="Subject Type" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)} options={types.map((t) => ({ value: String(t.courseTypeId), label: `${t.courseTypeCode} - ${t.courseTypeName}` }))} placeholder="Select subject type" searchable />} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">

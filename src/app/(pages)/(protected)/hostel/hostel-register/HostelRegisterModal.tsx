@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -38,9 +38,9 @@ const schema = z.object({
   attendeesName: z.string().min(1, 'Attendee name is required'),
   relationCatdetId: z.coerce.number().min(1, 'Relation is required'),
   mobileNumber: phoneSchema,
-  outingDate: z.date({ required_error: 'Outing date is required' }),
+  outingDate: z.date({ message: 'Outing date is required' }),
   outingTime: z.string().min(1, 'Outing time is required'),
-  inDate: z.date({ required_error: 'In date is required' }),
+  inDate: z.date({ message: 'In date is required' }),
   inTime: z.string().min(1, 'In time is required'),
   isActive: z.boolean(),
   reason: z.string().optional(),
@@ -104,7 +104,7 @@ export function HostelRegisterModal({
     control,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       isActive: true,
       reason: 'active',
@@ -125,7 +125,7 @@ export function HostelRegisterModal({
     () =>
       relations.map((r) => ({
         value: String(r.generalDetailId),
-        label: r.generalDetailDisplayName ?? r.generalDetailCode ?? String(r.generalDetailId),
+        label: String(r.generalDetailDisplayName ?? r.generalDetailCode ?? r.generalDetailId),
       })),
     [relations],
   )
@@ -257,7 +257,10 @@ export function HostelRegisterModal({
       title={isEditing ? 'Edit Issuing Outing Pass' : 'Issuing Outing Pass'}
       titleClassName={HOSTEL_MODAL_TITLE_CLASS}
       size="xl"
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={(e) => {
+        e.preventDefault()
+        void handleSubmit(onSubmit)()
+      }}
       isSubmitting={isSubmitting}
       submitLabel="Save"
     >

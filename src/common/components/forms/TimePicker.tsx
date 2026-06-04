@@ -21,7 +21,7 @@ function parseTime(value: string) {
 
   const hour24 = Number(match[1])
   const minute = match[2]
-  const period = hour24 >= 12 ? 'PM' : 'AM'
+  const period: 'AM' | 'PM' = hour24 >= 12 ? 'PM' : 'AM'
   const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12
   return { hour: String(hour12).padStart(2, '0'), minute, period }
 }

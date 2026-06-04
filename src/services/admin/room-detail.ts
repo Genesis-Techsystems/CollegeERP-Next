@@ -59,7 +59,7 @@ export async function getRoomDeviceDetails(filters: {
     in_floor_id: filters.floorId,
     in_room_id: filters.roomId,
   })
-  return flattenProcRows(payload) as RoomDetail[]
+  return flattenProcRows(payload) as unknown as RoomDetail[]
 }
 
 export type RoomDevicePayload = {
