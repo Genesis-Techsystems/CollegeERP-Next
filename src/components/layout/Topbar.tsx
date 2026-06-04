@@ -259,10 +259,13 @@ export function Topbar() {
         <Menu className="h-5 w-5" aria-hidden="true" />
       </Button>
 
-      {/* ── AI search bar (persistent, left-aligned) ─────────────────── */}
+      {/* ── Right side ───────────────────────────────────────────────── */}
+      <div className="ml-auto flex items-center gap-1">
+
+      {/* ── AI search bar (right-aligned, beside theme switcher) ─────── */}
       <div
         ref={searchContainerRef}
-        className="relative flex w-full max-w-md items-center"
+        className="relative mr-1 hidden w-56 items-center sm:flex lg:w-72 xl:w-80"
         role="combobox"
         aria-expanded={isSearchOpen && filteredPages.length > 0}
         aria-haspopup="listbox"
@@ -327,9 +330,6 @@ export function Topbar() {
           </div>
         )}
       </div>
-
-      {/* ── Right side ───────────────────────────────────────────────── */}
-      <div className="ml-auto flex items-center gap-1">
 
         {/* Theme switcher */}
         <ThemeSwitcher />

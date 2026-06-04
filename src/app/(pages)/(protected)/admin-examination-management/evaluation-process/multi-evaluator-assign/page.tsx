@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { Filter } from 'lucide-react'
+import { CheckCircle2, Filter, ListChecks, UserCheck } from 'lucide-react'
 import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
 import { Select as SearchableSelect } from '@/common/components/select'
@@ -22,6 +22,20 @@ import {
 import { dedupeBy, num, txt } from '@/common/utils/data-helpers'
 
 type AnyRow = Record<string, unknown>
+type PreparedRow = AnyRow & { disabled: boolean; excludedByEvaluator: boolean }
+
+/** Minimal, premium summary tile — accent dot + label + large number. */
+function StatCard({ label, value, accent }: { label: string; value: number; accent: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-center gap-1.5">
+        <span className={`h-1.5 w-1.5 rounded-full ${accent}`} aria-hidden />
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+      </div>
+      <div className="mt-1 text-[18px] font-semibold leading-none tracking-tight text-foreground tabular-nums">{value}</div>
+    </div>
+  )
+}
 
 export default function MultiEvaluatorAssignPage() {
   const [loading, setLoading] = useState(false)
@@ -39,6 +53,7 @@ export default function MultiEvaluatorAssignPage() {
   const [summaryRows, setSummaryRows] = useState<AnyRow[]>([])
   const [evaluatorOmrRows, setEvaluatorOmrRows] = useState<AnyRow[]>([])
   const [studentRows, setStudentRows] = useState<AnyRow[]>([])
+  const [hasList, setHasList] = useState(false)
 
   const [courseId, setCourseId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
@@ -49,6 +64,7 @@ export default function MultiEvaluatorAssignPage() {
 
   const [selectedEvaluatorId, setSelectedEvaluatorId] = useState<number | null>(null)
   const [selectedOmr, setSelectedOmr] = useState<string[]>([])
+  const [evaluatorSearch, setEvaluatorSearch] = useState('')
 
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
   const organizationId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
@@ -151,6 +167,9 @@ export default function MultiEvaluatorAssignPage() {
       setStudentRows(data.students.filter((r) => num(r.is_answerpaper_uploaded) === 1))
       setSelectedEvaluatorId(null)
       setSelectedOmr([])
+      setEvaluatorSearch('')
+      setOmrSearch('')
+      setHasList(true)
     } finally {
       setLoading(false)
     }
@@ -171,33 +190,38 @@ export default function MultiEvaluatorAssignPage() {
     [evaluatorRows, selectedEvaluatorId],
   )
 
+  const filteredEvaluators = useMemo(() => {
+    const q = evaluatorSearch.trim().toLowerCase()
+    if (!q) return evaluatorRows
+    return evaluatorRows.filter((r) => txt(r.evaluator_name).toLowerCase().includes(q))
+  }, [evaluatorRows, evaluatorSearch])
+
   const filteredStudents = useMemo(() => {
     const q = omrSearch.trim().toLowerCase()
     if (!q) return studentRows
     return studentRows.filter((r) => txt(r.omr_serial_no).toLowerCase().includes(q))
   }, [studentRows, omrSearch])
 
-  const preparedRows = useMemo(
-    () =>
-      filteredStudents
-        .map((r) => {
-          const excluded = txt(r.exclude_fk_exam_evaluator_profile_id)
-            .split(',')
-            .map((v) => num(v))
-            .filter((v) => v > 0)
-          const disabledByExclude = selectedEvaluatorId ? excluded.includes(num(selectedEvaluatorId)) : false
-          const disabledByOmr = num(r.disable_omr) === 1
-          return { ...r, disabled: disabledByExclude || disabledByOmr, excludedByEvaluator: disabledByExclude } as AnyRow & {
-            disabled: boolean
-            excludedByEvaluator: boolean
-          }
-        })
-        .sort((a, b) => {
-          if (Boolean(a.disabled) !== Boolean(b.disabled)) return a.disabled ? 1 : -1
-          return num(a.omr_mapped) - num(b.omr_mapped)
-        }),
-    [filteredStudents, selectedEvaluatorId],
-  )
+  // Angular radioChange: the answer-paper (OMR) list is only built once an
+  // evaluator is selected — each row's disabled/assigned state is computed
+  // against that evaluator's exclusions. Empty until selection.
+  const preparedRows = useMemo<PreparedRow[]>(() => {
+    if (!selectedEvaluatorId) return []
+    return filteredStudents
+      .map((r): PreparedRow => {
+        const excluded = txt(r.exclude_fk_exam_evaluator_profile_id)
+          .split(',')
+          .map((v) => num(v))
+          .filter((v) => v > 0)
+        const disabledByExclude = excluded.includes(num(selectedEvaluatorId))
+        const disabledByOmr = num(r.disable_omr) === 1
+        return { ...r, disabled: disabledByExclude || disabledByOmr, excludedByEvaluator: disabledByExclude }
+      })
+      .sort((a, b) => {
+        if (a.disabled !== b.disabled) return a.disabled ? 1 : -1
+        return num(a.omr_mapped) - num(b.omr_mapped)
+      })
+  }, [filteredStudents, selectedEvaluatorId])
 
   const availableRows = useMemo(() => preparedRows.filter((r) => !r.disabled), [preparedRows])
   const availableOmr = useMemo(() => availableRows.map((r) => txt(r.omr_serial_no)).filter(Boolean), [availableRows])
@@ -257,32 +281,32 @@ export default function MultiEvaluatorAssignPage() {
 
   const columns = useMemo<ColDef[]>(
     () => [
-      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70 },
-      { headerName: 'Evaluator Name', valueGetter: (p) => txt(p.data?.evaluator_name), minWidth: 180 },
-      { headerName: 'Evaluator Email', valueGetter: (p) => txt(p.data?.email), minWidth: 200 },
+      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80, flex: 0 },
+      { headerName: 'Evaluator Name', valueGetter: (p) => txt(p.data?.evaluator_name), minWidth: 200, flex: 1 },
+      { headerName: 'Evaluator Email', valueGetter: (p) => txt(p.data?.email), minWidth: 220, flex: 1 },
       {
         colId: 'assignedSheets',
         headerName: 'Assigned Answer Sheets',
         valueGetter: (p) => num(p.data?.no_of_students_assigned),
-        minWidth: 170,
-        cellStyle: { color: '#1d4ed8', textDecoration: 'underline', cursor: 'pointer' },
+        minWidth: 180,
+        cellStyle: { color: '#1d4ed8', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 },
       },
       {
         colId: 'evaluatedSheets',
         headerName: 'Evaluated Answer Sheets',
         valueGetter: (p) => num(p.data?.no_of_evaluations_completed),
-        minWidth: 170,
-        cellStyle: { color: '#1d4ed8', textDecoration: 'underline', cursor: 'pointer' },
+        minWidth: 180,
+        cellStyle: { color: '#15803d', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 },
       },
       {
         colId: 'dueSheets',
         headerName: 'Due Answer Sheets',
         valueGetter: (p) => num(p.data?.no_of_students_assigned) - num(p.data?.no_of_evaluations_completed),
-        minWidth: 150,
-        cellStyle: { color: '#1d4ed8', textDecoration: 'underline', cursor: 'pointer' },
+        minWidth: 160,
+        cellStyle: { color: '#b45309', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 },
       },
     ],
-    [evaluatorOmrRows],
+    [],
   )
 
   function handleTableCellClick(event: {
@@ -298,123 +322,245 @@ export default function MultiEvaluatorAssignPage() {
     else if (colId === 'dueSheets' || header.includes('due answer sheets')) openDetail(event.data, 'DueList')
   }
 
+  const stats = [
+    { label: 'Total Students', value: totalStudents, accent: 'bg-slate-400' },
+    { label: 'Answer Papers Uploaded', value: uploaded, accent: 'bg-sky-500' },
+    { label: 'Unassigned', value: unassigned, accent: 'bg-amber-500' },
+    { label: 'Assigned', value: assigned, accent: 'bg-emerald-500' },
+  ]
+
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Multi Evaluation Assign" subtitle="Assign multiple answer papers to an evaluator" />
+      <PageHeader title="Multi Evaluation Assign" subtitle="Assign uploaded answer papers to evaluators" />
 
+      {/* Filters */}
       <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Multi Evaluation Assign</h2>
-          <Button type="button" variant="outline" size="sm" className="h-6 px-2.5 text-[12px]" onClick={() => setFilterOpen((v) => !v)}>
-            <Filter className="mr-1.5 h-3.5 w-3.5" /> Filter
-          </Button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setFilterOpen((v) => !v)}
+          className="w-full px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2"
+        >
+          <h2 className="app-card-title">Filters</h2>
+          <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
+            Filter <Filter className="h-3.5 w-3.5" />
+          </span>
+        </button>
         {filterOpen && (
-          <div className="p-3 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((r) => <SelectItem key={String(num(r.fk_course_id))} value={String(num(r.fk_course_id))}>{txt(r.course_code)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-2 space-y-1"><Label>Academic Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((r) => <SelectItem key={String(num(r.fk_academic_year_id))} value={String(num(r.fk_academic_year_id))}>{txt(r.academic_year)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Exam</Label><SearchableSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Search exam…" searchable /></div>
-              <div className="md:col-span-2 space-y-1"><Label>Course Year</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((r) => <SelectItem key={String(num(r.fk_course_year_id))} value={String(num(r.fk_course_year_id))}>{txt(r.course_year_code)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-2 space-y-1"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((r) => <SelectItem key={String(num(r.fk_regulation_id))} value={String(num(r.fk_regulation_id))}>{txt(r.regulation_code)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Subject</Label><SearchableSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(num(v) || null)} options={subjectOptions} placeholder="Search subjects…" searchable /></div>
-              <div className="md:col-span-2 flex justify-end"><Button type="button" onClick={getList} disabled={loading}>Get List</Button></div>
+          <div className="p-3">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-[12px] text-muted-foreground">Course</Label>
+                <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(num(v) || null)}>
+                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger>
+                  <SelectContent>{courses.map((r) => <SelectItem key={String(num(r.fk_course_id))} value={String(num(r.fk_course_id))}>{txt(r.course_code)}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-[12px] text-muted-foreground">Academic Year</Label>
+                <Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(num(v) || null)}>
+                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger>
+                  <SelectContent>{academicYears.map((r) => <SelectItem key={String(num(r.fk_academic_year_id))} value={String(num(r.fk_academic_year_id))}>{txt(r.academic_year)}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-4 space-y-1">
+                <Label className="text-[12px] text-muted-foreground">Exam</Label>
+                <SearchableSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Search exam…" searchable />
+              </div>
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-[12px] text-muted-foreground">Course Year</Label>
+                <Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(num(v) || null)}>
+                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger>
+                  <SelectContent>{courseYears.map((r) => <SelectItem key={String(num(r.fk_course_year_id))} value={String(num(r.fk_course_year_id))}>{txt(r.course_year_code)}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-[12px] text-muted-foreground">Regulation</Label>
+                <Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(num(v) || null)}>
+                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger>
+                  <SelectContent>{regulations.map((r) => <SelectItem key={String(num(r.fk_regulation_id))} value={String(num(r.fk_regulation_id))}>{txt(r.regulation_code)}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-8 space-y-1">
+                <Label className="text-[12px] text-muted-foreground">Subject</Label>
+                <SearchableSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(num(v) || null)} options={subjectOptions} placeholder="Search subjects…" searchable />
+              </div>
+              <div className="md:col-span-2 md:col-start-11 flex justify-end">
+                <Button type="button" className="h-8 w-full text-[12px]" onClick={getList} disabled={loading || !subjectId}>Get List</Button>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {evaluatorRows.length > 0 && (
+      {hasList && (
         <>
-          <div className="app-card p-3 text-[13px]">
-            <span className="font-semibold">Total Students:</span> {totalStudents} | <span className="font-semibold">No.Of AnswerPapers Uploaded:</span> {uploaded} |{' '}
-            <span className="font-semibold">UnAssigned:</span> {unassigned} | <span className="font-semibold">Assigned:</span> {assigned} |{' '}
-            <span className="font-semibold">No of Evaluators:</span> {evaluatorRows.length}
+          {/* Summary stat cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {stats.map((s) => (
+              <StatCard key={s.label} label={s.label} value={s.value} accent={s.accent} />
+            ))}
           </div>
 
-          <div className="app-card p-3 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-              <div className="md:col-span-3 border rounded-md p-2">
-                <p className="text-[13px] font-semibold mb-2">Evaluators / (Assigned)</p>
-                <div className="space-y-1 max-h-[280px] overflow-auto">
-                  {evaluatorRows.map((row, i) => {
+          {/* Assignment workspace */}
+          <div className="app-card overflow-hidden">
+            <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center gap-2">
+              <h2 className="app-card-title flex items-center gap-2"><ListChecks className="h-4 w-4 text-[hsl(var(--primary))]" /> Assign Answer Papers</h2>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 lg:divide-x divide-border">
+              {/* Evaluators */}
+              <div className="lg:col-span-3 flex flex-col min-h-0">
+                <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
+                  <span className="text-[12px] font-semibold text-foreground">Evaluators</span>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">{filteredEvaluators.length}</span>
+                </div>
+                <div className="p-2.5">
+                  <SearchInput value={evaluatorSearch} onChange={setEvaluatorSearch} placeholder="Search evaluator…" className="w-full" />
+                </div>
+                <div className="px-2.5 pb-2.5 max-h-[calc(100vh-360px)] min-h-[420px] overflow-y-auto space-y-1.5">
+                  {filteredEvaluators.map((row, i) => {
                     const id = evaluatorProfileId(row)
+                    const active = num(selectedEvaluatorId) === id
                     return (
-                      <label key={`e-${id}-${i}`} className="flex items-center gap-2 text-[12px]">
-                        <input type="radio" checked={num(selectedEvaluatorId) === id} onChange={() => { setSelectedEvaluatorId(id); setSelectedOmr([]) }} />
-                        <span title={`${txt(row.evaluator_name)} / ${num(row.no_of_students_assigned)}`}>
-                          {txt(row.evaluator_name)} / ({num(row.no_of_students_assigned)})
+                      <button
+                        key={`e-${id}-${i}`}
+                        type="button"
+                        onClick={() => { setSelectedEvaluatorId(id); setSelectedOmr([]) }}
+                        title={`${txt(row.evaluator_name)} / ${num(row.no_of_students_assigned)}`}
+                        className={`group w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left text-[12px] transition-all ${
+                          active
+                            ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/[0.06] ring-1 ring-[hsl(var(--primary))]/25 shadow-sm'
+                            : 'border-border bg-card hover:border-input hover:bg-muted/50'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                              active ? 'border-[hsl(var(--primary))]' : 'border-muted-foreground/40 group-hover:border-muted-foreground/70'
+                            }`}
+                          >
+                            {active && <span className="h-2 w-2 rounded-full bg-[hsl(var(--primary))]" />}
+                          </span>
+                          <span className={`truncate ${active ? 'font-semibold text-[hsl(var(--primary))]' : 'text-foreground'}`}>{txt(row.evaluator_name)}</span>
                         </span>
-                      </label>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            active ? 'bg-[hsl(var(--primary))] text-white' : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {num(row.no_of_students_assigned)}
+                        </span>
+                      </button>
                     )
                   })}
+                  {filteredEvaluators.length === 0 && <p className="px-2 py-8 text-center text-[12px] text-muted-foreground">No evaluators found</p>}
                 </div>
               </div>
 
-              <div className="md:col-span-5 border rounded-md p-2">
-                <div className="flex items-center justify-between mb-2 gap-2">
-                  <SearchInput value={omrSearch} onChange={setOmrSearch} placeholder="Search…" className="w-full max-w-sm" />
-                  <span className="text-[12px] text-blue-700 font-semibold">Selected: {selectedCount}</span>
+              {/* Answer papers (serial no) */}
+              <div className="lg:col-span-5 flex flex-col min-h-0">
+                <div className="px-3 py-2 border-b border-border bg-card flex items-center justify-between gap-2">
+                  <span className="text-[12px] font-semibold text-[hsl(var(--primary))]">Answer Papers</span>
+                  <span className="text-[11px] text-blue-700 font-semibold">Selected: {selectedCount}</span>
                 </div>
-                <table className="w-full text-[12px] border rounded">
-                  <thead className="bg-muted/40">
-                    <tr>
-                      <th className="px-2 py-1 text-left">
-                        <input type="checkbox" checked={allAvailableSelected} onChange={(e) => toggleAll(e.target.checked)} /> All
-                      </th>
-                      <th className="px-2 py-1 text-left">Serial No</th>
-                      <th className="px-2 py-1 text-left">Answer Papers Assigned</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preparedRows.map((row, i) => {
-                      const omr = txt(row.omr_serial_no)
-                      const checked = selectedOmr.includes(omr)
-                      const disabled = Boolean(row.disabled) || !selectedEvaluator
-                      return (
-                        <tr key={`omr-${omr}-${i}`} className="border-t">
-                          <td className="px-2 py-1"><input type="checkbox" disabled={disabled} checked={checked} onChange={(e) => toggleOmr(omr, e.target.checked)} /></td>
-                          <td className="px-2 py-1">{omr}</td>
-                          <td className="px-2 py-1">{num(row.omr_mapped)}</td>
+                <div className="p-2">
+                  <SearchInput value={omrSearch} onChange={setOmrSearch} placeholder="Search serial no…" className="w-full" disabled={!selectedEvaluator} />
+                </div>
+                {!selectedEvaluator ? (
+                  <div className="flex-1 grid place-items-center px-4 py-12 text-center">
+                    <div className="space-y-2">
+                      <UserCheck className="mx-auto h-8 w-8 text-muted-foreground/40" />
+                      <p className="text-[12px] text-muted-foreground">Select an evaluator to view answer papers.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="px-2 pb-2 max-h-[calc(100vh-360px)] min-h-[420px] overflow-y-auto">
+                    <table className="w-full text-[12px]">
+                      <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur">
+                        <tr className="text-left">
+                          <th className="px-2 py-1.5 w-12">
+                            <label className="inline-flex items-center gap-1">
+                              <input type="checkbox" checked={allAvailableSelected} onChange={(e) => toggleAll(e.target.checked)} disabled={availableOmr.length === 0} />
+                            </label>
+                          </th>
+                          <th className="px-2 py-1.5">Serial No</th>
+                          <th className="px-2 py-1.5 w-28 text-center">Papers Assigned</th>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {preparedRows.map((row, i) => {
+                          const omr = txt(row.omr_serial_no)
+                          const checked = selectedOmr.includes(omr)
+                          const disabled = Boolean(row.disabled)
+                          return (
+                            <tr key={`omr-${omr}-${i}`} className={`border-t border-border/60 ${disabled ? 'opacity-50' : 'hover:bg-muted/40'}`}>
+                              <td className="px-2 py-1.5">
+                                <input type="checkbox" disabled={disabled} checked={checked} onChange={(e) => toggleOmr(omr, e.target.checked)} />
+                              </td>
+                              <td className="px-2 py-1.5 font-medium">{omr}</td>
+                              <td className="px-2 py-1.5 text-center">{num(row.omr_mapped)}</td>
+                            </tr>
+                          )
+                        })}
+                        {preparedRows.length === 0 && (
+                          <tr><td colSpan={3} className="px-2 py-8 text-center text-muted-foreground">No answer papers</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
-              <div className="md:col-span-2 border rounded-md p-2">
-                <p className="text-[12px] font-semibold mb-2 text-blue-700">Selected: {selectedCount}</p>
-                <div className="max-h-[280px] overflow-auto space-y-1">
-                  {selectedOmr.map((omr) => <div key={`sel-${omr}`} className="text-[12px] text-blue-700">{omr}</div>)}
+              {/* Selected */}
+              <div className="lg:col-span-2 flex flex-col min-h-0">
+                <div className="px-3 py-2 border-b border-border bg-card">
+                  <span className="text-[12px] font-semibold text-blue-700">Selected: {selectedCount}</span>
+                </div>
+                <div className="px-2 py-2 max-h-[calc(100vh-360px)] min-h-[420px] overflow-y-auto space-y-1">
+                  {selectedOmr.map((omr) => (
+                    <div key={`sel-${omr}`} className="rounded bg-blue-50 px-2 py-1 text-[12px] font-medium text-blue-700">{omr}</div>
+                  ))}
+                  {selectedOmr.length === 0 && <p className="px-1 py-4 text-center text-[11px] text-muted-foreground">None selected</p>}
                 </div>
               </div>
 
-              <div className="md:col-span-2 border rounded-md p-2">
-                <p className="text-[12px] font-semibold mb-2 text-blue-700">Already Assigned List: {alreadyAssignedRows.length}</p>
-                <div className="max-h-[280px] overflow-auto space-y-1">
-                  {alreadyAssignedRows.map((row, i) => <div key={`as-${txt(row.omr_serial_no)}-${i}`} className="text-[12px] text-blue-700">{txt(row.omr_serial_no)}</div>)}
+              {/* Already assigned */}
+              <div className="lg:col-span-2 flex flex-col min-h-0">
+                <div className="px-3 py-2 border-b border-border bg-card">
+                  <span className="text-[12px] font-semibold text-violet-700">Already Assigned: {alreadyAssignedRows.length}</span>
+                </div>
+                <div className="px-2 py-2 max-h-[calc(100vh-360px)] min-h-[420px] overflow-y-auto space-y-1">
+                  {alreadyAssignedRows.map((row, i) => (
+                    <div key={`as-${txt(row.omr_serial_no)}-${i}`} className="rounded bg-violet-50 px-2 py-1 text-[12px] text-violet-700">{txt(row.omr_serial_no)}</div>
+                  ))}
+                  {alreadyAssignedRows.length === 0 && <p className="px-1 py-4 text-center text-[11px] text-muted-foreground">{selectedEvaluator ? 'None' : '—'}</p>}
                 </div>
               </div>
             </div>
-            <div className="flex justify-end">
-              <Button type="button" onClick={() => void assign()} disabled={!selectedEvaluator || selectedOmr.length === 0 || loading}>Assign</Button>
-            </div>
+
+            {/* Assign — Angular: bottom-right, only when papers are selected */}
+            {selectedOmr.length > 0 && (
+              <div className="flex justify-end border-t border-border px-4 py-3">
+                <Button type="button" size="sm" className="h-8 text-[12px] gap-1.5" onClick={() => void assign()} disabled={loading}>
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Assign
+                </Button>
+              </div>
+            )}
           </div>
 
+          {/* Evaluator summary table */}
           <div className="app-card overflow-hidden">
-            <div className="p-4">
+            <div className="px-4 py-3 border-b border-border bg-muted/40">
+              <h2 className="app-card-title">Evaluator Summary</h2>
+            </div>
+            <div className="p-3">
               <DataTable
                 rowData={evaluatorRows}
                 columnDefs={columns}
                 pagination
                 loading={loading}
                 onCellClicked={handleTableCellClick}
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search…',
-                  pdfDocumentTitle: 'Multi Evaluator Assign',
-                }}
+                toolbar={{ search: true, searchPlaceholder: 'Search evaluator…', pdfDocumentTitle: 'Multi Evaluator Assign' }}
               />
             </div>
           </div>
@@ -424,27 +570,30 @@ export default function MultiEvaluatorAssignPage() {
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle className="text-[15px] font-semibold text-blue-700">{detailTitle}</DialogTitle>
+            <DialogTitle className="text-[15px] font-semibold text-[hsl(var(--primary))]">{detailTitle}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <SearchInput className="w-full max-w-sm" value={detailSearch} onChange={setDetailSearch} placeholder="Search OMR…" />
             <div className="max-h-[420px] overflow-auto rounded border">
               <table className="w-full text-[12px]">
-                <thead className="bg-muted/40">
-                  <tr>
-                    <th className="px-2 py-1 text-left">S.No</th>
-                    <th className="px-2 py-1 text-left">OMR Serial No</th>
-                    <th className="px-2 py-1 text-left">Evaluated Total Marks</th>
+                <thead className="sticky top-0 bg-muted/80 backdrop-blur">
+                  <tr className="text-left">
+                    <th className="px-2 py-1.5 w-16">S.No</th>
+                    <th className="px-2 py-1.5">OMR Serial No</th>
+                    <th className="px-2 py-1.5">Evaluated Total Marks</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredDetailRows.map((row, i) => (
                     <tr key={`detail-${txt(row.omr_serial_no)}-${i}`} className="border-t">
-                      <td className="px-2 py-1">{i + 1}</td>
-                      <td className="px-2 py-1">{txt(row.omr_serial_no) || '-'}</td>
-                      <td className="px-2 py-1">{txt(row.evaluated_totalmarks) || '-'}</td>
+                      <td className="px-2 py-1.5">{i + 1}</td>
+                      <td className="px-2 py-1.5 font-medium">{txt(row.omr_serial_no) || '-'}</td>
+                      <td className="px-2 py-1.5">{txt(row.evaluated_totalmarks) || '-'}</td>
                     </tr>
                   ))}
+                  {filteredDetailRows.length === 0 && (
+                    <tr><td colSpan={3} className="px-2 py-8 text-center text-muted-foreground">No records</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -454,4 +603,3 @@ export default function MultiEvaluatorAssignPage() {
     </PageContainer>
   )
 }
-

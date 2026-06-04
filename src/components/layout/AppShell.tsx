@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import type { NavItem } from '@/types/navigation'
 import { IS_DEBUG_MODE, DebugPanel } from '@/debug'
 import { useTheme } from '@/common/components/theme-setting-modal'
+import { Breadcrumb, useBreadcrumb } from '@/common/components/breadcrumb'
 import { Toaster } from 'sonner'
 
 interface AppShellProps {
@@ -28,6 +29,45 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
 
   const pathname = usePathname()
   const prevPathname = useRef(pathname)
+
+  // Global page-header card — page name + breadcrumb trail, rendered above
+  // each page's filter card. The dashboard renders its own breadcrumb, so it
+  // is skipped here.
+  const breadcrumbItems = useBreadcrumb()
+  const pageTitle = breadcrumbItems[breadcrumbItems.length - 1]?.label ?? ''
+  const showBreadcrumb = pathname !== '/dashboard'
+
+  // The page's first .app-card renders this as its header row (globals.css
+  // `[data-page-content] … ::before`) — page name + accent underline inside
+  // the filters card without touching every page.
+  const cssPageTitle = `"${pageTitle.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+
+  // Accordion behavior for filters cards: clicking anywhere on a card header
+  // row that hosts an `.app-card-title` forwards the click to the page's own
+  // filter toggle button (identified by its funnel/chevron icon — NOTE:
+  // lucide-react aliases Filter → Funnel, so the svg class is `lucide-funnel`).
+  // Pages keep owning the open/close state — no per-page changes needed.
+  function handlePageContentClick(e: ReactMouseEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement
+    // Direct interactions (links, inputs, other buttons) work natively. The
+    // filter button itself has pointer-events: none, so it never matches here.
+    if (target.closest('button, a, input, select, textarea, label, [role="combobox"]')) return
+    const headerRow = target.closest<HTMLElement>('.app-card > div')
+    if (!headerRow || !headerRow.querySelector('.app-card-title')) return
+    const toggle = headerRow.querySelector<HTMLButtonElement>(
+      'button:has(svg[class*="lucide-funnel"]), button:has(svg[class*="lucide-filter"]), button:has(svg[class*="lucide-chevron-down"])',
+    )
+    if (!toggle) return
+    // Pages unmount the panel conditionally, so closing can't be CSS-animated.
+    // A View Transition snapshots before/after and cross-fades the change
+    // (no-op in browsers without support).
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => void }
+    if (doc.startViewTransition) {
+      doc.startViewTransition(() => toggle.click())
+    } else {
+      toggle.click()
+    }
+  }
 
   // Apply the persisted theme (primary + sidebar palette) on every app load.
   useTheme()
@@ -111,9 +151,25 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
           key={pathname}
           className="flex-1 overflow-y-auto scrollbar-thin animate-fade-up bg-[hsl(var(--background))]"
         >
-          {/* Page container without outer card; sections control their own surfaces.
-              Breadcrumb now lives in the Topbar (left of the toolbar). */}
-          <div className="mx-auto w-full max-w-none px-0 py-0">
+          {/* Page container without outer card; sections control their own surfaces. */}
+          <div
+            className="mx-auto w-full max-w-none px-0 py-0"
+            data-page-content
+            onClick={handlePageContentClick}
+            style={
+              showBreadcrumb && pageTitle
+                ? ({ '--page-title': cssPageTitle } as CSSProperties)
+                : undefined
+            }
+          >
+            {/* ── Breadcrumb card — page location, above the filters card ── */}
+            {showBreadcrumb && (
+              <div data-print-hide data-breadcrumb-card className="px-[var(--spacing-page-x)] pt-[var(--spacing-page-y)]">
+                <div className="rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm">
+                  <Breadcrumb items={breadcrumbItems} maxItems={5} />
+                </div>
+              </div>
+            )}
             {children}
           </div>
         </main>

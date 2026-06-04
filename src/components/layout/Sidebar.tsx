@@ -4,9 +4,8 @@ import { useEffect, useRef, useState, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import {
-  ChevronsLeft,
-  ChevronsRight,
   LogOut,
+  Menu,
   Search,
   X,
 } from 'lucide-react'
@@ -17,7 +16,18 @@ import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
 import smartLogo from '@/assets/images/smart-campus-logo.png'
 import { logout } from '@/services/auth'
+import { getCollegeById } from '@/services'
+import { MINIO_URL } from '@/config/constants/api'
 import { IS_DEBUG_MODE, DebugTrigger, useDebugStore } from '@/debug'
+
+/** Static "Home" entry — always first, routes to the dashboard. */
+const HOME_NAV_ITEM: NavItemType = {
+  id: 'static_home',
+  label: 'Home',
+  icon: 'home',
+  href: '/dashboard',
+  sortOrder: -1,
+}
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -42,6 +52,30 @@ export function Sidebar() {
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+
+  // ── Dynamic college logo (Minio path on the College record) ─────────────
+  const [collegeLogoUrl, setCollegeLogoUrl] = useState<string | null>(null)
+  const [collegeLogoFailed, setCollegeLogoFailed] = useState(false)
+
+  useEffect(() => {
+    if (!user?.collegeId) return
+    let cancelled = false
+    getCollegeById(user.collegeId)
+      .then((college) => {
+        if (!cancelled && college?.logo) {
+          setCollegeLogoUrl(`${MINIO_URL}${college.logo}`)
+          setCollegeLogoFailed(false)
+        }
+      })
+      .catch(() => {
+        // Keep the static fallback logo when the lookup fails.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.collegeId])
+
+  const showCollegeLogo = !!collegeLogoUrl && !collegeLogoFailed
 
   // Same mounted guard as AppShell to stay in sync and avoid mismatches
   const [mounted, setMounted] = useState(false)
@@ -83,7 +117,7 @@ export function Sidebar() {
   }
 
   const displayedItems = useMemo(() => {
-    let items = navItems.slice().sort((a, b) => a.sortOrder - b.sortOrder)
+    let items = [HOME_NAV_ITEM, ...navItems.slice().sort((a, b) => a.sortOrder - b.sortOrder)]
     if (searchTerm.trim()) items = filterBySearch(items, searchTerm)
     if (IS_DEBUG_MODE && debugSettings.nav.hiddenIds.length > 0) {
       items = filterByDebug(items, new Set(debugSettings.nav.hiddenIds))
@@ -176,38 +210,47 @@ export function Sidebar() {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* ── Brand header ─────────────────────────────────────────────── */}
+      {/* ── Brand header — min-h-14 matches the Topbar so both bottom borders
+            sit on the same line; grows if the college name needs more lines ── */}
       <div
         className={cn(
-          'flex shrink-0 items-center border-b border-[hsl(var(--sidebar-border))]',
-          isExpanded ? 'gap-3 px-4 py-4' : 'justify-center px-2 py-3',
+          'flex min-h-14 shrink-0 items-center border-b border-[hsl(var(--sidebar-border))] py-1.5',
+          isExpanded ? 'gap-2.5 px-3' : 'justify-center px-2',
         )}
       >
-        <div
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-md"
-          style={{ background: 'var(--gradient-primary)' }}
-        >
-          <Image
-            src={smartLogo}
-            alt="Smart Campus"
-            width={26}
-            height={26}
-            className="h-[26px] w-[26px] object-contain brightness-0 invert"
-          />
-        </div>
-        {isExpanded && (
-          <div className="min-w-0 flex-1 mr-2">
-            <p
-              className="text-[13px] font-bold text-[hsl(var(--sidebar-foreground-active))] leading-[1.18] tracking-tight break-words"
-              style={{ fontFamily: 'var(--font-heading), Sora, system-ui, sans-serif' }}
-              title={user?.collegeName ?? 'Smart Campus'}
-            >
-              {user?.collegeName ?? 'Smart Campus'}
-            </p>
-            <p className="mt-0.5 text-[10.5px] text-[hsl(var(--sidebar-foreground))] leading-tight uppercase tracking-[0.12em] font-medium truncate">
-              College ERP
-            </p>
+        {showCollegeLogo ? (
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-md ring-1 ring-white/30">
+            {/* Minio-hosted dynamic logo — plain <img> like the other MINIO_URL usages */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={collegeLogoUrl ?? ''}
+              alt={user?.collegeName ?? 'College logo'}
+              className="h-full w-full object-contain p-0.5"
+              onError={() => setCollegeLogoFailed(true)}
+            />
+          </span>
+        ) : (
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-md"
+            style={{ background: 'var(--gradient-primary)' }}
+          >
+            <Image
+              src={smartLogo}
+              alt="Smart Campus"
+              width={20}
+              height={20}
+              className="h-5 w-5 object-contain brightness-0 invert"
+            />
           </div>
+        )}
+        {isExpanded && (
+          <p
+            className="min-w-0 flex-1 mr-1 text-[12.5px] font-bold text-[hsl(var(--sidebar-foreground-active))] leading-[1.2] tracking-tight break-words"
+            style={{ fontFamily: 'var(--font-heading), Sora, system-ui, sans-serif' }}
+            title={user?.collegeName ?? 'Smart Campus'}
+          >
+            {user?.collegeName ?? 'Smart Campus'}
+          </p>
         )}
 
         {isExpanded && (
@@ -219,12 +262,9 @@ export function Sidebar() {
             }}
             title={collapsedForChrome ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsedForChrome ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[hsl(var(--sidebar-foreground-active))]/85 hover:bg-[hsl(var(--sidebar-hover-bg))] hover:text-[hsl(var(--sidebar-foreground-active))] transition-colors duration-150"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[hsl(var(--sidebar-foreground-active))] transition-colors duration-150 hover:bg-[hsl(var(--sidebar-hover-bg))]"
           >
-            {(isRightPositioned ? !collapsedForChrome : collapsedForChrome)
-              ? <ChevronsRight className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden="true" />
-              : <ChevronsLeft className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden="true" />
-            }
+            <Menu className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
           </button>
         )}
       </div>

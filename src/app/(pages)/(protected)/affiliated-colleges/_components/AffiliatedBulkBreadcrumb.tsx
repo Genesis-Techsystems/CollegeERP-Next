@@ -1,21 +1,20 @@
 'use client'
 
-import { Breadcrumb } from '@/common/components/breadcrumb'
+import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
 
 type AffiliatedBulkBreadcrumbProps = {
   current: string
 }
 
-/** Angular header: Home > Affiliated College Bulk Uploads > … */
+/**
+ * Angular header: Home > Affiliated College Bulk Uploads > …
+ *
+ * The breadcrumb itself now renders globally in AppShell (card above the
+ * filters card). This component only overrides the last segment's label so
+ * the global breadcrumb shows the page's human-readable name instead of the
+ * URL-derived one. It renders nothing.
+ */
 export function AffiliatedBulkBreadcrumb({ current }: AffiliatedBulkBreadcrumbProps) {
-  return (
-    <Breadcrumb
-      className="mb-4"
-      items={[
-        { label: 'Home', href: '/dashboard' },
-        { label: 'Affiliated College Bulk Uploads', href: '/affiliated-colleges/college-bulk-uploads' },
-        { label: current },
-      ]}
-    />
-  )
+  useBreadcrumbLabel(current)
+  return null
 }

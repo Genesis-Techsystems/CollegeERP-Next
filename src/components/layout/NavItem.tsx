@@ -984,14 +984,17 @@ function navCollapsibleTriggerClasses(
   )
 }
 
-/** Leaf row: solid vivid-blue pill + white text on active (matches reference screenshot). */
+/** Leaf row on active: theme-driven pill (`--sidebar-active-bg`) + active foreground.
+ *  Never use `--sidebar-primary` as a fill here — some themes (University Blue)
+ *  define it as pure white, which made the active row a white pill with white text. */
 function navLeafClasses(_examMasters: boolean, isSelfActive: boolean): string {
   if (isSelfActive) {
     return cn(
-      'text-white',
+      'text-[hsl(var(--sidebar-foreground-active))]',
       'font-semibold',
-      'bg-[hsl(var(--sidebar-primary))]',
-      'hover:bg-[hsl(var(--sidebar-primary))]/95',
+      'bg-[hsl(var(--sidebar-active-bg))]',
+      'shadow-sm',
+      'hover:brightness-110',
     )
   }
   return cn(
@@ -2098,7 +2101,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     depth === 0 ? 'pl-2.5' : depth === 1 ? 'pl-7' : depth === 2 ? 'pl-10' : 'pl-12'
 
   const baseLinkClasses = cn(
-    'group relative flex items-center gap-2.5 rounded-md h-10 nav-item font-medium',
+    'group relative flex items-center gap-2.5 rounded-md h-10 nav-item font-semibold',
     'transition-colors duration-150 ease-out',
     `pr-3 ${paddingLeft}`,
   )
@@ -2199,7 +2202,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       aria-current={isSelfActive ? 'page' : undefined}
       className={cn(baseLinkClasses, navLeafClasses(examMasters, isSelfActive))}
     >
-      {depth === 0 && isSelfActive && (
+      {isSelfActive && (
         <span
           className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r bg-[hsl(var(--sidebar-primary))]"
           aria-hidden="true"

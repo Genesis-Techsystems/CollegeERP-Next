@@ -311,6 +311,39 @@ main .app-card + .app-card {
   margin-top: 0.5rem;
 }
 
+/* ── Page name inside the filters card (fallback) ───────────────────────────
+   AppShell sets `--page-title` (a quoted CSS string, derived from the
+   breadcrumb's last segment) on the page-content wrapper. The page's FIRST
+   .app-card renders it as a header row with an accent underline — page name,
+   then one color border line, then the filters. No per-page markup needed.
+   `:not(.app-card ~ .app-card)` = "first .app-card among its siblings".
+   Cards that already render their own title/header row (`.app-card-title` or
+   a heading in the first wrapper div) are excluded — their styled header
+   carries the page name instead. */
+[data-page-content] > * > .app-card:not(.app-card ~ .app-card):not(:has(.app-card-title)):not(:has(> div:first-child h1, > div:first-child h2, > div:first-child h3))::before,
+/* Same fallback for pages that haven't adopted .app-card: their first
+   bordered card-looking div (bg-card / bg-white shells) gets the identical
+   injected header. Skeletons, print sheets, and headed cards are excluded. */
+[data-page-content] > *:not([data-breadcrumb-card]) > div[class*='rounded'][class*='border'][class*='bg-card']:not(div ~ div):not(.app-card):not([class*='animate-pulse']):not([class*='print']):not(:has(> h1, > h2, > h3, > div:first-child h1, > div:first-child h2, > div:first-child h3))::before,
+[data-page-content] > *:not([data-breadcrumb-card]) > div[class*='rounded'][class*='border'][class*='bg-white']:not(div ~ div):not(.app-card):not([class*='animate-pulse']):not([class*='print']):not(:has(> h1, > h2, > h3, > div:first-child h1, > div:first-child h2, > div:first-child h3))::before {
+  content: var(--page-title, none);
+  display: block;
+  padding: 0.4rem 0.75rem;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: hsl(var(--primary));
+  font-family: var(--font-heading), Sora, system-ui, sans-serif;
+  border-bottom: 1px solid hsl(var(--primary) / 0.35);
+}
+/* Hand-rolled shells are padded (p-3/p-4), so give their injected header
+   breathing room from the content below; .app-card headers don't need it. */
+[data-page-content] > *:not([data-breadcrumb-card]) > div[class*='rounded'][class*='border'][class*='bg-card']:not(div ~ div):not(.app-card)::before,
+[data-page-content] > *:not([data-breadcrumb-card]) > div[class*='rounded'][class*='border'][class*='bg-white']:not(div ~ div):not(.app-card)::before {
+  margin-bottom: 0.5rem;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    EXAMINATION THEME (scoped) — match reference site 100% within wrapper
    Apply by wrapping a route with <div class="theme-examination">...</div>
@@ -722,36 +755,98 @@ h1, h2, h3, h4, .h1, .h2, .h3 {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   CARD TITLE — kept as a hook (semantic & for any future themes) but hidden,
-   since the page title is now carried by the breadcrumb's last segment.
-   The wrapper row containing this element is also hidden via :has() so the
-   card chrome collapses to just the toolbar row + table.
+   CARD TITLE — visible card header (reference design): page name with a small
+   primary square marker, hosted in the card's header row which carries an
+   accent underline. The header rows also hold each page's "Filter" collapse
+   toggle, so un-hiding them restores filter collapsibility.
    ───────────────────────────────────────────────────────────────────────── */
 .app-card-title {
-  display: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: hsl(var(--primary));
+  font-family: var(--font-heading), Sora, system-ui, sans-serif;
 }
+/* Header rows hosting a card title: compact padding + light theme-color
+   underline (overrides the pages' utility `border-b`/`px-4 py-3` — :has()
+   lifts specificity above them). Pages use either a <div> header row with a
+   toggle <button>, or a full-width <button> header row — cover both. */
 .app-card > div:has(> .app-card-title),
+.app-card > button:has(> .app-card-title),
 .app-card > div:has(> * > .app-card-title),
-/* Catch any bespoke heading that still references the card-title or primary
-   color tokens — these are page titles we want to hide and let the breadcrumb
-   carry. The :has(>) restricts to direct children so it won't hide content
-   inside nested cards/sections. */
-.app-card > div:has(> h1[class*="card-title"]),
-.app-card > div:has(> h2[class*="card-title"]),
-.app-card > div:has(> h3[class*="card-title"]),
-.app-card > div:has(> h1[class*="#007e7a"]),
-.app-card > div:has(> h2[class*="#007e7a"]),
-.app-card > div:has(> h3[class*="#007e7a"]),
-/* Catch h2/h3 titles that just use "text-primary" or "text-teal-600" tokens
-   (no card-title var). These are bespoke page titles introduced ad-hoc by
-   individual pages and would otherwise duplicate the breadcrumb. We only
-   match these when the heading is a DIRECT child of the card's first wrapper
-   div — keeps legitimate section subheaders untouched. */
-.app-card > div:first-child:has(> h2[class*="text-primary"]),
-.app-card > div:first-child:has(> h3[class*="text-primary"]),
-.app-card > div:first-child:has(> h2[class*="text-teal-600"]),
-.app-card > div:first-child:has(> h3[class*="text-teal-600"]) {
-  display: none;
+.app-card > div:first-child:has(> h1, > h2, > h3) {
+  padding: 0.6rem 0.875rem;
+  border-bottom: 1px solid hsl(var(--primary) / 0.35);
+}
+/* The FIRST card's title always shows the page name (set by AppShell as
+   `--page-title`), regardless of the heading text the page hardcodes —
+   keeps every page's filters card consistent. `font-size: 0` hides the
+   page-provided text; the ::before inherits color/font from .app-card-title. */
+[data-page-content] > * > .app-card:not(.app-card ~ .app-card) .app-card-title {
+  font-size: 0;
+}
+[data-page-content] > * > .app-card:not(.app-card ~ .app-card) .app-card-title::before {
+  content: var(--page-title, none);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+/* Accordion — the whole header row is the collapse trigger (AppShell forwards
+   header clicks to the page's filter button). NOTE: lucide-react aliases
+   Filter → Funnel, so the svg class is `lucide-funnel`; match all variants. */
+.app-card > div:has(> .app-card-title):has(button) {
+  cursor: pointer;
+  user-select: none;
+}
+/* Filter toggle: strip the button chrome down to a plain indicator icon.
+   `font-size: 0` hides the "Filter" text node; the svg keeps its own size.
+   `pointer-events: none` makes the header row the single accordion trigger —
+   clicks on the icon fall through to the header and are forwarded back. */
+.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-funnel']),
+.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-filter']),
+.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-chevron-down']),
+.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-funnel']),
+.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-filter']),
+.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-chevron-down']) {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  height: 1.25rem;
+  width: 1.25rem;
+  padding: 0;
+  font-size: 0;
+  gap: 0;
+  color: hsl(var(--primary));
+  pointer-events: none;
+  /* Sit right beside the heading: with the rows' `justify-between`, an auto
+     right margin pulls the icon next to the title instead of the far edge. */
+  margin-right: auto;
+}
+.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-funnel']) svg,
+.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-filter']) svg,
+.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-chevron-down']) svg,
+.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-funnel']) svg,
+.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-filter']) svg,
+.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-chevron-down']) svg {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+/* Filters panel opens with a soft slide-down. Closing is animated by the
+   View Transition wrapper in AppShell — pages remove the panel conditionally,
+   so a CSS exit animation alone can't cover it. */
+.app-card > div:has(> .app-card-title) + div,
+.app-card > button:has(> .app-card-title) + div {
+  animation: filters-panel-in 160ms ease-out;
+}
+@keyframes filters-panel-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

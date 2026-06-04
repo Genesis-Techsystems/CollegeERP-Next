@@ -21,6 +21,15 @@ export async function listActiveCollegesForGeneralSettings(): Promise<College[]>
   return domainList<College>(ENTITIES.COLLEGE.name, buildQuery({ isActive: true }))
 }
 
+/** Single college lookup — used by the sidebar header for the dynamic college logo. */
+export async function getCollegeById(collegeId: number): Promise<College | null> {
+  const rows = await domainList<College>(
+    ENTITIES.COLLEGE.name,
+    buildQuery({ [ENTITIES.COLLEGE.pk]: collegeId }),
+  )
+  return rows[0] ?? null
+}
+
 export async function createCollege(data: Omit<College, 'collegeId'>): Promise<College> {
   return domainCreate<College>(ENTITIES.COLLEGE.name, data)
 }

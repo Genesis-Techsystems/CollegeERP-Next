@@ -87,7 +87,7 @@ export function Breadcrumb({ items, maxItems, className }: BreadcrumbProps) {
                 <span
                   className={cn(
                     isLast
-                      ? 'text-[17px] font-semibold tracking-tight text-[hsl(var(--primary))]'
+                      ? 'text-[14px] font-semibold tracking-tight text-[hsl(var(--primary))]'
                       : 'font-medium text-muted-foreground',
                   )}
                   style={isLast ? { fontFamily: 'var(--font-heading), Sora, system-ui, sans-serif' } : undefined}
