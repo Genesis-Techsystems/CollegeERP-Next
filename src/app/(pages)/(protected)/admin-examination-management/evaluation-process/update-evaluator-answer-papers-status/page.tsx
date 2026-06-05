@@ -118,6 +118,7 @@ function makeActionRenderer(onEdit: (row: AnswerPaperRow) => void) {
 
 export default function EvaluationStatusTrackingPage() {
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const organizationId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
   const [loading, setLoading] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(true)
   const [filters, setFilters] = useState<AnyRow[]>([])
@@ -156,7 +157,7 @@ export default function EvaluationStatusTrackingPage() {
     async function init() {
       setLoading(true)
       try {
-        const list = await getEvaluationApprovalsFilters(employeeId).catch(() => [])
+        const list = await getEvaluationApprovalsFilters(employeeId, organizationId).catch(() => [])
         const safe = Array.isArray(list) ? list : []
         setFilters(safe)
       } catch (error) {

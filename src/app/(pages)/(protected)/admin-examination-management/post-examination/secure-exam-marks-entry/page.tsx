@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table'
 import {
@@ -90,6 +91,9 @@ export default function SecureExamMarksEntryPage() {
   const [examDate, setExamDate] = useState('')
 
   const [saveUnlocked, setSaveUnlocked] = useState(false)
+  const [codeDialogOpen, setCodeDialogOpen] = useState(false)
+  const [secretCodeInput, setSecretCodeInput] = useState('')
+  const [validatingCode, setValidatingCode] = useState(false)
 
   const isExternalEvaluator = userRole === 'EXTERNAL EVALUATOR' || userRole === 'Offline External Evaluator'
   const employeeDisplay = userName ? `${empNumber} (${userName})` : empNumber
@@ -294,11 +298,23 @@ export default function SecureExamMarksEntryPage() {
     }
   }
 
+  // window.prompt() is suppressed by some browsers (the reported "Generate
+  // code not working") — use a proper dialog instead.
   async function onGenerateSecretCode() {
     try {
       await generateMarksEntrySecretCode(userId)
-      const plain = globalThis?.prompt?.('Enter secret code')
-      if (!plain) return
+      setSecretCodeInput('')
+      setCodeDialogOpen(true)
+    } catch (error) {
+      toastError(error, 'Failed to generate secret code')
+    }
+  }
+
+  async function onValidateSecretCode() {
+    const plain = secretCodeInput.trim()
+    if (!plain) return
+    setValidatingCode(true)
+    try {
       const encoded = btoa(plain)
       const valid = await validateMarksEntrySecretCode(userId, encoded)
       if (!valid) {
@@ -307,9 +323,12 @@ export default function SecureExamMarksEntryPage() {
         return
       }
       setSaveUnlocked(true)
+      setCodeDialogOpen(false)
       toastSuccess('Secret code validated')
     } catch (error) {
       toastError(error, 'Failed to validate secret code')
+    } finally {
+      setValidatingCode(false)
     }
   }
 
@@ -483,6 +502,37 @@ export default function SecureExamMarksEntryPage() {
           </TableCard>
         </div>
       )}
+
+      {/* Secret-code validation (replaces the browser prompt) */}
+      <Dialog open={codeDialogOpen} onOpenChange={(next) => { if (!next) setCodeDialogOpen(false) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold text-[hsl(var(--primary))]">
+              Enter Secret Code
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1 py-1">
+            <Label htmlFor="secret-code">Secret code sent to you</Label>
+            <Input
+              id="secret-code"
+              type="password"
+              autoFocus
+              value={secretCodeInput}
+              onChange={(e) => setSecretCodeInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void onValidateSecretCode() }}
+              placeholder="Enter secret code"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCodeDialogOpen(false)} disabled={validatingCode}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void onValidateSecretCode()} disabled={validatingCode || !secretCodeInput.trim()}>
+              {validatingCode ? 'Validating…' : 'Validate'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   )
 }

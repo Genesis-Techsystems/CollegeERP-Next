@@ -36,12 +36,14 @@ export async function updateBatch(
   batchId: number,
   data: Partial<Omit<Batch, 'batchId'>>,
 ): Promise<Batch> {
+  // NOTE: never include the primary key in the body — it is already in the
+  // URL query (`?query=batchId==…`) and Spring rejects it as invalid request.
   const collegeId = Number((data as Record<string, unknown>).collegeId ?? 0)
   const payloads: Array<Record<string, unknown>> = [
-    { batchId, ...data },
-    { batchId, ...data, ...(collegeId > 0 ? { fk_college_id: collegeId } : {}) },
-    { batchId, ...data, ...(collegeId > 0 ? { 'College.collegeId': collegeId } : {}) },
-    { batchId, ...data, ...(collegeId > 0 ? { college: { collegeId } } : {}) },
+    { ...data },
+    { ...data, ...(collegeId > 0 ? { fk_college_id: collegeId } : {}) },
+    { ...data, ...(collegeId > 0 ? { 'College.collegeId': collegeId } : {}) },
+    { ...data, ...(collegeId > 0 ? { college: { collegeId } } : {}) },
   ]
   for (const payload of payloads) {
     try {
@@ -51,7 +53,6 @@ export async function updateBatch(
     }
   }
   return domainUpdate<Batch>(ENTITIES.BATCH.name, ENTITIES.BATCH.pk, batchId, {
-    batchId,
     ...data,
   })
 }

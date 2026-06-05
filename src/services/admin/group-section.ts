@@ -41,7 +41,6 @@ export async function updateGroupSection(
   data: Partial<Omit<GroupSection, 'groupSectionId'>>,
 ): Promise<GroupSection> {
   return domainUpdate<GroupSection>(ENTITIES.GROUP_SECTION.name, ENTITIES.GROUP_SECTION.pk, groupSectionId, {
-    groupSectionId,
     ...data,
   })
 }

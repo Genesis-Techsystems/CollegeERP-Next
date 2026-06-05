@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Barcode, ChevronDown, Filter } from 'lucide-react'
+import { Barcode, ChevronDown, Eye, FileText, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/common/components/select'
@@ -139,6 +139,57 @@ const COL_DEFS = {
       return `${name} (${code})`
     },
   } as ColDef<AnyRow>,
+  // Angular table also shows the barcode image + per-student OMR/Answer views.
+  barcode: {
+    colId: 'barcode',
+    headerName: 'Barcode',
+    minWidth: 200,
+    flex: 0,
+    width: 210,
+    sortable: false,
+    suppressColumnsToolPanel: false,
+  } as ColDef<AnyRow>,
+  viewOmr: {
+    colId: 'viewOmr',
+    headerName: 'View OMR Page',
+    minWidth: 120,
+    width: 130,
+    flex: 0,
+    sortable: false,
+  } as ColDef<AnyRow>,
+  viewAnswer: {
+    colId: 'viewAnswer',
+    headerName: 'View Answer Page',
+    minWidth: 130,
+    width: 140,
+    flex: 0,
+    sortable: false,
+  } as ColDef<AnyRow>,
+}
+
+function barcodeImageRenderer(p: { data?: AnyRow }) {
+  const raw = String(p.data?.omr_barcode ?? p.data?.omrBarcode ?? '')
+  if (!raw || raw === '-') return <span>-</span>
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={`data:image/jpg;base64,${raw}`} style={{ height: 20 }} alt="barcode" />
+  )
+}
+
+function makeViewRenderer(icon: 'omr' | 'answer', onView: (row: AnyRow) => void) {
+  const Icon = icon === 'omr' ? Eye : FileText
+  const title = icon === 'omr' ? 'View OMR page' : 'View answer page'
+  return (p: { data?: AnyRow }) => (
+    <button
+      type="button"
+      aria-label={title}
+      title={title}
+      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-blue-700 transition-colors hover:bg-blue-50 hover:text-blue-900"
+      onClick={() => p.data && onView(p.data)}
+    >
+      <Icon className="h-4 w-4" strokeWidth={2} aria-hidden />
+    </button>
+  )
 }
 
 export default function ExamSubjectBarcodeGenerationPage() {
@@ -278,9 +329,32 @@ export default function ExamSubjectBarcodeGenerationPage() {
     ].join(' / ')
   }, [colleges, academicYears, courses, groups, years, subjects, collegeId, academicYearId, courseId, courseGroupId, courseYearId, subjectId])
 
+  const printExamName =
+    pickText(
+      exams.find((e) => pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']) === Number(examId)),
+      ['exam_name', 'examName'],
+    ) || 'Exam'
+  const printCollegeName = pickText(
+    colleges.find((c) => pickNum(c, ['fk_college_id', 'collegeId', 'fk_collegeId']) === Number(collegeId)),
+    ['college_name', 'collegeName', 'college_code', 'collegeCode'],
+  )
+  const { printMode, printButton, printView, printOmrFor, printAnswerFor } = useBarcodeStickerPrint(
+    rows,
+    printExamName,
+    printCollegeName,
+  )
+
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [COL_DEFS.slNo, COL_DEFS.student, COL_DEFS.barcodeNo, COL_DEFS.subject],
-    [],
+    () => [
+      COL_DEFS.slNo,
+      COL_DEFS.student,
+      COL_DEFS.barcodeNo,
+      { ...COL_DEFS.barcode, cellRenderer: barcodeImageRenderer },
+      COL_DEFS.subject,
+      { ...COL_DEFS.viewOmr, cellRenderer: makeViewRenderer('omr', printOmrFor) },
+      { ...COL_DEFS.viewAnswer, cellRenderer: makeViewRenderer('answer', printAnswerFor) },
+    ],
+    [printOmrFor, printAnswerFor],
   )
 
   const getRowId = useCallback((p: { data?: AnyRow }) => {
@@ -292,13 +366,6 @@ export default function ExamSubjectBarcodeGenerationPage() {
     const sub = Number(d.fk_subject_id ?? d.subjectId ?? 0)
     return `row-${sid}-${sub}-${String(d.omr_serial_no ?? d.hallticket_number ?? '')}`
   }, [])
-
-  const printExamName =
-    pickText(
-      exams.find((e) => pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']) === Number(examId)),
-      ['exam_name', 'examName'],
-    ) || 'Exam'
-  const { printMode, printButton, printView } = useBarcodeStickerPrint(rows, printExamName)
 
   async function init() {
     setLoading(true)

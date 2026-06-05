@@ -37,7 +37,6 @@ export async function updateCourseYear(
   data: Partial<Omit<CourseYear, 'courseYearId'>>,
 ): Promise<CourseYear> {
   return domainUpdate<CourseYear>(ENTITIES.COURSE_YEAR.name, ENTITIES.COURSE_YEAR.pk, courseYearId, {
-    courseYearId,
     ...data,
   })
 }

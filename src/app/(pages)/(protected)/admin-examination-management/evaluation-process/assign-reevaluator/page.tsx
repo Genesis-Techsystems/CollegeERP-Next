@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select as SearchableSelect } from '@/common/components/select'
 import type { SelectOption } from '@/common/components/select'
 import { dedupeBy, num, txt } from '@/common/utils/data-helpers'
+import { toastError } from '@/lib/toast'
 import {
   addMultipleEvaluationAssignments,
   getReEvaluatorDetailList,
@@ -292,7 +293,14 @@ export default function AssignReEvaluatorPage() {
   )
 
   async function assignList() {
-    if (!examId || !courseYearId || selectedRows.length === 0) return
+    if (!examId || !courseYearId || selectedRows.length === 0) {
+      // Checked rows without an evaluator chosen are filtered out of
+      // selectedRows — surface why the button "did nothing".
+      if (selectedKeys.length > 0 && selectedRows.length === 0) {
+        toastError('Select an evaluator for the checked rows before assigning.')
+      }
+      return
+    }
     const payload = selectedRows.map((row) => ({
       collegeId: num(row.fk_college_id),
       examEvaluatorProfileDetId: num(row.examEvaluatorProfileDetId),

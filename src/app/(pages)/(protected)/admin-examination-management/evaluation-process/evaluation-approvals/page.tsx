@@ -94,6 +94,7 @@ export default function EvaluationApprovalsPage() {
   const [evaluatorProfileId, setEvaluatorProfileId] = useState<number | null>(null)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const organizationId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
   const profileId = Number(globalThis?.localStorage?.getItem('examEvaluatorProfileId') ?? 0)
   const finalizedCatDetId = Number(globalThis?.localStorage?.getItem('Finalized') ?? 0)
 
@@ -152,7 +153,7 @@ export default function EvaluationApprovalsPage() {
     async function init() {
       setLoading(true)
       try {
-        const list = await getEvaluationApprovalsFilters(employeeId).catch(() => [])
+        const list = await getEvaluationApprovalsFilters(employeeId, organizationId).catch(() => [])
         const rows = Array.isArray(list) ? list : []
         setFilters(rows)
         if (rows[0]) setCourseId(pickNum(rows[0], ['fk_course_id', 'courseId']))
@@ -161,7 +162,7 @@ export default function EvaluationApprovalsPage() {
       }
     }
     void init()
-  }, [employeeId])
+  }, [employeeId, organizationId])
 
   useEffect(() => {
     if (exams[0]) setExamId(pickNum(exams[0], ['fk_exam_id', 'examId']))
@@ -187,6 +188,7 @@ export default function EvaluationApprovalsPage() {
     try {
       const list = await listEvaluationApprovals({
         employeeId,
+        organizationId,
         courseId,
         examId,
         evaluatorProfileId,

@@ -439,10 +439,14 @@ export async function updateQuestionPaperTemplateAssignment(
   return domainUpdate<AnyRow>(QUESTION_PAPER_API.QP_TEMP_ASSIGN, 'examQptempAssignId', assignmentId, payload)
 }
 
-export async function getEvaluationApprovalsFilters(employeeId: number): Promise<AnyRow[]> {
+export async function getEvaluationApprovalsFilters(
+  employeeId: number,
+  organizationId: number,
+): Promise<AnyRow[]> {
   const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
     in_flag: 'filter_univexam_evaluator_moderator',
-    in_orgid: 0,
+    // Angular sends the login org id — with 0 the proc returns no rows.
+    in_orgid: organizationId || 0,
     in_fdate: '1990-01-01',
     in_tdate: '1990-01-01',
     in_evalutor_profileid: 0,
@@ -467,6 +471,7 @@ export async function getEvaluationApprovalsFilters(employeeId: number): Promise
 
 export async function listEvaluationApprovals(params: {
   employeeId: number
+  organizationId?: number
   courseId?: number
   examId?: number
   evaluatorProfileId?: number
@@ -477,7 +482,8 @@ export async function listEvaluationApprovals(params: {
 }): Promise<AnyRow[]> {
   const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
     in_flag: 'list_evaluationApprovalstudent_list',
-    in_orgid: 0,
+    // Angular sends the login org id — with 0 the proc returns no rows.
+    in_orgid: params.organizationId ?? 0,
     in_fdate: '1990-01-01',
     in_tdate: '1990-01-01',
     in_evalutor_profileid: params.evaluatorProfileId ?? 0,

@@ -320,13 +320,11 @@ main .app-card + .app-card {
    Cards that already render their own title/header row (`.app-card-title` or
    a heading in the first wrapper div) are excluded — their styled header
    carries the page name instead. */
-[data-page-content] > * > .app-card:not(.app-card ~ .app-card):not(:has(.app-card-title)):not(:has(> div:first-child h1, > div:first-child h2, > div:first-child h3))::before,
-/* Same fallback for pages that haven't adopted .app-card: their first
-   bordered card-looking div (bg-card / bg-white shells) gets the identical
-   injected header. Skeletons, print sheets, and headed cards are excluded. */
-[data-page-content] > *:not([data-breadcrumb-card]) > div[class*='rounded'][class*='border'][class*='bg-card']:not(div ~ div):not(.app-card):not([class*='animate-pulse']):not([class*='print']):not(:has(> h1, > h2, > h3, > div:first-child h1, > div:first-child h2, > div:first-child h3))::before,
-[data-page-content] > *:not([data-breadcrumb-card]) > div[class*='rounded'][class*='border'][class*='bg-white']:not(div ~ div):not(.app-card):not([class*='animate-pulse']):not([class*='print']):not(:has(> h1, > h2, > h3, > div:first-child h1, > div:first-child h2, > div:first-child h3))::before {
-  content: var(--page-title, none);
+/* First card WITHOUT its own heading: inject the page name as a header row.
+   (AppShell tags the card; cards that render a title/heading are covered by
+   the .app-card-title override above instead.) */
+[data-page-first-card]:not(:has(.app-card-title)):not(:has(h1, h2, h3))::before {
+  content: var(--page-name, none);
   display: block;
   padding: 0.4rem 0.75rem;
   font-size: 13.5px;
@@ -339,8 +337,7 @@ main .app-card + .app-card {
 }
 /* Hand-rolled shells are padded (p-3/p-4), so give their injected header
    breathing room from the content below; .app-card headers don't need it. */
-[data-page-content] > *:not([data-breadcrumb-card]) > div[class*='rounded'][class*='border'][class*='bg-card']:not(div ~ div):not(.app-card)::before,
-[data-page-content] > *:not([data-breadcrumb-card]) > div[class*='rounded'][class*='border'][class*='bg-white']:not(div ~ div):not(.app-card)::before {
+[data-page-first-card]:not(.app-card)::before {
   margin-bottom: 0.5rem;
 }
 
@@ -782,15 +779,19 @@ h1, h2, h3, h4, .h1, .h2, .h3 {
   padding: 0.6rem 0.875rem;
   border-bottom: 1px solid hsl(var(--primary) / 0.35);
 }
-/* The FIRST card's title always shows the page name (set by AppShell as
-   `--page-title`), regardless of the heading text the page hardcodes —
-   keeps every page's filters card consistent. `font-size: 0` hides the
-   page-provided text; the ::before inherits color/font from .app-card-title. */
-[data-page-content] > * > .app-card:not(.app-card ~ .app-card) .app-card-title {
+/* The FIRST card's title always shows the page name (AppShell tags the first
+   card-looking element with `data-page-first-card` and sets `--page-name`),
+   regardless of the heading text the page hardcodes — keeps every page's
+   filters card consistent. `font-size: 0` hides the page-provided text; the
+   ::before inherits color/font from .app-card-title.
+   NOTE: selectors here are deliberately simple — Lightning CSS mis-compiles
+   chained `:not(.x ~ .x)` prefixes (drops them), so first-card detection
+   lives in AppShell JS, not CSS. */
+[data-page-first-card] .app-card-title {
   font-size: 0;
 }
-[data-page-content] > * > .app-card:not(.app-card ~ .app-card) .app-card-title::before {
-  content: var(--page-title, none);
+[data-page-first-card] .app-card-title::before {
+  content: var(--page-name, none);
   font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.01em;

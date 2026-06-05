@@ -52,12 +52,13 @@ export function DataTableToolbar({
   applyColumnVisible,
   endActions,
 }: DataTableToolbarProps) {
-  const [, setColumnMenuTick] = useState(0)
+  const [columnMenuTick, setColumnMenuTick] = useState(0)
   const bump = useCallback(() => setColumnMenuTick((n) => n + 1), [])
 
   // Important: AG Grid column visibility changes are held in AG Grid state.
-  // We must re-read `col.isVisible()` after every toggle, otherwise the checkbox list
-  // can get stuck showing old `checked` values.
+  // We must re-read `col.isVisible()` after every toggle and every menu open —
+  // the tick VALUE is the dependency (not the stable `bump` callback, which
+  // never changes identity and left this list permanently stale/empty).
   const columnItems = useMemo(() => {
     const cols = getColumns()
     if (!cols?.length) return []
@@ -70,7 +71,8 @@ export function DataTableToolbar({
         visible: c.isVisible(),
         locked: lockColumnIds.includes(c.getId()),
       }))
-  }, [getColumns, lockColumnIds, bump])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- columnMenuTick invalidates AG Grid-held state
+  }, [getColumns, lockColumnIds, columnMenuTick])
 
 
   const visibleCount = columnItems.filter((c) => c.visible).length

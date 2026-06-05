@@ -1380,8 +1380,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     if (
       labelLower.includes('internal') &&
       labelLower.includes('exam') &&
-      labelLower.includes('attendance') &&
-      (labelLower.includes('marking') || labelLower.includes('attendance marking')) &&
+      // DB labels misspell this as "attendence" on some tenants
+      (labelLower.includes('attendance') || labelLower.includes('attendence')) &&
+      labelLower.includes('marking') &&
       !labelLower.includes('external')
     ) {
       return `${postExamBase}/internal-exam-attendance-marking`
@@ -1389,8 +1390,8 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     if (
       labelLower.includes('external') &&
       labelLower.includes('exam') &&
-      labelLower.includes('attendance') &&
-      (labelLower.includes('marking') || labelLower.includes('attendance marking'))
+      (labelLower.includes('attendance') || labelLower.includes('attendence')) &&
+      labelLower.includes('marking')
     ) {
       return `${postExamBase}/external-exam-attendance-marking`
     }
@@ -1739,7 +1740,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return '/admin/course-types'
     }
-    if (labelLower === 'subjects' || labelLower === 'subject' || labelLower === 'course') {
+    if (labelLower === 'subjects' || labelLower === 'subject' || labelLower === 'course' || labelLower === 'courses') {
       return '/admin/courses'
     }
     if (labelLower.includes('subject group') || labelLower.includes('course group')) {

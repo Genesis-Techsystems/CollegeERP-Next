@@ -16,6 +16,8 @@ import {
   getUnivExamRestNoTt,
   listStudents,
 } from '@/services/pre-examination'
+import { useSessionContext } from '@/context/SessionContext'
+import { useHallticketPrint } from './_print/useHallticketPrint'
 
 type AnyRow = Record<string, any>
 
@@ -227,6 +229,13 @@ export default function ExamHallticketPage() {
     [rows],
   )
 
+  // Printable HALL TICKET documents (Angular print section) — grouped per student.
+  const { user } = useSessionContext()
+  const { printMode, printButton, printView } = useHallticketPrint(
+    displayRows,
+    user?.universityCode ?? '',
+  )
+
   useEffect(() => {
     async function loadExamOptions() {
       if (filterRows.length > 0) return
@@ -358,6 +367,10 @@ export default function ExamHallticketPage() {
     }
     void autoLoadStudentHallticket()
   }, [mode, studentId, studentExamId])
+
+  // While the print dialog is open, replace the page with the hall-ticket
+  // documents (AppShell @media print rules hide the app chrome).
+  if (printMode) return <>{printView}</>
 
   return (
     <PageContainer className="space-y-4">
@@ -538,16 +551,7 @@ export default function ExamHallticketPage() {
                 {displayRows.length} records
               </span>
             )}
-            toolbarTrailing={(
-              <Button
-                type="button"
-                size="sm"
-                className="h-[30px] px-3 text-[12px]"
-                onClick={() => window.print()}
-              >
-                {mode === 'student' ? 'Print' : 'Print All'}
-              </Button>
-            )}
+            toolbarTrailing={printButton(mode === 'student' ? 'Print' : 'Print All')}
           />
         </TableCard>
       )}

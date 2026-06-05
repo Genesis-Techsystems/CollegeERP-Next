@@ -37,10 +37,63 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
   const pageTitle = breadcrumbItems[breadcrumbItems.length - 1]?.label ?? ''
   const showBreadcrumb = pathname !== '/dashboard'
 
-  // The page's first .app-card renders this as its header row (globals.css
-  // `[data-page-content] … ::before`) — page name + accent underline inside
-  // the filters card without touching every page.
-  const cssPageTitle = `"${pageTitle.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+  // The page's first card renders this as its header row (globals.css
+  // `[data-page-first-card] … ::before`) — page name + accent underline inside
+  // the filters card without touching every page. Named --page-name because
+  // --page-title is an existing color token in the design system.
+  const cssPageName = `"${pageTitle.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+
+  // Prevents hydration mismatch: Zustand persist reads localStorage on client but
+  // server has no access to it. Render with default (expanded) state until mounted,
+  // then apply real persisted value — the CSS transition handles the visual change.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  // Tag the page's first card-looking element so the CSS above has a simple,
+  // reliable hook. Done in JS because Lightning CSS mis-compiles the
+  // `:not(.app-card ~ .app-card)` first-of-class selector chain, and cards
+  // often mount after async data loads (hence the MutationObserver).
+  const pageContentRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    // Before `mounted`, AppShell renders the placeholder frame — the ref is
+    // null on the first pass, so this effect must re-run when `mounted` flips.
+    const root = pageContentRef.current
+    if (!root) return
+
+    const isCardShell = (el: Element) => {
+      const cls = typeof el.className === 'string' ? el.className : ''
+      if (el.classList.contains('app-card')) return true
+      return (
+        /rounded/.test(cls) &&
+        /border/.test(cls) &&
+        /bg-card|bg-white/.test(cls) &&
+        !/animate-pulse|print/.test(cls)
+      )
+    }
+
+    const tag = () => {
+      const candidates = root.querySelectorAll(
+        ':scope > *:not([data-breadcrumb-card]) > div, :scope > *:not([data-breadcrumb-card]) > * > div',
+      )
+      const first = Array.from(candidates).find(isCardShell) ?? null
+      if (first && !first.hasAttribute('data-page-first-card')) {
+        root
+          .querySelectorAll('[data-page-first-card]')
+          .forEach((el) => el.removeAttribute('data-page-first-card'))
+        first.setAttribute('data-page-first-card', '')
+      } else if (!first) {
+        root
+          .querySelectorAll('[data-page-first-card]')
+          .forEach((el) => el.removeAttribute('data-page-first-card'))
+      }
+    }
+
+    tag()
+    // Cards frequently mount after data fetches; keep the tag on the first one.
+    const observer = new MutationObserver(tag)
+    observer.observe(root, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [pathname, mounted])
 
   // Accordion behavior for filters cards: clicking anywhere on a card header
   // row that hosts an `.app-card-title` forwards the click to the page's own
@@ -71,12 +124,6 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
 
   // Apply the persisted theme (primary + sidebar palette) on every app load.
   useTheme()
-
-  // Prevents hydration mismatch: Zustand persist reads localStorage on client but
-  // server has no access to it. Render with default (expanded) state until mounted,
-  // then apply real persisted value — the CSS transition handles the visual change.
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
 
   useEffect(() => {
     if (initialNavItems.length > 0) setNavItems(initialNavItems)
@@ -153,12 +200,13 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
         >
           {/* Page container without outer card; sections control their own surfaces. */}
           <div
+            ref={pageContentRef}
             className="mx-auto w-full max-w-none px-0 py-0"
             data-page-content
             onClick={handlePageContentClick}
             style={
               showBreadcrumb && pageTitle
-                ? ({ '--page-title': cssPageTitle } as CSSProperties)
+                ? ({ '--page-name': cssPageName } as CSSProperties)
                 : undefined
             }
           >

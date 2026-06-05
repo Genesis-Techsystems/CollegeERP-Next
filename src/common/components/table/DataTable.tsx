@@ -24,6 +24,7 @@ import {
 } from 'ag-grid-community'
 import { Download, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PRINTCONFIG } from '@/common/print-config'
 import { DataTableToolbar } from './DataTableToolbar'
 
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -145,6 +146,86 @@ function rowMatchesSearch<T>(row: T, q: string): boolean {
   const hay: string[] = []
   collectStrings(row, 0, hay)
   return hay.some((s) => s.toLowerCase().includes(needle))
+}
+
+// ─── PDF export (print-window) ────────────────────────────────────────────────
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/**
+ * Resolve a cell's display text from the column def without a live row node.
+ * Covers `field`, the function `valueGetter`s used across pages (which read
+ * `p.data` / `p.node.rowIndex`), and function `valueFormatter`s.
+ */
+function cellDisplayText<T>(row: T, def: ColDef<T>, rowIndex: number): string {
+  let value: unknown
+  try {
+    if (typeof def.valueGetter === 'function') {
+      value = def.valueGetter({ data: row, node: { rowIndex } } as never)
+    } else if (def.field) {
+      value = (row as Record<string, unknown>)[def.field]
+    }
+    if (typeof def.valueFormatter === 'function') {
+      value = def.valueFormatter({ value, data: row, node: { rowIndex } } as never)
+    }
+  } catch {
+    value = ''
+  }
+  if (value == null) return ''
+  return String(value)
+}
+
+/** Build the printable document and open the browser print dialog from a
+ *  hidden iframe (user picks "Save as PDF"). Exports ALL filtered rows and the
+ *  currently VISIBLE columns — unlike printing the live grid, which only
+ *  captures the virtualized viewport. */
+function printTableAsPdf<T>(title: string, exportDefs: ColDef<T>[], rows: T[]): void {
+  const { paperSize, orientation } = PRINTCONFIG.datatables
+  const head = exportDefs
+    .map((d) => `<th>${escapeHtml(String(d.headerName ?? d.field ?? ''))}</th>`)
+    .join('')
+  const body = rows
+    .map(
+      (row, i) =>
+        `<tr>${exportDefs.map((d) => `<td>${escapeHtml(cellDisplayText(row, d, i))}</td>`).join('')}</tr>`,
+    )
+    .join('')
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
+@page { size: ${paperSize === 'LETTER' ? 'letter' : 'A4'} ${orientation}; margin: 12mm; }
+body { font: 11px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #111827; margin: 0; }
+h1 { font-size: 15px; margin: 0 0 10px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { border: 1px solid #cbd5e1; padding: 4px 6px; text-align: left; vertical-align: top; word-break: break-word; }
+th { background: #f1f5f9; font-weight: 600; }
+tr { break-inside: avoid; }
+</style></head><body><h1>${escapeHtml(title)}</h1><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></body></html>`
+
+  const frame = document.createElement('iframe')
+  frame.setAttribute('aria-hidden', 'true')
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;'
+  document.body.appendChild(frame)
+  const fdoc = frame.contentDocument
+  const win = frame.contentWindow
+  if (!fdoc || !win) {
+    frame.remove()
+    return
+  }
+  fdoc.open()
+  fdoc.write(html)
+  fdoc.close()
+  win.addEventListener('afterprint', () => frame.remove())
+  // Let the iframe lay out before opening the dialog
+  setTimeout(() => {
+    win.focus()
+    win.print()
+  }, 50)
 }
 
 function resolveToolbar(
@@ -320,12 +401,22 @@ export function DataTable<T>({
   }
 
   const handleExportPdf = useCallback(() => {
-    const title = tb.pdfDocumentTitle
-    const prev = document.title
-    if (title) document.title = title
-    globalThis.print()
-    if (title) document.title = prev
-  }, [tb.pdfDocumentTitle])
+    const api = gridRef.current?.api ?? gridApi
+    const title = tb.pdfDocumentTitle || document.title || 'Export'
+
+    // Visible columns in display order; skip pure-renderer columns (Actions
+    // etc.) that have no extractable value.
+    const exportDefs: ColDef<T>[] = (api?.getAllDisplayedColumns() ?? [])
+      .map((c) => c.getColDef())
+      .filter((d) => Boolean(d.field) || typeof d.valueGetter === 'function')
+
+    // Without a grid API yet (no data loaded), fall back to the prop defs.
+    const defs = exportDefs.length
+      ? exportDefs
+      : columnDefs.filter((d) => Boolean(d.field) || typeof d.valueGetter === 'function')
+
+    printTableAsPdf(title, defs, filteredRowData)
+  }, [gridApi, tb.pdfDocumentTitle, columnDefs, filteredRowData])
 
   const getColumns = useCallback(() => {
     const api = gridRef.current?.api ?? gridApi

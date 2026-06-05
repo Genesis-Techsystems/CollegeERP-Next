@@ -17,8 +17,9 @@ export async function updateCourse(
   courseId: number,
   data: Partial<Omit<Course, 'courseId'>>,
 ): Promise<Course> {
+  // PK stays in the URL query only — including it in the body makes Spring
+  // reject the update as an invalid request.
   return domainUpdate<Course>(ENTITIES.COURSE.name, ENTITIES.COURSE.pk, courseId, {
-    courseId,
     ...data,
   })
 }

@@ -314,7 +314,7 @@ export default function TSheetsPage() {
           in_regulation_code: '',
           in_emp_id: 0,
           in_questionpaper_id: 0,
-        }).catch(() => ({ result: [] }))
+        })
         data = Array.isArray(resp?.result?.[0]) ? resp.result[0] : []
       } else {
         const resp = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_result_memos', {
@@ -329,7 +329,7 @@ export default function TSheetsPage() {
           in_subject_id: 0,
           in_above_fail_subjects: -1,
           in_below_credits: -1,
-        }).catch(() => ({ result: [] }))
+        })
         data = Array.isArray(resp?.result?.[0]) ? resp.result[0] : []
       }
       const normalized = (Array.isArray(data) ? data : []).map((r, i) => ({

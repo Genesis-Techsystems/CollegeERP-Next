@@ -27,6 +27,7 @@ import {
 	listExamRoomAllotments as listExamRoomAllotmentsDomain,
 	listRoomwiseOmrStudents,
 	listUnivExamFiltersByCode,
+	popExamInvigilator,
 } from '@/services/seating-plan'
 import { ConfirmDialog } from '@/common/components/feedback'
 import { toast } from 'sonner'
@@ -1626,6 +1627,27 @@ export default function SeatingPlanSetupPage() {
 							>
 								<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
 								Assign Seating
+							</Button>
+							{/* Angular exam-room-allotment autoAssign(): s_pop_exam_invigilator
+							    with the selected timetable detail id. */}
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
+								disabled={!selectedExamTimetableId}
+								onClick={async () => {
+									if (!selectedExamTimetableId) return
+									try {
+										await popExamInvigilator(selectedExamTimetableId)
+										toast.success('Invigilators auto-assigned')
+									} catch {
+										toast.error('Auto-assign invigilators failed')
+									}
+								}}
+							>
+								<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+								Auto Assign Invigilators
 							</Button>
 						</div>
 					</div>

@@ -20,7 +20,6 @@ export async function updateRoom(
   data: Partial<Omit<Room, 'roomId'>>,
 ): Promise<Room> {
   return domainUpdate<Room>(ENTITIES.ROOM.name, ENTITIES.ROOM.pk, roomId, {
-    roomId,
     ...data,
   })
 }

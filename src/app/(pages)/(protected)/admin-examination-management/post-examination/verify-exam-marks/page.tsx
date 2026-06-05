@@ -352,6 +352,7 @@ export default function VerifyExamMarksPage() {
               columnDefs={columnDefs}
               loading={loading}
               pagination
+              exportCsv
               toolbar={{
                 search: true,
                 searchPlaceholder: 'Search…',

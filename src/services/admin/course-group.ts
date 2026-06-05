@@ -39,7 +39,6 @@ export async function updateCourseGroup(
   data: Partial<Omit<CourseGroup, 'courseGroupId'>>,
 ): Promise<CourseGroup> {
   return domainUpdate<CourseGroup>(ENTITIES.COURSE_GROUP.name, ENTITIES.COURSE_GROUP.pk, courseGroupId, {
-    courseGroupId,
     ...data,
   })
 }

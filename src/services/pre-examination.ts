@@ -225,7 +225,9 @@ export async function deactivateExamInvigilationAllotment(
 }
 
 export async function autoAssignInvigilators(examTimetableId: number): Promise<any> {
-  return getAllRecords<any>('s_get_collegewisedetails_bycode', {
+  // Angular popExamInvigilatorUrl → s_pop_exam_invigilator (the previous
+  // s_get_collegewisedetails_bycode call hit the wrong proc → server error).
+  return getAllRecords<any>('s_pop_exam_invigilator', {
     in_flag: 'popexaminvigilator',
     in_timetable_det_id: examTimetableId,
   })
