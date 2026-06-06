@@ -68,6 +68,80 @@ const MODE_LABEL: Record<VerifyExamMarksMode, string> = {
   all: 'Exam Marks Status',
 }
 
+/** Angular file names: trafointernalItem/trafoexternalItem/trafoItem/alltrafoItem. */
+const REPORT_TITLE: Record<VerifyExamMarksMode, string> = {
+  internal: 'Internal Marks Status Report',
+  external: 'External Marks Status Report',
+  evaluation: 'External Evaluation Status Report',
+  all: 'Exam Marks Status Report',
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/** Plain HTML table of the report rows — feeds both Excel export and print. */
+function buildReportTableHtml(rows: AnyRow[], keys: string[]): string {
+  const head = keys.map((k) => `<th>${escapeHtml(toTitle(k))}</th>`).join('')
+  const body = rows
+    .map(
+      (row) =>
+        `<tr>${keys.map((k) => `<td>${escapeHtml(String(row?.[k] ?? ''))}</td>`).join('')}</tr>`,
+    )
+    .join('')
+  return `<table border="1" cellspacing="0" cellpadding="4"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
+}
+
+/**
+ * Angular exportAsExcel(): HTML-table workbook via
+ * data:application/vnd.ms-excel;base64 download.
+ */
+function exportTableAsExcel(fileName: string, tableHtml: string, header: string): void {
+  const uri = 'data:application/vnd.ms-excel;base64,'
+  const template = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Worksheet</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>${header}${tableHtml}</body></html>`
+  const link = document.createElement('a')
+  link.download = `${fileName}.xls`
+  link.href = uri + window.btoa(unescape(encodeURIComponent(template)))
+  link.click()
+}
+
+/** Angular printPage(): print the report (title + college/exam header + table). */
+function printReport(title: string, headerHtml: string, tableHtml: string): void {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
+@page { size: A4 landscape; margin: 12mm; }
+body { font: 11px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #111827; margin: 0; }
+h1 { font-size: 15px; margin: 0 0 4px; }
+p { margin: 0 0 10px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { border: 1px solid #cbd5e1; padding: 4px 6px; text-align: left; vertical-align: top; word-break: break-word; }
+th { background: #f1f5f9; font-weight: 600; }
+tr { break-inside: avoid; }
+</style></head><body>${headerHtml}${tableHtml}</body></html>`
+
+  const frame = document.createElement('iframe')
+  frame.setAttribute('aria-hidden', 'true')
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;'
+  document.body.appendChild(frame)
+  const fdoc = frame.contentDocument
+  const win = frame.contentWindow
+  if (!fdoc || !win) {
+    frame.remove()
+    return
+  }
+  fdoc.open()
+  fdoc.write(html)
+  fdoc.close()
+  win.addEventListener('afterprint', () => frame.remove())
+  setTimeout(() => {
+    win.focus()
+    win.print()
+  }, 50)
+}
+
 export default function VerifyExamMarksPage() {
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<VerifyExamMarksMode>('internal')
@@ -248,6 +322,31 @@ export default function VerifyExamMarksPage() {
     setRows([])
   }
 
+  function reportHeaderHtml(): string {
+    const college = colleges.find((x) => numFrom(x, COLLEGE_ID_KEYS) === Number(collegeId))
+    const collegeName = strFrom(college ?? {}, ['collegeName', 'college_name', 'collegeCode', 'college_code'])
+    const exam = exams.find((x) => numFrom(x, EXAM_ID_KEYS) === Number(examId))
+    const examName = strFrom(exam ?? {}, ['exam_name', 'examName', 'exam'])
+    const sub = [collegeName, examName].filter(Boolean).join(' / ')
+    return `<h1>${escapeHtml(MODE_LABEL[mode])}</h1>${sub ? `<p>${escapeHtml(sub)}</p>` : ''}`
+  }
+
+  function reportKeys(): string[] {
+    return rows.length ? Object.keys(rows[0]) : []
+  }
+
+  /** Angular exportAsExcel('internal'|'external'|'evaluation'|'all'). */
+  function handleExportExcel() {
+    if (!rows.length) return
+    exportTableAsExcel(REPORT_TITLE[mode], buildReportTableHtml(rows, reportKeys()), reportHeaderHtml())
+  }
+
+  /** Angular printPage(). */
+  function handlePrintReport() {
+    if (!rows.length) return
+    printReport(REPORT_TITLE[mode], reportHeaderHtml(), buildReportTableHtml(rows, reportKeys()))
+  }
+
   const columnDefs = useMemo<ColDef<AnyRow>[]>(() => {
     if (!rows.length) return []
     const keys = Object.keys(rows[0])
@@ -356,12 +455,21 @@ export default function VerifyExamMarksPage() {
               toolbar={{
                 search: true,
                 searchPlaceholder: 'Search…',
-                pdfDocumentTitle: MODE_LABEL[mode],
+                // Angular has no PDF export here — Export Excel + Print Report instead
+                exportPdf: false,
               }}
               toolbarTrailing={
-                <Button type="button" variant="outline" size="sm" className="h-[30px] px-3 text-[12px]" onClick={resetFilters}>
-                  Reset
-                </Button>
+                <>
+                  <Button type="button" variant="outline" size="sm" className="h-[30px] px-3 text-[12px]" onClick={handleExportExcel}>
+                    Export Excel
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="h-[30px] px-3 text-[12px]" onClick={handlePrintReport}>
+                    Print Report
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="h-[30px] px-3 text-[12px]" onClick={resetFilters}>
+                    Reset
+                  </Button>
+                </>
               }
             />
           </div>

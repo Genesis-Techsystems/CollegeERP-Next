@@ -169,6 +169,7 @@ export {
 } from './seating-plan'
 export type { ListRoomsParams, GenerateSeatingParams, SaveSeatingRequest } from './seating-plan'
 export * from './post-examination'
+export * from './result-processing'
 export * from './scholarship'
 export * from './admission'
 export * from './e-office'

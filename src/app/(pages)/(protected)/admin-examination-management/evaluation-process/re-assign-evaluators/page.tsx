@@ -16,6 +16,7 @@ import {
   updateReevaluationCount,
 } from '@/services/evaluation'
 import { dedupeBy, num, txt } from '@/common/utils/data-helpers'
+import { toastSuccess } from '@/lib/toast'
 
 type AnyRow = Record<string, any>
 
@@ -198,48 +199,58 @@ export default function ReAssignEvaluatorsPage() {
   }
 
   function onSourceEvaluatorChange(profileId: number) {
+    // Angular selectedEvalutor(): the serial list reloads for the evaluator
+    // AND the re-assign target list clears until serials are checked.
     setSourceEvaluatorId(profileId)
     setSelectedAssignmentIds([])
     setCheckAllOmr(false)
+    setTargetEvaluators([])
+    setSearchTarget('')
     const rows = evaluatorStudents.filter((r) => num(r.pk_exam_evaluator_profile_id ?? r.fk_exam_evaluator_profile_id) === profileId)
     setOmrRows(rows)
   }
 
-  useEffect(() => {
-    const selectedOmrSerials = new Set(
-      omrRows
-        .filter((r) => selectedAssignmentIds.includes(num(r.pk_exam_evaluationassignment_id ?? r.fk_exam_evaluationassignment_id)))
+  /** Angular updateSecondEvaluatorList(): rebuild the re-assign target list
+   *  from the per-student rows every selection change — evaluators owning any
+   *  selected serial are excluded; the rest dedup by evaluator name. */
+  function updateSecondEvaluatorList(nextSelectedIds: number[], omrList: AnyRow[]) {
+    const selectedSerials = new Set(
+      omrList
+        .filter((r) => nextSelectedIds.includes(num(r.pk_exam_evaluationassignment_id ?? r.fk_exam_evaluationassignment_id)))
         .map((r) => txt(r.omr_serial_no)),
     )
-    const filtered = targetEvaluators.filter((ev) => {
-      const evName = txt(ev.evaluator_name)
-      if (!evName) return false
-      const hasSameOmr = evaluatorStudents.some(
-        (s) => txt(s.evaluator_name) === evName && selectedOmrSerials.has(txt(s.omr_serial_no)),
-      )
-      return !hasSameOmr
-    })
-    if (selectedOmrSerials.size === 0) {
-      // Target list = evaluators who are free (due == 0).
-      setTargetEvaluators(evaluatorRows.filter((row) => (num(row.no_of_students_assigned) - num(row.no_of_evaluations_completed)) === 0))
-    } else {
-      setTargetEvaluators(filtered)
+    const owners = new Set(
+      evaluatorStudents
+        .filter((s) => selectedSerials.has(txt(s.omr_serial_no)))
+        .map((s) => txt(s.evaluator_name)),
+    )
+    const byName = new Map<string, AnyRow>()
+    for (const item of evaluatorStudents) {
+      const name = txt(item.evaluator_name)
+      if (!name || owners.has(name)) continue
+      byName.set(name, item)
     }
-  }, [selectedAssignmentIds, omrRows, evaluatorStudents, evaluatorRows])
+    setTargetEvaluators(Array.from(byName.values()))
+  }
 
   function toggleOmr(assignmentId: number, checked: boolean) {
-    setSelectedAssignmentIds((prev) => (checked ? [...new Set([...prev, assignmentId])] : prev.filter((id) => id !== assignmentId)))
+    setSelectedAssignmentIds((prev) => {
+      const next = checked ? [...new Set([...prev, assignmentId])] : prev.filter((id) => id !== assignmentId)
+      updateSecondEvaluatorList(next, omrRows)
+      return next
+    })
   }
 
   function toggleAllOmr(checked: boolean) {
+    // Angular markItems() loops the FULL serial list, not the search-filtered view.
     setCheckAllOmr(checked)
-    setSelectedAssignmentIds(
-      checked
-        ? filteredOmrRows
-            .map((r) => num(r.pk_exam_evaluationassignment_id ?? r.fk_exam_evaluationassignment_id))
-            .filter((id) => id > 0)
-        : [],
-    )
+    const next = checked
+      ? omrRows
+          .map((r) => num(r.pk_exam_evaluationassignment_id ?? r.fk_exam_evaluationassignment_id))
+          .filter((id) => id > 0)
+      : []
+    setSelectedAssignmentIds(next)
+    updateSecondEvaluatorList(next, omrRows)
   }
 
   async function assign() {
@@ -260,6 +271,7 @@ export default function ReAssignEvaluatorsPage() {
       if (isReevaluation) {
         await updateReevaluationCount({ examId, subjectId, courseYearId })
       }
+      toastSuccess('Answer papers re-assigned successfully.')
       await getList()
     } catch (error) {
       setErrorMsg(error instanceof Error ? error.message : 'Failed to assign selected answer papers.')

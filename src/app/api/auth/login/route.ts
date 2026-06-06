@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
       collegeId: userDto.collegeId,
       collegeCode: userDto.collegeCode,
       collegeName: userDto.collegeName,
+      collegeLogo: userDto.collegeLogo,
       academicYearId: userDto.academicYearId,
       academicYear: userDto.academicYear,
       employeeId: userDto.employeeId,

@@ -75,5 +75,8 @@ export function parseApiError(res: Response, body: unknown): AppError {
 export function getErrorMessage(error: unknown): string {
   if (isAppError(error)) return error.message
   if (error instanceof Error) return error.message
+  // Many call sites pass an already-built message string (e.g. validation
+  // errors) — show it instead of collapsing to the generic fallback.
+  if (typeof error === 'string' && error.trim()) return error
   return 'An unexpected error occurred. Please try again.'
 }

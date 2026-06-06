@@ -1555,8 +1555,13 @@ export async function assignMultipleUpdateEvaluationAssignmentRevision(params: {
 }
 
 export async function getReevaluationAssignSubjects(employeeId: number): Promise<Record<string, unknown>[]> {
-  const data = await crud
-    .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
+  // Mirrors Angular re-evaluation-assign getList(): s_get_examevaluation_bycodes,
+  // flag list_exam_subjects, in_orgid 1, in_affiliatedto_catdet_id 1, login empid.
+  // NOTE: do NOT swallow errors here — a silent catch made auth/500 failures
+  // look like "empty dropdowns" with no clue why.
+  const data = await crud.getAllRecords<{ result: Record<string, unknown>[][] }>(
+    's_get_examevaluation_bycodes',
+    {
       in_flag: 'list_exam_subjects',
       in_orgid: 1,
       in_fdate: '1990-01-01',
@@ -1575,8 +1580,8 @@ export async function getReevaluationAssignSubjects(employeeId: number): Promise
       in_exam_short_name: '',
       in_affiliatedto_catdet_id: 1,
       in_loginuser_empid: employeeId || 0,
-    })
-    .catch(() => ({ result: [] }))
+    },
+  )
   return Array.isArray(data?.result?.[0]) ? data.result[0] : []
 }
 

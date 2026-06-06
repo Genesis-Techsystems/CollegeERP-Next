@@ -58,6 +58,8 @@ export interface SchedulingPrintContext {
   examName: string
   headerSubtitle: string
   allocationRows: PrintAllocationRow[]
+  /** Selected college's dynamic logo URL (Angular: MINIO + Logo). */
+  logoUrl?: string
 }
 
 const TD = { border: '1px solid #000', padding: '4px 6px' } as const
@@ -70,6 +72,7 @@ export function useSchedulingFormsPrint(ctx: SchedulingPrintContext): {
   printView: ReactNode
 } {
   const { mode: printMode, triggerPrint } = usePrintMode<PrintMode>()
+  const logoSrc = ctx.logoUrl || '/assets/images/avatars/default_logo.png'
   const [roomWiseAllocations, setRoomWiseAllocations] = useState<any[]>([])
   const [roomSubjectAllocations, setRoomSubjectAllocations] = useState<any[]>([])
   const [groupwiseAllocations, setGroupwiseAllocations] = useState<any[]>([])
@@ -167,11 +170,13 @@ export function useSchedulingFormsPrint(ctx: SchedulingPrintContext): {
         <div className="text-center mb-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/college-banner.png"
+            src={logoSrc}
             alt=""
             style={{ maxHeight: 80, margin: '0 auto 8px', display: 'block' }}
             onError={(e) => {
-              ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+              const img = e.currentTarget as HTMLImageElement
+              if (!img.src.endsWith('default_logo.png')) img.src = '/assets/images/avatars/default_logo.png'
+              else img.style.display = 'none'
             }}
           />
           <p style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '0.5px', margin: 0, textTransform: 'uppercase' }}>{title}</p>
@@ -371,10 +376,12 @@ export function useSchedulingFormsPrint(ctx: SchedulingPrintContext): {
               <div key={`att-${gi}`} className={gi > 0 ? 'page-break' : ''}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/college-banner.png"
+                  src={logoSrc}
                   alt=""
                   style={{ maxHeight: 80, margin: '0 auto 8px', display: 'block' }}
                   onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement
+                    if (!img.src.endsWith('default_logo.png')) { img.src = '/assets/images/avatars/default_logo.png'; return }
                     ;(e.currentTarget as HTMLImageElement).style.display = 'none'
                   }}
                 />

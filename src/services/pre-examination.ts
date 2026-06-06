@@ -275,25 +275,15 @@ export async function getExamHalltickets(params: {
     in_student_id: params.studentId ?? 0,
   }
 
-  try {
-    const data = await getAllRecords<any>('s_get_exam_halltickets', payload)
-    const first = data?.result?.[0]
-    if (Array.isArray(first)) return first
-    if (Array.isArray(data?.result)) return data.result
-    if (Array.isArray(data)) return data
-  } catch {
-    // fall through to legacy endpoint path fallback
-  }
-
-  try {
-    const data = await fetchDetails<any>('getExamHalltickets', payload)
-    const first = data?.result?.[0]
-    if (Array.isArray(first)) return first
-    if (Array.isArray(data?.result)) return data.result
-    if (Array.isArray(data)) return data
-  } catch {
-    // fall through
-  }
+  // Angular getExamHalltickets = getAllRecords/s_get_exam_hallticket (singular).
+  // Both "By Student" and "By Section" use this same proc — the page passes the
+  // selected filter ids (college/course/group/year/academic-year) for section,
+  // or studentId for the single-student lookup.
+  const data = await getAllRecords<any>('s_get_exam_hallticket', payload)
+  const first = data?.result?.[0]
+  if (Array.isArray(first)) return first
+  if (Array.isArray(data?.result)) return data.result
+  if (Array.isArray(data)) return data
   return []
 }
 

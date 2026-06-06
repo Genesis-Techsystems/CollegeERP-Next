@@ -53,17 +53,28 @@ export function Sidebar() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
-  // ── Dynamic college logo (Minio path on the College record) ─────────────
+  // ── Dynamic college logo ──────────────────────────────────────────────────
+  // Primary source: the login DTO's collegeLogo (Angular navbar binds
+  // `loginUser.collegeLogo` directly). Fallback: the College record's `logo`
+  // path on MinIO for sessions created before collegeLogo was stored.
   const [collegeLogoUrl, setCollegeLogoUrl] = useState<string | null>(null)
   const [collegeLogoFailed, setCollegeLogoFailed] = useState(false)
 
+  const toLogoUrl = (path: string) =>
+    /^(https?:\/\/|data:)/i.test(path) ? path : `${MINIO_URL}${path.replace(/^\/+/, '')}`
+
   useEffect(() => {
+    if (user?.collegeLogo) {
+      setCollegeLogoUrl(toLogoUrl(user.collegeLogo))
+      setCollegeLogoFailed(false)
+      return
+    }
     if (!user?.collegeId) return
     let cancelled = false
     getCollegeById(user.collegeId)
       .then((college) => {
         if (!cancelled && college?.logo) {
-          setCollegeLogoUrl(`${MINIO_URL}${college.logo}`)
+          setCollegeLogoUrl(toLogoUrl(college.logo))
           setCollegeLogoFailed(false)
         }
       })
@@ -73,7 +84,8 @@ export function Sidebar() {
     return () => {
       cancelled = true
     }
-  }, [user?.collegeId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.collegeId, user?.collegeLogo])
 
   const showCollegeLogo = !!collegeLogoUrl && !collegeLogoFailed
 

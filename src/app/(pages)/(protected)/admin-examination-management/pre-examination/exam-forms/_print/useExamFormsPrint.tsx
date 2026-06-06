@@ -50,7 +50,7 @@ const THL = { border: '1px solid #000', padding: '4px 6px', textAlign: 'left' as
 
 export function useExamFormsPrint(
   students: AnyRow[],
-  meta: { courseYear: string; examName: string },
+  meta: { courseYear: string; examName: string; logoUrl?: string },
 ): { printMode: ExamFormsPrintMode | null; printButtons: ReactNode; printView: ReactNode } {
   const { mode: printMode, triggerPrint } = usePrintMode<ExamFormsPrintMode>()
 
@@ -79,15 +79,20 @@ export function useExamFormsPrint(
     </div>
   )
 
+  // Angular print forms: <img [src]="MINIO + Logo"> where Logo is the SELECTED
+  // college's logo. The page passes that resolved URL via meta.logoUrl.
+  const logoSrc = meta.logoUrl || '/assets/images/avatars/default_logo.png'
   function Banner() {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src="/college-banner.png"
+        src={logoSrc}
         alt=""
         style={{ maxHeight: 70, margin: '0 auto 6px', display: 'block' }}
         onError={(e) => {
-          ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+          const img = e.currentTarget as HTMLImageElement
+          if (!img.src.endsWith('default_logo.png')) img.src = '/assets/images/avatars/default_logo.png'
+          else img.style.display = 'none'
         }}
       />
     )

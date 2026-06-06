@@ -136,12 +136,13 @@ export default function CompleteExamProcessPage() {
     if (exams[0]) setExamId(numFrom(exams[0], ['fk_exam_id', 'examId']))
   }, [exams])
 
-  async function runAction(fn: () => Promise<void>, successMessage: string) {
+  async function runAction(fn: () => Promise<void | string>, successMessage: string) {
     if (!examId) return
     setLoading(true)
     try {
-      await fn()
-      toastSuccess(successMessage)
+      // Result-processing procs resolve with the backend message (Angular shows result.message)
+      const message = await fn()
+      toastSuccess(typeof message === 'string' && message ? message : successMessage)
     } catch (e) {
       toastError(e, 'Action failed')
     } finally {

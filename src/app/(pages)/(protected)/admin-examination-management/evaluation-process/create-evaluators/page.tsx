@@ -173,10 +173,13 @@ function emptyForm(): FormState {
 }
 
 // Validation patterns mirror the Angular create-evaluator form.
-const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const RE_PHONE = /^[0-9]{10}$/
+// Angular CONSTANTS.patterns (extracted from the deployed bundle):
+//   phNo: [6-9]{1}[0-9]{9}   email: ^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$
+//   aadharNo: [0-9]{12}      panNo: ^[A-Za-z]{5}[0-9]{4}[A-Za-z]$
+const RE_EMAIL = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/
+const RE_PHONE = /^[6-9][0-9]{9}$/
 const RE_AADHAR = /^[0-9]{12}$/
-const RE_PAN = /^[A-Z]{5}[0-9]{4}[A-Z]$/
+const RE_PAN = /^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/
 
 export default function CreateEvaluatorsPage() {
   const router = useRouter()
@@ -502,19 +505,27 @@ export default function CreateEvaluatorsPage() {
   }
 
   function validateEvaluatorForm(): string | null {
-    // Required + pattern checks mirror the Angular create-evaluator form.
-    if (!form.isEmp && !form.collegeId) return 'University College is required.'
+    // Required + pattern checks mirror the Angular create-evaluator form:
+    // required: collegeId, titleId, evaluatorName, phoneNumber, alternate
+    // phone, aadhar, both dates, isActive; pattern-only (optional): email, PAN.
+    if (!form.collegeId) return 'University College is required.'
     if (!form.titleId) return 'Title is required.'
     if (!form.evaluatorName.trim()) return 'Name is required.'
-    if (!form.email.trim() || !RE_EMAIL.test(form.email.trim())) return 'A valid Email is required.'
-    if (!RE_PHONE.test(form.phoneNumber.trim())) return 'Phone Number must be 10 digits.'
-    if (!RE_PHONE.test(form.alternatePhoneNumber.trim())) return 'Alternate Phone must be 10 digits.'
+    if (form.email.trim() && !RE_EMAIL.test(form.email.trim())) return 'Enter a valid email.'
+    if (!RE_PHONE.test(form.phoneNumber.trim())) return 'Phone Number must be 10 digits starting with 6-9.'
+    if (!RE_PHONE.test(form.alternatePhoneNumber.trim())) return 'Alternate Phone must be 10 digits starting with 6-9.'
     if (!RE_AADHAR.test(form.aadhar.trim())) return 'Aadhar must be 12 digits.'
-    if (!RE_PAN.test(form.panCardNo.trim().toUpperCase())) return 'PAN must be like ABCDE1234F.'
+    if (form.panCardNo.trim() && !RE_PAN.test(form.panCardNo.trim())) return 'Enter a valid PAN number (e.g. ABCDE1234F).'
     if (!form.profileValidFromDate) return 'Start Date is required.'
     if (!form.profileValidToDate) return 'End Date is required.'
     if (!form.isActive && !form.reason.trim()) return 'Reason is required when inactive.'
     return null
+  }
+
+  /** Angular serializes form Dates straight into JSON (full ISO datetime). */
+  function toIsoDateTime(value: string): string {
+    const d = new Date(value)
+    return Number.isNaN(d.getTime()) ? value : d.toISOString()
   }
 
   async function onSave() {
@@ -536,11 +547,14 @@ export default function CreateEvaluatorsPage() {
       email: form.email,
       aadhar: form.aadhar,
       panCardNo: form.panCardNo.toUpperCase(),
-      profileValidFromDate: form.profileValidFromDate,
-      profileValidToDate: form.profileValidToDate,
+      // Angular serializes Date objects -> full ISO datetimes in the JSON.
+      profileValidFromDate: toIsoDateTime(form.profileValidFromDate),
+      profileValidToDate: toIsoDateTime(form.profileValidToDate),
       isActive: form.isActive,
-      reason: form.isActive ? null : form.reason,
-      createdUser: employeeId || null,
+      // Angular always sends the reason form value (defaults to '').
+      reason: form.reason ?? '',
+      // Angular: +localStorage.getItem('employeeId') -> 0 when absent, never null.
+      createdUser: employeeId || 0,
       examEvaluatorProfileDetailsDTOS: editRow?.examEvaluatorProfileDetailsDTOS ?? [],
     }
     setLoading(true)
@@ -553,8 +567,11 @@ export default function CreateEvaluatorsPage() {
       toastSuccess('Saved successfully.')
       setModalOpen(false)
       await loadList()
-    } catch (error: any) {
-      toastError(error?.message ?? 'Failed to save evaluator profile.')
+    } catch (error) {
+      // Pass the error object itself — toastError(getErrorMessage) extracts
+      // the real Spring message; passing a string collapsed every failure to
+      // the generic "unexpected error" toast.
+      toastError(error, 'Failed to save evaluator profile')
     } finally {
       setLoading(false)
     }

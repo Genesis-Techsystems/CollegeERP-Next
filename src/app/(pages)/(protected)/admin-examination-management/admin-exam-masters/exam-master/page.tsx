@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import type { ColDef, CellClickedEvent, ICellRendererParams } from 'ag-grid-community'
-import { PlusIcon, ClipboardList, Download, Tag, Pencil, Filter, ChevronDown } from 'lucide-react'
+import { PlusIcon, Download, Tag, Pencil, Filter, ChevronDown } from 'lucide-react'
 import { useSessionContext } from '@/context/SessionContext'
 import type { ExamMaster, CollegeWiseFilterRow } from '@/types/exam-master'
 import {
@@ -519,12 +519,10 @@ export default function ExamMasterPage() {
       {tableVisible && (
         <>
           <TableCard withHeaderBorder={false}>
-            {!loadingExams && examsList.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <ClipboardList className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No records found</p>
-              </div>
-            ) : (
+            {/* Angular renders the table card even with zero rows — the grid
+                shows its headers + no-rows overlay and the toolbar keeps the
+                search box and Add Exam button visible. */}
+            {(
               <DataTable
                 rowData={examsList}
                 columnDefs={columnDefs}

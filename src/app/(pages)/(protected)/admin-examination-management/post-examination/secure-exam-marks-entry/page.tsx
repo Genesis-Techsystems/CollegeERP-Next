@@ -13,13 +13,17 @@ import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table'
 import {
   generateMarksEntrySecretCode,
-  getInternalMarksEntryStudents,
+  getMarksEntryStudentsBundle,
   getSecureMarksFilters,
   getSecureMarksRestFilters,
   getSecureMarksSubjects,
   saveInternalMarksEntry,
   validateMarksEntrySecretCode,
 } from '@/services/post-examination'
+import { getCollegeById } from '@/services'
+import { MINIO_URL } from '@/config/constants/api'
+import { useSessionContext } from '@/context/SessionContext'
+import { useSecureMarksPrint } from './_print/useSecureMarksPrint'
 import { toastError, toastSuccess } from '@/lib/toast'
 
 type AnyRow = Record<string, any>
@@ -94,6 +98,39 @@ export default function SecureExamMarksEntryPage() {
   const [codeDialogOpen, setCodeDialogOpen] = useState(false)
   const [secretCodeInput, setSecretCodeInput] = useState('')
   const [validatingCode, setValidatingCode] = useState(false)
+
+  // Print sheet data: evaluator names (result[1]/[2]) + selected college logo.
+  const [internalEvaluators, setInternalEvaluators] = useState<AnyRow[]>([])
+  const [externalEvaluators, setExternalEvaluators] = useState<AnyRow[]>([])
+  const [collegeLogoUrl, setCollegeLogoUrl] = useState<string | null>(null)
+  const { user } = useSessionContext()
+
+  // Resolve the SELECTED college's logo (MinIO); fall back to the login DTO logo.
+  useEffect(() => {
+    let cancelled = false
+    const sessionLogo = user?.collegeLogo
+      ? (/^(https?:\/\/|data:)/i.test(user.collegeLogo) ? user.collegeLogo : `${MINIO_URL}${user.collegeLogo.replace(/^\/+/, '')}`)
+      : null
+    if (!collegeId) {
+      setCollegeLogoUrl(sessionLogo)
+      return
+    }
+    getCollegeById(collegeId)
+      .then((college) => {
+        if (cancelled) return
+        const logo = college?.logo
+        setCollegeLogoUrl(logo ? `${MINIO_URL}${String(logo).replace(/^\/+/, '')}` : sessionLogo)
+      })
+      .catch(() => { if (!cancelled) setCollegeLogoUrl(sessionLogo) })
+    return () => { cancelled = true }
+  }, [collegeId, user?.collegeLogo])
+
+  const { printMode, printButton, printView } = useSecureMarksPrint({
+    students: rows,
+    internalEvaluators,
+    externalEvaluators,
+    logoUrl: collegeLogoUrl,
+  })
 
   const isExternalEvaluator = userRole === 'EXTERNAL EVALUATOR' || userRole === 'Offline External Evaluator'
   const employeeDisplay = userName ? `${empNumber} (${userName})` : empNumber
@@ -281,7 +318,7 @@ export default function SecureExamMarksEntryPage() {
     setHasFetched(true)
     setSaveUnlocked(false)
     try {
-      const data = await getInternalMarksEntryStudents({
+      const bundle = await getMarksEntryStudentsBundle({
         collegeId,
         courseId,
         examId,
@@ -291,8 +328,10 @@ export default function SecureExamMarksEntryPage() {
         subjectId,
         labBatchId,
         examDate,
-      }).catch(() => [])
-      setRows((Array.isArray(data) ? data : []).map((r) => ({ ...r, marks: Number(r.marks ?? 0) })))
+      }).catch(() => ({ students: [], internalEvaluators: [], externalEvaluators: [] }))
+      setRows((Array.isArray(bundle.students) ? bundle.students : []).map((r) => ({ ...r, marks: Number(r.marks ?? 0) })))
+      setInternalEvaluators(bundle.internalEvaluators ?? [])
+      setExternalEvaluators(bundle.externalEvaluators ?? [])
     } finally {
       setLoading(false)
     }
@@ -423,6 +462,10 @@ export default function SecureExamMarksEntryPage() {
     ]
   }, [saveUnlocked])
 
+  // While printing, replace the page with the marks sheet (AppShell @media
+  // print rules hide the app chrome so only the sheet prints).
+  if (printMode) return <>{printView}</>
+
   return (
     <PageContainer className="space-y-4">
       <PageHeader title="Secure Marks Entry" subtitle="Post examination secure marks flow" />
@@ -496,7 +539,7 @@ export default function SecureExamMarksEntryPage() {
                     {saveButtonText}
                   </Button>
                 )}
-                <Button className="h-8 text-[12px]" variant="outline" onClick={() => globalThis?.print?.()}>Print</Button>
+                {printButton}
               </div>
             </div>
           </TableCard>

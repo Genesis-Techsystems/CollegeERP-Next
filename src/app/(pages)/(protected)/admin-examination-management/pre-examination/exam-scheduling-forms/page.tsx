@@ -17,6 +17,7 @@ import {
 import { getExamTimetableDetails, listCourseYears } from '@/services/examination'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { useSchedulingFormsPrint, type PrintAllocationRow } from './_print/useSchedulingFormsPrint'
+import { useCollegeLogo } from '@/hooks/useCollegeLogo'
 
 type AnyRow = Record<string, any>
 
@@ -168,6 +169,7 @@ export default function ExamSchedulingFormsPage() {
     [filteredRows],
   )
 
+  const collegeLogo = useCollegeLogo(collegeId)
   const { printMode, loadingOverlay, printButtons, printView } = useSchedulingFormsPrint({
     courseId,
     examId,
@@ -177,6 +179,7 @@ export default function ExamSchedulingFormsPage() {
     examName: printExamName,
     headerSubtitle: printHeaderSubtitle,
     allocationRows: printAllocationRows,
+    logoUrl: collegeLogo,
   })
 
   useEffect(() => {

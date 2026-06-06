@@ -149,6 +149,8 @@ export const EXAM_API = {
   SAVE_EXAM_ROOM_ALLOTMENT: 'examroomallotment',
   /** POST: save/update an array of ExamMarkssetup rows in one request */
   SAVE_EXAM_MARKS_SETUP: 'exammarkssetup',
+  /** GET: exam course-year subjects (Angular examCourseYearSubjectUrl) — params collegeId, academicYearId, courseyearId, courseGroupId */
+  EXAM_COURSE_YEAR_SUBJECT: 'examCourseYearSubject',
 } as const
 
 // ─── Question Bank / Assessments ─────────────────────────────────────────────
@@ -262,10 +264,10 @@ export const EXAM_EVAL_API = {
   ADD_MULTIPLE_EVAL_ASSIGNMENTS: 'addMultipleExamEvaluationAssignments',
   /** PUT: update evaluations completed count */
   UPDATE_EVALS_COMPLETED_COUNT: 'updateEvaluationsCompletedCount',
-  /** POST: generate secret code for marks entry */
-  GENERATE_SECRET_CODE_MARKS: 'generateSecretCodeForMarksEntry',
-  /** POST: validate secret code for marks entry */
-  VALIDATE_SECRET_CODE_MARKS: 'validateSecretCodeForMarksEntry',
+  /** POST: generate secret code for marks entry (Angular MAINAPI base = cms/api/) */
+  GENERATE_SECRET_CODE_MARKS: 'api/generateSecretCodeForMarksEntry',
+  /** GET: validate secret code for marks entry (cms/api/...) */
+  VALIDATE_SECRET_CODE_MARKS: 'api/validateSecretCodeForMarksEntry',
   /** GET: subject wise moderation */
   SUBJECT_WISE_MODERATION: 'getAllRecords/s_pop_exam_subjectwisemoderation',
   /** GET: evaluation marks finalise */

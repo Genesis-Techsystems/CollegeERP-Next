@@ -42,6 +42,7 @@ import { SearchInput } from '@/common/components/search'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toDateStr } from '@/common/generic-functions'
 import { usePrintMode } from '@/lib/print'
+import { useCollegeLogo } from '@/hooks/useCollegeLogo'
 
 type AllocationRow = {
 	sl: number
@@ -332,6 +333,8 @@ export default function SeatingPlanSetupPage() {
 	const [selectedExamType, setSelectedExamType] = useState<'0' | '1' | ''>('')
 	const [selectedExamId, setSelectedExamId] = useState<number | null>(null)
 	const [selectedCollegeId, setSelectedCollegeId] = useState<number | null>(null)
+	// Dynamic selected-college logo for the print headers (Angular: MINIO + Logo).
+	const collegeLogo = useCollegeLogo(selectedCollegeId)
 	const [examMasterSearch, setExamMasterSearch] = useState('')
 	const [examTimetables, setExamTimetables] = useState<any[]>([])
 	const [selectedExamTimetableId, setSelectedExamTimetableId] = useState<number | null>(null)
@@ -985,15 +988,16 @@ export default function SeatingPlanSetupPage() {
 					style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px' }}
 				>
 					<div className="text-center mb-3">
-						{/* Logo: drop your banner image at /public/college-banner.png (or set
-						    /public/MECS_BANNER.png / MVSR_BANNER.png to mirror Angular). The
-						    onError hides the <img> if the file doesn't exist so the print
-						    sheet still renders without it. */}
+						{/* Dynamic selected-college logo (Angular: MINIO + Logo). */}
 						<img
-							src="/college-banner.png"
+							src={collegeLogo}
 							alt=""
 							style={{ maxHeight: 80, margin: '0 auto 8px', display: 'block' }}
-							onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+							onError={(e) => {
+								const img = e.currentTarget as HTMLImageElement
+								if (!img.src.endsWith('default_logo.png')) img.src = '/assets/images/avatars/default_logo.png'
+								else img.style.display = 'none'
+							}}
 						/>
 						<p style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '0.5px', margin: 0, textTransform: 'uppercase' }}>{title}</p>
 						<p style={{ fontSize: '14px', margin: '6px 0 0 0' }}>{examName}</p>
@@ -1207,7 +1211,7 @@ export default function SeatingPlanSetupPage() {
 						const s = students[0] as any
 						return (
 							<div key={`att-${gi}`} className={gi > 0 ? 'page-break' : ''}>
-								<img src="/college-banner.png" alt="" style={{ maxHeight: 80, margin: '0 auto 8px', display: 'block' }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+								<img src={collegeLogo} alt="" style={{ maxHeight: 80, margin: '0 auto 8px', display: 'block' }} onError={(e) => { const img = e.currentTarget as HTMLImageElement; if (!img.src.endsWith('default_logo.png')) img.src = '/assets/images/avatars/default_logo.png'; else img.style.display = 'none' }} />
 								<h4 style={{ textAlign: 'center', fontWeight: 'bold', margin: '0 0 8px 0', textTransform: 'uppercase' }}>Attendance Sheet</h4>
 								<h4 style={{ textAlign: 'center', margin: '0 0 12px 0', fontSize: '14px' }}>
 									{s?.exam_label_name ?? examName} {s?.exam_type_name ? `(${s.exam_type_name})` : ''}

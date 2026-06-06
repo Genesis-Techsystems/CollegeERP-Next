@@ -1,4 +1,4 @@
-import { buildQuery, domainList, getAllRecords, postDetails, putDetails } from '@/services/crud'
+import { buildQuery, domainList, getAllRecords, getAllRecordsEnvelope, postDetails, putDetails } from '@/services/crud'
 import { EXAM_EVAL_API } from '@/config/constants/api'
 import { GM_CODES } from '@/config/constants/ui'
 import {
@@ -364,12 +364,21 @@ export async function runCompleteExamFinalizeProfiles(): Promise<void> {
   await getAllRecords('s_pop_exam_committees', { in_flag: 'exam_committees' })
 }
 
-export async function runCompleteExamResultProcessing(examId: number): Promise<void> {
-  await getAllRecords('s_pop_exam_resultprocessing_v4', { in_exam_id: examId })
+/**
+ * Angular complete-exam-fee-registration `resultPro()`: any HTTP-200 body is
+ * treated as completed and `result.message` is surfaced to the user — these
+ * pop procs report their outcome via `message`, not the `success` flag.
+ * Returns the backend message for the page to toast.
+ */
+export async function runCompleteExamResultProcessing(examId: number): Promise<string> {
+  const body = await getAllRecordsEnvelope('s_pop_exam_resultprocessing_v4', { in_exam_id: examId })
+  return body.message ?? ''
 }
 
-export async function runCompleteExamResultProcessingPublish(examId: number): Promise<void> {
-  await getAllRecords('s_pop_exam_resultprocessing_publish_v4', { in_exam_id: examId })
+/** Angular `resultProPublish()` — same HTTP-200/`message` contract as {@link runCompleteExamResultProcessing}. */
+export async function runCompleteExamResultProcessingPublish(examId: number): Promise<string> {
+  const body = await getAllRecordsEnvelope('s_pop_exam_resultprocessing_publish_v4', { in_exam_id: examId })
+  return body.message ?? ''
 }
 
 export type VerifyExamMarksMode = 'internal' | 'external' | 'evaluation' | 'all'
@@ -694,6 +703,59 @@ export async function getInternalMarksEntryStudents(params: {
   return []
 }
 
+/**
+ * Same `marks_entry` proc as {@link getInternalMarksEntryStudents}, but returns
+ * all three result sets Angular uses: students (result[0], deduped by hallticket
+ * like Angular), external evaluator names (result[1]), internal evaluator names
+ * (result[2]). Used to populate the printable marks sheet.
+ */
+export async function getMarksEntryStudentsBundle(params: {
+  collegeId: number
+  courseId: number
+  examId: number
+  courseGroupId: number
+  courseYearId: number
+  regulationId: number
+  subjectId: number
+  labBatchId: number
+  examDate: string
+}): Promise<{ students: AnyRow[]; externalEvaluators: AnyRow[]; internalEvaluators: AnyRow[] }> {
+  const payload = {
+    in_flag: 'marks_entry',
+    in_college_id: params.collegeId,
+    in_course_id: params.courseId,
+    in_exam_id: params.examId,
+    in_course_group_id: params.courseGroupId,
+    in_course_year_id: params.courseYearId,
+    in_regulation_id: params.regulationId,
+    in_subject_id: params.subjectId,
+    in_eaxm_labbatch_id: params.labBatchId || 0,
+    is_extenalperson_approve: 0,
+    in_exam_date: params.examDate,
+  }
+  const procs = ['s_get_exam_markdetails', 's_get_exam_mark_details']
+  for (const proc of procs) {
+    try {
+      const data = await getAllRecords<{ result: AnyRow[][] }>(proc, payload)
+      const groups = data?.result ?? []
+      const rawStudents = Array.isArray(groups[0]) ? groups[0] : []
+      if (rawStudents.length > 0) {
+        // Angular dedupes students by hallticketNumber (Map keyed on it).
+        const byHt = new Map<string, AnyRow>()
+        for (const s of rawStudents) byHt.set(String(s.hallticketNumber ?? s.hallticket_number), s)
+        return {
+          students: Array.from(byHt.values()),
+          externalEvaluators: Array.isArray(groups[1]) ? groups[1] : [],
+          internalEvaluators: Array.isArray(groups[2]) ? groups[2] : [],
+        }
+      }
+    } catch {
+      // try next proc variant
+    }
+  }
+  return { students: [], externalEvaluators: [], internalEvaluators: [] }
+}
+
 export async function saveInternalMarksEntry(rows: AnyRow[]): Promise<void> {
   await postDetails('examstudentinternalmarks', rows)
 }
@@ -843,14 +905,27 @@ export async function getSecureMarksSubjects(params: {
 }
 
 export async function generateMarksEntrySecretCode(userId: number): Promise<void> {
-  await fetch(`/api/proxy/${EXAM_EVAL_API.GENERATE_SECRET_CODE_MARKS}/${userId}`, { method: 'GET' })
+  // Angular: this.http.post(MAINAPI + 'api/generateSecretCodeForMarksEntry' + '/' + userId, ' ')
+  // → POST cms/api/generateSecretCodeForMarksEntry/{userId} (NOT GET, and the
+  // `api/` segment is required — without it Spring 404s).
+  const res = await fetch(`/api/proxy/${EXAM_EVAL_API.GENERATE_SECRET_CODE_MARKS}/${userId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '" "',
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.message ?? `Failed to generate secret code (${res.status})`)
+  }
 }
 
 export async function validateMarksEntrySecretCode(userId: number, secretCode: string): Promise<boolean> {
+  // Angular getDetailsByRequestApi(validateSecretCodeForMarksEntryUrl, …) →
+  // GET cms/api/validateSecretCodeForMarksEntry?userId=…&secretCode=…
   const search = new URLSearchParams({ userId: String(userId), secretCode })
   const res = await fetch(`/api/proxy/${EXAM_EVAL_API.VALIDATE_SECRET_CODE_MARKS}?${search.toString()}`)
   const body = await res.json().catch(() => null)
-  return Boolean(body?.data ?? false)
+  return body?.data === true || body?.data === 'true'
 }
 
 export async function getExamMarksEntryFilters(employeeId: number): Promise<AnyRow[]> {

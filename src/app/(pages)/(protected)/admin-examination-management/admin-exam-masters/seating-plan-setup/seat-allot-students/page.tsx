@@ -13,6 +13,7 @@ import {
 } from '@/services/seating-plan'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { usePrintMode } from '@/lib/print'
+import { useCollegeLogo } from '@/hooks/useCollegeLogo'
 
 function flattenLegacyResult(body: any): any[] {
 	const result = (body?.result ?? body?.data?.result ?? body?.data ?? body ?? []) as any[]
@@ -154,6 +155,9 @@ export default function SeatAllotStudentsPage() {
 		}),
 		[searchParams]
 	)
+
+	// Dynamic selected-college logo for the print header (Angular: MINIO + Logo).
+	const collegeLogo = useCollegeLogo(Number(details.collegeId) || null)
 
 	useEffect(() => {
 		async function load() {
@@ -486,10 +490,10 @@ export default function SeatAllotStudentsPage() {
 					return (
 						<div key={`att-${gi}`} className={gi > 0 ? 'page-break' : ''}>
 							<img
-								src="/college-banner.png"
+								src={collegeLogo}
 								alt=""
 								style={{ maxHeight: 80, margin: '0 auto 8px', display: 'block' }}
-								onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+								onError={(e) => { const img = e.currentTarget as HTMLImageElement; if (!img.src.endsWith('default_logo.png')) img.src = '/assets/images/avatars/default_logo.png'; else img.style.display = 'none' }}
 							/>
 							<h4 style={{ textAlign: 'center', fontWeight: 'bold', margin: '0 0 8px 0' }}>ATTENDANCE SHEET</h4>
 							<h4 style={{ textAlign: 'center', margin: '0 0 12px 0', fontSize: '14px' }}>

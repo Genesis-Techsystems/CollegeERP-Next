@@ -22,6 +22,8 @@ export interface UserDTO {
   collegeId: number
   collegeCode: string
   collegeName: string
+  /** Logo URL/path shown in the Angular navbar (`loginUser.collegeLogo`) */
+  collegeLogo?: string
   organizationId?: number
   organizationCode?: string
   organizationName?: string
@@ -74,6 +76,8 @@ export interface SessionUser {
   collegeId: number
   collegeCode: string
   collegeName: string
+  /** College logo URL/path from the login DTO (sidebar header) */
+  collegeLogo?: string
   /** Organization ID -- used for college-wise filter queries */
   organizationId?: number
   universityId?: number

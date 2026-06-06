@@ -189,12 +189,14 @@ export default function CompleteExamFeeRegistrationPage() {
     setExamId(null)
   }, [courseId])
 
-  async function runAction(action: () => Promise<void>, successMessage: string) {
+  // Angular resultPro()/resultProPublish(): any HTTP-200 response is surfaced
+  // via result.message as a success toast — the procs report via message.
+  async function runAction(action: () => Promise<string>, successMessage: string) {
     if (!examId) return
     setLoading(true)
     try {
-      await action()
-      toastSuccess(successMessage)
+      const message = await action()
+      toastSuccess(message || successMessage)
     } catch (error) {
       toastError(error, 'Action failed')
     } finally {

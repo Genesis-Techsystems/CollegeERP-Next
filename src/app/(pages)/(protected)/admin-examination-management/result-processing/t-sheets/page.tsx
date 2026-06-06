@@ -10,8 +10,9 @@ import { Select } from '@/common/components/select'
 import { DataTable, TableCard } from '@/common/components/table'
 import type { ColDef } from 'ag-grid-community'
 import { getAllRecords } from '@/services/crud'
-import { listStudents } from '@/services/pre-examination'
-import { toastError } from '@/lib/toast'
+import { getTSheetEvaluationFilters, getTSheetResultList, listStudents } from '@/services'
+import { formatDate } from '@/common/generic-functions'
+import { toastError, toastInfo, toastSuccess } from '@/lib/toast'
 
 type AnyRow = Record<string, any>
 
@@ -76,6 +77,12 @@ export default function TSheetsPage() {
   const [studentId, setStudentId] = useState<number | null>(null)
   const [searchingStudents, setSearchingStudents] = useState(false)
 
+  // Angular getList(): s_get_examevaluation_bycodes flag list_evaluationsettings_filter
+  // drives the Get List call — course_code auto-set to the first row, exam_month_yr
+  // options derived from it (the Angular course-code dropdown is commented out).
+  const [examSubjects, setExamSubjects] = useState<AnyRow[]>([])
+  const [tsheetCourseCode, setTsheetCourseCode] = useState('')
+
   useEffect(() => {
     async function init() {
       setLoading(true)
@@ -114,6 +121,22 @@ export default function TSheetsPage() {
     }
     void init()
   }, [employeeId, organizationId])
+
+  useEffect(() => {
+    async function loadEvalFilters() {
+      try {
+        const rows = await getTSheetEvaluationFilters(employeeId)
+        setExamSubjects(rows)
+        // Angular auto-selects the first course_code (selectedCourse1)
+        const firstCourse = rows.find((r) => String(r.course_code ?? '').trim())
+        setTsheetCourseCode(String(firstCourse?.course_code ?? ''))
+      } catch (error) {
+        setExamSubjects([])
+        toastError(error, 'Failed to load exam month-year filters')
+      }
+    }
+    void loadEvalFilters()
+  }, [employeeId])
 
   const colleges = useMemo(() => dedupeBy(filters, ['fk_college_id', 'collegeId']), [filters])
   const courses = useMemo(
@@ -186,23 +209,25 @@ export default function TSheetsPage() {
     [filters, collegeId, courseId, academicYearId],
   )
 
-  const monthYearOptions = useMemo(
-    () =>
-      dedupeBy(
-        filters.filter(
-          (x) =>
-            numFrom(x, ['fk_college_id', 'collegeId']) === Number(collegeId) &&
-            numFrom(x, ['fk_course_id', 'courseId']) === Number(courseId),
-        ),
-        ['exam_month_yr'],
-      )
-        .map((x) => ({
-          value: strFrom(x, ['exam_month_yr']),
-          label: strFrom(x, ['exam_month_yr']),
-        }))
-        .filter((o) => o.value),
-    [filters, collegeId, courseId],
-  )
+  // Angular selectedCourse1(): exam_month_yr values for the auto-selected
+  // course_code, deduped, shown via date pipe dd/MM/yyyy.
+  const monthYearOptions = useMemo(() => {
+    const seen = new Set<string>()
+    const out: { value: string; label: string }[] = []
+    for (const row of examSubjects) {
+      if (String(row.course_code ?? '') !== tsheetCourseCode) continue
+      const my = String(row.exam_month_yr ?? '').trim()
+      if (!my || seen.has(my)) continue
+      seen.add(my)
+      out.push({ value: my, label: formatDate(my) })
+    }
+    return out
+  }, [examSubjects, tsheetCourseCode])
+
+  // Angular auto-selects the first exam month-year after loading the filters
+  useEffect(() => {
+    if (!examMonthYear && monthYearOptions[0]) setExamMonthYear(monthYearOptions[0].value)
+  }, [monthYearOptions, examMonthYear])
 
   const collegeOptions = useMemo(
     () =>
@@ -294,51 +319,31 @@ export default function TSheetsPage() {
     setRows([])
   }
 
+  // Angular newGetDetails(): s_get_exam_result_memos flag list_exam_tsheet with the
+  // evaluation-settings params (exam_month_yr + course_code drive the result set).
   async function getList() {
-    if (!examId && !examMonthYear) return
+    if (!examMonthYear || !tsheetCourseCode) {
+      toastInfo('Please Select The Filters')
+      return
+    }
     setLoading(true)
     try {
-      let data: AnyRow[] = []
-      if (examMonthYear && courseId) {
-        const resp = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_result_memos', {
-          in_flag: 'list_exam_tsheet',
-          in_orgid: 1,
-          in_fdate: '1990-01-01',
-          in_tdate: '1990-01-01',
-          in_exam_month_yr: examMonthYear,
-          in_course_code: strFrom(courses.find((c) => numFrom(c, ['fk_course_id', 'courseId']) === Number(courseId)) ?? {}, ['course_code', 'courseCode']),
-          in_course_year_code: '',
-          in_subject_code: '',
-          in_evalutor_profileid: 0,
-          in_exam_date: '1990-01-01',
-          in_regulation_code: '',
-          in_emp_id: 0,
-          in_questionpaper_id: 0,
-        })
-        data = Array.isArray(resp?.result?.[0]) ? resp.result[0] : []
-      } else {
-        const resp = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_result_memos', {
-          in_flag: 'list_exam_tsheet',
-          in_exam_id: examId ?? 0,
-          in_course_id: courseId ?? 0,
-          in_course_group_id: courseGroupId ?? 0,
-          in_course_year_id: courseYearId ?? 0,
-          in_std_id: mode === 'student' ? studentId ?? 0 : 0,
-          in_regulation_id: regulationId ?? 0,
-          in_ispass: isPass,
-          in_subject_id: 0,
-          in_above_fail_subjects: -1,
-          in_below_credits: -1,
-        })
-        data = Array.isArray(resp?.result?.[0]) ? resp.result[0] : []
-      }
-      const normalized = (Array.isArray(data) ? data : []).map((r, i) => ({
-        id: i + 1,
+      const data = await getTSheetResultList({
+        examMonthYear,
+        courseCode: tsheetCourseCode,
+      })
+      if (data.length === 0) toastSuccess('No Records Found.')
+      const normalized = data.map((r, i) => ({
         ...r,
+        id: i + 1,
         internal_marks: r.internal_marks ?? ' - ',
         external_marks: r.external_marks ?? ' - ',
         grade: r.grade ?? ' - ',
         grade_points: r.grade_points ?? ' - ',
+        // Angular folds course details into the college_code column
+        college_code: r.college_code
+          ? [r.college_code, r.course_code, r.regulation_code, r.group_code, r.course_year_code].join(' / ')
+          : r.college_code,
       }))
       setRows(normalized)
     } catch (error) {

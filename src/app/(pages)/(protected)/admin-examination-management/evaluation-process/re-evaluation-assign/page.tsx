@@ -82,7 +82,9 @@ export default function ReEvaluationAssignPage() {
     async function init() {
       setLoading(true)
       try {
-        const rows = await getReevaluationAssignSubjects(employeeId).catch(() => [])
+        // No inline .catch — let a real failure surface via the toast below
+        // instead of silently showing empty dropdowns.
+        const rows = await getReevaluationAssignSubjects(employeeId)
         setAllSubjectRows(Array.isArray(rows) ? rows : [])
       } catch (error) {
         toastError(error, 'Failed to load re-evaluation assign filters')

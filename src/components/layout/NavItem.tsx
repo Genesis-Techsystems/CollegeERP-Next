@@ -1031,6 +1031,42 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const forcedRoute = (() => {
     const hrefLower = (item.href ?? '').toLowerCase()
 
+    // ── Exam attendance marking ──────────────────────────────────────────────
+    // The DB ships both items with href `/attendance-management/mark-attendance`
+    // (a placeholder page), so href/label heuristics can't tell them apart or
+    // reach the real pages. Pin by the backend page IDs (from the live menu),
+    // then fall back to label so other tenants still resolve.
+    if (item.id === 'page_100080258') return `${postExamBase}/internal-exam-attendance-marking`
+    if (item.id === 'page_100081023') return `${postExamBase}/external-exam-attendance-marking`
+    if (
+      labelLower.includes('external') &&
+      (labelLower.includes('attendance') || labelLower.includes('attendence')) &&
+      labelLower.includes('marking')
+    ) {
+      return `${postExamBase}/external-exam-attendance-marking`
+    }
+    if (
+      labelLower.includes('internal') &&
+      (labelLower.includes('attendance') || labelLower.includes('attendence')) &&
+      labelLower.includes('marking')
+    ) {
+      return `${postExamBase}/internal-exam-attendance-marking`
+    }
+    // Exam Attendance-wise Subject Barcode — DB href is
+    // `/attendance-management/exam-attendance` (placeholder). Pin by page id +
+    // href so it always reaches the real pre-examination page. Must run BEFORE
+    // the generic "exam subject barcode" rule (that one routes to the plain
+    // barcode page on a loose `subject barcode` match).
+    if (
+      item.id === 'page_100080999' ||
+      hrefLower.includes('attendance-management/exam-attendance') ||
+      labelLower.includes('exam attendance-wis') ||
+      labelLower.includes('exam attendancewis') ||
+      (labelLower.includes('attendance') && labelLower.includes('subject') && labelLower.includes('barcode'))
+    ) {
+      return `${preExamBase}/exam-attendancewise-subject-barcode`
+    }
+
     // Transport — resolve before generic ERP mapper (DB hrefs often duplicate `route`).
     if (!hasChildren) {
       const isMapVehicleRoute =
@@ -1377,23 +1413,26 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     if (labelLower.includes('verify exam marks') || labelLower.includes('verify exam status')) {
       return `${postExamBase}/verify-exam-marks`
     }
+    // Attendance marking — match the DB href first (Angular post-examination
+    // routes: `exam-attendance-marking` for internal, `external-exam-…` for
+    // external); labels vary per tenant (typos, missing "Internal"/"Exam").
     if (
-      labelLower.includes('internal') &&
-      labelLower.includes('exam') &&
-      // DB labels misspell this as "attendence" on some tenants
-      (labelLower.includes('attendance') || labelLower.includes('attendence')) &&
-      labelLower.includes('marking') &&
-      !labelLower.includes('external')
-    ) {
-      return `${postExamBase}/internal-exam-attendance-marking`
-    }
-    if (
-      labelLower.includes('external') &&
-      labelLower.includes('exam') &&
-      (labelLower.includes('attendance') || labelLower.includes('attendence')) &&
-      labelLower.includes('marking')
+      hrefLower.includes('external-exam-attendance') ||
+      (labelLower.includes('external') &&
+        (labelLower.includes('attendance') || labelLower.includes('attendence')) &&
+        labelLower.includes('marking'))
     ) {
       return `${postExamBase}/external-exam-attendance-marking`
+    }
+    if (
+      (hrefLower.includes('exam-attendance-marking') && !hrefLower.includes('sheet')) ||
+      ((labelLower.includes('attendance') || labelLower.includes('attendence')) &&
+        labelLower.includes('marking') &&
+        labelLower.includes('exam') &&
+        !labelLower.includes('staff') &&
+        !labelLower.includes('sheet'))
+    ) {
+      return `${postExamBase}/internal-exam-attendance-marking`
     }
     if (
       labelLower.includes('internal') &&

@@ -367,6 +367,37 @@ class CrudService {
     }
   }
 
+  /**
+   * Call a stored procedure and return the raw API envelope WITHOUT throwing on
+   * `success: false`.
+   *
+   * Mirrors Angular pages that treat any HTTP-200 body as non-fatal and surface
+   * `result.message` to the user (e.g. result-processing pop procs, which report
+   * their outcome via `message` rather than the `success` flag). Never cached —
+   * these procs are actions, not reads.
+   */
+  async getAllRecordsEnvelope<T = unknown>(
+    procName: string,
+    params: Record<string, string | number>,
+  ): Promise<ApiResponse<T>> {
+    procName = normalizeProcName(procName)
+    const searchParams = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+    )
+
+    const res = await fetch(`${this.base}/${DOMAIN.PROC}/${procName}?${searchParams}`, {
+      cache: 'no-store',
+      credentials: 'include',
+    })
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      throw parseApiError(res, body)
+    }
+
+    return (await res.json()) as ApiResponse<T>
+  }
+
   // ── Proxy Helpers ─────────────────────────────────────────────────────────
 
   /**
@@ -557,6 +588,11 @@ export const getAllRecords = <T>(
   procName: string,
   params: Record<string, string | number>,
 ): Promise<T> => crud.getAllRecords<T>(procName, params)
+
+export const getAllRecordsEnvelope = <T = unknown>(
+  procName: string,
+  params: Record<string, string | number>,
+): Promise<ApiResponse<T>> => crud.getAllRecordsEnvelope<T>(procName, params)
 
 export const fetchDetails = <T>(
   path: string,

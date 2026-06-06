@@ -13,6 +13,7 @@ import {
 } from '@/services/pre-examination'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { useExamFormsPrint } from './_print/useExamFormsPrint'
+import { useCollegeLogo } from '@/hooks/useCollegeLogo'
 
 type AnyRow = Record<string, any>
 
@@ -138,9 +139,11 @@ export default function ExamFormsPage() {
     exams.find((e) => pickNum(e, ['fk_exam_id', 'examId']) === Number(examId)),
     ['exam_name', 'examName'],
   )
+  const collegeLogo = useCollegeLogo(collegeId)
   const { printMode, printButtons, printView } = useExamFormsPrint(students, {
     courseYear: printCourseYear,
     examName: printExamName,
+    logoUrl: collegeLogo,
   })
 
   useEffect(() => {
