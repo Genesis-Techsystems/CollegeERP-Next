@@ -34,7 +34,7 @@ nvm use 20
 npm run dev
 ```
 
-Visit https://matrusri-pre.skolo.in:8443/cms — you'll be redirected to `/login`. Use your Spring Boot credentials.
+Visit https://dev2.skolo.in.in:8443/cms — you'll be redirected to `/login`. Use your Spring Boot credentials.
 
 ---
 
