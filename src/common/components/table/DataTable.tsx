@@ -502,6 +502,7 @@ export function DataTable<T>({
           defaultColDef={defaultColDef}
           domLayout={isAutoHeight ? 'autoHeight' : undefined}
           loading={loading}
+          suppressCellFocus={true}
           onGridReady={handleGridReady}
           onFirstDataRendered={handleFirstDataRendered}
           onRowDataUpdated={handleRowDataUpdated}

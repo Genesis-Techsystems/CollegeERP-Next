@@ -256,6 +256,7 @@ export default function StudentSubjectsPage() {
       return
     }
     const row = studentOptionsRows.find((x) => pickNum(x, ['studentId', 'fk_student_id', 'student_id']) === sid) ?? null
+    console.log(JSON.stringify(row, null, 2))
     setSelectedStudent(row)
     if (row) await loadStudentSubjects(row)
   }
@@ -347,6 +348,11 @@ export default function StudentSubjectsPage() {
 
       {!!selectedStudent && (
         <div className="app-card p-4">
+          <div className="mb-4 text-lg font-semibold text-primary">
+  {selectedStudent.collegeCode} | {selectedStudent.academicYear} |{' '}
+  {selectedStudent.courseCode} | {selectedStudent.groupCode} |{' '}
+  {selectedStudent.courseYearName.trim()} | {selectedStudent.sectionName}
+</div>
           <div className="overflow-auto rounded border">
             <table className="w-full text-[12px]">
               <thead className="bg-muted/40">

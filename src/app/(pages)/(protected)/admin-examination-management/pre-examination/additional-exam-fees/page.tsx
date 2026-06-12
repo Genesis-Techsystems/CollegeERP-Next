@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import { ChevronDown, Eye, Filter, PlusCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import defaultStudent from '@/assets/images/avatars/default_Student.png'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, type SelectOption } from '@/common/components/select'
 import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
@@ -793,35 +795,67 @@ export default function AdditionalExamFeesPage() {
       </div>
 
       {student && examId && (
-        <div className="app-card p-3 text-[12px] border border-border bg-card">
-          <div className="font-medium">
-            {(student.firstName ?? student.studentName ?? '-') +
-              ' (' +
-              (student.isLateral ? 'LATERAL' : 'REGULAR') +
-              ')'}
-          </div>
-          <div className="text-muted-foreground mt-1">{student.rollNumber ?? '-'}</div>
-          <div className="text-muted-foreground mt-1">
-            {(student.collegeCode ?? '-') +
-              ' / ' +
-              (student.academicYear ?? '-') +
-              ' / ' +
-              (student.courseCode ?? '-') +
-              ' / ' +
-              (student.groupCode ?? '-') +
-              ' / ' +
-              (student.courseYearName ?? '-') +
-              (student.section ? ` / Section ${student.section}` : '')}
-          </div>
-          <div className="text-muted-foreground mt-1">
-            {(student.mobile ?? '-') +
-              ' | Quota: ' +
-              (student.quotaDisplayName ?? '-') +
-              ' | Status: ' +
-              (student.studentStatusDisplayName ?? '-')}
-          </div>
+  <div className="rounded border border-blue-200 bg-blue-50/40 p-3">
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+
+      {/* Student Image */}
+      <div className="md:col-span-2 flex justify-center">
+      <img
+  src={student?.studentPhotoPath || defaultStudent.src}
+  alt="Student"
+  className="h-24 w-24 rounded object-cover border"
+  onError={(e) => {
+    e.currentTarget.src = defaultStudent.src
+  }}
+/>
+      </div>
+
+      {/* Student Details */}
+      <div className="md:col-span-7 text-[12px] leading-6">
+        <div className="font-semibold text-[16px]">
+          {student.firstName ?? student.studentName ?? '-'} (
+          <span className="text-blue-700">
+            {student.isLateral ? 'LATERAL' : 'REGULAR'}
+          </span>
+          )
         </div>
-      )}
+
+        <div className="text-muted-foreground">
+          {student.hallticketNumber ?? student.rollNumber ?? '-'}
+        </div>
+
+        <div className="text-muted-foreground">
+          {student.collegeCode ?? '-'} / {student.academicYear ?? '-'} /{' '}
+          {student.courseCode ?? '-'} / {student.groupCode ?? '-'} /{' '}
+          {student.courseYearName ?? '-'}
+          {student.section ? ` / Section ${student.section}` : ''}
+        </div>
+
+        <div className="text-muted-foreground">
+          {student.mobile ?? '-'}
+        </div>
+      </div>
+
+      {/* Right Side */}
+      <div className="md:col-span-3 text-[12px] leading-7 pl-4">
+        <div>
+          Quota :
+          <span className="text-blue-700 ml-2">
+            {student.quotaDisplayName ?? '-'}
+          </span>
+        </div>
+
+        <div>
+          Student Status :
+          <span className="text-green-700 font-medium ml-2">
+            {student.studentStatusDisplayName ?? '-'}
+          </span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+)}
 
       {student && examId && (
         <div className="app-card overflow-hidden border border-border bg-card">
