@@ -9,10 +9,15 @@ import {
   type MutableRefObject,
 } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Filter } from "lucide-react";
+import { ChevronDown, Filter, LayoutList, Loader2 } from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/layout";
 import { Select } from "@/common/components/select";
-import { ConfirmDialog } from "@/common/components/feedback";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useSessionContext } from "@/context/SessionContext";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
@@ -917,16 +922,49 @@ export default function StudentDetailsPage() {
         onSave={saveHodEdit}
       />
 
-      <ConfirmDialog
-        open={credOpen}
-        onCancel={() => setCredOpen(false)}
-        onConfirm={() => void confirmSendCredentials()}
-        title="Send Credentials"
-        description={`Send credentials to: ${credLabel}`}
-        confirmLabel="Send"
-        confirmVariant="default"
-        isLoading={credSending}
-      />
+      <Dialog open={credOpen} onOpenChange={(open) => !open && setCredOpen(false)}>
+        <DialogContent className="max-w-lg gap-0 overflow-hidden p-0 sm:max-w-lg">
+          <div className="bg-card px-4 py-3">
+            <div className="flex items-center gap-2 text-[15px] font-semibold text-[hsl(var(--primary))]">
+              <LayoutList className="h-5 w-5 shrink-0 text-[hsl(var(--primary))]" aria-hidden />
+              <span>Send Credentials</span>
+            </div>
+            <div className="mt-2 h-px w-full bg-amber-400/80" />
+          </div>
+          <div className="px-4 py-5">
+            <p className="text-[13px] font-semibold text-foreground">
+              Send Credentials To :{' '}
+              <span className="font-bold text-blue-600">{credLabel.toUpperCase()}</span>
+            </p>
+          </div>
+          <DialogFooter className="gap-2 border-t border-border px-4 py-3 sm:justify-end">
+            <Button
+              type="button"
+              className="h-8 min-w-[72px] text-xs"
+              disabled={credSending}
+              onClick={() => void confirmSendCredentials()}
+            >
+              {credSending ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  Send
+                </>
+              ) : (
+                'Send'
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 min-w-[72px] text-xs"
+              disabled={credSending}
+              onClick={() => setCredOpen(false)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageContainer>
   );
 }
