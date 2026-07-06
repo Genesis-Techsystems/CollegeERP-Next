@@ -661,43 +661,69 @@ function parseCourseYearNumber(row: AnyRow): number | null {
   return typeof key === 'number' ? key : null
 }
 
-function groupStdFeeLedgerByYear(rows: AnyRow[]): Map<number, AnyRow> {
+const YR_RTF_HOLD_KEYS = [
+  'yr_scholarship_hold_amount',
+  'Yr_Scholarship_Hold_Amount',
+  'Scholarship_Hold_Amount',
+] as const
+const YR_RTF_RECEIVED_KEYS = ['Yr_scholarship_amount', 'yr_scholarship_amount', 'Yr_Scholarship_Amount'] as const
+const YR_DUE_COLLEGE_KEYS = ['due_college_amount', 'Due_College_Amount'] as const
+const YR_DUE_RTF_KEYS = ['due_rtf_amount', 'Due_RTF_Amount', 'P_due_rtf_amount'] as const
+
+function readAngularLedgerAmount(row: AnyRow, keys: readonly string[]): number | null {
+  const idx = rowKeyIndex(row)
+  for (const key of keys) {
+    const nk = normalizeKey(key)
+    if (!idx.has(nk)) continue
+    const v = idx.get(nk)
+    if (v === null || v === undefined || v === '') return null
+    return parseNumber(v)
+  }
+  return null
+}
+
+/** Angular student-fee-summary: first ledger row per `year`, direct `Yr_*` / `college_amount` fields. */
+function uniqueStdLedgerYearRows(rows: AnyRow[]): Map<number, AnyRow> {
   const map = new Map<number, AnyRow>()
   for (const raw of rows) {
     const yearNo = parseCourseYearNumber(raw)
-    if (yearNo == null) continue
+    if (yearNo == null || yearNo < 1 || yearNo > 4) continue
     if (!map.has(yearNo)) map.set(yearNo, raw)
   }
   return map
 }
 
-/** Map one `s_fee_std_ledger` row — `Yr_*` fields are year totals (same on every fee head). */
-function parseStdFeeLedgerYearRow(raw: AnyRow, yearNo: number): StudentFeeYearRow {
-  const gross = readFirstAmount(raw, YR_GROSS_KEYS)
-  const net = readFirstAmount(raw, YR_NET_KEYS)
-  const paid = readFirstAmount(raw, YR_PAID_KEYS, true)
-  const balance = readFirstAmount(raw, YR_BALANCE_KEYS, true)
-  const discount = readFirstAmount(raw, YR_DISCOUNT_KEYS, true)
-  const college = readFirstAmount(raw, LEDGER_COLLEGE_KEYS)
-  const dueCollege =
-    readFirstAmount(raw, ['due_college_amount', 'Due_College_Amount', 'P_college_due_amount'], true) ??
-    balance
-
-  const resolvedCollege = college != null && college > 0 ? college : gross
-
+function parseAngularStdLedgerYearRow(raw: AnyRow, yearNo: number): StudentFeeYearRow {
   return {
     year: `${yearNo} year`,
     isTotal: false,
-    totalAmount: gross,
-    rtfAmount: 0,
-    collegeAmount: resolvedCollege,
-    collegeDiscount: discount ?? 0,
-    netAmount: net ?? gross,
-    paidAmount: paid,
-    dueCollegeAmount: dueCollege,
-    rtfReceived: 0,
-    dueRtfAmount: readFirstAmount(raw, ['due_rtf_amount', 'P_due_rtf_amount'], true) ?? 0,
-    totalDue: balance,
+    totalAmount: readAngularLedgerAmount(raw, YR_GROSS_KEYS),
+    rtfAmount: readAngularLedgerAmount(raw, YR_RTF_HOLD_KEYS),
+    collegeAmount: readAngularLedgerAmount(raw, LEDGER_COLLEGE_KEYS),
+    collegeDiscount: readAngularLedgerAmount(raw, YR_DISCOUNT_KEYS),
+    netAmount: readAngularLedgerAmount(raw, YR_NET_KEYS),
+    paidAmount: readAngularLedgerAmount(raw, YR_PAID_KEYS),
+    dueCollegeAmount: readAngularLedgerAmount(raw, YR_DUE_COLLEGE_KEYS),
+    rtfReceived: readAngularLedgerAmount(raw, YR_RTF_RECEIVED_KEYS),
+    dueRtfAmount: readAngularLedgerAmount(raw, YR_DUE_RTF_KEYS),
+    totalDue: readAngularLedgerAmount(raw, YR_BALANCE_KEYS),
+  }
+}
+
+function emptyAngularYearRow(yearNo: number): StudentFeeYearRow {
+  return {
+    year: `${yearNo} year`,
+    isTotal: false,
+    totalAmount: null,
+    rtfAmount: null,
+    collegeAmount: null,
+    collegeDiscount: null,
+    netAmount: null,
+    paidAmount: null,
+    dueCollegeAmount: null,
+    rtfReceived: null,
+    dueRtfAmount: null,
+    totalDue: null,
   }
 }
 
@@ -726,20 +752,15 @@ function parseStdFeeLedgerTotalRow(rows: AnyRow[]): StudentFeeYearRow {
 }
 
 function buildStudentFeeViewFromStdLedger(rows: AnyRow[]): StudentFeeView {
-  const byYear = groupStdFeeLedgerByYear(rows)
+  const byYear = uniqueStdLedgerYearRows(rows)
   const yearRows: StudentFeeYearRow[] = []
-  let priorGrossSum: number | null = null
 
   for (const n of COURSE_FEE_YEARS) {
     const raw = byYear.get(n)
-    let row = raw ? parseStdFeeLedgerYearRow(raw, n) : emptyYearRow(n)
-    row = finalizeYearRow(row, n, raw, priorGrossSum)
-    yearRows.push(row)
-    const g = row.totalAmount
-    if (g != null && g > 0) priorGrossSum = (priorGrossSum ?? 0) + g
+    yearRows.push(raw ? parseAngularStdLedgerYearRow(raw, n) : emptyAngularYearRow(n))
   }
 
-  const totalRow = applyAngularFeeDefaults(parseStdFeeLedgerTotalRow(rows))
+  const totalRow = buildTotalRow(yearRows)
   return { rows: [...yearRows, totalRow] }
 }
 
@@ -1100,4 +1121,154 @@ export function buildStudentFeeView(rowsInput: unknown): StudentFeeView {
 export function formatFeeCell(value: number | null): string {
   if (value == null) return '-'
   return value.toLocaleString('en-IN')
+}
+
+/** One fee category line inside a year drill-down (Angular `feeLedgerList`). */
+export type StudentFeeParticularGroup = {
+  year: number
+  structures: string[]
+  totalAmt: (number | null)[]
+  rtfAmt: (number | null)[]
+  collegeAmt: (number | null)[]
+  discountAmt: (number | null)[]
+  netAmt: (number | null)[]
+  paidAmt: (number | null)[]
+  dueCollegeAmt: (number | null)[]
+  rtfReceivedAmt: (number | null)[]
+  dueRtfAmt: (number | null)[]
+  totalDueAmt: (number | null)[]
+  academicYearId?: number
+  collegeId?: number
+  studentId?: number
+  courseYearId?: number
+}
+
+export type StudentFeeParticularTotals = {
+  total: number
+  rtf: number
+  college: number
+  discount: number
+  net: number
+  paid: number
+  dueCollege: number
+  rtfReceived: number
+  dueRtf: number
+  totalDue: number
+}
+
+const P_GROSS_KEYS = ['P_gross_amount', 'P_Gross_Amount', 'p_gross_amount'] as const
+const P_COLLEGE_KEYS = ['p_college_amount', 'P_college_amount', 'P_College_Amount'] as const
+const P_DISCOUNT_KEYS = ['P_discount_amount', 'P_Discount_Amount'] as const
+const P_NET_KEYS = ['P_net_amount', 'P_Net_Amount'] as const
+const P_PAID_KEYS = ['P_paid_amount', 'P_Paid_Amount'] as const
+const P_COLLEGE_DUE_KEYS = ['P_college_due_amount', 'P_College_Due_Amount'] as const
+const P_SCHOLARSHIP_KEYS = ['P_scholarship_amount', 'P_Scholarship_Amount'] as const
+const P_BALANCE_KEYS = ['P_balance_amount', 'P_Balance_Amount'] as const
+
+function readFeeCategoryName(row: AnyRow): string {
+  return textCI(row, [
+    'fee_category_name',
+    'fee_category',
+    'feeHeadName',
+    'fee_head_name',
+    'particularName',
+    'particular_name',
+  ])
+}
+
+function isFeeParticularRow(row: AnyRow): boolean {
+  if (isTotalRow(row)) return false
+  const yearNo = parseCourseYearNumber(row)
+  if (yearNo == null) return false
+  return Boolean(readFeeCategoryName(row)) || readFirstAmount(row, P_GROSS_KEYS) != null
+}
+
+function pushParticularLine(group: StudentFeeParticularGroup, raw: AnyRow): void {
+  group.structures.push(readFeeCategoryName(raw) || '—')
+  group.totalAmt.push(readFirstAmount(raw, P_GROSS_KEYS, true))
+  group.rtfAmt.push(
+    readFirstAmount(raw, ['Scholarship_Hold_Amount', ...YR_RTF_HOLD_KEYS], true),
+  )
+  group.collegeAmt.push(readFirstAmount(raw, P_COLLEGE_KEYS, true))
+  group.discountAmt.push(readFirstAmount(raw, P_DISCOUNT_KEYS, true))
+  group.netAmt.push(readFirstAmount(raw, P_NET_KEYS, true))
+  group.paidAmt.push(readFirstAmount(raw, P_PAID_KEYS, true))
+  group.dueCollegeAmt.push(readFirstAmount(raw, P_COLLEGE_DUE_KEYS, true))
+  group.rtfReceivedAmt.push(readFirstAmount(raw, P_SCHOLARSHIP_KEYS, true))
+  group.dueRtfAmt.push(readFirstAmount(raw, YR_DUE_RTF_KEYS, true))
+  group.totalDueAmt.push(readFirstAmount(raw, P_BALANCE_KEYS, true))
+
+  const idx = rowKeyIndex(raw)
+  group.academicYearId = parseNumber(idx.get(normalizeKey('fk_academic_year_id'))) ?? group.academicYearId
+  group.collegeId = parseNumber(idx.get(normalizeKey('fk_college_id'))) ?? group.collegeId
+  group.studentId = parseNumber(idx.get(normalizeKey('pk_student_id'))) ?? group.studentId
+  group.courseYearId = parseNumber(idx.get(normalizeKey('pk_course_year_id'))) ?? group.courseYearId
+}
+
+/** Group fee ledger rows by year for the particulars drill-down view. */
+export function buildStudentFeeParticularGroups(rowsInput: unknown): StudentFeeParticularGroup[] {
+  const allRows = unwrapFeeLedgerRows(rowsInput)
+  const groups: StudentFeeParticularGroup[] = []
+  const byYear = new Map<number, StudentFeeParticularGroup>()
+
+  for (const raw of allRows) {
+    if (!isFeeParticularRow(raw)) continue
+    const yearNo = parseCourseYearNumber(raw)
+    if (yearNo == null) continue
+
+    let group = byYear.get(yearNo)
+    if (!group) {
+      group = {
+        year: yearNo,
+        structures: [],
+        totalAmt: [],
+        rtfAmt: [],
+        collegeAmt: [],
+        discountAmt: [],
+        netAmt: [],
+        paidAmt: [],
+        dueCollegeAmt: [],
+        rtfReceivedAmt: [],
+        dueRtfAmt: [],
+        totalDueAmt: [],
+      }
+      byYear.set(yearNo, group)
+      groups.push(group)
+    }
+    pushParticularLine(group, raw)
+  }
+
+  return groups.sort((a, b) => a.year - b.year)
+}
+
+function sumNumbers(values: (number | null)[]): number {
+  return values.reduce<number>((acc, v) => acc + (v ?? 0), 0)
+}
+
+/** Totals for one year's fee particulars (Angular `selectedParticular` sums). */
+export function summarizeStudentFeeParticulars(
+  rows: AnyRow[],
+  yearNo: number,
+): StudentFeeParticularTotals {
+  const filtered = rows.filter((raw) => parseCourseYearNumber(raw) === yearNo)
+  return {
+    total: sumNumbers(filtered.map((r) => readFirstAmount(r, P_GROSS_KEYS, true))),
+    rtf: sumNumbers(
+      filtered.map((r) => readFirstAmount(r, ['yr_scholarship_hold_amount', ...YR_RTF_HOLD_KEYS], true)),
+    ),
+    college: sumNumbers(filtered.map((r) => readFirstAmount(r, P_COLLEGE_KEYS, true))),
+    discount: sumNumbers(filtered.map((r) => readFirstAmount(r, P_DISCOUNT_KEYS, true))),
+    net: sumNumbers(filtered.map((r) => readFirstAmount(r, P_NET_KEYS, true))),
+    paid: sumNumbers(filtered.map((r) => readFirstAmount(r, P_PAID_KEYS, true))),
+    dueCollege: sumNumbers(filtered.map((r) => readFirstAmount(r, P_COLLEGE_DUE_KEYS, true))),
+    rtfReceived: sumNumbers(filtered.map((r) => readFirstAmount(r, P_SCHOLARSHIP_KEYS, true))),
+    dueRtf: sumNumbers(filtered.map((r) => readFirstAmount(r, YR_DUE_RTF_KEYS, true))),
+    totalDue: sumNumbers(filtered.map((r) => readFirstAmount(r, P_BALANCE_KEYS, true))),
+  }
+}
+
+/** Extract course year number from a summary row label like `1 year`. */
+export function parseFeeYearLabel(yearLabel: string): number | null {
+  const m = /^(\d+)\s*year/i.exec(yearLabel.trim())
+  return m ? Number(m[1]) : null
 }

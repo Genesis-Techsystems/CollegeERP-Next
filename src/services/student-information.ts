@@ -1,3 +1,4 @@
+import { STUDENT_API } from '@/config/constants/api'
 import {
   buildQuery,
   domainCreate,
@@ -7,6 +8,7 @@ import {
   getAllRecords,
   postDetails,
   putDetails,
+  uploadFile,
 } from '@/services/crud'
 
 type AnyRow = Record<string, any>
@@ -228,31 +230,35 @@ export async function listStudentsForPassout(params: {
 export async function listStudentsForRollNumberAssignment(params: {
   collegeId: number
   academicYearId: number
+  courseId?: number
   courseGroupId: number
   courseYearId: number
   groupSectionId?: number
 }): Promise<AnyRow[]> {
-  const { collegeId, academicYearId, courseGroupId, courseYearId, groupSectionId = 0 } = params
+  const { collegeId, academicYearId, courseId, courseGroupId, courseYearId, groupSectionId = 0 } = params
   if (!collegeId || !academicYearId || !courseGroupId || !courseYearId) return []
 
   const useSection = Number(groupSectionId) > 0
   const g = Number(groupSectionId)
 
-  const four: Record<string, number> = { collegeId, academicYearId, courseGroupId, courseYearId }
-  const fourSnake: Record<string, number> = {
+  const base: Record<string, number> = { collegeId, academicYearId, courseGroupId, courseYearId }
+  if (courseId) base.courseId = courseId
+
+  const baseSnake: Record<string, number> = {
     college_id: collegeId,
     academic_year_id: academicYearId,
     course_group_id: courseGroupId,
     course_year_id: courseYearId,
   }
+  if (courseId) baseSnake.course_id = courseId
 
   const paramSets: Record<string, string | number>[] = useSection
     ? [
-        { ...four, groupSectionId: g },
-        { ...four, group_section_id: g },
-        { ...fourSnake, group_section_id: g },
+        { ...base, groupSectionId: g },
+        { ...base, group_section_id: g },
+        { ...baseSnake, group_section_id: g },
       ]
-    : [four, fourSnake]
+    : [base, baseSnake]
 
   for (const p of paramSets) {
     try {
@@ -519,6 +525,163 @@ export async function submitStudentPassout(rows: Record<string, unknown>[]): Pro
 export async function getStudentInfoFilters(orgId: number, employeeId: number): Promise<AnyRow[]> {
   const { filtersData } = await getStudentInfoCollegeFilters(orgId, employeeId)
   return filtersData
+}
+
+/** Angular students-list `selectedYear` / `selectedAcademicYear` — `clg_sec_filters` proc. */
+export async function listStudentSectionsByProc(params: {
+  organizationId: number
+  employeeId: number
+  collegeId: number
+  courseId: number
+  courseGroupId: number
+  courseYearId: number
+  academicYearId: number
+}): Promise<AnyRow[]> {
+  const {
+    organizationId,
+    employeeId,
+    collegeId,
+    courseId,
+    courseGroupId,
+    courseYearId,
+    academicYearId,
+  } = params
+  if (!collegeId || !courseId || !courseGroupId || !courseYearId || !academicYearId) return []
+
+  try {
+    const data = await getAllRecords<{ result?: unknown }>('s_get_collegewisedetails_bycode', {
+      in_flag: 'clg_sec_filters',
+      in_org_id: organizationId || 0,
+      in_college_id: collegeId,
+      in_course_id: courseId,
+      in_course_group_id: courseGroupId,
+      in_course_year_id: courseYearId,
+      in_group_section_id: 0,
+      in_academic_year_id: academicYearId,
+      in_dept_id: 0,
+      in_isadmin: 0,
+      in_loginuser_empid: employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_subject: '',
+      in_employee: '',
+      in_gm_codes: '',
+    })
+    const groups = Array.isArray(data?.result) ? (data.result as unknown[]) : []
+    for (const g of groups) {
+      if (Array.isArray(g) && g.length > 0) {
+        return (g as AnyRow[]).sort(
+          (a, b) =>
+            num(a, ['pk_group_section_id', 'groupSectionId', 'group_section_id']) -
+            num(b, ['pk_group_section_id', 'groupSectionId', 'group_section_id']),
+        )
+      }
+    }
+  } catch {
+    // fallback below
+  }
+
+  return listGroupSectionsByFilters({
+    collegeId,
+    academicYearId,
+    courseGroupId,
+    courseYearId,
+  })
+}
+
+/** Angular students-list `getStudents` — `studentsList` via `listByFiveIds` or `listBySixIds`. */
+export async function listStudentsForStudentDetails(params: {
+  collegeId: number
+  academicYearId: number
+  courseId: number
+  courseGroupId: number
+  courseYearId: number
+  groupSectionId?: number
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, courseId, courseGroupId, courseYearId, groupSectionId = 0 } = params
+  if (!collegeId || !academicYearId || !courseId || !courseGroupId || !courseYearId) return []
+
+  const useSection = Number(groupSectionId) > 0
+  const g = Number(groupSectionId)
+
+  const fiveIdSets: Record<string, string | number>[] = [
+    { collegeId, academicYearId, courseId, courseGroupId, courseYearId },
+    {
+      CollegeId: collegeId,
+      AcademicYearId: academicYearId,
+      CourseId: courseId,
+      CourseGroupId: courseGroupId,
+      CourseYearId: courseYearId,
+    },
+    {
+      college_id: collegeId,
+      academic_year_id: academicYearId,
+      course_id: courseId,
+      course_group_id: courseGroupId,
+      course_year_id: courseYearId,
+    },
+  ]
+
+  const sixIdSets: Record<string, string | number>[] = [
+    { collegeId, academicYearId, courseId, courseGroupId, courseYearId, groupSectionId: g },
+    {
+      CollegeId: collegeId,
+      AcademicYearId: academicYearId,
+      CourseId: courseId,
+      CourseGroupId: courseGroupId,
+      CourseYearId: courseYearId,
+      GroupSectionId: g,
+    },
+    {
+      college_id: collegeId,
+      academic_year_id: academicYearId,
+      course_id: courseId,
+      course_group_id: courseGroupId,
+      course_year_id: courseYearId,
+      group_section_id: g,
+    },
+    { ...fiveIdSets[0]!, groupSectionId: g },
+    { ...fiveIdSets[2]!, group_section_id: g },
+  ]
+
+  const paramSets = useSection ? sixIdSets : fiveIdSets
+  let lastRows: AnyRow[] = []
+
+  for (const p of paramSets) {
+    try {
+      const data = await fetchDetails<any>('studentsList', p)
+      const rows = asArray<AnyRow>(data)
+      if (rows.length > 0) {
+        return rows.map((row) => ({ ...normalizeStudentRow(row), ...row }))
+      }
+      lastRows = rows
+    } catch {
+      // try next shape
+    }
+  }
+
+  return lastRows.map((row) => ({ ...normalizeStudentRow(row), ...row }))
+}
+
+/** Angular `sendStudentMailsUrl` — POST student credential emails. */
+export async function sendStudentCredentials(
+  rows: Array<{ studentId: number; collegeId: number }>,
+): Promise<unknown> {
+  if (!rows.length) throw new Error('No students selected')
+  const paths = ['sendStudentMails', 'sendstudentmails']
+  let lastError: unknown = null
+  for (const path of paths) {
+    try {
+      return await postDetails(path, rows)
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError ?? new Error('Failed to send student credentials')
+}
+
+/** Angular HOD quick edit — POST `studentdetail` with updated profile fields. */
+export async function updateStudentQuickProfile(payload: Record<string, unknown>): Promise<unknown> {
+  return postDetails('studentdetail', payload)
 }
 
 export async function searchStudentsByKeyword(term: string): Promise<AnyRow[]> {
@@ -1330,4 +1493,67 @@ export async function listStudentSubjectsForStudentSemester(params: {
   }
 
   return []
+}
+
+/** Sub-castes for a caste — Angular `getSubCastesByCasteIdUrl`. */
+export async function listSubCastesByCasteId(casteId: number): Promise<AnyRow[]> {
+  if (!casteId) return []
+  const queries = [
+    buildQuery({ 'Caste.casteId': casteId, isActive: true }),
+    buildQuery({ casteId, isActive: true }),
+  ]
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>('SubCaste', q)
+      if (rows.length > 0) return rows
+    } catch {
+      // next shape
+    }
+  }
+  return []
+}
+
+/** Document repository rows for student certificate step — college-scoped with global fallback. */
+export async function listDocumentRepositoriesForStudentByCollege(collegeId: number): Promise<AnyRow[]> {
+  const queries = collegeId
+    ? [
+        buildQuery({ 'College.collegeId': collegeId, isForStudent: true, isActive: true }),
+        buildQuery({ collegeId, isForStudent: true, isActive: true }),
+        buildQuery({ isForStudent: true, isActive: true }),
+      ]
+    : [buildQuery({ isForStudent: true, isActive: true })]
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>('DocumentRepository', q)
+      if (rows.length > 0) return rows
+    } catch {
+      // next shape
+    }
+  }
+  return []
+}
+
+/** Angular edit-student — POST full `studentdetail` payload. */
+export async function saveStudentDetail(payload: Record<string, unknown>): Promise<unknown> {
+  return postDetails('studentdetail', payload)
+}
+
+/** Angular `updateStudentUploadUrl` — photos + document soft copies. */
+export async function uploadStudentDetailFiles(formData: FormData): Promise<void> {
+  await uploadFile(STUDENT_API.DETAIL_UPLOAD, formData)
+}
+
+/** Angular `uploadStudentSignaturePathUrl` — signature upload (endpoint name varies by env). */
+export async function uploadStudentSignatureFile(formData: FormData): Promise<void> {
+  const paths = ['uploadStudentSignaturePath', 'uploadstudentsignature', 'studentSignatureUpload']
+  let lastError: unknown
+  for (const path of paths) {
+    try {
+      await uploadFile(path, formData)
+      return
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError ?? new Error('Failed to upload student signature')
 }

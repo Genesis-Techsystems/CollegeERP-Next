@@ -132,10 +132,39 @@ function attendanceRowKey(row: AnyRow, index: number): string {
   return `${studentId || 'na'}-${fromDate || 'na'}-${toDate || 'na'}-${reason || index}`
 }
 
-function formatSectionLabel(label: string): string {
-  const clean = label.trim()
-  if (!clean || clean.toLowerCase() === 'section') return '-'
-  return `Section ${clean}`
+function yearNo(row: AnyRow | null | undefined): number {
+  return pickNum(row ?? {}, ['year_no', 'yearNo', 'year_order', 'yearOrder'])
+}
+
+function academicYearEndLabel(label: string): number {
+  const match = label.match(/(\d{4})\s*$/)
+  return match ? Number(match[1]) : 0
+}
+
+function validatePromotionRules(params: {
+  fromAyId: number | null
+  toAyId: number | null
+  fromYearId: number | null
+  toYearId: number | null
+  fromYears: AnyRow[]
+}): string | null {
+  const { fromAyId, toAyId, fromYearId, toYearId, fromYears } = params
+  if (!fromYearId || !toYearId) return 'Semester number is empty please check...'
+
+  const fromRow = fromYears.find((r) => pickNum(r, YR) === Number(fromYearId))
+  const toRow = fromYears.find((r) => pickNum(r, YR) === Number(toYearId))
+  const fromYearNo = yearNo(fromRow)
+  const toYearNo = yearNo(toRow)
+
+  if (fromAyId === toAyId && toYearNo >= fromYearNo) {
+    if (fromYearId !== toYearId) return null
+    return 'Should not promote in same academic year and same course year'
+  }
+  if (fromAyId !== toAyId && fromYearNo !== toYearNo) {
+    if (fromYearNo < toYearNo) return null
+    return 'Your are promoting to worng course year please check...'
+  }
+  return 'Your are promoting to worng class please check...'
 }
 
 function selectClass() {
@@ -198,6 +227,7 @@ export default function StudentPromotionPage() {
   const [fromSectionApiRows, setFromSectionApiRows] = useState<AnyRow[]>([])
   const [toSectionApiRows, setToSectionApiRows] = useState<AnyRow[]>([])
   const [resultRows, setResultRows] = useState<AnyRow[]>([])
+  const [listSearch, setListSearch] = useState('')
   const [selectedPromotionIds, setSelectedPromotionIds] = useState<number[]>([])
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewSearch, setPreviewSearch] = useState('')
@@ -258,21 +288,10 @@ export default function StudentPromotionPage() {
 
   const fromAcademicYears = useMemo(() => {
     if (!fromCollegeId) return []
-    const byFilters = dedupeBy(
-      allRows.filter((r) => pickNum(r, COL) === Number(fromCollegeId)),
-      (r) => pickNum(r, AY),
-    ).filter((r) => pickNum(r, AY) > 0)
-    if (byFilters.length > 0) return byFilters
-
     const collegeRow = allRows.find((r) => pickNum(r, COL) === Number(fromCollegeId))
     const univId = pickNum(collegeRow ?? {}, ['fk_university_id', 'universityId'])
     return dedupeBy(
-      academicData.filter((r) => {
-        const cid = pickNum(r, ['fk_college_id', 'collegeId'])
-        if (cid > 0) return cid === Number(fromCollegeId)
-        if (univId > 0) return pickNum(r, ['fk_university_id', 'universityId']) === univId
-        return true
-      }),
+      academicData.filter((r) => pickNum(r, ['fk_university_id', 'universityId']) === univId),
       (r) => pickNum(r, AY),
     ).filter((r) => pickNum(r, AY) > 0)
   }, [allRows, academicData, fromCollegeId])
@@ -280,12 +299,10 @@ export default function StudentPromotionPage() {
   const fromCourses = useMemo(
     () =>
       dedupeBy(
-        allRows.filter(
-          (r) => pickNum(r, COL) === Number(fromCollegeId) && rowAyMatches(r, fromAyId),
-        ),
+        allRows.filter((r) => pickNum(r, COL) === Number(fromCollegeId)),
         (r) => pickNum(r, CRS),
       ).filter((r) => pickNum(r, CRS) > 0),
-    [allRows, fromCollegeId, fromAyId],
+    [allRows, fromCollegeId],
   )
   const fromGroups = useMemo(
     () =>
@@ -293,12 +310,11 @@ export default function StudentPromotionPage() {
         allRows.filter(
           (r) =>
             pickNum(r, COL) === Number(fromCollegeId) &&
-            rowAyMatches(r, fromAyId) &&
             rowDimMatches(r, CRS, fromCourseId),
         ),
         (r) => pickNum(r, GRP),
       ).filter((r) => pickNum(r, GRP) > 0),
-    [allRows, fromCollegeId, fromAyId, fromCourseId],
+    [allRows, fromCollegeId, fromCourseId],
   )
   const fromYears = useMemo(
     () =>
@@ -306,13 +322,12 @@ export default function StudentPromotionPage() {
         allRows.filter(
           (r) =>
             pickNum(r, COL) === Number(fromCollegeId) &&
-            rowAyMatches(r, fromAyId) &&
             rowDimMatches(r, CRS, fromCourseId) &&
             rowDimMatches(r, GRP, fromGroupId),
         ),
         (r) => pickNum(r, YR),
       ).filter((r) => pickNum(r, YR) > 0),
-    [allRows, fromCollegeId, fromAyId, fromCourseId, fromGroupId],
+    [allRows, fromCollegeId, fromCourseId, fromGroupId],
   )
   const fromSectionsFromFilters = useMemo(
     () =>
@@ -342,56 +357,17 @@ export default function StudentPromotionPage() {
 
   const toAcademicYears = useMemo(() => {
     if (!toCollegeId) return []
-    const byFilters = dedupeBy(
-      toRowsBase.filter((r) => pickNum(r, AY) > 0),
-      (r) => pickNum(r, AY),
-    ).filter((r) => pickNum(r, AY) > 0)
-    if (byFilters.length > 0) return byFilters
-
     const collegeRow = allRows.find((r) => pickNum(r, COL) === Number(toCollegeId))
     const univId = pickNum(collegeRow ?? {}, ['fk_university_id', 'universityId'])
     return dedupeBy(
-      academicData.filter((r) => {
-        const cid = pickNum(r, ['fk_college_id', 'collegeId'])
-        if (cid > 0) return cid === Number(toCollegeId)
-        if (univId > 0) return pickNum(r, ['fk_university_id', 'universityId']) === univId
-        return true
-      }),
+      academicData.filter((r) => pickNum(r, ['fk_university_id', 'universityId']) === univId),
       (r) => pickNum(r, AY),
     ).filter((r) => pickNum(r, AY) > 0)
-  }, [toRowsBase, allRows, academicData, toCollegeId])
+  }, [allRows, academicData, toCollegeId])
 
-  const toCourses = useMemo(
-    () =>
-      dedupeBy(
-        toRowsBase.filter((r) => rowAyMatches(r, toAyId)),
-        (r) => pickNum(r, CRS),
-      ).filter((r) => pickNum(r, CRS) > 0),
-    [toRowsBase, toAyId],
-  )
-  const toGroups = useMemo(
-    () =>
-      dedupeBy(
-        toRowsBase.filter(
-          (r) => rowAyMatches(r, toAyId) && rowDimMatches(r, CRS, toCourseId),
-        ),
-        (r) => pickNum(r, GRP),
-      ).filter((r) => pickNum(r, GRP) > 0),
-    [toRowsBase, toAyId, toCourseId],
-  )
-  const toYears = useMemo(
-    () =>
-      dedupeBy(
-        toRowsBase.filter(
-          (r) =>
-            rowAyMatches(r, toAyId) &&
-            rowDimMatches(r, CRS, toCourseId) &&
-            rowDimMatches(r, GRP, toGroupId),
-        ),
-        (r) => pickNum(r, YR),
-      ).filter((r) => pickNum(r, YR) > 0),
-    [toRowsBase, toAyId, toCourseId, toGroupId],
-  )
+  const toCourses = fromCourses
+  const toGroups = fromGroups
+  const toYears = fromYears
   const toSectionsFromFilters = useMemo(
     () =>
       dedupeBy(
@@ -411,6 +387,95 @@ export default function StudentPromotionPage() {
     [toSectionApiRows, toSectionsFromFilters],
   )
 
+  const previewRows = useMemo(
+    () =>
+      resultRows.filter((row, idx) => selectedPromotionIds.includes(rowStudentId(row, idx + 1))),
+    [resultRows, selectedPromotionIds],
+  )
+
+  const previewStudent = previewRows[0] ?? resultRows[0] ?? null
+
+  const previewCollegeCode = useMemo(
+    () =>
+      pickText(previewStudent, ['collegeCode', 'college_code']) ||
+      pickText(allRows.find((r) => pickNum(r, COL) === Number(toCollegeId)), [
+        'college_code',
+        'collegeCode',
+      ]) ||
+      user?.collegeCode ||
+      '-',
+    [previewStudent, allRows, toCollegeId, user?.collegeCode],
+  )
+  const previewCourseCode = useMemo(
+    () =>
+      pickText(previewStudent, ['courseCode', 'course_code']) ||
+      pickText(allRows.find((r) => pickNum(r, CRS) === Number(fromCourseId)), [
+        'course_code',
+        'courseCode',
+      ]) ||
+      '-',
+    [previewStudent, allRows, fromCourseId],
+  )
+  const previewGroupCode = useMemo(
+    () =>
+      pickText(previewStudent, ['groupCode', 'group_code']) ||
+      pickText(allRows.find((r) => pickNum(r, GRP) === Number(toGroupId)), [
+        'group_code',
+        'groupCode',
+      ]) ||
+      '-',
+    [previewStudent, allRows, toGroupId],
+  )
+  const previewFromCourseYear = useMemo(
+    () =>
+      pickText(previewStudent, ['courseYearName', 'course_year_name']) ||
+      pickText(fromYears.find((r) => pickNum(r, YR) === Number(fromYearId)), [
+        'course_year_code',
+        'courseYearCode',
+      ]) ||
+      '-',
+    [previewStudent, fromYears, fromYearId],
+  )
+  const previewToCourseYear = useMemo(
+    () =>
+      pickText(fromYears.find((r) => pickNum(r, YR) === Number(toYearId)), [
+        'course_year_code',
+        'courseYearCode',
+      ]) || '-',
+    [fromYears, toYearId],
+  )
+  const previewFromSection = useMemo(
+    () =>
+      pickText(previewStudent, ['section', 'sectionName']) ||
+      sectionLabel(fromSections.find((r) => pickNum(r, SEC) === Number(fromSectionId)) ?? {}) ||
+      '-',
+    [previewStudent, fromSections, fromSectionId],
+  )
+  const previewToSection = useMemo(() => {
+    const apiRow = toSectionApiRows.find((r) => pickNum(r, SEC) === Number(toSectionId))
+    if (apiRow) return pickText(apiRow, ['section', 'sectionName']) || sectionLabel(apiRow)
+    const row = toSections.find((r) => pickNum(r, SEC) === Number(toSectionId))
+    return sectionLabel(row ?? {}) || '-'
+  }, [toSectionApiRows, toSections, toSectionId])
+  const previewFromAy = useMemo(
+    () =>
+      pickText(previewStudent, ['academicYear', 'academic_year']) ||
+      pickText(fromAcademicYears.find((r) => pickNum(r, AY) === Number(fromAyId)), [
+        'academic_year',
+        'academicYear',
+      ]) ||
+      '-',
+    [previewStudent, fromAcademicYears, fromAyId],
+  )
+  const previewToAy = useMemo(
+    () =>
+      pickText(toAcademicYears.find((r) => pickNum(r, AY) === Number(toAyId)), [
+        'academic_year',
+        'academicYear',
+      ]) || '-',
+    [toAcademicYears, toAyId],
+  )
+
   const toCollegeLabel = useMemo(() => {
     const row = allRows.find((r) => pickNum(r, COL) === Number(toCollegeId))
     return (
@@ -420,44 +485,22 @@ export default function StudentPromotionPage() {
     )
   }, [allRows, toCollegeId, user?.collegeCode])
 
-  const fromCourseLabel = useMemo(() => {
-    const row = allRows.find((r) => pickNum(r, CRS) === Number(fromCourseId))
-    return pickText(row, ['course_code', 'courseCode', 'course_name', 'courseName']) || '-'
-  }, [allRows, fromCourseId])
-  const toGroupLabel = useMemo(() => {
-    const row = allRows.find((r) => pickNum(r, GRP) === Number(toGroupId))
-    return pickText(row, ['group_code', 'groupCode', 'group_name', 'groupName']) || '-'
-  }, [allRows, toGroupId])
-  const fromYearLabel = useMemo(() => {
-    const row = allRows.find((r) => pickNum(r, YR) === Number(fromYearId))
-    return pickText(row, ['course_year_name', 'courseYearName', 'course_year_code', 'courseYearCode']) || '-'
-  }, [allRows, fromYearId])
-  const toYearLabel = useMemo(() => {
-    const row = allRows.find((r) => pickNum(r, YR) === Number(toYearId))
-    return pickText(row, ['course_year_name', 'courseYearName', 'course_year_code', 'courseYearCode']) || '-'
-  }, [allRows, toYearId])
-  const fromSectionLabel = useMemo(() => {
-    const row = fromSections.find((r) => pickNum(r, SEC) === Number(fromSectionId))
-    return sectionLabel(row ?? {}) || '-'
-  }, [fromSections, fromSectionId])
-  const toSectionLabel = useMemo(() => {
-    const row = toSections.find((r) => pickNum(r, SEC) === Number(toSectionId))
-    return sectionLabel(row ?? {}) || '-'
-  }, [toSections, toSectionId])
-  const fromAyLabel = useMemo(() => {
-    const row = fromAcademicYears.find((r) => pickNum(r, AY) === Number(fromAyId))
-    return pickText(row, ['academic_year', 'academicYear']) || '-'
-  }, [fromAcademicYears, fromAyId])
-  const toAyLabel = useMemo(() => {
-    const row = toAcademicYears.find((r) => pickNum(r, AY) === Number(toAyId))
-    return pickText(row, ['academic_year', 'academicYear']) || '-'
-  }, [toAcademicYears, toAyId])
+  const previewYearWarning =
+    academicYearEndLabel(previewFromAy) > 0 &&
+    academicYearEndLabel(previewToAy) > 0 &&
+    academicYearEndLabel(previewFromAy) > academicYearEndLabel(previewToAy)
 
-  const previewRows = useMemo(
-    () =>
-      resultRows.filter((row, idx) => selectedPromotionIds.includes(rowStudentId(row, idx + 1))),
-    [resultRows, selectedPromotionIds],
-  )
+  const filteredResultRows = useMemo(() => {
+    const q = listSearch.trim().toLowerCase()
+    if (!q) return resultRows
+    return resultRows.filter((row) =>
+      [pickText(row, ['rollNumber', 'hallticketNumber']), pickText(row, ['firstName', 'studentName'])]
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
+    )
+  }, [resultRows, listSearch])
+
   const previewFilteredRows = useMemo(() => {
     const q = previewSearch.trim().toLowerCase()
     if (!q) return previewRows
@@ -473,14 +516,7 @@ export default function StudentPromotionPage() {
     )
   }, [previewRows, previewSearch])
   const effectiveToCollegeId = toCollegeId ?? fromCollegeId
-  const effectiveToSectionId = useMemo(() => {
-    if (toSectionId) return toSectionId
-    if (fromSectionId) return fromSectionId
-    if (toSections.length === 0) return null
-    const sameAsFrom = toSections.find((r) => pickNum(r, SEC) === Number(fromSectionId))
-    if (sameAsFrom) return pickNum(sameAsFrom, SEC)
-    return pickNum(toSections[0], SEC) || null
-  }, [toSectionId, toSections, fromSectionId])
+  const effectiveToSectionId = toSectionId
   const hasRequiredPromotionFilters = useMemo(
     () =>
       Boolean(
@@ -566,9 +602,7 @@ export default function StudentPromotionPage() {
       return
     }
     setFromSectionId(null)
-    const first = fromSections[0]
-    if (first) setFromSectionId(pickNum(first, SEC))
-  }, [fromYearId, fromSections])
+  }, [fromYearId, fromYears])
 
   useEffect(() => {
     async function loadFromSections() {
@@ -655,14 +689,13 @@ export default function StudentPromotionPage() {
       return
     }
     setToSectionId(null)
-    const first = toSections[0]
-    if (first) setToSectionId(pickNum(first, SEC))
-  }, [toYearId, toSections])
+  }, [toYearId, toYears])
 
   useEffect(() => {
-    if (toSectionId || !effectiveToSectionId) return
-    setToSectionId(effectiveToSectionId)
-  }, [toSectionId, effectiveToSectionId])
+    if (toSectionId || toSectionApiRows.length === 0) return
+    const first = pickNum(toSectionApiRows[0], SEC)
+    if (first) setToSectionId(first)
+  }, [toSectionApiRows, toSectionId])
 
   useEffect(() => {
     async function loadToSections() {
@@ -681,9 +714,20 @@ export default function StudentPromotionPage() {
     void loadToSections()
   }, [toCollegeId, toAyId, toGroupId, toYearId])
 
-  async function onGetList() {
+  useEffect(() => {
+    if (!fromCourseId) return
+    setToCourseId(fromCourseId)
+  }, [fromCourseId])
+
+  useEffect(() => {
+    if (!fromGroupId) return
+    setToGroupId(fromGroupId)
+  }, [fromGroupId])
+
+  const loadStudentList = useCallback(async () => {
     if (!fromCollegeId || !fromGroupId || !fromSectionId) {
       setResultRows([])
+      setSelectedPromotionIds([])
       return
     }
     setLoadingList(true)
@@ -702,7 +746,11 @@ export default function StudentPromotionPage() {
     } finally {
       setLoadingList(false)
     }
-  }
+  }, [fromCollegeId, fromGroupId, fromSectionId])
+
+  useEffect(() => {
+    void loadStudentList()
+  }, [loadStudentList])
 
   function togglePromote(studentId: number, checked: boolean) {
     setSelectedPromotionIds((prev) => {
@@ -723,6 +771,7 @@ export default function StudentPromotionPage() {
     if (!hasRequiredPromotionFilters) {
       const missing: string[] = []
       if (!fromSectionId) missing.push('Promote From section')
+      if (!toAyId) missing.push('Promote To academic year')
       if (!toGroupId) missing.push('Promote To course group')
       if (!toYearId) missing.push('Promote To course year')
       if (!effectiveToSectionId) missing.push('Promote To section')
@@ -733,6 +782,17 @@ export default function StudentPromotionPage() {
       }
       setFromFilterOpen(true)
       setToFilterOpen(true)
+      return
+    }
+    const validationError = validatePromotionRules({
+      fromAyId,
+      toAyId,
+      fromYearId,
+      toYearId,
+      fromYears,
+    })
+    if (validationError) {
+      toastError(new Error(validationError))
       return
     }
     if (selectedPromotionIds.length === 0) {
@@ -750,89 +810,80 @@ export default function StudentPromotionPage() {
       setToFilterOpen(true)
       return
     }
+    if (previewYearWarning) {
+      toastError(new Error(`You are try to promoting worng academic year : (${previewFromAy} - ${previewToAy})`))
+      return
+    }
+    const validationError = validatePromotionRules({
+      fromAyId,
+      toAyId,
+      fromYearId,
+      toYearId,
+      fromYears,
+    })
+    if (validationError) {
+      toastError(new Error(validationError))
+      return
+    }
+
     const selectedRows = resultRows.filter((row, idx) => selectedPromotionIds.includes(rowStudentId(row, idx + 1)))
     if (selectedRows.length === 0) {
       toastError(new Error('No students selected for promotion.'))
       return
     }
 
-    const basePayload = {
-      fromCollegeId,
-      fromAcademicYearId: fromAyId ?? 0,
-      fromCourseId: fromCourseId ?? 0,
-      fromCourseGroupId: fromGroupId,
-      fromCourseYearId: fromYearId,
-      fromGroupSectionId: fromSectionId,
-      toCollegeId: effectiveToCollegeId ?? fromCollegeId,
-      toAcademicYearId: toAyId ?? 0,
-      toCourseId: toCourseId ?? 0,
-      toCourseGroupId: toGroupId,
+    const fromYearRow = fromYears.find((r) => pickNum(r, YR) === Number(fromYearId))
+    const toYearRow = fromYears.find((r) => pickNum(r, YR) === Number(toYearId))
+    const changeDate = toIsoDate(changeFrom)
+
+    const angularPayload: Record<string, unknown> = {
+      collegeId: fromCollegeId,
+      academicYearId: toAyId,
+      courseId: fromCourseId,
+      courseGroupId: fromGroupId,
       toCourseYearId: toYearId,
       toGroupSectionId: effectiveToSectionId,
-      changeFromDate: toIsoDate(changeFrom),
-      studentIds: selectedRows.map((row, idx) => rowStudentId(row, idx + 1)),
-      students: selectedRows.map((row, idx) => ({
-        studentId: rowStudentId(row, idx + 1),
-        hallticketNumber: pickText(row, ['hallticketNumber', 'rollNumber']),
-      })),
+      fromCourseYearId: fromYearId,
+      fromYearNo: yearNo(fromYearRow),
+      toYearNo: yearNo(toYearRow),
+      fromGroupSectionId: fromSectionId,
+      fromDate: changeDate,
+      toDate: changeDate,
+      toCollegeId: fromCollegeId,
+      toCourseId: fromCourseId,
+      toCourseGroupId: fromGroupId,
+      toAcademicYearId: toAyId,
+      fromCourseGroupId: fromGroupId,
+      studentIdsList: selectedRows,
     }
-    const perStudentRows = selectedRows.map((row, idx) => ({
-      studentId: rowStudentId(row, idx + 1),
-      fromCollegeId,
-      fromAcademicYearId: fromAyId ?? 0,
-      fromCourseGroupId: fromGroupId,
-      fromCourseYearId: fromYearId,
-      fromGroupSectionId: fromSectionId,
-      toCollegeId: effectiveToCollegeId ?? fromCollegeId,
-      toAcademicYearId: toAyId ?? 0,
-      toCourseGroupId: toGroupId,
-      toCourseYearId: toYearId,
-      toGroupSectionId: effectiveToSectionId,
-      changeFromDate: toIsoDate(changeFrom),
-      hallticketNumber: pickText(row, ['hallticketNumber', 'rollNumber']),
-    }))
-    const payloadVariants: Record<string, unknown>[] = [
-      basePayload,
-      { ...basePayload, studentList: basePayload.students },
-      { ...basePayload, students: perStudentRows },
-      perStudentRows as unknown as Record<string, unknown>,
-    ]
 
     setSubmittingPromotion(true)
     try {
-      let data: AnyRow | null = null
-      let lastError: unknown = null
-      for (const candidate of payloadVariants) {
-        try {
-          data = await promoteStudents(candidate)
-          lastError = null
-          break
-        } catch (error) {
-          lastError = error
-        }
-      }
-      if (!data) throw lastError ?? new Error('Promotion submit failed')
+      const data = await promoteStudents(angularPayload)
       const rows = parseResultRows(data)
+      const success = data?.success !== false
       setAttendanceRows(rows)
-      setAttendanceMessage(rows.length > 0 ? '' : 'No academic batches found for this date.')
+      setAttendanceMessage(
+        rows.length > 0 ? '' : success ? 'Promotion completed.' : 'No academic batches found for this date.',
+      )
       setPreviewOpen(false)
-      setAttendanceOpen(true)
-      toastSuccess('Promotion submitted successfully')
-    } catch {
+      if (success) {
+        toastSuccess(typeof data?.message === 'string' ? data.message : 'Promotion submitted successfully')
+        await loadStudentList()
+      } else {
+        toastError(new Error(typeof data?.message === 'string' ? data.message : 'Promotion completed with warnings'))
+        await loadStudentList()
+      }
+      if (!success || rows.length > 0) setAttendanceOpen(true)
+    } catch (e) {
       setAttendanceRows([])
       setAttendanceMessage('Promotion submit failed. Please verify data and try again.')
       setAttendanceOpen(true)
-      toastError('Promotion submit failed')
+      toastError(e, 'Promotion submit failed')
     } finally {
       setSubmittingPromotion(false)
     }
   }
-
-  useEffect(() => {
-    // Prevent promoting stale list rows after changing source filters.
-    setResultRows([])
-    setSelectedPromotionIds([])
-  }, [fromCollegeId, fromAyId, fromCourseId, fromGroupId, fromYearId, fromSectionId])
 
   return (
     <PageContainer className="space-y-4">
@@ -915,7 +966,7 @@ export default function StudentPromotionPage() {
                   onChange={(v) => setFromSectionId(parseSelectNumber(v))}
                   options={mapSectionOptsFrom(fromSections)}
                   placeholder="Select Section"
-                  disabled={!fromGroupId || loadingFilters}
+                  disabled={!fromYearId || loadingFilters}
                   searchable
                   className={selectClass()}
                 />
@@ -941,7 +992,7 @@ export default function StudentPromotionPage() {
             </Button>
           </div>
           {toFilterOpen && (
-            <div className="p-3 space-y-3">
+            <div className="space-y-3 p-3">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <Select
                   label="College"
@@ -957,6 +1008,26 @@ export default function StudentPromotionPage() {
                   className={selectClass()}
                 />
                 <Select
+                  label="Course"
+                  value={toCourseId ? String(toCourseId) : null}
+                  onChange={() => {}}
+                  options={mapCourseOptsFrom(toCourses)}
+                  placeholder="Course"
+                  disabled
+                  className={selectClass()}
+                />
+                <Select
+                  label="Course Group"
+                  value={toGroupId ? String(toGroupId) : null}
+                  onChange={() => {}}
+                  options={mapGroupOptsFrom(toGroups)}
+                  placeholder="Course Group"
+                  disabled
+                  className={selectClass()}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <Select
                   label="Academic Year"
                   required
                   value={toAyId ? String(toAyId) : null}
@@ -964,24 +1035,6 @@ export default function StudentPromotionPage() {
                   options={mapAyOptsFrom(toAcademicYears)}
                   placeholder="Select Academic Year"
                   disabled={!toCollegeId || loadingFilters}
-                  className={selectClass()}
-                />
-                <Select
-                  label="Course"
-                  value={toCourseId ? String(toCourseId) : null}
-                  onChange={(v) => setToCourseId(v ? Number(v) : null)}
-                  options={mapCourseOptsFrom(toCourses)}
-                  placeholder="Select Course"
-                  disabled={!toAyId || loadingFilters}
-                  className={selectClass()}
-                />
-                <Select
-                  label="Course Group"
-                  value={toGroupId ? String(toGroupId) : null}
-                  onChange={(v) => setToGroupId(v ? Number(v) : null)}
-                  options={mapGroupOptsFrom(toGroups)}
-                  placeholder="Select Course Group"
-                  disabled={!toCourseId || loadingFilters}
                   className={selectClass()}
                 />
                 <Select
@@ -1001,7 +1054,7 @@ export default function StudentPromotionPage() {
                   onChange={(v) => setToSectionId(parseSelectNumber(v))}
                   options={mapSectionOptsFrom(toSections)}
                   placeholder="Select Section"
-                  disabled={!toGroupId || loadingFilters}
+                  disabled={!toYearId || loadingFilters}
                   searchable
                   className={selectClass()}
                 />
@@ -1018,29 +1071,25 @@ export default function StudentPromotionPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          className="h-8 text-[12px]"
-          disabled={loadingList || !fromCollegeId || !fromGroupId || !fromSectionId}
-          onClick={onGetList}
-        >
-          {loadingList ? 'Loading…' : 'Get List'}
-        </Button>
-      </div>
+      {loadingList && fromSectionId ? (
+        <p className="text-xs text-muted-foreground">Loading students…</p>
+      ) : null}
 
       {resultRows.length > 0 && (
-        <div className="app-card p-4">
+        <div className="app-card p-4 space-y-3">
+          <Input
+            value={listSearch}
+            onChange={(e) => setListSearch(e.target.value)}
+            placeholder="Search"
+            className="max-w-xs h-8 text-xs"
+          />
           <div className="overflow-auto rounded border">
             <table className="w-full text-[12px]">
               <thead className="bg-muted/40">
                 <tr>
                   <th className="px-2 py-1 text-left">SI.No</th>
-                  <th className="px-2 py-1 text-left">Hallticket No</th>
+                  <th className="px-2 py-1 text-left">Roll No.</th>
                   <th className="px-2 py-1 text-left">Student Name</th>
-                  <th className="px-2 py-1 text-left">Course</th>
-                  <th className="px-2 py-1 text-left">Section</th>
-                  <th className="px-2 py-1 text-left">Mobile</th>
                   <th className="px-2 py-1 text-left">
                     <label className="inline-flex items-center gap-1.5">
                       <input
@@ -1049,29 +1098,40 @@ export default function StudentPromotionPage() {
                         onChange={(e) => toggleAllPromote(e.target.checked)}
                       />
                       {' '}
-                      Promote All
+                      {selectedPromotionIds.length === resultRows.length && resultRows.length > 0
+                        ? 'UnMark All'
+                        : 'Mark All'}
                     </label>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {resultRows.map((row, index) => (
-                  <tr key={`r-${pickNum(row, ['studentId']) || index}`} className="border-t">
-                    <td className="px-2 py-1">{index + 1}</td>
-                    <td className="px-2 py-1">{pickText(row, ['hallticketNumber', 'rollNumber'])}</td>
-                    <td className="px-2 py-1">{pickText(row, ['studentName', 'firstName'])}</td>
-                    <td className="px-2 py-1">{pickText(row, ['courseName', 'course_code'])}</td>
-                    <td className="px-2 py-1">{pickText(row, ['sectionName', 'group_section_name'])}</td>
-                    <td className="px-2 py-1">{pickText(row, ['mobileNumber', 'mobile_number'])}</td>
+                {filteredResultRows.map((row, index) => (
+                  <tr key={`r-${rowStudentId(row, index + 1)}-${index}`} className="border-t">
+                    <td className="px-2 py-1">{resultRows.indexOf(row) + 1}</td>
+                    <td className="px-2 py-1">{pickText(row, ['rollNumber', 'hallticketNumber'])}</td>
+                    <td className="px-2 py-1">{pickText(row, ['firstName', 'studentName'])}</td>
                     <td className="px-2 py-1">
-                      <label className="inline-flex items-center gap-1.5 text-emerald-700">
+                      <label className="inline-flex items-center gap-1.5">
                         <input
                           type="checkbox"
-                          checked={selectedPromotionIds.includes(rowStudentId(row, index + 1))}
-                          onChange={(e) => togglePromote(rowStudentId(row, index + 1), e.target.checked)}
+                          checked={selectedPromotionIds.includes(rowStudentId(row, resultRows.indexOf(row) + 1))}
+                          onChange={(e) =>
+                            togglePromote(rowStudentId(row, resultRows.indexOf(row) + 1), e.target.checked)
+                          }
                         />
                         {' '}
-                        Promote
+                        <span
+                          className={
+                            selectedPromotionIds.includes(rowStudentId(row, resultRows.indexOf(row) + 1))
+                              ? 'text-emerald-700'
+                              : 'text-muted-foreground'
+                          }
+                        >
+                          {selectedPromotionIds.includes(rowStudentId(row, resultRows.indexOf(row) + 1))
+                            ? 'Promote'
+                            : 'Unpromote'}
+                        </span>
                       </label>
                     </td>
                   </tr>
@@ -1079,7 +1139,7 @@ export default function StudentPromotionPage() {
               </tbody>
             </table>
           </div>
-          <div className="mt-3 flex justify-end">
+          <div className="flex justify-end">
             <Button type="button" className="h-8 text-[12px]" disabled={selectedPromotionIds.length === 0} onClick={onOpenPreview}>
               Save
             </Button>
@@ -1092,11 +1152,16 @@ export default function StudentPromotionPage() {
             <DialogTitle>Preview Promotion</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {previewYearWarning ? (
+              <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                You are try to promoting worng academic year : ({previewFromAy} - {previewToAy})
+              </div>
+            ) : null}
             <div className="rounded border border-sky-100 bg-sky-50/40 p-3 text-[14px] leading-7">
-              <div><span className="font-semibold">College :</span> {toCollegeLabel}</div>
-              <div><span className="font-semibold">Course :</span> {fromCourseLabel} / {toGroupLabel}</div>
-              <div><span className="font-semibold">Promotion From :</span> {fromYearLabel} / {formatSectionLabel(fromSectionLabel)} ({fromAyLabel})</div>
-              <div><span className="font-semibold">Promotion To :</span> {toYearLabel} / {formatSectionLabel(toSectionLabel)} ({toAyLabel})</div>
+              <div><span className="font-semibold">College :</span> {previewCollegeCode}</div>
+              <div><span className="font-semibold">Course :</span> {previewCourseCode} / {previewGroupCode}</div>
+              <div><span className="font-semibold">Promotion From :</span> {previewFromCourseYear} / Section {previewFromSection} ({previewFromAy})</div>
+              <div><span className="font-semibold">Promotion To :</span> {previewToCourseYear} / Section {previewToSection} ({previewToAy})</div>
             </div>
             <Input
               value={previewSearch}
@@ -1129,7 +1194,12 @@ export default function StudentPromotionPage() {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" className="h-8 text-xs" onClick={() => setPreviewOpen(false)}>Close</Button>
-            <Button type="button" className="h-8 text-xs" disabled={submittingPromotion} onClick={onSubmitPromotion}>
+            <Button
+              type="button"
+              className="h-8 text-xs"
+              disabled={submittingPromotion || previewYearWarning}
+              onClick={onSubmitPromotion}
+            >
               {submittingPromotion ? 'Saving…' : 'Save'}
             </Button>
           </DialogFooter>
