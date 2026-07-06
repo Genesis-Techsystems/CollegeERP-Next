@@ -735,6 +735,35 @@ export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
   })
 }
 
+/** Same href pins NavItem uses so breadcrumbs match sidebar links. */
+function resolveNavItemHrefForBreadcrumb(item: NavItem): string | null {
+  const labelLower = (item.label ?? '').toLowerCase()
+
+  if (labelLower.includes('room detail')) return '/admin/room-details'
+  if (
+    (labelLower.includes('college courses') && labelLower.includes('group'))
+    || (labelLower.includes('college subject') && labelLower.includes('group'))
+  ) {
+    return '/admin/college-courses-groups'
+  }
+
+  if (!item.href) return null
+
+  const hrefLower = item.href.toLowerCase()
+  const masterSettingsMarker = 'master-settings/'
+  const masterSettingsIndex = hrefLower.indexOf(masterSettingsMarker)
+  if (masterSettingsIndex !== -1) {
+    const slug = hrefLower
+      .slice(masterSettingsIndex + masterSettingsMarker.length)
+      .split('?')[0]
+    if (slug) {
+      return normalizeHref(`/admin/${slug}`).replace(/\/$/, '')
+    }
+  }
+
+  return normalizePageHref(item.href, item.label).replace(/\/$/, '')
+}
+
 /**
  * Resolves breadcrumb segments from the sidebar nav tree so labels match the
  * menu (e.g. Master Setup → Organizations) instead of raw URL segments.
@@ -749,7 +778,7 @@ export function findNavBreadcrumbItems(
   function walk(items: NavItem[], chain: NavItem[]) {
     for (const item of items) {
       const nextChain = [...chain, item]
-      const href = item.href ? normalizeHref(item.href).replace(/\/$/, '') : null
+      const href = resolveNavItemHrefForBreadcrumb(item)
 
       if (href) {
         const exact = target === href
