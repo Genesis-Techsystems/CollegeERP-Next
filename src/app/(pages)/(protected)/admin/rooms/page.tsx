@@ -17,10 +17,11 @@ import RoomModal from './RoomModal'
 const COL_DEFS = {
   siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<Room>,
   blockName: { headerName: 'Block Name', minWidth: 130, flex: 1 } as ColDef<Room>,
-  floorName: { headerName: 'Floor Name', minWidth: 130, flex: 1 } as ColDef<Room>,
-  roomType: { headerName: 'Room Type', minWidth: 130, flex: 1 } as ColDef<Room>,
-  roomCode: { headerName: 'Room Code', minWidth: 120, flex: 0.8 } as ColDef<Room>,
+  floorName: { headerName: 'Floor', minWidth: 130, flex: 1 } as ColDef<Room>,
   roomName: { headerName: 'Room Name', minWidth: 150, flex: 1 } as ColDef<Room>,
+  roomCode: { headerName: 'Room Code', minWidth: 120, flex: 0.8 } as ColDef<Room>,
+  roomType: { headerName: 'Room Type', minWidth: 130, flex: 1 } as ColDef<Room>,
+  occupancy: { headerName: 'Occupancy', minWidth: 110, flex: 0.7 } as ColDef<Room>,
   isActive: { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<Room>,
   actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<Room>,
 }
@@ -84,16 +85,24 @@ export default function RoomsPage() {
         valueGetter: (p) => pickText((p.data ?? {}) as Record<string, unknown>, ['floorName', 'floorname']),
       },
       {
-        ...COL_DEFS.roomType,
-        valueGetter: (p) => pickText((p.data ?? {}) as Record<string, unknown>, ['roomType', 'roomtype']),
+        ...COL_DEFS.roomName,
+        valueGetter: (p) => pickText((p.data ?? {}) as Record<string, unknown>, ['roomName', 'roomname']),
       },
       {
         ...COL_DEFS.roomCode,
         valueGetter: (p) => pickText((p.data ?? {}) as Record<string, unknown>, ['roomCode', 'roomcode']),
       },
       {
-        ...COL_DEFS.roomName,
-        valueGetter: (p) => pickText((p.data ?? {}) as Record<string, unknown>, ['roomName', 'roomname']),
+        ...COL_DEFS.roomType,
+        valueGetter: (p) => pickText((p.data ?? {}) as Record<string, unknown>, ['roomType', 'roomtype']),
+      },
+      {
+        ...COL_DEFS.occupancy,
+        valueGetter: (p) => {
+          const row = (p.data ?? {}) as Record<string, unknown>
+          const value = row.occupancy ?? row.Occupancy
+          return typeof value === 'number' && Number.isFinite(value) ? value : ''
+        },
       },
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
       { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditingRoom, setModalOpen) },

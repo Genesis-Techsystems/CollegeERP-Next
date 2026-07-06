@@ -319,8 +319,7 @@ export default function RoomDetailsPage() {
         roomId: num(roomId ?? 0),
       })
       setResultRows(rows)
-    } catch (error) {
-      console.error(error)
+    } catch {
       setResultRows([])
     } finally {
       setDetailsLoading(false)

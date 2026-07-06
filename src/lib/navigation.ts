@@ -1,6 +1,7 @@
 import type { Module, SubModule, Page, NavItem } from '@/types/navigation'
 import { ensureErpModuleNavChildren, mapErpModuleNavRoute } from './erp-modules-navigation'
 import { ensureTimetableNavChildren, mapTimetableNavRoute } from './timetable-navigation'
+import { mapAdminInstitutionalRoomRoute } from './admin-institutional-navigation'
 
 /**
  * Removes any doubled leading segment from a URL path.
@@ -400,11 +401,16 @@ function overrideErpModuleHref(href: string, pageLabel: string): string {
   return mapped ?? href
 }
 
+function overrideInstitutionalMastersHref(href: string, pageLabel: string): string {
+  return mapAdminInstitutionalRoomRoute(href, pageLabel) ?? href
+}
+
 function normalizePageHref(href: string, pageLabel: string): string {
+  const withInstitutional = overrideInstitutionalMastersHref(href, pageLabel)
   return normalizeHref(
     overrideErpModuleHref(
       overrideTimetableHref(
-        overrideLegacyPostExamHref(overrideLegacyPreExamHref(href, pageLabel), pageLabel),
+        overrideLegacyPostExamHref(overrideLegacyPreExamHref(withInstitutional, pageLabel), pageLabel),
         pageLabel,
       ),
       pageLabel,

@@ -38,6 +38,11 @@ function flattenProcRows(payload: Record<string, unknown> | undefined): AnyRow[]
   return out
 }
 
+function isNoRecordsProcError(error: unknown): boolean {
+  const msg = String((error as Error)?.message ?? '').toLowerCase()
+  return msg.includes('no record')
+}
+
 export async function listRoomDetails(): Promise<RoomDetail[]> {
   return domainList<RoomDetail>(
     ENTITIES.ROOM.name,
@@ -52,14 +57,20 @@ export async function getRoomDeviceDetails(filters: {
   floorId: number
   roomId: number
 }): Promise<RoomDetail[]> {
-  const payload = await getAllRecords<Record<string, unknown>>(ROOM_DETAILS_API.GET_ROOM_DEVICE_DETAILS, {
-    in_campus_id: filters.campusId,
-    in_building_id: filters.buildingId,
-    in_block_id: filters.blockId,
-    in_floor_id: filters.floorId,
-    in_room_id: filters.roomId,
-  })
-  return flattenProcRows(payload) as unknown as RoomDetail[]
+  try {
+    const payload = await getAllRecords<Record<string, unknown>>(ROOM_DETAILS_API.GET_ROOM_DEVICE_DETAILS, {
+      in_campus_id: filters.campusId,
+      in_building_id: filters.buildingId,
+      in_block_id: filters.blockId,
+      in_floor_id: filters.floorId,
+      in_room_id: filters.roomId,
+    })
+    return flattenProcRows(payload) as unknown as RoomDetail[]
+  } catch (error) {
+    // Stored proc returns success:false when no rows match — valid empty state.
+    if (isNoRecordsProcError(error)) return []
+    throw error
+  }
 }
 
 export type RoomDevicePayload = {

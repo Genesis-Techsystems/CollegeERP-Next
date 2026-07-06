@@ -1,3 +1,4 @@
+import { isAdminInstitutionalRoomContext } from '@/lib/admin-institutional-navigation'
 import { mapModuleTail, normalizeLabelKey } from '@/lib/erp-modules-navigation-utils'
 import { resolveModuleSlug } from './get-route'
 import { ERP_MODULE_REGISTRY } from './registry'
@@ -90,6 +91,10 @@ function mapModuleHrefFromUrl(mod: ErpModuleMirrorConfig, href: string): string 
 }
 
 function mapModuleHref(mod: ErpModuleMirrorConfig, href?: string, label?: string): string | null {
+  if (mod.id === 'hostel' && isAdminInstitutionalRoomContext(href, label)) {
+    return null
+  }
+
   // Sidebar labels from the API are authoritative when aliased (href in DB is often wrong).
   if (label) {
     const key = normalizeLabelKey(label)
