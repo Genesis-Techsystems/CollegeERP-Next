@@ -39,6 +39,7 @@ import {
   listDistrictsByState,
   listCitiesByDistrict,
 } from "@/services/admin/organization";
+import { requiredNumber } from "@/lib/zod-fields";
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ const schema = z.object({
   address: z.string().min(1, "Address is required"),
   countryId: z.number().optional().nullable(),
   stateId: z.number().optional().nullable(),
-  districtId: z.number().min(1, "District is required"),
+  districtId: requiredNumber("District is required"),
   cityId: z.number().optional().nullable(),
   mandal: z.string().min(1, "Mandal is required"),
   pincode: z

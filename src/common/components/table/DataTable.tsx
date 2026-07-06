@@ -324,7 +324,12 @@ export function DataTable<T>({
   const tb = useMemo(() => resolveToolbar(toolbarProp), [toolbarProp])
 
   const rootRef = useRef<HTMLDivElement>(null)
+  const [popupParent, setPopupParent] = useState<HTMLElement | undefined>(undefined)
   const [inferredTitle, setInferredTitle] = useState<string | undefined>()
+
+  useEffect(() => {
+    setPopupParent(document.body)
+  }, [])
 
   useEffect(() => {
     const root = rootRef.current
@@ -557,6 +562,7 @@ export function DataTable<T>({
           getRowId={getRowId}
           onCellClicked={onCellClicked}
           onRowClicked={onRowClick ? handleRowClicked : undefined}
+          popupParent={popupParent}
           animateRows
         />
       </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
 import { Building2, PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
@@ -14,13 +14,52 @@ import { listBuildings } from '@/services'
 import type { Building } from '@/types/building'
 import BuildingModal from './BuildingModal'
 
+const EMPTY_DASH = '-'
+
+function dashFormatter(p: ValueFormatterParams<Building>) {
+  const value = p.value
+  if (value == null) return EMPTY_DASH
+  if (typeof value === 'string' && value.trim() === '') return EMPTY_DASH
+  return String(value)
+}
+
 const COL_DEFS = {
   siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<Building>,
-  buildingName: { field: 'buildingName', headerName: 'Building', minWidth: 170, flex: 1.2 } as ColDef<Building>,
-  buildingCode: { field: 'buildingCode', headerName: 'Code', minWidth: 100, flex: 0.75 } as ColDef<Building>,
-  landMark: { field: 'landMark', headerName: 'Land Mark', minWidth: 150, flex: 1 } as ColDef<Building>,
-  noOfFloors: { field: 'noOfFloors', headerName: 'Floors', minWidth: 90, flex: 0.6 } as ColDef<Building>,
-  campusName: { field: 'campusName', headerName: 'Campus', minWidth: 150, flex: 1 } as ColDef<Building>,
+  buildingName: {
+    field: 'buildingName',
+    headerName: 'Building Name',
+    minWidth: 170,
+    flex: 1.2,
+    valueFormatter: dashFormatter,
+  } as ColDef<Building>,
+  buildingCode: {
+    field: 'buildingCode',
+    headerName: 'Building Code',
+    minWidth: 120,
+    flex: 0.85,
+    valueFormatter: dashFormatter,
+  } as ColDef<Building>,
+  landMark: {
+    field: 'landMark',
+    headerName: 'Land Mark',
+    minWidth: 150,
+    flex: 1,
+    valueFormatter: dashFormatter,
+  } as ColDef<Building>,
+  noOfFloors: {
+    field: 'noOfFloors',
+    headerName: 'No of Floors',
+    minWidth: 110,
+    flex: 0.7,
+    valueFormatter: dashFormatter,
+  } as ColDef<Building>,
+  campusName: {
+    field: 'campusName',
+    headerName: 'Campus',
+    minWidth: 150,
+    flex: 1,
+    valueFormatter: dashFormatter,
+  } as ColDef<Building>,
   isActive: { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<Building>,
   actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<Building>,
 }

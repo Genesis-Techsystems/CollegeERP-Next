@@ -35,24 +35,25 @@ import type { College } from '@/types/college'
 import type { Campus } from '@/types/campus'
 import type { Organization, Country, State, District, City } from '@/types/organization'
 import type { University } from '@/types/university'
+import { requiredNumber } from '@/lib/zod-fields'
 
 const schema = z.object({
-  organizationId: z.number().min(1, 'Organization is required'),
-  universityId: z.number().min(1, 'University is required'),
-  campusId: z.number().min(1, 'Campus is required'),
+  organizationId: requiredNumber('Organization is required'),
+  universityId: requiredNumber('University is required'),
+  campusId: requiredNumber('Campus is required'),
   countryId: z.number().optional(),
   stateId: z.number().optional(),
-  districtId: z.number().min(1, 'District is required'),
-  cityId: z.number().min(1, 'City is required'),
+  districtId: requiredNumber('District is required'),
+  cityId: requiredNumber('City is required'),
   collegeName: z.string().min(1, 'College name is required'),
   collegeShortName: z.string().optional(),
   collegeCode: z.string().min(1, 'College code is required'),
-  affiliatedTo: z.number().min(1, 'Affiliated to is required'),
+  affiliatedTo: requiredNumber('Affiliated to is required'),
   printPrefix: z.string().optional(),
   address: z.string().min(1, 'Address is required'),
   mandal: z.string().min(1, 'Mandal is required'),
   pincode: z.string().min(1, 'Pincode is required'),
-  sortOrder: z.number().min(1, 'Sort order is required'),
+  sortOrder: requiredNumber('Sort order is required'),
   collegeType: z.number().optional(),
   approvedBy: z.string().optional(),
   mobileNumber: z.string().optional().refine(

@@ -13,10 +13,11 @@ import { Label } from '@/components/ui/label'
 import { createBuilding, listActiveCampuses, updateBuilding } from '@/services'
 import type { Building } from '@/types/building'
 import type { Campus } from '@/types/campus'
+import { requiredNumber } from '@/lib/zod-fields'
 
 const schema = z.object({
   organizationId: z.number().optional(),
-  campusId: z.number().min(1, 'Campus is required'),
+  campusId: requiredNumber('Campus is required'),
   buildingName: z.string().min(1, 'Building name is required'),
   buildingCode: z.string().min(1, 'Building code is required'),
   landMark: z.string().optional(),
@@ -85,7 +86,7 @@ export default function BuildingModal({ open, onClose, building, onSaved }: Read
         landMark: building.landMark ?? '',
         noOfFloors: building.noOfFloors ?? undefined,
         isActive: building.isActive,
-        reason: building.reason ?? '',
+        reason: building.isActive ? '' : (building.reason ?? ''),
       })
     } else {
       reset()
@@ -102,15 +103,10 @@ export default function BuildingModal({ open, onClose, building, onSaved }: Read
         return
       }
 
-      const payload: Omit<Building, 'buildingId'> = {
-        ...data,
-        organizationId: selectedCampus.organizationId,
-      }
-
       if (isEditing) {
-        await updateBuilding(building!.buildingId, payload)
+        await updateBuilding(building!.buildingId, data, building!)
       } else {
-        await createBuilding(payload)
+        await createBuilding(data as Omit<Building, 'buildingId'>)
       }
       onSaved()
       onClose()
@@ -155,12 +151,12 @@ export default function BuildingModal({ open, onClose, building, onSaved }: Read
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <Label htmlFor="buildingName">Building Name *</Label>
-              <Input id="buildingName" {...register('buildingName')} />
+              <Input id="buildingName" placeholder="Enter building name" {...register('buildingName')} />
               {errors.buildingName && <p className="text-xs text-red-500">{errors.buildingName.message}</p>}
             </div>
             <div className="space-y-0.5">
               <Label htmlFor="buildingCode">Building Code *</Label>
-              <Input id="buildingCode" {...register('buildingCode')} />
+              <Input id="buildingCode" placeholder="Enter building code" {...register('buildingCode')} />
               {errors.buildingCode && <p className="text-xs text-red-500">{errors.buildingCode.message}</p>}
             </div>
           </div>
@@ -168,7 +164,7 @@ export default function BuildingModal({ open, onClose, building, onSaved }: Read
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <Label htmlFor="landMark">Land Mark</Label>
-              <Input id="landMark" {...register('landMark')} />
+              <Input id="landMark" placeholder="Enter land mark" {...register('landMark')} />
             </div>
             <div className="space-y-0.5">
               <Label htmlFor="noOfFloors">No. of Floors</Label>
@@ -176,6 +172,7 @@ export default function BuildingModal({ open, onClose, building, onSaved }: Read
                 id="noOfFloors"
                 type="number"
                 min={0}
+                placeholder="Enter number of floors"
                 {...register('noOfFloors', { valueAsNumber: true })}
               />
               {errors.noOfFloors && <p className="text-xs text-red-500">{errors.noOfFloors.message}</p>}

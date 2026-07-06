@@ -25,6 +25,7 @@ import type { Building } from '@/types/building'
 import type { Campus } from '@/types/campus'
 import type { RoomDetail } from '@/types/room-detail'
 import type { EttlDevice } from '@/services/admin/room-detail'
+import { requiredNumber } from '@/lib/zod-fields'
 
 function num(value: unknown): number {
   const n = Number(value)
@@ -90,8 +91,8 @@ const schema = z.object({
   buildingId: z.number().optional(),
   blockId: z.number().optional(),
   floorId: z.number().optional(),
-  roomId: z.number().min(1, 'Room is required'),
-  ettlDeviceId: z.number().min(1, 'Device is required'),
+  roomId: requiredNumber('Room is required'),
+  ettlDeviceId: requiredNumber('Device is required'),
   roomDetailId: z.number().optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),

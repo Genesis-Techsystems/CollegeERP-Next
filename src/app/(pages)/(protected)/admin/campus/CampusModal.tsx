@@ -31,16 +31,17 @@ import {
   listDistrictsByState,
 } from '@/services/admin/organization'
 import { createCampus, updateCampus } from '@/services/admin/campus'
+import { requiredNumber } from '@/lib/zod-fields'
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
 const schema = z.object({
-  organizationId: z.number().min(1, 'Organization is required'),
+  organizationId: requiredNumber('Organization is required'),
   campusName: z.string().min(1, 'Campus name is required'),
   campusCode: z.string().min(1, 'Campus code is required'),
   countryId: z.number().optional(),
   stateId: z.number().optional(),
-  districtId: z.number().min(1, 'District is required'),
+  districtId: requiredNumber('District is required'),
   isActive: z.boolean(),
   reason: z.string().optional(),
 })

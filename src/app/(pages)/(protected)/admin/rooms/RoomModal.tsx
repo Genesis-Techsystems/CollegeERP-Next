@@ -20,6 +20,7 @@ import {
 import type { Block } from '@/types/block'
 import type { Room } from '@/types/room'
 import type { RoomType } from '@/types/room-type'
+import { requiredNumber } from '@/lib/zod-fields'
 
 type Floor = {
   floorId: number
@@ -28,9 +29,9 @@ type Floor = {
 }
 
 const schema = z.object({
-  blockId: z.number().min(1, 'Block is required'),
-  floorId: z.number().min(1, 'Floor is required'),
-  roomTypeId: z.number().min(1, 'Room type is required'),
+  blockId: requiredNumber('Block is required'),
+  floorId: requiredNumber('Floor is required'),
+  roomTypeId: requiredNumber('Room type is required'),
   roomName: z.string().min(1, 'Room name is required'),
   roomCode: z.string().min(1, 'Room code is required'),
   occupancy: z.coerce.number().min(0, 'Occupancy cannot be negative'),
@@ -142,7 +143,9 @@ export default function RoomModal({ open, onClose, room, onSaved }: Readonly<Roo
         examrows: num(room.examrows ?? raw.examrows ?? raw.exam_rows ?? 0),
         examcolumns: num(room.examcolumns ?? raw.examcolumns ?? raw.exam_columns ?? 0),
         isActive: Boolean(room.isActive ?? raw.is_active ?? true),
-        reason: String(room.reason ?? raw.reason ?? ''),
+        reason: Boolean(room.isActive ?? raw.is_active ?? true)
+          ? ''
+          : String(room.reason ?? raw.reason ?? ''),
       })
     } else {
       reset()
@@ -154,7 +157,7 @@ export default function RoomModal({ open, onClose, room, onSaved }: Readonly<Roo
     setSubmitError(null)
     try {
       if (isEditing) {
-        await updateRoom(room.roomId, data)
+        await updateRoom(room.roomId, data, room)
       } else {
         await createRoom(data)
       }
