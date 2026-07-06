@@ -282,9 +282,6 @@ export function AssignStudentSubjectsPage() {
       <PageHeader title="Assign Student Subjects" />
 
       <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center gap-2">
-          <span className="font-semibold text-sm text-primary">Assign Student Subjects</span>
-        </div>
         <div className="p-4 space-y-4">
           <div className="max-w-xl">
             <Select

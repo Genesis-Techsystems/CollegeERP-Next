@@ -156,9 +156,9 @@ export default function SubjectsMasterPage() {
   return (
     <PageContainer>
       <PageHeader title="Subjects Master" />
-
-      <div className="app-card p-3 md:p-4 !mt-0">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+  
+      <div className="app-card p-2.5 !mt-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Select
             label="University"
             value={universityId ? String(universityId) : null}
@@ -167,6 +167,7 @@ export default function SubjectsMasterPage() {
             placeholder="Select university"
             searchable
           />
+  
           <Select
             label="Course"
             value={courseId ? String(courseId) : null}
@@ -176,41 +177,48 @@ export default function SubjectsMasterPage() {
             searchable
             disabled={!universityId}
           />
-          <div className="flex items-end justify-start md:justify-end">
-            <Button
-              onClick={() => { setEditingRow(null); setOpen(true) }}
-              disabled={!courseId}
-              className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))/0.9]"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Subject
-            </Button>
-          </div>
         </div>
       </div>
-
+  
       {Boolean(courseId) && (
         <div className="app-card mt-3 p-0 overflow-hidden">
           <DataTable
             rowData={rows}
             columnDefs={columnDefs}
             loading={loading}
-            toolbar={{ search: true, searchPlaceholder: 'Search subjects...' }}
+            toolbar={{
+              search: true,
+              searchPlaceholder: 'Search subjects...',
+            }}
+            toolbarTrailing={
+              <Button
+                onClick={() => {
+                  setEditingRow(null)
+                  setOpen(true)
+                }}
+                disabled={!courseId}
+                className="h-[30px] px-3 text-[12px]"
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Add Subject
+              </Button>
+            }
             pagination
             paginationPageSize={10}
           />
         </div>
       )}
-
+  
       <SubjectModal
         open={open}
         onClose={() => setOpen(false)}
         row={editingRow}
         courseId={courseId ?? 0}
         existingRows={rows}
-        onSaved={() => { if (courseId) void loadSubjects(courseId) }}
+        onSaved={() => {
+          if (courseId) void loadSubjects(courseId)
+        }}
       />
     </PageContainer>
   )
 }
-

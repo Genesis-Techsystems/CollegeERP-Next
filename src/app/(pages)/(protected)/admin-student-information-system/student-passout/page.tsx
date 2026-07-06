@@ -507,7 +507,7 @@ export default function StudentPassoutPage() {
                               disabled={!eligibleForMarkAll.length}
                               aria-label="Mark all"
                             />
-                            <span>Mark</span>
+                            <span>{markAllChecked ? 'Unmark All' : 'Mark All'}</span>
                           </div>
                         </th>
                       </tr>
