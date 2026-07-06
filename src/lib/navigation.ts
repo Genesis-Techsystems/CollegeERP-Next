@@ -122,9 +122,18 @@ export function normalizeHref(path: string): string {
     .replace(/\/wallet\/university-wallet-recharge(?=\/|$)/gi, '/wallet/recharge-wallet')
     // Angular Admin institutional masters → App Router admin pages.
     .replace(/\/institutional-masters\/rooms-type(?=\/|$)/gi, '/admin/room-types')
+    .replace(/\/institutional-masters\/rooms-types(?=\/|$)/gi, '/admin/room-types')
+    .replace(/\/institutional-masters\/room-type(?=\/|$)/gi, '/admin/room-types')
+    .replace(/\/institutional-masters\/room-types(?=\/|$)/gi, '/admin/room-types')
     .replace(/\/institutional-masters\/rooms(?=\/|$)/gi, '/admin/rooms')
     .replace(/\/institutional-masters\/room-details(?=\/|$)/gi, '/admin/room-details')
     .replace(/\/institutional-masters\/room-detail(?=\/|$)/gi, '/admin/room-details')
+    .replace(/\/institutional-masters\/buildings(?=\/|$)/gi, '/admin/buildings')
+    .replace(/\/institutional-masters\/building(?=\/|$)/gi, '/admin/buildings')
+    .replace(/\/institutional-masters\/blocks(?=\/|$)/gi, '/admin/blocks')
+    .replace(/\/institutional-masters\/block(?=\/|$)/gi, '/admin/blocks')
+    .replace(/\/institutional-masters\/floors(?=\/|$)/gi, '/admin/floors')
+    .replace(/\/institutional-masters\/floor(?=\/|$)/gi, '/admin/floors')
     // Angular E-Office module (`Office/` menu prefix) → App Router path.
     .replace(/\/Office\//gi, '/e-office/')
     .replace(/\/apps\/e-office\//gi, '/e-office/')

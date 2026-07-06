@@ -3,6 +3,12 @@ import { ENTITIES } from '@/config/constants/entities'
 import { GM_CODES } from '@/config/constants/ui'
 import type { College } from '@/types/college'
 import type { SelectOption } from '@/common/components/select'
+import {
+  angularCollegeReason,
+  asNullableNumber,
+  asNullableString,
+  asString,
+} from '../angular-payload'
 import { buildQuery, domainCreate, domainList, domainUpdate, uploadFile } from '../crud'
 
 type GeneralDetail = {
@@ -12,22 +18,6 @@ type GeneralDetail = {
 
 type CollegeWriteInput = Partial<Omit<College, 'collegeId'>> & Record<string, unknown>
 
-function asString(value: unknown): string {
-  if (value == null) return ''
-  return String(value)
-}
-
-function asNullableString(value: unknown): string | null {
-  const text = asString(value).trim()
-  return text.length > 0 ? text : null
-}
-
-function asNullableNumber(value: unknown): number | null {
-  if (value == null || String(value).trim() === '') return null
-  const num = Number(value)
-  return Number.isFinite(num) ? num : null
-}
-
 /** Match Angular college create/update payload shape. */
 function buildAngularCollegePayload(
   data: CollegeWriteInput,
@@ -35,9 +25,7 @@ function buildAngularCollegePayload(
   existing?: College,
 ): Record<string, unknown> {
   const isActive = data.isActive !== false
-  const reason = isActive
-    ? null
-    : asNullableString(data.reason) ?? asNullableString(existing?.reason)
+  const reason = angularCollegeReason(isActive, data.reason, existing?.reason)
 
   const payload: Record<string, unknown> = {
     organizationId: data.organizationId ?? existing?.organizationId,

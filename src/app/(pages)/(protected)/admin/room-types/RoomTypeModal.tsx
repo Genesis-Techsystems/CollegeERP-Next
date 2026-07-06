@@ -13,9 +13,10 @@ import { Label } from '@/components/ui/label'
 import { createRoomType, listActiveOrganizations, updateRoomType } from '@/services'
 import type { Organization } from '@/types/organization'
 import type { RoomType } from '@/types/room-type'
+import { requiredNumber } from '@/lib/zod-fields'
 
 const schema = z.object({
-  organizationId: z.number().min(1, 'Organization is required'),
+  organizationId: requiredNumber('Organization is required'),
   roomType: z.string().min(1, 'Room type is required'),
   isActive: z.boolean(),
   reason: z.string().optional(),
@@ -73,7 +74,7 @@ export default function RoomTypeModal({ open, onClose, roomType, onSaved }: Read
         organizationId: roomType.organizationId,
         roomType: roomType.roomType,
         isActive: roomType.isActive,
-        reason: roomType.reason ?? '',
+        reason: roomType.isActive ? '' : (roomType.reason ?? ''),
       })
     } else {
       reset()
@@ -85,7 +86,7 @@ export default function RoomTypeModal({ open, onClose, roomType, onSaved }: Read
     setSubmitError(null)
     try {
       if (isEditing) {
-        await updateRoomType(roomType.roomTypeId, data)
+        await updateRoomType(roomType.roomTypeId, data, roomType)
       } else {
         await createRoomType(data)
       }

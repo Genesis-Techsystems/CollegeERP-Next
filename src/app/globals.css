@@ -393,7 +393,6 @@
   --ag-header-column-resize-handle-color: hsl(var(--border));
   border: 0;
   border-radius: 0;
-  overflow: hidden;
 }
 
 .app-data-table .ag-theme-quartz .ag-header-cell-text {
@@ -467,6 +466,74 @@
   font-weight: 500;
   line-height: 1.5;
   letter-spacing: 0.01em;
+}
+
+/* AG Grid column filter popup — app-wide (DataTable) */
+.ag-theme-quartz.ag-popup {
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  overflow: visible !important;
+  background: hsl(var(--card));
+}
+
+.ag-theme-quartz .ag-filter {
+  padding: 12px;
+  min-width: 240px;
+  background: hsl(var(--card));
+}
+
+.ag-theme-quartz .ag-filter-body-wrapper,
+.ag-theme-quartz .ag-filter-body {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+.ag-theme-quartz .ag-picker-field-wrapper {
+  width: 100%;
+  min-height: 2.25rem;
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  padding-inline: 10px;
+}
+
+.ag-theme-quartz .ag-filter-filter {
+  margin-top: 8px;
+}
+
+.ag-theme-quartz .ag-filter-filter .ag-input-wrapper,
+.ag-theme-quartz .ag-filter-filter input.ag-text-field-input {
+  min-height: 2.25rem;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+/* Filter type list (Contains / Equals) — opens below field, single scroll only */
+.ag-theme-quartz.ag-popup-child {
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--card));
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+  overflow: hidden !important;
+  max-height: none !important;
+}
+
+.ag-theme-quartz.ag-popup-child .ag-list-item {
+  font-size: 13px;
+  line-height: 1.35;
+  padding: 8px 12px;
+}
+
+.ag-theme-quartz.ag-popup-child .ag-virtual-list-viewport {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  max-height: 220px !important;
+}
+
+.ag-theme-quartz.ag-popup-child .ag-list,
+.ag-theme-quartz.ag-popup-child .ag-select-list {
+  overflow: visible !important;
+  max-height: none !important;
 }
 
 /* Toolbar search */
