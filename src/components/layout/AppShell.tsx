@@ -212,10 +212,8 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
           >
             {/* ── Breadcrumb card — page location, above the filters card ── */}
             {showBreadcrumb && (
-              <div data-print-hide data-breadcrumb-card className="px-[var(--spacing-page-x)] pt-[var(--spacing-page-y)]">
-                <div className="rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm">
-                  <Breadcrumb items={breadcrumbItems} maxItems={5} />
-                </div>
+              <div data-print-hide data-breadcrumb-card className="border-b border-border/60 bg-muted/20 px-[var(--spacing-page-x)] py-2.5">
+                <Breadcrumb items={breadcrumbItems} maxItems={5} />
               </div>
             )}
             {children}
