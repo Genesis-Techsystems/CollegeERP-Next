@@ -1,15 +1,30 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Filter } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { useSessionContext } from '@/context/SessionContext'
 import { toastError, toastSuccess } from '@/lib/toast'
-import { listStudents } from '@/services/pre-examination'
-import { getStudentInfoFilters, listStudentsBySection, normalizeStudentRow, submitStudentDetain } from '@/services'
+import {
+  getStudentInfoCollegeFilters,
+  listStudentsForPromotionPreview,
+  listStudentSectionsByProc,
+  normalizeStudentRow,
+  searchStudentsByKeyword,
+  submitStudentDetain,
+} from '@/services'
+import { StudentSearchSelect } from '../students-list/StudentSearchSelect'
 
 type AnyRow = Record<string, any>
+
+const UNIV = ['fk_university_id', 'universityId']
+const COL = ['fk_college_id', 'collegeId']
+const AY = ['fk_academic_year_id', 'academicYearId']
+const CRS = ['fk_course_id', 'courseId']
+const GRP = ['fk_course_group_id', 'courseGroupId']
+const YR = ['fk_course_year_id', 'courseYearId']
+const SEC = ['pk_group_section_id', 'groupSectionId', 'group_section_id', 'fk_group_section_id']
 
 function pickNum(row: AnyRow | null | undefined, keys: string[]): number {
   if (!row) return 0
@@ -43,15 +58,38 @@ function dedupeBy<T>(rows: T[], keyFn: (row: T) => string | number): T[] {
   })
 }
 
+function dedupeColleges(rows: AnyRow[]): AnyRow[] {
+  const seen = new Set<number>()
+  const out: AnyRow[] = []
+  for (const r of rows) {
+    const id = pickNum(r, COL)
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    out.push(r)
+  }
+  return out.sort((a, b) => (Number(a.clg_sort_order) || 0) - (Number(b.clg_sort_order) || 0))
+}
+
+function parseSelectNumber(v: string | null): number | null {
+  if (!v) return null
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function selectClass() {
+  return "[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
+}
+
+// eslint-disable-next-line sonarjs/cognitive-complexity -- Angular student-detain section cascade
 export default function StudentDetainPage() {
   const { user } = useSessionContext()
+  const employeeId = Number(user?.employeeId ?? 0)
+  const organizationId = Number(user?.organizationId ?? 0)
 
   const [mode, setMode] = useState<'student' | 'section'>('student')
   const [filterOpen, setFilterOpen] = useState(true)
   const [studentOptions, setStudentOptions] = useState<AnyRow[]>([])
-  const [sectionRows, setSectionRows] = useState<AnyRow[]>([])
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null)
-  const [selectedSectionId, setSelectedSectionId] = useState<number | null>(null)
   const [rows, setRows] = useState<AnyRow[]>([])
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [reasonById, setReasonById] = useState<Record<number, string>>({})
@@ -59,23 +97,20 @@ export default function StudentDetainPage() {
   const [loadingRows, setLoadingRows] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  const studentsSelectOptions = useMemo(
-    () =>
-      studentOptions.map((row, i) => ({
-        value: String(studentId(row, i + 1)),
-        label: `${pickText(row, ['studentName', 'firstName']) || '-'}(${pickText(row, ['hallticketNumber', 'rollNumber']) || '-'})`,
-      })),
-    [studentOptions],
-  )
+  const [filtersData, setFiltersData] = useState<AnyRow[]>([])
+  const [academicYearData, setAcademicYearData] = useState<AnyRow[]>([])
+  const [sectionApiRows, setSectionApiRows] = useState<AnyRow[]>([])
+  const [loadingFilters, setLoadingFilters] = useState(false)
 
-  const sectionOptions = useMemo(
-    () =>
-      sectionRows.map((row, i) => ({
-        value: String(pickNum(row, ['fk_group_section_id', 'groupSectionId', 'group_section_id']) || i + 1),
-        label: pickText(row, ['group_section_name', 'groupSectionName', 'sectionName', 'group_section_code']) || 'Section',
-      })),
-    [sectionRows],
-  )
+  const [collegeId, setCollegeId] = useState<number | null>(null)
+  const [academicYearId, setAcademicYearId] = useState<number | null>(null)
+  const [courseId, setCourseId] = useState<number | null>(null)
+  const [courseGroupId, setCourseGroupId] = useState<number | null>(null)
+  const [courseYearId, setCourseYearId] = useState<number | null>(null)
+  const [groupSectionId, setGroupSectionId] = useState<number | null>(null)
+
+  const sectionCascadeAutoFill = useRef(true)
+  const studentsLoadSeq = useRef(0)
 
   const selectedRows = useMemo(
     () => rows.filter((row, i) => selectedIds.includes(studentId(row, i + 1))),
@@ -90,23 +125,222 @@ export default function StudentDetainPage() {
     })
   }, [reasonById, selectedRows, submitting])
 
+  const loadFilters = useCallback(async () => {
+    setLoadingFilters(true)
+    try {
+      const r = await getStudentInfoCollegeFilters(organizationId, employeeId)
+      setFiltersData(Array.isArray(r.filtersData) ? r.filtersData : [])
+      setAcademicYearData(Array.isArray(r.academicData) ? r.academicData : [])
+    } catch {
+      setFiltersData([])
+      setAcademicYearData([])
+    } finally {
+      setLoadingFilters(false)
+    }
+  }, [organizationId, employeeId])
+
+  useEffect(() => {
+    if (mode === 'section') void loadFilters()
+  }, [mode, loadFilters])
+
+  const colleges = useMemo(
+    () => dedupeColleges(filtersData.filter((r) => pickNum(r, COL) > 0)),
+    [filtersData],
+  )
+
+  const universityId = useMemo(() => {
+    if (!collegeId) return 0
+    const row = colleges.find((r) => pickNum(r, COL) === collegeId)
+    return pickNum(row, UNIV)
+  }, [colleges, collegeId])
+
+  const academicYears = useMemo(() => {
+    if (!universityId) return []
+    const raw = academicYearData.filter((r) => pickNum(r, UNIV) === universityId)
+    const deduped = dedupeBy(raw, (r) => pickNum(r, AY))
+    return deduped.sort(
+      (a, b) =>
+        parseInt(String(b.academic_year ?? b.academicYear ?? 0), 10) -
+        parseInt(String(a.academic_year ?? a.academicYear ?? 0), 10),
+    )
+  }, [academicYearData, universityId])
+
+  const courses = useMemo(() => {
+    if (!collegeId) return []
+    return dedupeBy(
+      filtersData.filter((x) => pickNum(x, COL) === collegeId),
+      (r) => pickNum(r, CRS),
+    )
+  }, [collegeId, filtersData])
+
+  const courseGroups = useMemo(() => {
+    if (!collegeId || !courseId) return []
+    return dedupeBy(
+      filtersData.filter((x) => pickNum(x, COL) === collegeId && pickNum(x, CRS) === courseId),
+      (r) => pickNum(r, GRP),
+    )
+  }, [collegeId, courseId, filtersData])
+
+  const courseYears = useMemo(() => {
+    if (!collegeId || !courseId || !courseGroupId) return []
+    return dedupeBy(
+      filtersData.filter(
+        (x) =>
+          pickNum(x, COL) === collegeId &&
+          pickNum(x, CRS) === courseId &&
+          pickNum(x, GRP) === courseGroupId,
+      ),
+      (r) => pickNum(r, YR),
+    ).sort((a, b) => (Number(a.year_order) || 0) - (Number(b.year_order) || 0))
+  }, [collegeId, courseId, courseGroupId, filtersData])
+
+  useEffect(() => {
+    if (mode !== 'section' || loadingFilters || colleges.length === 0) return
+    if (!sectionCascadeAutoFill.current) return
+    setCollegeId((prev) =>
+      prev && colleges.some((c) => pickNum(c, COL) === prev) ? prev : pickNum(colleges[0], COL),
+    )
+  }, [mode, loadingFilters, colleges])
+
+  useEffect(() => {
+    if (!academicYears.length) {
+      setAcademicYearId(null)
+      return
+    }
+    if (!sectionCascadeAutoFill.current) return
+    const current = academicYears.find((y) => Number(y.is_curr_ay ?? 0) === 1)
+    setAcademicYearId((prev) =>
+      prev && academicYears.some((y) => pickNum(y, AY) === prev)
+        ? prev
+        : pickNum(current ?? academicYears[0], AY),
+    )
+  }, [academicYears])
+
+  useEffect(() => {
+    if (!courses.length) {
+      setCourseId(null)
+      return
+    }
+    if (!sectionCascadeAutoFill.current) return
+    setCourseId((prev) =>
+      prev && courses.some((c) => pickNum(c, CRS) === prev) ? prev : pickNum(courses[0], CRS),
+    )
+  }, [courses])
+
+  useEffect(() => {
+    if (!courseGroups.length) {
+      setCourseGroupId(null)
+      return
+    }
+    if (!sectionCascadeAutoFill.current) return
+    setCourseGroupId((prev) =>
+      prev && courseGroups.some((g) => pickNum(g, GRP) === prev)
+        ? prev
+        : pickNum(courseGroups[0], GRP),
+    )
+  }, [courseGroups])
+
+  useEffect(() => {
+    if (!courseYears.length) {
+      setCourseYearId(null)
+      return
+    }
+    if (!sectionCascadeAutoFill.current) return
+    setCourseYearId((prev) =>
+      prev && courseYears.some((y) => pickNum(y, YR) === prev) ? prev : pickNum(courseYears[0], YR),
+    )
+  }, [courseYears])
+
   useEffect(() => {
     async function loadSections() {
-      const employeeId = Number(user?.employeeId ?? 0)
-      const organizationId = Number(user?.organizationId ?? 0)
-      try {
-        const filterRows = await getStudentInfoFilters(organizationId, employeeId)
-        const sections = dedupeBy(
-          filterRows.filter((row) => pickNum(row, ['fk_group_section_id', 'groupSectionId', 'group_section_id']) > 0),
-          (row) => pickNum(row, ['fk_group_section_id', 'groupSectionId', 'group_section_id']),
-        )
-        setSectionRows(sections)
-      } catch {
-        setSectionRows([])
+      if (!collegeId || !courseId || !courseGroupId || !courseYearId || !academicYearId) {
+        setSectionApiRows([])
+        return
       }
+      const apiRows = await listStudentSectionsByProc({
+        organizationId,
+        employeeId,
+        collegeId,
+        courseId,
+        courseGroupId,
+        courseYearId,
+        academicYearId,
+      }).catch(() => [])
+      setSectionApiRows(Array.isArray(apiRows) ? apiRows : [])
     }
     void loadSections()
-  }, [user?.employeeId, user?.organizationId])
+  }, [organizationId, employeeId, collegeId, courseId, courseGroupId, courseYearId, academicYearId])
+
+  const sectionOpts = useMemo(
+    () =>
+      sectionApiRows.map((r) => ({
+        value: String(pickNum(r, SEC)),
+        label: pickText(r, ['section', 'group_section_name', 'groupSectionName']) || `Section ${pickNum(r, SEC)}`,
+      })),
+    [sectionApiRows],
+  )
+
+  const loadStudentsBySection = useCallback(async () => {
+    if (!collegeId || !courseGroupId || !groupSectionId) {
+      setRows([])
+      setSelectedIds([])
+      setReasonById({})
+      return
+    }
+    const seq = ++studentsLoadSeq.current
+    setLoadingRows(true)
+    try {
+      const fetched = await listStudentsForPromotionPreview({
+        collegeId,
+        courseGroupId,
+        groupSectionId,
+      })
+      if (seq !== studentsLoadSeq.current) return
+      const normalized = (Array.isArray(fetched) ? fetched : []).map((row) => normalizeStudentRow(row))
+      setRows(normalized)
+      setSelectedIds([])
+      setReasonById({})
+    } catch {
+      if (seq !== studentsLoadSeq.current) return
+      setRows([])
+      setSelectedIds([])
+      setReasonById({})
+    } finally {
+      if (seq === studentsLoadSeq.current) setLoadingRows(false)
+    }
+  }, [collegeId, courseGroupId, groupSectionId])
+
+  useEffect(() => {
+    if (mode !== 'section') return
+    if (!groupSectionId) {
+      setRows([])
+      setSelectedIds([])
+      setReasonById({})
+      return
+    }
+    void loadStudentsBySection()
+  }, [mode, groupSectionId, loadStudentsBySection])
+
+  function clearSectionCascade() {
+    setRows([])
+    setGroupSectionId(null)
+    setSelectedIds([])
+    setReasonById({})
+  }
+
+  function resetSectionFilters() {
+    sectionCascadeAutoFill.current = true
+    setCollegeId(null)
+    setAcademicYearId(null)
+    setCourseId(null)
+    setCourseGroupId(null)
+    setCourseYearId(null)
+    setGroupSectionId(null)
+    setSectionApiRows([])
+    setRows([])
+    setSelectedIds([])
+    setReasonById({})
+  }
 
   async function onSearchStudents(term: string) {
     const q = term.trim()
@@ -114,65 +348,28 @@ export default function StudentDetainPage() {
       setStudentOptions([])
       return
     }
-    if (q.length < 3) return
+    if (q.length < 5) return
     setLoadingStudents(true)
     try {
-      const fetched = await listStudents(q).catch(() => [])
+      const fetched = await searchStudentsByKeyword(q).catch(() => [])
       setStudentOptions(Array.isArray(fetched) ? fetched : [])
     } finally {
       setLoadingStudents(false)
     }
   }
 
-  useEffect(() => {
-    async function loadByStudent() {
-      if (mode !== 'student' || !selectedStudentId) {
-        setRows([])
-        setSelectedIds([])
-        setReasonById({})
-        return
-      }
-      const match = studentOptions.find((row, idx) => studentId(row, idx + 1) === selectedStudentId) ?? null
-      if (!match) {
-        setRows([])
-        setSelectedIds([])
-        setReasonById({})
-        return
-      }
-      const normalized = normalizeStudentRow(match)
-      setRows([normalized])
+  function onStudentSelect(nextId: number | null, match: AnyRow | null) {
+    setSelectedStudentId(nextId)
+    if (!nextId || !match) {
+      setRows([])
       setSelectedIds([])
       setReasonById({})
+      return
     }
-    void loadByStudent()
-  }, [mode, selectedStudentId, studentOptions])
-
-  useEffect(() => {
-    async function loadBySection() {
-      if (mode !== 'section') return
-      if (!selectedSectionId) {
-        setRows([])
-        setSelectedIds([])
-        setReasonById({})
-        return
-      }
-      setLoadingRows(true)
-      try {
-        const fetched = await listStudentsBySection(selectedSectionId)
-        const normalized = fetched.map((row) => normalizeStudentRow(row))
-        setRows(normalized)
-        setSelectedIds([])
-        setReasonById({})
-      } catch {
-        setRows([])
-        setSelectedIds([])
-        setReasonById({})
-      } finally {
-        setLoadingRows(false)
-      }
-    }
-    void loadBySection()
-  }, [mode, selectedSectionId])
+    setRows([normalizeStudentRow(match)])
+    setSelectedIds([])
+    setReasonById({})
+  }
 
   function toggleSelected(id: number, checked: boolean) {
     setSelectedIds((prev) => {
@@ -245,16 +442,8 @@ export default function StudentDetainPage() {
               : row,
           ),
         )
-      } else if (selectedSectionId) {
-        setLoadingRows(true)
-        try {
-          const fetched = await listStudentsBySection(selectedSectionId)
-          setRows(fetched.map((row) => normalizeStudentRow(row)))
-        } catch {
-          // Keep current list on refresh failure.
-        } finally {
-          setLoadingRows(false)
-        }
+      } else if (groupSectionId) {
+        await loadStudentsBySection()
       }
       setSelectedIds([])
       setReasonById({})
@@ -264,6 +453,27 @@ export default function StudentDetainPage() {
       setSubmitting(false)
     }
   }
+
+  const collegeOpts = colleges.map((r) => ({
+    value: String(pickNum(r, COL)),
+    label: pickText(r, ['college_code', 'collegeCode']) || 'College',
+  }))
+  const ayOpts = academicYears.map((r) => ({
+    value: String(pickNum(r, AY)),
+    label: pickText(r, ['academic_year', 'academicYear']) || `AY ${pickNum(r, AY)}`,
+  }))
+  const courseOpts = courses.map((r) => ({
+    value: String(pickNum(r, CRS)),
+    label: pickText(r, ['course_code', 'courseCode']) || 'Course',
+  }))
+  const groupOpts = courseGroups.map((r) => ({
+    value: String(pickNum(r, GRP)),
+    label: pickText(r, ['group_code', 'groupCode']) || 'Group',
+  }))
+  const yearOpts = courseYears.map((r) => ({
+    value: String(pickNum(r, YR)),
+    label: pickText(r, ['course_year_name', 'courseYearName', 'course_year_code', 'courseYearCode']) || 'Year',
+  }))
 
   return (
     <PageContainer className="space-y-4">
@@ -276,10 +486,9 @@ export default function StudentDetainPage() {
             checked={mode === 'student'}
             onChange={() => {
               setMode('student')
-              setSelectedSectionId(null)
-              setRows([])
-              setSelectedIds([])
-              setReasonById({})
+              resetSectionFilters()
+              setStudentOptions([])
+              setSelectedStudentId(null)
             }}
           />
           Search By Student
@@ -291,9 +500,12 @@ export default function StudentDetainPage() {
             onChange={() => {
               setMode('section')
               setSelectedStudentId(null)
+              setStudentOptions([])
               setRows([])
               setSelectedIds([])
               setReasonById({})
+              sectionCascadeAutoFill.current = true
+              void loadFilters()
             }}
           />
           Search By Section
@@ -301,12 +513,13 @@ export default function StudentDetainPage() {
       </div>
 
       <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Student Detain</h2>
+        <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-4 py-3">
+          <h2 className="app-card-title">{mode === 'section' ? 'Students Detain' : 'Student Detain'}</h2>
           <button
             type="button"
             className="inline-flex items-center text-[12px] text-slate-700"
             onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
           >
             <Filter className="mr-1.5 h-3.5 w-3.5" />
             Filter
@@ -314,34 +527,127 @@ export default function StudentDetainPage() {
           </button>
         </div>
 
-        {(
+        {filterOpen && (
           <div className="p-3">
             {mode === 'student' ? (
-              <div className="max-w-md">
-                <Select
-                  label="Student"
-                  placeholder="Search student"
-                  value={selectedStudentId ? String(selectedStudentId) : null}
-                  options={studentsSelectOptions}
-                  searchable
-                  clearable
-                  isLoading={loadingStudents}
-                  onSearch={(term) => void onSearchStudents(term)}
-                  onChange={(v) => setSelectedStudentId(v ? Number(v) : null)}
-                  className="[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
-                />
-              </div>
+              <StudentSearchSelect
+                label="Student"
+                placeholder="Search student"
+                value={selectedStudentId}
+                students={studentOptions}
+                selectedStudent={rows[0] ?? null}
+                isLoading={loadingStudents}
+                onSearch={(term) => void onSearchStudents(term)}
+                onChange={onStudentSelect}
+              />
             ) : (
-              <div className="max-w-md">
-                <Select
-                  label="Section"
-                  placeholder="Select section"
-                  value={selectedSectionId ? String(selectedSectionId) : null}
-                  options={sectionOptions}
-                  searchable
-                  onChange={(v) => setSelectedSectionId(v ? Number(v) : null)}
-                  className="[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
-                />
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                  <div className={selectClass()}>
+                    <Select
+                      label="College"
+                      required
+                      value={collegeId ? String(collegeId) : null}
+                      options={collegeOpts}
+                      placeholder="Select College"
+                      onChange={(v) => {
+                        sectionCascadeAutoFill.current = v !== null && v !== ''
+                        setCollegeId(parseSelectNumber(v))
+                        setCourseId(null)
+                        setCourseGroupId(null)
+                        setCourseYearId(null)
+                        clearSectionCascade()
+                      }}
+                      disabled={loadingFilters || !collegeOpts.length}
+                      searchable
+                    />
+                  </div>
+                  <div className={selectClass()}>
+                    <Select
+                      label="Academic Year"
+                      required
+                      value={academicYearId ? String(academicYearId) : null}
+                      options={ayOpts}
+                      placeholder="Select Academic Year"
+                      onChange={(v) => {
+                        sectionCascadeAutoFill.current = v !== null && v !== ''
+                        setAcademicYearId(parseSelectNumber(v))
+                        clearSectionCascade()
+                      }}
+                      disabled={loadingFilters || !ayOpts.length}
+                      searchable
+                    />
+                  </div>
+                  <div className={selectClass()}>
+                    <Select
+                      label="Course"
+                      required
+                      value={courseId ? String(courseId) : null}
+                      options={courseOpts}
+                      placeholder="Select Course"
+                      onChange={(v) => {
+                        sectionCascadeAutoFill.current = v !== null && v !== ''
+                        setCourseId(parseSelectNumber(v))
+                        setCourseGroupId(null)
+                        setCourseYearId(null)
+                        clearSectionCascade()
+                      }}
+                      disabled={loadingFilters || !courseOpts.length}
+                      searchable
+                    />
+                  </div>
+                  <div className={selectClass()}>
+                    <Select
+                      label="Course Group"
+                      required
+                      value={courseGroupId ? String(courseGroupId) : null}
+                      options={groupOpts}
+                      placeholder="Select Course Group"
+                      onChange={(v) => {
+                        sectionCascadeAutoFill.current = v !== null && v !== ''
+                        setCourseGroupId(parseSelectNumber(v))
+                        setCourseYearId(null)
+                        clearSectionCascade()
+                      }}
+                      disabled={loadingFilters || !groupOpts.length}
+                      searchable
+                    />
+                  </div>
+                  <div className={selectClass()}>
+                    <Select
+                      label="Course Year"
+                      required
+                      value={courseYearId ? String(courseYearId) : null}
+                      options={yearOpts}
+                      placeholder="Select Course Year"
+                      onChange={(v) => {
+                        sectionCascadeAutoFill.current = v !== null && v !== ''
+                        setCourseYearId(parseSelectNumber(v))
+                        clearSectionCascade()
+                      }}
+                      disabled={loadingFilters || !yearOpts.length}
+                      searchable
+                    />
+                  </div>
+                  <div className={selectClass()}>
+                    <Select
+                      label="Section"
+                      required
+                      value={groupSectionId ? String(groupSectionId) : null}
+                      options={sectionOpts}
+                      placeholder="Select Section"
+                      onChange={(v) => {
+                        sectionCascadeAutoFill.current = v !== null && v !== ''
+                        setGroupSectionId(parseSelectNumber(v))
+                      }}
+                      disabled={loadingFilters || !courseYearId || sectionOpts.length === 0}
+                      searchable
+                    />
+                  </div>
+                </div>
+                {loadingRows ? (
+                  <p className="text-xs text-muted-foreground">Loading students…</p>
+                ) : null}
               </div>
             )}
           </div>
@@ -350,11 +656,11 @@ export default function StudentDetainPage() {
 
       {rows.length > 0 && (
         <div className="app-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-border bg-muted/40">
+          <div className="border-b border-border bg-muted/40 px-4 py-3">
             <h2 className="app-card-title">Detain</h2>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2">
-            <div className="p-3 border-b lg:border-b-0 lg:border-r">
+            <div className="border-b p-3 lg:border-b-0 lg:border-r">
               <div className="overflow-auto rounded border">
                 <table className="w-full text-[12px]">
                   <thead className="bg-muted/40">
@@ -382,9 +688,7 @@ export default function StudentDetainPage() {
                               onChange={(e) => toggleSelected(sid, e.target.checked)}
                             />
                             {disabled && (
-                              <span className="ml-2 text-[11px] text-amber-700">
-                                {statusCode(row)}
-                              </span>
+                              <span className="ml-2 text-[11px] text-amber-700">{statusCode(row)}</span>
                             )}
                           </td>
                         </tr>
@@ -396,8 +700,8 @@ export default function StudentDetainPage() {
             </div>
 
             <div className="p-3">
-              <div className="border rounded overflow-hidden">
-                <div className="bg-muted/40 px-3 py-2 border-b flex items-center justify-between text-[12px] font-semibold">
+              <div className="overflow-hidden rounded border">
+                <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-2 text-[12px] font-semibold">
                   <span>SELECTED STUDENT LIST</span>
                   <span>{selectedRows.length}</span>
                 </div>
@@ -409,7 +713,8 @@ export default function StudentDetainPage() {
                       {selectedRows.map((row, index) => (
                         <li key={`selected-${studentId(row, index + 1)}-${index}`} className="space-y-1">
                           <div>
-                            {pickText(row, ['studentName', 'firstName']) || '-'} ({pickText(row, ['hallticketNumber', 'rollNumber']) || '-'})
+                            {pickText(row, ['studentName', 'firstName']) || '-'} (
+                            {pickText(row, ['hallticketNumber', 'rollNumber']) || '-'})
                           </div>
                           <textarea
                             value={reasonById[studentId(row, index + 1)] ?? ''}
