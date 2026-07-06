@@ -141,6 +141,238 @@
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
+/* ── Global filter bar — Review Queue reference layout ───────────────────── */
+
+.global-filter-bar {
+  border-radius: 1rem;
+  overflow: hidden;
+  background: hsl(var(--card));
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+.global-filter-bar__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.global-filter-bar__row--fields {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 1rem;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.global-filter-bar__row--leading {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+/* Page heading — above filter card (Approvals reference layout) */
+.page-header {
+  margin-bottom: 1rem;
+}
+
+.page-header__title {
+  font-family: var(--font-heading), 'Sora', system-ui, sans-serif;
+  font-size: var(--font-size-page-title);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: hsl(var(--page-title));
+}
+
+.page-header__subtitle {
+  margin-top: 0.25rem;
+  font-size: var(--font-size-body);
+  line-height: 1.45;
+  color: hsl(var(--muted-foreground));
+}
+
+.global-filter-field {
+  flex: 1 1 0;
+  min-width: 8.5rem;
+}
+
+.global-filter-field--shrink {
+  flex: 0 0 auto;
+  min-width: auto;
+}
+
+.global-filter-field--options {
+  flex: 0 0 auto;
+  margin-left: auto;
+  min-width: auto;
+}
+
+.global-filter-field--action {
+  flex: 0 0 auto;
+}
+
+.global-filter-bar__row--cols-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: end;
+  flex-wrap: unset;
+  overflow: visible;
+}
+
+.global-filter-bar__row--cols-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: end;
+  flex-wrap: unset;
+  overflow: visible;
+}
+
+.global-filter-bar__row--cols-2 .global-filter-field,
+.global-filter-bar__row--cols-3 .global-filter-field {
+  flex: unset;
+  min-width: 0;
+}
+
+.global-filter-field--inline .global-filter-field__control {
+  padding-top: 0.125rem;
+}
+
+.global-filter-field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(210 15% 52%);
+  line-height: 1.2;
+}
+
+.global-filter-field__icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.global-filter-field__control {
+  width: 100%;
+}
+
+.global-filter-field__control > button[role="combobox"],
+.global-filter-field__control .global-filter-trigger {
+  width: 100%;
+  min-height: 2.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  background: hsl(var(--card));
+  font-size: 13px;
+}
+
+/* Legacy page filter cards — card shell + filter body restyle.
+   Scoped to cards with a collapse toggle — not plain content cards (e.g. Exam Marks Setup list). */
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)),
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) {
+  border-radius: 1rem;
+  overflow: hidden;
+  background: hsl(var(--card));
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+/* Hide in-card heading row — page title lives in PageHeader above the card */
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) {
+  display: none !important;
+}
+
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button:first-child {
+  display: none !important;
+}
+
+/* Restyle legacy filter body — outer wrapper stacks rows vertically */
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button + div,
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) + div {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.75rem !important;
+  padding: 1rem 1.25rem !important;
+  overflow: visible !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+/* Radio / mode toggle row */
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) [role="radiogroup"],
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) [role="radiogroup"] {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 1.25rem !important;
+  width: 100%;
+}
+
+/* Dropdown / action row */
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) .flex-wrap.items-end,
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) + div > [class*="grid"] {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 1rem !important;
+  width: 100%;
+  overflow-x: auto;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button + div > [class*="grid"] {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end;
+  gap: 1rem !important;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button + div > [class*="grid"] > *,
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) + div > [class*="grid"] > *,
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) .flex-wrap.items-end > * {
+  flex: 1 1 0;
+  min-width: 8.5rem;
+}
+
+/* Legacy filter labels — uppercase style */
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) label:not([for="isForDisabledFilter"]):not(.cursor-pointer),
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) label:not([for="isForDisabledFilter"]):not(.cursor-pointer) {
+  display: block;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(210 15% 52%) !important;
+  margin-bottom: 0.375rem;
+}
+
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) [role="combobox"],
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) button[data-slot="popover-trigger"],
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) [role="combobox"],
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) button[data-slot="popover-trigger"] {
+  min-height: 2.25rem;
+  border-radius: 0.5rem;
+  border-color: #e5e7eb;
+  font-size: 13px;
+}
+
 .app-data-table .ag-theme-quartz {
   --ag-font-size: var(--app-table-row-font-size);
   --ag-grid-size: 4px;

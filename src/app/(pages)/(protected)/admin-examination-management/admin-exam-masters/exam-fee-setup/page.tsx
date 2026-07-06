@@ -26,8 +26,9 @@ import {
   updateExamFeeStructure,
 } from '@/services'
 import { Select } from '@/common/components/select'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { Building2, Calendar, GraduationCap, ScrollText, Eye, Pencil, Plus } from 'lucide-react'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ChevronDown, Eye, Filter, Pencil, Plus } from 'lucide-react'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { NoticeAlert } from '@/common/components/feedback'
@@ -99,8 +100,6 @@ export default function ExamFeeSetupPage() {
   const [rows, setRows] = useState<any[]>([])
   const [loadingList, setLoadingList] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
-  const [filterOpen, setFilterOpen] = useState(true)
-
   // Modal (add/edit)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
@@ -471,103 +470,64 @@ export default function ExamFeeSetupPage() {
           )}
         />
       )}
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Fee Structures</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
+      <GlobalFilterBar
+        leading={(
+          <RadioGroup
+            value={mode}
+            onValueChange={(v) => setMode(v as 'university' | 'college')}
+            className="flex items-center gap-10"
           >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-        {filterOpen && (
-        <>
-        <div className="px-3 py-3">
-      <div className="flex items-center gap-8">
-        <RadioGroup
-          value={mode}
-          onValueChange={(v) => setMode(v as any)}
-          className="flex items-center gap-10"
-        >
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="university" id="feeModeUniversity" />
-            <Label htmlFor="feeModeUniversity">Is For University</Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="college" id="feeModeCollege" />
-            <Label htmlFor="feeModeCollege">Is For College</Label>
-          </div>
-        </RadioGroup>
-      </div>
-      </div>
-
-      <div className="rounded-xl border border-border bg-card p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
-          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="university" id="feeModeUniversity" />
+              <Label htmlFor="feeModeUniversity" className="text-[13px] font-medium cursor-pointer">Is For University</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="college" id="feeModeCollege" />
+              <Label htmlFor="feeModeCollege" className="text-[13px] font-medium cursor-pointer">Is For College</Label>
+            </div>
+          </RadioGroup>
+        )}
+      >
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="University" icon={Building2}>
             <Select
-              label="University *"
-              className="[&_button]:h-8 [&_button]:text-[12px]"
               value={selectedUniversityId != null ? String(selectedUniversityId) : null}
-              onChange={(v) => {
-                if (!v) return
-                handleUniversityChange(Number(v))
-              }}
+              onChange={(v) => { if (v) handleUniversityChange(Number(v)) }}
               options={universities.map((u) => ({
                 value: String(u.fk_university_id),
                 label: String(u.university_code ?? u.university_name ?? '—'),
               }))}
               disabled={loadingFilters}
-              placeholder={loadingFilters ? 'Loading…' : 'Select University'}
+              placeholder={loadingFilters ? 'Loading…' : 'All universities'}
+              isLoading={loadingFilters}
             />
-          </div>
-
-          <div className="min-w-0">
+          </GlobalFilterField>
+          <GlobalFilterField label="Course" icon={GraduationCap}>
             <Select
-              label="Course *"
-              className="[&_button]:h-8 [&_button]:text-[12px]"
               value={selectedCourseId != null ? String(selectedCourseId) : null}
-              onChange={(v) => {
-                if (!v) return
-                handleCourseChange(Number(v))
-              }}
+              onChange={(v) => { if (v) handleCourseChange(Number(v)) }}
               options={courses.map((c) => ({
                 value: String(c.fk_course_id),
                 label: String(c.course_code ?? c.course_name ?? '—'),
               }))}
               disabled={courses.length === 0}
-              placeholder="Select Course"
+              placeholder="All courses"
             />
-          </div>
-
-          <div className="min-w-0">
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Year" icon={Calendar}>
             <Select
-              label="Exam Year *"
-              className="[&_button]:h-8 [&_button]:text-[12px]"
               value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
-              onChange={(v) => {
-                if (!v) return
-                handleAcademicYearChange(Number(v))
-              }}
+              onChange={(v) => { if (v) handleAcademicYearChange(Number(v)) }}
               options={academicYears.map((a) => ({
                 value: String(a.fk_academic_year_id),
                 label: String(a.academic_year ?? '—'),
               }))}
               disabled={academicYears.length === 0}
-              placeholder="Select Exam Year"
+              placeholder="All exam years"
             />
-          </div>
-
-          <div className="min-w-0 lg:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Master" icon={ScrollText}>
             <Select
-              label="Exam Master *"
-              className="[&_button]:h-8 [&_button]:text-[12px]"
               value={selectedExamId != null ? String(selectedExamId) : null}
               onChange={(v) => {
                 setSelectedExamId(v != null ? Number(v) : null)
@@ -579,20 +539,16 @@ export default function ExamFeeSetupPage() {
                 label: String(e.examName ?? '—'),
               }))}
               disabled={examMasters.length === 0}
-              placeholder="Select Exam Master"
+              placeholder="All exam masters"
             />
-          </div>
-
-          <div className="lg:col-span-1 flex items-end justify-end">
-            <Button onClick={handleGetList} disabled={!selectedExamId || loadingList} className="h-8 px-3 text-[12px]">
+          </GlobalFilterField>
+          <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+            <Button onClick={handleGetList} disabled={!selectedExamId || loadingList} className="h-[30px] px-3 text-[12px] shrink-0">
               Get List
             </Button>
-          </div>
-        </div>
-      </div>
-      </>
-      )}
-      </div>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      </GlobalFilterBar>
 
       {hasFetched && (
       <>

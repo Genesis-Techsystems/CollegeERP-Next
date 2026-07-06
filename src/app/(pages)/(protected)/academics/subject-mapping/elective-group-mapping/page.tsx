@@ -218,7 +218,7 @@ export default function ElectiveGroupMappingPage() {
             <Filter className="h-4 w-4" />
           </button>
         </div>
-        {filterOpen && (
+        {(
           <div className="p-3 grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
             <Select
               label="College *"

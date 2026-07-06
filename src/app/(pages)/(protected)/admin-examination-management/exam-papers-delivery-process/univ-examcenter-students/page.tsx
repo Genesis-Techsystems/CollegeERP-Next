@@ -390,7 +390,7 @@ export default function UnivExamcenterStudentsPage() {
           </button>
         </div>
 
-        {filterOpen && (
+        {(
           <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
             <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courses.map((r) => ({ value: String(pickCourseId(r)), label: txt(r.course_code) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} disabled={loading} /></div>
             <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={academicYears.map((r) => ({ value: String(pickAyId(r)), label: txt(r.academic_year) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>

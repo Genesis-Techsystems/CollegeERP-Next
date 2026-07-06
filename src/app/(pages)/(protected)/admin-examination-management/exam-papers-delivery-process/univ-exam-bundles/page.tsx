@@ -352,7 +352,7 @@ export default function UnivExamBundlesPage() {
           </button>
         </div>
 
-        {filtersOpen && (
+        {(
           <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className="space-y-1 md:col-span-2"><Label>Exam Center *</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))} /></div>
             <div className="space-y-1 md:col-span-2"><Label>Course *</Label><Select options={courses.map((r) => ({ value: String(num(r.fk_course_id)), label: txt(r.course_code) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} disabled={loadingFilters} /></div>

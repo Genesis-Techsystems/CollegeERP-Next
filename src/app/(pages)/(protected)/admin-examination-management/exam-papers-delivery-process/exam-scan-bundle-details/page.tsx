@@ -251,7 +251,7 @@ export default function ExamScanBundleDetailsPage() {
           </label>
         </div>
 
-        {filtersOpen && (
+        {(
           <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className="space-y-1 md:col-span-3">
               <Label>Academic Year *</Label>

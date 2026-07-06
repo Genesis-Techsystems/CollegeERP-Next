@@ -355,7 +355,7 @@ export default function SetupMasterPage() {
             <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
           </Button>
         </div>
-        {filterOpen && (
+        {(
           <div className="px-3 py-3 bg-card">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
               <Select

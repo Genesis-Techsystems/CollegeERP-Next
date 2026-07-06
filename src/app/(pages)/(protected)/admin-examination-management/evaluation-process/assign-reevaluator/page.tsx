@@ -345,7 +345,7 @@ export default function AssignReEvaluatorPage() {
             <Filter className="mr-1.5 h-3.5 w-3.5" /> Filter
           </Button>
         </div>
-        {filterOpen && (
+        {(
           <div className="p-3 space-y-2">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <div className="md:col-span-2 space-y-1"><Label>Course</Label><SearchableSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(num(v) || null)} options={courseOptions} placeholder="Course" /></div>

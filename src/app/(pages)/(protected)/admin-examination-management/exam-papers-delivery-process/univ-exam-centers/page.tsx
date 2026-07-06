@@ -394,7 +394,7 @@ export default function UnivExamCentersPage() {
           </button>
         </div>
 
-        {filtersOpen && (
+        {(
           <div className="mt-4 flex flex-wrap items-end gap-3">
             <div className="space-y-1 w-full sm:w-72">
               <Label>

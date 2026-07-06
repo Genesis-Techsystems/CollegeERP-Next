@@ -2,18 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useSessionContext } from '@/context/SessionContext'
-import { ChevronDown, ChevronUp, Filter } from 'lucide-react'
+import { Building2, GraduationCap, ScrollText } from 'lucide-react'
 import { NoticeAlert } from '@/common/components/feedback'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { Select } from '@/common/components/select'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SearchInput } from '@/common/components/search'
 import { listExamMarksSetup, listSubjectCategories, saveExamMarksSetup, getMarksSetupFilters } from '@/services'
@@ -62,7 +57,6 @@ export default function ExamMaxMarksSetupPage() {
   const [rows, setRows] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(false)
   const [q, setQ] = useState('')
-  const [filterOpen, setFilterOpen] = useState(true)
   const [notice, setNotice] = useState<Notice>(null)
 
   useEffect(() => {
@@ -211,83 +205,66 @@ export default function ExamMaxMarksSetupPage() {
   return (
     <PageContainer className="space-y-4">
       <PageHeader title="Exam Marks Setup" subtitle="Configure maximum marks per subject" />
-      <div className="app-card overflow-hidden shadow-sm">
-        <button
-          type="button"
-          className={cn(
-            'w-full px-6 py-3 border-b border-border bg-card flex items-center justify-between text-left rounded-t-md',
-            FIELD_OUTLINE,
-          )}
-          onClick={() => setFilterOpen((v) => !v)}
-        >
-          <h2 className="app-card-title">Exam Marks Setup</h2>
-          <div className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
-            <span>Filter</span>
-            <Filter className="h-3.5 w-3.5" />
-            {filterOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </div>
-        </button>
-        {filterOpen && (
-          <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="space-y-1 md:col-span-3">
-              <Label className="text-[13px]">University</Label>
-              <Select value={universityId ? String(universityId) : undefined} onValueChange={(v) => setUniversityId(Number(v))}>
-                <SelectTrigger className={cn(FILTER_INPUT, FIELD_OUTLINE)}><SelectValue placeholder="University" /></SelectTrigger>
-                <SelectContent>
-                  {universities.map((u, i) => (
-                    <SelectItem key={`u-${u.fk_university_id ?? i}`} value={String(u.fk_university_id)}>
-                      {u.university_code ?? u.university_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1 md:col-span-3">
-              <Label className="text-[13px]">Course</Label>
-              <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}>
-                <SelectTrigger className={cn(FILTER_INPUT, FIELD_OUTLINE)}><SelectValue placeholder="Course" /></SelectTrigger>
-                <SelectContent>
-                  {courses.map((c, i) => (
-                    <SelectItem key={`c-${c.fk_course_id ?? i}`} value={String(c.fk_course_id)}>
-                      {c.course_code ?? c.course_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1 md:col-span-3">
-              <Label className="text-[13px]">Regulation</Label>
-              <Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}>
-                <SelectTrigger className={cn(FILTER_INPUT, FIELD_OUTLINE)}><SelectValue placeholder="Regulation" /></SelectTrigger>
-                <SelectContent>
-                  {regulations.map((r, i) => (
-                    <SelectItem key={`r-${r.regulationId ?? i}`} value={String(r.regulationId)}>
-                      {r.regulationCode ?? r.regulation_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-2 flex items-center gap-2 h-9">
+      <GlobalFilterBar>
+        <GlobalFilterBarRow>
+        <GlobalFilterField label="University" icon={Building2}>
+          <Select
+            value={universityId ? String(universityId) : null}
+            onChange={(v) => setUniversityId(v ? Number(v) : null)}
+            options={universities.map((u, i) => ({
+              value: String(u.fk_university_id ?? i),
+              label: String(u.university_code ?? u.university_name ?? ''),
+            }))}
+            placeholder="All universities"
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Course" icon={GraduationCap}>
+          <Select
+            value={courseId ? String(courseId) : null}
+            onChange={(v) => setCourseId(v ? Number(v) : null)}
+            options={courses.map((c, i) => ({
+              value: String(c.fk_course_id ?? i),
+              label: String(c.course_code ?? c.course_name ?? ''),
+            }))}
+            placeholder="All courses"
+            disabled={courses.length === 0}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Regulation" icon={ScrollText}>
+          <Select
+            value={regulationId ? String(regulationId) : null}
+            onChange={(v) => setRegulationId(v ? Number(v) : null)}
+            options={regulations.map((r, i) => ({
+              value: String(r.regulationId ?? i),
+              label: String(r.regulationCode ?? r.regulation_code ?? ''),
+            }))}
+            placeholder="All regulations"
+            disabled={regulations.length === 0}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Options" className="global-filter-field--shrink global-filter-field--options">
+          <div className="flex flex-nowrap items-center gap-3 min-h-9">
+            <div className="flex items-center gap-2">
               <Checkbox
                 id="disabled"
                 className={CHECKBOX_STYLE}
                 checked={isForDisabled}
                 onCheckedChange={(v) => setIsForDisabled(Boolean(v))}
               />
-              <Label htmlFor="disabled" className="text-[13px]">Is For Disability</Label>
+              <Label htmlFor="disabled" className="text-[13px] font-medium whitespace-nowrap cursor-pointer">
+                Is For Disability
+              </Label>
             </div>
-            <div className="md:col-span-1">
-              <Button
-                onClick={getDetails}
-                className="h-[30px] w-full px-4 text-[12px] rounded-[10px] text-white border-0 bg-primary hover:bg-primary/90"
-              >
-                Get List
-              </Button>
-            </div>
+            <Button
+              onClick={getDetails}
+              className="h-[30px] px-4 text-[12px] rounded-[10px] text-white border-0 bg-primary hover:bg-primary/90"
+            >
+              Get List
+            </Button>
           </div>
-        )}
-      </div>
+        </GlobalFilterField>
+        </GlobalFilterBarRow>
+      </GlobalFilterBar>
       {notice && (
         <NoticeAlert
           type={notice.type}
