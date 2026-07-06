@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, type SelectOption } from '@/common/components/select'
+import defaultStudent from '@/assets/images/avatars/default_Student.png'
 import { format, parseISO } from 'date-fns'
 import type { ColDef } from 'ag-grid-community'
 import { DataTable, TableCard } from '@/common/components/table'
@@ -431,7 +432,17 @@ export default function ExamHallticketPage() {
               {!!selectedStudent && !!studentExamId && (
                 <div className="rounded border border-blue-200 bg-blue-50/40 p-3">
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
-                    <div className="md:col-span-9 text-[12px] leading-6">
+                    <div className="md:col-span-2 flex justify-center">
+                    <img
+  src={selectedStudent?.studentPhotoPath || defaultStudent.src}
+  alt="Student"
+  className="h-24 w-24 rounded object-cover border"
+  onError={(e) => {
+    e.currentTarget.src = defaultStudent.src
+  }}
+/>
+</div>
+                    <div className="md:col-span-7 text-[12px] leading-6">
                       <div className="font-semibold">
                         {selectedStudent.firstName ?? selectedStudent.studentName ?? '-'} (
                         <span className="text-blue-700">{selectedStudent.isLateral ? 'LATERAL' : 'REGULAR'}</span>)

@@ -90,8 +90,8 @@ export default function RoomTypesPage() {
   const columnDefs = useMemo<ColDef<RoomType>[]>(
     () => [
       COL_DEFS.siNo,
-      COL_DEFS.roomType,
       COL_DEFS.orgCode,
+      COL_DEFS.roomType,
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
       { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditingRoomType, setModalOpen) },
     ],

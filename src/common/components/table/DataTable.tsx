@@ -192,6 +192,11 @@ function filterInactiveRows<T>(rows: T[], showInactive: boolean): T[] {
   )
 }
 
+function isActionsColumn(def: ColDef): boolean {
+  const header = String(def.headerName ?? '').trim().toLowerCase()
+  return header === 'actions' || header === 'action'
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -319,7 +324,12 @@ export function DataTable<T>({
   const tb = useMemo(() => resolveToolbar(toolbarProp), [toolbarProp])
 
   const rootRef = useRef<HTMLDivElement>(null)
+  const [popupParent, setPopupParent] = useState<HTMLElement | undefined>(undefined)
   const [inferredTitle, setInferredTitle] = useState<string | undefined>()
+
+  useEffect(() => {
+    setPopupParent(document.body)
+  }, [])
 
   useEffect(() => {
     const root = rootRef.current
@@ -376,6 +386,14 @@ export function DataTable<T>({
         : {}),
     }),
     [tb.columnFilters],
+  )
+
+  const resolvedColumnDefs = useMemo(
+    () =>
+      columnDefs.map((def) =>
+        isActionsColumn(def) ? { ...def, filter: false, sortable: false } : def,
+      ),
+    [columnDefs],
   )
 
   const resolvedSubtitle =
@@ -531,10 +549,11 @@ export function DataTable<T>({
         <AgGridReact<T>
           ref={gridRef}
           rowData={pagedRowData}
-          columnDefs={columnDefs}
+          columnDefs={resolvedColumnDefs}
           defaultColDef={defaultColDef}
           domLayout={isAutoHeight ? 'autoHeight' : undefined}
           loading={loading}
+          // suppressCellFocus={true}
           overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
           onGridReady={handleGridReady}
           onFirstDataRendered={(e) => fitColumns(e.api)}
@@ -543,6 +562,7 @@ export function DataTable<T>({
           getRowId={getRowId}
           onCellClicked={onCellClicked}
           onRowClicked={onRowClick ? handleRowClicked : undefined}
+          popupParent={popupParent}
           animateRows
         />
       </div>

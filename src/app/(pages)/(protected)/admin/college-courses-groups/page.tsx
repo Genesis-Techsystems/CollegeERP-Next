@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { BookOpen, PencilIcon, PlusIcon } from 'lucide-react'
+import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
 import { DataTable } from '@/common/components/table'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
@@ -39,6 +40,7 @@ function actionsRenderer() {
 }
 
 export default function CollegeCoursesGroupsPage() {
+  useBreadcrumbLabel('College Courses & Groups')
   const { user } = useSession()
   const [filters, setFilters] = useState<CollegeFilterRow[]>([])
   const [selectedUniversityId, setSelectedUniversityId] = useState<number>(0)
@@ -107,6 +109,15 @@ export default function CollegeCoursesGroupsPage() {
     return [{ value: '0', label: 'All' }, ...Array.from(map.entries()).map(([value, label]) => ({ value: String(value), label }))]
   }, [filters, selectedUniversityId, selectedCollegeId, selectedCourseId])
 
+  const selectedCollegeCode = useMemo(
+    () => colleges.find((c) => Number(c.value) === selectedCollegeId)?.label ?? '',
+    [colleges, selectedCollegeId],
+  )
+  const selectedUniversityCode = useMemo(
+    () => universities.find((u) => Number(u.value) === selectedUniversityId)?.label ?? '',
+    [universities, selectedUniversityId],
+  )
+
   async function getList() {
     if (!selectedUniversityId || !selectedCollegeId) return
     const data = await listCollegeCourseGroups({
@@ -131,12 +142,61 @@ export default function CollegeCoursesGroupsPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card p-3 grid grid-cols-1 md:grid-cols-5 gap-2">
-        <Select label="University" value={selectedUniversityId ? String(selectedUniversityId) : null} onChange={(v) => { setSelectedUniversityId(v ? Number(v) : 0); setSelectedCollegeId(0); setSelectedCourseId(0); setSelectedCourseGroupId(0) }} options={universities} placeholder="Select university" searchable />
-        <Select label="College" value={selectedCollegeId ? String(selectedCollegeId) : null} onChange={(v) => { setSelectedCollegeId(v ? Number(v) : 0); setSelectedCourseId(0); setSelectedCourseGroupId(0) }} options={colleges} placeholder="Select college" searchable />
-        <Select label="Course" value={String(selectedCourseId)} onChange={(v) => { setSelectedCourseId(v ? Number(v) : 0); setSelectedCourseGroupId(0) }} options={courses} placeholder="Select course" searchable />
-        <Select label="Course Group" value={String(selectedCourseGroupId)} onChange={(v) => setSelectedCourseGroupId(v ? Number(v) : 0)} options={courseGroups} placeholder="Select group" searchable />
-        <div className="flex items-end"><Button onClick={getList}>Get List</Button></div>
+      <div className="app-card overflow-hidden">
+        <div className="px-3 py-2 border-b border-border bg-muted/40">
+          <h2 className="app-card-title">College Courses & Groups</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-2 gap-y-2 px-3 py-2">
+          <Select
+            label="University"
+            value={selectedUniversityId ? String(selectedUniversityId) : null}
+            onChange={(v) => {
+              setSelectedUniversityId(v ? Number(v) : 0)
+              setSelectedCollegeId(0)
+              setSelectedCourseId(0)
+              setSelectedCourseGroupId(0)
+            }}
+            options={universities}
+            placeholder="All"
+            searchable
+          />
+          <Select
+            label="College"
+            value={selectedCollegeId ? String(selectedCollegeId) : null}
+            onChange={(v) => {
+              setSelectedCollegeId(v ? Number(v) : 0)
+              setSelectedCourseId(0)
+              setSelectedCourseGroupId(0)
+            }}
+            options={colleges}
+            placeholder="All"
+            searchable
+          />
+          <Select
+            label="Course"
+            value={String(selectedCourseId)}
+            onChange={(v) => {
+              setSelectedCourseId(v ? Number(v) : 0)
+              setSelectedCourseGroupId(0)
+            }}
+            options={courses}
+            placeholder="All"
+            searchable
+          />
+          <Select
+            label="Course Group"
+            value={String(selectedCourseGroupId)}
+            onChange={(v) => setSelectedCourseGroupId(v ? Number(v) : 0)}
+            options={courseGroups}
+            placeholder="All"
+            searchable
+          />
+          <div className="flex items-end sm:col-span-2 lg:col-span-1">
+            <Button size="sm" onClick={getList} className="w-full sm:w-auto">
+              Get List
+            </Button>
+          </div>
+        </div>
       </div>
 
       {showList && (
@@ -175,6 +235,9 @@ export default function CollegeCoursesGroupsPage() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         collegeId={selectedCollegeId}
+        collegeCode={selectedCollegeCode}
+        universityCode={selectedUniversityCode}
+        existingRows={rows}
         onSaved={() => { void getList() }}
       />
     </PageContainer>

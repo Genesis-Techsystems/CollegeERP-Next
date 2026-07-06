@@ -195,6 +195,7 @@ export default function SubjectAllocationSemRegulationPage() {
         noExams: x.subjectCourseyears?.[0]?.noExams ?? x.noExams ?? false,
       })))
       setDeletedRows([])
+      alert('Changes saved successfully')
     } finally {
       setSaving(false)
     }
@@ -306,7 +307,7 @@ export default function SubjectAllocationSemRegulationPage() {
       </div>
 
       <div className="flex justify-end gap-2 mt-3">
-        <Button type="button" variant="outline" onClick={() => router.back()}>Back</Button>
+        <Button type="button" variant="outline" onClick={() => router.push('/academics/college-curriculum/subject-allocation')}>Back</Button>
         <Button type="button" onClick={saveAll} disabled={saving || !regulationId}>{saving ? 'Saving...' : 'Save'}</Button>
       </div>
 

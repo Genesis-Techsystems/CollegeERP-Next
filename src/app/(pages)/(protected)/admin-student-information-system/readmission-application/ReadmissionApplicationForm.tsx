@@ -6,6 +6,7 @@ import { PageContainer, PageHeader } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { DatePicker } from '@/common/components/date-picker'
 import { Button } from '@/components/ui/button'
+import defaultStudent from '@/assets/images/avatars/default_Student.png'
 import { StatusBadge } from '@/common/components/data-display'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { useSessionContext } from '@/context/SessionContext'
@@ -371,10 +372,13 @@ export function ReadmissionApplicationForm() {
           <div className="shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element -- remote student photo URLs */}
             <img
-              src={txt(student, ['studentPhotoPath']) || '/images/avatars/default_Student.png'}
-              alt=""
-              className="h-20 w-20 rounded-md border border-border object-cover"
-            />
+  src={txt(student, ['studentPhotoPath']) || defaultStudent.src}
+  alt=""
+  className="h-20 w-20 rounded-md border border-border object-cover"
+  onError={(e) => {
+    e.currentTarget.src = defaultStudent.src
+  }}
+/>
           </div>
           <div className="min-w-0 flex-1 space-y-1 text-[12px]">
             <p className="text-[14px] font-semibold text-slate-900">

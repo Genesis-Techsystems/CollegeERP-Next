@@ -12,6 +12,28 @@ export function mapHostelNavRoute(href?: string, label?: string): string | null 
     return null
   }
 
+  // Admin institutional room-type slugs — never hostel.
+  if (
+    hrefLower.includes('rooms-type') ||
+    hrefLower.includes('room-types') ||
+    hrefLower.includes('room-type')
+  ) {
+    return null
+  }
+
+  // "Room Types" exists only under Admin → Institutional Masters (Angular: rooms-type).
+  if (labelLower.includes('room type') || labelLower === 'room types') {
+    return null
+  }
+
+  // Admin "Rooms" under institutional masters — not hostel rooms.
+  if (
+    (labelLower === 'rooms' || labelLower === 'room') &&
+    (hrefLower.includes('/admin/') || hrefLower.includes('institutional'))
+  ) {
+    return null
+  }
+
   if (labelLower === 'hostel types' || hrefLower.includes('hostel-types')) {
     return '/hostel/hostel-types'
   }

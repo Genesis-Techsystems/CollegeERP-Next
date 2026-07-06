@@ -1,6 +1,7 @@
 import type { Module, SubModule, Page, NavItem } from '@/types/navigation'
 import { ensureErpModuleNavChildren, mapErpModuleNavRoute } from './erp-modules-navigation'
 import { ensureTimetableNavChildren, mapTimetableNavRoute } from './timetable-navigation'
+import { mapAdminInstitutionalRoomRoute } from './admin-institutional-navigation'
 
 /**
  * Removes any doubled leading segment from a URL path.
@@ -122,9 +123,18 @@ export function normalizeHref(path: string): string {
     .replace(/\/wallet\/university-wallet-recharge(?=\/|$)/gi, '/wallet/recharge-wallet')
     // Angular Admin institutional masters → App Router admin pages.
     .replace(/\/institutional-masters\/rooms-type(?=\/|$)/gi, '/admin/room-types')
+    .replace(/\/institutional-masters\/rooms-types(?=\/|$)/gi, '/admin/room-types')
+    .replace(/\/institutional-masters\/room-type(?=\/|$)/gi, '/admin/room-types')
+    .replace(/\/institutional-masters\/room-types(?=\/|$)/gi, '/admin/room-types')
     .replace(/\/institutional-masters\/rooms(?=\/|$)/gi, '/admin/rooms')
     .replace(/\/institutional-masters\/room-details(?=\/|$)/gi, '/admin/room-details')
     .replace(/\/institutional-masters\/room-detail(?=\/|$)/gi, '/admin/room-details')
+    .replace(/\/institutional-masters\/buildings(?=\/|$)/gi, '/admin/buildings')
+    .replace(/\/institutional-masters\/building(?=\/|$)/gi, '/admin/buildings')
+    .replace(/\/institutional-masters\/blocks(?=\/|$)/gi, '/admin/blocks')
+    .replace(/\/institutional-masters\/block(?=\/|$)/gi, '/admin/blocks')
+    .replace(/\/institutional-masters\/floors(?=\/|$)/gi, '/admin/floors')
+    .replace(/\/institutional-masters\/floor(?=\/|$)/gi, '/admin/floors')
     // Angular E-Office module (`Office/` menu prefix) → App Router path.
     .replace(/\/Office\//gi, '/e-office/')
     .replace(/\/apps\/e-office\//gi, '/e-office/')
@@ -391,11 +401,16 @@ function overrideErpModuleHref(href: string, pageLabel: string): string {
   return mapped ?? href
 }
 
+function overrideInstitutionalMastersHref(href: string, pageLabel: string): string {
+  return mapAdminInstitutionalRoomRoute(href, pageLabel) ?? href
+}
+
 function normalizePageHref(href: string, pageLabel: string): string {
+  const withInstitutional = overrideInstitutionalMastersHref(href, pageLabel)
   return normalizeHref(
     overrideErpModuleHref(
       overrideTimetableHref(
-        overrideLegacyPostExamHref(overrideLegacyPreExamHref(href, pageLabel), pageLabel),
+        overrideLegacyPostExamHref(overrideLegacyPreExamHref(withInstitutional, pageLabel), pageLabel),
         pageLabel,
       ),
       pageLabel,
@@ -726,6 +741,35 @@ export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
   })
 }
 
+/** Same href pins NavItem uses so breadcrumbs match sidebar links. */
+function resolveNavItemHrefForBreadcrumb(item: NavItem): string | null {
+  const labelLower = (item.label ?? '').toLowerCase()
+
+  if (labelLower.includes('room detail')) return '/admin/room-details'
+  if (
+    (labelLower.includes('college courses') && labelLower.includes('group'))
+    || (labelLower.includes('college subject') && labelLower.includes('group'))
+  ) {
+    return '/admin/college-courses-groups'
+  }
+
+  if (!item.href) return null
+
+  const hrefLower = item.href.toLowerCase()
+  const masterSettingsMarker = 'master-settings/'
+  const masterSettingsIndex = hrefLower.indexOf(masterSettingsMarker)
+  if (masterSettingsIndex !== -1) {
+    const slug = hrefLower
+      .slice(masterSettingsIndex + masterSettingsMarker.length)
+      .split('?')[0]
+    if (slug) {
+      return normalizeHref(`/admin/${slug}`).replace(/\/$/, '')
+    }
+  }
+
+  return normalizePageHref(item.href, item.label).replace(/\/$/, '')
+}
+
 /**
  * Resolves breadcrumb segments from the sidebar nav tree so labels match the
  * menu (e.g. Master Setup → Organizations) instead of raw URL segments.
@@ -740,7 +784,7 @@ export function findNavBreadcrumbItems(
   function walk(items: NavItem[], chain: NavItem[]) {
     for (const item of items) {
       const nextChain = [...chain, item]
-      const href = item.href ? normalizeHref(item.href).replace(/\/$/, '') : null
+      const href = resolveNavItemHrefForBreadcrumb(item)
 
       if (href) {
         const exact = target === href

@@ -34,6 +34,7 @@ import {
   updateUniversity,
   uploadUniversityLogo,
 } from '@/services'
+import { requiredNumber } from '@/lib/zod-fields'
 
 const schema = z.object({
   universityName: z.string().min(1, 'University name is required'),
@@ -58,8 +59,8 @@ const schema = z.object({
   linkedinUrl: z.string().optional(),
   countryId: z.number().optional(),
   stateId: z.number().optional(),
-  districtId: z.number().min(1, 'District is required'),
-  cityId: z.number().min(1, 'City is required'),
+  districtId: requiredNumber('District is required'),
+  cityId: requiredNumber('City is required'),
   reportLine1: z.string().optional(),
   reportLine2: z.string().optional(),
   reportLine3: z.string().optional(),
@@ -165,7 +166,7 @@ export default function UniversityModal({
         reportLine2: university.reportLine2 ?? '',
         reportLine3: university.reportLine3 ?? '',
         isActive: university.isActive,
-        reason: university.reason ?? '',
+        reason: university.isActive ? '' : (university.reason ?? ''),
       })
       setLogoPreview(university.logoFileName ?? null)
     } else {
@@ -213,7 +214,7 @@ export default function UniversityModal({
     try {
       let savedUniversity: University
       if (isEditing) {
-        savedUniversity = await updateUniversity(university!.universityId, data)
+        savedUniversity = await updateUniversity(university!.universityId, data, university!)
       } else {
         savedUniversity = await createUniversity(data as Omit<University, 'universityId'>)
       }

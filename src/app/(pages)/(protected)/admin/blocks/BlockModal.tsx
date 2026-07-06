@@ -17,10 +17,11 @@ import {
 } from '@/services'
 import type { Block } from '@/types/block'
 import type { Building } from '@/types/building'
+import { requiredNumber } from '@/lib/zod-fields'
 
 const schema = z.object({
   campusId: z.number().optional(),
-  buildingId: z.number().min(1, 'Building is required'),
+  buildingId: requiredNumber('Building is required'),
   blockName: z.string().min(1, 'Block name is required'),
   blockCode: z.string().min(1, 'Block code is required'),
   noOfFloors: z.preprocess(
@@ -89,7 +90,7 @@ export default function BlockModal({ open, onClose, block, onSaved }: Readonly<B
         blockCode: block.blockCode,
         noOfFloors: block.noOfFloors ?? undefined,
         isActive: block.isActive,
-        reason: block.reason ?? '',
+        reason: block.isActive ? '' : (block.reason ?? ''),
       })
     } else {
       reset()
@@ -106,15 +107,10 @@ export default function BlockModal({ open, onClose, block, onSaved }: Readonly<B
         return
       }
 
-      const payload: Omit<Block, 'blockId'> = {
-        ...data,
-        campusId: selectedBuilding.campusId,
-      }
-
       if (isEditing) {
-        await updateBlock(block!.blockId, payload)
+        await updateBlock(block!.blockId, data, block!)
       } else {
-        await createBlock(payload)
+        await createBlock(data as Omit<Block, 'blockId'>)
       }
       onSaved()
       onClose()
@@ -156,12 +152,12 @@ export default function BlockModal({ open, onClose, block, onSaved }: Readonly<B
             />
             <div className="space-y-0.5">
               <Label htmlFor="blockName">Block Name *</Label>
-              <Input id="blockName" {...register('blockName')} />
+              <Input id="blockName" placeholder="Enter block name" {...register('blockName')} />
               {errors.blockName && <p className="text-xs text-red-500">{errors.blockName.message}</p>}
             </div>
             <div className="space-y-0.5">
               <Label htmlFor="blockCode">Block Code *</Label>
-              <Input id="blockCode" {...register('blockCode')} />
+              <Input id="blockCode" placeholder="Enter block code" {...register('blockCode')} />
               {errors.blockCode && <p className="text-xs text-red-500">{errors.blockCode.message}</p>}
             </div>
             <div className="space-y-0.5">
@@ -170,6 +166,7 @@ export default function BlockModal({ open, onClose, block, onSaved }: Readonly<B
                 id="noOfFloors"
                 type="number"
                 min={0}
+                placeholder="Enter number of floors"
                 {...register('noOfFloors', { valueAsNumber: true })}
               />
               {errors.noOfFloors && <p className="text-xs text-red-500">{errors.noOfFloors.message}</p>}

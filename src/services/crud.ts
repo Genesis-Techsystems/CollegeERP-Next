@@ -242,7 +242,17 @@ class CrudService {
     const body: ApiResponse<T> = await res.json()
 
     if (!body.success) {
-      throw new AppError('API_ERROR', body.message ?? `Failed to update ${entity}`)
+      const detail =
+        body.data != null && typeof body.data === 'object'
+          ? JSON.stringify(body.data)
+          : typeof body.data === 'string' && body.data.trim()
+            ? body.data
+            : null
+      throw new AppError(
+        'API_ERROR',
+        detail ? `${body.message ?? `Failed to update ${entity}`} (${detail})` : (body.message ?? `Failed to update ${entity}`),
+        body,
+      )
     }
 
     return body.data as T

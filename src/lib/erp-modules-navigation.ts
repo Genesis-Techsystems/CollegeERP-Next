@@ -4,6 +4,7 @@ import {
   mapMirroredModuleNavRoute,
 } from '@/lib/erp-module-mirror/navigation'
 import { mapModuleTail, normalizeLabelKey } from './erp-modules-navigation-utils'
+import { mapAdminInstitutionalRoomRoute } from '@/lib/admin-institutional-navigation'
 import { mapHostelNavRoute } from './hostel-navigation'
 
 /** App Router bases (Angular legacy paths mapped in `navigation.ts` normalizeHref). */
@@ -446,6 +447,9 @@ export function isLibraryModuleLabel(label?: string): boolean {
 
 /** Unified mapper for normalizePageHref / NavItem forced routes. */
 export function mapErpModuleNavRoute(href?: string, label?: string): string | null {
+  const institutional = mapAdminInstitutionalRoomRoute(href, label)
+  if (institutional) return institutional
+
   return (
     mapAttendanceNavRoute(href, label) ??
     mapMentorshipNavRoute(href, label) ??

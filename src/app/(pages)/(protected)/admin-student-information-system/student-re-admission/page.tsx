@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronDown, Filter, User } from 'lucide-react'
+import defaultStudent from '@/assets/images/avatars/default_Student.png'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
@@ -271,13 +272,15 @@ export default function StudentReadmissionPage() {
                   return (
                     <tr key={`detained-${sid}-${index}`} className="border-t">
                       <td className="px-2 py-1 align-middle">
-                        <div
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-slate-100 text-muted-foreground"
-                          aria-hidden
-                        >
-                          <User className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                        </div>
-                      </td>
+  <img
+    src={row.studentPhotoPath || defaultStudent.src}
+    alt="Student"
+    className="h-10 w-10 rounded-md border object-cover"
+    onError={(e) => {
+      e.currentTarget.src = defaultStudent.src
+    }}
+  />
+</td>
                       <td className="px-2 py-1">
                         <div className="font-medium text-slate-900">{admissionNo}, {studentName}</div>
                         <div className="text-slate-600">{details || '-'}</div>

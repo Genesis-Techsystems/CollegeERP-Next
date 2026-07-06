@@ -13,9 +13,10 @@ import { Label } from '@/components/ui/label'
 import { createFloor, listActiveBlocksForFloors, updateFloor } from '@/services'
 import type { Block } from '@/types/block'
 import type { Floor } from '@/types/floor'
+import { requiredNumber } from '@/lib/zod-fields'
 
 const schema = z.object({
-  blockId: z.number().min(1, 'Block is required'),
+  blockId: requiredNumber('Block is required'),
   floorName: z.string().min(1, 'Floor name is required'),
   floorNo: z.coerce.number().min(0, 'Floor No cannot be negative'),
   noOfRooms: z.preprocess(
@@ -82,7 +83,7 @@ export default function FloorModal({ open, onClose, floor, onSaved }: Readonly<F
         floorNo: floor.floorNo,
         noOfRooms: floor.noOfRooms ?? undefined,
         isActive: floor.isActive,
-        reason: floor.reason ?? '',
+        reason: floor.isActive ? '' : (floor.reason ?? ''),
       })
     } else {
       reset()
@@ -94,7 +95,7 @@ export default function FloorModal({ open, onClose, floor, onSaved }: Readonly<F
     setSubmitError(null)
     try {
       if (isEditing) {
-        await updateFloor(floor.floorId, data)
+        await updateFloor(floor.floorId, data, floor)
       } else {
         await createFloor(data)
       }

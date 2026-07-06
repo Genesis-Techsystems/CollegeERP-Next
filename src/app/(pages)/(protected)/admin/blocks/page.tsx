@@ -16,10 +16,10 @@ import BlockModal from './BlockModal'
 
 const COL_DEFS = {
   siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<Block>,
-  blockName: { field: 'blockName', headerName: 'Block', minWidth: 160, flex: 1.2 } as ColDef<Block>,
-  blockCode: { field: 'blockCode', headerName: 'Code', minWidth: 95, flex: 0.75 } as ColDef<Block>,
+  blockName: { field: 'blockName', headerName: 'Block Name', minWidth: 160, flex: 1.2 } as ColDef<Block>,
+  blockCode: { field: 'blockCode', headerName: 'Block Code', minWidth: 115, flex: 0.85 } as ColDef<Block>,
   buildingName: { field: 'buildingName', headerName: 'Building', minWidth: 150, flex: 1 } as ColDef<Block>,
-  noOfFloors: { field: 'noOfFloors', headerName: 'Floors', minWidth: 90, flex: 0.7 } as ColDef<Block>,
+  noOfFloors: { field: 'noOfFloors', headerName: 'No Of Floors', minWidth: 110, flex: 0.75 } as ColDef<Block>,
   isActive: { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<Block>,
   actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<Block>,
 }
