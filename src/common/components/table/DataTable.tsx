@@ -192,6 +192,11 @@ function filterInactiveRows<T>(rows: T[], showInactive: boolean): T[] {
   )
 }
 
+function isActionsColumn(def: ColDef): boolean {
+  const header = String(def.headerName ?? '').trim().toLowerCase()
+  return header === 'actions' || header === 'action'
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -378,6 +383,14 @@ export function DataTable<T>({
     [tb.columnFilters],
   )
 
+  const resolvedColumnDefs = useMemo(
+    () =>
+      columnDefs.map((def) =>
+        isActionsColumn(def) ? { ...def, filter: false, sortable: false } : def,
+      ),
+    [columnDefs],
+  )
+
   const resolvedSubtitle =
     subtitle ?? (resolvedTitle && tb.columnFilters && tb.show ? FILTER_HINT : undefined)
 
@@ -531,7 +544,7 @@ export function DataTable<T>({
         <AgGridReact<T>
           ref={gridRef}
           rowData={pagedRowData}
-          columnDefs={columnDefs}
+          columnDefs={resolvedColumnDefs}
           defaultColDef={defaultColDef}
           domLayout={isAutoHeight ? 'autoHeight' : undefined}
           loading={loading}

@@ -8,7 +8,7 @@
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   /* Semantic surface tokens */
-  --background: 210 20% 97%;          /* pale blue-grey canvas */
+  --background: 0 0% 100%;            /* pure white canvas */
   --foreground: 210 50% 10%;          /* deep navy text */
   --card: 0 0% 100%;                  /* pure white */
   --card-foreground: 210 50% 10%;
@@ -123,6 +123,7 @@
   --app-table-header-font-size: 12px;
   --app-table-row-font-size: 12.5px;
   --app-table-row-height: 32px;
+  --app-table-header-color: var(--primary);
 
   /* ── Border radius ──────────────────────────────────────────────────────── */
   --radius-card: 0.5rem;
@@ -382,7 +383,7 @@
   --ag-cell-horizontal-padding: 14px;
   --ag-font-family: var(--font-body), 'Manrope', system-ui, sans-serif;
   --ag-background-color: hsl(var(--card));
-  --ag-header-background-color: hsl(210 25% 97%);
+  --ag-header-background-color: hsl(var(--primary) / 0.06);
   --ag-border-color: hsl(var(--border));
   --ag-row-border-color: hsl(var(--border));
   --ag-row-hover-color: hsl(var(--muted) / 0.45);
@@ -399,12 +400,12 @@
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: hsl(210 15% 52%);
+  color: hsl(var(--app-table-header-color));
   text-transform: uppercase;
 }
 
 .app-data-table .ag-theme-quartz .ag-header-row {
-  border-bottom: 1px solid hsl(var(--border));
+  border-bottom: 1px solid hsl(var(--primary) / 0.12);
 }
 
 .app-data-table .ag-theme-quartz .ag-header-cell {
@@ -413,8 +414,8 @@
 
 .app-data-table .ag-theme-quartz .ag-header-cell .ag-icon-filter,
 .app-data-table .ag-theme-quartz .ag-header-cell .ag-sort-indicator-icon {
-  opacity: 0.85;
-  color: hsl(210 15% 55%);
+  opacity: 0.9;
+  color: hsl(var(--app-table-header-color));
 }
 
 .app-data-table .ag-theme-quartz .ag-cell,
@@ -634,8 +635,44 @@
   font-size: var(--app-control-font-size);
 }
 
+/* Pointer cursor on all clickable buttons app-wide */
+button:not(:disabled):not([disabled]),
+input[type="button"]:not(:disabled):not([disabled]),
+input[type="submit"]:not(:disabled):not([disabled]),
+input[type="reset"]:not(:disabled):not([disabled]),
+[role="button"]:not([aria-disabled="true"]):not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+button[disabled],
+input[type="button"]:disabled,
+input[type="submit"]:disabled,
+input[type="reset"]:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 .app-label {
   font-size: var(--app-label-font-size);
+}
+
+/* Organization modal — pin native date picker icon to the right edge */
+.org-modal-date-input {
+  position: relative;
+}
+.org-modal-date-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  opacity: 1;
+}
+.org-modal-date-input::-webkit-datetime-edit {
+  padding-right: 1.5rem;
 }
 
 .app-table-head-cell {
@@ -716,7 +753,7 @@ main .app-card + .app-card {
   font-family: 'Inter', sans-serif;
 
   /* Canvas and surfaces (warm, subtle contrast) */
-  --background: 220 24% 94%;           /* slightly darker canvas for clearer card contrast */
+  --background: 0 0% 100%;             /* pure white canvas */
   --foreground: 222 47% 12%;           /* near-navy text */
   --card: 0 0% 100%;                   /* pure white cards */
   --card-foreground: 222 47% 12%;
@@ -892,7 +929,7 @@ main .app-card + .app-card {
 /* University Blue (UniERP reference) — medium-blue sidebar + #185FA5 primary.
    Unlike the accent-only themes, this also recolours the sidebar + canvas. */
 [data-theme="university-blue"] {
-  --background: 220 33% 97%;            /* #F4F6FA canvas */
+  --background: 0 0% 100%;             /* pure white canvas */
   --foreground: 218 32% 15%;           /* #1A2433 */
   --muted-foreground: 218 10% 47%;     /* #6B7384 */
   --border: 218 25% 91%;               /* #E2E6EE thin light border */

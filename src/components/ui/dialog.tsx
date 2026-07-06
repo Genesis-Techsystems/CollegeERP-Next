@@ -26,12 +26,14 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   hideClose?: boolean
+  /** When false, clicking the backdrop does not close the dialog. Default true. */
+  closeOnOutsideClick?: boolean
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, hideClose = false, ...props }, ref) => {
+>(({ className, children, hideClose = false, closeOnOutsideClick = true, ...props }, ref) => {
   const padded = !/\bp-0\b/.test(className ?? "")
 
   return (
@@ -40,6 +42,9 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         data-dialog-padded={padded ? "" : undefined}
+        onInteractOutside={(e) => {
+          if (!closeOnOutsideClick) e.preventDefault()
+        }}
         className={cn(
           "group/dialog fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
           padded ? "px-6 pb-6 pt-0" : "p-0",

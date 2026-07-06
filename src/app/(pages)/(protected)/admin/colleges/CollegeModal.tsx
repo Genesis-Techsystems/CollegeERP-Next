@@ -75,6 +75,41 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
+const FIELD_INPUT =
+  'h-9 min-w-0 w-full rounded-lg border border-[#d7dce5] bg-white px-3 text-[13px] font-medium text-foreground shadow-none transition-[border-color,box-shadow] duration-150 placeholder:text-slate-500 placeholder:font-normal focus-visible:border-primary/45 focus-visible:ring-2 focus-visible:ring-primary/12 disabled:bg-muted/40'
+const FIELD_LABEL =
+  'text-[12px] font-semibold leading-tight tracking-wide text-[hsl(218_32%_22%)]'
+const FORM_ROW = 'grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4'
+const SELECT_FIELD =
+  'gap-0 [&>button]:h-9 [&>button]:rounded-lg [&>button]:border-[#d7dce5] [&>button]:bg-white [&>button]:px-3 [&>button]:text-[13px] [&>button]:font-medium [&>button]:shadow-none [&>button]:focus-visible:border-primary/45 [&>button]:focus-visible:ring-2 [&>button]:focus-visible:ring-primary/12'
+
+function Field({
+  label,
+  required,
+  error,
+  htmlFor,
+  children,
+  className,
+}: {
+  label: string
+  required?: boolean
+  error?: string
+  htmlFor?: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div className={className ?? 'min-w-0 space-y-1'}>
+      <Label htmlFor={htmlFor} className={FIELD_LABEL}>
+        {label}
+        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
+      </Label>
+      {children}
+      {error ? <p className="text-xs font-medium text-destructive">{error}</p> : null}
+    </div>
+  )
+}
+
 interface CollegeModalProps {
   open: boolean
   onClose: () => void
@@ -234,7 +269,7 @@ export default function CollegeModal({
         linkedinUrl: college.linkedinUrl ?? '',
         isActive: college.isActive,
         isUniversity: college.isUniversity ?? false,
-        reason: college.reason ?? '',
+        reason: college.isActive ? '' : (college.reason ?? ''),
       })
       setLogoPreview(college.logo ?? null)
     } else {
@@ -282,7 +317,7 @@ export default function CollegeModal({
     try {
       let savedCollege: College
       if (isEditing) {
-        savedCollege = await updateCollege(college!.collegeId, data)
+        savedCollege = await updateCollege(college!.collegeId, data, college!)
       } else {
         savedCollege = await createCollege(data as Omit<College, 'collegeId'>)
       }
@@ -310,262 +345,279 @@ export default function CollegeModal({
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        closeOnOutsideClick={false}
+        className="w-[calc(100vw-2rem)] overflow-x-hidden sm:max-w-6xl"
+      >
         <DialogHeader className="pr-8">
           <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
             {isEditing ? 'Edit College' : 'Add College'}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
-          <div className="grid grid-cols-3 gap-2">
-            <Controller
-              name="organizationId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="Organization"
-                  required
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                  options={organizationOptions}
-                  placeholder="Select organization"
-                  searchable
-                  error={errors.organizationId?.message}
-                />
-              )}
-            />
-            <Controller
-              name="universityId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="University"
-                  required
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                  options={universityOptions}
-                  placeholder="Select university"
-                  searchable
-                  error={errors.universityId?.message}
-                />
-              )}
-            />
-            <Controller
-              name="campusId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="Campus"
-                  required
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                  options={campusOptions}
-                  placeholder="Select campus"
-                  searchable
-                  error={errors.campusId?.message}
-                />
-              )}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="collegeName">College Name *</Label>
-              <Input id="collegeName" {...register('collegeName')} />
-              {errors.collegeName && <p className="text-xs text-red-500">{errors.collegeName.message}</p>}
-            </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="collegeCode">College Code *</Label>
-              <Input id="collegeCode" {...register('collegeCode')} />
-              {errors.collegeCode && <p className="text-xs text-red-500">{errors.collegeCode.message}</p>}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="collegeShortName">Short Name</Label>
-              <Input id="collegeShortName" {...register('collegeShortName')} />
-            </div>
-            <Controller
-              name="affiliatedTo"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="Affiliated To"
-                  required
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                  options={affiliations}
-                  placeholder="Select affiliation"
-                  error={errors.affiliatedTo?.message}
-                />
-              )}
-            />
-            <div className="space-y-0.5">
-              <Label htmlFor="sortOrder">Sort Order *</Label>
-              <Input id="sortOrder" type="number" {...register('sortOrder', { valueAsNumber: true })} />
-              {errors.sortOrder && <p className="text-xs text-red-500">{errors.sortOrder.message}</p>}
-            </div>
-          </div>
-
-          <div className="space-y-0.5">
-            <Label>Logo</Label>
-            <div className="flex items-center gap-3">
-              <img
-                src={logoPreview ?? noImgLogo.src}
-                alt="preview"
-                className="h-14 w-14 rounded object-contain border"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).src = noImgLogo.src }}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+          <div className={FORM_ROW}>
+            <Field label="Organization" required error={errors.organizationId?.message} className="min-w-0 space-y-1">
+              <Controller
+                name="organizationId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    options={organizationOptions}
+                    placeholder="Select organization"
+                    searchable
+                    className={SELECT_FIELD}
+                  />
+                )}
               />
+            </Field>
+            <Field label="University" required error={errors.universityId?.message} className="min-w-0 space-y-1">
+              <Controller
+                name="universityId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    options={universityOptions}
+                    placeholder="Select university"
+                    searchable
+                    className={SELECT_FIELD}
+                  />
+                )}
+              />
+            </Field>
+            <Field label="Campus" required error={errors.campusId?.message} className="min-w-0 space-y-1">
+              <Controller
+                name="campusId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    options={campusOptions}
+                    placeholder="Select campus"
+                    searchable
+                    className={SELECT_FIELD}
+                  />
+                )}
+              />
+            </Field>
+            <Field
+              label="College Name"
+              required
+              error={errors.collegeName?.message}
+              htmlFor="collegeName"
+              className="min-w-0 space-y-1"
+            >
+              <Input id="collegeName" className={FIELD_INPUT} placeholder="College name" {...register('collegeName')} />
+            </Field>
+          </div>
+
+          <div className={`${FORM_ROW} lg:grid-cols-12`}>
+            <Field
+              label="College Code"
+              required
+              error={errors.collegeCode?.message}
+              htmlFor="collegeCode"
+              className="min-w-0 space-y-1 lg:col-span-3"
+            >
+              <Input id="collegeCode" className={FIELD_INPUT} placeholder="e.g. COE01" {...register('collegeCode')} />
+            </Field>
+            <Field label="Short Name" htmlFor="collegeShortName" className="min-w-0 space-y-1 lg:col-span-3">
+              <Input id="collegeShortName" className={FIELD_INPUT} placeholder="Short name" {...register('collegeShortName')} />
+            </Field>
+            <Field label="Affiliated To" required error={errors.affiliatedTo?.message} className="min-w-0 space-y-1 lg:col-span-3">
+              <Controller
+                name="affiliatedTo"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    options={affiliations}
+                    placeholder="Select affiliation"
+                    className={SELECT_FIELD}
+                  />
+                )}
+              />
+            </Field>
+            <Field
+              label="Sort Order"
+              required
+              error={errors.sortOrder?.message}
+              htmlFor="sortOrder"
+              className="min-w-0 space-y-1 lg:col-span-3"
+            >
               <Input
-                type="file"
-                accept=".png,.jpg,.jpeg"
-                ref={fileRef}
-                onChange={handleLogoChange}
-                className="max-w-xs"
+                id="sortOrder"
+                type="number"
+                className={FIELD_INPUT}
+                placeholder="1"
+                {...register('sortOrder', { valueAsNumber: true })}
               />
-            </div>
-            <p className="text-xs text-slate-400">Accepted: .png, .jpg, .jpeg</p>
+            </Field>
           </div>
 
-          <div className="space-y-0.5">
-            <Label htmlFor="address">Address *</Label>
-            <Input id="address" {...register('address')} />
-            {errors.address && <p className="text-xs text-red-500">{errors.address.message}</p>}
+          <div className={`${FORM_ROW} lg:grid-cols-12`}>
+            <Field label="Logo (.png, .jpg, .jpeg)" className="min-w-0 space-y-1 lg:col-span-5">
+              <div className="flex min-w-0 items-center gap-2">
+                <img
+                  src={logoPreview ?? noImgLogo.src}
+                  alt="College logo preview"
+                  className="h-9 w-9 shrink-0 rounded-md border border-[#d7dce5] object-contain bg-white"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = noImgLogo.src }}
+                />
+                <Input
+                  type="file"
+                  accept=".png,.jpg,.jpeg"
+                  ref={fileRef}
+                  onChange={handleLogoChange}
+                  className={`${FIELD_INPUT} min-w-0 flex-1 cursor-pointer py-1.5 file:mr-2 file:rounded-md file:border-0 file:bg-[#eef2f7] file:px-2.5 file:py-1 file:text-[11px] file:font-semibold file:text-slate-600`}
+                />
+              </div>
+            </Field>
+            <Field
+              label="Address"
+              required
+              error={errors.address?.message}
+              htmlFor="address"
+              className="min-w-0 space-y-1 lg:col-span-7"
+            >
+              <Input id="address" className={FIELD_INPUT} placeholder="Street, area, city" {...register('address')} />
+            </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <Controller
-              name="countryId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="Country"
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => {
-                    field.onChange(v ? Number(v) : undefined)
-                    setValue('stateId', undefined)
-                    setValue('districtId', undefined as unknown as number)
-                    setValue('cityId', undefined as unknown as number)
-                  }}
-                  options={countryOptions}
-                  placeholder="Select country"
-                  searchable
-                />
-              )}
-            />
-            <Controller
-              name="stateId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="State"
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => {
-                    field.onChange(v ? Number(v) : undefined)
-                    setValue('districtId', undefined as unknown as number)
-                    setValue('cityId', undefined as unknown as number)
-                  }}
-                  options={stateOptions}
-                  placeholder="Select state"
-                  disabled={!countryId || stateOptions.length === 0}
-                  searchable
-                />
-              )}
-            />
-            <Controller
-              name="districtId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="District"
-                  required
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => {
-                    field.onChange(v ? Number(v) : undefined)
-                    setValue('cityId', undefined as unknown as number)
-                  }}
-                  options={districtOptions}
-                  placeholder="Select district"
-                  disabled={!stateId || districtOptions.length === 0}
-                  searchable
-                  error={errors.districtId?.message}
-                />
-              )}
-            />
-            <Controller
-              name="cityId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="City"
-                  required
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                  options={cityOptions}
-                  placeholder="Select city"
-                  disabled={!districtId || cityOptions.length === 0}
-                  searchable
-                  error={errors.cityId?.message}
-                />
-              )}
-            />
+          <div className={FORM_ROW}>
+            <Field label="Country" className="min-w-0 space-y-1">
+              <Controller
+                name="countryId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => {
+                      field.onChange(v ? Number(v) : undefined)
+                      setValue('stateId', undefined)
+                      setValue('districtId', undefined as unknown as number)
+                      setValue('cityId', undefined as unknown as number)
+                    }}
+                    options={countryOptions}
+                    placeholder="Select country"
+                    searchable
+                    className={SELECT_FIELD}
+                  />
+                )}
+              />
+            </Field>
+            <Field label="State" className="min-w-0 space-y-1">
+              <Controller
+                name="stateId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => {
+                      field.onChange(v ? Number(v) : undefined)
+                      setValue('districtId', undefined as unknown as number)
+                      setValue('cityId', undefined as unknown as number)
+                    }}
+                    options={stateOptions}
+                    placeholder="Select state"
+                    disabled={!countryId || stateOptions.length === 0}
+                    searchable
+                    className={SELECT_FIELD}
+                  />
+                )}
+              />
+            </Field>
+            <Field label="District" required error={errors.districtId?.message} className="min-w-0 space-y-1">
+              <Controller
+                name="districtId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => {
+                      field.onChange(v ? Number(v) : undefined)
+                      setValue('cityId', undefined as unknown as number)
+                    }}
+                    options={districtOptions}
+                    placeholder="Select district"
+                    disabled={!stateId || districtOptions.length === 0}
+                    searchable
+                    className={SELECT_FIELD}
+                  />
+                )}
+              />
+            </Field>
+            <Field label="City" required error={errors.cityId?.message} className="min-w-0 space-y-1">
+              <Controller
+                name="cityId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    options={cityOptions}
+                    placeholder="Select city"
+                    disabled={!districtId || cityOptions.length === 0}
+                    searchable
+                    className={SELECT_FIELD}
+                  />
+                )}
+              />
+            </Field>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="mandal">Mandal *</Label>
-              <Input id="mandal" {...register('mandal')} />
-              {errors.mandal && <p className="text-xs text-red-500">{errors.mandal.message}</p>}
-            </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="pincode">Pincode *</Label>
-              <Input id="pincode" {...register('pincode')} />
-              {errors.pincode && <p className="text-xs text-red-500">{errors.pincode.message}</p>}
-            </div>
-            <Controller
-              name="collegeType"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="College Type"
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                  options={collegeTypes}
-                  placeholder="Select type"
-                />
-              )}
-            />
+          <div className={FORM_ROW}>
+            <Field label="Mandal" required error={errors.mandal?.message} htmlFor="mandal" className="min-w-0 space-y-1">
+              <Input id="mandal" className={FIELD_INPUT} placeholder="Mandal" {...register('mandal')} />
+            </Field>
+            <Field label="Pincode" required error={errors.pincode?.message} htmlFor="pincode" className="min-w-0 space-y-1">
+              <Input id="pincode" className={FIELD_INPUT} placeholder="6-digit pincode" {...register('pincode')} />
+            </Field>
+            <Field label="College Type" className="min-w-0 space-y-1">
+              <Controller
+                name="collegeType"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    options={collegeTypes}
+                    placeholder="Select type"
+                    className={SELECT_FIELD}
+                  />
+                )}
+              />
+            </Field>
+            <Field label="Approved By" htmlFor="approvedBy" className="min-w-0 space-y-1">
+              <Input id="approvedBy" className={FIELD_INPUT} placeholder="Approving body" {...register('approvedBy')} />
+            </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-0.5">
-              <Label htmlFor="approvedBy">Approved By</Label>
-              <Input id="approvedBy" {...register('approvedBy')} />
-            </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="printPrefix">Print Prefix</Label>
-              <Input id="printPrefix" {...register('printPrefix')} />
-            </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="mobileNumber">Mobile No</Label>
-              <Input id="mobileNumber" {...register('mobileNumber')} />
-              {errors.mobileNumber && <p className="text-xs text-red-500">{errors.mobileNumber.message}</p>}
-            </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="landlineNumber">Landline No</Label>
-              <Input id="landlineNumber" {...register('landlineNumber')} />
-            </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" {...register('email')} />
-              {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
-            </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="fax">Fax</Label>
-              <Input id="fax" {...register('fax')} />
-            </div>
+          <div className={FORM_ROW}>
+            <Field label="Print Prefix" htmlFor="printPrefix" className="min-w-0 space-y-1">
+              <Input id="printPrefix" className={FIELD_INPUT} placeholder="Print prefix" {...register('printPrefix')} />
+            </Field>
+            <Field label="Mobile No" error={errors.mobileNumber?.message} htmlFor="mobileNumber" className="min-w-0 space-y-1">
+              <Input id="mobileNumber" className={FIELD_INPUT} placeholder="10-digit mobile" {...register('mobileNumber')} />
+            </Field>
+            <Field label="Landline No" htmlFor="landlineNumber" className="min-w-0 space-y-1">
+              <Input id="landlineNumber" className={FIELD_INPUT} placeholder="Landline number" {...register('landlineNumber')} />
+            </Field>
+            <Field label="Email" error={errors.email?.message} htmlFor="email" className="min-w-0 space-y-1">
+              <Input id="email" className={FIELD_INPUT} placeholder="email@college.edu" {...register('email')} />
+            </Field>
+          </div>
+
+          <div className={`${FORM_ROW} sm:grid-cols-2 lg:grid-cols-4`}>
+            <Field label="Fax" htmlFor="fax" className="min-w-0 space-y-1">
+              <Input id="fax" className={FIELD_INPUT} placeholder="Fax number" {...register('fax')} />
+            </Field>
           </div>
 
           {isEditing && (
@@ -585,14 +637,14 @@ export default function CollegeModal({
           )}
 
           {submitError && (
-            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>
+            <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{submitError}</p>
           )}
 
-          <DialogFooter className="pt-1">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+          <DialogFooter className="gap-2 border-t border-border/60 pt-3 sm:justify-end">
+            <Button type="button" variant="outline" className="h-9 min-w-[5.5rem]" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" className="h-9 min-w-[5.5rem]" disabled={isSubmitting}>
               {submitLabel}
             </Button>
           </DialogFooter>
