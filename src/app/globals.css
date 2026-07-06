@@ -130,31 +130,44 @@
   --radius-badge: 9999px;
 }
 
-/* ── AG Grid (Quartz) density tweaks for app tables ─────────────────────────── */
+/* ── AG Grid (Quartz) — app-wide table design ─────────────────────────────── */
+
+/* Table card shell — matches reference .card.adt-card (1rem radius + soft shadow) */
+.app-data-table-card {
+  border-radius: 1rem;
+  overflow: hidden;
+  background: hsl(var(--card));
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
 .app-data-table .ag-theme-quartz {
   --ag-font-size: var(--app-table-row-font-size);
   --ag-grid-size: 4px;
   --ag-list-item-height: 22px;
-  --ag-header-height: 38px;
-  --ag-row-height: var(--app-table-row-height);
+  --ag-header-height: 42px;
+  --ag-row-height: 40px;
   --ag-cell-horizontal-padding: 14px;
   --ag-font-family: var(--font-body), 'Manrope', system-ui, sans-serif;
   --ag-background-color: hsl(var(--card));
-  --ag-header-background-color: hsl(var(--muted));
+  --ag-header-background-color: hsl(210 25% 97%);
   --ag-border-color: hsl(var(--border));
   --ag-row-border-color: hsl(var(--border));
-  --ag-row-hover-color: hsl(var(--muted) / 0.6);
-  --ag-selected-row-background-color: hsl(var(--primary) / 0.08);
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
+  --ag-row-hover-color: hsl(var(--muted) / 0.45);
+  --ag-selected-row-background-color: hsl(var(--primary) / 0.06);
+  --ag-header-column-separator-display: block;
+  --ag-header-column-separator-color: hsl(var(--border));
+  --ag-header-column-resize-handle-color: hsl(var(--border));
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .app-data-table .ag-theme-quartz .ag-header-cell-text {
-  font-size: var(--app-table-header-font-size);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  color: hsl(var(--muted-foreground));
+  letter-spacing: 0.06em;
+  color: hsl(210 15% 52%);
   text-transform: uppercase;
 }
 
@@ -162,10 +175,20 @@
   border-bottom: 1px solid hsl(var(--border));
 }
 
+.app-data-table .ag-theme-quartz .ag-header-cell {
+  padding-inline: 12px;
+}
+
+.app-data-table .ag-theme-quartz .ag-header-cell .ag-icon-filter,
+.app-data-table .ag-theme-quartz .ag-header-cell .ag-sort-indicator-icon {
+  opacity: 0.85;
+  color: hsl(210 15% 55%);
+}
+
 .app-data-table .ag-theme-quartz .ag-cell,
 .app-data-table .ag-theme-quartz .ag-cell-value {
   font-size: var(--app-table-row-font-size) !important;
-  line-height: 1.35;
+  line-height: 1.4;
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -173,12 +196,123 @@
 }
 
 .app-data-table .ag-theme-quartz .ag-row {
-  min-height: var(--app-table-row-height) !important;
+  min-height: 40px !important;
+  border-bottom: 1px solid hsl(var(--border) / 0.85);
+}
+
+.app-data-table .ag-theme-quartz .ag-row:last-child {
+  border-bottom: 0;
 }
 
 .app-data-table .ag-theme-quartz .ag-root-wrapper {
   border: 0 !important;
   border-radius: 0 !important;
+}
+
+/* Auto-height layout: drop AG Grid's default 150px min-height when rows exist */
+.app-data-table .ag-layout-auto-height .ag-center-cols-container,
+.app-data-table .ag-layout-auto-height .ag-center-cols-viewport {
+  min-height: unset !important;
+}
+
+/* Empty state — room for “No rows to show” without restoring the 150px data min-height */
+.app-data-table-grid-empty .ag-layout-auto-height .ag-center-cols-container,
+.app-data-table-grid-empty .ag-layout-auto-height .ag-center-cols-viewport,
+.app-data-table-grid-empty .ag-body-viewport,
+.app-data-table-grid-empty .ag-body-horizontal-scroll-viewport {
+  min-height: 7rem !important;
+}
+
+.app-data-table .ag-overlay-no-rows-wrapper {
+  padding: 2rem 1rem;
+}
+
+.app-data-table .ag-overlay-no-rows-center,
+.app-data-table .app-data-table-no-rows-msg {
+  color: hsl(210 12% 42%);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+
+/* Toolbar search */
+.app-data-table-toolbar-wrap input[type='search'],
+.app-data-table-toolbar-wrap input[type='text'] {
+  height: 2.25rem;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+/* Primary toolbar action (e.g. + New Organization) */
+.app-data-table-toolbar-wrap button[data-table-primary-action] {
+  height: 2.25rem;
+  border-radius: calc(var(--radius) - 2px);
+  padding-inline: 0.875rem;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Action column buttons */
+.app-data-table .app-table-action-edit {
+  border-color: hsl(var(--primary) / 0.45) !important;
+  color: hsl(var(--primary)) !important;
+  background: hsl(var(--card)) !important;
+}
+
+.app-data-table .app-table-action-edit:hover {
+  background: hsl(var(--primary) / 0.08) !important;
+}
+
+.app-data-table .ag-row .ag-cell:last-child button.h-8.w-8.p-0:not(.app-table-action-delete):not(.app-table-action-edit) {
+  border-radius: 0.375rem;
+  border: 1px solid hsl(var(--primary) / 0.4);
+  color: hsl(var(--primary));
+  background: hsl(var(--card));
+}
+
+.app-data-table .ag-row .ag-cell:last-child button.h-8.w-8.p-0:not(.app-table-action-delete):not(.app-table-action-edit):hover {
+  background: hsl(var(--primary) / 0.08);
+}
+
+/* ── Legacy page shells — DataTable replaces the old app-card table chrome ─ */
+.app-card--hosts-data-table,
+.app-card:has(> div .app-data-table),
+.app-card:has(.app-data-table) {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  overflow: visible !important;
+}
+
+.app-data-table-legacy-header {
+  display: none !important;
+}
+
+.app-data-table-legacy-title-only {
+  display: none !important;
+}
+
+.app-data-table-legacy-padding,
+.app-card--hosts-data-table > div:has(.app-data-table),
+.app-card:has(.app-data-table) > div.px-3 {
+  padding: 0 !important;
+}
+
+.app-data-table-legacy-shell {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  box-shadow: none !important;
+}
+
+/* Primary action in toolbar (Add / New …) — pages don't add a special class */
+.app-data-table-toolbar-wrap button:not(.app-data-table-toolbar-btn) {
+  height: 2.25rem;
+  border-radius: calc(var(--radius) - 2px);
+  padding-inline: 0.875rem;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 /* College Counselling — fit all columns without horizontal scroll */

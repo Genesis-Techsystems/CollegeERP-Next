@@ -68,12 +68,12 @@ export default function PlacementsPage() {
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <DataTable
+              title="Placements"
               rowData={data}
               columnDefs={columnDefs}
               loading={isLoading}
               pagination
               toolbar={{ search: true, searchPlaceholder: 'Search placements…', pdfDocumentTitle: 'Placements' }}
-              toolbarLeading={<h2 className="app-card-title">Placements</h2>}
               toolbarTrailing={
                 <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>+ Add Placement</Button>
               }

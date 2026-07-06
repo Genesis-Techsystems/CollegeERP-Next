@@ -70,12 +70,12 @@ export default function AccountsPage() {
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <DataTable
+              title="Accounts"
               rowData={data}
               columnDefs={columnDefs}
               loading={isLoading}
               pagination
               toolbar={{ search: true, searchPlaceholder: 'Search accounts…', pdfDocumentTitle: 'Accounts' }}
-              toolbarLeading={<h2 className="app-card-title">Accounts</h2>}
               toolbarTrailing={(
                 <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>
                   <PlusIcon className="h-4 w-4 mr-1" />

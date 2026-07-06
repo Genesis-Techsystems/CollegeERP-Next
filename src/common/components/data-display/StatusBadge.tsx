@@ -35,7 +35,7 @@ export function StatusBadge({ status, label, activeLabel, className }: StatusBad
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-[var(--radius-badge)] border px-2.5 py-0.5 text-[10px] font-medium',
+        'inline-flex items-center rounded-full border px-3 py-0.5 text-[11px] font-semibold',
         STATUS_STYLES[variant],
         className,
       )}

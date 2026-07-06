@@ -72,12 +72,12 @@ export default function FinanceSubCategoryPage() {
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <DataTable
+              title="Finance Sub Category"
               rowData={data}
               columnDefs={columnDefs}
               loading={isLoading}
               pagination
               toolbar={{ search: true, searchPlaceholder: 'Search sub-categories…', pdfDocumentTitle: 'Finance Sub Category' }}
-              toolbarLeading={<h2 className="app-card-title">Finance Sub Category</h2>}
               toolbarTrailing={(
                 <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>
                   <PlusIcon className="h-4 w-4 mr-1" />

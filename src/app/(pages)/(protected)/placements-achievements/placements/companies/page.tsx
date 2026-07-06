@@ -64,12 +64,12 @@ export default function CompaniesPage() {
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <DataTable
+              title="Companies"
               rowData={data}
               columnDefs={columnDefs}
               loading={isLoading}
               pagination
               toolbar={{ search: true, searchPlaceholder: 'Search companies…', pdfDocumentTitle: 'Companies' }}
-              toolbarLeading={<h2 className="app-card-title">Companies</h2>}
               toolbarTrailing={
                 <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>+ Add Company</Button>
               }

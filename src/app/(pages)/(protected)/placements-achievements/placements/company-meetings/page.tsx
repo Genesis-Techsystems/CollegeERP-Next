@@ -57,12 +57,12 @@ export default function CompanyMeetingsPage() {
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <DataTable
+              title="Company Meetings"
               rowData={data}
               columnDefs={columnDefs}
               loading={isLoading}
               pagination
               toolbar={{ search: true, searchPlaceholder: 'Search meetings…', pdfDocumentTitle: 'Company Meetings' }}
-              toolbarLeading={<h2 className="app-card-title">Company Meetings</h2>}
               toolbarTrailing={
                 <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>+ Add Meeting</Button>
               }
