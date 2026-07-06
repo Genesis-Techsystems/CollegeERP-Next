@@ -381,7 +381,7 @@ export default function InvigilatorAllotmentPage() {
             <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
           </Button>
         </div>
-        {filterOpen && (
+        {(
         <div className="px-3 py-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="space-y-1 md:col-span-2">
             <Label>College</Label>

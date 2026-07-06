@@ -206,7 +206,7 @@ export default function SubjectSyllabusPlanPage() {
             <Filter className="h-4 w-4" />
           </button>
         </div>
-        {filterOpen && (
+        {(
           <div className="p-3 grid grid-cols-1 md:grid-cols-6 gap-3">
             <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable />
             <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable disabled={!collegeId} />

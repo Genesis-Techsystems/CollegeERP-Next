@@ -2,14 +2,6 @@
 
 import type { ReactNode } from 'react'
 
-/**
- * Page-level header chrome. By app convention the visible page title lives in
- * the card / filter-panel header, not at the top of the route. This component
- * only renders when an `action` slot is supplied (right-aligned controls).
- *
- * `title`, `subtitle`, `description` are accepted for call-site compatibility
- * but intentionally not rendered.
- */
 interface PageHeaderProps {
   title: string
   subtitle?: string
@@ -17,11 +9,22 @@ interface PageHeaderProps {
   action?: ReactNode
 }
 
-export function PageHeader({ action }: PageHeaderProps) {
-  if (!action) return null
+/**
+ * Page-level heading rendered above filter cards and tables.
+ * Title + subtitle sit outside the filter card (Approvals reference layout).
+ */
+export function PageHeader({ title, subtitle, description, action }: PageHeaderProps) {
+  const sub = subtitle ?? description
+
   return (
-    <div className="mb-3 flex items-start justify-end border-b border-[hsl(var(--border))] pb-3">
-      <div className="flex items-center gap-2">{action}</div>
+    <div className="page-header flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <h1 className="page-header__title">{title}</h1>
+        {sub ? <p className="page-header__subtitle">{sub}</p> : null}
+      </div>
+      {action ? (
+        <div className="flex shrink-0 items-center gap-2">{action}</div>
+      ) : null}
     </div>
   )
 }

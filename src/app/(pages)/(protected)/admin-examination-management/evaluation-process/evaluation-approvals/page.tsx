@@ -311,7 +311,7 @@ export default function EvaluationApprovalsPage() {
             <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
           </Button>
         </div>
-        {filterOpen && (
+        {(
           <div className="p-3 space-y-2 text-[13px]">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-3">

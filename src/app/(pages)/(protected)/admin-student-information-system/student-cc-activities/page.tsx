@@ -251,7 +251,7 @@ export default function StudentCcActivitiesPage() {
             <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
           </Button>
         </div>
-        {filterOpen && (
+        {(
           <div className="p-3">
             <Select
               label="Student"

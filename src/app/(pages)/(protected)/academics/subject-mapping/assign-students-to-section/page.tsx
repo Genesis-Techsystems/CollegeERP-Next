@@ -236,7 +236,7 @@ export default function AssignStudentsToSectionPage() {
             <Filter className="h-4 w-4" />
           </button>
         </div>
-        {filterOpen && (
+        {(
           <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable className="md:col-span-2" />
             <Select label="Academic Year *" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable className="md:col-span-3" />

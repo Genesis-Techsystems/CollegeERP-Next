@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { PageContainer, PageHeader } from '@/components/layout'
 import {
@@ -18,7 +17,8 @@ import {
   getExamLabTimetableRestFilters,
 } from '@/services/exam-lab-timetable'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Filter } from 'lucide-react'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { Building2, Calendar, GraduationCap, ScrollText } from 'lucide-react'
 
 type AnyRow = Record<string, any>
 
@@ -31,7 +31,6 @@ export default function ExamLabTimetablePage() {
   const [rest, setRest] = useState<AnyRow[]>([])
   const [gridRows, setGridRows] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [filterOpen, setFilterOpen] = useState(true)
 
   const [courseId, setCourseId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
@@ -175,32 +174,42 @@ export default function ExamLabTimetablePage() {
   return (
     <PageContainer className="space-y-4">
       <PageHeader title="Lab Timetable" subtitle="View examination lab schedules" />
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam College Timetable</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-        {filterOpen && (
-        <div className="px-3 py-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loading}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((c) => <SelectItem key={c.fk_course_id} value={String(c.fk_course_id)}>{c.course_code}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger><SelectContent>{years.map((y) => <SelectItem key={y.fk_academic_year_id} value={String(y.fk_academic_year_id)}>{y.academic_year}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-5"><Label>Exam Master</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Master" /></SelectTrigger><SelectContent>{exams.map((e) => <SelectItem key={e.fk_exam_id} value={String(e.fk_exam_id)}>{e.exam_name}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>College</Label><Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger><SelectContent>{colleges.map((c) => <SelectItem key={c.fk_college_id} value={String(c.fk_college_id)}>{c.college_code}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-1"><Label>Course Year</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Year" /></SelectTrigger><SelectContent>{courseYears.map((y) => <SelectItem key={y.fk_course_year_id} value={String(y.fk_course_year_id)}>{y.course_year_code}</SelectItem>)}</SelectContent></Select></div>
-        </div>
-        )}
-      </div>
+      <GlobalFilterBar>
+        <GlobalFilterBarRow columns={3}>
+          <GlobalFilterField label="Course" icon={GraduationCap}>
+            <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loading}>
+              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Course" /></SelectTrigger>
+              <SelectContent>{courses.map((c) => <SelectItem key={c.fk_course_id} value={String(c.fk_course_id)}>{c.course_code}</SelectItem>)}</SelectContent>
+            </Select>
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Year" icon={Calendar}>
+            <Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}>
+              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Exam Year" /></SelectTrigger>
+              <SelectContent>{years.map((y) => <SelectItem key={y.fk_academic_year_id} value={String(y.fk_academic_year_id)}>{y.academic_year}</SelectItem>)}</SelectContent>
+            </Select>
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Master" icon={ScrollText}>
+            <Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}>
+              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Exam Master" /></SelectTrigger>
+              <SelectContent>{exams.map((e) => <SelectItem key={e.fk_exam_id} value={String(e.fk_exam_id)}>{e.exam_name}</SelectItem>)}</SelectContent>
+            </Select>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+        <GlobalFilterBarRow columns={2}>
+          <GlobalFilterField label="College" icon={Building2}>
+            <Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}>
+              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="College" /></SelectTrigger>
+              <SelectContent>{colleges.map((c) => <SelectItem key={c.fk_college_id} value={String(c.fk_college_id)}>{c.college_code}</SelectItem>)}</SelectContent>
+            </Select>
+          </GlobalFilterField>
+          <GlobalFilterField label="Course Year" icon={GraduationCap}>
+            <Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}>
+              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Course Year" /></SelectTrigger>
+              <SelectContent>{courseYears.map((y) => <SelectItem key={y.fk_course_year_id} value={String(y.fk_course_year_id)}>{y.course_year_code}</SelectItem>)}</SelectContent>
+            </Select>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      </GlobalFilterBar>
 
       {courseYearId && (
         <>

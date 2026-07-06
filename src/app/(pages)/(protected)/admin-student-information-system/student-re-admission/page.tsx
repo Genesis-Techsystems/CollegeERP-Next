@@ -201,7 +201,7 @@ export default function StudentReadmissionPage() {
           </Button>
         </div>
 
-        {filterOpen && (
+        {(
           <div className="p-3 grid grid-cols-1 gap-3 md:grid-cols-2">
             <Select
               label="Organization"

@@ -22,9 +22,11 @@ import {
   type RowDataUpdatedEvent,
   type GridReadyEvent,
 } from 'ag-grid-community'
-import { Download, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PRINTCONFIG } from '@/common/print-config'
+import { cn } from '@/lib/utils'
+import { DataTableFooter, PAGE_SIZE_OPTIONS, type DataTablePageSize } from './DataTableFooter'
 import { DataTableToolbar } from './DataTableToolbar'
 
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -32,93 +34,124 @@ ModuleRegistry.registerModules([AllCommunityModule])
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface DataTableToolbarConfig {
-  /** Client-side filter across row values. Default **false** — set `true` when this grid is the only search UI (avoids duplicating a page-level search). */
+  /** Client-side filter across row values. Default **true**. */
   search?: boolean
   columnPicker?: boolean
   exportPdf?: boolean
+  /** Export visible columns as CSV (shown as “Excel”). Default **true**. */
+  exportExcel?: boolean
+  /** AG Grid per-column header filters. Default **true**. */
+  columnFilters?: boolean
+  /** Show “Show inactive” checkbox. Default **false**. */
+  showInactiveToggle?: boolean
   searchPlaceholder?: string
-  /** Sets `document.title` briefly while the print dialog is open */
   pdfDocumentTitle?: string
-  /** Column `colId`s that cannot be hidden */
   lockColumnIds?: string[]
 }
 
+const FILTER_HINT =
+  'Click the filter icon next to each column header to filter that column.'
+
+/** Read title from legacy `.app-card-title` or AppShell `--page-name` (breadcrumb). */
+function inferLegacyTableTitle(root: HTMLElement): string | undefined {
+  const card = root.closest('.app-card')
+  const titleEl = card?.querySelector('.app-card-title')
+  const directText = titleEl?.textContent?.trim()
+  if (directText) return directText
+
+  const pageContent = root.closest('[data-page-content]')
+  if (pageContent) {
+    const pageName = getComputedStyle(pageContent).getPropertyValue('--page-name').trim()
+    if (pageName) return pageName.replace(/^["']|["']$/g, '')
+  }
+
+  return undefined
+}
+
+function adoptLegacyTableShell(root: HTMLElement): () => void {
+  const card = root.closest('.app-card')
+  if (!card) return () => {}
+
+  card.classList.add('app-card--hosts-data-table')
+
+  const titleEl = card.querySelector('.app-card-title')
+  const headerRow =
+    titleEl?.closest<HTMLElement>('.app-card > div') ??
+    titleEl?.parentElement ??
+    null
+
+  if (titleEl instanceof HTMLElement && headerRow) {
+    const hasControls = Boolean(
+      headerRow.querySelector(
+        'button, input, select, textarea, [role="combobox"], [data-slot="collapsible"]',
+      ),
+    )
+    if (hasControls) {
+      titleEl.classList.add('app-data-table-legacy-title-only')
+    } else {
+      headerRow.classList.add('app-data-table-legacy-header')
+    }
+  }
+
+  const paddingWrap = root.parentElement
+  if (paddingWrap?.classList.contains('px-3')) {
+    paddingWrap.classList.add('app-data-table-legacy-padding')
+  }
+
+  const shell = root.closest<HTMLElement>('.rounded-lg.border')
+  if (shell && shell !== root) shell.classList.add('app-data-table-legacy-shell')
+
+  return () => {
+    card.classList.remove('app-card--hosts-data-table')
+    headerRow?.classList.remove('app-data-table-legacy-header')
+    if (titleEl instanceof HTMLElement) {
+      titleEl.classList.remove('app-data-table-legacy-title-only')
+    }
+    paddingWrap?.classList.remove('app-data-table-legacy-padding')
+    shell?.classList.remove('app-data-table-legacy-shell')
+  }
+}
+
 export interface DataTableProps<T> {
-  /** Array of row data to display */
+  /** Optional title above the toolbar */
+  title?: string
+  /** Optional subtitle; defaults to filter hint when column filters are on */
+  subtitle?: string
+  /** Wrap in a bordered card. Default **true**. */
+  bordered?: boolean
   rowData: T[]
-  /** AG Grid column definitions */
   columnDefs: ColDef<T>[]
-  /** When true the grid shows a loading overlay */
   loading?: boolean
-  /**
-   * Fixed height of the grid container (e.g. "500px").
-   * Pass "auto" to use AG Grid's autoHeight dom layout.
-   * When pagination or serverSide is true, height is always auto.
-   */
   height?: string
-
-  /** Stable row identity function — prevents scroll/selection loss on re-render */
   getRowId?: GetRowIdFunc<T>
-
-  /** Fired when a cell is clicked */
   onCellClicked?: (event: CellClickedEvent<T>) => void
-  /** Convenience row-click handler — receives the typed row data */
   onRowClick?: (row: T) => void
-
-  // ── Client-side pagination ────────────────────────────────────────────────
-  /** Enable client-side pagination. The DataTable slices rowData internally. */
   pagination?: boolean
-  /** Rows per page (default: 10) */
+  /** Default **25** */
   paginationPageSize?: number
-
-  // ── Server-side pagination ────────────────────────────────────────────────
-  /**
-   * When true, the parent supplies the current page's rowData slice.
-   * A custom pagination bar is rendered below the grid.
-   */
   serverSide?: boolean
-  /** Total number of rows on the server (required when serverSide=true) */
   totalCount?: number
-  /** Current 0-based page index, controlled by parent (required when serverSide=true) */
   currentPage?: number
-  /**
-   * Called when the user navigates to a new page or changes page size.
-   * @param page     0-based page index
-   * @param pageSize number of rows per page
-   */
   onPageChange?: (page: number, pageSize: number) => void
-
-  // ── Toolbar ───────────────────────────────────────────────────────────────
-  /**
-   * `false` — no toolbar.
-   * Omitted or object — column picker + Export PDF; **toolbar search is off by default** (set `search: true` when the grid is the only filter UI).
-   */
   toolbar?: boolean | DataTableToolbarConfig
-  /** Content left of Columns / Export (e.g. record count); shows in toolbar row beside actions */
   toolbarLeading?: ReactNode
-  /** Primary actions rendered after Export PDF (e.g. Add …) */
   toolbarTrailing?: ReactNode
-  /** Show an "Export CSV" button in the toolbar */
+  /** @deprecated Use toolbar.exportExcel instead */
   exportCsv?: boolean
-  /** Optional callback to access grid API from parent for external controls */
   onGridApiReady?: (api: GridApi<T>) => void
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// minWidth: 70 (not 100) — allows narrow columns like SI.No, Status, Actions
-// to fit without forcing excess table width. Callers can override per-column.
 const DEFAULT_COL_DEF: ColDef = {
   sortable: true,
   filter: false,
   resizable: true,
   minWidth: 70,
+  suppressHeaderMenuButton: false,
 }
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const
-type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number]
-
-// ─── Row search (toolbar) ─────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const MAX_SEARCH_DEPTH = 8
 
@@ -148,7 +181,21 @@ function rowMatchesSearch<T>(row: T, q: string): boolean {
   return hay.some((s) => s.toLowerCase().includes(needle))
 }
 
-// ─── PDF export (print-window) ────────────────────────────────────────────────
+function rowHasIsActiveField<T>(row: T): boolean {
+  return Boolean(row && typeof row === 'object' && 'isActive' in (row as object))
+}
+
+function filterInactiveRows<T>(rows: T[], showInactive: boolean): T[] {
+  if (showInactive) return rows
+  return rows.filter(
+    (row) => !rowHasIsActiveField(row) || (row as { isActive?: boolean }).isActive !== false,
+  )
+}
+
+function isActionsColumn(def: ColDef): boolean {
+  const header = String(def.headerName ?? '').trim().toLowerCase()
+  return header === 'actions' || header === 'action'
+}
 
 function escapeHtml(s: string): string {
   return s
@@ -158,11 +205,6 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
-/**
- * Resolve a cell's display text from the column def without a live row node.
- * Covers `field`, the function `valueGetter`s used across pages (which read
- * `p.data` / `p.node.rowIndex`), and function `valueFormatter`s.
- */
 function cellDisplayText<T>(row: T, def: ColDef<T>, rowIndex: number): string {
   let value: unknown
   try {
@@ -181,10 +223,6 @@ function cellDisplayText<T>(row: T, def: ColDef<T>, rowIndex: number): string {
   return String(value)
 }
 
-/** Build the printable document and open the browser print dialog from a
- *  hidden iframe (user picks "Save as PDF"). Exports ALL filtered rows and the
- *  currently VISIBLE columns — unlike printing the live grid, which only
- *  captures the virtualized viewport. */
 function printTableAsPdf<T>(title: string, exportDefs: ColDef<T>[], rows: T[]): void {
   const { paperSize, orientation } = PRINTCONFIG.datatables
   const head = exportDefs
@@ -221,43 +259,37 @@ tr { break-inside: avoid; }
   fdoc.write(html)
   fdoc.close()
   win.addEventListener('afterprint', () => frame.remove())
-  // Let the iframe lay out before opening the dialog
   setTimeout(() => {
     win.focus()
     win.print()
   }, 50)
 }
 
-function resolveToolbar(
-  toolbar: boolean | DataTableToolbarConfig | undefined,
-  serverSide: boolean,
-): {
-  show: boolean
-  search: boolean
-  columnPicker: boolean
-  exportPdf: boolean
-  searchPlaceholder: string
-  pdfDocumentTitle?: string
-  lockColumnIds: string[]
-} {
+function resolveToolbar(toolbar: boolean | DataTableToolbarConfig | undefined) {
   if (toolbar === false) {
     return {
       show: false,
       search: false,
       columnPicker: false,
       exportPdf: false,
+      exportExcel: false,
+      columnFilters: false,
+      showInactiveToggle: false,
       searchPlaceholder: '',
-      lockColumnIds: [],
+      pdfDocumentTitle: undefined as string | undefined,
+      lockColumnIds: [] as string[],
     }
   }
   const t: DataTableToolbarConfig =
     toolbar === true || toolbar === undefined ? {} : toolbar
   return {
     show: true,
-    /** Default off so pages can keep a single external search/input without duplicating the toolbar search. */
-    search: t.search === true,
+    search: t.search !== false,
     columnPicker: t.columnPicker !== false,
     exportPdf: t.exportPdf !== false,
+    exportExcel: t.exportExcel !== false,
+    columnFilters: t.columnFilters !== false,
+    showInactiveToggle: t.showInactiveToggle === true,
     searchPlaceholder: t.searchPlaceholder ?? 'Search…',
     pdfDocumentTitle: t.pdfDocumentTitle,
     lockColumnIds: t.lockColumnIds ?? [],
@@ -267,6 +299,9 @@ function resolveToolbar(
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function DataTable<T>({
+  title,
+  subtitle,
+  bordered = true,
   rowData,
   columnDefs,
   loading = false,
@@ -275,7 +310,7 @@ export function DataTable<T>({
   onCellClicked,
   onRowClick,
   pagination = true,
-  paginationPageSize = 10,
+  paginationPageSize = 25,
   serverSide = false,
   totalCount = 0,
   currentPage = 0,
@@ -286,44 +321,81 @@ export function DataTable<T>({
   exportCsv = false,
   onGridApiReady,
 }: DataTableProps<T>) {
-  const tb = useMemo(
-    () => resolveToolbar(toolbarProp, serverSide),
-    [toolbarProp, serverSide],
-  )
+  const tb = useMemo(() => resolveToolbar(toolbarProp), [toolbarProp])
+
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [inferredTitle, setInferredTitle] = useState<string | undefined>()
+
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return undefined
+    if (!title && !toolbarLeading) {
+      setInferredTitle(inferLegacyTableTitle(root))
+    } else {
+      setInferredTitle(undefined)
+    }
+    return adoptLegacyTableShell(root)
+  }, [title, toolbarLeading, rowData.length, loading])
+
+  const resolvedTitle = title ?? inferredTitle
 
   const [searchQuery, setSearchQuery] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
   const [gridApi, setGridApi] = useState<GridApi<T> | null>(null)
+  const gridRef = useRef<AgGridReact<T>>(null)
 
   const clientPaginationEnabled = pagination && !serverSide
 
-  const gridRef = useRef<AgGridReact<T>>(null)
+  const showInactiveToggle = tb.showInactiveToggle
+
+  const inactiveFilteredData = useMemo(() => {
+    if (!showInactiveToggle) return rowData
+    return filterInactiveRows(rowData, showInactive)
+  }, [rowData, showInactiveToggle, showInactive])
 
   const filteredRowData = useMemo(() => {
-    if (!tb.show || !tb.search || !searchQuery.trim()) return rowData
-    return rowData.filter((r) => rowMatchesSearch(r, searchQuery))
-  }, [rowData, tb.show, tb.search, searchQuery])
+    if (!tb.show || !tb.search || !searchQuery.trim()) return inactiveFilteredData
+    return inactiveFilteredData.filter((r) => rowMatchesSearch(r, searchQuery))
+  }, [inactiveFilteredData, tb.show, tb.search, searchQuery])
 
-  // ── Client-side pagination state ─────────────────────────────────────────────
   const [clientPage, setClientPage] = useState(0)
-  const [clientPageSize, setClientPageSize] = useState<PageSizeOption>(
-    (paginationPageSize as PageSizeOption) ?? 10,
-  )
+  const [clientPageSize, setClientPageSize] = useState<DataTablePageSize>(() => {
+    const n = Number(paginationPageSize)
+    return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n) ? (n as DataTablePageSize) : 25
+  })
 
   useEffect(() => {
     setClientPage(0)
-  }, [rowData, searchQuery])
+  }, [rowData, searchQuery, showInactive])
 
-  // ── Server-side pagination state ─────────────────────────────────────────────
-  const [serverPageSize, setServerPageSize] = useState<PageSizeOption>(() => {
+  const [serverPageSize, setServerPageSize] = useState<DataTablePageSize>(() => {
     const n = Number(paginationPageSize)
-    return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n) ? (n as PageSizeOption) : 10
+    return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n) ? (n as DataTablePageSize) : 25
   })
 
-  const defaultColDef = useMemo<ColDef>(() => DEFAULT_COL_DEF, [])
+  const defaultColDef = useMemo<ColDef>(
+    () => ({
+      ...DEFAULT_COL_DEF,
+      ...(tb.columnFilters
+        ? { filter: 'agTextColumnFilter', floatingFilter: false }
+        : {}),
+    }),
+    [tb.columnFilters],
+  )
+
+  const resolvedColumnDefs = useMemo(
+    () =>
+      columnDefs.map((def) =>
+        isActionsColumn(def) ? { ...def, filter: false, sortable: false } : def,
+      ),
+    [columnDefs],
+  )
+
+  const resolvedSubtitle =
+    subtitle ?? (resolvedTitle && tb.columnFilters && tb.show ? FILTER_HINT : undefined)
 
   const isAutoHeight = height === 'auto' || pagination || serverSide
 
-  // ── Client pagination derived values ─────────────────────────────────────────
   const dataForPaging = clientPaginationEnabled ? filteredRowData : rowData
   const clientTotalRows = dataForPaging.length
   const clientTotalPages = Math.max(1, Math.ceil(clientTotalRows / clientPageSize))
@@ -334,34 +406,12 @@ export function DataTable<T>({
     if (!clientPaginationEnabled) return filteredRowData
     const start = safePage * clientPageSize
     return filteredRowData.slice(start, start + clientPageSize)
-  }, [
-    rowData,
-    filteredRowData,
-    clientPaginationEnabled,
-    serverSide,
-    safePage,
-    clientPageSize,
-  ])
+  }, [rowData, filteredRowData, clientPaginationEnabled, serverSide, safePage, clientPageSize])
 
-  // ── Server pagination derived values ─────────────────────────────────────────
   const totalPages = serverSide ? Math.max(1, Math.ceil(totalCount / serverPageSize)) : 1
-  const rangeStart = serverSide ? currentPage * serverPageSize + 1 : 0
-  const rangeEnd = serverSide ? Math.min(rangeStart + serverPageSize - 1, totalCount) : 0
 
   function fitColumns(api: GridApi<T>) {
     api.sizeColumnsToFit()
-  }
-
-  function handleFirstDataRendered(event: FirstDataRenderedEvent<T>) {
-    fitColumns(event.api)
-  }
-
-  function handleRowDataUpdated(event: RowDataUpdatedEvent<T>) {
-    fitColumns(event.api)
-  }
-
-  function handleGridSizeChanged(event: GridSizeChangedEvent<T>) {
-    fitColumns(event.api)
   }
 
   function handleGridReady(event: GridReadyEvent<T>) {
@@ -369,31 +419,14 @@ export function DataTable<T>({
     onGridApiReady?.(event.api)
   }
 
-  function handleClientPrevPage() {
-    setClientPage((p) => Math.max(0, p - 1))
-  }
-
-  function handleClientNextPage() {
-    setClientPage((p) => Math.min(clientTotalPages - 1, p + 1))
-  }
-
-  function handleClientPageSizeChange(value: string) {
-    setClientPageSize(Number(value) as PageSizeOption)
+  function handleClientPageSizeChange(size: DataTablePageSize) {
+    setClientPageSize(size)
     setClientPage(0)
   }
 
-  function handlePrevPage() {
-    if (currentPage > 0) onPageChange?.(currentPage - 1, serverPageSize)
-  }
-
-  function handleNextPage() {
-    if (currentPage < totalPages - 1) onPageChange?.(currentPage + 1, serverPageSize)
-  }
-
-  function handlePageSizeChange(value: string) {
-    const newSize = Number(value) as PageSizeOption
-    setServerPageSize(newSize)
-    onPageChange?.(0, newSize)
+  function handleServerPageSizeChange(size: DataTablePageSize) {
+    setServerPageSize(size)
+    onPageChange?.(0, size)
   }
 
   function handleExportCsv() {
@@ -402,20 +435,14 @@ export function DataTable<T>({
 
   const handleExportPdf = useCallback(() => {
     const api = gridRef.current?.api ?? gridApi
-    const title = tb.pdfDocumentTitle || document.title || 'Export'
-
-    // Visible columns in display order; skip pure-renderer columns (Actions
-    // etc.) that have no extractable value.
+    const docTitle = tb.pdfDocumentTitle || document.title || 'Export'
     const exportDefs: ColDef<T>[] = (api?.getAllDisplayedColumns() ?? [])
       .map((c) => c.getColDef())
       .filter((d) => Boolean(d.field) || typeof d.valueGetter === 'function')
-
-    // Without a grid API yet (no data loaded), fall back to the prop defs.
     const defs = exportDefs.length
       ? exportDefs
       : columnDefs.filter((d) => Boolean(d.field) || typeof d.valueGetter === 'function')
-
-    printTableAsPdf(title, defs, filteredRowData)
+    printTableAsPdf(docTitle, defs, filteredRowData)
   }, [gridApi, tb.pdfDocumentTitle, columnDefs, filteredRowData])
 
   const getColumns = useCallback(() => {
@@ -427,30 +454,51 @@ export function DataTable<T>({
   const applyColumnVisible = useCallback((colId: string, visible: boolean) => {
     const api = gridRef.current?.api ?? gridApi
     if (!api) return
-
     api.applyColumnState({ state: [{ colId, hide: !visible }] })
-    // Ensure the grid (and then the column picker checkbox states) updates immediately.
     api.refreshHeader()
   }, [gridApi])
-
 
   function handleRowClicked(event: RowClickedEvent<T>) {
     if (onRowClick && event.data !== undefined) onRowClick(event.data)
   }
+
+  const exportExcelEnabled = tb.exportExcel || exportCsv
+
+  const isGridEmpty = !loading && pagedRowData.length === 0
 
   const showMainToolbar =
     tb.show &&
     (tb.search ||
       tb.columnPicker ||
       tb.exportPdf ||
+      tb.exportExcel ||
+      showInactiveToggle ||
       Boolean(toolbarTrailing) ||
       Boolean(toolbarLeading) ||
       exportCsv)
 
   return (
-    <div className="app-data-table flex flex-col">
+    <div
+      ref={rootRef}
+      className={
+        bordered
+          ? 'app-data-table app-data-table-card flex flex-col'
+          : 'app-data-table flex flex-col'
+      }
+    >
+      {(resolvedTitle || resolvedSubtitle) && (
+        <div className="app-data-table-heading px-5 pb-1 pt-5">
+          {resolvedTitle ? (
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">{resolvedTitle}</h2>
+          ) : null}
+          {resolvedSubtitle ? (
+            <p className="mt-1 text-[13px] text-muted-foreground">{resolvedSubtitle}</p>
+          ) : null}
+        </div>
+      )}
+
       {(showMainToolbar || (!showMainToolbar && exportCsv)) && (
-        <div className="border-b border-border bg-muted/40 px-3 py-2">
+        <div className="app-data-table-toolbar-wrap bg-card px-5 pb-3 pt-2">
           {showMainToolbar ? (
             <DataTableToolbar
               leading={toolbarLeading}
@@ -458,55 +506,54 @@ export function DataTable<T>({
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               searchPlaceholder={tb.searchPlaceholder}
+              rowCount={filteredRowData.length}
+              showInactiveToggle={Boolean(showInactiveToggle)}
+              showInactive={showInactive}
+              onShowInactiveChange={setShowInactive}
               columnPickerEnabled={tb.columnPicker}
+              exportExcelEnabled={exportExcelEnabled}
+              onExportExcel={handleExportCsv}
               exportPdfEnabled={tb.exportPdf}
               onExportPdf={handleExportPdf}
               lockColumnIds={tb.lockColumnIds}
               getColumns={getColumns}
               applyColumnVisible={applyColumnVisible}
-              endActions={
-                <>
-                  {exportCsv ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-[30px] px-3 text-[12px]"
-                      onClick={handleExportCsv}
-                      aria-label="Export to CSV"
-                    >
-                      <Download className="mr-1.5 h-3.5 w-3.5" />
-                      Export CSV
-                    </Button>
-                  ) : null}
-                  {toolbarTrailing}
-                </>
-              }
+              endActions={toolbarTrailing}
             />
           ) : (
             <div className="flex items-center justify-end gap-3">
-              <Button variant="outline" size="sm" onClick={handleExportCsv} aria-label="Export to CSV">
-                <Download className="mr-2 h-4 w-4" />
-                Export CSV
+              <Button
+                variant="outline"
+                size="sm"
+                className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
+                onClick={handleExportCsv}
+                aria-label="Export to Excel"
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                Excel
               </Button>
             </div>
           )}
         </div>
       )}
 
-      <div className="ag-theme-quartz" style={isAutoHeight ? undefined : { height }}>
+      <div
+        className={cn('ag-theme-quartz', isGridEmpty && 'app-data-table-grid-empty')}
+        style={isAutoHeight ? undefined : { height }}
+      >
         <AgGridReact<T>
           ref={gridRef}
           rowData={pagedRowData}
-          columnDefs={columnDefs}
+          columnDefs={resolvedColumnDefs}
           defaultColDef={defaultColDef}
           domLayout={isAutoHeight ? 'autoHeight' : undefined}
           loading={loading}
-          suppressCellFocus={true}
+          // suppressCellFocus={true}
+          overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
           onGridReady={handleGridReady}
-          onFirstDataRendered={handleFirstDataRendered}
-          onRowDataUpdated={handleRowDataUpdated}
-          onGridSizeChanged={handleGridSizeChanged}
+          onFirstDataRendered={(e) => fitColumns(e.api)}
+          onRowDataUpdated={(e) => fitColumns(e.api)}
+          onGridSizeChanged={(e) => fitColumns(e.api)}
           getRowId={getRowId}
           onCellClicked={onCellClicked}
           onRowClicked={onRowClick ? handleRowClicked : undefined}
@@ -515,113 +562,25 @@ export function DataTable<T>({
       </div>
 
       {clientPaginationEnabled && (
-        <div className="flex items-center justify-between gap-4 px-1 py-1 text-[11px] text-muted-foreground flex-wrap">
-          <span className="whitespace-nowrap">
-            {clientTotalRows === 0
-              ? 'No results'
-              : `Showing ${safePage * clientPageSize + 1}–${Math.min((safePage + 1) * clientPageSize, clientTotalRows)} of ${clientTotalRows}`}
-          </span>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="whitespace-nowrap">Rows per page</span>
-              <select
-                aria-label="Rows per page"
-                className="h-7 w-20 rounded-md border border-input bg-background px-2 text-[11px]"
-                value={String(clientPageSize)}
-                onChange={(e) => handleClientPageSizeChange(e.target.value)}
-              >
-                {PAGE_SIZE_OPTIONS.map((size) => (
-                  <option key={size} value={String(size)}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <span className="whitespace-nowrap">
-              Page {safePage + 1} of {clientTotalPages}
-            </span>
-
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 p-0"
-                onClick={handleClientPrevPage}
-                disabled={safePage <= 0}
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 p-0"
-                onClick={handleClientNextPage}
-                disabled={safePage >= clientTotalPages - 1}
-                aria-label="Next page"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
+        <DataTableFooter
+          totalRows={clientTotalRows}
+          page={safePage}
+          pageSize={clientPageSize}
+          totalPages={clientTotalPages}
+          onPageChange={setClientPage}
+          onPageSizeChange={handleClientPageSizeChange}
+        />
       )}
 
       {serverSide && (
-        <div className="flex items-center justify-between gap-4 px-1 py-1 text-[11px] text-muted-foreground flex-wrap">
-          <span className="whitespace-nowrap">
-            {totalCount === 0
-              ? 'No results'
-              : `Showing ${rangeStart}–${rangeEnd} of ${totalCount}`}
-          </span>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="whitespace-nowrap">Rows per page</span>
-              <select
-                aria-label="Rows per page"
-                className="h-7 w-20 rounded-md border border-input bg-background px-2 text-[11px]"
-                value={String(serverPageSize)}
-                onChange={(e) => handlePageSizeChange(e.target.value)}
-              >
-                {PAGE_SIZE_OPTIONS.map((size) => (
-                  <option key={size} value={String(size)}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <span className="whitespace-nowrap">
-              Page {currentPage + 1} of {totalPages}
-            </span>
-
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 p-0"
-                onClick={handlePrevPage}
-                disabled={currentPage <= 0}
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 w-7 p-0"
-                onClick={handleNextPage}
-                disabled={currentPage >= totalPages - 1}
-                aria-label="Next page"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
+        <DataTableFooter
+          totalRows={totalCount}
+          page={currentPage}
+          pageSize={serverPageSize}
+          totalPages={totalPages}
+          onPageChange={(page) => onPageChange?.(page, serverPageSize)}
+          onPageSizeChange={handleServerPageSizeChange}
+        />
       )}
     </div>
   )

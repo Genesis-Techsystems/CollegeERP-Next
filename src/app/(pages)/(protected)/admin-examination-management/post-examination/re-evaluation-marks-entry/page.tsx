@@ -403,7 +403,7 @@ export default function ReEvaluationMarksEntryPage() {
           </Button>
         </div>
 
-        {filtersOpen && (
+        {(
           <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className="space-y-1 md:col-span-2">
               <Label>College</Label>

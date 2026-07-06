@@ -346,7 +346,7 @@ export default function UnivExamBagsPage() {
           </button>
         </div>
 
-        {filtersOpen && (
+        {(
           <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courses.map((r) => ({ value: String(num(r.fk_course_id)), label: txt(r.course_code) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} disabled={loadingFilters} /></div>
             <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={academicYears.map((r) => ({ value: String(num(r.fk_academic_year_id)), label: txt(r.academic_year) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>

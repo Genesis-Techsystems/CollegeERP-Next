@@ -4,6 +4,8 @@ import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import type { BreadcrumbItem } from './Breadcrumb'
 import { useBreadcrumbStore } from '@/store/breadcrumb-store'
+import { useNavigationStore } from '@/store/navigation-store'
+import { findNavBreadcrumbItems } from '@/lib/navigation'
 
 /**
  * Converts a URL path segment into a human-readable label.
@@ -46,27 +48,38 @@ function segmentToLabel(segment: string): string {
 export function useBreadcrumb(customItems?: BreadcrumbItem[]): BreadcrumbItem[] {
   const pathname = usePathname()
   const lastSegmentLabel = useBreadcrumbStore((s) => s.lastSegmentLabel)
+  const navItems = useNavigationStore((s) => s.navItems)
 
   if (customItems !== undefined) {
     return customItems
   }
 
-  // Strip route-group segments such as (protected) or (public).
-  const segments = pathname
-    .split('/')
-    .filter((s): s is string => s.length > 0 && !s.startsWith('('))
+  const navBreadcrumb = navItems.length > 0
+    ? findNavBreadcrumbItems(navItems, pathname)
+    : null
 
-  const items: BreadcrumbItem[] = [{ label: 'Home', href: '/dashboard' }]
+  let items: BreadcrumbItem[]
 
-  let currentPath = ''
-  segments.forEach((segment, index) => {
-    currentPath += '/' + segment
-    const isLast = index === segments.length - 1
-    items.push({
-      label: segmentToLabel(segment),
-      href: isLast ? undefined : currentPath,
+  if (navBreadcrumb) {
+    items = navBreadcrumb
+  } else {
+    // Strip route-group segments such as (protected) or (public).
+    const segments = pathname
+      .split('/')
+      .filter((s): s is string => s.length > 0 && !s.startsWith('('))
+
+    items = [{ label: 'Home', href: '/dashboard' }]
+
+    let currentPath = ''
+    segments.forEach((segment, index) => {
+      currentPath += '/' + segment
+      const isLast = index === segments.length - 1
+      items.push({
+        label: segmentToLabel(segment),
+        href: isLast ? undefined : currentPath,
+      })
     })
-  })
+  }
 
   if (lastSegmentLabel && items.length > 0) {
     const last = items[items.length - 1]

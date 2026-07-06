@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import type { ColDef, CellClickedEvent, ICellRendererParams } from 'ag-grid-community'
-import { PlusIcon, Download, Tag, Pencil, Filter, ChevronDown } from 'lucide-react'
+import { PlusIcon, Download, Tag, Pencil, Building2, Calendar, GraduationCap } from 'lucide-react'
 import { useSessionContext } from '@/context/SessionContext'
 import type { ExamMaster, CollegeWiseFilterRow } from '@/types/exam-master'
 import {
@@ -14,14 +14,8 @@ import {
 } from '@/services/exam-master'
 import { distinct } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select } from '@/common/components/select'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table'
@@ -50,8 +44,6 @@ export default function ExamMasterPage() {
   const [loadingExams, setLoadingExams] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingExam, setEditingExam] = useState<ExamMaster | null>(null)
-  const [filterOpen, setFilterOpen] = useState(true)
-
   const fetchFilterDetails = useCallback(async () => {
     setLoadingFilters(true)
     try {
@@ -380,126 +372,82 @@ export default function ExamMasterPage() {
   return (
     <PageContainer className="space-y-4">
       <PageHeader title="Exam Master" subtitle="Configure and manage examinations" />
-      <div className="app-card space-y-3 overflow-hidden">
-        <div className="px-4 py-2 border-b border-border bg-muted/40">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="app-card-title">Exam Master</h2>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-6 px-2.5 text-[12px]"
-              onClick={() => setFilterOpen((prev) => !prev)}
-              aria-expanded={filterOpen}
-            >
-              <Filter className="mr-1.5 h-3.5 w-3.5" />
-              Filter
-              <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-            </Button>
-          </div>
-        </div>
-        {filterOpen && (
-        <div className="px-4 py-3 space-y-2">
-        <RadioGroup
-          value={String(mode)}
-          onValueChange={(v) => handleModeChange(Number(v) as 1 | 2)}
-          className="flex gap-5"
-        >
-          <label className="flex items-center gap-2 cursor-pointer text-[12px]">
-            <RadioGroupItem value="1" />
-            <span>Is For University</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer text-[12px]">
-            <RadioGroupItem value="2" />
-            <span>Is For College</span>
-          </label>
-        </RadioGroup>
+      <GlobalFilterBar
+        leading={(
+          <RadioGroup
+            value={String(mode)}
+            onValueChange={(v) => handleModeChange(Number(v) as 1 | 2)}
+            className="flex gap-5"
+          >
+            <label className="flex items-center gap-2 cursor-pointer text-[13px]">
+              <RadioGroupItem value="1" />
+              <span>Is For University</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer text-[13px]">
+              <RadioGroupItem value="2" />
+              <span>Is For College</span>
+            </label>
+          </RadioGroup>
+        )}
+      >
+        <GlobalFilterBarRow>
+        <GlobalFilterField label="University" icon={Building2}>
+          <Select
+            value={selectedUniversityId != null ? String(selectedUniversityId) : null}
+            onChange={(v) => v && handleUniversityChange(Number(v))}
+            options={universities.map((u) => ({
+              value: String(u.fk_university_id),
+              label: u.university_name ?? '',
+            }))}
+            placeholder="All universities"
+            disabled={loadingFilters}
+            isLoading={loadingFilters}
+          />
+        </GlobalFilterField>
 
-        <div className="flex flex-wrap items-end gap-2.5 mt-1">
-          <div className="space-y-1 min-w-[200px]">
-            <Label className="text-[12px]">University</Label>
+        <GlobalFilterField label="Course" icon={GraduationCap}>
+          <Select
+            value={selectedCourseId != null ? String(selectedCourseId) : null}
+            onChange={(v) => v && handleCourseChange(Number(v))}
+            options={courses.map((c) => ({
+              value: String(c.fk_course_id),
+              label: c.course_name ?? '',
+            }))}
+            placeholder="All courses"
+            disabled={courses.length === 0}
+          />
+        </GlobalFilterField>
+
+        <GlobalFilterField label="Academic Year" icon={Calendar}>
+          <Select
+            value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
+            onChange={(v) => v && handleAcademicYearChange(Number(v))}
+            options={academicYears.map((ay) => ({
+              value: String(ay.fk_academic_year_id),
+              label: ay.academic_year ?? '',
+            }))}
+            placeholder="All academic years"
+            disabled={academicYears.length === 0}
+          />
+        </GlobalFilterField>
+
+        {mode === 2 && (
+          <GlobalFilterField label="College" icon={Building2}>
             <Select
-              value={selectedUniversityId != null ? String(selectedUniversityId) : undefined}
-              onValueChange={(v) => handleUniversityChange(Number(v))}
-              disabled={loadingFilters}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Select University" />
-              </SelectTrigger>
-              <SelectContent>
-                {universities.map((u) => (
-                  <SelectItem key={u.fk_university_id} value={String(u.fk_university_id)}>
-                    {u.university_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              value={selectedCollegeId != null ? String(selectedCollegeId) : null}
+              onChange={(v) => v && handleCollegeChange(Number(v))}
+              options={colleges.map((c) => ({
+                value: String(c.fk_college_id),
+                label: c.college_name ?? '',
+              }))}
+              placeholder="All colleges"
+              disabled={colleges.length === 0}
+            />
+          </GlobalFilterField>
+        )}
 
-          <div className="space-y-1 min-w-[200px]">
-            <Label className="text-[12px]">Course</Label>
-            <Select
-              value={selectedCourseId != null ? String(selectedCourseId) : undefined}
-              onValueChange={(v) => handleCourseChange(Number(v))}
-              disabled={courses.length === 0}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Select Course" />
-              </SelectTrigger>
-              <SelectContent>
-                {courses.map((c) => (
-                  <SelectItem key={c.fk_course_id} value={String(c.fk_course_id)}>
-                    {c.course_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1 min-w-[180px]">
-            <Label className="text-[12px]">Academic Year</Label>
-            <Select
-              value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : undefined}
-              onValueChange={(v) => handleAcademicYearChange(Number(v))}
-              disabled={academicYears.length === 0}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Select Academic Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {academicYears.map((ay) => (
-                  <SelectItem key={ay.fk_academic_year_id} value={String(ay.fk_academic_year_id)}>
-                    {ay.academic_year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {mode === 2 && (
-            <div className="space-y-1 min-w-[220px]">
-              <Label className="text-[12px]">College</Label>
-              <Select
-                value={selectedCollegeId != null ? String(selectedCollegeId) : undefined}
-                onValueChange={(v) => handleCollegeChange(Number(v))}
-                disabled={colleges.length === 0}
-              >
-                <SelectTrigger className="h-8 text-[12px]">
-                  <SelectValue placeholder="Select College" />
-                </SelectTrigger>
-                <SelectContent>
-                  {colleges.map((c) => (
-                    <SelectItem key={c.fk_college_id} value={String(c.fk_college_id)}>
-                      {c.college_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+        <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
           <Button
-           
-           
             onClick={handleGetList}
             disabled={
               loadingFilters ||
@@ -508,13 +456,14 @@ export default function ExamMasterPage() {
               !selectedCourseId ||
               !selectedAcademicYearId ||
               (mode === 2 && !selectedCollegeId)
-            } className="h-8 px-3 text-[12px]">
+            }
+            className="h-[30px] px-3 text-[12px] shrink-0"
+          >
             Get List
           </Button>
-        </div>
-        </div>
-        )}
-      </div>
+        </GlobalFilterField>
+        </GlobalFilterBarRow>
+      </GlobalFilterBar>
 
       {tableVisible && (
         <>

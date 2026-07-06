@@ -446,7 +446,7 @@ export default function ExamBundlePrintPage() {
 						<ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
 					</button>
 				</div>
-				{filtersOpen && (
+				{(
 					<div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
 						<div className="space-y-1 md:col-span-2">
 							<label className="text-[12px] text-muted-foreground">Academic Year *</label>

@@ -6,11 +6,6 @@
  *   POST   /domain/create/Organization
  *   PUT    /domain/update/Organization?query=organizationId=={id}
  *   POST   /organizationlogoupload  (multipart/form-data)
- *
- *   GET    /domain/list/Country?size=99999
- *   GET    /domain/list/State?size=99999&query=Organization.countryId=={countryId}
- *   GET    /domain/list/District?size=99999&query=Organization.stateId=={stateId}
- *   GET    /domain/list/City?size=99999&query=Organization.districtId=={districtId}
  */
 
 import type { Organization, Country, State, District, City } from '@/types/organization'
@@ -18,12 +13,97 @@ import { domainList, domainCreate, domainUpdate, buildQuery, uploadFile } from '
 import { ORG_API } from '@/config/constants/api'
 import { ENTITIES } from '@/config/constants/entities'
 
-// ─── Organization CRUD ────────────────────────────────────────────────────────
+type OrganizationWriteInput = Partial<Omit<Organization, 'organizationId'>> & Record<string, unknown>
+
+function asString(value: unknown): string {
+  if (value == null) return ''
+  return String(value)
+}
+
+function asNullableString(value: unknown): string | null {
+  const text = asString(value).trim()
+  return text.length > 0 ? text : null
+}
+
+/** Match Angular date payload: keep list ISO when unchanged, else yyyy-MM-ddT13:00:00.000Z */
+function toAngularLicenseDate(
+  value: string | undefined | null,
+  existing?: string | null,
+): string | null {
+  if (value == null || !String(value).trim()) return null
+  const text = String(value).trim()
+  if (text.includes('T')) return text
+  const dateOnly = text.slice(0, 10)
+  if (existing) {
+    const existingDate = existing.slice(0, 10)
+    if (existingDate === dateOnly) return existing
+  }
+  return `${dateOnly}T13:00:00.000Z`
+}
 
 /**
- * List all organizations ordered by creation date descending.
- * GET /domain/list/Organization
+ * Build Organization create/update body matching Angular `organization.component` payload.
  */
+function buildAngularOrganizationPayload(
+  data: OrganizationWriteInput,
+  organizationId?: number,
+  existing?: Organization,
+): Record<string, unknown> {
+  const isActive = data.isActive !== false
+  const pincodeRaw = data.pincode
+  const pincode =
+    pincodeRaw == null || String(pincodeRaw).trim() === '' ? null : Number(pincodeRaw)
+
+  const licensesRaw = data.noIssuedLicenses
+  const noIssuedLicenses =
+    licensesRaw == null || String(licensesRaw).trim() === ''
+      ? null
+      : Number(licensesRaw)
+
+  const payload: Record<string, unknown> = {
+    orgName: asString(data.orgName),
+    orgCode: asString(data.orgCode),
+    mobileNumber: asString(data.mobileNumber),
+    landlineNumber: asString(data.landlineNumber),
+    address: asString(data.address),
+    countryId: data.countryId ?? existing?.countryId ?? null,
+    stateId: data.stateId ?? existing?.stateId ?? null,
+    districtId: data.districtId,
+    mandal: asString(data.mandal),
+    cityId: data.cityId ?? existing?.cityId ?? null,
+    pincode,
+    email: asString(data.email),
+    fax: asNullableString(data.fax),
+    googleUrl: asNullableString(data.googleUrl),
+    facebookUrl: asNullableString(data.facebookUrl),
+    linkedinUrl: asNullableString(data.linkedinUrl),
+    licenseFdate: toAngularLicenseDate(
+      data.licenseFdate as string | undefined,
+      existing?.licenseFdate,
+    ),
+    licenseTdate: toAngularLicenseDate(
+      data.licenseTdate as string | undefined,
+      existing?.licenseTdate,
+    ),
+    noIssuedLicenses: Number.isFinite(noIssuedLicenses as number) ? noIssuedLicenses : null,
+    url: asString(data.url),
+    isActive,
+    reason: isActive ? 'Active' : asString(data.reason).trim() || 'Inactive',
+    upload: null,
+  }
+
+  if (organizationId != null) {
+    payload.organizationId = organizationId
+  }
+  if (existing?.logoPath) {
+    payload.logoPath = existing.logoPath
+  }
+
+  return payload
+}
+
+// ─── Organization CRUD ────────────────────────────────────────────────────────
+
 export async function listOrganizations(): Promise<Organization[]> {
   return domainList<Organization>(
     ENTITIES.ORGANIZATION.name,
@@ -31,34 +111,39 @@ export async function listOrganizations(): Promise<Organization[]> {
   )
 }
 
-/**
- * Create a new organization.
- * POST /domain/create/Organization
- */
 export async function createOrganization(data: Omit<Organization, 'organizationId'>): Promise<Organization> {
-  return domainCreate<Organization>(ENTITIES.ORGANIZATION.name, data)
+  const payload = buildAngularOrganizationPayload(data)
+  return domainCreate<Organization>(ENTITIES.ORGANIZATION.name, payload)
 }
 
-/**
- * Update an existing organization.
- * PUT /domain/update/Organization?query=organizationId=={id}
- */
 export async function updateOrganization(
   organizationId: number,
   data: Partial<Omit<Organization, 'organizationId'>>,
+  existing?: Organization,
 ): Promise<Organization> {
-  return domainUpdate<Organization>(ENTITIES.ORGANIZATION.name, ENTITIES.ORGANIZATION.pk, organizationId, data)
+  const payload = buildAngularOrganizationPayload(data, organizationId, existing)
+  return domainUpdate<Organization>(
+    ENTITIES.ORGANIZATION.name,
+    ENTITIES.ORGANIZATION.pk,
+    organizationId,
+    payload,
+  )
 }
 
-/**
- * Upload (or replace) an organization's logo.
- * POST /organizationlogoupload  (multipart/form-data)
- */
+function isAllowedOrganizationLogo(file: File): boolean {
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+  if (['png', 'jpg', 'jpeg'].includes(extension)) return true
+  return ['image/png', 'image/jpeg'].includes(file.type.toLowerCase())
+}
+
 export async function uploadOrganizationLogo(
   organizationId: number,
   orgCode: string,
   file: File,
 ): Promise<void> {
+  if (!isAllowedOrganizationLogo(file)) {
+    throw new Error('Logo must be a .png, .jpg, or .jpeg file only.')
+  }
   const formData = new FormData()
   formData.append('organizationId', String(organizationId))
   formData.append('orgCode', orgCode)
@@ -68,42 +153,22 @@ export async function uploadOrganizationLogo(
 
 // ─── Geo hierarchy ────────────────────────────────────────────────────────────
 
-/**
- * List all active organizations (used in Campus modal's org dropdown).
- * GET /domain/list/Organization?query=isActive==true
- */
 export async function listActiveOrganizations(): Promise<Organization[]> {
   return domainList<Organization>(ENTITIES.ORGANIZATION.name, buildQuery({ isActive: true }))
 }
 
-/**
- * List all countries.
- * GET /domain/list/Country
- */
 export async function listCountries(): Promise<Country[]> {
   return domainList<Country>(ENTITIES.COUNTRY.name)
 }
 
-/**
- * List states for a given country.
- * GET /domain/list/State?query=Country.countryId=={countryId}
- */
 export async function listStatesByCountry(countryId: number): Promise<State[]> {
   return domainList<State>(ENTITIES.STATE.name, buildQuery({ 'Country.countryId': countryId }))
 }
 
-/**
- * List districts for a given state.
- * GET /domain/list/District?query=State.stateId=={stateId}
- */
 export async function listDistrictsByState(stateId: number): Promise<District[]> {
   return domainList<District>(ENTITIES.DISTRICT.name, buildQuery({ 'State.stateId': stateId }))
 }
 
-/**
- * List cities for a given district.
- * GET /domain/list/City?query=District.districtId=={districtId}
- */
 export async function listCitiesByDistrict(districtId: number): Promise<City[]> {
   return domainList<City>(ENTITIES.CITY.name, buildQuery({ 'District.districtId': districtId }))
 }

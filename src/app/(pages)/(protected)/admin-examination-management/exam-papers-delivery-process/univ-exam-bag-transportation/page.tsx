@@ -307,7 +307,7 @@ export default function UnivExamBagTransportationPage() {
           </button>
         </div>
 
-        {filtersOpen && (
+        {(
           <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className="space-y-1 md:col-span-4"><Label>Exam Regional Center</Label><Select options={regionalOptions} value={form.univExamReionalCenterId} onChange={(v) => setForm((f) => ({ ...f, univExamReionalCenterId: v ?? '' }))} disabled={loadingFilters} /></div>
             <div className="space-y-1 md:col-span-4"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))} /></div>

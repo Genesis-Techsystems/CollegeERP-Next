@@ -425,7 +425,7 @@ export default function RevaluationFeeSetupPage() {
             <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
           </Button>
         </div>
-        {filterOpen && (
+        {(
           <div className="px-3 py-3 bg-card">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
               <div className="min-w-0 lg:col-span-2">

@@ -8,7 +8,7 @@
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   /* Semantic surface tokens */
-  --background: 210 20% 97%;          /* pale blue-grey canvas */
+  --background: 0 0% 100%;            /* pure white canvas */
   --foreground: 210 50% 10%;          /* deep navy text */
   --card: 0 0% 100%;                  /* pure white */
   --card-foreground: 210 50% 10%;
@@ -123,6 +123,7 @@
   --app-table-header-font-size: 12px;
   --app-table-row-font-size: 12.5px;
   --app-table-row-height: 32px;
+  --app-table-header-color: var(--primary);
 
   /* ── Border radius ──────────────────────────────────────────────────────── */
   --radius-card: 0.5rem;
@@ -130,42 +131,297 @@
   --radius-badge: 9999px;
 }
 
-/* ── AG Grid (Quartz) density tweaks for app tables ─────────────────────────── */
+/* ── AG Grid (Quartz) — app-wide table design ─────────────────────────────── */
+
+/* Table card shell — matches reference .card.adt-card (1rem radius + soft shadow) */
+.app-data-table-card {
+  border-radius: 1rem;
+  overflow: hidden;
+  background: hsl(var(--card));
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+/* ── Global filter bar — Review Queue reference layout ───────────────────── */
+
+.global-filter-bar {
+  border-radius: 1rem;
+  overflow: hidden;
+  background: hsl(var(--card));
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+.global-filter-bar__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.global-filter-bar__row--fields {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 1rem;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.global-filter-bar__row--leading {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+/* Page heading — above filter card (Approvals reference layout) */
+.page-header {
+  margin-bottom: 1rem;
+}
+
+.page-header__title {
+  font-family: var(--font-heading), 'Sora', system-ui, sans-serif;
+  font-size: var(--font-size-page-title);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: hsl(var(--page-title));
+}
+
+.page-header__subtitle {
+  margin-top: 0.25rem;
+  font-size: var(--font-size-body);
+  line-height: 1.45;
+  color: hsl(var(--muted-foreground));
+}
+
+.global-filter-field {
+  flex: 1 1 0;
+  min-width: 8.5rem;
+}
+
+.global-filter-field--shrink {
+  flex: 0 0 auto;
+  min-width: auto;
+}
+
+.global-filter-field--options {
+  flex: 0 0 auto;
+  margin-left: auto;
+  min-width: auto;
+}
+
+.global-filter-field--action {
+  flex: 0 0 auto;
+}
+
+.global-filter-bar__row--cols-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: end;
+  flex-wrap: unset;
+  overflow: visible;
+}
+
+.global-filter-bar__row--cols-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: end;
+  flex-wrap: unset;
+  overflow: visible;
+}
+
+.global-filter-bar__row--cols-2 .global-filter-field,
+.global-filter-bar__row--cols-3 .global-filter-field {
+  flex: unset;
+  min-width: 0;
+}
+
+.global-filter-field--inline .global-filter-field__control {
+  padding-top: 0.125rem;
+}
+
+.global-filter-field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(210 15% 52%);
+  line-height: 1.2;
+}
+
+.global-filter-field__icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.global-filter-field__control {
+  width: 100%;
+}
+
+.global-filter-field__control > button[role="combobox"],
+.global-filter-field__control .global-filter-trigger {
+  width: 100%;
+  min-height: 2.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  background: hsl(var(--card));
+  font-size: 13px;
+}
+
+/* Legacy page filter cards — card shell + filter body restyle.
+   Scoped to cards with a collapse toggle — not plain content cards (e.g. Exam Marks Setup list). */
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)),
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) {
+  border-radius: 1rem;
+  overflow: hidden;
+  background: hsl(var(--card));
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+/* Hide in-card heading row — page title lives in PageHeader above the card */
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) {
+  display: none !important;
+}
+
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button:first-child {
+  display: none !important;
+}
+
+/* Restyle legacy filter body — outer wrapper stacks rows vertically */
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button + div,
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) + div {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0.75rem !important;
+  padding: 1rem 1.25rem !important;
+  overflow: visible !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+/* Radio / mode toggle row */
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) [role="radiogroup"],
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) [role="radiogroup"] {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 1.25rem !important;
+  width: 100%;
+}
+
+/* Dropdown / action row */
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) .flex-wrap.items-end,
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) + div > [class*="grid"] {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 1rem !important;
+  width: 100%;
+  overflow-x: auto;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button + div > [class*="grid"] {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end;
+  gap: 1rem !important;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button + div > [class*="grid"] > *,
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) + div > [class*="grid"] > *,
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) .flex-wrap.items-end > * {
+  flex: 1 1 0;
+  min-width: 8.5rem;
+}
+
+/* Legacy filter labels — uppercase style */
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) label:not([for="isForDisabledFilter"]):not(.cursor-pointer),
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) label:not([for="isForDisabledFilter"]):not(.cursor-pointer) {
+  display: block;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(210 15% 52%) !important;
+  margin-bottom: 0.375rem;
+}
+
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) [role="combobox"],
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) button[data-slot="popover-trigger"],
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) [role="combobox"],
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) button[data-slot="popover-trigger"] {
+  min-height: 2.25rem;
+  border-radius: 0.5rem;
+  border-color: #e5e7eb;
+  font-size: 13px;
+}
+
 .app-data-table .ag-theme-quartz {
   --ag-font-size: var(--app-table-row-font-size);
   --ag-grid-size: 4px;
   --ag-list-item-height: 22px;
-  --ag-header-height: 38px;
-  --ag-row-height: var(--app-table-row-height);
+  --ag-header-height: 42px;
+  --ag-row-height: 40px;
   --ag-cell-horizontal-padding: 14px;
   --ag-font-family: var(--font-body), 'Manrope', system-ui, sans-serif;
   --ag-background-color: hsl(var(--card));
-  --ag-header-background-color: hsl(var(--muted));
+  --ag-header-background-color: hsl(var(--primary) / 0.06);
   --ag-border-color: hsl(var(--border));
   --ag-row-border-color: hsl(var(--border));
-  --ag-row-hover-color: hsl(var(--muted) / 0.6);
-  --ag-selected-row-background-color: hsl(var(--primary) / 0.08);
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
+  --ag-row-hover-color: hsl(var(--muted) / 0.45);
+  --ag-selected-row-background-color: hsl(var(--primary) / 0.06);
+  --ag-header-column-separator-display: block;
+  --ag-header-column-separator-color: hsl(var(--border));
+  --ag-header-column-resize-handle-color: hsl(var(--border));
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .app-data-table .ag-theme-quartz .ag-header-cell-text {
-  font-size: var(--app-table-header-font-size);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  color: hsl(var(--muted-foreground));
+  letter-spacing: 0.06em;
+  color: hsl(var(--app-table-header-color));
   text-transform: uppercase;
 }
 
 .app-data-table .ag-theme-quartz .ag-header-row {
-  border-bottom: 1px solid hsl(var(--border));
+  border-bottom: 1px solid hsl(var(--primary) / 0.12);
+}
+
+.app-data-table .ag-theme-quartz .ag-header-cell {
+  padding-inline: 12px;
+}
+
+.app-data-table .ag-theme-quartz .ag-header-cell .ag-icon-filter,
+.app-data-table .ag-theme-quartz .ag-header-cell .ag-sort-indicator-icon {
+  opacity: 0.9;
+  color: hsl(var(--app-table-header-color));
 }
 
 .app-data-table .ag-theme-quartz .ag-cell,
 .app-data-table .ag-theme-quartz .ag-cell-value {
   font-size: var(--app-table-row-font-size) !important;
-  line-height: 1.35;
+  line-height: 1.4;
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -173,12 +429,123 @@
 }
 
 .app-data-table .ag-theme-quartz .ag-row {
-  min-height: var(--app-table-row-height) !important;
+  min-height: 40px !important;
+  border-bottom: 1px solid hsl(var(--border) / 0.85);
+}
+
+.app-data-table .ag-theme-quartz .ag-row:last-child {
+  border-bottom: 0;
 }
 
 .app-data-table .ag-theme-quartz .ag-root-wrapper {
   border: 0 !important;
   border-radius: 0 !important;
+}
+
+/* Auto-height layout: drop AG Grid's default 150px min-height when rows exist */
+.app-data-table .ag-layout-auto-height .ag-center-cols-container,
+.app-data-table .ag-layout-auto-height .ag-center-cols-viewport {
+  min-height: unset !important;
+}
+
+/* Empty state — room for “No rows to show” without restoring the 150px data min-height */
+.app-data-table-grid-empty .ag-layout-auto-height .ag-center-cols-container,
+.app-data-table-grid-empty .ag-layout-auto-height .ag-center-cols-viewport,
+.app-data-table-grid-empty .ag-body-viewport,
+.app-data-table-grid-empty .ag-body-horizontal-scroll-viewport {
+  min-height: 7rem !important;
+}
+
+.app-data-table .ag-overlay-no-rows-wrapper {
+  padding: 2rem 1rem;
+}
+
+.app-data-table .ag-overlay-no-rows-center,
+.app-data-table .app-data-table-no-rows-msg {
+  color: hsl(210 12% 42%);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+
+/* Toolbar search */
+.app-data-table-toolbar-wrap input[type='search'],
+.app-data-table-toolbar-wrap input[type='text'] {
+  height: 2.25rem;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+/* Primary toolbar action (e.g. + New Organization) */
+.app-data-table-toolbar-wrap button[data-table-primary-action] {
+  height: 2.25rem;
+  border-radius: calc(var(--radius) - 2px);
+  padding-inline: 0.875rem;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Action column buttons */
+.app-data-table .app-table-action-edit {
+  border-color: hsl(var(--primary) / 0.45) !important;
+  color: hsl(var(--primary)) !important;
+  background: hsl(var(--card)) !important;
+}
+
+.app-data-table .app-table-action-edit:hover {
+  background: hsl(var(--primary) / 0.08) !important;
+}
+
+.app-data-table .ag-row .ag-cell:last-child button.h-8.w-8.p-0:not(.app-table-action-delete):not(.app-table-action-edit) {
+  border-radius: 0.375rem;
+  border: 1px solid hsl(var(--primary) / 0.4);
+  color: hsl(var(--primary));
+  background: hsl(var(--card));
+}
+
+.app-data-table .ag-row .ag-cell:last-child button.h-8.w-8.p-0:not(.app-table-action-delete):not(.app-table-action-edit):hover {
+  background: hsl(var(--primary) / 0.08);
+}
+
+/* ── Legacy page shells — DataTable replaces the old app-card table chrome ─ */
+.app-card--hosts-data-table,
+.app-card:has(> div .app-data-table),
+.app-card:has(.app-data-table) {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  overflow: visible !important;
+}
+
+.app-data-table-legacy-header {
+  display: none !important;
+}
+
+.app-data-table-legacy-title-only {
+  display: none !important;
+}
+
+.app-data-table-legacy-padding,
+.app-card--hosts-data-table > div:has(.app-data-table),
+.app-card:has(.app-data-table) > div.px-3 {
+  padding: 0 !important;
+}
+
+.app-data-table-legacy-shell {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  box-shadow: none !important;
+}
+
+/* Primary action in toolbar (Add / New …) — pages don't add a special class */
+.app-data-table-toolbar-wrap button:not(.app-data-table-toolbar-btn) {
+  height: 2.25rem;
+  border-radius: calc(var(--radius) - 2px);
+  padding-inline: 0.875rem;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 /* College Counselling — fit all columns without horizontal scroll */
@@ -268,8 +635,44 @@
   font-size: var(--app-control-font-size);
 }
 
+/* Pointer cursor on all clickable buttons app-wide */
+button:not(:disabled):not([disabled]),
+input[type="button"]:not(:disabled):not([disabled]),
+input[type="submit"]:not(:disabled):not([disabled]),
+input[type="reset"]:not(:disabled):not([disabled]),
+[role="button"]:not([aria-disabled="true"]):not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+button[disabled],
+input[type="button"]:disabled,
+input[type="submit"]:disabled,
+input[type="reset"]:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 .app-label {
   font-size: var(--app-label-font-size);
+}
+
+/* Organization modal — pin native date picker icon to the right edge */
+.org-modal-date-input {
+  position: relative;
+}
+.org-modal-date-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  opacity: 1;
+}
+.org-modal-date-input::-webkit-datetime-edit {
+  padding-right: 1.5rem;
 }
 
 .app-table-head-cell {
@@ -350,7 +753,7 @@ main .app-card + .app-card {
   font-family: 'Inter', sans-serif;
 
   /* Canvas and surfaces (warm, subtle contrast) */
-  --background: 220 24% 94%;           /* slightly darker canvas for clearer card contrast */
+  --background: 0 0% 100%;             /* pure white canvas */
   --foreground: 222 47% 12%;           /* near-navy text */
   --card: 0 0% 100%;                   /* pure white cards */
   --card-foreground: 222 47% 12%;
@@ -526,7 +929,7 @@ main .app-card + .app-card {
 /* University Blue (UniERP reference) — medium-blue sidebar + #185FA5 primary.
    Unlike the accent-only themes, this also recolours the sidebar + canvas. */
 [data-theme="university-blue"] {
-  --background: 220 33% 97%;            /* #F4F6FA canvas */
+  --background: 0 0% 100%;             /* pure white canvas */
   --foreground: 218 32% 15%;           /* #1A2433 */
   --muted-foreground: 218 10% 47%;     /* #6B7384 */
   --border: 218 25% 91%;               /* #E2E6EE thin light border */

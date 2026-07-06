@@ -222,11 +222,10 @@ export function Sidebar() {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* ── Brand header — min-h-14 matches the Topbar so both bottom borders
-            sit on the same line; grows if the college name needs more lines ── */}
+      {/* ── Brand header — min-h-14 matches the Topbar height ── */}
       <div
         className={cn(
-          'flex min-h-14 shrink-0 items-center border-b border-[hsl(var(--sidebar-border))] py-1.5',
+          'flex min-h-14 shrink-0 items-center py-1.5',
           isExpanded ? 'gap-2.5 px-3' : 'justify-center px-2',
         )}
       >

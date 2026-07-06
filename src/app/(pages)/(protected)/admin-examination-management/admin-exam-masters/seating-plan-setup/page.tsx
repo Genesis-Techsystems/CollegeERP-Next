@@ -1494,7 +1494,7 @@ export default function SeatingPlanSetupPage() {
 					</Button>
 				</div>
 
-				{filterOpen && (
+				{(
 				<div className="px-3 py-3">
 					<div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
 						<div className="space-y-1">

@@ -1,112 +1,104 @@
-import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import Link from "next/link";
+import { ChevronRight, Home } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface BreadcrumbItem {
   /** Display text for this breadcrumb segment. */
-  label: string
+  label: string;
   /**
    * Navigation target. When omitted (always the case for the last item) the
    * segment is rendered as non-interactive current-page text.
    */
-  href?: string
+  href?: string;
 }
 
 export interface BreadcrumbProps {
   /** Ordered list of breadcrumb segments; the last item is the current page. */
-  items: BreadcrumbItem[]
+  items: BreadcrumbItem[];
   /**
    * When set and `items.length > maxItems`, collapses the middle items into
    * an ellipsis "..." placeholder, always preserving the first item and the
    * last 2 items.
    */
-  maxItems?: number
+  maxItems?: number;
   /** Additional CSS classes for the outer nav element. */
-  className?: string
+  className?: string;
 }
 
-/**
- * Returns the subset of items to render when collapsing is active.
- *
- * Strategy: keep index 0 (first item), inject a sentinel, then keep the last
- * two items.  A sentinel object with `label: '...'` and no `href` is inserted
- * at position 1 so the render loop can identify it via the absence of `href`
- * combined with the special label value.
- */
 function collapseItems(items: BreadcrumbItem[]): BreadcrumbItem[] {
-  const head = items.slice(0, 1)
-  const tail = items.slice(-2)
-  return [...head, { label: '...' }, ...tail]
+  const head = items.slice(0, 1);
+  const tail = items.slice(-2);
+  return [...head, { label: "..." }, ...tail];
 }
 
-/**
- * Breadcrumb navigation bar — canonical kit replacement.
- *
- * Improvements over src/common/components/breadcrumb/Breadcrumb.tsx:
- *   - `maxItems` prop collapses long paths into first + … + last-2
- *   - Separator lives inside each `<li>` so focus order is clean
- *   - Proper `aria-current="page"` on the active segment only
- *   - `aria-label="more items"` on the ellipsis span
- */
+function isHomeItem(item: BreadcrumbItem, index: number): boolean {
+  return index === 0 && item.label === "Home" && item.href === "/dashboard";
+}
+
 export function Breadcrumb({ items, maxItems, className }: BreadcrumbProps) {
-  const shouldCollapse =
-    maxItems !== undefined && items.length > maxItems
+  const shouldCollapse = maxItems !== undefined && items.length > maxItems;
 
   const visibleItems: BreadcrumbItem[] = shouldCollapse
     ? collapseItems(items)
-    : items
+    : items;
 
   return (
     <nav aria-label="Breadcrumb" className={cn(className)}>
-      <ol className="flex items-center flex-wrap gap-0.5 text-[12px] leading-5">
+      <ol className="flex flex-wrap items-center gap-0 text-[13px] leading-5">
         {visibleItems.map((item, index) => {
-          const isFirst = index === 0
-          const isEllipsis = item.label === '...' && item.href === undefined && shouldCollapse
-          const isLast = index === visibleItems.length - 1
+          const isFirst = index === 0;
+          const isEllipsis =
+            item.label === "..." && item.href === undefined && shouldCollapse;
+          const isLast = index === visibleItems.length - 1;
+          const isHome = isHomeItem(item, index);
 
           return (
-            <li key={index} className="flex items-center">
+            <li key={`${item.label}-${index}`} className="flex items-center">
               {!isFirst && (
                 <ChevronRight
-                  className={cn(
-                    'mx-1.5 shrink-0 text-muted-foreground',
-                    isLast ? 'h-4 w-4' : 'h-3.5 w-3.5',
-                  )}
+                  className="mx-2 h-3.5 w-3.5 shrink-0 text-muted-foreground/70"
                   aria-hidden="true"
                 />
               )}
 
               {isEllipsis ? (
                 <span
-                  className="text-muted-foreground select-none"
+                  className="select-none text-muted-foreground"
                   aria-label="more items"
                 >
                   &hellip;
                 </span>
+              ) : isHome ? (
+                <Link
+                  href={item.href!}
+                  className="inline-flex items-center text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label="Home"
+                >
+                  <Home className="h-4 w-4" aria-hidden="true" />
+                </Link>
               ) : isLast || !item.href ? (
                 <span
                   className={cn(
                     isLast
-                      ? 'text-[14px] font-semibold tracking-tight text-[hsl(var(--primary))]'
-                      : 'font-medium text-muted-foreground',
+                      ? "font-semibold text-[hsl(var(--primary))]"
+                      : "font-normal text-muted-foreground",
                   )}
-                  style={isLast ? { fontFamily: 'var(--font-heading), Sora, system-ui, sans-serif' } : undefined}
-                  aria-current={isLast ? 'page' : undefined}
+                  aria-current={isLast ? "page" : undefined}
                 >
                   {item.label}
                 </span>
               ) : (
                 <Link
                   href={item.href}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  className="font-normal text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {item.label}
                 </Link>
               )}
             </li>
-          )
+          );
         })}
       </ol>
     </nav>
-  )
+  );
 }

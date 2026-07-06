@@ -354,7 +354,7 @@ export default function GradeSetupPage() {
          
          
           onClick={handleGetList}
-          disabled={!selectedCourseId || !selectedRegulationId || loadingList} className="h-[30px] px-3 text-[12px] w-full">
+          disabled={!selectedCourseId || !selectedRegulationId || loadingList} className="h-[30px] px-3 text-[12px] shrink-0">
           Get List
         </Button>
       </CollegeFilterPanel>

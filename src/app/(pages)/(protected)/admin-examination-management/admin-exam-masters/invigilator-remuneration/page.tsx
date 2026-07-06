@@ -202,10 +202,11 @@ export default function InvigilatorRemunerationPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Invigilator Remuneration" subtitle="Manage invigilator pay rates" />
+      <PageHeader title="Exam Invigilator Remuneration" subtitle="Manage invigilator pay rates" />
 
       <TableCard withHeaderBorder={false}>
         <DataTable
+          title=""
           rowData={rows}
           columnDefs={columnDefs}
           pagination

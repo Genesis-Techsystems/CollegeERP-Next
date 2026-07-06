@@ -23,7 +23,8 @@ import {
 	listRevisionTypes,
 	updateRevisionMaster,
 } from '@/services/revision-master'
-import { ChevronDown, Filter, PencilIcon, PlusIcon } from 'lucide-react'
+import { Building2, GraduationCap, PencilIcon, PlusIcon } from 'lucide-react'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { PageContainer, PageHeader } from '@/components/layout'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 
@@ -119,7 +120,6 @@ export default function RevisionMasterPage() {
 	const [amount, setAmount] = useState('0')
 	const [isActive, setIsActive] = useState(true)
 	const [reason, setReason] = useState('active')
-	const [filterOpen, setFilterOpen] = useState(true)
 	const [saveError, setSaveError] = useState('')
 	const [isSaving, setIsSaving] = useState(false)
 
@@ -299,48 +299,27 @@ export default function RevisionMasterPage() {
 	return (
 		<PageContainer className="space-y-4">
 			<PageHeader title="Exam Revision Master" subtitle="Manage revision types and rules" />
-			<div className="app-card space-y-0 overflow-hidden">
-				<div className="px-4 py-2 border-b border-border bg-muted/40">
-					<div className="flex items-center justify-between gap-2">
-						<h2 className="app-card-title">Exam Revision Master</h2>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							className="h-6 px-2.5 text-[12px]"
-							onClick={() => setFilterOpen((v) => !v)}
-							aria-expanded={filterOpen}
-						>
-							<Filter className="mr-1.5 h-3.5 w-3.5" />
-							Filter
-							<ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-						</Button>
-					</div>
-				</div>
-				{filterOpen && (
-					<div className="px-4 py-3 flex flex-wrap items-end gap-3">
-						<div className="min-w-[200px] flex-1 max-w-xs">
-							<CommonSelect
-								label="College"
-								placeholder="College"
-								value={collegeId != null ? String(collegeId) : null}
-								onChange={(v) => setCollegeId(v ? Number(v) : null)}
-								options={collegeOptions}
-								disabled={collegeOptions.length === 0}
-							/>
-						</div>
-						<div className="min-w-[200px] flex-1 max-w-xs">
-							<CommonSelect
-								label="Course"
-								placeholder="Course"
-								value={courseId != null ? String(courseId) : null}
-								onChange={(v) => setCourseId(v ? Number(v) : null)}
-								options={courseOptions}
-							/>
-						</div>
-					</div>
-				)}
-			</div>
+			<GlobalFilterBar>
+				<GlobalFilterBarRow>
+					<GlobalFilterField label="College" icon={Building2}>
+						<CommonSelect
+							placeholder="College"
+							value={collegeId != null ? String(collegeId) : null}
+							onChange={(v) => setCollegeId(v ? Number(v) : null)}
+							options={collegeOptions}
+							disabled={collegeOptions.length === 0}
+						/>
+					</GlobalFilterField>
+					<GlobalFilterField label="Course" icon={GraduationCap}>
+						<CommonSelect
+							placeholder="Course"
+							value={courseId != null ? String(courseId) : null}
+							onChange={(v) => setCourseId(v ? Number(v) : null)}
+							options={courseOptions}
+						/>
+					</GlobalFilterField>
+				</GlobalFilterBarRow>
+			</GlobalFilterBar>
 
 			{courseId != null && (
 				<TableCard withHeaderBorder={false}>

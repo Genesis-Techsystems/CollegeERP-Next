@@ -439,7 +439,7 @@ export default function ScanBundlesPage() {
           </button>
         </div>
 
-        {filtersOpen && (
+        {(
           <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className="space-y-1 md:col-span-3"><Label>Academic Year *</Label><Select options={academicYears.map((r) => ({ value: pickAcademicYearKey(r), label: txt(r.academic_year ?? r.academicYear ?? r.academicYearCode ?? pickAcademicYearKey(r)) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>
             <div className="space-y-1 md:col-span-4"><Label>Exam Group *</Label><Select options={exams.map((r) => ({ value: pickExamGroupKey(r), label: txt(r.exam_name ?? r.examName ?? r.examGroupName ?? pickExamGroupKey(r)) }))} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v ?? '' }))} /></div>

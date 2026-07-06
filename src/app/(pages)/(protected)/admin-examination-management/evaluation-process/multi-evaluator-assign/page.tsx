@@ -345,7 +345,7 @@ export default function MultiEvaluatorAssignPage() {
             Filter <Filter className="h-3.5 w-3.5" />
           </span>
         </button>
-        {filterOpen && (
+        {(
           <div className="p-3">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
               <div className="md:col-span-2 space-y-1">

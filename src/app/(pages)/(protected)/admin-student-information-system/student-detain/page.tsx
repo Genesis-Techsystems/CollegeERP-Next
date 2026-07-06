@@ -314,7 +314,7 @@ export default function StudentDetainPage() {
           </button>
         </div>
 
-        {filterOpen && (
+        {(
           <div className="p-3">
             {mode === 'student' ? (
               <div className="max-w-md">

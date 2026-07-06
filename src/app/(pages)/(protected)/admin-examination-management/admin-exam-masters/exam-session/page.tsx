@@ -18,7 +18,7 @@ import { DataTable, TableCard } from '@/common/components/table'
 import { TimePicker } from '@/common/components'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { PageContainer, PageHeader } from '@/components/layout'
 import { useSessionContext } from '@/context/SessionContext'
 import { listExamSessions, createExamSession, updateExamSession, getCollegeFilters, listGeneralDetailsByMaster } from '@/services/examination'
 import { GM_CODES } from '@/config/constants/ui'
@@ -217,14 +217,11 @@ export default function ExamSessionPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden px-4 py-3">
-        <h1 className="app-card-title">
-          Exam Sessions
-        </h1>
-      </div>
+      <PageHeader title="Create Exam Session" subtitle="Manage examination session timings" />
 
       <TableCard withHeaderBorder={false}>
         <DataTable
+          title=""
           rowData={rows}
           columnDefs={columnDefs}
           loading={loading}

@@ -503,7 +503,7 @@ export default function CreateRevaluationFeeStructurePage() {
 					</div>
 				</div>
 
-				{filterOpen && (
+				{(
 				<div className="px-3 py-3 space-y-3">
 					<div className="rounded-md border bg-muted/40/50 px-4 py-3 text-[12px]">
 						<div className="grid grid-cols-1 md:grid-cols-[0.9fr_1.1fr] gap-2">

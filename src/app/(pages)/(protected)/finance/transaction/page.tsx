@@ -109,6 +109,7 @@ export default function TransactionPage() {
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <DataTable
+              title="Transactions"
               rowData={data}
               columnDefs={columnDefs}
               loading={isLoading}
@@ -118,7 +119,6 @@ export default function TransactionPage() {
                 searchPlaceholder: 'Search transactions…',
                 pdfDocumentTitle: 'Transactions',
               }}
-              toolbarLeading={<h2 className="app-card-title">Transactions</h2>}
               toolbarTrailing={(
                 <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>
                   <PlusIcon className="h-4 w-4 mr-1" />

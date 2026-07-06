@@ -78,12 +78,12 @@ export default function ChequeBookPage() {
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <DataTable
+              title="Cheque Book"
               rowData={data}
               columnDefs={columnDefs}
               loading={isLoading}
               pagination
               toolbar={{ search: true, searchPlaceholder: 'Search cheque books…', pdfDocumentTitle: 'Cheque Book' }}
-              toolbarLeading={<h2 className="app-card-title">Cheque Book</h2>}
               toolbarTrailing={(
                 <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>
                   <PlusIcon className="h-4 w-4 mr-1" />

@@ -56,12 +56,12 @@ export default function AchievementsPage() {
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
             <DataTable
+              title="Achievements"
               rowData={data}
               columnDefs={columnDefs}
               loading={isLoading}
               pagination
               toolbar={{ search: true, searchPlaceholder: 'Search achievements…', pdfDocumentTitle: 'Achievements' }}
-              toolbarLeading={<h2 className="app-card-title">Achievements</h2>}
               toolbarTrailing={
                 <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>+ Add Achievement</Button>
               }

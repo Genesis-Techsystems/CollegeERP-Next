@@ -938,7 +938,7 @@ export default function ExamCenterRoomAllotmentPage() {
 					<h2 className="app-card-title">Exam Room Seating Plan</h2>
 					<span className="inline-flex items-center gap-1.5 text-[12px] text-slate-700">Filter <Filter className="h-3.5 w-3.5" /></span>
 				</button>
-				{filterOpen && (
+				{(
 					<div className="px-3 py-3 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
 						<div className="space-y-1">
 							<Label>Course *</Label>

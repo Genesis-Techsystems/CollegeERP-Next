@@ -689,3 +689,86 @@ export function toNavSlug(name: string): string {
     .replace(/\s+/g, '-')
     .trim()
 }
+
+export interface NavBreadcrumbSegment {
+  label: string
+  href?: string
+}
+
+export interface NavSearchPage {
+  displayName: string
+  url: string
+}
+
+/** Flattens the sidebar nav tree into searchable leaf pages with normalized hrefs. */
+export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
+  const collected: NavSearchPage[] = []
+
+  function walk(nodes: NavItem[]) {
+    for (const item of nodes) {
+      if (item.href) {
+        collected.push({
+          displayName: item.label,
+          url: normalizeHref(item.href),
+        })
+      }
+      if (item.children?.length) walk(item.children)
+    }
+  }
+
+  walk(items)
+
+  const seen = new Set<string>()
+  return collected.filter((page) => {
+    if (seen.has(page.url)) return false
+    seen.add(page.url)
+    return true
+  })
+}
+
+/**
+ * Resolves breadcrumb segments from the sidebar nav tree so labels match the
+ * menu (e.g. Master Setup → Organizations) instead of raw URL segments.
+ */
+export function findNavBreadcrumbItems(
+  navItems: NavItem[],
+  pathname: string,
+): NavBreadcrumbSegment[] | null {
+  const target = normalizeHref(pathname).replace(/\/$/, '') || '/'
+  const match: { chain: NavItem[]; score: number } = { chain: [], score: 0 }
+
+  function walk(items: NavItem[], chain: NavItem[]) {
+    for (const item of items) {
+      const nextChain = [...chain, item]
+      const href = item.href ? normalizeHref(item.href).replace(/\/$/, '') : null
+
+      if (href) {
+        const exact = target === href
+        const prefix = target.startsWith(`${href}/`)
+        if (exact || prefix) {
+          const score = href.length + (exact ? 10_000 : 0)
+          if (score > match.score) {
+            match.score = score
+            match.chain = nextChain
+          }
+        }
+      }
+
+      if (item.children?.length) walk(item.children, nextChain)
+    }
+  }
+
+  walk(navItems, [])
+
+  if (match.chain.length === 0) return null
+
+  const segments: NavBreadcrumbSegment[] = match.chain.map((item, index) => {
+    const isLast = index === match.chain.length - 1
+    return {
+      label: item.label,
+      href: !isLast && item.href ? normalizeHref(item.href) : undefined,
+    }
+  })
+
+  return [{ label: 'Home', href: '/dashboard' }, ...segments]
+}

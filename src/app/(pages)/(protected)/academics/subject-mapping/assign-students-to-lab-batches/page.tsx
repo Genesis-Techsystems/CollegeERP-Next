@@ -266,7 +266,7 @@ export default function AssignStudentsToLabBatchesPage() {
             <Filter className="h-4 w-4" />
           </button>
         </div>
-        {filterOpen && (
+        {(
           <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable className="md:col-span-2" />
             <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable className="md:col-span-2" />

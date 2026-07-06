@@ -109,7 +109,7 @@ export default function HolidaysCalendarPage() {
           {filtersOpen ? <ChevronUp className="h-4 w-4 text-slate-600" /> : <ChevronDown className="h-4 w-4 text-slate-600" />}
         </button>
 
-        {filtersOpen && (
+        {(
           <div className="px-3 pb-3 pt-2">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               <Select

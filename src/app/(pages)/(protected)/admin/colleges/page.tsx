@@ -18,12 +18,26 @@ import CollegeModal from './CollegeModal'
 
 const COL_DEFS = {
   siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<College>,
-  logo: { headerName: 'Logo', field: 'logo', minWidth: 64, width: 64, flex: 0 } as ColDef<College>,
-  orgCode: { field: 'orgCode', headerName: 'Org', minWidth: 95, flex: 0.75 } as ColDef<College>,
-  universityCode: { field: 'universityCode', headerName: 'Univ', minWidth: 95, flex: 0.75 } as ColDef<College>,
-  collegeCode: { field: 'collegeCode', headerName: 'Code', minWidth: 95, flex: 0.75 } as ColDef<College>,
-  collegeName: { field: 'collegeName', headerName: 'College', minWidth: 160, flex: 1.35 } as ColDef<College>,
-  address: { field: 'address', headerName: 'Address', minWidth: 180, flex: 1.15 } as ColDef<College>,
+  logo: {
+    headerName: 'Logo',
+    field: 'logo',
+    minWidth: 80,
+    width: 80,
+    flex: 0,
+    filter: false,
+    sortable: false,
+  } as ColDef<College>,
+  orgCode: { field: 'orgCode', headerName: 'Organization', minWidth: 110, flex: 0.85 } as ColDef<College>,
+  universityCode: { field: 'universityCode', headerName: 'University', minWidth: 110, flex: 0.85 } as ColDef<College>,
+  collegeCode: { field: 'collegeCode', headerName: 'College Code', minWidth: 115, flex: 0.85 } as ColDef<College>,
+  collegeName: { field: 'collegeName', headerName: 'College Name', minWidth: 170, flex: 1.35 } as ColDef<College>,
+  address: {
+    field: 'address',
+    headerName: 'Address',
+    minWidth: 200,
+    flex: 1.2,
+    cellClass: 'overflow-hidden',
+  } as ColDef<College>,
   isActive: { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<College>,
   actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<College>,
 }
@@ -49,6 +63,15 @@ function logoRenderer(p: ICellRendererParams<College>) {
 
 function statusRenderer(p: ICellRendererParams<College>) {
   return <StatusBadge status={p.data?.isActive ?? false} />
+}
+
+function addressRenderer(p: ICellRendererParams<College>) {
+  const text = p.data?.address ?? ''
+  return (
+    <div className="min-w-0 w-full truncate text-[13px] text-foreground" title={text}>
+      {text}
+    </div>
+  )
 }
 
 function makeActionsRenderer(
@@ -85,7 +108,7 @@ export default function CollegesPage() {
       COL_DEFS.universityCode,
       COL_DEFS.collegeCode,
       COL_DEFS.collegeName,
-      COL_DEFS.address,
+      { ...COL_DEFS.address, cellRenderer: addressRenderer },
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
       { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditingCollege, setModalOpen) },
     ],

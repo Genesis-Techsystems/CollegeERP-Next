@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Menu,
@@ -26,18 +26,9 @@ import {
 import { useSessionContext } from '@/context/SessionContext'
 import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
-import { normalizeHref } from '@/lib/navigation'
-import { getUserAccess, logout } from '@/services/auth'
+import { flattenNavItemsForSearch, normalizeHref } from '@/lib/navigation'
+import { logout } from '@/services/auth'
 import { ThemeSwitcher } from '@/common/components/theme-setting-modal'
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface SearchPage {
-  displayName: string
-  url: string
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -51,13 +42,7 @@ const roleAvatarStyle: Record<string, string> = {
   PARENT:    'bg-purple-100 text-purple-700',
 }
 
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .split(' ')
-    .filter((w) => w !== 'and')
-    .join('-')
-}
+const MAX_SEARCH_RESULTS = 8
 
 // ---------------------------------------------------------------------------
 // Component
@@ -66,11 +51,10 @@ function slugify(name: string): string {
 export function Topbar() {
   const router = useRouter()
   const { user } = useSessionContext()
-  const { toggleSidebar } = useNavigationStore()
+  const { toggleSidebar, navItems } = useNavigationStore()
 
-  // ── Search state ────────────────────────────────────────────────────────
-  const [pages, setPages] = useState<SearchPage[]>([])
-  const [pagesLoading, setPagesLoading] = useState(false)
+  const pages = useMemo(() => flattenNavItemsForSearch(navItems), [navItems])
+
   const [searchTerm, setSearchTerm] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [activeResultIndex, setActiveResultIndex] = useState(-1)
@@ -78,80 +62,9 @@ export function Topbar() {
   const searchContainerRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // ── Fetch accessible pages on mount once user is available ──────────────
-  const fetchPages = useCallback(async (userId: number | string) => {
-    setPagesLoading(true)
-    try {
-      const body: {
-        success: boolean
-        data?: {
-          modules?: Array<{
-            moduleName: string
-            url?: string
-            subModules?: Array<{
-              subModuleName: string
-              pages?: Array<{ displayName: string; url: string }>
-            }>
-            pages?: Array<{ displayName: string; url: string }>
-          }>
-        }
-      } = await getUserAccess(userId)
-      if (!body.success) {
-        setPages([])
-        return
-      }
+  const pagesLoading = navItems.length === 0
 
-      const modules = body.data?.modules ?? []
-      const collected: SearchPage[] = []
-
-      for (const mod of modules) {
-        const modUrl = slugify(mod.moduleName)
-
-        if (mod.url && mod.url !== 'null') {
-          collected.push({ displayName: mod.moduleName, url: mod.url })
-        } else if (
-          (mod.subModules?.length ?? 0) === 0 &&
-          (mod.pages?.length ?? 0) === 0
-        ) {
-          collected.push({ displayName: mod.moduleName, url: modUrl })
-        } else if (
-          (mod.subModules?.length ?? 0) === 0 &&
-          (mod.pages?.length ?? 0) > 0
-        ) {
-          for (const page of mod.pages ?? []) {
-            collected.push({
-              displayName: page.displayName,
-              url: `${modUrl}/${page.url}`,
-            })
-          }
-        } else if ((mod.subModules?.length ?? 0) > 0) {
-          for (const sub of mod.subModules ?? []) {
-            const subUrl = slugify(sub.subModuleName)
-            for (const page of sub.pages ?? []) {
-              collected.push({
-                displayName: page.displayName,
-                url: `${modUrl}/${subUrl}/${page.url}`,
-              })
-            }
-          }
-        }
-      }
-      setPages(collected)
-    } catch {
-      // Keep Topbar usable even when user-access API is temporarily unavailable.
-      setPages([])
-    } finally {
-      setPagesLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (user?.userId) {
-      fetchPages(user.userId)
-    }
-  }, [user?.userId, fetchPages])
-
-  // ── Close search on outside click ───────────────────────────────────────
+  // ── Close search dropdown on outside click ──────────────────────────────
   useEffect(() => {
     function handlePointerDown(e: PointerEvent) {
       if (
@@ -159,7 +72,6 @@ export function Topbar() {
         !searchContainerRef.current.contains(e.target as Node)
       ) {
         setIsSearchOpen(false)
-        setSearchTerm('')
         setActiveResultIndex(-1)
       }
     }
@@ -167,33 +79,55 @@ export function Topbar() {
     return () => document.removeEventListener('pointerdown', handlePointerDown)
   }, [])
 
-  // ── Derived: filtered pages ──────────────────────────────────────────────
-  const filteredPages =
-    searchTerm.trim().length > 0
-      ? pages
-          .filter((p) =>
-            p.displayName.toLowerCase().startsWith(searchTerm.toLowerCase()),
-          )
-          .slice(0, 8)
-      : []
+  // ── Global ⌘K / Ctrl+K shortcut ───────────────────────────────────────
+  useEffect(() => {
+    function handleGlobalKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+        if (searchTerm.trim().length > 0) setIsSearchOpen(true)
+      }
+    }
+    document.addEventListener('keydown', handleGlobalKeyDown)
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [searchTerm])
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
-  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
+  const filteredPages = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    if (term.length === 0) return []
+
+    return pages
+      .filter((page) => page.displayName.toLowerCase().includes(term))
+      .slice(0, MAX_SEARCH_RESULTS)
+  }, [pages, searchTerm])
+
+  const showSearchDropdown = isSearchOpen && searchTerm.trim().length > 0
+
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setSearchTerm(value)
     setActiveResultIndex(-1)
     setIsSearchOpen(value.trim().length > 0)
-  }
+  }, [])
 
-  function navigateTo(page: SearchPage) {
-    router.push(normalizeHref(page.url))
+  const navigateTo = useCallback((url: string) => {
+    router.push(normalizeHref(url))
     setSearchTerm('')
     setIsSearchOpen(false)
     setActiveResultIndex(-1)
-  }
+    searchInputRef.current?.blur()
+  }, [router])
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!isSearchOpen || filteredPages.length === 0) {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSearchDropdown) {
+      if (e.key === 'Escape') {
+        setSearchTerm('')
+        setIsSearchOpen(false)
+      }
+      return
+    }
+
+    if (filteredPages.length === 0) {
       if (e.key === 'Escape') {
         setSearchTerm('')
         setIsSearchOpen(false)
@@ -217,18 +151,18 @@ export function Topbar() {
       case 'Enter':
         e.preventDefault()
         if (activeResultIndex >= 0 && filteredPages[activeResultIndex]) {
-          navigateTo(filteredPages[activeResultIndex])
+          navigateTo(filteredPages[activeResultIndex].url)
+        } else if (filteredPages[0]) {
+          navigateTo(filteredPages[0].url)
         }
         break
       case 'Escape':
-        setSearchTerm('')
         setIsSearchOpen(false)
         setActiveResultIndex(-1)
         break
     }
-  }
+  }, [activeResultIndex, filteredPages, navigateTo, showSearchDropdown])
 
-  // ── User display ─────────────────────────────────────────────────────────
   const initials = user
     ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase()
     : '?'
@@ -238,15 +172,11 @@ export function Topbar() {
 
   async function handleLogout() {
     await logout()
-    // Full page reload clears the React Query cache (module-level QueryClient singleton),
-    // all Zustand in-memory state, and all React component state — prevents previous
-    // user's data from leaking into the next session.
     window.location.href = '/login'
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-5">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-5">
 
       {/* ── Mobile hamburger ─────────────────────────────────────────── */}
       <Button
@@ -259,82 +189,92 @@ export function Topbar() {
         <Menu className="h-5 w-5" aria-hidden="true" />
       </Button>
 
-      {/* ── Right side ───────────────────────────────────────────────── */}
-      <div className="ml-auto flex items-center gap-1">
-
-      {/* ── AI search bar (right-aligned, beside theme switcher) ─────── */}
+      {/* ── Search — left side ─────────────────────────────────────── */}
       <div
         ref={searchContainerRef}
-        className="relative mr-1 hidden w-56 items-center sm:flex lg:w-72 xl:w-80"
+        className="relative flex min-w-0 flex-1 items-center sm:max-w-md lg:max-w-lg xl:max-w-xl"
         role="combobox"
-        aria-expanded={isSearchOpen && filteredPages.length > 0}
+        aria-expanded={showSearchDropdown && filteredPages.length > 0}
         aria-haspopup="listbox"
         aria-owns="search-results-listbox"
       >
         {pagesLoading ? (
-          <Loader2 className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 animate-spin text-primary" aria-hidden="true" />
+          <Loader2
+            className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 animate-spin text-primary"
+            aria-hidden="true"
+          />
         ) : (
-          <Sparkles className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-primary" aria-hidden="true" />
+          <Sparkles
+            className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-primary"
+            aria-hidden="true"
+          />
         )}
         <input
           ref={searchInputRef}
           type="search"
           role="searchbox"
-          aria-label="Search across the project"
+          aria-label="Search pages"
           aria-autocomplete="list"
           aria-controls="search-results-listbox"
-          aria-activedescendant={activeResultIndex >= 0 ? `search-result-${activeResultIndex}` : undefined}
-          placeholder="Ask anything across the project…"
+          aria-activedescendant={
+            activeResultIndex >= 0 ? `search-result-${activeResultIndex}` : undefined
+          }
+          placeholder="Search pages…"
           value={searchTerm}
           onChange={handleSearchChange}
           onKeyDown={handleKeyDown}
           onFocus={() => {
-            if (searchTerm.trim().length > 0 && filteredPages.length > 0) setIsSearchOpen(true)
+            if (searchTerm.trim().length > 0) setIsSearchOpen(true)
           }}
           className={cn(
-            'h-9 w-full rounded-[10px] border border-input bg-[hsl(var(--background))]',
+            'h-9 w-full rounded-full border border-input bg-[hsl(var(--background))]',
             'pl-10 pr-14 text-[13px] text-foreground placeholder:text-muted-foreground',
             'focus:border-primary focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/15',
             'transition-all duration-150',
           )}
         />
-        <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground">
+        <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground sm:inline">
           ⌘K
         </kbd>
 
-        {/* ── Dropdown results ───────────────────────────────────── */}
-        {isSearchOpen && filteredPages.length > 0 && (
+        {showSearchDropdown && (
           <div
             id="search-results-listbox"
             role="listbox"
             aria-label="Search results"
-            className="absolute top-full left-0 z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-72 overflow-y-auto"
+            className="absolute top-full left-0 z-50 mt-1.5 max-h-72 w-full overflow-y-auto rounded-lg border border-border bg-card shadow-lg"
           >
-            {filteredPages.map((page, index) => (
-              <button
-                key={page.url}
-                id={`search-result-${index}`}
-                role="option"
-                aria-selected={index === activeResultIndex}
-                type="button"
-                className={cn(
-                  'w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors',
-                  index === activeResultIndex && 'bg-accent',
-                )}
-                onPointerDown={(e) => { e.preventDefault() }}
-                onClick={() => navigateTo(page)}
-              >
-                {page.displayName}
-              </button>
-            ))}
+            {filteredPages.length > 0 ? (
+              filteredPages.map((page, index) => (
+                <button
+                  key={page.url}
+                  id={`search-result-${index}`}
+                  role="option"
+                  aria-selected={index === activeResultIndex}
+                  type="button"
+                  className={cn(
+                    'w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-accent',
+                    index === activeResultIndex && 'bg-accent',
+                  )}
+                  onPointerDown={(e) => { e.preventDefault() }}
+                  onClick={() => navigateTo(page.url)}
+                >
+                  {page.displayName}
+                </button>
+              ))
+            ) : (
+              <p className="px-4 py-3 text-sm text-muted-foreground">
+                No pages found
+              </p>
+            )}
           </div>
         )}
       </div>
 
-        {/* Theme switcher */}
+      {/* ── Right side — actions & profile ───────────────────────────── */}
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         <ThemeSwitcher />
 
-        {/* Notification bell */}
         <Button
           variant="ghost"
           size="icon"
@@ -348,41 +288,37 @@ export function Topbar() {
           />
         </Button>
 
-        {/* Apps / grid */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="hidden h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground sm:inline-flex"
           aria-label="All apps"
         >
           <LayoutGrid className="h-[18px] w-[18px]" aria-hidden="true" />
         </Button>
 
-        {/* Help */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          className="hidden h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground sm:inline-flex"
           aria-label="Help"
         >
           <HelpCircle className="h-[18px] w-[18px]" aria-hidden="true" />
         </Button>
 
-        {/* Divider */}
-        <div className="mx-2 h-6 w-px bg-border" aria-hidden="true" />
+        <div className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
 
-        {/* User menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+              className="flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
               aria-label="User menu"
             >
               <div className="hidden text-right md:block">
-                <p className="text-[13px] font-semibold text-foreground leading-tight tracking-tight">
+                <p className="text-[13px] font-semibold leading-tight tracking-tight text-foreground">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
+                <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
                   {user?.roleName ?? user?.userRole ?? 'User'}
                 </p>
               </div>
@@ -405,7 +341,7 @@ export function Topbar() {
               <p className="text-[13px] font-semibold text-foreground">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-[11px] text-muted-foreground font-normal">{user?.roleName}</p>
+              <p className="text-[11px] font-normal text-muted-foreground">{user?.roleName}</p>
             </DropdownMenuLabel>
 
             <DropdownMenuSeparator />
