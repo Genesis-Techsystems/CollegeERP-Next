@@ -6,6 +6,7 @@ import { DoorOpen, PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { Select } from '@/common/components/select'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
@@ -425,14 +426,10 @@ export default function RoomDetailsPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Room Details</h2>
-        </div>
-        <div className="grid grid-cols-12 gap-2 p-3">
-          <div className="col-span-12 md:col-span-2">
+      <GlobalFilterBar title="Room Details">
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Campus">
             <Select
-              label="Campus"
               value={campusId}
               onChange={(v) => {
                 setCampusId(v)
@@ -445,10 +442,9 @@ export default function RoomDetailsPage() {
               placeholder="All"
               searchable
             />
-          </div>
-          <div className="col-span-12 md:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Building">
             <Select
-              label="Building"
               value={buildingId}
               onChange={(v) => {
                 setBuildingId(v)
@@ -460,10 +456,9 @@ export default function RoomDetailsPage() {
               placeholder="All"
               searchable
             />
-          </div>
-          <div className="col-span-12 md:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Block">
             <Select
-              label="Block"
               value={blockId}
               onChange={(v) => {
                 setBlockId(v)
@@ -475,10 +470,9 @@ export default function RoomDetailsPage() {
               searchable
               disabled={!buildingId}
             />
-          </div>
-          <div className="col-span-12 md:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Floor">
             <Select
-              label="Floor"
               value={floorId}
               onChange={(v) => {
                 setFloorId(v)
@@ -489,27 +483,23 @@ export default function RoomDetailsPage() {
               searchable
               disabled={!blockId}
             />
-          </div>
-          <div className="col-span-12 md:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Room">
             <Select
-              label="Room"
               value={roomId}
               onChange={setRoomId}
               options={roomOptions}
               placeholder="All"
               searchable
             />
-          </div>
-          <div className="col-span-12 md:col-span-2 flex items-end">
-            <Button
-              size="sm"
-              onClick={loadDetails}
-            >
+          </GlobalFilterField>
+          <GlobalFilterField label=" " className="global-filter-field--action">
+            <Button size="sm" onClick={loadDetails} className="shrink-0">
               Get Details
             </Button>
-          </div>
-        </div>
-      </div>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      </GlobalFilterBar>
 
       {showResults && (
         <div className="app-card overflow-hidden">

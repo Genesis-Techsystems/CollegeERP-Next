@@ -7,6 +7,7 @@ import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
 import { DataTable } from '@/common/components/table'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useSession } from '@/hooks/useSession'
@@ -142,62 +143,63 @@ export default function CollegeCoursesGroupsPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-3 py-2 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">College Courses & Groups</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-2 gap-y-2 px-3 py-2">
-          <Select
-            label="University"
-            value={selectedUniversityId ? String(selectedUniversityId) : null}
-            onChange={(v) => {
-              setSelectedUniversityId(v ? Number(v) : 0)
-              setSelectedCollegeId(0)
-              setSelectedCourseId(0)
-              setSelectedCourseGroupId(0)
-            }}
-            options={universities}
-            placeholder="All"
-            searchable
-          />
-          <Select
-            label="College"
-            value={selectedCollegeId ? String(selectedCollegeId) : null}
-            onChange={(v) => {
-              setSelectedCollegeId(v ? Number(v) : 0)
-              setSelectedCourseId(0)
-              setSelectedCourseGroupId(0)
-            }}
-            options={colleges}
-            placeholder="All"
-            searchable
-          />
-          <Select
-            label="Course"
-            value={String(selectedCourseId)}
-            onChange={(v) => {
-              setSelectedCourseId(v ? Number(v) : 0)
-              setSelectedCourseGroupId(0)
-            }}
-            options={courses}
-            placeholder="All"
-            searchable
-          />
-          <Select
-            label="Course Group"
-            value={String(selectedCourseGroupId)}
-            onChange={(v) => setSelectedCourseGroupId(v ? Number(v) : 0)}
-            options={courseGroups}
-            placeholder="All"
-            searchable
-          />
-          <div className="flex items-end sm:col-span-2 lg:col-span-1">
-            <Button size="sm" onClick={getList} className="w-full sm:w-auto">
+      <GlobalFilterBar title="College Courses & Groups">
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="University">
+            <Select
+              value={selectedUniversityId ? String(selectedUniversityId) : null}
+              onChange={(v) => {
+                setSelectedUniversityId(v ? Number(v) : 0)
+                setSelectedCollegeId(0)
+                setSelectedCourseId(0)
+                setSelectedCourseGroupId(0)
+              }}
+              options={universities}
+              placeholder="All"
+              searchable
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="College">
+            <Select
+              value={selectedCollegeId ? String(selectedCollegeId) : null}
+              onChange={(v) => {
+                setSelectedCollegeId(v ? Number(v) : 0)
+                setSelectedCourseId(0)
+                setSelectedCourseGroupId(0)
+              }}
+              options={colleges}
+              placeholder="All"
+              searchable
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course">
+            <Select
+              value={String(selectedCourseId)}
+              onChange={(v) => {
+                setSelectedCourseId(v ? Number(v) : 0)
+                setSelectedCourseGroupId(0)
+              }}
+              options={courses}
+              placeholder="All"
+              searchable
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course Group">
+            <Select
+              value={String(selectedCourseGroupId)}
+              onChange={(v) => setSelectedCourseGroupId(v ? Number(v) : 0)}
+              options={courseGroups}
+              placeholder="All"
+              searchable
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label=" " className="global-filter-field--action">
+            <Button size="sm" onClick={getList} className="shrink-0">
               Get List
             </Button>
-          </div>
-        </div>
-      </div>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      </GlobalFilterBar>
 
       {showList && (
         <div className="app-card overflow-hidden">

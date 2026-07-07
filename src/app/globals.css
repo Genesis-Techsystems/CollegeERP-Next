@@ -145,11 +145,7 @@
 /* ── Global filter bar — Review Queue reference layout ───────────────────── */
 
 .global-filter-bar {
-  border-radius: 1rem;
-  overflow: hidden;
-  background: hsl(var(--card));
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  /* Shell is rendered by the component using `.app-card` utilities. */
 }
 
 .global-filter-bar__inner {
@@ -290,12 +286,29 @@
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
-/* Hide in-card heading row — page title lives in PageHeader above the card */
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) {
-  display: none !important;
-}
+/* NOTE: do not hide filter card headings globally.
+   Filter panels use `.app-card-title` in their own header row. */
 
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button:first-child {
+/* Global collapsible behavior for filter cards that do NOT manage their own state.
+   AppShell toggles `data-filters-collapsed` when the header is clicked. */
+.app-card[data-filters-collapsed="true"]
+:not(:has(.app-data-table))
+:not(:has(.app-data-table-card))
+:has([role="combobox"]),
+.app-card[data-filters-collapsed="true"]
+:not(:has(.app-data-table))
+:not(:has(.app-data-table-card))
+:has(button[data-slot="popover-trigger"]) {
+  /* Keep shell; just hide the body. */
+}
+.app-card[data-filters-collapsed="true"]
+:not(:has(.app-data-table))
+:not(:has(.app-data-table-card))
+:has([role="combobox"]) > :not(:first-child),
+.app-card[data-filters-collapsed="true"]
+:not(:has(.app-data-table))
+:not(:has(.app-data-table-card))
+:has(button[data-slot="popover-trigger"]) > :not(:first-child) {
   display: none !important;
 }
 

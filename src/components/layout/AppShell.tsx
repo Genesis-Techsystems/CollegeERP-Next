@@ -110,7 +110,17 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
     const toggle = headerRow.querySelector<HTMLButtonElement>(
       'button:has(svg[class*="lucide-funnel"]), button:has(svg[class*="lucide-filter"]), button:has(svg[class*="lucide-chevron-down"])',
     )
-    if (!toggle) return
+    if (!toggle) {
+      const card = headerRow.closest<HTMLElement>('.app-card')
+      if (!card) return
+      // Only treat it like a filter card when it contains dropdowns and does not contain a table.
+      if (!card.querySelector('[role="combobox"], button[data-slot="popover-trigger"]')) return
+      if (card.querySelector('.app-data-table, .app-data-table-card, [role="grid"]')) return
+      const isCollapsed = card.getAttribute('data-filters-collapsed') === 'true'
+      const next = !isCollapsed
+      card.setAttribute('data-filters-collapsed', next ? 'true' : 'false')
+      return
+    }
     // Pages unmount the panel conditionally, so closing can't be CSS-animated.
     // A View Transition snapshots before/after and cross-fades the change
     // (no-op in browsers without support).
