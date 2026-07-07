@@ -73,6 +73,10 @@ export default function WeekdaysPage() {
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                 <CalendarDays className="h-10 w-10 mb-3 opacity-40" />
                 <p className="text-sm">No weekdays found</p>
+                <Button size="sm" className="mt-4" onClick={() => { setRow(null); setOpen(true) }}>
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Add Week Day
+                </Button>
               </div>
             ) : (
               <DataTable

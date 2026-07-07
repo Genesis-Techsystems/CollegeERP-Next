@@ -122,6 +122,10 @@ export default function RoomsPage() {
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                 <DoorOpen className="h-10 w-10 mb-3 opacity-40" />
                 <p className="text-sm">No rooms found</p>
+                <Button size="sm" className="mt-4" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Add Room
+                </Button>
               </div>
             ) : (
               <DataTable

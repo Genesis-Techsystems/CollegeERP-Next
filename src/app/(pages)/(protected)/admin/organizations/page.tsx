@@ -85,6 +85,15 @@ export default function OrganizationsPage() {
         <div className="app-card flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Building2 className="mb-3 h-10 w-10 opacity-40" />
           <p className="text-sm">No organizations found</p>
+          <Button
+            size="sm"
+            className="mt-4"
+            data-table-primary-action
+            onClick={() => { setEditingOrg(null); setModalOpen(true) }}
+          >
+            <PlusIcon className="mr-1.5 h-4 w-4" />
+            New Organization
+          </Button>
         </div>
       ) : (
         <DataTable

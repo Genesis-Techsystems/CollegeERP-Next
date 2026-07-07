@@ -210,6 +210,10 @@ export default function CollegeCoursesGroupsPage() {
                 <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <BookOpen className="h-10 w-10 mb-2 opacity-40" />
                   <p className="text-sm">No records found</p>
+                  <Button size="sm" className="mt-4" onClick={() => setModalOpen(true)}>
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Add Course / Groups
+                  </Button>
                 </div>
               ) : (
                 <DataTable

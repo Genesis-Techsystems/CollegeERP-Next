@@ -103,6 +103,10 @@ export default function FloorsPage() {
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                 <Layers className="h-10 w-10 mb-3 opacity-40" />
                 <p className="text-sm">No floors found</p>
+                <Button size="sm" className="mt-4" onClick={() => { setEditingFloor(null); setModalOpen(true) }}>
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Add Floor
+                </Button>
               </div>
             ) : (
               <DataTable
