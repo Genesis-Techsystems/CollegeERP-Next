@@ -8,6 +8,7 @@ export interface GroupSection {
   courseYearCode?: string
   groupSectionCode: string
   groupSectionName: string
+  sortOrder?: number
   isActive: boolean
   reason?: string
 }

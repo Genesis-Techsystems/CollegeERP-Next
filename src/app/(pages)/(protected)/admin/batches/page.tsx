@@ -24,6 +24,13 @@ const COLS = {
   actions: { colId: 'actions', headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<Batch>,
 }
 function pick(r: Record<string, unknown>, keys: string[]) { for (const k of keys) { const v = r[k]; if (typeof v === 'string' && v.trim()) return v } return '' }
+/** Same display approach as Academic Year from/to columns. */
+function fmtDate(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString()
+}
 function statusRenderer(p: ICellRendererParams<Batch>) { return <StatusBadge status={p.data?.isActive ?? false} /> }
 function actionRenderer(setRow: (r: Batch | null) => void, setOpen: (b: boolean) => void) { return (p: ICellRendererParams<Batch>) => <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setRow(p.data ?? null); setOpen(true) }}><PencilIcon className="h-3.5 w-3.5" /></Button> }
 
@@ -36,8 +43,8 @@ export default function BatchesPage() {
     { ...COLS.courseCode, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['courseCode', 'course_code', 'courseName']) },
     { ...COLS.regulationName, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['regulationName', 'regulation_name', 'regulationCode']) },
     COLS.name,
-    { ...COLS.batchFrom, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['batchFrom', 'batch_from', 'fromDate']) },
-    { ...COLS.batchTo, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['batchTo', 'batch_to', 'toDate']) },
+    { ...COLS.batchFrom, valueGetter: (p) => fmtDate(pick((p.data ?? {}) as Record<string, unknown>, ['batchFrom', 'batch_from', 'fromDate'])) },
+    { ...COLS.batchTo, valueGetter: (p) => fmtDate(pick((p.data ?? {}) as Record<string, unknown>, ['batchTo', 'batch_to', 'toDate'])) },
     { ...COLS.isActive, cellRenderer: statusRenderer },
     { ...COLS.actions, cellRenderer: actionRenderer(setRow, setOpen) },
   ], [])

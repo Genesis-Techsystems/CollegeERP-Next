@@ -14,9 +14,10 @@ type GeneralDetail = {
 }
 
 export async function listDocumentRepositories(): Promise<DocumentRepository[]> {
+  // Angular listAllDetails uses order(createdDt=desc) (lowercase)
   return domainList<DocumentRepository>(
     ENTITIES.DOCUMENT_REPOSITORY.name,
-    buildQuery({}, { field: 'createdDt', direction: 'DESC' }),
+    'order(createdDt=desc)',
   )
 }
 

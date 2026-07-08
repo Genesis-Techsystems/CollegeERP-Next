@@ -143,15 +143,17 @@ export const QK = {
   },
   groupSections: {
     all: ['GroupSection'] as const,
-    list: () => ['GroupSection', 'list'] as const,
+    list: (filters?: { collegeId?: number; academicYearId?: number; courseGroupId?: number; courseYearId?: number }) =>
+      ['GroupSection', 'list', filters ?? {}] as const,
   },
   batches: {
     all: ['Batch'] as const,
     list: () => ['Batch', 'list'] as const,
   },
   studentBatches: {
-    all: ['StudentAcademicbatch'] as const,
-    list: () => ['StudentAcademicbatch', 'list'] as const,
+    all: ['Studentbatch'] as const,
+    list: (collegeId?: number) => ['Studentbatch', 'list', collegeId ?? null] as const,
+    colleges: () => ['Studentbatch', 'colleges'] as const,
   },
 
   // ── Universities ───────────────────────────────────────────────────────

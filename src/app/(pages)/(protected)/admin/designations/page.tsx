@@ -43,7 +43,7 @@ export default function DesignationsPage() {
 
   const columnDefs = useMemo<ColDef<Designation>[]>(() => [
     COLS.siNo,
-    { ...COLS.orgName, valueGetter: (p) => p.data?.orgName ?? p.data?.orgCode ?? '-' },
+    { ...COLS.orgName, valueGetter: (p) => p.data?.orgCode ?? p.data?.orgName ?? '-' },
     COLS.designationName,
     { ...COLS.isActive, cellRenderer: statusRenderer },
     { ...COLS.actions, cellRenderer: actionRenderer(setRow, setOpen) },

@@ -20,6 +20,8 @@ import type { Campus } from '@/types/campus'
 import type { College } from '@/types/college'
 import type { CollegeCertificate } from '@/types/college-certificate'
 
+const DATE_INPUT_CLASS = 'org-modal-date-input pr-10'
+
 const schema = z.object({
   campusId: z.number().min(1, 'Campus is required'),
   collegeId: z.number().min(1, 'College is required'),
@@ -247,42 +249,35 @@ export default function CollegeCertificateModal({
             </div>
             <div>
               <Label htmlFor="fromDate">From Date *</Label>
-              <Input id="fromDate" type="date" {...register('fromDate')} />
+              <Input id="fromDate" type="date" className={DATE_INPUT_CLASS} {...register('fromDate')} />
               {errors.fromDate && <p className="text-xs text-red-500">{errors.fromDate.message}</p>}
             </div>
             <div>
               <Label htmlFor="toDate">To Date *</Label>
-              <Input id="toDate" type="date" min={watch('fromDate') || undefined} {...register('toDate')} />
+              <Input
+                id="toDate"
+                type="date"
+                className={DATE_INPUT_CLASS}
+                min={watch('fromDate') || undefined}
+                {...register('toDate')}
+              />
               {errors.toDate && <p className="text-xs text-red-500">{errors.toDate.message}</p>}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 py-1">
-            <input
-              id="isApprovalReq"
-              type="checkbox"
-              checked={watch('isApprovalReq') ?? false}
-              onChange={(e) => setValue('isApprovalReq', e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300"
-            />
-            <Label htmlFor="isApprovalReq">Approval Required</Label>
-          </div>
-
-          {isEditing && (
-            <Controller
-              name="isActive"
-              control={control}
-              render={({ field }) => (
-                <ActiveStatusField
-                  isActive={field.value}
-                  reason={watch('reason') ?? ''}
-                  onActiveChange={field.onChange}
-                  onReasonChange={(value) => setValue('reason', value)}
-                  reasonError={errors.reason?.message}
-                />
-              )}
-            />
-          )}
+          <Controller
+            name="isActive"
+            control={control}
+            render={({ field }) => (
+              <ActiveStatusField
+                isActive={field.value}
+                reason={watch('reason') ?? ''}
+                onActiveChange={field.onChange}
+                onReasonChange={(value) => setValue('reason', value)}
+                reasonError={errors.reason?.message}
+              />
+            )}
+          />
 
           {submitError && <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>}
 
