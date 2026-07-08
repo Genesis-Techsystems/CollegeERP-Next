@@ -24,6 +24,7 @@ import {
   searchStudentsByKeyword,
   updateStudentCcActivity,
 } from '@/services'
+import { StudentSearchSelect } from '../students-list/StudentSearchSelect'
 
 type AnyRow = Record<string, any>
 
@@ -57,7 +58,7 @@ function parseSelectNumber(v: string | null): number | null {
 export default function StudentCcActivitiesPage() {
   const [filterOpen, setFilterOpen] = useState(true)
 
-  const [studentSearchRows, setStudentSearchRows] = useState<AnyRow[]>([])
+  const [studentOptionsRows, setStudentOptionsRows] = useState<AnyRow[]>([])
   const [studentId, setStudentId] = useState<number | null>(null)
   const [selectedStudent, setSelectedStudent] = useState<AnyRow | null>(null)
 
@@ -75,15 +76,6 @@ export default function StudentCcActivitiesPage() {
   const [ccactivityCatdetId, setCcactivityCatdetId] = useState<number | null>(null)
   const [isActive, setIsActive] = useState(true)
   const [reason, setReason] = useState('active')
-
-  const studentOptions = useMemo(
-    () =>
-      studentSearchRows.map((row) => ({
-        value: String(pickNum(row, ['studentId', 'fk_student_id', 'student_id'])),
-        label: `${pickText(row, ['firstName', 'studentName']) || 'Student'} (${pickText(row, ['rollNumber', 'hallticketNumber']) || '-'})`,
-      })),
-    [studentSearchRows],
-  )
 
   const activityTypeOptions = useMemo(
     () =>
@@ -108,17 +100,20 @@ export default function StudentCcActivitiesPage() {
     )
   }, [tableSearch, activityRows])
 
-  async function onSearchStudents(term: string) {
-    if (term.trim().length <= 4) {
-      setStudentSearchRows([])
+  async function searchStudents(term: string) {
+    const q = term.trim()
+    if (q.length === 0) {
+      setStudentOptionsRows([])
       return
     }
+    if (q.length < 5) return
+
     setLoadingStudentSearch(true)
     try {
-      const rows = await searchStudentsByKeyword(term)
-      setStudentSearchRows(Array.isArray(rows) ? rows : [])
+      const rows = await searchStudentsByKeyword(q)
+      setStudentOptionsRows(Array.isArray(rows) ? rows : [])
     } catch (e) {
-      setStudentSearchRows([])
+      setStudentOptionsRows([])
       toastError(e, 'Failed to search students')
     } finally {
       setLoadingStudentSearch(false)
@@ -142,18 +137,16 @@ export default function StudentCcActivitiesPage() {
     }
   }, [])
 
-  async function onSelectStudent(value: string | null) {
-    const sid = parseSelectNumber(value)
-    setStudentId(sid)
+  async function onStudentSelect(nextId: number | null, row: AnyRow | null) {
+    setStudentId(nextId)
     setActivityRows([])
     setTableSearch('')
-    if (!sid) {
+    if (!nextId || !row) {
       setSelectedStudent(null)
       return
     }
-    const row = studentSearchRows.find((x) => pickNum(x, ['studentId', 'fk_student_id', 'student_id']) === sid) ?? null
     setSelectedStudent(row)
-    await loadActivities(sid)
+    await loadActivities(nextId)
   }
 
   async function openAddDialog() {
@@ -251,18 +244,17 @@ export default function StudentCcActivitiesPage() {
             <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
           </Button>
         </div>
-        {(
+        {filterOpen && (
           <div className="p-3">
-            <Select
+            <StudentSearchSelect
               label="Student"
-              value={studentId ? String(studentId) : null}
-              onChange={(v) => void onSelectStudent(v)}
-              options={studentOptions}
-              placeholder="Search and select student"
-              searchable
-              onSearch={(term) => void onSearchStudents(term)}
+              placeholder="Search student"
+              value={studentId}
+              students={studentOptionsRows}
+              selectedStudent={selectedStudent}
               isLoading={loadingStudentSearch}
-              className={SELECT_CLASS}
+              onSearch={(term) => void searchStudents(term)}
+              onChange={(id, row) => void onStudentSelect(id, row)}
             />
           </div>
         )}

@@ -428,7 +428,7 @@ export function EditStudentForm({ initialData, check }: EditStudentFormProps) {
     <div className="space-y-4">
       <EditStudentStepper activeStep={activeStep} progress={progress} onStepClick={setActiveStep} />
 
-      <div className="app-card overflow-hidden p-4">
+      <div className="app-card overflow-hidden p-4" data-no-page-name>
         {activeStep === 'office' && (
           <OfficeUseStep
             data={data}

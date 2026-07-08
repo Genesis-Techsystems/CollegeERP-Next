@@ -75,7 +75,10 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
       const candidates = root.querySelectorAll(
         ':scope > *:not([data-breadcrumb-card]) > div, :scope > *:not([data-breadcrumb-card]) > * > div',
       )
-      const first = Array.from(candidates).find(isCardShell) ?? null
+      const first =
+        Array.from(candidates).find(
+          (el) => isCardShell(el) && !el.hasAttribute('data-no-page-name'),
+        ) ?? null
       if (first && !first.hasAttribute('data-page-first-card')) {
         root
           .querySelectorAll('[data-page-first-card]')

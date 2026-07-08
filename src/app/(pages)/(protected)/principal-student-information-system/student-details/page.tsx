@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Printer } from "lucide-react";
-import { Table, type TableColumn } from "@/common/components/table";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react";
+import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
@@ -15,15 +14,20 @@ import {
   type PrincipalStudentProfileData,
 } from "@/services";
 import {
-  formatProfileDate,
   pickDisplay,
   pickText,
   studentFullName,
   studentPhotoSrc,
-  studentStatusClass,
 } from "@/app/(pages)/(protected)/admin-student-information-system/students-profile/profile-utils";
 import { ActivitySectionTable } from "./ActivitySectionTable";
 import { AddPrincipalActivityModal } from "./AddPrincipalActivityModal";
+import { ProfileAngularTable } from "./ProfileAngularTable";
+import {
+  PROFILE_VIEW,
+  formatAdmissionDate,
+  principalStatusClass,
+} from "./profile-view-styles";
+
 type AnyRow = Record<string, unknown>;
 
 function ProfileSection({
@@ -34,9 +38,25 @@ function ProfileSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-2 border-t border-border pt-4 first:border-t-0 first:pt-0">
-      <h3 className="text-sm font-semibold text-primary">{title}</h3>
-      {children}
+    <section
+      className="rounded overflow-hidden border bg-white"
+      style={{ borderColor: PROFILE_VIEW.border }}
+    >
+      <div
+        className="border-b px-3 py-1.5"
+        style={{
+          borderColor: PROFILE_VIEW.border,
+          backgroundColor: PROFILE_VIEW.sectionBg,
+        }}
+      >
+        <h3
+          className="text-[13px] font-bold leading-snug"
+          style={{ color: PROFILE_VIEW.navy }}
+        >
+          {title}
+        </h3>
+      </div>
+      <div className="p-0">{children}</div>
     </section>
   );
 }
@@ -45,19 +65,24 @@ function cell(row: AnyRow, keys: string[]): string {
   return pickText(row, keys) || "—";
 }
 
-const EDUCATION_COLS: TableColumn<AnyRow>[] = [
-  { id: "board", label: "Class", render: (row) => cell(row, ["board"]) },
+const EDUCATION_COLS = [
+  {
+    id: "board",
+    label: "Class",
+    render: (row: AnyRow) => cell(row, ["board"]),
+  },
   { id: "state", label: "State Board", render: () => "—" },
   {
     id: "year",
     label: "Year Of Study",
-    render: (row) => cell(row, ["yearOfCompletion", "year_of_completion"]),
+    render: (row: AnyRow) =>
+      cell(row, ["yearOfCompletion", "year_of_completion"]),
   },
   { id: "pass", label: "Month & Year Of Passing", render: () => "—" },
   {
     id: "pct",
     label: "Percentage or CGPA",
-    render: (row) => cell(row, ["precentage", "percentage", "cgpa"]),
+    render: (row: AnyRow) => cell(row, ["precentage", "percentage", "cgpa"]),
   },
   { id: "marks", label: "Total Marks", render: () => "—" },
 ];
@@ -73,6 +98,13 @@ function PrincipalStudentHeader({ student }: { student: AnyRow }) {
     "studentStatusDisplayName",
     "studentStatusName",
   ]);
+  const categoryLabel = pickDisplay(student, [
+    "scholarshipTypeCode",
+    "scholarship_type_code",
+    "studentCategoryDisplayName",
+    "studentCategory",
+    "categoryDisplayName",
+  ]);
 
   const pathLine = [
     pickText(student, ["collegeCode", "college_code"]),
@@ -84,15 +116,24 @@ function PrincipalStudentHeader({ student }: { student: AnyRow }) {
     .join(" / ");
 
   return (
-    <div className="rounded-md border border-sky-200/80 bg-sky-50/20 p-4">
+    <div
+      className="rounded border bg-white p-3 sm:p-4"
+      style={{ borderColor: PROFILE_VIEW.photoBoxBorder }}
+    >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="shrink-0 space-y-3">
+        <div
+          className="shrink-0 rounded-sm border p-2"
+          style={{
+            borderColor: PROFILE_VIEW.photoBoxBorder,
+            backgroundColor: PROFILE_VIEW.photoBoxBg,
+          }}
+        >
           <img
             src={studentPhotoSrc(
               student.studentPhotoPath as string | undefined,
             )}
             alt=""
-            className="h-28 w-28 rounded border-4 border-sky-200 bg-white object-cover"
+            className="h-20 w-20 object-cover"
             onError={(e) => {
               const img = e.currentTarget;
               if (!img.src.includes("default_Student.png")) {
@@ -102,36 +143,55 @@ function PrincipalStudentHeader({ student }: { student: AnyRow }) {
           />
         </div>
 
-        <div className="min-w-0 flex-1 space-y-1 text-sm">
-          <p className="font-medium text-foreground">
-            {studentFullName(student)}{" "}
-            <span className="font-semibold text-primary">
+        <div className="min-w-0 flex-1 space-y-0.5 text-[12px]">
+          <p
+            className="text-[13px] font-bold uppercase leading-snug"
+            style={{ color: PROFILE_VIEW.navy }}
+          >
+            {studentFullName(student).toUpperCase()}{" "}
+            <span style={{ color: PROFILE_VIEW.linkBlue }}>
               ({isLateral ? "LATERAL" : "REGULAR"})
             </span>
           </p>
-          <p className="text-muted-foreground">
+          <p style={{ color: PROFILE_VIEW.muted }}>
             {pickDisplay(student, ["hallticketNumber", "rollNumber"])}
           </p>
           {pathLine ? (
-            <p className="text-muted-foreground">{pathLine}</p>
+            <p style={{ color: PROFILE_VIEW.muted }}>{pathLine}</p>
           ) : null}
-          <p className="text-muted-foreground">
+          <p style={{ color: PROFILE_VIEW.muted }}>
             {pickDisplay(student, ["mobile", "mobileNumber"])}
           </p>
         </div>
 
-        <div className="space-y-1 text-sm lg:min-w-[220px]">
-          <p>
+        <div className="space-y-0.5 text-[12px] lg:min-w-[240px]">
+          <p className="text-[#333333]">
             <span>Admission Date : </span>
-            <span className="font-medium text-primary">
-              {formatProfileDate(
+            <span
+              className="font-medium"
+              style={{ color: PROFILE_VIEW.linkBlue }}
+            >
+              {formatAdmissionDate(
                 student.adminssionDate ?? student.admissionDate,
               )}
             </span>
           </p>
-          <p>
+          {categoryLabel && categoryLabel !== "—" ? (
+            <p className="text-[#333333]">
+              <span>Category : </span>
+              <span
+                className="font-medium"
+                style={{ color: PROFILE_VIEW.linkBlue }}
+              >
+                {categoryLabel}
+              </span>
+            </p>
+          ) : (
+            ""
+          )}
+          <p className="text-[#333333]">
             <span>Student Status : </span>
-            <span className={studentStatusClass(statusCode)}>
+            <span className={principalStatusClass(statusCode)}>
               {statusLabel}
             </span>
           </p>
@@ -245,30 +305,39 @@ export default function PrincipalStudentDetailsPage() {
     );
   }
 
-  const examSubjectCols: TableColumn<AnyRow>[] = [
+  const examSubjectCols = [
     {
       id: "code",
       label: "Sub Code",
-      render: (row) => cell(row, ["subject_code", "subjectCode"]),
+      render: (row: AnyRow) => cell(row, ["subject_code", "subjectCode"]),
     },
     {
       id: "name",
       label: "Subject Name",
-      render: (row) => cell(row, ["subject_name", "subjectName"]),
+      render: (row: AnyRow) => cell(row, ["subject_name", "subjectName"]),
     },
-    { id: "grade", label: "Grade", render: (row) => cell(row, ["grade"]) },
+    {
+      id: "grade",
+      label: "Grade",
+      align: "center" as const,
+      render: (row: AnyRow) => cell(row, ["grade"]),
+    },
     {
       id: "credits",
       label: "Credits",
-      render: (row) => cell(row, ["credits", "subjectCredits"]),
+      align: "center" as const,
+      render: (row: AnyRow) => cell(row, ["credits", "subjectCredits"]),
     },
-    { id: "remarks", label: "Remarks", render: () => "—" },
+    {
+      id: "remarks",
+      label: "Remarks",
+      align: "center" as const,
+      render: () => "—",
+    },
   ];
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Student Information System" subtitle="Profile" />
-
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -281,113 +350,134 @@ export default function PrincipalStudentDetailsPage() {
       ) : (
         <div
           id="principal-student-profile-print"
-          className="app-card space-y-4 p-4 sm:p-6"
+          className="rounded overflow-hidden border bg-white shadow-sm"
+          style={{ borderColor: PROFILE_VIEW.border }}
         >
-          <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-            <h2 className="text-base font-semibold text-primary">
-              Student Profile
-            </h2>
+          <div className="flex items-center justify-between gap-2 border-b-2 px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <FileText
+                className="h-4 w-4 shrink-0"
+                style={{ color: PROFILE_VIEW.linkBlue }}
+                aria-hidden
+              />
+              <h1
+                className="text-[14px] font-bold leading-none"
+                style={{ color: PROFILE_VIEW.navy }}
+              >
+                Student Profile
+              </h1>
+            </div>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-8 w-8 hover:bg-transparent"
               onClick={() => window.print()}
             >
-              <Printer className="h-4 w-4" aria-hidden />
+              <Printer
+                className="h-4 w-4"
+                style={{ color: PROFILE_VIEW.pink }}
+                aria-hidden
+              />
               <span className="sr-only">Print report</span>
             </Button>
           </div>
 
-          <PrincipalStudentHeader student={data.student} />
+          <div className="rounded space-y-4 p-4">
+            <PrincipalStudentHeader student={data.student} />
 
-          <ProfileSection title="Academic Details">
-            {data.educationDetails.length > 0 ? (
-              <Table
-                rows={data.educationDetails}
+            <ProfileSection title="Academic Details">
+              <ProfileAngularTable
                 columns={EDUCATION_COLS}
-                pageSize={0}
-                density="compact"
+                rows={data.educationDetails}
+                emptyText="No academic details found."
               />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No academic details found.
-              </p>
-            )}
-          </ProfileSection>
+            </ProfileSection>
 
-          <ProfileSection title="Examination">
-            {data.examSemesters.length > 0 ? (
-              <div className="space-y-4">
-                {data.examSemesters.map((sem) => (
-                  <div key={sem.courseYearCode} className="space-y-2">
-                    <p className="text-sm font-semibold text-primary">
-                      SEMISTER {sem.courseYearCode}
-                    </p>
-                    <Table
-                      rows={sem.subjects}
-                      columns={examSubjectCols}
-                      pageSize={0}
-                      density="compact"
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No examination records found.
-              </p>
-            )}
-          </ProfileSection>
+            <ProfileSection title="Examination">
+              {data.examSemesters.length > 0 ? (
+                <div
+                  className="divide-y"
+                  style={{ borderColor: PROFILE_VIEW.border }}
+                >
+                  {data.examSemesters.map((sem) => (
+                    <div key={sem.courseYearCode} className="space-y-0">
+                      <p
+                        className="border-b px-3 py-1.5 text-[12px] font-bold uppercase"
+                        style={{
+                          borderColor: PROFILE_VIEW.border,
+                          color: PROFILE_VIEW.navy,
+                        }}
+                      >
+                        SEMISTER {sem.courseYearCode}
+                      </p>
+                      <ProfileAngularTable
+                        columns={examSubjectCols}
+                        rows={sem.subjects}
+                        emptyText="No subjects found."
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p
+                  className="px-3 py-4 text-[12px]"
+                  style={{ color: PROFILE_VIEW.muted }}
+                >
+                  No examination records found.
+                </p>
+              )}
+            </ProfileSection>
 
-          <ProfileSection title="Project Executed">
-            <ActivitySectionTable
-              rows={data.projects}
-              titleHeader="Title of Project"
-              emptyMessage="No projects found."
-              onAdd={() => openAddActivity("PROJECTEXECUTED")}
-              onEdit={(row) => openEditActivity("PROJECTEXECUTED", row)}
-            />
-          </ProfileSection>
+            <ProfileSection title="Project Executed">
+              <ActivitySectionTable
+                rows={data.projects}
+                titleHeader="Title of Project"
+                emptyMessage="No projects found."
+                onAdd={() => openAddActivity("PROJECTEXECUTED")}
+                onEdit={(row) => openEditActivity("PROJECTEXECUTED", row)}
+              />
+            </ProfileSection>
 
-          <ProfileSection title="Co-curricular">
-            <ActivitySectionTable
-              rows={data.activities}
-              titleHeader="Title of Event"
-              emptyMessage="No co-curricular activities found."
-              onAdd={() => openAddActivity("COCIRCULAR")}
-              onEdit={(row) => openEditActivity("COCIRCULAR", row)}
-            />
-          </ProfileSection>
+            <ProfileSection title="Co-curricular">
+              <ActivitySectionTable
+                rows={data.activities}
+                titleHeader="Title of Event"
+                emptyMessage="No co-curricular activities found."
+                onAdd={() => openAddActivity("COCIRCULAR")}
+                onEdit={(row) => openEditActivity("COCIRCULAR", row)}
+              />
+            </ProfileSection>
 
-          <ProfileSection title="Extra Curricular">
-            <ActivitySectionTable
-              rows={data.extraActivities}
-              titleHeader="Tournaments"
-              emptyMessage="No extra curricular activities found."
-              onAdd={() => openAddActivity("EXTRACIRCULAR")}
-              onEdit={(row) => openEditActivity("EXTRACIRCULAR", row)}
-            />
-          </ProfileSection>
+            <ProfileSection title="Extra Curricular">
+              <ActivitySectionTable
+                rows={data.extraActivities}
+                titleHeader="Tournaments"
+                emptyMessage="No extra curricular activities found."
+                onAdd={() => openAddActivity("EXTRACIRCULAR")}
+                onEdit={(row) => openEditActivity("EXTRACIRCULAR", row)}
+              />
+            </ProfileSection>
 
-          <ProfileSection title="Internships">
-            <textarea
-              className="min-h-[80px] w-full rounded-md border border-input bg-muted/30 px-3 py-2 text-sm"
-              value={pickText(data.student, ["internship", "intership"])}
-              placeholder=""
-            />
-          </ProfileSection>
+            <ProfileSection title="Internships">
+              <textarea
+                className="min-h-[80px] w-full resize-none border-0 bg-white px-3 py-2 text-[12px] text-[#333333] focus:outline-none"
+                value={pickText(data.student, ["internship", "intership"])}
+                placeholder=""
+              />
+            </ProfileSection>
 
-          <ProfileSection title="Educational Tours">
-            <textarea
-              className="min-h-[80px] w-full rounded-md border border-input bg-muted/30 px-3 py-2 text-sm"
-              value={pickText(data.student, [
-                "educationTours",
-                "educationalTours",
-              ])}
-              placeholder=""
-            />
-          </ProfileSection>
+            <ProfileSection title="Educational Tours">
+              <textarea
+                className="min-h-[80px] w-full resize-none border-0 bg-white px-3 py-2 text-[12px] text-[#333333] focus:outline-none"
+                value={pickText(data.student, [
+                  "educationTours",
+                  "educationalTours",
+                ])}
+                placeholder=""
+              />
+            </ProfileSection>
+          </div>
         </div>
       )}
 

@@ -13,11 +13,8 @@ import { ChevronDown, Filter, LayoutList, Loader2 } from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSessionContext } from "@/context/SessionContext";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
@@ -700,23 +697,28 @@ export default function StudentDetailsPage() {
         subtitle="Student Information System"
       />
 
-      <div className="flex flex-wrap items-center gap-5 text-xs px-1">
-        <label className="inline-flex items-center gap-1.5">
-          <input
-            type="radio"
-            checked={mode === "student"}
-            onChange={() => resetForMode("student")}
-          />
-          <span>Search By Student</span>
-        </label>
-        <label className="inline-flex items-center gap-1.5">
-          <input
-            type="radio"
-            checked={mode === "section"}
-            onChange={() => resetForMode("section")}
-          />
-          <span>Search By Section</span>
-        </label>
+      <div className="px-1">
+        <Tabs
+          value={mode}
+          onValueChange={(v) =>
+            resetForMode(v === "section" ? "section" : "student")
+          }
+        >
+          <TabsList className="h-auto rounded-none border-b border-border bg-transparent p-0 text-muted-foreground">
+            <TabsTrigger
+              className="rounded-none border-b-2 border-transparent px-3 py-1.5 text-xs data-[state=active]:border-[#2f8fd4] data-[state=active]:bg-[#eaf4ff] data-[state=active]:text-[#1f4f7a] data-[state=active]:shadow-none"
+              value="student"
+            >
+              Search By Student
+            </TabsTrigger>
+            <TabsTrigger
+              className="rounded-none border-b-2 border-transparent px-3 py-1.5 text-xs data-[state=active]:border-[#2f8fd4] data-[state=active]:bg-[#eaf4ff] data-[state=active]:text-[#1f4f7a] data-[state=active]:shadow-none"
+              value="section"
+            >
+              Search By Section
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       <div className="app-card overflow-hidden">
@@ -724,18 +726,20 @@ export default function StudentDetailsPage() {
           <h2 className="app-card-title">
             {mode === "section" ? "Student Details" : "Students Search"}
           </h2>
-          <button
+          <Button
             type="button"
+            style={{ marginRight: "0px" }}
+            size="sm"
             className="inline-flex items-center h-6 px-2.5 text-[12px] text-muted-foreground"
             onClick={() => setFilterOpen((v) => !v)}
             aria-expanded={filterOpen}
           >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            <Filter className="mr-1.5 h-4 w-4" />
             Filter
             <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+              className={`ml-1.5 h-4 w-4 transition-transform ${filterOpen ? "rotate-180" : ""}`}
             />
-          </button>
+          </Button>
         </div>
 
         {filterOpen && (
@@ -922,19 +926,27 @@ export default function StudentDetailsPage() {
         onSave={saveHodEdit}
       />
 
-      <Dialog open={credOpen} onOpenChange={(open) => !open && setCredOpen(false)}>
+      <Dialog
+        open={credOpen}
+        onOpenChange={(open) => !open && setCredOpen(false)}
+      >
         <DialogContent className="max-w-lg gap-0 overflow-hidden p-0 sm:max-w-lg">
           <div className="bg-card px-4 py-3">
             <div className="flex items-center gap-2 text-[15px] font-semibold text-[hsl(var(--primary))]">
-              <LayoutList className="h-5 w-5 shrink-0 text-[hsl(var(--primary))]" aria-hidden />
+              <LayoutList
+                className="h-5 w-5 shrink-0 text-[hsl(var(--primary))]"
+                aria-hidden
+              />
               <span>Send Credentials</span>
             </div>
-            <div className="mt-2 h-px w-full bg-amber-400/80" />
+            <div className="mt-2 h-px w-full bg-[#e2e7ee]" />
           </div>
           <div className="px-4 py-5">
             <p className="text-[13px] font-semibold text-foreground">
-              Send Credentials To :{' '}
-              <span className="font-bold text-blue-600">{credLabel.toUpperCase()}</span>
+              Send Credentials To :{" "}
+              <span className="font-bold text-blue-600">
+                {credLabel.toUpperCase()}
+              </span>
             </p>
           </div>
           <DialogFooter className="gap-2 border-t border-border px-4 py-3 sm:justify-end">
@@ -950,7 +962,7 @@ export default function StudentDetailsPage() {
                   Send
                 </>
               ) : (
-                'Send'
+                "Send"
               )}
             </Button>
             <Button
