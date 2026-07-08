@@ -47,6 +47,7 @@ export function Sidebar() {
 
   const navRef = useRef<HTMLElement>(null)
   const savedScrollRef = useRef(0)
+  const didInitialAutoScrollRef = useRef(false)
   const hoverLeaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -166,13 +167,14 @@ export function Sidebar() {
     }
   }, [isExpanded])
 
-  // On navigation / navItems load: scroll the nav container so the active item
-  // is visible. We use scrollTop instead of scrollIntoView so we control the
-  // scrollable container precisely. A short timeout lets Collapsible open
-  // animations finish before we measure positions.
+  // On first load only: scroll the nav container so the active item is visible.
+  // Do NOT repeat on every route change; users expect the sidebar scroll position
+  // to stay fixed while navigating.
   useEffect(() => {
     const nav = navRef.current
     if (!nav) return
+    if (didInitialAutoScrollRef.current) return
+    if (navItems.length === 0) return
 
     const scroll = () => {
       const target =
@@ -188,8 +190,9 @@ export function Sidebar() {
 
     // Wait for Collapsible open animations (~150 ms) before measuring
     const timer = setTimeout(scroll, 160)
+    didInitialAutoScrollRef.current = true
     return () => clearTimeout(timer)
-  }, [pathname, navItems])
+  }, [navItems])
 
   function handleMouseEnter() {
     clearTimeout(hoverLeaveTimer.current)

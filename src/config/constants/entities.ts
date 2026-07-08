@@ -52,6 +52,8 @@ export const ENTITIES = {
   COURSE:                 { name: 'Course',                    pk: 'courseId'                    },
   GROUP_SECTION:          { name: 'GroupSection',              pk: 'groupSectionId'              },
   BATCH:                  { name: 'Batch',                     pk: 'batchId'                     },
+  /** Angular academic-settings Student Batches master (`Studentbatch`). */
+  STUDENT_BATCH:          { name: 'Studentbatch',              pk: 'studentbatchId'              },
   STUDENT_ACADEMIC_BATCH: { name: 'StudentAcademicbatch',      pk: 'studentAcademicbatchId'      },
   ACADEMIC_YEAR:          { name: 'AcademicYear',              pk: 'academicYearId'              },
   FINANCIAL_YEAR:         { name: 'FinancialYear',             pk: 'financialYearId'             },

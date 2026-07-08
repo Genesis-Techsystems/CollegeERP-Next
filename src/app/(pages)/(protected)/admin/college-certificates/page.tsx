@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { FileBadge, PencilIcon, PlusIcon } from 'lucide-react'
+import { PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer } from '@/components/layout'
@@ -17,7 +17,7 @@ import CollegeCertificateModal from './CollegeCertificateModal'
 const COL_DEFS = {
   siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<CollegeCertificate>,
   code: { headerName: 'Certificate Code', minWidth: 130, flex: 1 } as ColDef<CollegeCertificate>,
-  name: { headerName: 'Certificate', minWidth: 170, flex: 1.2 } as ColDef<CollegeCertificate>,
+  name: { field: 'certificateName', headerName: 'Certificate', minWidth: 170, flex: 1.2 } as ColDef<CollegeCertificate>,
   amount: { field: 'amount', headerName: 'Amount', minWidth: 100, flex: 0.8 } as ColDef<CollegeCertificate>,
   duplicateAmount: { field: 'duplicateCertificateAmount', headerName: 'Duplicate Amt', minWidth: 120, flex: 0.9 } as ColDef<CollegeCertificate>,
   college: { headerName: 'College', minWidth: 110, flex: 0.9 } as ColDef<CollegeCertificate>,
@@ -67,7 +67,7 @@ export default function CollegeCertificatesPage() {
   const columnDefs = useMemo<ColDef<CollegeCertificate>[]>(() => [
     COL_DEFS.siNo,
     { ...COL_DEFS.code, valueGetter: (p) => pickText((p.data ?? {}) as Record<string, unknown>, ['certifcateCode', 'certificateCode']) },
-    COL_DEFS.name,
+    { ...COL_DEFS.name, valueGetter: (p) => pickText((p.data ?? {}) as Record<string, unknown>, ['certificateName', 'name', 'certificate']) },
     COL_DEFS.amount,
     COL_DEFS.duplicateAmount,
     { ...COL_DEFS.college, valueGetter: (p) => pickText((p.data ?? {}) as Record<string, unknown>, ['collegeCode', 'collegeName']) },
@@ -83,28 +83,19 @@ export default function CollegeCertificatesPage() {
           <h2 className="app-card-title">College Certificates</h2>
         </div>
         <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!isLoading && data.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <FileBadge className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No college certificates found</p>
-              </div>
-            ) : (
-              <DataTable
-                rowData={data}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search certificates…', pdfDocumentTitle: 'College Certificates' }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Certificate
-                  </Button>
-                }
-              />
+          <DataTable
+            rowData={data}
+            columnDefs={columnDefs}
+            loading={isLoading}
+            pagination
+            toolbar={{ search: true, searchPlaceholder: 'Search certificates…', pdfDocumentTitle: 'College Certificates' }}
+            toolbarTrailing={(
+              <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
+                <PlusIcon className="h-4 w-4 mr-1" />
+                Add Certificate
+              </Button>
             )}
-          </div>
+          />
         </div>
       </div>
 

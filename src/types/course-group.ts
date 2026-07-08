@@ -6,6 +6,9 @@ export interface CourseGroup {
   courseCode?: string
   groupCode: string
   groupName: string
+  shortName?: string
+  enrollPrefix?: string
+  startingNo?: string
   isActive: boolean
   reason?: string
 }

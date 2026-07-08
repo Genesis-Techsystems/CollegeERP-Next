@@ -19,6 +19,7 @@ import {
 } from '@/services'
 import type { CollegeFilterRow, CollegeCourseGroupRow } from '@/services/admin/college-courses-groups'
 import CollegeCourseGroupModal from './CollegeCourseGroupModal'
+import CollegeCourseGroupEditModal from './CollegeCourseGroupEditModal'
 
 function num(v: unknown) { const n = Number(v); return Number.isFinite(n) ? n : 0 }
 
@@ -26,7 +27,7 @@ const COL_DEFS = {
   universityCode: { headerName: 'University', field: 'universityCode', minWidth: 120, flex: 1 } as ColDef<CollegeCourseGroupRow>,
   collegeCode: { headerName: 'College', field: 'collegeCode', minWidth: 110, flex: 0.9 } as ColDef<CollegeCourseGroupRow>,
   courseCode: { headerName: 'Course', field: 'courseCode', minWidth: 110, flex: 0.9 } as ColDef<CollegeCourseGroupRow>,
-  courseGroupCode: { headerName: 'Course Group', field: 'courseGroupCode', minWidth: 130, flex: 1 } as ColDef<CollegeCourseGroupRow>,
+  courseGroup: { headerName: 'Course Group', minWidth: 130, flex: 1 } as ColDef<CollegeCourseGroupRow>,
   courseYearCode: { headerName: 'Course Year', field: 'courseYearCode', minWidth: 120, flex: 0.9 } as ColDef<CollegeCourseGroupRow>,
   isActive: { headerName: 'Status', field: 'isActive', minWidth: 90, flex: 0.7 } as ColDef<CollegeCourseGroupRow>,
   actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<CollegeCourseGroupRow>,
@@ -36,8 +37,20 @@ function statusRenderer(p: ICellRendererParams<CollegeCourseGroupRow>) {
   return <StatusBadge status={p.data?.isActive ?? false} />
 }
 
-function actionsRenderer() {
-  return <PencilIcon className="h-3.5 w-3.5 text-muted-foreground" />
+function makeActionsRenderer(
+  setRow: (r: CollegeCourseGroupRow | null) => void,
+  setOpen: (b: boolean) => void,
+) {
+  return (p: ICellRendererParams<CollegeCourseGroupRow>) => (
+    <Button
+      size="sm"
+      variant="ghost"
+      className="h-8 w-8 p-0"
+      onClick={() => { setRow(p.data ?? null); setOpen(true) }}
+    >
+      <PencilIcon className="h-3.5 w-3.5" />
+    </Button>
+  )
 }
 
 export default function CollegeCoursesGroupsPage() {
@@ -51,6 +64,8 @@ export default function CollegeCoursesGroupsPage() {
   const [rows, setRows] = useState<CollegeCourseGroupRow[]>([])
   const [showList, setShowList] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editRow, setEditRow] = useState<CollegeCourseGroupRow | null>(null)
 
   useCrudList({
     queryKey: QK.collegeCoursesGroups.filters(user?.organizationId ?? 0, user?.employeeId ?? 0),
@@ -80,7 +95,7 @@ export default function CollegeCoursesGroupsPage() {
     for (const r of filters.filter((x) => num(x.fk_university_id ?? x.universityId) === selectedUniversityId)) {
       const id = num(r.fk_college_id ?? r.collegeId)
       if (!id || map.has(id)) continue
-      map.set(id, String(r.college_code ?? r.collegeCode ?? ''))
+      map.set(id, String(r.college_name ?? r.collegeName ?? r.college_code ?? r.collegeCode ?? ''))
     }
     return Array.from(map.entries()).map(([value, label]) => ({ value: String(value), label }))
   }, [filters, selectedUniversityId])
@@ -92,7 +107,7 @@ export default function CollegeCoursesGroupsPage() {
       && num(x.fk_college_id ?? x.collegeId) === selectedCollegeId)) {
       const id = num(r.fk_course_id ?? r.course_id)
       if (!id || map.has(id)) continue
-      map.set(id, String(r.course_code ?? ''))
+      map.set(id, String(r.course_name ?? r.courseName ?? r.course_code ?? ''))
     }
     return [{ value: '0', label: 'All' }, ...Array.from(map.entries()).map(([value, label]) => ({ value: String(value), label }))]
   }, [filters, selectedUniversityId, selectedCollegeId])
@@ -105,7 +120,7 @@ export default function CollegeCoursesGroupsPage() {
       && (selectedCourseId === 0 || num(x.fk_course_id ?? x.course_id) === selectedCourseId))) {
       const id = num(r.fk_course_group_id ?? r.course_group_id)
       if (!id || map.has(id)) continue
-      map.set(id, String(r.group_code ?? ''))
+      map.set(id, String(r.group_name ?? r.groupName ?? r.group_code ?? ''))
     }
     return [{ value: '0', label: 'All' }, ...Array.from(map.entries()).map(([value, label]) => ({ value: String(value), label }))]
   }, [filters, selectedUniversityId, selectedCollegeId, selectedCourseId])
@@ -135,14 +150,18 @@ export default function CollegeCoursesGroupsPage() {
     COL_DEFS.universityCode,
     COL_DEFS.collegeCode,
     COL_DEFS.courseCode,
-    COL_DEFS.courseGroupCode,
+    {
+      ...COL_DEFS.courseGroup,
+      valueGetter: (p) => p.data?.courseGroupName || p.data?.courseGroupCode || '',
+    },
     COL_DEFS.courseYearCode,
     { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
-    { ...COL_DEFS.actions, cellRenderer: actionsRenderer },
+    { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditRow, setEditOpen) },
   ], [])
 
   return (
     <PageContainer className="space-y-4">
+      <h2 className="px-1 text-lg font-semibold tracking-tight text-foreground">College Courses & Groups</h2>
       <GlobalFilterBar title="College Courses & Groups">
         <GlobalFilterBarRow>
           <GlobalFilterField label="University">
@@ -203,9 +222,6 @@ export default function CollegeCoursesGroupsPage() {
 
       {showList && (
         <div className="app-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-border bg-muted/40">
-            <h2 className="app-card-title">College Courses & Groups</h2>
-          </div>
           <div className="px-3 pb-3 pt-2">
             <div className="rounded-lg border border-border bg-card overflow-hidden">
               {rows.length === 0 ? (
@@ -215,6 +231,8 @@ export default function CollegeCoursesGroupsPage() {
                 </div>
               ) : (
                 <DataTable
+                  // Prevent DataTable from inferring a title and rendering its own heading.
+                  toolbarLeading={<span className="hidden" />}
                   rowData={rows}
                   columnDefs={columnDefs}
                   loading={false}
@@ -240,6 +258,14 @@ export default function CollegeCoursesGroupsPage() {
         collegeCode={selectedCollegeCode}
         universityCode={selectedUniversityCode}
         existingRows={rows}
+        defaultCourseId={selectedCourseId || undefined}
+        defaultCourseGroupId={selectedCourseGroupId || undefined}
+        onSaved={() => { void getList() }}
+      />
+      <CollegeCourseGroupEditModal
+        open={editOpen}
+        onClose={() => { setEditOpen(false); setEditRow(null) }}
+        row={editRow}
         onSaved={() => { void getList() }}
       />
     </PageContainer>

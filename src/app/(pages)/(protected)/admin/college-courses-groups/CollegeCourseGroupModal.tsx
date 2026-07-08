@@ -52,6 +52,36 @@ function pickText(row: AnyRow, keys: string[]): string {
   return ''
 }
 
+function groupCodeValue(row: AnyRow): string {
+  return (
+    pickText(row, ['groupCode', 'courseGroupCode', 'group_code', 'course_group_code'])
+    || pickText((row.courseGroup ?? {}) as AnyRow, ['groupCode', 'courseGroupCode'])
+  )
+}
+
+function groupLabel(row: AnyRow): string {
+  return (
+    pickText(row, ['groupName', 'group_name', 'courseGroupName'])
+    || pickText((row.courseGroup ?? {}) as AnyRow, ['groupName', 'group_name', 'courseGroupName'])
+    || groupCodeValue(row)
+  )
+}
+
+function courseCodeValue(row: AnyRow): string {
+  return (
+    pickText(row, ['courseCode', 'course_code'])
+    || pickText((row.course ?? {}) as AnyRow, ['courseCode', 'course_code'])
+  )
+}
+
+function courseLabel(row: AnyRow): string {
+  return (
+    pickText(row, ['courseName', 'course_name'])
+    || pickText((row.course ?? {}) as AnyRow, ['courseName', 'course_name'])
+    || courseCodeValue(row)
+  )
+}
+
 function yearLabel(row: AnyRow): string {
   return (
     pickText(row, ['courseYearCode', 'course_year_code', 'yearCode'])
@@ -71,6 +101,8 @@ export default function CollegeCourseGroupModal({
   collegeCode,
   universityCode,
   existingRows = [],
+  defaultCourseId,
+  defaultCourseGroupId,
   onSaved,
 }: Readonly<{
   open: boolean
@@ -79,6 +111,8 @@ export default function CollegeCourseGroupModal({
   collegeCode?: string
   universityCode?: string
   existingRows?: CollegeCourseGroupRow[]
+  defaultCourseId?: number
+  defaultCourseGroupId?: number
   onSaved: () => void
 }>) {
   const [courses, setCourses] = useState<AnyRow[]>([])
@@ -100,11 +134,21 @@ export default function CollegeCourseGroupModal({
 
   useEffect(() => {
     if (!open || !collegeId) return
-    listCollegeWiseCourses(collegeId).then(setCourses).catch(console.error)
+    listCollegeWiseCourses(collegeId).then((loaded) => {
+      setCourses(loaded)
+      if (!defaultCourseId) return
+      const match = loaded.find((c) => pickNum(c, ['courseId', 'fk_course_id']) === defaultCourseId)
+      if (match) {
+        const id = pickNum(match, ['univCollegeWiseCourseId', 'univCollegeWiseCoursesId'])
+        if (id) reset({ univCollegeWiseCourseId: id, courseGroupId: undefined, isActive: true })
+      }
+    }).catch(console.error)
     setSelectedYearIds(new Set())
     setSubmitError(null)
-    reset({ univCollegeWiseCourseId: undefined, courseGroupId: undefined, isActive: true })
-  }, [open, collegeId, reset])
+    if (!defaultCourseId) {
+      reset({ univCollegeWiseCourseId: undefined, courseGroupId: undefined, isActive: true })
+    }
+  }, [open, collegeId, reset, defaultCourseId])
 
   useEffect(() => {
     const selected = courses.find((c) =>
@@ -121,9 +165,12 @@ export default function CollegeCourseGroupModal({
       .then(([g, y]) => {
         setGroups(g)
         setYears(y)
+        if (defaultCourseGroupId && g.some((row) => pickNum(row, ['courseGroupId', 'coursegroupId', 'fk_course_group_id']) === defaultCourseGroupId)) {
+          setValue('courseGroupId', defaultCourseGroupId)
+        }
       })
       .catch(console.error)
-  }, [selectedCourseRef, courses])
+  }, [selectedCourseRef, courses, defaultCourseGroupId, setValue])
 
   const sortedYears = useMemo(
     () => [...years].sort((a, b) => yearOrder(a) - yearOrder(b) || yearLabel(a).localeCompare(yearLabel(b))),
@@ -135,9 +182,7 @@ export default function CollegeCourseGroupModal({
       asOptions(
         courses,
         (r) => pickNum(r, ['univCollegeWiseCourseId', 'univCollegeWiseCoursesId']),
-        (r) =>
-          pickText(r, ['courseCode', 'course_code'])
-          || pickText((r.course ?? {}) as AnyRow, ['courseCode', 'course_code', 'courseName', 'course_name']),
+        courseLabel,
       ),
     [courses],
   )
@@ -146,9 +191,7 @@ export default function CollegeCourseGroupModal({
       asOptions(
         groups,
         (r) => pickNum(r, ['courseGroupId', 'coursegroupId', 'fk_course_group_id']),
-        (r) =>
-          pickText(r, ['groupCode', 'courseGroupCode', 'group_code', 'course_group_code'])
-          || pickText((r.courseGroup ?? {}) as AnyRow, ['groupCode', 'courseGroupCode']),
+        groupLabel,
       ),
     [groups],
   )
@@ -210,14 +253,8 @@ export default function CollegeCourseGroupModal({
           univCollegeWiseCourses: { univCollegeWiseCourseId },
           courseGroup: { courseGroupId },
           courseYear: { courseYearId },
-          courseCode:
-            (selectedCourse && (pickText(selectedCourse, ['courseCode', 'course_code'])
-              || pickText((selectedCourse.course ?? {}) as AnyRow, ['courseCode', 'course_code'])))
-            ?? '',
-          courseGroupCode:
-            (selectedGroup && (pickText(selectedGroup, ['groupCode', 'courseGroupCode', 'group_code', 'course_group_code'])
-              || pickText((selectedGroup.courseGroup ?? {}) as AnyRow, ['groupCode', 'courseGroupCode'])))
-            ?? '',
+          courseCode: (selectedCourse && courseCodeValue(selectedCourse)) || '',
+          courseGroupCode: (selectedGroup && groupCodeValue(selectedGroup)) || '',
           courseYearCode: yearLabel(yearRow),
         }
       })

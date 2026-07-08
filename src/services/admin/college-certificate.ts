@@ -5,9 +5,10 @@ import type { CollegeCertificate } from '@/types/college-certificate'
 import { buildQuery, domainCreate, domainList, domainUpdate } from '../crud'
 
 export async function listCollegeCertificates(): Promise<CollegeCertificate[]> {
+  // Angular listAllDetails uses order(createdDt=desc) (lowercase)
   return domainList<CollegeCertificate>(
     ENTITIES.COLLEGE_CERTIFICATE.name,
-    buildQuery({}, { field: 'createdDt', direction: 'DESC' }),
+    'order(createdDt=desc)',
   )
 }
 
