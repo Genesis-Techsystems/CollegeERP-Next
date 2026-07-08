@@ -26,7 +26,7 @@ import {
 } from '@/services/examination'
 import { getRegulations } from '@/services/exam-master'
 import { useSessionContext } from '@/context/SessionContext'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
@@ -613,7 +613,19 @@ export default function CreateExamTimetablePage() {
 
 	return (
 		<PageContainer className="space-y-4">
-		<PageHeader title="Create Exam Timetable" subtitle="Schedule exam dates and times" />
+			<div className="flex items-center justify-between gap-2">
+				<h2 className="text-lg font-semibold tracking-tight text-foreground">Create Exam Timetable</h2>
+				<Button
+					type="button"
+					variant="outline"
+					className="h-8 text-[12px]"
+					onClick={goBack}
+					disabled={saving}
+				>
+					<ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+					Back
+				</Button>
+			</div>
 			{/* Header card */}
 			<div className="app-card overflow-hidden">
 				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
@@ -832,16 +844,6 @@ export default function CreateExamTimetablePage() {
 							{saving ? 'Saving…' : 'Save'}
 						</Button>
 					)}
-					<Button
-						type="button"
-						variant="outline"
-						className="h-8 text-[12px]"
-						onClick={goBack}
-						disabled={saving}
-					>
-						<ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
-						Back
-					</Button>
 				</div>
 			</div>
 

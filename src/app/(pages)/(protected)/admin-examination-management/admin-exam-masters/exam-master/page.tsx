@@ -21,7 +21,7 @@ import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table'
 import ExamMasterModal from './ExamMasterModal'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 
 export default function ExamMasterPage() {
   const router = useRouter()
@@ -228,12 +228,41 @@ export default function ExamMasterPage() {
 
   const columnDefs = useMemo<ColDef<ExamMaster>[]>(
     () => [
-      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 56, minWidth: 56, flex: 0 },
-      { field: 'examName', headerName: 'Exam Name', minWidth: 120 },
-      { field: 'examShortName', headerName: 'Short Name', minWidth: 96 },
+      {
+        headerName: 'SI.No',
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+        width: 70,
+        minWidth: 70,
+        maxWidth: 80,
+        flex: 0,
+      },
+      {
+        field: 'examName',
+        headerName: 'Exam Name',
+        minWidth: 140,
+        flex: 1.6,
+        tooltipField: 'examName',
+        cellClass: 'app-cell-ellipsis',
+      },
+      {
+        field: 'examShortName',
+        headerName: 'Short Name',
+        minWidth: 110,
+        flex: 1,
+        tooltipField: 'examShortName',
+        cellClass: 'app-cell-ellipsis',
+      },
       {
         headerName: 'Exam Type',
-        minWidth: 120,
+        minWidth: 110,
+        flex: 1,
+        tooltipValueGetter: (p) => {
+          const types: string[] = []
+          if (p.data?.isRegularExam) types.push('Regular')
+          if (p.data?.isSupplyExam) types.push('Supple')
+          if (p.data?.isInternalExam) types.push('Internal')
+          return types.join(' / ') || '—'
+        },
         valueGetter: (p) => {
           const types: string[] = []
           if (p.data?.isRegularExam) types.push('Regular')
@@ -241,28 +270,35 @@ export default function ExamMasterPage() {
           if (p.data?.isInternalExam) types.push('Internal')
           return types.join(' / ') || '—'
         },
+        cellClass: 'app-cell-ellipsis',
       },
       {
         field: 'examMonthYr',
         headerName: 'Month/Year',
-        minWidth: 92,
+        minWidth: 100,
+        flex: 0.7,
         valueFormatter: (p) => (p.value ? format(new Date(p.value), 'MM/yyyy') : '—'),
       },
       {
         field: 'fromDate',
         headerName: 'From Date',
-        minWidth: 90,
+        minWidth: 100,
+        flex: 0.7,
         valueFormatter: (p) => (p.value ? format(new Date(p.value), 'dd/MM/yyyy') : '—'),
       },
       {
         field: 'toDate',
         headerName: 'To Date',
-        minWidth: 90,
+        minWidth: 100,
+        flex: 0.7,
         valueFormatter: (p) => (p.value ? format(new Date(p.value), 'dd/MM/yyyy') : '—'),
       },
       {
-        headerName: 'Fee Notification',
-        minWidth: 92,
+        headerName: 'Fee Notif.',
+        headerTooltip: 'Fee Notification',
+        minWidth: 90,
+        maxWidth: 110,
+        flex: 0,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) =>
           p.data?.feeNotificationFilePath ? (
             <a
@@ -280,8 +316,11 @@ export default function ExamMasterPage() {
           ),
       },
       {
-        headerName: 'Notification',
-        minWidth: 92,
+        headerName: 'Notif.',
+        headerTooltip: 'Notification',
+        minWidth: 80,
+        maxWidth: 100,
+        flex: 0,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) =>
           p.data?.notificationFilePath ? (
             <a
@@ -299,8 +338,11 @@ export default function ExamMasterPage() {
           ),
       },
       {
-        headerName: 'Exam Labels',
-        minWidth: 92,
+        headerName: 'Labels',
+        headerTooltip: 'Exam Labels',
+        minWidth: 80,
+        maxWidth: 100,
+        flex: 0,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) => (
           <button
             type="button"
@@ -322,7 +364,8 @@ export default function ExamMasterPage() {
       {
         field: 'isActive',
         headerName: 'Status',
-        width: 76,
+        minWidth: 90,
+        maxWidth: 110,
         flex: 0,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) => (
           <StatusBadge status={p.data?.isActive ?? false} />
@@ -331,6 +374,7 @@ export default function ExamMasterPage() {
       {
         headerName: 'Actions',
         minWidth: 80,
+        maxWidth: 90,
         flex: 0,
         width: 80,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) => (
@@ -350,18 +394,19 @@ export default function ExamMasterPage() {
         ),
       },
     ],
-    []
+    [router],
   )
 
   const onCellClicked = useCallback(
     (event: CellClickedEvent<ExamMaster>) => {
-      if (event.colDef.headerName === 'Exam Labels') {
+      const header = event.colDef.headerName
+      if (header === 'Labels' || header === 'Exam Labels') {
         if (event.data) sessionStorage.setItem('examMasterDetails', JSON.stringify(event.data))
         router.push(
           `/admin-examination-management/admin-exam-masters/exam-master/exam-master-details?examId=${event.data?.examId}`
         )
       }
-      if (event.colDef.headerName === 'Actions') {
+      if (header === 'Actions') {
         setEditingExam(event.data ?? null)
         setModalOpen(true)
       }
@@ -371,8 +416,11 @@ export default function ExamMasterPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Exam Master" subtitle="Configure and manage examinations" />
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">
+        Create Exam Notification
+      </h2>
       <GlobalFilterBar
+        title="Create Exam Notification"
         leading={(
           <RadioGroup
             value={String(mode)}
@@ -473,6 +521,9 @@ export default function ExamMasterPage() {
                 search box and Add Exam button visible. */}
             {(
               <DataTable
+                title=""
+                subtitle=""
+                toolbarLeading={<span />}
                 rowData={examsList}
                 columnDefs={columnDefs}
                 loading={loadingExams}
@@ -481,7 +532,7 @@ export default function ExamMasterPage() {
                 toolbar={{
                   search: true,
                   searchPlaceholder: 'Search exams…',
-                  pdfDocumentTitle: 'Exam Master',
+                  pdfDocumentTitle: 'Create Exam Notification',
                 }}
                 toolbarTrailing={(
                   <Button size="sm" className="h-[30px] px-3 text-[12px]" onClick={() => { setEditingExam(null); setModalOpen(true) }}>

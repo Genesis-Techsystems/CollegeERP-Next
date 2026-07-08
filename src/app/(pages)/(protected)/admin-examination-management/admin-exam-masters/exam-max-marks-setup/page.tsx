@@ -287,7 +287,7 @@ export default function ExamMaxMarksSetupPage() {
             onKeyDown={onFilterToggleKeyDown}
           >
             <Filter className="h-3.5 w-3.5" aria-hidden />
-            
+
             <ChevronDown
               className={cn(
                 "h-3.5 w-3.5 transition-transform",
@@ -396,6 +396,11 @@ export default function ExamMaxMarksSetupPage() {
             />
           </div>
           <div className="space-y-2">
+            {filteredRows.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border bg-muted/10 px-4 py-10 text-center text-[13px] text-muted-foreground">
+                No data found matching the selected filters.
+              </div>
+            ) : null}
             {filteredRows.map((r, i) => (
               <div
                 key={`m-${r.subjectCategoryCatDetId}-${i}`}

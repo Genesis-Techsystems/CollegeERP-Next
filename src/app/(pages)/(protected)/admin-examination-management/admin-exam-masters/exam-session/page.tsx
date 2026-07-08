@@ -18,7 +18,7 @@ import { DataTable, TableCard } from '@/common/components/table'
 import { TimePicker } from '@/common/components'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { useSessionContext } from '@/context/SessionContext'
 import { listExamSessions, createExamSession, updateExamSession, getCollegeFilters, listGeneralDetailsByMaster } from '@/services/examination'
 import { GM_CODES } from '@/config/constants/ui'
@@ -51,6 +51,7 @@ function statusRenderer(p: ICellRendererParams) {
 function makeActionsRenderer(
   setEditing: (row: any) => void,
   setForm: (form: any) => void,
+  setFieldErrors: (errors: Record<string, string>) => void,
   setOpen: (v: boolean) => void,
 ) {
   return (p: ICellRendererParams) => (
@@ -70,6 +71,7 @@ function makeActionsRenderer(
           isActive: !!p.data?.isActive,
           reason: p.data?.reason ?? 'active',
         })
+        setFieldErrors({})
         setOpen(true)
       }}
     >
@@ -98,6 +100,28 @@ export default function ExamSessionPage() {
     isActive: true,
     reason: 'active',
   })
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  function closeModal() {
+    setOpen(false)
+    setEditing(null)
+    setFieldErrors({})
+  }
+
+  function openAddModal() {
+    setEditing(null)
+    setForm({
+      examSessionName: '',
+      examsessioninCatCode: '',
+      universityCode: '',
+      sessionStartTime: '',
+      sessionEndTime: '',
+      isActive: true,
+      reason: 'active',
+    })
+    setFieldErrors({})
+    setOpen(true)
+  }
 
   async function refresh() {
     setLoading(true)
@@ -178,12 +202,28 @@ export default function ExamSessionPage() {
       COL_DEFS.sessionIn,
       COL_DEFS.startEnd,
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
-      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditing, setForm, setOpen) },
+      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditing, setForm, setFieldErrors, setOpen) },
     ],
     [],
   )
 
   async function save() {
+    const nextErrors: Record<string, string> = {}
+    if (!form.examSessionName.trim()) {
+      nextErrors.examSessionName = 'Exam session name is required'
+    }
+    if (!form.examsessioninCatCode.trim()) {
+      nextErrors.examsessioninCatCode = 'Session in is required'
+    }
+    if (!form.universityCode.trim()) {
+      nextErrors.universityCode = 'University code is required'
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors)
+      return
+    }
+    setFieldErrors({})
+
     const payload: Record<string, unknown> = {
       examSessionName: form.examSessionName.trim(),
       examsessioninCatCode: form.examsessioninCatCode.trim(),
@@ -212,16 +252,15 @@ export default function ExamSessionPage() {
 
     setOpen(false)
     setEditing(null)
+    setFieldErrors({})
     await refresh()
   }
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Create Exam Session" subtitle="Manage examination session timings" />
-
       <TableCard withHeaderBorder={false}>
         <DataTable
-          title=""
+          title="Create Exam Session"
           rowData={rows}
           columnDefs={columnDefs}
           loading={loading}
@@ -236,19 +275,7 @@ export default function ExamSessionPage() {
               type="button"
               size="sm"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => {
-                setEditing(null)
-                setForm({
-                  examSessionName: '',
-                  examsessioninCatCode: '',
-                  universityCode: '',
-                  sessionStartTime: '',
-                  sessionEndTime: '',
-                  isActive: true,
-                  reason: 'active',
-                })
-                setOpen(true)
-              }}
+              onClick={openAddModal}
             >
               <Plus className="h-3.5 w-3.5 mr-1.5" />
               Add Exam Session
@@ -257,9 +284,18 @@ export default function ExamSessionPage() {
         />
       </TableCard>
 
-      <Dialog open={open} onOpenChange={(v) => { if (!v) { setOpen(false); setEditing(null) } }}>
-        <DialogContent hideClose className="max-w-2xl p-0 overflow-hidden">
-          <DialogHeader className="px-4 py-3 border-b border-border bg-muted/40">
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          if (!v) closeModal()
+        }}
+      >
+        <DialogContent
+          className="max-w-2xl p-0 overflow-hidden"
+          closeOnOutsideClick={false}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="px-4 py-3 border-b border-border bg-muted/40 pr-12">
             <DialogTitle className="text-[16px] font-semibold text-[hsl(var(--primary))]">
               {editing ? 'Edit Exam Session' : 'Add Exam Session'}
             </DialogTitle>
@@ -267,17 +303,48 @@ export default function ExamSessionPage() {
 
           <div className="grid min-w-0 grid-cols-1 gap-3 p-4 md:grid-cols-2">
             <div className="min-w-0 space-y-1">
-              <Label className="text-[12px]">Exam Session Name</Label>
-              <Input className="h-9 text-[12px]" value={form.examSessionName} onChange={(e) => setForm((s) => ({ ...s, examSessionName: e.target.value }))} />
+              <Label className="text-[12px]">
+                Exam Session Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                className="h-9 text-[12px]"
+                placeholder="Enter exam session name"
+                value={form.examSessionName}
+                onChange={(e) => {
+                  setForm((s) => ({ ...s, examSessionName: e.target.value }))
+                  if (fieldErrors.examSessionName) {
+                    setFieldErrors((prev) => {
+                      const next = { ...prev }
+                      delete next.examSessionName
+                      return next
+                    })
+                  }
+                }}
+                aria-invalid={Boolean(fieldErrors.examSessionName)}
+              />
+              {fieldErrors.examSessionName ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.examSessionName}</p>
+              ) : null}
             </div>
             <div className="min-w-0 space-y-1">
-              <Label className="text-[12px]">Session In</Label>
+              <Label className="text-[12px]">
+                Session In <span className="text-red-500">*</span>
+              </Label>
               <Select
                 value={form.examsessioninCatCode || undefined}
-                onValueChange={(v) => setForm((s) => ({ ...s, examsessioninCatCode: v }))}
+                onValueChange={(v) => {
+                  setForm((s) => ({ ...s, examsessioninCatCode: v }))
+                  if (fieldErrors.examsessioninCatCode) {
+                    setFieldErrors((prev) => {
+                      const next = { ...prev }
+                      delete next.examsessioninCatCode
+                      return next
+                    })
+                  }
+                }}
               >
-                <SelectTrigger className="h-9 text-[12px]">
-                  <SelectValue placeholder="Select Session In" />
+                <SelectTrigger className="h-9 text-[12px]" aria-invalid={Boolean(fieldErrors.examsessioninCatCode)}>
+                  <SelectValue placeholder="Select session in" />
                 </SelectTrigger>
                 <SelectContent>
                   {sessionInOptions.map((o) => (
@@ -287,15 +354,29 @@ export default function ExamSessionPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {fieldErrors.examsessioninCatCode ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.examsessioninCatCode}</p>
+              ) : null}
             </div>
             <div className="min-w-0 space-y-1">
-              <Label className="text-[12px]">University Code</Label>
+              <Label className="text-[12px]">
+                University Code <span className="text-red-500">*</span>
+              </Label>
               <Select
                 value={form.universityCode || undefined}
-                onValueChange={(v) => setForm((s) => ({ ...s, universityCode: v }))}
+                onValueChange={(v) => {
+                  setForm((s) => ({ ...s, universityCode: v }))
+                  if (fieldErrors.universityCode) {
+                    setFieldErrors((prev) => {
+                      const next = { ...prev }
+                      delete next.universityCode
+                      return next
+                    })
+                  }
+                }}
               >
-                <SelectTrigger className="h-9 text-[12px]">
-                  <SelectValue placeholder="Select University" />
+                <SelectTrigger className="h-9 text-[12px]" aria-invalid={Boolean(fieldErrors.universityCode)}>
+                  <SelectValue placeholder="Select university code" />
                 </SelectTrigger>
                 <SelectContent>
                   {universityOptions.map((u) => (
@@ -305,13 +386,9 @@ export default function ExamSessionPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="min-w-0 space-y-1">
-              <Label className="text-[12px]">Active</Label>
-              <label className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-border bg-card px-2">
-                <Checkbox checked={form.isActive} onCheckedChange={(v) => setForm((s) => ({ ...s, isActive: !!v }))} />
-                <span className="text-[12px] text-slate-700">Session is active</span>
-              </label>
+              {fieldErrors.universityCode ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.universityCode}</p>
+              ) : null}
             </div>
             <div className="min-w-0 space-y-1">
               <TimePicker
@@ -327,16 +404,28 @@ export default function ExamSessionPage() {
                 label="End Time"
               />
             </div>
+            <div className="min-w-0 space-y-1">
+              <Label className="text-[12px]">Active</Label>
+              <label className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-border bg-card px-2">
+                <Checkbox checked={form.isActive} onCheckedChange={(v) => setForm((s) => ({ ...s, isActive: !!v }))} />
+                <span className="text-[12px] text-slate-700">Session is active</span>
+              </label>
+            </div>
             {!form.isActive && (
               <div className="space-y-1 md:col-span-2">
                 <Label className="text-[12px]">Reason</Label>
-                <Input className="h-9 text-[12px]" value={form.reason} onChange={(e) => setForm((s) => ({ ...s, reason: e.target.value }))} />
+                <Input
+                  className="h-9 text-[12px]"
+                  placeholder="Enter reason for deactivation"
+                  value={form.reason}
+                  onChange={(e) => setForm((s) => ({ ...s, reason: e.target.value }))}
+                />
               </div>
             )}
           </div>
 
           <DialogFooter className="px-4 pb-4">
-            <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditing(null) }}>Close</Button>
+            <Button type="button" variant="outline" onClick={closeModal}>Cancel</Button>
             <Button type="button" onClick={save}>Save</Button>
           </DialogFooter>
         </DialogContent>

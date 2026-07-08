@@ -440,6 +440,27 @@
   color: hsl(var(--foreground));
 }
 
+/* Single-line cell text with ellipsis (long text columns only). Headers stay single-line via fit. */
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis {
+  overflow: hidden !important;
+  min-width: 0;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis,
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis .ag-cell-value,
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis .ag-cell-wrapper {
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  overflow: hidden !important;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis .ag-cell-value {
+  display: block;
+  width: 100%;
+}
+
 .app-data-table .ag-theme-quartz .ag-row {
   min-height: 40px !important;
   border-bottom: 1px solid hsl(var(--border) / 0.85);
@@ -1291,12 +1312,12 @@ h1, h2, h3, h4, .h1, .h2, .h3 {
    `font-size: 0` hides the "Filter" text node; the svg keeps its own size.
    `pointer-events: none` makes the header row the single accordion trigger —
    clicks on the icon fall through to the header and are forwarded back. */
-.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-funnel']),
-.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-filter']),
-.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-chevron-down']),
-.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-funnel']),
-.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-filter']),
-.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-chevron-down']) {
+.app-card:not(.global-filter-bar) > div:has(> .app-card-title) button:has(svg[class*='lucide-funnel']),
+.app-card:not(.global-filter-bar) > div:has(> .app-card-title) button:has(svg[class*='lucide-filter']),
+.app-card:not(.global-filter-bar) > div:has(> .app-card-title) button:has(svg[class*='lucide-chevron-down']),
+.app-card:not(.global-filter-bar) > button:has(> .app-card-title) span:has(svg[class*='lucide-funnel']),
+.app-card:not(.global-filter-bar) > button:has(> .app-card-title) span:has(svg[class*='lucide-filter']),
+.app-card:not(.global-filter-bar) > button:has(> .app-card-title) span:has(svg[class*='lucide-chevron-down']) {
   border: 0;
   background: transparent;
   box-shadow: none;
@@ -1311,12 +1332,12 @@ h1, h2, h3, h4, .h1, .h2, .h3 {
      right margin pulls the icon next to the title instead of the far edge. */
   margin-right: auto;
 }
-.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-funnel']) svg,
-.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-filter']) svg,
-.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-chevron-down']) svg,
-.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-funnel']) svg,
-.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-filter']) svg,
-.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-chevron-down']) svg {
+.app-card:not(.global-filter-bar) > div:has(> .app-card-title) button:has(svg[class*='lucide-funnel']) svg,
+.app-card:not(.global-filter-bar) > div:has(> .app-card-title) button:has(svg[class*='lucide-filter']) svg,
+.app-card:not(.global-filter-bar) > div:has(> .app-card-title) button:has(svg[class*='lucide-chevron-down']) svg,
+.app-card:not(.global-filter-bar) > button:has(> .app-card-title) span:has(svg[class*='lucide-funnel']) svg,
+.app-card:not(.global-filter-bar) > button:has(> .app-card-title) span:has(svg[class*='lucide-filter']) svg,
+.app-card:not(.global-filter-bar) > button:has(> .app-card-title) span:has(svg[class*='lucide-chevron-down']) svg {
   width: 1rem;
   height: 1rem;
   margin: 0;

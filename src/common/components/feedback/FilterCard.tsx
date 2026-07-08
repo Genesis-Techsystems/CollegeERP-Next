@@ -51,10 +51,10 @@ export function FilterCard({
           type="button"
           className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => setOpen(!open)}
+          aria-label="Toggle filters"
           aria-expanded={open}
         >
           <Filter className="h-3.5 w-3.5" aria-hidden />
-          Filter
           <ChevronDown
             className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')}
             aria-hidden

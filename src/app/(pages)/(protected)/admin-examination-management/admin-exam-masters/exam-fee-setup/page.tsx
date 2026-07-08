@@ -1,6 +1,6 @@
 'use client'
 
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSessionContext } from '@/context/SessionContext'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -457,7 +457,7 @@ export default function ExamFeeSetupPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Exam Fee Structures" subtitle="Configure fee structures per exam" />
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">Exam Fee Structures</h2>
       {notice && (
         <NoticeAlert
           type={notice.type}
@@ -579,6 +579,7 @@ export default function ExamFeeSetupPage() {
                 const ay = academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)
                 const exam = examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)
                 const qp = new URLSearchParams({
+                  check: mode === 'college' ? '2' : '1',
                   universityId: String(selectedUniversityId ?? 0),
                   universityCode: String(uni?.university_code ?? ''),
                   courseId: String(selectedCourseId ?? 0),
