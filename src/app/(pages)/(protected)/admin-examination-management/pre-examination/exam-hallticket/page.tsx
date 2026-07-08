@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Select, type SelectOption } from '@/common/components/select'
+import { Select } from '@/common/components/select'
+import { StudentSearchSelect } from '@/common/components/student-search'
 import defaultStudent from '@/assets/images/avatars/default_Student.png'
 import { format, parseISO } from 'date-fns'
 import type { ColDef } from 'ag-grid-community'
@@ -131,6 +132,7 @@ export default function ExamHallticketPage() {
 
   const [students, setStudents] = useState<AnyRow[]>([])
   const [studentId, setStudentId] = useState<number | null>(null)
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const [studentExamId, setStudentExamId] = useState<number | null>(null)
   const [studentExams, setStudentExams] = useState<AnyRow[]>([])
 
@@ -194,14 +196,6 @@ export default function ExamHallticketPage() {
         (r) => Number(r.fk_course_year_id),
       ).filter((r) => Number(r.fk_course_year_id) > 0),
     [restRows, collegeId, courseGroupId],
-  )
-  const studentOptions = useMemo<SelectOption[]>(
-    () =>
-      students.map((s, i) => ({
-        value: String(s.studentId ?? s.id ?? i),
-        label: `${s.hallticketNumber ?? s.rollNumber ?? s.rollNo ?? '-'} - ${s.firstName ?? s.studentName ?? '-'}`,
-      })),
-    [students],
   )
   const studentExamOptions = useMemo(
     () =>
@@ -288,19 +282,29 @@ export default function ExamHallticketPage() {
 
   async function searchStudents(qRaw: string) {
     const q = qRaw.trim()
-    if (q.length < 3) return
-    const data = await listStudents(q).catch(() => [])
-    setStudents(Array.isArray(data) ? data : [])
+    if (!q) {
+      setStudents([])
+      return
+    }
+    if (q.length < 5) return
+    setStudentSearchLoading(true)
+    try {
+      const data = await listStudents(q).catch(() => [])
+      setStudents(Array.isArray(data) ? data : [])
+    } finally {
+      setStudentSearchLoading(false)
+    }
   }
 
-  async function onStudentSelect(nextId: number | null) {
+  async function onStudentSelect(nextId: number | null, selected: AnyRow | null) {
     setStudentId(nextId)
     setRows([])
     setStudentExamId(null)
     setStudentExams([])
-    if (!nextId) return
-    const selected = students.find((s) => Number(s.studentId ?? s.id ?? 0) === Number(nextId))
-    if (!selected) return
+    if (!nextId || !selected) return
+    setStudents((prev) =>
+      prev.some((s) => Number(s.studentId ?? s.id) === nextId) ? prev : [...prev, selected],
+    )
     const selectedCourseId = Number(selected.courseId ?? selected.fk_course_id ?? 0)
     const selectedAyId = Number(selected.academicYearId ?? selected.fk_academic_year_id ?? 0)
 
@@ -407,16 +411,14 @@ export default function ExamHallticketPage() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                 <div className="md:col-span-4 space-y-1">
-                  <Select
+                  <StudentSearchSelect
                     label="Student"
-                    placeholder="Search by student name or rollno."
-                    value={studentId ? String(studentId) : null}
-                    options={studentOptions}
-                    searchable
-                    clearable
-                    className="[&_label]:text-[12px] [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
+                    value={studentId}
+                    students={students}
+                    selectedStudent={selectedStudent}
+                    isLoading={studentSearchLoading}
                     onSearch={(term) => void searchStudents(term)}
-                    onChange={(v) => void onStudentSelect(v ? Number(v) : null)}
+                    onChange={(id, row) => void onStudentSelect(id, row)}
                   />
                 </div>
                 <div className="md:col-span-7 space-y-1">

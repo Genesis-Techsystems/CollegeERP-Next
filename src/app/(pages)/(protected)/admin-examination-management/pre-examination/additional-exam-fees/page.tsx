@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import defaultStudent from '@/assets/images/avatars/default_Student.png'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, type SelectOption } from '@/common/components/select'
+import { StudentSearchSelect } from '@/common/components/student-search'
 import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
 import {
   addExamAdditionalFeeReceipt,
@@ -102,7 +103,6 @@ const dedupeFeeTypes = (rows: AnyRow[]) => {
 export default function AdditionalExamFeesPage() {
   const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [studentSearch, setStudentSearch] = useState('')
   const [studentsLoading, setStudentsLoading] = useState(false)
   const [students, setStudents] = useState<AnyRow[]>([])
   const [studentId, setStudentId] = useState<number | null>(null)
@@ -140,19 +140,51 @@ export default function AdditionalExamFeesPage() {
 
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
 
-  useEffect(() => {
-    const timer = setTimeout(async () => {
-      if (studentSearch.trim().length < 4) {
-        setStudents([])
-        return
-      }
-      setStudentsLoading(true)
-      const list = await listStudents(studentSearch).catch(() => [])
+  async function onSearchStudents(term: string) {
+    const q = term.trim()
+    if (!q) {
+      setStudents([])
+      return
+    }
+    if (q.length < 5) return
+    setStudentsLoading(true)
+    try {
+      const list = await listStudents(q).catch(() => [])
       setStudents(Array.isArray(list) ? list : [])
+    } finally {
       setStudentsLoading(false)
-    }, 250)
-    return () => clearTimeout(timer)
-  }, [studentSearch])
+    }
+  }
+
+  function onStudentChange(id: number | null, row: AnyRow | null) {
+    setStudentId(id)
+    if (!id || !row) {
+      setStudent(null)
+      setSelectedStudentCache(null)
+      setAddedFees([])
+      setInlineNotice(null)
+      setAcademicYearId(null)
+      setExamId(null)
+      setRows([])
+      setHasFetched(false)
+      return
+    }
+    setStudents((prev) => {
+      const sid = pickNum(row, ['studentId', 'fk_student_id', 'student_id', 'std_id'])
+      return prev.some((s) => pickNum(s, ['studentId', 'fk_student_id', 'student_id', 'std_id']) === sid)
+        ? prev
+        : [...prev, row]
+    })
+    setSelectedStudentCache(row)
+    setStudent(row)
+    const sidAy = pickNum(row, ['academicYearId', 'fk_academic_year_id', 'fk_academicYearId'])
+    setAcademicYearId(sidAy > 0 ? sidAy : null)
+    setExamId(null)
+    setRows([])
+    setHasFetched(false)
+    setAddedFees([])
+    setInlineNotice(null)
+  }
 
   useEffect(() => {
     async function init() {
@@ -335,28 +367,6 @@ export default function AdditionalExamFeesPage() {
     }
   }, [feeTypes])
 
-  useEffect(() => {
-    if (!studentId) {
-      setStudent(null)
-      setSelectedStudentCache(null)
-      setAddedFees([])
-      setInlineNotice(null)
-      return
-    }
-    const picked =
-      students.find((s) => pickNum(s, ['studentId', 'fk_student_id', 'student_id', 'std_id']) === Number(studentId)) ??
-      selectedStudentCache
-    setStudent(picked)
-    if (picked) setSelectedStudentCache(picked)
-    const sidAy = pickNum(picked, ['academicYearId', 'fk_academic_year_id', 'fk_academicYearId'])
-    setAcademicYearId(sidAy > 0 ? sidAy : null)
-    setExamId(null)
-    setRows([])
-    setHasFetched(false)
-    setAddedFees([])
-    setInlineNotice(null)
-  }, [studentId, students, selectedStudentCache])
-
   const academicYears = useMemo(() => {
     if (!student) return []
     return dedupeBy(
@@ -401,17 +411,6 @@ export default function AdditionalExamFeesPage() {
     return all.filter((r) => `${r.exam_name ?? r.examName ?? ''}`.toLowerCase().includes(q))
   }, [filterRows, student, academicYearId, examSearch])
 
-  const studentOptions = useMemo<SelectOption[]>(
-    () =>
-      students.map((s, i) => ({
-        value: String(pickNum(s, ['studentId', 'fk_student_id', 'student_id', 'std_id']) || i),
-        label:
-          (pickText(s, ['rollNumber', 'roll_no', 'hallticketNumber']) || '-') +
-          ' - ' +
-          (pickText(s, ['firstName', 'studentName', 'student_name']) || '-'),
-      })),
-    [students],
-  )
   const examOptions = useMemo<SelectOption[]>(
     () =>
       exams.map((e, i) => ({
@@ -756,15 +755,14 @@ export default function AdditionalExamFeesPage() {
           <div className="p-3">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             <div className="md:col-span-4 space-y-1">
-              <Label>Student *</Label>
-              <Select
-                value={studentId ? String(studentId) : null}
-                onChange={(v) => setStudentId(v ? Number(v) : null)}
-                options={studentOptions}
-                placeholder="Search by student name or roll no…"
-                searchable
-                onSearch={(term) => setStudentSearch(term)}
+              <StudentSearchSelect
+                label="Student *"
+                value={studentId}
+                students={students}
+                selectedStudent={student ?? selectedStudentCache}
                 isLoading={studentsLoading}
+                onSearch={(term) => void onSearchStudents(term)}
+                onChange={onStudentChange}
               />
             </div>
 

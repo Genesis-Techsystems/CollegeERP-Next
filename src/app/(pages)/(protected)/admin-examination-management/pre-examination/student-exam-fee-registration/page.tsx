@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/common/components/select'
+import { StudentSearchSelect } from '@/common/components/student-search'
 import { DatePicker } from '@/common/components/date-picker'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -65,6 +66,7 @@ const STATUS_CLASS: Record<string, string> = {
 export default function StudentExamFeeRegistrationPage() {
   // --- selection / lookups ---
   const [students, setStudents] = useState<AnyRow[]>([])
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const studentsRef = useRef<AnyRow[]>([])
   studentsRef.current = students
   const [studentId, setStudentId] = useState<number | null>(null)
@@ -114,12 +116,18 @@ export default function StudentExamFeeRegistrationPage() {
   const payReceiptsRef = useRef<AnyRow[]>([])
   const [viewSubjOpen, setViewSubjOpen] = useState(false)
   const [viewSubjRows, setViewSubjRows] = useState<AnyRow[]>([])
+  const [viewSubjSearch, setViewSubjSearch] = useState('')
 
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
 
   // Derived: selected subjects + count
   const selectedSubjects = useMemo(() => studentSubjects.filter((s) => s.isSelected), [studentSubjects])
   const selectedCount = selectedSubjects.length
+  const selectableSubjectCount = useMemo(
+    () => studentSubjects.filter((s) => !s.subjAlreadyRegistered).length,
+    [studentSubjects],
+  )
+  const canAddFee = selectableSubjectCount > 0 && selectedCount > 0
 
   const filteredSubjects = useMemo(() => {
     const q = searchText.trim().toLowerCase()
@@ -128,6 +136,14 @@ export default function StudentExamFeeRegistrationPage() {
       `${s.shortName ?? ''} ${s.subjectName ?? ''} ${s.subjectCode ?? ''}`.toLowerCase().includes(q),
     )
   }, [studentSubjects, searchText])
+
+  const filteredViewSubjRows = useMemo(() => {
+    const q = viewSubjSearch.trim().toLowerCase()
+    if (!q) return viewSubjRows
+    return viewSubjRows.filter((s) =>
+      `${s.subjectName ?? s.Subject_name ?? s.shortName ?? ''} ${s.subjectCode ?? s.Subject_code ?? ''}`.toLowerCase().includes(q),
+    )
+  }, [viewSubjRows, viewSubjSearch])
 
   const totalReceiptAmt = useMemo(
     () =>
@@ -153,13 +169,22 @@ export default function StudentExamFeeRegistrationPage() {
   // ============== STUDENT SEARCH ==============
   async function enteredStudent(term: string) {
     const q = (term ?? '').trim()
-    if (q.length <= 4) return // Angular: event.length > 4
-    const list = await listStudents(q).catch(() => [])
-    setStudents(Array.isArray(list) ? list : [])
+    if (!q) {
+      setStudents([])
+      return
+    }
+    if (q.length < 5) return
+    setStudentSearchLoading(true)
+    try {
+      const list = await listStudents(q).catch(() => [])
+      setStudents(Array.isArray(list) ? list : [])
+    } finally {
+      setStudentSearchLoading(false)
+    }
   }
 
   // ============== SELECT STUDENT ==============
-  async function selectedStudent(sid: number) {
+  async function selectedStudent(sid: number | null, row: AnyRow | null) {
     setPhotoError(false)
     setCourseYearsList([])
     setAllCourseYears([])
@@ -175,9 +200,18 @@ export default function StudentExamFeeRegistrationPage() {
     setCourseYearId(null)
     setFlag(false)
     setExamFeeStructure([])
+    setStudentId(sid)
 
-    const found = studentsRef.current.find((x) => Number(x.studentId) === sid)
-    if (!found) return
+    if (!sid || !row) {
+      studentRef.current = {} as AnyRow
+      setStudent({} as AnyRow)
+      return
+    }
+
+    setStudents((prev) =>
+      prev.some((x) => Number(x.studentId) === sid) ? prev : [...prev, row],
+    )
+    const found = row
     studentRef.current = found // fresh for the async chain below
     setStudent(found)
     studentCurrentCourseYearIdRef.current = Number(found.courseYearId)
@@ -311,12 +345,14 @@ export default function StudentExamFeeRegistrationPage() {
       subjectId: Number(r.subjectId ?? r.fk_subject_id ?? 0),
       courseYearId: cyId,
       examType: 'Regular',
-      isSelected: true,
-      checked: true,
+      isSelected: !r.subjAlreadyRegistered,
+      checked: !r.subjAlreadyRegistered,
       shortName: r.shortName && String(r.shortName).trim() !== '' ? r.shortName : r.subjectCode,
       Subject_name: r.subjectName,
       Subject_code: r.subjectCode,
-      credits: r.subCredits,
+      subjectTypeCode: r.subjectTypeCode ?? r.subjecttypeName ?? r.subjectTypeName ?? '',
+      credits: r.credits ?? r.subCredits ?? r.subjectCredits ?? '',
+      regulationName: r.regulationName ?? r.regulationCode ?? '',
     }))
   }
   function normalizeSupply(rows: AnyRow[], cyId: number): AnyRow[] {
@@ -325,13 +361,14 @@ export default function StudentExamFeeRegistrationPage() {
       subjectId: Number(r.subjectId ?? r.fk_subject_id ?? 0),
       courseYearId: cyId,
       examType: 'Supple',
-      isSelected: true,
-      checked: true,
+      isSelected: !r.subjAlreadyRegistered,
+      checked: !r.subjAlreadyRegistered,
       shortName: r.shortName && String(r.shortName).trim() !== '' ? r.shortName : r.subjectCode,
       Subject_name: r.subjectName,
       Subject_code: r.subjectCode,
-      subjectTypeCode: r.subjecttypeName,
-      credits: r.subjectCredits,
+      subjectTypeCode: r.subjectTypeCode ?? r.subjecttypeName ?? r.subjectTypeName ?? '',
+      credits: r.credits ?? r.subjectCredits ?? r.creditPoints ?? r.subCredits ?? '',
+      regulationName: r.regulationName ?? r.regulationCode ?? '',
     }))
   }
 
@@ -641,8 +678,22 @@ export default function StudentExamFeeRegistrationPage() {
 
   // ============== VIEW SUBJECTS MODAL ==============
   function viewCourseYearSubjects(row: AnyRow, mode: 'receipt' | 'noReceipt') {
-    const subs = mode === 'receipt' ? row.examStudentDTOs?.[0]?.examStudentDetailDTOs ?? [] : row.subjects ?? []
-    setViewSubjRows(Array.isArray(subs) ? subs : [])
+    const raw =
+      mode === 'receipt'
+        ? row.examStudentDTOs?.[0]?.examStudentDetailDTOs ?? row.examStdRegSubDTOs ?? []
+        : row.subjects ?? []
+    const regulationFallback = String(row.regulationName ?? row.regulationCode ?? studentRef.current.regulationName ?? '')
+    const subs = (Array.isArray(raw) ? raw : []).map((s: AnyRow) => ({
+      ...s,
+      subjectName: s.subjectName ?? s.Subject_name ?? s.shortName ?? '',
+      subjectCode: s.subjectCode ?? s.Subject_code ?? '',
+      subjectTypeCode:
+        s.subjectTypeCode ?? s.subjecttypeName ?? s.subjectTypeName ?? s.subject_type_code ?? '',
+      credits: s.credits ?? s.subCredits ?? s.subjectCredits ?? '',
+      regulationName: s.regulationName ?? s.regulationCode ?? regulationFallback,
+    }))
+    setViewSubjSearch('')
+    setViewSubjRows(subs)
     setViewSubjOpen(true)
   }
 
@@ -672,21 +723,14 @@ export default function StudentExamFeeRegistrationPage() {
           {/* Student + Exam */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <div className="md:col-span-5">
-              <Select
-                value={studentId ? String(studentId) : null}
-                onChange={(v) => {
-                  const sid = v ? Number(v) : 0
-                  setStudentId(sid)
-                  void selectedStudent(sid)
-                }}
-                options={students.map((s) => ({
-                  value: String(s.studentId),
-                  label: `${s.hallticketNumber ?? '-'} - ${s.firstName ?? '-'}${s.studentStatusDisplayName ? ` (${s.studentStatusDisplayName})` : ''}`,
-                }))}
-                placeholder="Student"
+              <StudentSearchSelect
                 label="Student"
-                searchable
-                onSearch={enteredStudent}
+                value={studentId}
+                students={students}
+                selectedStudent={!isEmptyObject(student) ? student : null}
+                isLoading={studentSearchLoading}
+                onSearch={(term) => void enteredStudent(term)}
+                onChange={(id, row) => void selectedStudent(id, row)}
               />
             </div>
             <div className="md:col-span-7">
@@ -834,7 +878,8 @@ export default function StudentExamFeeRegistrationPage() {
                           <th className="w-[40px] px-1 py-1 text-center">
                             <input
                               type="checkbox"
-                              checked={checksubject}
+                              checked={checksubject && selectableSubjectCount > 0}
+                              disabled={selectableSubjectCount === 0}
                               onChange={(e) => onToggleSelectAll(e.target.checked)}
                             />
                             <span className="ml-1">All</span>
@@ -928,10 +973,14 @@ export default function StudentExamFeeRegistrationPage() {
                   </div>
                 )}
 
-                {/* Add Fee */}
+                {/* Add Fee — disabled when all subjects already registered / none selectable */}
                 {studentSubjects.length > 0 && (
                   <div className="md:col-span-1 flex items-end">
-                    <Button className="h-8 w-full text-[12px]" onClick={addExamSubjects}>
+                    <Button
+                      className="h-8 w-full text-[12px]"
+                      onClick={addExamSubjects}
+                      disabled={!canAddFee}
+                    >
                       Add Fee
                     </Button>
                   </div>
@@ -1193,38 +1242,73 @@ export default function StudentExamFeeRegistrationPage() {
         </DialogContent>
       </Dialog>
 
-      {/* View subjects modal (ViewSubjectsComponent) */}
-      <Dialog open={viewSubjOpen} onOpenChange={setViewSubjOpen}>
-        <DialogContent className="max-w-2xl">
+      {/* View subjects modal — Angular ViewSubjectsComponent parity */}
+      <Dialog
+        open={viewSubjOpen}
+        onOpenChange={(open) => {
+          setViewSubjOpen(open)
+          if (!open) setViewSubjSearch('')
+        }}
+      >
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Subjects</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-[15px]">
+              <span aria-hidden>📘</span>
+              Subjects List
+            </DialogTitle>
           </DialogHeader>
-          <div className="overflow-auto rounded border">
-            <table className="w-full text-[12px]">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="px-2 py-1 text-left">SI.No</th>
-                  <th className="px-2 py-1 text-left">Subject Code</th>
-                  <th className="px-2 py-1 text-left">Subject Name</th>
-                </tr>
-              </thead>
-              <tbody>
-                {viewSubjRows.map((s, i) => (
-                  <tr key={`vs-${i}`} className="border-t">
-                    <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">{s.subjectCode ?? '-'}</td>
-                    <td className="px-2 py-1">{s.subjectName ?? s.shortName ?? '-'}</td>
+          <div className="space-y-3">
+            <div className="max-w-sm">
+              <Input
+                className="h-8 text-[12px]"
+                placeholder="Subject Name / Code"
+                value={viewSubjSearch}
+                onChange={(e) => setViewSubjSearch(e.target.value)}
+              />
+            </div>
+            <div className="max-h-[420px] overflow-auto rounded border">
+              <table className="w-full text-[12px]">
+                <thead className="sticky top-0 bg-[#C3D9FF]">
+                  <tr>
+                    <th className="px-2 py-2 text-left font-semibold">Sl.No</th>
+                    <th className="px-2 py-2 text-left font-semibold">Subject Name</th>
+                    <th className="px-2 py-2 text-left font-semibold">Subject Type</th>
+                    <th className="px-2 py-2 text-left font-semibold">Credits</th>
+                    <th className="px-2 py-2 text-left font-semibold">Regulation</th>
                   </tr>
-                ))}
-                {viewSubjRows.length === 0 && (
-                  <tr className="border-t">
-                    <td colSpan={3} className="px-2 py-6 text-center text-muted-foreground">
-                      No subjects found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredViewSubjRows.map((s, i) => (
+                    <tr key={`vs-${i}`} className="border-t">
+                      <td className="px-2 py-1.5">{i + 1}</td>
+                      <td className="px-2 py-1.5">
+                        <span className="text-blue-700">
+                          {s.subjectName || s.shortName || '-'}
+                          {s.subjectCode ? (
+                            <span className="text-blue-600"> ({s.subjectCode})</span>
+                          ) : null}
+                        </span>
+                      </td>
+                      <td className="px-2 py-1.5 uppercase">{s.subjectTypeCode || '-'}</td>
+                      <td className="px-2 py-1.5">{s.credits !== '' && s.credits != null ? String(s.credits) : '-'}</td>
+                      <td className="px-2 py-1.5">{s.regulationName || '-'}</td>
+                    </tr>
+                  ))}
+                  {filteredViewSubjRows.length === 0 && (
+                    <tr className="border-t">
+                      <td colSpan={5} className="px-2 py-6 text-center text-muted-foreground">
+                        No subjects found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end">
+              <Button type="button" variant="outline" onClick={() => setViewSubjOpen(false)}>
+                Close
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
