@@ -105,8 +105,12 @@ export default function GeneralSettingModal({
   async function onSubmit(data: FormValues) {
     setSubmitError(null)
     try {
-      if (isEditing) await updateGeneralSetting(setting!.generalSettingId, data)
-      else await createGeneralSetting(data as Omit<GeneralSetting, 'generalSettingId'>)
+      const payload = {
+        ...data,
+        reason: data.reason?.trim() ? data.reason.trim() : null,
+      }
+      if (isEditing) await updateGeneralSetting(setting!.generalSettingId, payload)
+      else await createGeneralSetting(payload as Omit<GeneralSetting, 'generalSettingId'>)
       onSaved()
       onClose()
     } catch (err: unknown) {
@@ -161,21 +165,19 @@ export default function GeneralSettingModal({
             {errors.settingValue && <p className="text-xs text-red-500">{errors.settingValue.message}</p>}
           </div>
 
-          {isEditing && (
-            <Controller
-              name="isActive"
-              control={control}
-              render={({ field }) => (
-                <ActiveStatusField
-                  isActive={field.value}
-                  reason={watch('reason') ?? ''}
-                  onActiveChange={field.onChange}
-                  onReasonChange={(value) => setValue('reason', value)}
-                  reasonError={errors.reason?.message}
-                />
-              )}
-            />
-          )}
+          <Controller
+            name="isActive"
+            control={control}
+            render={({ field }) => (
+              <ActiveStatusField
+                isActive={field.value}
+                reason={watch('reason') ?? ''}
+                onActiveChange={field.onChange}
+                onReasonChange={(value) => setValue('reason', value)}
+                reasonError={errors.reason?.message}
+              />
+            )}
+          />
 
           {submitError && (
             <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>

@@ -139,6 +139,11 @@ export interface DataTableProps<T> {
   /** @deprecated Use toolbar.exportExcel instead */
   exportCsv?: boolean
   onGridApiReady?: (api: GridApi<T>) => void
+  /**
+   * When false, columns keep their defined widths/minWidths (horizontal scroll if needed)
+   * instead of being squeezed by `sizeColumnsToFit`. Default **true**.
+   */
+  fitColumnsToWidth?: boolean
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -320,6 +325,7 @@ export function DataTable<T>({
   toolbarTrailing,
   exportCsv = false,
   onGridApiReady,
+  fitColumnsToWidth = true,
 }: DataTableProps<T>) {
   const tb = useMemo(() => resolveToolbar(toolbarProp), [toolbarProp])
 
@@ -413,9 +419,16 @@ export function DataTable<T>({
     return filteredRowData.slice(start, start + clientPageSize)
   }, [rowData, filteredRowData, clientPaginationEnabled, serverSide, safePage, clientPageSize])
 
+  const rowNumberOffset = clientPaginationEnabled
+    ? safePage * clientPageSize
+    : serverSide
+      ? currentPage * serverPageSize
+      : 0
+
   const totalPages = serverSide ? Math.max(1, Math.ceil(totalCount / serverPageSize)) : 1
 
   function fitColumns(api: GridApi<T>) {
+    if (!fitColumnsToWidth) return
     api.sizeColumnsToFit()
   }
 
@@ -548,6 +561,7 @@ export function DataTable<T>({
       >
         <AgGridReact<T>
           ref={gridRef}
+          context={{ __rowNumberOffset: rowNumberOffset }}
           rowData={pagedRowData}
           columnDefs={resolvedColumnDefs}
           defaultColDef={defaultColDef}
@@ -559,6 +573,7 @@ export function DataTable<T>({
           onFirstDataRendered={(e) => fitColumns(e.api)}
           onRowDataUpdated={(e) => fitColumns(e.api)}
           onGridSizeChanged={(e) => fitColumns(e.api)}
+          alwaysShowHorizontalScroll={!fitColumnsToWidth}
           getRowId={getRowId}
           onCellClicked={onCellClicked}
           onRowClicked={onRowClick ? handleRowClicked : undefined}

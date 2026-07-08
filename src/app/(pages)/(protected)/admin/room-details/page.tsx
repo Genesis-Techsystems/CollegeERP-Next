@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
@@ -6,7 +6,7 @@ import { DoorOpen, PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { Select } from '@/common/components/select'
-import { FilterCard } from '@/common/components/feedback'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
@@ -426,11 +426,10 @@ export default function RoomDetailsPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <FilterCard title="Room Details">
-        <div className="grid grid-cols-12 gap-2">
-          <div className="col-span-12 md:col-span-2">
+      <GlobalFilterBar title="Room Details">
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Campus">
             <Select
-              label="Campus"
               value={campusId}
               onChange={(v) => {
                 setCampusId(v)
@@ -443,10 +442,9 @@ export default function RoomDetailsPage() {
               placeholder="All"
               searchable
             />
-          </div>
-          <div className="col-span-12 md:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Building">
             <Select
-              label="Building"
               value={buildingId}
               onChange={(v) => {
                 setBuildingId(v)
@@ -458,10 +456,9 @@ export default function RoomDetailsPage() {
               placeholder="All"
               searchable
             />
-          </div>
-          <div className="col-span-12 md:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Block">
             <Select
-              label="Block"
               value={blockId}
               onChange={(v) => {
                 setBlockId(v)
@@ -473,10 +470,9 @@ export default function RoomDetailsPage() {
               searchable
               disabled={!buildingId}
             />
-          </div>
-          <div className="col-span-12 md:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Floor">
             <Select
-              label="Floor"
               value={floorId}
               onChange={(v) => {
                 setFloorId(v)
@@ -487,27 +483,23 @@ export default function RoomDetailsPage() {
               searchable
               disabled={!blockId}
             />
-          </div>
-          <div className="col-span-12 md:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Room">
             <Select
-              label="Room"
               value={roomId}
               onChange={setRoomId}
               options={roomOptions}
               placeholder="All"
               searchable
             />
-          </div>
-          <div className="col-span-12 md:col-span-2 flex items-end">
-            <Button
-              size="sm"
-              onClick={loadDetails}
-            >
+          </GlobalFilterField>
+          <GlobalFilterField label=" " className="global-filter-field--action">
+            <Button size="sm" onClick={loadDetails} className="shrink-0">
               Get Details
             </Button>
-          </div>
-        </div>
-      </FilterCard>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      </GlobalFilterBar>
 
       {showResults && (
         <div className="app-card overflow-hidden">
@@ -527,7 +519,7 @@ export default function RoomDetailsPage() {
                   columnDefs={columnDefs}
                   loading={detailsLoading}
                   pagination
-                  toolbar={{ search: true, searchPlaceholder: 'Search room details…', pdfDocumentTitle: 'Room Details List' }}
+                  toolbar={{ search: true, searchPlaceholder: 'Search room detailsΓÇª', pdfDocumentTitle: 'Room Details List' }}
                   toolbarTrailing={
                     <Button size="sm" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
                       <PlusIcon className="h-4 w-4 mr-1" />

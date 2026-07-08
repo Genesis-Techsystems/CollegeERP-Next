@@ -74,10 +74,19 @@ export function useBreadcrumb(customItems?: BreadcrumbItem[]): BreadcrumbItem[] 
     segments.forEach((segment, index) => {
       currentPath += '/' + segment
       const isLast = index === segments.length - 1
+
       items.push({
         label: segmentToLabel(segment),
         href: isLast ? undefined : currentPath,
       })
+
+      // Admin module: insert submodule label so breadcrumb matches Angular's
+      // "Admin → Master Settings → <Page>" hierarchy even when the sidebar/nav
+      // metadata isn't available client-side.
+      const isAdminRoot = segment === 'admin' && index === 0
+      if (isAdminRoot && segments.length >= 2) {
+        items.push({ label: 'Master Settings' })
+      }
     })
   }
 

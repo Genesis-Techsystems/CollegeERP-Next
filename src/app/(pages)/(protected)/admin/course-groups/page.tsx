@@ -17,8 +17,8 @@ const COLS = {
   siNo: { colId: 'siNo', headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<CourseGroup>,
   university: { colId: 'university', headerName: 'University', minWidth: 130, flex: 1 } as ColDef<CourseGroup>,
   course: { colId: 'course', headerName: 'Course', minWidth: 140, flex: 1 } as ColDef<CourseGroup>,
-  code: { colId: 'groupCode', field: 'groupCode', headerName: 'Subject Group Code', minWidth: 150, flex: 1 } as ColDef<CourseGroup>,
-  name: { colId: 'groupName', field: 'groupName', headerName: 'Subject Group Name', minWidth: 170, flex: 1.2 } as ColDef<CourseGroup>,
+  code: { colId: 'groupCode', field: 'groupCode', headerName: 'Course Group Code', minWidth: 150, flex: 1 } as ColDef<CourseGroup>,
+  name: { colId: 'groupName', field: 'groupName', headerName: 'Course Group Name', minWidth: 170, flex: 1.2 } as ColDef<CourseGroup>,
   isActive: { colId: 'isActive', field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<CourseGroup>,
   actions: { colId: 'actions', headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<CourseGroup>,
 }
@@ -43,7 +43,7 @@ export default function CourseGroupsPage() {
     <PageContainer className="space-y-4">
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Subject Groups</h2>
+          <h2 className="app-card-title">Course Groups</h2>
         </div>
         <div className="px-3 pb-3 pt-2">
           <DataTable
@@ -54,7 +54,7 @@ export default function CourseGroupsPage() {
             toolbarTrailing={
               <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
                 <PlusIcon className="h-4 w-4 mr-1" />
-                Add Subject Group
+                Add Course Group
               </Button>
             }
             toolbar={{ search: true, searchPlaceholder: 'Search subject groups…', pdfDocumentTitle: 'Subject groups' }}

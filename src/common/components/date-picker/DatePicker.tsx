@@ -19,6 +19,8 @@ export interface DatePickerProps {
   minDate?: Date
   maxDate?: Date
   clearable?: boolean
+  /** date-fns format string for the trigger label. Defaults to long text (`PPP`). */
+  displayFormat?: string
   className?: string
 }
 
@@ -33,6 +35,7 @@ export function DatePicker({
   minDate,
   maxDate,
   clearable = true,
+  displayFormat = 'PPP',
   className,
 }: Readonly<DatePickerProps>) {
   const id = useId()
@@ -79,7 +82,7 @@ export function DatePicker({
           >
             <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0" />
             <span className="flex-1 truncate">
-              {value ? format(value, 'PPP') : placeholder}
+              {value ? format(value, displayFormat) : placeholder}
             </span>
             {clearable && value && (
               <X

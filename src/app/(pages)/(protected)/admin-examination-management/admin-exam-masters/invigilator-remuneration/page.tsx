@@ -23,7 +23,7 @@ import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-
 import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import {
   createInvigilatorRemuneration,
   listActiveColleges,
@@ -97,6 +97,13 @@ export default function InvigilatorRemunerationPage() {
   const [toDate, setToDate] = useState<string>('')
   const [isActive, setIsActive] = useState(true)
   const [reason, setReason] = useState('active')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  function closeModal() {
+    setOpen(false)
+    setEditing(null)
+    setFieldErrors({})
+  }
 
   async function loadAll() {
     const [list, clgs, desg] = await Promise.all([
@@ -115,6 +122,7 @@ export default function InvigilatorRemunerationPage() {
 
   function openAdd() {
     setEditing(null)
+    setFieldErrors({})
     setCollegeId(colleges[0]?.collegeId ?? colleges[0]?.fk_college_id ?? null)
     setInvgdesignationCatId(designations[0]?.generalDetailId ?? null)
     setAmount('')
@@ -127,6 +135,7 @@ export default function InvigilatorRemunerationPage() {
   }
 
   const openEdit = useCallback((r: AnyRow) => {
+    setFieldErrors({})
     setEditing(r)
     setCollegeId(Number(r.collegeId ?? r.fk_college_id ?? r.college?.collegeId ?? null))
     setInvgdesignationCatId(
@@ -141,7 +150,14 @@ export default function InvigilatorRemunerationPage() {
   }, [])
 
   async function save() {
-    if (!collegeId || !invgdesignationCatId || !amount || !fromDate || !toDate) return
+    const cleanAmount = amount.trim()
+    const nextErrors: Record<string, string> = {}
+    if (!collegeId) nextErrors.collegeId = 'College is required.'
+    if (!invgdesignationCatId) nextErrors.invgdesignationCatId = 'Invigilator Designation is required.'
+    if (!cleanAmount) nextErrors.amount = 'Amount is required.'
+    setFieldErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
+    if (!fromDate || !toDate) return
     if (fromDate > toDate) {
       alert('From date should be less than To date.')
       return
@@ -150,7 +166,7 @@ export default function InvigilatorRemunerationPage() {
     const basePayload = {
       collegeId,
       invgdesignationCatId,
-      amount: Number(amount),
+      amount: Number(cleanAmount),
       fromDate,
       toDate,
       isActive,
@@ -181,7 +197,7 @@ export default function InvigilatorRemunerationPage() {
       alert(msg)
       return
     }
-    setOpen(false)
+    closeModal()
     await loadAll()
   }
 
@@ -202,11 +218,15 @@ export default function InvigilatorRemunerationPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Exam Invigilator Remuneration" subtitle="Manage invigilator pay rates" />
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">
+        Exam Invigilator Remuneration
+      </h2>
 
       <TableCard withHeaderBorder={false}>
         <DataTable
           title=""
+          subtitle=""
+          toolbarLeading={<span />}
           rowData={rows}
           columnDefs={columnDefs}
           pagination
@@ -228,18 +248,43 @@ export default function InvigilatorRemunerationPage() {
         />
       </TableCard>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          if (!v) closeModal()
+        }}
+      >
+        <DialogContent
+          className="max-w-2xl"
+          closeOnOutsideClick={false}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="pr-12">
             <DialogTitle className="text-[hsl(var(--primary))]">
               {editing ? 'Edit Invigilator Remuneration' : 'Add Invigilator Remuneration'}
             </DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <Label>College</Label>
-              <Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger>
+              <Label className="text-[12px]">
+                College <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={collegeId ? String(collegeId) : undefined}
+                onValueChange={(v) => {
+                  setCollegeId(Number(v))
+                  if (fieldErrors.collegeId) {
+                    setFieldErrors((prev) => {
+                      const next = { ...prev }
+                      delete next.collegeId
+                      return next
+                    })
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 text-[12px]" aria-invalid={Boolean(fieldErrors.collegeId)}>
+                  <SelectValue placeholder="Select college" />
+                </SelectTrigger>
                 <SelectContent>
                   {colleges.map((c, i) => (
                     <SelectItem key={`c-${c.collegeId ?? c.fk_college_id ?? i}`} value={String(c.collegeId ?? c.fk_college_id)}>
@@ -248,11 +293,30 @@ export default function InvigilatorRemunerationPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {fieldErrors.collegeId ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.collegeId}</p>
+              ) : null}
             </div>
             <div className="space-y-1">
-              <Label>Invigilator Designation</Label>
-              <Select value={invgdesignationCatId ? String(invgdesignationCatId) : undefined} onValueChange={(v) => setInvgdesignationCatId(Number(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Designation" /></SelectTrigger>
+              <Label className="text-[12px]">
+                Invigilator Designation <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={invgdesignationCatId ? String(invgdesignationCatId) : undefined}
+                onValueChange={(v) => {
+                  setInvgdesignationCatId(Number(v))
+                  if (fieldErrors.invgdesignationCatId) {
+                    setFieldErrors((prev) => {
+                      const next = { ...prev }
+                      delete next.invgdesignationCatId
+                      return next
+                    })
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 text-[12px]" aria-invalid={Boolean(fieldErrors.invgdesignationCatId)}>
+                  <SelectValue placeholder="Select invigilator" />
+                </SelectTrigger>
                 <SelectContent>
                   {designations.map((d, i) => (
                     <SelectItem key={`d-${d.generalDetailId ?? i}`} value={String(d.generalDetailId)}>
@@ -261,23 +325,47 @@ export default function InvigilatorRemunerationPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {fieldErrors.invgdesignationCatId ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.invgdesignationCatId}</p>
+              ) : null}
             </div>
             <div className="space-y-1">
-              <Label>Amount</Label>
-              <Input className="h-8 text-[12px]" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <Label className="text-[12px]">
+                Amount <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                className="h-8 text-[12px]"
+                type="number"
+                placeholder="Enter amount"
+                value={amount}
+                aria-invalid={Boolean(fieldErrors.amount)}
+                onChange={(e) => {
+                  setAmount(e.target.value)
+                  if (fieldErrors.amount) {
+                    setFieldErrors((prev) => {
+                      const next = { ...prev }
+                      delete next.amount
+                      return next
+                    })
+                  }
+                }}
+              />
+              {fieldErrors.amount ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.amount}</p>
+              ) : null}
             </div>
             <div className="space-y-1">
-              <Label>From Date</Label>
+              <Label className="text-[12px]">From Date</Label>
               <Input className="h-8 text-[12px]" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>To Date</Label>
+              <Label className="text-[12px]">To Date</Label>
               <Input className="h-8 text-[12px]" type="date" min={fromDate || undefined} value={toDate} onChange={(e) => setToDate(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>Status</Label>
+              <Label className="text-[12px]">Status</Label>
               <Select value={isActive ? '1' : '0'} onValueChange={(v) => setIsActive(v === '1')}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">Active</SelectItem>
                   <SelectItem value="0">InActive</SelectItem>
@@ -286,13 +374,18 @@ export default function InvigilatorRemunerationPage() {
             </div>
             {!isActive && (
               <div className="space-y-1 md:col-span-2">
-                <Label>Reason</Label>
-                <Input className="h-8 text-[12px]" value={reason} onChange={(e) => setReason(e.target.value)} />
+                <Label className="text-[12px]">Reason</Label>
+                <Input
+                  className="h-8 text-[12px]"
+                  placeholder="Reason for deactivation"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                />
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Close</Button>
+            <Button type="button" variant="outline" onClick={closeModal}>Cancel</Button>
             <Button type="button" onClick={save}>Save</Button>
           </DialogFooter>
         </DialogContent>

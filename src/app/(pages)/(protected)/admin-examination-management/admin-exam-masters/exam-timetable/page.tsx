@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronDown, Filter, LayoutGrid, ShieldAlert } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import CheckConflictsModal from './CheckConflictsModal'
 
 function pickAyId(row: any): number {
@@ -450,12 +450,28 @@ export default function ExamTimetablePage() {
 							pushScheduleEntry(`${p}-${dateKey}-${sess}`, payload)
 						}
 					}
-					// Merge with previously found branches, de-dupe by code
-					const mergedBranches = distinct(
-						[...Array.from(brIdx.values()), ...baseBranches],
-						(x: any) => Number(x.dept_id ?? x.courseGroupId ?? 0),
-					)
-					setBranches(mergedBranches)
+					// Prefer timetable-derived branches, then filter/entity list.
+					// Always de-dupe by group CODE — filter rows and timetable rows can
+					// carry different ids for the same CSE/CSD/… and otherwise show twice.
+					const byCode = new Map<string, any>()
+					for (const x of [...Array.from(brIdx.values()), ...baseBranches]) {
+						const code = String(x.dept_code ?? x.groupCode ?? x.branch_code ?? '')
+							.trim()
+							.toUpperCase()
+						if (!code) continue
+						const existing = byCode.get(code)
+						if (!existing) {
+							byCode.set(code, { ...x, dept_code: code })
+							continue
+						}
+						// Keep a numeric courseGroupId when only one side has it
+						const nextId = x.fk_dept_id ?? x.courseGroupId ?? x.dept_id
+						const prevId = existing.fk_dept_id ?? existing.courseGroupId ?? existing.dept_id
+						if ((prevId == null || prevId === '') && nextId != null && nextId !== '') {
+							byCode.set(code, { ...existing, fk_dept_id: nextId, dept_code: code })
+						}
+					}
+					setBranches(Array.from(byCode.values()))
 					// dates from master range if available, else collected from rows
 					if (range) {
 						setDates(range)
@@ -795,24 +811,24 @@ export default function ExamTimetablePage() {
 
 	return (
 		<PageContainer className="space-y-4">
-		<PageHeader title="Exam University Timetable" subtitle="Manage university exam timetables" />
-			<div className="app-card overflow-hidden">
+			<h2 className="text-lg font-semibold tracking-tight text-foreground">
+				Exam University Timetable
+			</h2>
+			<div className="global-filter-bar app-card overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
 				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
 					<h2 className="app-card-title">Exam University Timetable</h2>
-					<Button
+					<button
 						type="button"
-						variant="outline"
-						size="sm"
-						className="h-6 px-2.5 text-[12px]"
+						className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
 						onClick={() => setFilterOpen((v) => !v)}
+						aria-label="Toggle filters"
 						aria-expanded={filterOpen}
 					>
-						<Filter className="mr-1.5 h-3.5 w-3.5" />
-						Filter
-						<ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-					</Button>
+						<Filter className="h-3.5 w-3.5" aria-hidden />
+						<ChevronDown className={`h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} aria-hidden />
+					</button>
 				</div>
-				{(
+				{filterOpen ? (
 				<div className="px-3 py-3">
 					<div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
 						<div className="space-y-1">
@@ -893,7 +909,7 @@ export default function ExamTimetablePage() {
 						</div>
 					</div>
 				</div>
-				)}
+				) : null}
 			</div>
 
 			{selectedCourseYearId != null && titleLine && (
@@ -938,10 +954,21 @@ export default function ExamTimetablePage() {
 					)}
 
 					<div className="overflow-auto">
-						<table className="w-full border-t border-border">
-							<thead className="bg-muted/40">
+						{/* border-separate keeps sticky left/top reliable; collapse breaks pin layering */}
+						<table className="w-full border-separate border-spacing-0 border-t border-border">
+							<thead>
 								<tr>
-									<th className="sticky left-0 bg-muted/40 border-r border-border px-3 py-2 text-left text-[12px] font-semibold w-48">BRANCH</th>
+									{/* Opaque corner — same light header look, dates slide behind like body cells */}
+									<th
+										className="sticky left-0 top-0 z-30 w-48 min-w-[12rem] border-b border-r border-primary/20 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-primary"
+										style={{
+											backgroundImage:
+												'linear-gradient(hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.08))',
+											backgroundColor: 'hsl(var(--card))',
+										}}
+									>
+										BRANCH
+									</th>
 									{dates.map((d) => {
 										const day = d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()
 										const dayNum = d.toLocaleDateString('en-GB', {
@@ -950,9 +977,17 @@ export default function ExamTimetablePage() {
 											year: 'numeric',
 										}).replace(/(\d+) (\w+) (\d+)/, '$1 $2, $3')
 										return (
-											<th key={d.toISOString()} className="min-w-[160px] px-3 py-2 text-[12px] font-semibold border-r border-border">
+											<th
+												key={d.toISOString()}
+												className="sticky top-0 z-20 min-w-[160px] border-b border-r border-primary/20 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-primary"
+												style={{
+													backgroundImage:
+														'linear-gradient(hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.08))',
+													backgroundColor: 'hsl(var(--card))',
+												}}
+											>
 												<div>{dayNum}</div>
-												<div className="text-[11px] text-muted-foreground">({day})</div>
+												<div className="text-[10px] font-medium normal-case tracking-normal text-primary/70">({day})</div>
 											</th>
 										)
 									})}
@@ -973,12 +1008,12 @@ export default function ExamTimetablePage() {
 										b.branchName ??
 										`Branch ${i + 1}`
 									return (
-										<tr key={id ?? `row-${i}`} className="even:bg-card odd:bg-muted/40/40">
-											<td className="sticky left-0 bg-card odd:bg-muted/40/40 border-r border-border px-3 py-2 text-[12px] font-medium w-48 text-blue-700">
+										<tr key={id ?? `row-${i}`} className="hover:bg-muted/30">
+											<td className="sticky left-0 z-10 w-48 min-w-[12rem] border-b border-r border-border bg-card px-3 py-2 text-[12px] font-medium text-blue-700">
 												{name}
 											</td>
 											{dates.map((d) => (
-												<td key={`${id}-${d.toISOString()}`} className="border-l border-border px-2 py-2 text-center align-top">
+												<td key={`${id}-${d.toISOString()}`} className="border-b border-r border-border px-2 py-2 text-center align-top">
 													{getCellBadge(b, d)}
 												</td>
 											))}

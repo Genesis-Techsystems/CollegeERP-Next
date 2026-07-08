@@ -21,27 +21,22 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { DatePicker, MonthYearPicker } from '@/common/components/date-picker'
 import { DEFAULT_ACTIVE_REASON } from '@/config/constants/defaults'
 
-const schema = z
-  .object({
-    examName: z.string().min(1, 'Required'),
-    examShortName: z.string().min(1, 'Required'),
-    examMonthYr: z.date().nullable(),
-    fromDate: z.date().nullable(),
-    toDate: z.date().nullable(),
-    isRegularExam: z.boolean(),
-    isSupplyExam: z.boolean(),
-    isInternalExam: z.boolean(),
-    isPublished: z.boolean(),
-    isResultprocessStarted: z.boolean(),
-    isActive: z.boolean(),
-    reason: z.string(),
-    notificationPublishedOn: z.date().nullable(),
-    feeNotificationPublishedOn: z.date().nullable(),
-  })
-  .refine((d) => d.isRegularExam || d.isSupplyExam || d.isInternalExam, {
-    message: 'Select at least one exam type (Regular, Supply, or Internal)',
-    path: ['isRegularExam'],
-  })
+const schema = z.object({
+  examName: z.string().min(1, 'Exam name is required'),
+  examShortName: z.string().optional().default(''),
+  examMonthYr: z.date().nullable(),
+  fromDate: z.date().nullable(),
+  toDate: z.date().nullable(),
+  isRegularExam: z.boolean(),
+  isSupplyExam: z.boolean(),
+  isInternalExam: z.boolean(),
+  isPublished: z.boolean(),
+  isResultprocessStarted: z.boolean(),
+  isActive: z.boolean(),
+  reason: z.string(),
+  notificationPublishedOn: z.date().nullable(),
+  feeNotificationPublishedOn: z.date().nullable(),
+})
 
 type FormValues = z.infer<typeof schema>
 
@@ -138,8 +133,15 @@ function FileInput({
   )
 }
 
-function parseDate(val: string | undefined | null): Date | null {
-  if (!val) return null
+function parseDate(val: string | Date | undefined | null): Date | null {
+  if (val == null || val === '') return null
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val
+  // Date-only (yyyy-MM-dd) — parse as local calendar date to avoid UTC day shift.
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(val)
+  if (ymd) {
+    const d = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]))
+    return isNaN(d.getTime()) ? null : d
+  }
   const d = new Date(val)
   return isNaN(d.getTime()) ? null : d
 }
@@ -177,15 +179,6 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
       setToast(null)
     }
   }, [open, exam, reset])
-
-  const examMonthYr = watch('examMonthYr')
-  useEffect(() => {
-    if (examMonthYr) {
-      const d = new Date(examMonthYr.getFullYear(), examMonthYr.getMonth(), 1)
-      setValue('fromDate', d)
-      setValue('toDate', d)
-    }
-  }, [examMonthYr, setValue])
 
   const fromDate = watch('fromDate')
   const toDate = watch('toDate')
@@ -229,14 +222,18 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent hideClose className="max-w-4xl p-0 overflow-hidden">
-        <DialogHeader className="border-b border-border px-6 py-4">
+      <DialogContent
+        className="max-w-4xl p-0 overflow-hidden"
+        closeOnOutsideClick={false}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <DialogHeader className="border-b border-border px-6 py-4 pr-12">
           <DialogTitle className="text-[hsl(var(--primary))]">{isEdit ? 'Edit Exam' : 'Add Exam'}</DialogTitle>
         </DialogHeader>
 
         {toast && (
           <div
-            className={`rounded-md px-3 py-2 text-sm ${
+            className={`mx-6 mt-3 rounded-md px-3 py-2 text-sm ${
               toast.type === 'error'
                 ? 'bg-red-50 text-red-700 border border-red-200'
                 : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
@@ -248,12 +245,16 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 px-6 pb-6 pt-1">
           <div className="space-y-1.5">
-            <Label className="text-[12px] text-slate-700">Exam Name</Label>
+            <Label className="text-[12px] text-slate-700">
+              Exam Name <span className="text-red-500">*</span>
+            </Label>
             <input
               {...register('examName')}
-              className="flex h-8 w-full rounded-md border border-input bg-transparent px-3 py-2 text-[12px] shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              placeholder="Enter exam name"
+              aria-invalid={Boolean(errors.examName)}
+              className="flex h-8 w-full rounded-md border border-input bg-transparent px-3 py-2 text-[12px] shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
-            {errors.examName && <p className="text-xs text-red-500">{errors.examName.message}</p>}
+            {errors.examName && <p className="text-[11px] text-destructive">{errors.examName.message}</p>}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -261,16 +262,30 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
               <Label className="text-[12px] text-slate-700">Exam Short Name</Label>
               <input
                 {...register('examShortName')}
-                className="flex h-7 w-full rounded-md border border-input bg-transparent px-3 py-2 text-[12px] shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="Enter exam short name"
+                className="flex h-7 w-full rounded-md border border-input bg-transparent px-3 py-2 text-[12px] shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
-              {errors.examShortName && <p className="text-xs text-red-500">{errors.examShortName.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label className="text-[12px] text-slate-700">Exam Month/Year</Label>
               <Controller
                 control={control}
                 name="examMonthYr"
-                render={({ field }) => <MonthYearPicker value={field.value} onChange={field.onChange} />}
+                render={({ field }) => (
+                  <MonthYearPicker
+                    value={field.value}
+                    onChange={(d) => {
+                      field.onChange(d)
+                      // Angular `chosenMonthHandler`: only when user picks a month, seed From/To to the 1st.
+                      if (d) {
+                        const firstOfMonth = new Date(d.getFullYear(), d.getMonth(), 1)
+                        setValue('fromDate', firstOfMonth)
+                        setValue('toDate', firstOfMonth)
+                      }
+                    }}
+                    placeholder="Pick month/year"
+                  />
+                )}
               />
             </div>
             <div className="space-y-1.5">
@@ -278,7 +293,9 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
               <Controller
                 control={control}
                 name="fromDate"
-                render={({ field }) => <DatePicker value={field.value} onChange={field.onChange} />}
+                render={({ field }) => (
+                  <DatePicker value={field.value} onChange={field.onChange} placeholder="Select from date" />
+                )}
               />
             </div>
             <div className="space-y-1.5">
@@ -286,7 +303,9 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
               <Controller
                 control={control}
                 name="toDate"
-                render={({ field }) => <DatePicker value={field.value} onChange={field.onChange} />}
+                render={({ field }) => (
+                  <DatePicker value={field.value} onChange={field.onChange} placeholder="Select to date" />
+                )}
               />
             </div>
           </div>
@@ -327,7 +346,6 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
                 />
               )}
             </div>
-            {errors.isRegularExam && <p className="text-xs text-red-500 mt-1">{errors.isRegularExam.message}</p>}
           </div>
 
           <div className="flex gap-6">
@@ -359,7 +377,9 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
               <Controller
                 control={control}
                 name="notificationPublishedOn"
-                render={({ field }) => <DatePicker value={field.value} onChange={field.onChange} />}
+                render={({ field }) => (
+                  <DatePicker value={field.value} onChange={field.onChange} placeholder="Select notification date" />
+                )}
               />
             </div>
             <div className="space-y-1.5">
@@ -378,7 +398,9 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
               <Controller
                 control={control}
                 name="feeNotificationPublishedOn"
-                render={({ field }) => <DatePicker value={field.value} onChange={field.onChange} />}
+                render={({ field }) => (
+                  <DatePicker value={field.value} onChange={field.onChange} placeholder="Select fee notification date" />
+                )}
               />
             </div>
             <div className="space-y-1.5">
@@ -393,7 +415,7 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
-              Close
+              Cancel
             </Button>
             <Button type="submit" disabled={saving}>
               {saving ? 'Saving...' : 'Save'}

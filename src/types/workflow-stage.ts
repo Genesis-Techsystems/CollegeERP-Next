@@ -10,9 +10,9 @@ export interface WorkflowStage {
   wfFor?: string
   wfForCode: string
   wfStatus?: string
-  availableFor?: string
-  goBackPoint?: boolean
-  isSelfAvailable?: boolean
+  availableFor?: number | string | null
+  goBackPoint?: boolean | number | null
+  isSelfAvailable?: boolean | number | null
   isActive: boolean
   reason?: string
 }

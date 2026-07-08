@@ -41,7 +41,7 @@ export default function CourseTypesPage() {
     <PageContainer className="space-y-4">
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Subject Types</h2>
+          <h2 className="app-card-title">Course Types</h2>
         </div>
         <div className="px-3 pb-3 pt-2">
           <DataTable
@@ -52,7 +52,7 @@ export default function CourseTypesPage() {
             toolbarTrailing={
               <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
                 <PlusIcon className="h-4 w-4 mr-1" />
-                Add Subject Type
+                Add Course Type
               </Button>
             }
             toolbar={{ search: true, searchPlaceholder: 'Search subject types…', pdfDocumentTitle: 'Subject types' }}

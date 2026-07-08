@@ -25,6 +25,9 @@ const schema = z.object({
   courseId: z.number().min(1, 'Course is required'),
   groupName: z.string().min(1, 'Subject group name is required'),
   groupCode: z.string().min(1, 'Subject group code is required'),
+  shortName: z.string().min(1, 'Short name is required'),
+  enrollPrefix: z.string().min(1, 'Enroll prefix is required'),
+  startingNo: z.string().min(1, 'Starting no is required'),
   isActive: z.boolean(),
   reason: z.string().optional(),
 })
@@ -39,14 +42,34 @@ export default function CourseGroupModal({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const { register, handleSubmit, reset, control, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { universityId: undefined, courseId: undefined, groupName: '', groupCode: '', isActive: true, reason: '' },
+    defaultValues: {
+      universityId: undefined,
+      courseId: undefined,
+      groupName: '',
+      groupCode: '',
+      shortName: '',
+      enrollPrefix: '',
+      startingNo: '',
+      isActive: true,
+      reason: '',
+    },
   })
   const selectedUniversityId = watch('universityId')
 
   useEffect(() => { if (open) listActiveUniversities().then(setUniversities).catch(console.error) }, [open])
   useEffect(() => { if (selectedUniversityId) listActiveCoursesByUniversity(selectedUniversityId).then(setCourses).catch(console.error) }, [selectedUniversityId])
   useEffect(() => {
-    if (row) reset({ universityId: row.universityId, courseId: row.courseId, groupName: row.groupName, groupCode: row.groupCode, isActive: row.isActive, reason: row.reason ?? '' })
+    if (row) reset({
+      universityId: row.universityId,
+      courseId: row.courseId,
+      groupName: row.groupName,
+      groupCode: row.groupCode,
+      shortName: row.shortName ?? row.groupCode ?? '',
+      enrollPrefix: row.enrollPrefix ?? '',
+      startingNo: row.startingNo ?? '',
+      isActive: row.isActive,
+      reason: row.reason ?? '',
+    })
     else reset()
     setSubmitError(null)
   }, [row, open, reset])
@@ -54,7 +77,7 @@ export default function CourseGroupModal({
   async function onSubmit(data: FormValues) {
     setSubmitError(null)
     try {
-      if (isEditing) await updateCourseGroup(row!.courseGroupId, data)
+      if (isEditing) await updateCourseGroup(row!.courseGroupId, data, row!)
       else await createCourseGroup(data)
       onSaved()
       onClose()
@@ -83,6 +106,9 @@ export default function CourseGroupModal({
           <div className="grid grid-cols-2 gap-2">
             <div><Label htmlFor="cgn">Subject Group Name *</Label><Input id="cgn" {...register('groupName')} />{errors.groupName && <p className="text-xs text-red-500">{errors.groupName.message}</p>}</div>
             <div><Label htmlFor="cgc">Subject Group Code *</Label><Input id="cgc" {...register('groupCode')} />{errors.groupCode && <p className="text-xs text-red-500">{errors.groupCode.message}</p>}</div>
+            <div><Label htmlFor="cgsn">Short Name *</Label><Input id="cgsn" {...register('shortName')} />{errors.shortName && <p className="text-xs text-red-500">{errors.shortName.message}</p>}</div>
+            <div><Label htmlFor="cgep">Enroll Prefix *</Label><Input id="cgep" {...register('enrollPrefix')} />{errors.enrollPrefix && <p className="text-xs text-red-500">{errors.enrollPrefix.message}</p>}</div>
+            <div><Label htmlFor="cgsno">Starting No *</Label><Input id="cgsno" {...register('startingNo')} />{errors.startingNo && <p className="text-xs text-red-500">{errors.startingNo.message}</p>}</div>
           </div>
           {isEditing && (
             <Controller name="isActive" control={control} render={({ field }) => (

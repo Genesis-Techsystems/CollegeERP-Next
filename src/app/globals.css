@@ -157,11 +157,7 @@
 /* ── Global filter bar — Review Queue reference layout ───────────────────── */
 
 .global-filter-bar {
-  border-radius: 1rem;
-  overflow: hidden;
-  background: hsl(var(--card));
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  /* Shell is rendered by the component using `.app-card` utilities. */
 }
 
 .global-filter-bar__inner {
@@ -319,6 +315,34 @@
       )
   ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
   > div:first-child:has(.app-card-title) {
+  display: none !important;
+}
+
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  > button:first-child {
+  display: none !important;
+}
+
+.app-card[data-filters-collapsed="true"]
+  :not(:has(.app-data-table))
+  :not(:has(.app-data-table-card))
+  :has([role="combobox"]),
+.app-card[data-filters-collapsed="true"]
+  :not(:has(.app-data-table))
+  :not(:has(.app-data-table-card))
+  :has(button[data-slot="popover-trigger"]) {
+  /* Keep shell; just hide the body. */
+}
+.app-card[data-filters-collapsed="true"]
+  :not(:has(.app-data-table))
+  :not(:has(.app-data-table-card))
+  :has([role="combobox"])
+  > :not(:first-child),
+.app-card[data-filters-collapsed="true"]
+  :not(:has(.app-data-table))
+  :not(:has(.app-data-table-card))
+  :has(button[data-slot="popover-trigger"])
+  > :not(:first-child) {
   display: none !important;
 }
 
@@ -538,6 +562,27 @@
   display: flex;
   align-items: center;
   color: hsl(var(--foreground));
+}
+
+/* Single-line cell text with ellipsis (long text columns only). Headers stay single-line via fit. */
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis {
+  overflow: hidden !important;
+  min-width: 0;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis,
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis .ag-cell-value,
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis .ag-cell-wrapper {
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  overflow: hidden !important;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis .ag-cell-value {
+  display: block;
+  width: 100%;
 }
 
 .app-data-table .ag-theme-quartz .ag-row {
@@ -1558,7 +1603,26 @@ h4,
    `font-size: 0` hides the "Filter" text node; the svg keeps its own size.
    `pointer-events: none` makes the header row the single accordion trigger —
    clicks on the icon fall through to the header and are forwarded back. */
-.app-card > div:has(> .app-card-title) button:has(svg[class*="lucide-funnel"]),
+
+.app-card:not(.global-filter-bar)
+  > div:has(> .app-card-title)
+  button:has(svg[class*="lucide-funnel"]),
+.app-card:not(.global-filter-bar)
+  > div:has(> .app-card-title)
+  button:has(svg[class*="lucide-filter"]),
+.app-card:not(.global-filter-bar)
+  > div:has(> .app-card-title)
+  button:has(svg[class*="lucide-chevron-down"]),
+.app-card:not(.global-filter-bar)
+  > button:has(> .app-card-title)
+  span:has(svg[class*="lucide-funnel"]),
+.app-card:not(.global-filter-bar)
+  > button:has(> .app-card-title)
+  span:has(svg[class*="lucide-filter"]),
+.app-card:not(.global-filter-bar)
+  > button:has(> .app-card-title)
+  span:has(svg[class*="lucide-chevron-down"]) {
+  /* .app-card > div:has(> .app-card-title) button:has(svg[class*="lucide-funnel"]),
 .app-card > div:has(> .app-card-title) button:has(svg[class*="lucide-filter"]),
 .app-card
   > div:has(> .app-card-title)
@@ -1567,7 +1631,14 @@ h4,
 .app-card > button:has(> .app-card-title) span:has(svg[class*="lucide-filter"]),
 .app-card
   > button:has(> .app-card-title)
-  span:has(svg[class*="lucide-chevron-down"]) {
+  span:has(svg[class*="lucide-chevron-down"]) { */
+
+  /* .app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-funnel']),
+.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-filter']),
+.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-chevron-down']),
+.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-funnel']),
+.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-filter']),
+.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-chevron-down']) { */
   border: 0;
   background: transparent;
   box-shadow: none;

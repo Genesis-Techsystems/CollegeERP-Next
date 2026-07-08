@@ -6,5 +6,5 @@ export interface GeneralSetting {
   settingCode: string
   settingValue: string
   isActive: boolean
-  reason?: string
+  reason?: string | null
 }

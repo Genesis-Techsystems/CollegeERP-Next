@@ -4,10 +4,27 @@ import type { Qualification } from '@/types/qualification'
 import { buildQuery, domainCreate, domainList, domainUpdate } from '../crud'
 
 export async function listQualifications(): Promise<Qualification[]> {
-  return domainList<Qualification>(
-    ENTITIES.QUALIFICATION.name,
-    buildQuery({}, { field: 'createdDt', direction: 'DESC' }),
-  )
+  const [quals, orgs] = await Promise.all([
+    domainList<Qualification>(
+      ENTITIES.QUALIFICATION.name,
+      buildQuery({}, { field: 'createdDt', direction: 'DESC' }),
+    ),
+    domainList<Organization>(
+      ENTITIES.ORGANIZATION.name,
+      buildQuery({}, { field: 'createdDt', direction: 'DESC' }),
+    ),
+  ])
+
+  const orgById = new Map<number, Organization>(orgs.map((o) => [o.organizationId, o]))
+  return quals.map((q) => {
+    const org = orgById.get(q.organizationId)
+    if (!org) return q
+    return {
+      ...q,
+      orgCode: q.orgCode ?? org.orgCode,
+      orgName: q.orgName ?? org.orgName,
+    }
+  })
 }
 
 export async function createQualification(

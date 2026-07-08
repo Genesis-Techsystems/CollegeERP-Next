@@ -1,461 +1,454 @@
-"use client";
+'use client'
 
-import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Filter, Trash2, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { SearchInput } from "@/common/components/search";
-import { Select } from "@/common/components/select";
-import { StudentSearchSelect } from "@/common/components/student-search";
+import { useMemo, useState } from 'react'
+import { ChevronDown, Filter, Trash2, User } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { SearchInput } from '@/common/components/search'
+import { Select } from '@/common/components/select'
+import { StudentSearchSelect } from '@/common/components/student-search'
 import {
   deactivateRegisteredExamSubject,
-  getUnivExamFiltersRegSup,
-  getUnivExamRestNoTt,
-  getUnivExamSubjectUc,
-  listStudentSubjects,
+  getStudentSubjectsForSupplyExam,
+  listExamMastersByCourse,
   listRegisteredExamSubjects,
+  listStudentSubjects,
   listStudents,
   saveRegisteredExamSubjects,
-} from "@/services/pre-examination";
-import { PageContainer, PageHeader } from "@/components/layout";
-import { listCourseYears } from "@/services/examination";
+} from '@/services/pre-examination'
+import { PageContainer, PageHeader } from '@/components/layout'
+import { listCourseYears } from '@/services/examination'
+import { toastError, toastSuccess } from '@/lib/toast'
 
-type AnyRow = Record<string, any>;
+type AnyRow = Record<string, any>
 
-const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
-  const seen = new Set<string | number>();
-  return rows.filter((r) => {
-    const key = keyFn(r);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-};
+function num(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
 
+function text(...values: unknown[]): string {
+  for (const v of values) {
+    if (v == null) continue
+    const s = String(v).trim()
+    if (s) return s
+  }
+  return ''
+}
+
+function subjectIdOf(row: AnyRow): number {
+  return num(row.subjectId ?? row.fk_subject_id ?? row.subject_id)
+}
+
+function subjectLabel(row: AnyRow): string {
+  return text(row.shortName, row.subjectName, row.subject_name, row.Subject_name) || '-'
+}
+
+function fmtDate(v: unknown): string {
+  if (!v) return ''
+  try {
+    const d = typeof v === 'string' || typeof v === 'number' ? new Date(v) : null
+    if (!d || Number.isNaN(d.getTime())) return String(v)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch {
+    return String(v)
+  }
+}
+
+function examOptionLabel(e: AnyRow): string {
+  const name = text(e.examName, e.exam_name) || `Exam ${num(e.examId ?? e.fk_exam_id)}`
+  const from = fmtDate(e.fromDate ?? e.from_date)
+  const to = fmtDate(e.toDate ?? e.to_date)
+  const range = from && to ? ` (${from} - ${to})` : ''
+  const tags = [
+    e.isRegularExam || e.is_regular_exam ? '(Regular)' : '',
+    e.isSupplyExam || e.is_supply_exam ? '(Supple)' : '',
+  ]
+    .filter(Boolean)
+    .join('')
+  return `${name}${range}${tags ? ` ${tags}` : ''}`
+}
+
+/**
+ * Angular exam-registration-without-fee:
+ * - Exams: ExamMaster by Course.courseId (exclude internal)
+ * - Course years: CourseYear by course, ASC, keep semNo <= student's current sem
+ * - Subjects (same year as student): StudentSubject domain list
+ * - Subjects (other year): studentsubjectsforsupplyexam
+ * - UI section shown only after exam selected (flag)
+ */
 export default function ExamRegisterSubjectsPage() {
-  const [loading, setLoading] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
-  const [filterRows, setFilterRows] = useState<AnyRow[]>([]);
-  const [restRows, setRestRows] = useState<AnyRow[]>([]);
-  const [students, setStudents] = useState<AnyRow[]>([]);
-  const [studentSearchLoading, setStudentSearchLoading] = useState(false);
-  const [selectedStudentRow, setSelectedStudentRow] = useState<AnyRow | null>(
-    null,
-  );
-  const [courseYears, setCourseYears] = useState<AnyRow[]>([]);
-  const [subjects, setSubjects] = useState<AnyRow[]>([]);
-  const [registeredSubjects, setRegisteredSubjects] = useState<AnyRow[]>([]);
-  const [checkedSubjects, setCheckedSubjects] = useState<Set<number>>(
-    new Set(),
-  );
+  const [loading, setLoading] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(true)
+  const [students, setStudents] = useState<AnyRow[]>([])
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
+  const [selectedStudentRow, setSelectedStudentRow] = useState<AnyRow | null>(null)
+  const [examsList, setExamsList] = useState<AnyRow[]>([])
+  const [courseYears, setCourseYears] = useState<AnyRow[]>([])
+  const [subjects, setSubjects] = useState<AnyRow[]>([])
+  const [registeredSubjects, setRegisteredSubjects] = useState<AnyRow[]>([])
+  const [checkedSubjects, setCheckedSubjects] = useState<Set<number>>(new Set())
+  const [checkAll, setCheckAll] = useState(true)
 
-  const [studentId, setStudentId] = useState<number | null>(null);
-  const [examId, setExamId] = useState<number | null>(null);
-  const [courseYearId, setCourseYearId] = useState<number | null>(null);
-  const [subjectSearch, setSubjectSearch] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [studentId, setStudentId] = useState<number | null>(null)
+  const [examId, setExamId] = useState<number | null>(null)
+  const [examSelected, setExamSelected] = useState(false)
+  const [courseYearId, setCourseYearId] = useState<number | null>(null)
+  const [subjectSearch, setSubjectSearch] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  const employeeId = Number(
-    globalThis?.localStorage?.getItem("employeeId") ?? 0,
-  );
   const selectedStudent =
     selectedStudentRow ??
-    students.find((s) => Number(s.studentId ?? s.id) === Number(studentId)) ??
-    null;
+    students.find((s) => num(s.studentId ?? s.id) === num(studentId)) ??
+    null
 
-  const exams = useMemo(() => {
-    if (!selectedStudent) return [];
-    const sidCourse = Number(
-      selectedStudent.courseId ?? selectedStudent.fk_course_id ?? 0,
-    );
-    const sidAy = Number(
-      selectedStudent.academicYearId ??
-        selectedStudent.fk_academic_year_id ??
-        0,
-    );
-    const byCourse = filterRows.filter(
-      (r) => Number(r.fk_course_id) === sidCourse,
-    );
-    const byAy =
-      sidAy > 0
-        ? byCourse.filter((r) => Number(r.fk_academic_year_id) === sidAy)
-        : byCourse;
-    return dedupeBy(byAy, (r) => Number(r.fk_exam_id)).filter(
-      (r) => Number(r.fk_exam_id) > 0,
-    );
-  }, [filterRows, selectedStudent]);
+  const studentCurrentCourseYearId = num(
+    selectedStudent?.courseYearId ?? selectedStudent?.fk_course_year_id,
+  )
 
   const filteredSubjects = useMemo(() => {
-    const q = subjectSearch.trim().toLowerCase();
-    if (!q) return subjects;
+    const q = subjectSearch.trim().toLowerCase()
+    if (!q) return subjects
     return subjects.filter((s) =>
-      `${s.subject_name ?? s.subjectName ?? ""} ${s.subject_code ?? s.subjectCode ?? ""}`
+      `${subjectLabel(s)} ${text(s.subjectCode, s.subject_code, s.Subject_code)}`
         .toLowerCase()
         .includes(q),
-    );
-  }, [subjects, subjectSearch]);
+    )
+  }, [subjects, subjectSearch])
 
-  useEffect(() => {
-    async function loadFilters() {
-      setLoading(true);
-      try {
-        const rows = await getUnivExamFiltersRegSup(employeeId).catch(() => []);
-        setFilterRows(Array.isArray(rows) ? rows : []);
-      } finally {
-        setLoading(false);
-      }
-    }
-    void loadFilters();
-  }, [employeeId]);
+  const selectedSubjectRows = useMemo(
+    () => subjects.filter((s) => checkedSubjects.has(subjectIdOf(s))),
+    [subjects, checkedSubjects],
+  )
+
+  const allFilteredSelected =
+    filteredSubjects.length > 0 &&
+    filteredSubjects.every((s) => {
+      const sid = subjectIdOf(s)
+      return sid > 0 && checkedSubjects.has(sid)
+    })
 
   async function onSearchStudents(q: string) {
-    const term = q.trim();
-    if (term.length === 0) {
-      setStudents([]);
-      return;
+    const term = q.trim()
+    if (!term) {
+      setStudents([])
+      return
     }
-    if (term.length < 5) return;
-    setStudentSearchLoading(true);
+    if (term.length < 5) return
+    setStudentSearchLoading(true)
     try {
-      const rows = await listStudents(term).catch(() => []);
-      setStudents(Array.isArray(rows) ? rows : []);
+      const rows = await listStudents(term).catch(() => [])
+      setStudents(Array.isArray(rows) ? rows : [])
     } finally {
-      setStudentSearchLoading(false);
+      setStudentSearchLoading(false)
     }
   }
 
-  async function onStudentSelect(
-    nextStudentId: number | null,
-    row: AnyRow | null,
-  ) {
+  /** Angular: trim course years to semNo <= student's current semester */
+  function trimCourseYearsBySem(years: AnyRow[], student: AnyRow): AnyRow[] {
+    const studentCode = text(student.courseYearCode, student.course_year_code)
+    const current =
+      years.find(
+        (y) =>
+          text(y.courseYearCode, y.course_year_code) === studentCode ||
+          num(y.courseYearId ?? y.fk_course_year_id) ===
+            num(student.courseYearId ?? student.fk_course_year_id),
+      ) ?? null
+    const semNo = num(current?.semNo ?? current?.sem_no)
+    if (!semNo) return years
+    return years.filter((y) => {
+      const sn = num(y.semNo ?? y.sem_no)
+      return !sn || sn <= semNo
+    })
+  }
+
+  function normalizeSubjects(rows: AnyRow[], cyId: number, examType: 'Regular' | 'Supple'): AnyRow[] {
+    return rows.map((r) => ({
+      ...r,
+      subjectId: subjectIdOf(r),
+      courseYearId: cyId || num(r.courseYearId ?? r.fk_course_year_id),
+      examType,
+      shortName: text(r.shortName) || text(r.subjectCode, r.subject_code) || null,
+      subjectName: text(r.subjectName, r.subject_name),
+      subjectCode: text(r.subjectCode, r.subject_code),
+      Subject_name: text(r.subjectName, r.subject_name),
+      Subject_code: text(r.subjectCode, r.subject_code),
+      checked: true,
+      isSelected: true,
+    }))
+  }
+
+  function applyChecks(list: AnyRow[], registered: AnyRow[]) {
+    const already = new Set(
+      registered
+        .map((r) => subjectIdOf(r) || num(r.fk_subject_id))
+        .filter((x) => x > 0),
+    )
+    // Also match by subjectCode + courseYearId like Angular addExamSubjects
+    const alreadyCodes = new Set(
+      registered.map(
+        (r) =>
+          `${text(r.subjectCode, r.subject_code)}::${num(r.courseYearId ?? r.fk_course_year_id)}`,
+      ),
+    )
+    const next = new Set<number>()
+    for (const s of list) {
+      const sid = subjectIdOf(s)
+      if (!sid) continue
+      const codeKey = `${text(s.subjectCode, s.subject_code)}::${num(s.courseYearId)}`
+      if (already.has(sid) || alreadyCodes.has(codeKey)) continue
+      next.add(sid)
+    }
+    setCheckedSubjects(next)
+    setCheckAll(next.size > 0 && next.size === list.filter((s) => subjectIdOf(s) > 0).length)
+  }
+
+  /**
+   * Angular getStudentSubjects(courseYearId):
+   * same year → StudentSubject; other year → studentsubjectsforsupplyexam
+   */
+  async function loadStudentSubjects(student: AnyRow, cyId: number, eid: number | null, registered: AnyRow[]) {
+    if (!cyId || !student) {
+      setSubjects([])
+      setCheckedSubjects(new Set())
+      return
+    }
+    setLoading(true)
+    try {
+      const collegeId = num(student.collegeId ?? student.fk_college_id)
+      const academicYearId = num(student.academicYearId ?? student.fk_academic_year_id)
+      const studentDetailId = num(student.studentId ?? student.id ?? student.fk_student_id)
+      const currentCy = num(student.courseYearId ?? student.fk_course_year_id)
+      let rows: AnyRow[] = []
+
+      if (currentCy === cyId) {
+        if (collegeId && academicYearId && studentDetailId) {
+          rows = await listStudentSubjects({
+            collegeId,
+            academicYearId,
+            studentId: studentDetailId,
+            courseYearId: cyId,
+          }).catch(() => [])
+        }
+        rows = normalizeSubjects(Array.isArray(rows) ? rows : [], cyId, 'Regular')
+      } else {
+        if (collegeId && studentDetailId && eid) {
+          rows = await getStudentSubjectsForSupplyExam({
+            collegeId,
+            courseYearId: cyId,
+            studentId: studentDetailId,
+            examId: eid,
+          }).catch(() => [])
+        }
+        rows = normalizeSubjects(Array.isArray(rows) ? rows : [], cyId, 'Supple').map((r) => ({
+          ...r,
+          credits: r.creditPoints ?? r.credits ?? r.subCredits,
+        }))
+      }
+
+      setSubjects(rows)
+      applyChecks(rows, registered)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function onStudentSelect(nextStudentId: number | null, row: AnyRow | null) {
     if (!nextStudentId || !row) {
-      setStudentId(null);
-      setSelectedStudentRow(null);
-      setExamId(null);
-      setCourseYearId(null);
-      setRestRows([]);
-      setSubjects([]);
-      setRegisteredSubjects([]);
-      setCheckedSubjects(new Set());
-      return;
+      setStudentId(null)
+      setSelectedStudentRow(null)
+      setExamId(null)
+      setExamSelected(false)
+      setCourseYearId(null)
+      setExamsList([])
+      setCourseYears([])
+      setSubjects([])
+      setRegisteredSubjects([])
+      setCheckedSubjects(new Set())
+      return
     }
 
-    setStudentId(nextStudentId);
-    setSelectedStudentRow(row);
+    setStudentId(nextStudentId)
+    setSelectedStudentRow(row)
     setStudents((prev) =>
-      prev.some((x) => Number(x.studentId ?? x.id) === nextStudentId)
-        ? prev
-        : [...prev, row],
-    );
-    setExamId(null);
-    setCourseYearId(null);
-    setRestRows([]);
-    setSubjects([]);
-    setRegisteredSubjects([]);
-    setCheckedSubjects(new Set());
+      prev.some((x) => num(x.studentId ?? x.id) === nextStudentId) ? prev : [...prev, row],
+    )
+    setExamId(null)
+    setExamSelected(false)
+    setSubjects([])
+    setRegisteredSubjects([])
+    setCheckedSubjects(new Set())
+    setSubjectSearch('')
 
-    const cid = Number(row.courseId ?? row.fk_course_id ?? 0);
-    if (!cid) return;
-    const cys = await listCourseYears(cid).catch(() => []);
-    const years = Array.isArray(cys) ? cys : [];
-    setCourseYears(years);
-    const defaultCy =
-      Number(
-        row.courseYearId ??
-          row.fk_course_year_id ??
-          years[0]?.courseYearId ??
-          0,
-      ) || null;
-    setCourseYearId(defaultCy);
+    const cid = num(row.courseId ?? row.fk_course_id)
+    if (!cid) return
+
+    setLoading(true)
+    try {
+      // Angular getExamsList — ExamMaster by course, exclude internal
+      const exams = await listExamMastersByCourse(cid).catch(() => [])
+      setExamsList((Array.isArray(exams) ? exams : []).filter((e) => !(e.isInternalExam ?? e.is_internal_exam)))
+
+      // Angular course years ASC, trim by student semNo
+      const yearsRaw = await listCourseYears(cid).catch(() => [])
+      const yearsSorted = [...(Array.isArray(yearsRaw) ? yearsRaw : [])].sort(
+        (a, b) => num(a.semNo ?? a.sem_no) - num(b.semNo ?? b.sem_no),
+      )
+      const years = trimCourseYearsBySem(yearsSorted, row)
+      setCourseYears(years)
+
+      const defaultCy =
+        num(row.courseYearId ?? row.fk_course_year_id) ||
+        num(years[0]?.courseYearId ?? years[0]?.fk_course_year_id) ||
+        null
+      setCourseYearId(defaultCy)
+
+      // Angular loads subjects as soon as course year is known (exam not required for regular list)
+      if (defaultCy) {
+        await loadStudentSubjects(row, defaultCy, null, [])
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function onExamSelect(nextExamId: number) {
-    setExamId(nextExamId);
-    setSubjects([]);
-    setRegisteredSubjects([]);
-    setCheckedSubjects(new Set());
-    if (!selectedStudent) return;
-    const rest = await getUnivExamRestNoTt({
-      courseId: Number(
-        selectedStudent.courseId ?? selectedStudent.fk_course_id ?? 0,
-      ),
-      examId: nextExamId,
-      academicYearId: Number(
-        selectedStudent.academicYearId ??
-          selectedStudent.fk_academic_year_id ??
-          0,
-      ),
-      employeeId,
-    }).catch(() => []);
-    setRestRows(Array.isArray(rest) ? rest : []);
-    const reg = await listRegisteredExamSubjects(
-      Number(selectedStudent.studentId ?? selectedStudent.id ?? 0),
-      nextExamId,
-    ).catch(() => []);
-    setRegisteredSubjects(Array.isArray(reg) ? reg : []);
-    if (courseYearId) {
-      setTimeout(() => {
-        void onGetSubjects();
-      }, 0);
+    if (!selectedStudent || !nextExamId) return
+    setExamId(nextExamId)
+    setExamSelected(true)
+    setLoading(true)
+    try {
+      const reg = await listRegisteredExamSubjects(
+        num(selectedStudent.studentId ?? selectedStudent.id),
+        nextExamId,
+      ).catch(() => [])
+      const registered = Array.isArray(reg) ? reg : []
+      setRegisteredSubjects(registered)
+
+      const cy =
+        courseYearId ||
+        num(selectedStudent.courseYearId ?? selectedStudent.fk_course_year_id) ||
+        null
+      if (cy) {
+        if (!courseYearId) setCourseYearId(cy)
+        await loadStudentSubjects(selectedStudent, cy, nextExamId, registered)
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
   async function onCourseYearSelect(nextCourseYearId: number) {
-    setCourseYearId(nextCourseYearId);
-    setSubjects([]);
-    setCheckedSubjects(new Set());
-    if (!selectedStudent || !examId || !nextCourseYearId) return;
-    setTimeout(() => {
-      void onGetSubjects();
-    }, 0);
+    setCourseYearId(nextCourseYearId)
+    if (!selectedStudent || !nextCourseYearId) {
+      setSubjects([])
+      setCheckedSubjects(new Set())
+      return
+    }
+    await loadStudentSubjects(
+      selectedStudent,
+      nextCourseYearId,
+      examId,
+      registeredSubjects,
+    )
   }
 
-  async function onGetSubjects() {
-    if (!selectedStudent || !examId || !courseYearId) return;
-    setLoading(true);
-    try {
-      const selectedExamRow =
-        exams.find(
-          (e) => Number(e.fk_exam_id ?? e.examId ?? 0) === Number(examId),
-        ) ?? null;
-      const studentCollegeId = Number(
-        selectedStudent.collegeId ??
-          selectedStudent.fk_college_id ??
-          restRows[0]?.fk_college_id ??
-          selectedExamRow?.fk_college_id ??
-          0,
-      );
-      const studentAcademicYearId = Number(
-        selectedStudent.academicYearId ??
-          selectedStudent.fk_academic_year_id ??
-          selectedExamRow?.fk_academic_year_id ??
-          restRows[0]?.fk_academic_year_id ??
-          0,
-      );
-      const studentDetailId = Number(
-        selectedStudent.studentId ??
-          selectedStudent.id ??
-          selectedStudent.fk_student_id ??
-          selectedStudent.student_detail_id ??
-          0,
-      );
+  function toggleSubject(sid: number, checked: boolean) {
+    if (!sid) return
+    setCheckedSubjects((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(sid)
+      else next.delete(sid)
+      return next
+    })
+  }
 
-      // Primary source: StudentSubject domain list (legacy page parity)
-      const studentSubjectRows =
-        studentCollegeId > 0 && studentAcademicYearId > 0 && studentDetailId > 0
-          ? await listStudentSubjects({
-              collegeId: studentCollegeId,
-              academicYearId: studentAcademicYearId,
-              studentId: studentDetailId,
-              courseYearId: Number(courseYearId),
-            }).catch(() => [])
-          : [];
-
-      if (Array.isArray(studentSubjectRows) && studentSubjectRows.length > 0) {
-        setSubjects(studentSubjectRows);
-        const already = new Set(
-          registeredSubjects
-            .map((r) =>
-              Number(r.fk_subject_id ?? r.subjectId ?? r.subject_id ?? 0),
-            )
-            .filter((x) => x > 0),
-        );
-        setCheckedSubjects(
-          new Set(
-            studentSubjectRows
-              .map((r) =>
-                Number(r.fk_subject_id ?? r.subjectId ?? r.subject_id ?? 0),
-              )
-              .filter((x) => x > 0 && !already.has(x)),
-          ),
-        );
-        return;
+  function toggleAllFiltered(checked: boolean) {
+    setCheckAll(checked)
+    setCheckedSubjects((prev) => {
+      const next = new Set(prev)
+      for (const s of filteredSubjects) {
+        const sid = subjectIdOf(s)
+        if (!sid) continue
+        if (checked) next.add(sid)
+        else next.delete(sid)
       }
-
-      // Fallback source kept for safety.
-      const studentCourseGroupId = Number(
-        selectedStudent.courseGroupId ??
-          selectedStudent.fk_course_group_id ??
-          0,
-      );
-      const studentRegulationId = Number(
-        selectedStudent.regulationId ?? selectedStudent.fk_regulation_id ?? 0,
-      );
-      const fallbackGroupId = Number(restRows[0]?.fk_course_group_id ?? 0);
-      const fallbackRegulationId = Number(restRows[0]?.fk_regulation_id ?? 0);
-
-      const rows = await getUnivExamSubjectUc({
-        collegeId: Number(
-          selectedStudent.collegeId ?? selectedStudent.fk_college_id ?? 0,
-        ),
-        courseId: Number(
-          selectedStudent.courseId ?? selectedStudent.fk_course_id ?? 0,
-        ),
-        courseGroupId: studentCourseGroupId || fallbackGroupId || 0,
-        courseYearId: Number(courseYearId),
-        examId: Number(examId),
-        academicYearId: Number(
-          selectedStudent.academicYearId ??
-            selectedStudent.fk_academic_year_id ??
-            0,
-        ),
-        regulationId: studentRegulationId || fallbackRegulationId || 0,
-        employeeId,
-      }).catch(() => []);
-
-      const list = Array.isArray(rows) ? rows : [];
-      setSubjects(list);
-      const already = new Set(
-        registeredSubjects
-          .map((r) =>
-            Number(r.fk_subject_id ?? r.subjectId ?? r.subject_id ?? 0),
-          )
-          .filter((x) => x > 0),
-      );
-      setCheckedSubjects(
-        new Set(
-          list
-            .map((r) => Number(r.fk_subject_id ?? r.subjectId))
-            .filter((x) => x > 0 && !already.has(x)),
-        ),
-      );
-    } finally {
-      setLoading(false);
-    }
+      return next
+    })
   }
 
   async function onSave() {
-    if (
-      !selectedStudent ||
-      !examId ||
-      checkedSubjects.size === 0 ||
-      !courseYearId
-    )
-      return;
-    const selected = subjects.filter((s) =>
-      checkedSubjects.has(Number(s.fk_subject_id ?? s.subjectId ?? 0)),
-    );
-    if (selected.length === 0) return;
+    if (!selectedStudent || !examId || checkedSubjects.size === 0 || !courseYearId) return
+    const selected = subjects.filter((s) => checkedSubjects.has(subjectIdOf(s)))
+    if (selected.length === 0) return
 
-    const examTypeCode = "Regular";
-    const grouped = new Map<number, AnyRow[]>();
-    for (const s of selected) {
-      const cy = Number(courseYearId);
-      const arr = grouped.get(cy) ?? [];
-      arr.push({
-        ...s,
-        courseYearId: cy,
-        subjectId: Number(s.fk_subject_id ?? s.subjectId ?? 0),
-        subjectCode: s.subject_code ?? s.subjectCode ?? "",
-        subjectName: s.subject_name ?? s.subjectName ?? "",
-      });
-      grouped.set(cy, arr);
-    }
+    const isSameYear = courseYearId === studentCurrentCourseYearId
+    const examTypeCode = isSameYear ? 'Regular' : 'Supple'
 
-    const payload: AnyRow[] = Array.from(grouped.entries()).map(
-      ([cy, subs]) => ({
-        collegeId: Number(
-          selectedStudent.collegeId ?? selectedStudent.fk_college_id ?? 0,
-        ),
-        courseGroupId: Number(
-          selectedStudent.courseGroupId ??
-            selectedStudent.fk_course_group_id ??
-            restRows[0]?.fk_course_group_id ??
-            0,
-        ),
-        courseYearId: cy,
-        regulationId: Number(
-          selectedStudent.regulationId ??
-            selectedStudent.fk_regulation_id ??
-            restRows[0]?.fk_regulation_id ??
-            0,
-        ),
-        studentId: Number(selectedStudent.studentId ?? selectedStudent.id ?? 0),
-        examId: Number(examId),
+    const payload: AnyRow[] = [
+      {
+        collegeId: num(selectedStudent.collegeId ?? selectedStudent.fk_college_id),
+        courseGroupId: num(selectedStudent.courseGroupId ?? selectedStudent.fk_course_group_id),
+        courseYearId: num(courseYearId),
+        regulationId: num(selectedStudent.regulationId ?? selectedStudent.fk_regulation_id),
+        studentId: num(selectedStudent.studentId ?? selectedStudent.id),
+        examId: num(examId),
         examtypeCatCode: examTypeCode,
         isActive: true,
         isFeePaid: false,
-        examStudentDetailDTOs: subs,
-      }),
-    );
+        examStudentDetailDTOs: selected.map((s) => ({
+          ...s,
+          courseYearId: num(courseYearId),
+          subjectId: subjectIdOf(s),
+          subjectCode: text(s.subjectCode, s.subject_code),
+          subjectName: text(s.subjectName, s.subject_name, s.shortName),
+        })),
+      },
+    ]
 
-    setSaving(true);
+    setSaving(true)
     try {
-      await saveRegisteredExamSubjects(payload);
-      alert("Subjects saved successfully");
+      await saveRegisteredExamSubjects(payload)
+      toastSuccess('Subjects saved successfully')
       const reg = await listRegisteredExamSubjects(
-        Number(selectedStudent.studentId ?? selectedStudent.id ?? 0),
-        Number(examId),
-      ).catch(() => []);
-      setRegisteredSubjects(Array.isArray(reg) ? reg : []);
-      setCheckedSubjects(new Set());
-    } catch (e: any) {
-      alert(e?.message ?? "Failed to save subjects");
+        num(selectedStudent.studentId ?? selectedStudent.id),
+        num(examId),
+      ).catch(() => [])
+      const registered = Array.isArray(reg) ? reg : []
+      setRegisteredSubjects(registered)
+      applyChecks(subjects, registered)
+    } catch (e: unknown) {
+      toastError(e, 'Failed to save subjects')
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
   }
 
   async function onDeleteRegistered(row: AnyRow) {
-    const id = Number(
-      row.examStdDetId ?? row.examStdDetID ?? row.exam_std_det_id ?? 0,
-    );
-    if (!id) return;
-    const reason = window.prompt("Enter reason for delete", "") ?? "";
-    if (reason === null) return;
+    const detailId = num(
+      row.examStudentDetailId ??
+        row.examStdDetailId ??
+        row.exam_student_detail_id ??
+        row.id,
+    )
+    if (!detailId || !selectedStudent || !examId) return
     try {
-      await deactivateRegisteredExamSubject(id, reason);
-      if (selectedStudent && examId) {
-        const reg = await listRegisteredExamSubjects(
-          Number(selectedStudent.studentId ?? selectedStudent.id ?? 0),
-          Number(examId),
-        ).catch(() => []);
-        setRegisteredSubjects(Array.isArray(reg) ? reg : []);
-      }
-    } catch (e: any) {
-      alert(e?.message ?? "Failed to delete subject");
+      await deactivateRegisteredExamSubject(detailId)
+      toastSuccess('Subject removed')
+      const reg = await listRegisteredExamSubjects(
+        num(selectedStudent.studentId ?? selectedStudent.id),
+        num(examId),
+      ).catch(() => [])
+      setRegisteredSubjects(Array.isArray(reg) ? reg : [])
+    } catch (e: unknown) {
+      toastError(e, 'Failed to delete subject')
     }
-  }
-
-  const selectedSubjectRows = useMemo(
-    () =>
-      subjects.filter((s) =>
-        checkedSubjects.has(Number(s.fk_subject_id ?? s.subjectId ?? 0)),
-      ),
-    [subjects, checkedSubjects],
-  );
-
-  const allFilteredSelected =
-    filteredSubjects.length > 0 &&
-    filteredSubjects.every((s) =>
-      checkedSubjects.has(Number(s.fk_subject_id ?? s.subjectId ?? 0)),
-    );
-
-  function toggleSubject(id: number, checked: boolean) {
-    setCheckedSubjects((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }
-
-  function toggleAllFiltered(checked: boolean) {
-    setCheckedSubjects((prev) => {
-      const next = new Set(prev);
-      for (const s of filteredSubjects) {
-        const id = Number(s.fk_subject_id ?? s.subjectId ?? 0);
-        if (id <= 0) continue;
-        if (checked) next.add(id);
-        else next.delete(id);
-      }
-      return next;
-    });
   }
 
   return (
     <PageContainer className="space-y-4">
+      <PageHeader title="Exam Register Subjects" subtitle="Register and update exam subjects" />
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
           <h2 className="app-card-title">Exam Register Subjects Update</h2>
@@ -470,11 +463,11 @@ export default function ExamRegisterSubjectsPage() {
             <Filter className="mr-1.5 h-3.5 w-3.5" />
             Filter
             <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`}
             />
           </Button>
         </div>
-        {
+        {filterOpen && (
           <div className="p-3 space-y-2">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <div className="md:col-span-5 space-y-1">
@@ -489,202 +482,192 @@ export default function ExamRegisterSubjectsPage() {
                 />
               </div>
               <div className="md:col-span-7 space-y-1">
-                <Label>Exam</Label>
+                <Label>Exam *</Label>
                 <Select
                   value={examId ? String(examId) : null}
                   onChange={(v) => {
-                    if (v) void onExamSelect(Number(v));
+                    if (v) void onExamSelect(Number(v))
                   }}
-                  options={exams.map((e, i) => ({
-                    value: String(e.fk_exam_id ?? e.examId),
-                    label:
-                      e.exam_name ??
-                      e.examName ??
-                      `Exam ${e.fk_exam_id ?? e.examId}`,
+                  options={examsList.map((e) => ({
+                    value: String(num(e.examId ?? e.fk_exam_id)),
+                    label: examOptionLabel(e),
                   }))}
                   placeholder="Select Exam"
+                  searchable
+                  disabled={!selectedStudent}
                 />
               </div>
             </div>
           </div>
-        }
+        )}
       </div>
 
-      {!!selectedStudent && !!examId && (
+      {!!selectedStudent && examSelected && (
         <div className="app-card p-3 space-y-2">
-          <div className="rounded border border-blue-200 bg-blue-50/40 p-3">
+          <div className="rounded border-4 border-[#c3d9ff] p-3">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
               <div className="md:col-span-2">
                 {selectedStudent.studentPhotoPath ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={selectedStudent.studentPhotoPath}
                     onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
+                      ;(e.target as HTMLImageElement).style.display = 'none'
                     }}
                     alt="student"
                     className="h-24 w-24 rounded object-cover border bg-card"
                   />
                 ) : (
-                  <div className="h-24 w-24 rounded border bg-card flex items-center justify-center">
+                  <div className="flex h-24 w-24 items-center justify-center rounded border bg-card">
                     <User className="h-10 w-10 text-muted-foreground" />
                   </div>
                 )}
               </div>
               <div className="md:col-span-7 text-[11px] leading-6">
-                <div className="font-semibold text-[12px]">
-                  {selectedStudent.firstName ??
-                    selectedStudent.studentName ??
-                    "-"}{" "}
-                  <span className="text-blue-700">
-                    ({selectedStudent.isLateral ? "LATERAL" : "REGULAR"})
-                  </span>
+                <div className="text-[12px] font-semibold text-blue-700">
+                  {text(selectedStudent.firstName, selectedStudent.studentName) || '-'}{' '}
+                  <span>({selectedStudent.isLateral ? 'LATERAL' : 'REGULAR'})</span>
                 </div>
                 <div className="text-muted-foreground">
-                  {selectedStudent.hallticketNumber ??
-                    selectedStudent.rollNumber ??
-                    "-"}
+                  {text(selectedStudent.hallticketNumber, selectedStudent.rollNumber) || '-'}
                 </div>
                 <div className="text-muted-foreground">
-                  {selectedStudent.collegeCode ?? "-"} /{" "}
-                  {selectedStudent.academicYear ??
-                    selectedStudent.academic_year ??
-                    "-"}{" "}
-                  / {selectedStudent.courseCode ?? "-"} /{" "}
-                  {selectedStudent.groupCode ?? "-"} /{" "}
-                  {selectedStudent.courseYearName ?? "-"} / Section{" "}
-                  {selectedStudent.section ?? "-"}
+                  {text(selectedStudent.collegeCode) || '-'} /{' '}
+                  {text(selectedStudent.academicYear, selectedStudent.academic_year) || '-'} /{' '}
+                  {text(selectedStudent.courseCode) || '-'} /{' '}
+                  {text(selectedStudent.groupCode) || '-'} /{' '}
+                  {text(selectedStudent.courseYearName) || '-'} / Section{' '}
+                  {text(selectedStudent.section) || '-'}
                 </div>
                 <div className="text-muted-foreground">
-                  {selectedStudent.mobile ?? "-"}
+                  {text(selectedStudent.mobile, selectedStudent.mobileNumber) || '-'}
                 </div>
               </div>
               <div className="md:col-span-3 text-[11px] leading-8">
                 <div>
-                  Quota :{" "}
+                  Quota :{' '}
                   <span className="text-blue-700">
-                    {selectedStudent.quotaDisplayName ?? "-"}
+                    {text(selectedStudent.quotaDisplayName) || '-'}
                   </span>
                 </div>
                 <div>
-                  Student Status :{" "}
-                  <span className="text-green-700 font-medium">
-                    {selectedStudent.studentStatusDisplayName ?? "-"}
+                  Student Status :{' '}
+                  <span className="font-medium text-green-700">
+                    {text(selectedStudent.studentStatusDisplayName) || '-'}
                   </span>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="rounded border border-blue-200 p-3 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-              <div className="md:col-span-3 rounded border p-3">
+          <div className="space-y-2 rounded border border-blue-200 p-3">
+            <h3 className="text-[14px] font-semibold">Select Exam Subjects</h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+              <div className="rounded border bg-white p-3 md:col-span-3">
                 <Label>Course Year</Label>
                 <Select
                   value={courseYearId ? String(courseYearId) : null}
                   onChange={(v) => {
-                    if (v) void onCourseYearSelect(Number(v));
+                    if (v) void onCourseYearSelect(Number(v))
                   }}
-                  options={courseYears.map((y, i) => ({
-                    value: String(y.courseYearId ?? y.fk_course_year_id),
-                    label:
-                      y.courseYearName ??
-                      y.course_year_name ??
-                      y.courseYearCode ??
-                      y.course_year_code,
+                  options={courseYears.map((y) => ({
+                    value: String(num(y.courseYearId ?? y.fk_course_year_id)),
+                    label: text(y.courseYearName, y.course_year_name, y.courseYearCode) || 'Course Year',
                   }))}
                   placeholder="Course Year"
                 />
               </div>
 
-              <div className="md:col-span-5 rounded border overflow-hidden">
-                <div className="px-3 py-2 border-b bg-muted/40 flex items-center justify-between gap-3">
-                  <div className="w-full max-w-sm min-w-0">
+              <div className="overflow-hidden rounded border md:col-span-5">
+                <div className="flex items-center justify-between gap-3 border-b bg-muted/40 px-3 py-2">
+                  <div className="min-w-0 w-full max-w-sm">
                     <SearchInput
                       className="w-full"
-                      placeholder="Search subjects…"
+                      placeholder="Search..."
                       value={subjectSearch}
                       onChange={setSubjectSearch}
                     />
                   </div>
-                  <div className="text-[12px] whitespace-nowrap">
-                    Total Subjects:{" "}
+                  <div className="whitespace-nowrap text-[12px]">
+                    Total Subjects:{' '}
                     <span className="font-semibold text-muted-foreground">
-                      {filteredSubjects.length}
+                      {loading ? '…' : subjects.length}
                     </span>
                   </div>
                 </div>
                 <div className="max-h-[320px] overflow-auto">
                   <table className="w-full text-[12px]">
-                    <thead className="bg-blue-100 sticky top-0">
+                    <thead className="sticky top-0 bg-[#C3D9FF]">
                       <tr>
-                        <th className="px-2 py-2 text-left w-12">
+                        <th className="w-12 px-2 py-2 text-left">
                           <Checkbox
-                            checked={allFilteredSelected}
+                            checked={allFilteredSelected || (checkAll && filteredSubjects.length > 0)}
                             onCheckedChange={(v) => toggleAllFiltered(!!v)}
                           />
+                          <span className="ml-1">All</span>
                         </th>
                         <th className="px-2 py-2 text-left">Subjects</th>
-                      </tr>
-                      <tr className="border-t">
-                        <th className="px-2 py-1 text-left" colSpan={2}>
-                          All
-                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredSubjects.map((s, i) => {
-                        const sid = Number(s.fk_subject_id ?? s.subjectId ?? 0);
-                        const checked = checkedSubjects.has(sid);
+                        const sid = subjectIdOf(s)
                         return (
                           <tr key={`sub-${sid || i}`} className="border-t">
                             <td className="px-2 py-2">
                               <Checkbox
-                                checked={checked}
+                                checked={checkedSubjects.has(sid)}
                                 onCheckedChange={(v) => toggleSubject(sid, !!v)}
                               />
                             </td>
-                            <td className="px-2 py-2">
-                              {s.shortName ??
-                                s.subject_name ??
-                                s.subjectName ??
-                                "-"}
-                            </td>
+                            <td className="px-2 py-2">{subjectLabel(s)}</td>
                           </tr>
-                        );
+                        )
                       })}
+                      {!loading && filteredSubjects.length === 0 && (
+                        <tr className="border-t">
+                          <td colSpan={2} className="px-2 py-6 text-center text-muted-foreground">
+                            No subjects found.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              <div className="md:col-span-3 rounded border overflow-hidden">
-                <div className="px-2 py-2 bg-blue-100 text-[14px]">
-                  Selected Subjects : {checkedSubjects.size}
+              {selectedSubjectRows.length > 0 && (
+                <div className="overflow-hidden rounded border md:col-span-3">
+                  <div className="bg-[#C3D9FF] px-2 py-2 text-[14px]">
+                    Selected Subjects : {selectedSubjectRows.length}
+                  </div>
+                  <div className="max-h-[320px] divide-y overflow-auto">
+                    {selectedSubjectRows.map((s, i) => (
+                      <div key={`sel-${i}`} className="px-2 py-2 text-[12px]">
+                        {subjectLabel(s)}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="max-h-[320px] overflow-auto divide-y">
-                  {selectedSubjectRows.map((s, i) => (
-                    <div key={`sel-${i}`} className="px-2 py-2 text-[12px]">
-                      {s.shortName ?? s.subject_name ?? s.subjectName ?? "-"}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
 
-              <div className="md:col-span-1 flex items-end justify-end">
-                <Button
-                  type="button"
-                  className="h-8 text-[12px] px-5"
-                  disabled={checkedSubjects.size === 0 || saving}
-                  onClick={onSave}
-                >
-                  {saving ? "Saving..." : "Save"}
-                </Button>
-              </div>
+              {selectedSubjectRows.length > 0 && (
+                <div className="flex items-end justify-end md:col-span-1">
+                  <Button
+                    type="button"
+                    className="h-8 px-5 text-[12px]"
+                    disabled={saving}
+                    onClick={() => void onSave()}
+                  >
+                    {saving ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
           {registeredSubjects.length > 0 && (
-            <div className="rounded border overflow-auto">
+            <div className="overflow-auto rounded border">
               <table className="w-full text-[12px]">
                 <thead className="bg-muted/40">
                   <tr>
@@ -701,16 +684,12 @@ export default function ExamRegisterSubjectsPage() {
                     <tr key={`reg-${i}`} className="border-t">
                       <td className="px-2 py-1">{i + 1}</td>
                       <td className="px-2 py-1">
-                        {r.courseYearName ?? r.course_year_name ?? "-"}
+                        {text(r.courseYearName, r.course_year_name) || '-'}
                       </td>
+                      <td className="px-2 py-1">{text(r.subjectCode, r.subject_code) || '-'}</td>
+                      <td className="px-2 py-1">{text(r.subjectName, r.subject_name) || '-'}</td>
                       <td className="px-2 py-1">
-                        {r.subjectCode ?? r.subject_code ?? "-"}
-                      </td>
-                      <td className="px-2 py-1">
-                        {r.subjectName ?? r.subject_name ?? "-"}
-                      </td>
-                      <td className="px-2 py-1">
-                        {r.examtypeCatCode ?? r.exam_type_code ?? "-"}
+                        {text(r.examtypeCatCode, r.exam_type_code, r.examType) || '-'}
                       </td>
                       <td className="px-2 py-1">
                         <Button
@@ -734,5 +713,5 @@ export default function ExamRegisterSubjectsPage() {
         </div>
       )}
     </PageContainer>
-  );
+  )
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { FileBadge, PencilIcon, PlusIcon } from 'lucide-react'
+import { PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer } from '@/components/layout'
@@ -16,12 +16,12 @@ import DocumentRepositoryModal from './DocumentRepositoryModal'
 
 const COL_DEFS = {
   siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<DocumentRepository>,
-  orgCode: { field: 'orgCode', headerName: 'Organization', minWidth: 130, flex: 1 } as ColDef<DocumentRepository>,
-  universityCode: { field: 'universityCode', headerName: 'University', minWidth: 130, flex: 1 } as ColDef<DocumentRepository>,
-  collegeCode: { field: 'collegeCode', headerName: 'College', minWidth: 120, flex: 1 } as ColDef<DocumentRepository>,
-  courseCode: { field: 'courseCode', headerName: 'Course', minWidth: 120, flex: 1 } as ColDef<DocumentRepository>,
+  orgCode: { field: 'orgCode', headerName: 'Organization Code', minWidth: 130, flex: 1 } as ColDef<DocumentRepository>,
+  universityCode: { field: 'universityCode', headerName: 'University Code', minWidth: 130, flex: 1 } as ColDef<DocumentRepository>,
+  collegeCode: { field: 'collegeCode', headerName: 'College Code', minWidth: 120, flex: 1 } as ColDef<DocumentRepository>,
+  courseCode: { field: 'courseCode', headerName: 'Course Code', minWidth: 120, flex: 1 } as ColDef<DocumentRepository>,
   docTypeName: { field: 'docTypeName', headerName: 'Document Type', minWidth: 140, flex: 1 } as ColDef<DocumentRepository>,
-  docFormName: { field: 'docFormName', headerName: 'Document Form', minWidth: 140, flex: 1 } as ColDef<DocumentRepository>,
+  docFormName: { field: 'docFormName', headerName: 'Document Form Type', minWidth: 140, flex: 1 } as ColDef<DocumentRepository>,
   docName: { field: 'docName', headerName: 'Document Name', minWidth: 170, flex: 1.2 } as ColDef<DocumentRepository>,
   docCode: { field: 'docCode', headerName: 'Document Code', minWidth: 130, flex: 1 } as ColDef<DocumentRepository>,
   for: { headerName: 'For', minWidth: 160, flex: 1 } as ColDef<DocumentRepository>,
@@ -90,32 +90,29 @@ export default function DocumentRepositoryPage() {
           <h2 className="app-card-title">Document Repository Settings</h2>
         </div>
         <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!isLoading && data.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <FileBadge className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No document repository records found</p>
-              </div>
-            ) : (
-              <DataTable
-                rowData={data}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search documents...', pdfDocumentTitle: 'Document Repository Settings' }}
-                toolbarTrailing={(
-                  <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Document Repository
-                  </Button>
-                )}
-              />
+          <DataTable
+            rowData={data}
+            columnDefs={columnDefs}
+            loading={isLoading}
+            pagination
+            toolbar={{ search: true, searchPlaceholder: 'Search documents...', pdfDocumentTitle: 'Document Repository Settings' }}
+            toolbarTrailing={(
+              <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
+                <PlusIcon className="h-4 w-4 mr-1" />
+                Add Document Repository
+              </Button>
             )}
-          </div>
+          />
         </div>
       </div>
 
-      <DocumentRepositoryModal open={open} onClose={() => { setOpen(false); setRow(null) }} row={row} onSaved={invalidate} />
+      <DocumentRepositoryModal
+        open={open}
+        onClose={() => { setOpen(false); setRow(null) }}
+        row={row}
+        existingRows={data}
+        onSaved={invalidate}
+      />
     </PageContainer>
   )
 }

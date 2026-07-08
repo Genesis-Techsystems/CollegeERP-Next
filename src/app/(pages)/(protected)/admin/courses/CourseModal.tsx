@@ -49,7 +49,7 @@ export default function CourseModal({ open, onClose, row, onSaved }: Readonly<{ 
   async function onSubmit(v: FormValues) {
     setSubmitError(null)
     try {
-      if (isEditing) await updateCourse(row!.courseId, v)
+      if (isEditing) await updateCourse(row!.courseId, v, row!)
       else await createCourse(v)
       onSaved(); onClose()
     } catch (e: unknown) { setSubmitError(e instanceof Error ? e.message : 'Failed to save course') }

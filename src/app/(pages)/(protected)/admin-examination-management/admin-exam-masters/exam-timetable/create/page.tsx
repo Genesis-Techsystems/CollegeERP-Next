@@ -26,7 +26,7 @@ import {
 } from '@/services/examination'
 import { getRegulations } from '@/services/exam-master'
 import { useSessionContext } from '@/context/SessionContext'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
@@ -205,6 +205,17 @@ export default function CreateExamTimetablePage() {
 			else next.add(code)
 			return next
 		})
+	}
+
+	const allGroupsSelected =
+		courseGroups.length > 0 && courseGroups.every((g) => selectedGroups.has(g.code))
+
+	function toggleSelectAllGroups() {
+		if (allGroupsSelected) {
+			setSelectedGroups(new Set())
+			return
+		}
+		setSelectedGroups(new Set(courseGroups.map((g) => g.code)))
 	}
 
 	useEffect(() => {
@@ -613,7 +624,19 @@ export default function CreateExamTimetablePage() {
 
 	return (
 		<PageContainer className="space-y-4">
-		<PageHeader title="Create Exam Timetable" subtitle="Schedule exam dates and times" />
+			<div className="flex items-center justify-between gap-2">
+				<h2 className="text-lg font-semibold tracking-tight text-foreground">Create Exam Timetable</h2>
+				<Button
+					type="button"
+					variant="outline"
+					className="h-8 text-[12px]"
+					onClick={goBack}
+					disabled={saving}
+				>
+					<ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+					Back
+				</Button>
+			</div>
 			{/* Header card */}
 			<div className="app-card overflow-hidden">
 				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
@@ -738,18 +761,28 @@ export default function CreateExamTimetablePage() {
 									{selectedCourseId ? 'No course groups for this course.' : 'Pick a course to load groups.'}
 								</div>
 							) : (
-								courseGroups.map((g) => {
-									const checked = selectedGroups.has(g.code)
-									return (
-										<label key={g.code} className="flex items-center gap-2 text-[12px]">
-											<input type="checkbox" checked={checked} onChange={() => toggleGroup(g.code)} />
-											<span>
-												{g.code}
-												{g.regulationName ? <span className="text-muted-foreground"> ({g.regulationName})</span> : null}
-											</span>
-										</label>
-									)
-								})
+								<>
+									<label className="flex items-center gap-2 text-[12px] font-medium border-b border-border pb-1.5 mb-1">
+										<input
+											type="checkbox"
+											checked={allGroupsSelected}
+											onChange={toggleSelectAllGroups}
+										/>
+										<span>Select All</span>
+									</label>
+									{courseGroups.map((g) => {
+										const checked = selectedGroups.has(g.code)
+										return (
+											<label key={g.code} className="flex items-center gap-2 text-[12px]">
+												<input type="checkbox" checked={checked} onChange={() => toggleGroup(g.code)} />
+												<span>
+													{g.code}
+													{g.regulationName ? <span className="text-muted-foreground"> ({g.regulationName})</span> : null}
+												</span>
+											</label>
+										)
+									})}
+								</>
 							)}
 						</div>
 					</div>
@@ -832,16 +865,6 @@ export default function CreateExamTimetablePage() {
 							{saving ? 'Saving…' : 'Save'}
 						</Button>
 					)}
-					<Button
-						type="button"
-						variant="outline"
-						className="h-8 text-[12px]"
-						onClick={goBack}
-						disabled={saving}
-					>
-						<ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
-						Back
-					</Button>
 				</div>
 			</div>
 

@@ -21,7 +21,7 @@ import {
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { DataTable, TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import {
   getUnivExamFilters,
   getUnivExamRestNoTimetable,
@@ -38,12 +38,41 @@ import { Building2, BookOpen, Calendar, GraduationCap, PencilIcon, Plus, ScrollT
 type Row = Record<string, any>
 
 // ── Column shape ─────────────────────────────────────────────────────────────
+function dashIfEmpty(value: unknown): string {
+  if (value == null) return '—'
+  const s = String(value).trim()
+  return s === '' ? '—' : s
+}
+
 const COL_DEFS = {
   siNo:      { headerName: 'No.', valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1, width: 60, flex: 0 } as ColDef,
-  examType:  { field: 'examtypeCatdetCode', headerName: 'Exam Type', minWidth: 100 } as ColDef,
-  batchName: { field: 'batchName', headerName: 'Lab Batch', flex: 1, minWidth: 160 } as ColDef,
-  capacity:  { field: 'capacity', headerName: 'Capacity', width: 100, flex: 0 } as ColDef,
-  sortOrder: { field: 'sortOrder', headerName: 'Sort Order', width: 100, flex: 0 } as ColDef,
+  examType:  {
+    field: 'examtypeCatdetCode',
+    headerName: 'Exam Type',
+    minWidth: 100,
+    valueFormatter: (p) => dashIfEmpty(p.value),
+  } as ColDef,
+  batchName: {
+    field: 'batchName',
+    headerName: 'Lab Batch',
+    flex: 1,
+    minWidth: 160,
+    valueFormatter: (p) => dashIfEmpty(p.value),
+  } as ColDef,
+  capacity:  {
+    field: 'capacity',
+    headerName: 'Capacity',
+    width: 100,
+    flex: 0,
+    valueFormatter: (p) => dashIfEmpty(p.value),
+  } as ColDef,
+  sortOrder: {
+    field: 'sortOrder',
+    headerName: 'Sort Order',
+    width: 100,
+    flex: 0,
+    valueFormatter: (p) => dashIfEmpty(p.value),
+  } as ColDef,
   isActive:  { field: 'isActive', headerName: 'Status', width: 90, flex: 0 } as ColDef,
   actions:   { headerName: 'Actions', width: 90, flex: 0 } as ColDef,
 }
@@ -98,7 +127,15 @@ export default function ExamLabBatchesPage() {
   const [isActive, setIsActive] = useState(true)
   const [reason, setReason] = useState<string>('active')
   const [saveError, setSaveError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [isSaving, setIsSaving] = useState(false)
+
+  function closeModal() {
+    setOpen(false)
+    setEditing(null)
+    setSaveError('')
+    setFieldErrors({})
+  }
 
   useEffect(() => {
     async function load() {
@@ -201,6 +238,7 @@ export default function ExamLabBatchesPage() {
     if (!collegeId || !examId || !courseYearId || !courseGroupId || !regulationId) return
     setEditing(null)
     setSaveError('')
+    setFieldErrors({})
     setExamTypeId(availableExamTypes[0]?.generalDetailId ? Number(availableExamTypes[0].generalDetailId) : null)
     setBatchName('')
     setCapacity('')
@@ -215,6 +253,7 @@ export default function ExamLabBatchesPage() {
 
   const openEdit = useCallback((r: Row) => {
     setSaveError('')
+    setFieldErrors({})
     setEditing(r)
     const rowTypeId = Number(r.examtypeCatdetId ?? r.fk_examtype_catdet_id ?? 0)
     if (rowTypeId > 0) {
@@ -235,8 +274,13 @@ export default function ExamLabBatchesPage() {
   async function saveBatch() {
     setSaveError('')
     const cleanBatchName = batchName.trim()
-    if (!collegeId || !examId || !courseYearId || !courseGroupId || !regulationId || !subjectId || !examTypeId || !cleanBatchName) {
-      setSaveError('Please select all filters and enter a batch name before saving.')
+    const nextErrors: Record<string, string> = {}
+    if (!examTypeId) nextErrors.examTypeId = 'Exam Type is required.'
+    if (!cleanBatchName) nextErrors.batchName = 'Batch Name is required.'
+    setFieldErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
+    if (!collegeId || !examId || !courseYearId || !courseGroupId || !regulationId || !subjectId) {
+      setSaveError('Please select all filters before saving.')
       return
     }
     setIsSaving(true)
@@ -271,7 +315,7 @@ export default function ExamLabBatchesPage() {
       } else {
         await createExamLabBatch(payload)
       }
-      setOpen(false)
+      closeModal()
       await getList()
     } catch (err: any) {
       setSaveError(err?.message || 'Unable to save exam batch. Please try again.')
@@ -300,9 +344,9 @@ export default function ExamLabBatchesPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Exam Lab Batches" subtitle="Manage examination lab batches" />
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">Exam Lab Batches</h2>
 
-      <GlobalFilterBar>
+      <GlobalFilterBar title="Exam Lab Batches">
         <GlobalFilterBarRow columns={3}>
           <GlobalFilterField label="Course" icon={GraduationCap}>
             <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loading}>
@@ -370,6 +414,9 @@ export default function ExamLabBatchesPage() {
             loading={loading}
             pagination
             paginationPageSize={10}
+            title=""
+            subtitle=""
+            toolbarLeading={<span />}
             toolbar={{
               search: true,
               searchPlaceholder: 'Search exam batches…',
@@ -390,18 +437,99 @@ export default function ExamLabBatchesPage() {
         </TableCard>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl p-0 overflow-hidden" hideClose>
-          <DialogHeader className="px-4 py-3 border-b border-border bg-muted/40">
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          if (!v) closeModal()
+        }}
+      >
+        <DialogContent
+          className="max-w-xl p-0 overflow-hidden"
+          closeOnOutsideClick={false}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="px-4 py-3 border-b border-border bg-muted/40 pr-12">
             <DialogTitle className="text-[15px] text-[hsl(var(--primary))]">
               {editing ? 'Edit Exam Lab Batch' : 'Add Exam Lab Batch'}
             </DialogTitle>
           </DialogHeader>
           <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1"><Label>Exam Type</Label><Select value={examTypeId ? String(examTypeId) : undefined} onValueChange={(v) => setExamTypeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Type" /></SelectTrigger><SelectContent>{availableExamTypes.map((t) => <SelectItem key={String(t.generalDetailId)} value={String(t.generalDetailId)}>{String(t.generalDetailCode ?? '')}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1"><Label>Batch Name</Label><Input className="h-8 text-[12px]" value={batchName} onChange={(e) => setBatchName(e.target.value)} /></div>
-            <div className="space-y-1"><Label>Capacity</Label><Input className="h-8 text-[12px]" type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} /></div>
-            <div className="space-y-1"><Label>Sort Order</Label><Input className="h-8 text-[12px]" type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} /></div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">
+                Exam Type <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={examTypeId ? String(examTypeId) : undefined}
+                onValueChange={(v) => {
+                  setExamTypeId(Number(v))
+                  if (fieldErrors.examTypeId) {
+                    setFieldErrors((prev) => {
+                      const next = { ...prev }
+                      delete next.examTypeId
+                      return next
+                    })
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 text-[12px]" aria-invalid={Boolean(fieldErrors.examTypeId)}>
+                  <SelectValue placeholder="Select exam type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableExamTypes.map((t) => (
+                    <SelectItem key={String(t.generalDetailId)} value={String(t.generalDetailId)}>
+                      {String(t.generalDetailCode ?? '')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {fieldErrors.examTypeId ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.examTypeId}</p>
+              ) : null}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">
+                Batch Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                className="h-8 text-[12px]"
+                placeholder="Enter batch name"
+                value={batchName}
+                aria-invalid={Boolean(fieldErrors.batchName)}
+                onChange={(e) => {
+                  setBatchName(e.target.value)
+                  if (fieldErrors.batchName) {
+                    setFieldErrors((prev) => {
+                      const next = { ...prev }
+                      delete next.batchName
+                      return next
+                    })
+                  }
+                }}
+              />
+              {fieldErrors.batchName ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.batchName}</p>
+              ) : null}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">Capacity</Label>
+              <Input
+                className="h-8 text-[12px]"
+                type="number"
+                placeholder="Enter capacity"
+                value={capacity}
+                onChange={(e) => setCapacity(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">Sort Order</Label>
+              <Input
+                className="h-8 text-[12px]"
+                type="number"
+                placeholder="Enter sort order"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+              />
+            </div>
             <div
               role="button"
               tabIndex={0}
@@ -445,7 +573,9 @@ export default function ExamLabBatchesPage() {
           </div>
           <DialogFooter className="px-4 pb-4">
             {saveError ? <p className="mr-auto text-[12px] text-red-600">{saveError}</p> : null}
-            <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
+            <Button type="button" variant="outline" onClick={closeModal}>
+              Cancel
+            </Button>
             <Button onClick={saveBatch} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save'}</Button>
           </DialogFooter>
         </DialogContent>

@@ -1262,6 +1262,22 @@ export async function listGroupSectionsByFilters(params: {
   courseGroupId: number
   courseYearId: number
 }): Promise<AnyRow[]> {
+  const n = (v: unknown) => {
+    const x = typeof v === 'number' ? v : Number(v)
+    return Number.isFinite(x) ? x : 0
+  }
+  const normalize = (row: AnyRow): AnyRow => ({
+    ...row,
+    groupSectionId: n(row.groupSectionId ?? row.pk_group_section_id ?? row.fk_group_section_id ?? row.group_section_id),
+    collegeId: n(row.collegeId ?? row.fk_college_id ?? row.college_id),
+    academicYearId: n(row.academicYearId ?? row.fk_academic_year_id ?? row.academic_year_id),
+    courseGroupId: n(row.courseGroupId ?? row.fk_course_group_id ?? row.course_group_id),
+    courseYearId: n(row.courseYearId ?? row.fk_course_year_id ?? row.course_year_id),
+    groupSectionName: String(row.groupSectionName ?? row.section ?? row.group_section_name ?? ''),
+    groupSectionCode: String(row.groupSectionCode ?? row.section_code ?? row.group_section_code ?? ''),
+    sortOrder: n(row.sortOrder ?? row.sort_order),
+  })
+
   const base = {
     'College.collegeId': params.collegeId,
     'AcademicYear.academicYearId': params.academicYearId,
@@ -1292,7 +1308,7 @@ export async function listGroupSectionsByFilters(params: {
   for (const query of queryVariants) {
     try {
       const rows = await domainList<AnyRow>('GroupSection', query)
-      if (Array.isArray(rows) && rows.length > 0) return rows
+      if (Array.isArray(rows) && rows.length > 0) return rows.map(normalize)
     } catch {
       // try next variant
     }

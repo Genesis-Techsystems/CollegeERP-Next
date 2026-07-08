@@ -17,16 +17,22 @@ import {
   getLabCreateFilters,
   saveExamLabTimetableBatches,
 } from '@/services/exam-lab-timetable'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
+import { useSessionContext } from '@/context/SessionContext'
 
 type AnyRow = Record<string, any>
 
 export default function AddExamLabTimetablesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const empId = 31754
-  const orgId = 0
+  const { user } = useSessionContext()
+  const empId = Number(user?.employeeId ?? 31754)
+  const orgId = useMemo(() => {
+    const fromStorage = Number(globalThis.localStorage?.getItem('organizationId') ?? 0)
+    const fromSession = Number(user?.organizationId ?? 0)
+    return fromStorage || fromSession || 1
+  }, [user?.organizationId])
 
   const pageParams = {
     collegeId: Number(searchParams.get('collegeId') ?? 0),
@@ -86,7 +92,15 @@ export default function AddExamLabTimetablesPage() {
       setExistingRows(Array.isArray(grid) ? grid : [])
     }
     load()
-  }, [])
+  }, [
+    orgId,
+    empId,
+    pageParams.collegeId,
+    pageParams.courseId,
+    pageParams.courseYearId,
+    pageParams.academicYearId,
+    pageParams.examId,
+  ])
 
   const regulations = useMemo(
     () => dedupeBy(details.map((d) => ({ regulationId: d.fk_regulation_id, regulationName: d.regulation_code })), 'regulationId'),
@@ -240,7 +254,7 @@ export default function AddExamLabTimetablesPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Create College Timetable" subtitle="Schedule lab exam timetables" />
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">Create College Timetable</h2>
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40">
           <h2 className="app-card-title">Create College Timetable</h2>

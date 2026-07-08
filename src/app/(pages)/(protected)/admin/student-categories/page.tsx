@@ -44,7 +44,7 @@ export default function StudentCategoriesPage() {
 
   const columnDefs = useMemo<ColDef<StudentCategory>[]>(() => [
     COLS.siNo,
-    { ...COLS.orgName, valueGetter: (p) => p.data?.orgName ?? p.data?.orgCode ?? '-' },
+    { ...COLS.orgName, valueGetter: (p) => p.data?.orgCode ?? p.data?.orgName ?? '-' },
     COLS.studentCategory,
     { ...COLS.isActive, cellRenderer: statusRenderer },
     { ...COLS.actions, cellRenderer: actionRenderer(setRow, setOpen) },

@@ -5,6 +5,7 @@ export interface CourseYear {
   universityCode?: string
   courseCode?: string
   yearNo?: number
+  sortOrder?: number
   courseYearCode: string
   courseYearName?: string
   isActive: boolean
