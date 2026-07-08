@@ -10,7 +10,7 @@ import {
   listStudentSubjectsForStudent,
   searchStudentsByKeyword,
 } from "@/services";
-import { StudentSearchSelect } from "../students-list/StudentSearchSelect";
+import { StudentSearchSelect } from "@/common/components/student-search";
 
 type AnyRow = Record<string, any>;
 

@@ -463,6 +463,7 @@ export default function PrincipalStudentDetailsPage() {
               <textarea
                 className="min-h-[80px] w-full resize-none border-0 bg-white px-3 py-2 text-[12px] text-[#333333] focus:outline-none"
                 value={pickText(data.student, ["internship", "intership"])}
+                readOnly
                 placeholder=""
               />
             </ProfileSection>
@@ -474,6 +475,7 @@ export default function PrincipalStudentDetailsPage() {
                   "educationTours",
                   "educationalTours",
                 ])}
+                readOnly
                 placeholder=""
               />
             </ProfileSection>

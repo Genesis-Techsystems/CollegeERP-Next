@@ -28,7 +28,7 @@ import {
   updateStudentQuickProfile,
 } from "@/services";
 import { EditStudentProfileModal } from "./EditStudentProfileModal";
-import { StudentSearchSelect } from "./StudentSearchSelect";
+import { StudentSearchSelect } from "@/common/components/student-search";
 import { StudentsListTable, headerPartsFromRow } from "./StudentsListTable";
 
 type AnyRow = Record<string, any>;

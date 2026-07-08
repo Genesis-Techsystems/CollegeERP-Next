@@ -6,6 +6,7 @@ import { DoorOpen, PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { Select } from '@/common/components/select'
+import { FilterCard } from '@/common/components/feedback'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
@@ -425,11 +426,8 @@ export default function RoomDetailsPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Room Details</h2>
-        </div>
-        <div className="grid grid-cols-12 gap-2 p-3">
+      <FilterCard title="Room Details">
+        <div className="grid grid-cols-12 gap-2">
           <div className="col-span-12 md:col-span-2">
             <Select
               label="Campus"
@@ -509,7 +507,7 @@ export default function RoomDetailsPage() {
             </Button>
           </div>
         </div>
-      </div>
+      </FilterCard>
 
       {showResults && (
         <div className="app-card overflow-hidden">

@@ -6,6 +6,7 @@ import { FileImage, ImageIcon, UploadIcon, X } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { FileDropzone } from '@/common/components/forms'
 import { Select } from '@/common/components/select'
+import { FilterCard } from '@/common/components/feedback'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { MINIO_URL } from '@/config/constants/api'
@@ -174,13 +175,9 @@ export default function PhotosBulkUploadPage() {
     <PageContainer className="space-y-4">
       <PageHeader title="Photos Bulk Upload" subtitle="Admin / Bulk Uploads" />
 
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-2 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Photos Bulk Upload</h2>
-        </div>
-
-        <div className="px-4 py-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+      <FilterCard title="Photos Bulk Upload">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
             <div className="md:col-span-4">
               <Select
                 label="University"
@@ -202,7 +199,7 @@ export default function PhotosBulkUploadPage() {
             </div>
           </div>
 
-          <div className="border border-border rounded-lg p-3 space-y-3">
+          <div className="space-y-3 rounded-lg border border-border p-3">
             <h3 className="text-sm font-semibold text-slate-700">Upload Students Photos</h3>
             <FileDropzone
               accept="image/*"
@@ -212,18 +209,18 @@ export default function PhotosBulkUploadPage() {
               <p className="text-xs text-slate-700">Drag and drop photos here, or click to select</p>
             </FileDropzone>
             {selectedFiles.length > 0 && (
-              <div className="pt-2 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 pt-2">
                 {selectedFiles.map((file, index) => (
                   <div
                     key={`${file.name}-${index}`}
                     className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-dashed border-input bg-muted/40 px-2.5 py-1.5"
                   >
-                    <FileImage className="h-4 w-4 text-sky-600 shrink-0" />
-                    <span className="text-xs text-slate-700 max-w-[220px] truncate">{file.name}</span>
+                    <FileImage className="h-4 w-4 shrink-0 text-sky-600" />
+                    <span className="max-w-[220px] truncate text-xs text-slate-700">{file.name}</span>
                     <button
                       type="button"
                       onClick={() => removeSelectedFile(file.name)}
-                      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-slate-200 hover:text-slate-700 shrink-0"
+                      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-slate-200 hover:text-slate-700"
                       aria-label={`Remove ${file.name}`}
                     >
                       <X className="h-3.5 w-3.5" />
@@ -232,15 +229,15 @@ export default function PhotosBulkUploadPage() {
                 ))}
               </div>
             )}
-            <div className="pt-2 flex flex-wrap gap-2 justify-end">
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
               <Button type="button" onClick={() => void onUpload()} disabled={selectedFiles.length === 0 || uploading}>
-                <UploadIcon className="h-4 w-4 mr-1.5" />
+                <UploadIcon className="mr-1.5 h-4 w-4" />
                 {uploading ? 'Uploading...' : 'Upload File'}
               </Button>
             </div>
           </div>
         </div>
-      </div>
+      </FilterCard>
 
       {uploadedRows.length > 0 && (
         <div className="app-card p-3">

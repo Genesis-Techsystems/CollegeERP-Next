@@ -5,6 +5,7 @@ import type { ColDef } from 'ag-grid-community'
 import { Link2 } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { Select } from '@/common/components/select'
+import { FilterCard } from '@/common/components/feedback'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -455,11 +456,11 @@ export default function AssignSubjectBooksPage() {
   ], [selectedBookId, bookTypeById])
 
   return (
-    <PageContainer>
+    <PageContainer className="space-y-4">
       <PageHeader title="Assign Subject Books" />
 
-      <div className="app-card p-3">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+      <FilterCard title="Assign Subject Books">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
           <Select label="College" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable />
           <Select label="Course" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable disabled={!collegeId} />
           <Select label="Course Group" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) }))} searchable disabled={!courseId} />
@@ -467,7 +468,7 @@ export default function AssignSubjectBooksPage() {
           <Select label="Academic Year" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable disabled={!courseYearId} />
           <Select label="Section" value={groupSectionId ? String(groupSectionId) : null} onChange={(v) => setGroupSectionId(v ? Number(v) : null)} options={sections.map((x) => ({ value: String(n(x.pk_group_section_id ?? x.groupSectionId)), label: s(x.section) }))} searchable disabled={!academicYearId} />
         </div>
-      </div>
+      </FilterCard>
 
       {!!groupSectionId && (
         <div className="app-card mt-3 p-0 overflow-hidden">

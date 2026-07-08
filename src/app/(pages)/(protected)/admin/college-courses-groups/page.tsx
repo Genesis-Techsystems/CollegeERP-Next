@@ -7,6 +7,7 @@ import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
 import { DataTable } from '@/common/components/table'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
+import { FilterCard } from '@/common/components/feedback'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useSession } from '@/hooks/useSession'
@@ -142,11 +143,8 @@ export default function CollegeCoursesGroupsPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-3 py-2 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">College Courses & Groups</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-2 gap-y-2 px-3 py-2">
+      <FilterCard title="College Courses & Groups">
+        <div className="grid grid-cols-1 gap-x-2 gap-y-2 sm:grid-cols-2 lg:grid-cols-5">
           <Select
             label="University"
             value={selectedUniversityId ? String(selectedUniversityId) : null}
@@ -197,7 +195,7 @@ export default function CollegeCoursesGroupsPage() {
             </Button>
           </div>
         </div>
-      </div>
+      </FilterCard>
 
       {showList && (
         <div className="app-card overflow-hidden">

@@ -34,12 +34,17 @@ export default function ViewSubjectsModal({
 
   useEffect(() => {
     if (!open || !context) return
-    setLoading(true)
-    listGroupYearRegulationSubjects(
-      Number(context.courseGroupId ?? 0),
-      Number(context.courseYearId ?? 0),
-      Number(context.regulationId ?? 0),
+    const courseGroupId = Number(
+      context.courseGroupId ?? context.coursegroupId ?? context.pk_course_group_id ?? 0,
     )
+    const courseYearId = Number(
+      context.courseYearId ?? context.courseyearId ?? context.pk_course_year_id ?? 0,
+    )
+    const regulationId = Number(
+      context.regulationId ?? context.regulationid ?? context.pk_regulation_id ?? 0,
+    )
+    setLoading(true)
+    listGroupYearRegulationSubjects(courseGroupId, courseYearId, regulationId)
       .then((list) => setRows(Array.isArray(list) ? list : []))
       .catch(() => setRows([]))
       .finally(() => setLoading(false))

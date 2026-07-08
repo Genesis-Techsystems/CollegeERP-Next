@@ -62,8 +62,36 @@ async function uploadSubjectMultipart(path: string, formData: FormData): Promise
   return (body?.data ?? body ?? {}) as AnyRow
 }
 
+/** Angular: crudService.addDetails('Subject', details) → POST domain/create/Subject */
+export async function createSubject(payload: AnyRow): Promise<AnyRow> {
+  return domainCreate<AnyRow>(ENTITIES.SUBJECT.name, payload)
+}
+
+/** Angular: crudService.updateDetails('Subject', details, subjectId, 'subjectId') */
+export async function updateSubject(subjectId: number, payload: AnyRow): Promise<AnyRow> {
+  return domainUpdate<AnyRow>(ENTITIES.SUBJECT.name, ENTITIES.SUBJECT.pk, subjectId, {
+    subjectId,
+    ...payload,
+  })
+}
+
+export function isDuplicateSubject(
+  existingRows: AnyRow[],
+  details: { subjectName: string; subjectCode: string; subjectId?: number },
+): boolean {
+  const name = details.subjectName.trim().toLowerCase()
+  const code = details.subjectCode.trim()
+  const id = details.subjectId ?? 0
+  return existingRows.some((x) => {
+    const xName = String(x.subjectName ?? '').trim().toLowerCase()
+    const xCode = String(x.subjectCode ?? '').trim()
+    const xId = Number(x.subjectId ?? 0)
+    return xName === name || (xCode === code && xId !== id)
+  })
+}
+
 export async function createSubjectWithOptionalFile(payload: AnyRow, file?: File | null): Promise<AnyRow> {
-  if (!file) return domainCreate<AnyRow>(ENTITIES.SUBJECT.name, payload)
+  if (!file) return createSubject(payload)
   const formData = new FormData()
   formData.append('data', new Blob([JSON.stringify(payload)], { type: 'application/json' }))
   formData.append('file', file, file.name)
@@ -85,7 +113,7 @@ export async function updateSubjectWithOptionalFile(
   file?: File | null,
 ): Promise<AnyRow> {
   const data = { subjectId, ...payload }
-  if (!file) return domainUpdate<AnyRow>(ENTITIES.SUBJECT.name, ENTITIES.SUBJECT.pk, subjectId, data)
+  if (!file) return updateSubject(subjectId, payload)
 
   const formData = new FormData()
   formData.append('updatedData', new Blob([JSON.stringify(data)], { type: 'application/json' }))

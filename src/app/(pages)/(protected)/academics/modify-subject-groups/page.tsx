@@ -4,12 +4,18 @@ import { useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select } from '@/common/components/select'
+import { StudentSearchSelect } from '@/common/components/student-search'
 import { DataTable } from '@/common/components/table'
+import { FilterCard } from '@/common/components/feedback'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useSessionContext } from '@/context/SessionContext'
 import { toastError, toastSuccess } from '@/lib/toast'
-import { listStudents, listCourseGroupsForStudentCourseChange, submitStudentCourseGroupChange } from '@/services'
+import {
+  listStudents,
+  listCourseGroupsForStudentCourseChange,
+  submitStudentCourseGroupChange,
+} from '@/services'
 
 type AnyRow = Record<string, any>
 
@@ -34,10 +40,6 @@ function pickText(row: AnyRow | null | undefined, keys: string[]): string {
   return ''
 }
 
-function studentId(row: AnyRow): number {
-  return pickNum(row, ['studentId', 'fk_student_id', 'student_id', 'id', 'studentDetailId'])
-}
-
 export default function ModifySubjectGroupsPage() {
   const { user } = useSessionContext()
   const [searchRows, setSearchRows] = useState<AnyRow[]>([])
@@ -49,15 +51,6 @@ export default function ModifySubjectGroupsPage() {
   const [targetGroupId, setTargetGroupId] = useState<number | null>(null)
   const [modifiedOn, setModifiedOn] = useState<Date | null>(new Date())
   const [submitting, setSubmitting] = useState(false)
-
-  const studentOptions = useMemo(
-    () =>
-      searchRows.map((row) => ({
-        value: String(studentId(row)),
-        label: `${pickText(row, ['firstName', 'studentName']) || '-'} (${pickText(row, ['rollNumber', 'hallticketNumber']) || '-'})`,
-      })),
-    [searchRows],
-  )
 
   const groupOptions = useMemo(
     () =>
@@ -71,17 +64,37 @@ export default function ModifySubjectGroupsPage() {
   const studentDetailsColumnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       { headerName: 'SI.No', width: 80, flex: 0, valueGetter: () => 1 },
-      { headerName: 'Hallticket No.', minWidth: 160, valueGetter: (p) => pickText(p.data, ['hallticketNumber', 'rollNumber']) || '-' },
-      { headerName: 'Student Name', minWidth: 220, valueGetter: (p) => pickText(p.data, ['firstName', 'studentName']) || '-' },
-      { headerName: 'Course Name', minWidth: 220, valueGetter: (p) => pickText(p.data, ['courseCode', 'courseName']) || '-' },
-      { headerName: 'Course Group', minWidth: 180, valueGetter: (p) => pickText(p.data, ['groupCode', 'groupName']) || '-' },
+      {
+        headerName: 'Hallticket No.',
+        minWidth: 160,
+        valueGetter: (p) => pickText(p.data, ['hallticketNumber', 'rollNumber']) || '-',
+      },
+      {
+        headerName: 'Student Name',
+        minWidth: 220,
+        valueGetter: (p) => pickText(p.data, ['firstName', 'studentName']) || '-',
+      },
+      {
+        headerName: 'Course Name',
+        minWidth: 220,
+        valueGetter: (p) => pickText(p.data, ['courseCode', 'courseName']) || '-',
+      },
+      {
+        headerName: 'Course Group',
+        minWidth: 180,
+        valueGetter: (p) => pickText(p.data, ['groupCode', 'groupName']) || '-',
+      },
     ],
     [],
   )
 
   async function onSearchStudents(term: string) {
     const q = term.trim()
-    if (q.length < 3) return
+    if (!q) {
+      setSearchRows([])
+      return
+    }
+    if (q.length < 5) return
     setLoadingSearch(true)
     try {
       const rows = await listStudents(q)
@@ -93,29 +106,26 @@ export default function ModifySubjectGroupsPage() {
     }
   }
 
-  async function onStudentChange(value: string | null) {
-    const id = value ? Number(value) : null
+  async function onStudentSelect(id: number | null, row: AnyRow | null) {
     setSelectedStudentId(id)
     setStudent(null)
     setGroupRows([])
     setTargetGroupId(null)
-    if (!id) return
+    if (!id || !row) return
 
-    const selected = searchRows.find((row) => studentId(row) === id) ?? null
-    if (!selected) return
-    if (String(selected.studentStatusCode ?? '').trim().toUpperCase() === 'DETAINRECOMMENDED') {
+    if (String(row.studentStatusCode ?? '').trim().toUpperCase() === 'DETAINRECOMMENDED') {
       toastError('This student is not in in-college status')
       return
     }
 
-    setStudent(selected)
+    setStudent(row)
     setLoadingGroups(true)
     try {
       const rows = await listCourseGroupsForStudentCourseChange({
         organizationId: Number(user?.organizationId ?? 0),
         employeeId: Number(user?.employeeId ?? 0),
-        collegeId: pickNum(selected, ['collegeId', 'fk_college_id']),
-        courseId: pickNum(selected, ['courseId', 'fk_course_id']),
+        collegeId: pickNum(row, ['collegeId', 'fk_college_id']),
+        courseId: pickNum(row, ['courseId', 'fk_course_id']),
       })
       setGroupRows(rows)
     } catch {
@@ -154,6 +164,7 @@ export default function ModifySubjectGroupsPage() {
       setStudent(null)
       setTargetGroupId(null)
       setGroupRows([])
+      setSearchRows([])
     } catch (error) {
       toastError(error, 'Failed to change course group')
     } finally {
@@ -165,24 +176,17 @@ export default function ModifySubjectGroupsPage() {
     <PageContainer className="space-y-4">
       <PageHeader title="Modify Subject Groups" subtitle="Academics" />
 
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Modify Course Group</h2>
-        </div>
-        <div className="p-3 max-w-xl">
-          <Select
-            label="Student"
-            value={selectedStudentId ? String(selectedStudentId) : null}
-            onChange={(v) => void onStudentChange(v)}
-            options={studentOptions}
-            placeholder="Search by student name or roll no"
-            searchable
-            clearable
-            onSearch={(term) => void onSearchStudents(term)}
-            isLoading={loadingSearch}
-          />
-        </div>
-      </div>
+      <FilterCard title="Modify Course Group" fieldMaxWidth="36rem">
+        <StudentSearchSelect
+          label="Student"
+          value={selectedStudentId}
+          students={searchRows}
+          selectedStudent={student}
+          isLoading={loadingSearch}
+          onSearch={(term) => void onSearchStudents(term)}
+          onChange={(id, row) => void onStudentSelect(id, row)}
+        />
+      </FilterCard>
 
       {student && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
@@ -224,7 +228,11 @@ export default function ModifySubjectGroupsPage() {
                 placeholder="Select date"
               />
               <div className="pt-1">
-                <Button type="button" disabled={!targetGroupId || submitting} onClick={() => void onSubmitChange()}>
+                <Button
+                  type="button"
+                  disabled={!targetGroupId || submitting}
+                  onClick={() => void onSubmitChange()}
+                >
                   {submitting ? 'Changing...' : 'Change'}
                 </Button>
               </div>
@@ -235,4 +243,3 @@ export default function ModifySubjectGroupsPage() {
     </PageContainer>
   )
 }
-

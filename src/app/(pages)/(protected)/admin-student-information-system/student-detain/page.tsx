@@ -15,7 +15,7 @@ import {
   searchStudentsByKeyword,
   submitStudentDetain,
 } from "@/services";
-import { StudentSearchSelect } from "../students-list/StudentSearchSelect";
+import { StudentSearchSelect } from "@/common/components/student-search";
 import { Button } from "@/components/ui/button";
 
 type AnyRow = Record<string, any>;

@@ -58,22 +58,87 @@ export async function listActiveCourseYearsByCourse(courseId: number): Promise<A
   return []
 }
 
+function unwrapGroupYearSubjects(data: unknown): AnyRow[] {
+  if (Array.isArray(data)) return data as AnyRow[]
+  if (data && typeof data === 'object') {
+    const o = data as AnyRow
+    if (Array.isArray(o.resultList)) return o.resultList as AnyRow[]
+    if (Array.isArray(o.content)) return o.content as AnyRow[]
+    if (Array.isArray(o.data)) return o.data as AnyRow[]
+  }
+  return []
+}
+
+function subjectDetailPk(row: AnyRow): number {
+  return (
+    Number(
+      row.groupyrRegDetailId ??
+        row.groupYrRegDetailId ??
+        row.groupyrRegulationDetailId ??
+        row.pk_groupyr_reg_detail_id ??
+        0,
+    ) || 0
+  )
+}
+
+/**
+ * Collapse exact duplicate regulation-subject rows.
+ * Keeps genuine L/T/P variants of the same subject code.
+ */
+function dedupeGroupYearSubjects(rows: AnyRow[]): AnyRow[] {
+  const seenPk = new Set<number>()
+  const seenContent = new Set<string>()
+  const out: AnyRow[] = []
+
+  for (const row of rows) {
+    const pk = subjectDetailPk(row)
+    if (pk > 0) {
+      if (seenPk.has(pk)) continue
+      seenPk.add(pk)
+    }
+
+    const contentKey = [
+      String(row.subjectId ?? row.fk_subject_id ?? row.subjectCode ?? '').trim().toLowerCase(),
+      String(row.subjectCode ?? '').trim().toLowerCase(),
+      String(row.subjecttypeCode ?? row.subjectTypeCode ?? '').trim().toLowerCase(),
+      String(row.lectures ?? ''),
+      String(row.tutorials ?? ''),
+      String(row.practicals ?? ''),
+      String(row.credits ?? ''),
+      String(row.internalmarks ?? row.internalMarks ?? ''),
+      String(row.externalmarks ?? row.externalMarks ?? ''),
+      String(row.subjectCategoryCatDetId ?? ''),
+      String(row.isBridgeCourse ?? false),
+    ].join('|')
+
+    if (seenContent.has(contentKey)) continue
+    seenContent.add(contentKey)
+    out.push(row)
+  }
+
+  return out
+}
+
 export async function listGroupYearRegulationSubjects(
   courseGroupId: number,
   courseYearId: number,
   regulationId: number,
 ): Promise<AnyRow[]> {
   if (!courseGroupId || !courseYearId || !regulationId) return []
+
+  // Angular `getSubjectsByRegulation` uses lowercase param names first.
+  // Trying camelCase first can return a broader/unfiltered list (duplicates across years).
   const paramCombos: Array<Record<string, string | number>> = [
-    { courseGroupId, courseYearId, regulationId },
     { coursegroupId: courseGroupId, courseyearId: courseYearId, regulationId },
-    { courseGroupId, courseYearId, regulationid: regulationId },
+    { courseGroupId, courseYearId, regulationId },
+    { course_group_id: courseGroupId, course_year_id: courseYearId, regulation_id: regulationId },
   ]
 
   for (const params of paramCombos) {
     try {
-      const rows = await fetchDetails<AnyRow[]>(SUBJECT_API.GROUP_YR_REGULATION_DETAILS, params)
-      if (Array.isArray(rows)) return rows
+      const raw = await fetchDetails<unknown>(SUBJECT_API.GROUP_YR_REGULATION_DETAILS, params)
+      const rows = unwrapGroupYearSubjects(raw)
+      if (rows.length > 0) return dedupeGroupYearSubjects(rows)
     } catch {
       // Try next param names
     }

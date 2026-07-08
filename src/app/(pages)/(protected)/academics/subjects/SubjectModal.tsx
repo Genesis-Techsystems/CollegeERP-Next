@@ -1,309 +1,460 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { ActiveStatusField } from '@/common/components/forms'
-import { Select } from '@/common/components/select'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { createSubjectWithOptionalFile, listSubjectCategories, listSubjectTypes, updateSubjectWithOptionalFile } from '@/services'
+import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { FormModal } from "@/common/components/feedback";
+import { Select } from "@/common/components/select";
+import { ActiveStatusField } from "@/common/components/forms";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  createSubject,
+  isDuplicateSubject,
+  listActiveCoursesByUniversity,
+  listActiveUniversities,
+  listSubjectCategories,
+  listSubjectTypes,
+  updateSubject,
+} from "@/services";
 
-type AnyRow = Record<string, any>
-
-const schema = z.object({
-  subjectName: z.string().min(1, 'Subject name is required'),
-  subjectCode: z.string().min(1, 'Subject code is required'),
-  subjectTypeId: z.number().optional(),
-  subjectCategoryId: z.number().optional(),
-  subCredits: z.number().optional(),
-  subCreditHrs: z.number().optional(),
-  shortName: z.string().min(1, 'Short name is required'),
-  orderNo: z.number().optional(),
-  isLanguage: z.boolean(),
-  isActive: z.boolean(),
-  reason: z.string().optional(),
-})
-type FormValues = z.infer<typeof schema>
+type AnyRow = Record<string, any>;
 
 function pickNum(row: AnyRow | null | undefined, keys: string[]): number {
-  if (!row) return 0
+  if (!row) return 0;
   for (const key of keys) {
-    const n = Number(row[key] ?? 0)
-    if (Number.isFinite(n) && n > 0) return n
+    const n = Number(row[key] ?? 0);
+    if (Number.isFinite(n) && n > 0) return n;
   }
-  return 0
+  return 0;
 }
 
-function parseOptionalNumber(raw: unknown): number | undefined {
-  const n = Number(raw)
-  if (!Number.isFinite(n)) return undefined
-  return n
+function pickStr(row: AnyRow | null | undefined, keys: string[]): string {
+  if (!row) return "";
+  for (const key of keys) {
+    const v = row[key];
+    if (typeof v === "string" && v.trim()) return v.trim();
+    if (typeof v === "number" || typeof v === "boolean") return String(v);
+  }
+  return "";
+}
+
+const schema = z
+  .object({
+    universityId: z.number().min(1, "University is required"),
+    courseId: z.number().min(1, "Course is required"),
+    subjectName: z.string().trim().min(1, "Subject name is required"),
+    subjectCode: z.string().trim().min(1, "Subject code is required"),
+    subjectTypeId: z.number().min(1, "Subject type is required"),
+    subjectCategoryId: z.number().min(1, "Subject category is required"),
+    subCredits: z.string().optional(),
+    subCreditHrs: z.string().optional(),
+    shortName: z.string().trim().min(1, "Short name is required"),
+    orderNo: z.string().optional(),
+    isLanguage: z.boolean(),
+    isActive: z.boolean(),
+    reason: z.string().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (!v.isActive && !v.reason?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Reason is required when inactive",
+        path: ["reason"],
+      });
+    }
+  });
+
+type FormValues = z.infer<typeof schema>;
+
+interface SubjectModalProps {
+  open: boolean;
+  onClose: () => void;
+  row?: AnyRow | null;
+  universityId?: number;
+  courseId?: number;
+  existingRows?: AnyRow[];
+  onSaved?: () => void;
 }
 
 export default function SubjectModal({
   open,
   onClose,
   row,
-  courseId,
-  existingRows,
+  universityId: initialUniversityId,
+  courseId: initialCourseId,
+  existingRows = [],
   onSaved,
-}: Readonly<{
-  open: boolean
-  onClose: () => void
-  row: AnyRow | null
-  courseId: number
-  existingRows: AnyRow[]
-  onSaved: () => void
-}>) {
-  const isEditing = Boolean(row)
-  const [subjectTypes, setSubjectTypes] = useState<AnyRow[]>([])
-  const [subjectCategories, setSubjectCategories] = useState<AnyRow[]>([])
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [syllabusFile, setSyllabusFile] = useState<File | null>(null)
+}: SubjectModalProps) {
+  const isEdit = Boolean(row?.subjectId);
+  const [universities, setUniversities] = useState<AnyRow[]>([]);
+  const [courses, setCourses] = useState<AnyRow[]>([]);
+  const [types, setTypes] = useState<AnyRow[]>([]);
+  const [categories, setCategories] = useState<AnyRow[]>([]);
+  const [loadingLookups, setLoadingLookups] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const {
-    register,
-    control,
-    reset,
-    setValue,
-    watch,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      subjectName: '',
-      subjectCode: '',
-      subjectTypeId: undefined,
-      subjectCategoryId: undefined,
-      subCredits: undefined,
-      subCreditHrs: undefined,
-      shortName: '',
-      orderNo: undefined,
+      universityId: 0,
+      courseId: 0,
+      subjectName: "",
+      subjectCode: "",
+      subjectTypeId: 0,
+      subjectCategoryId: 0,
+      subCredits: "",
+      subCreditHrs: "",
+      shortName: "",
+      orderNo: "",
       isLanguage: false,
       isActive: true,
-      reason: 'active',
+      reason: "active",
     },
-  })
+  });
+
+  const watchUniversityId = form.watch("universityId");
+  const watchIsActive = form.watch("isActive");
+
+  const universityOptions = useMemo(
+    () =>
+      universities.map((x) => ({
+        value: String(pickNum(x, ["universityId", "pk_university_id"])),
+        label: pickStr(x, ["universityCode", "universityName"]) || "University",
+      })),
+    [universities],
+  );
+
+  const courseOptions = useMemo(
+    () =>
+      courses.map((x) => ({
+        value: String(pickNum(x, ["courseId", "pk_course_id"])),
+        label: pickStr(x, ["courseCode", "courseName"]) || "Course",
+      })),
+    [courses],
+  );
+
+  const typeOptions = useMemo(
+    () =>
+      types.map((x) => ({
+        value: String(pickNum(x, ["generalDetailId", "pk_general_detail_id"])),
+        label: pickStr(x, ["generalDetailName", "generalDetailCode"]) || "Type",
+      })),
+    [types],
+  );
+
+  const categoryOptions = useMemo(
+    () =>
+      categories.map((x) => ({
+        value: String(pickNum(x, ["generalDetailId", "pk_general_detail_id"])),
+        label:
+          pickStr(x, ["generalDetailName", "generalDetailCode"]) || "Category",
+      })),
+    [categories],
+  );
 
   useEffect(() => {
-    if (!open) return
-    listSubjectTypes().then(setSubjectTypes).catch(() => setSubjectTypes([]))
-    listSubjectCategories().then(setSubjectCategories).catch(() => setSubjectCategories([]))
-  }, [open])
+    if (!open) return;
+    setError("");
+    setLoadingLookups(true);
+    Promise.all([
+      listActiveUniversities(),
+      listSubjectTypes(),
+      listSubjectCategories(),
+    ])
+      .then(([univList, typeList, categoryList]) => {
+        setUniversities(univList);
+        setTypes(typeList);
+        setCategories(categoryList);
+      })
+      .catch(() => {
+        setUniversities([]);
+        setTypes([]);
+        setCategories([]);
+      })
+      .finally(() => setLoadingLookups(false));
+  }, [open]);
 
   useEffect(() => {
-    if (!open) return
-    if (row) {
-      reset({
-        subjectName: String(row.subjectName ?? ''),
-        subjectCode: String(row.subjectCode ?? ''),
-        subjectTypeId: parseOptionalNumber(row.subjectTypeId),
-        subjectCategoryId: parseOptionalNumber(row.subjectCategoryId),
-        subCredits: parseOptionalNumber(row.subCredits),
-        subCreditHrs: parseOptionalNumber(row.subCreditHrs),
-        shortName: String(row.shortName ?? ''),
-        orderNo: parseOptionalNumber(row.orderNo),
-        isLanguage: Boolean(row.isLanguage),
-        isActive: Boolean(row.isActive),
-        reason: String(row.reason ?? ''),
+    if (!open) return;
+
+    const rowUniversityId =
+      pickNum(row, ["universityId", "fk_university_id"]) ||
+      pickNum(row?.course, ["universityId", "fk_university_id"]) ||
+      initialUniversityId ||
+      0;
+    const rowCourseId =
+      pickNum(row, ["courseId", "fk_course_id"]) || initialCourseId || 0;
+
+    form.reset({
+      universityId: rowUniversityId,
+      courseId: rowCourseId,
+      subjectName: pickStr(row, ["subjectName"]),
+      subjectCode: pickStr(row, ["subjectCode"]),
+      subjectTypeId: pickNum(row, ["subjectTypeId", "fk_subject_type_id"]),
+      subjectCategoryId: pickNum(row, [
+        "subjectCategoryId",
+        "fk_subject_category_id",
+      ]),
+      subCredits: row?.subCredits != null ? String(row.subCredits) : "",
+      subCreditHrs: row?.subCreditHrs != null ? String(row.subCreditHrs) : "",
+      shortName: pickStr(row, ["shortName"]),
+      orderNo: row?.orderNo != null ? String(row.orderNo) : "",
+      isLanguage: Boolean(row?.isLanguage),
+      isActive: row?.isActive !== false,
+      reason: row?.isActive === false ? pickStr(row, ["reason"]) : "active",
+    });
+  }, [open, row, initialUniversityId, initialCourseId, form]);
+
+  useEffect(() => {
+    if (!open || !watchUniversityId) {
+      setCourses([]);
+      if (!watchUniversityId) form.setValue("courseId", 0);
+      return;
+    }
+    listActiveCoursesByUniversity(watchUniversityId)
+      .then((list) => {
+        setCourses(list);
+        const currentCourseId = form.getValues("courseId");
+        const hasCurrent = list.some(
+          (x) => pickNum(x, ["courseId", "pk_course_id"]) === currentCourseId,
+        );
+        if (!hasCurrent) {
+          const preferred =
+            initialCourseId &&
+            list.some((x) => pickNum(x, ["courseId"]) === initialCourseId)
+              ? initialCourseId
+              : pickNum(list[0], ["courseId", "pk_course_id"]);
+          form.setValue("courseId", preferred || 0);
+        }
       })
-    } else {
-      reset({
-        subjectName: '',
-        subjectCode: '',
-        subjectTypeId: undefined,
-        subjectCategoryId: undefined,
-        subCredits: undefined,
-        subCreditHrs: undefined,
-        shortName: '',
-        orderNo: undefined,
-        isLanguage: false,
-        isActive: true,
-        reason: 'active',
-      })
-    }
-    setSyllabusFile(null)
-    setSubmitError(null)
-  }, [row, open, reset])
+      .catch(() => {
+        setCourses([]);
+        form.setValue("courseId", 0);
+      });
+  }, [open, watchUniversityId, initialCourseId, form]);
 
-  const subjectTypeOptions = useMemo(
-    () =>
-      subjectTypes.map((x) => ({
-        value: String(pickNum(x, ['generalDetailId', 'pk_gd_id'])),
-        label: String(x.generalDetailDisplayName ?? x.gd_display_name ?? x.generalDetailCode ?? 'Type'),
-      })),
-    [subjectTypes],
-  )
-  const subjectCategoryOptions = useMemo(
-    () =>
-      subjectCategories.map((x) => ({
-        value: String(pickNum(x, ['generalDetailId', 'pk_gd_id'])),
-        label: String(x.generalDetailDisplayName ?? x.gd_display_name ?? x.generalDetailCode ?? 'Category'),
-      })),
-    [subjectCategories],
-  )
+  useEffect(() => {
+    if (watchIsActive) form.setValue("reason", "active");
+  }, [watchIsActive, form]);
 
-  async function onSubmit(values: FormValues) {
-    setSubmitError(null)
-    const duplicate = existingRows.some((x) => {
-      const id = pickNum(x, ['subjectId'])
-      if (isEditing && id === pickNum(row, ['subjectId'])) return false
-      return String(x.subjectCode ?? '').trim().toLowerCase() === values.subjectCode.trim().toLowerCase()
-    })
-    if (duplicate) {
-      setSubmitError('Already same subject code exists.')
-      return
-    }
+  const buildPayload = (values: FormValues): AnyRow => ({
+    universityId: values.universityId,
+    courseId: values.courseId,
+    subjectName: values.subjectName.trim(),
+    subjectCode: values.subjectCode.trim(),
+    subjectTypeId: values.subjectTypeId,
+    subjectCategoryId: values.subjectCategoryId,
+    subCredits: values.subCredits?.trim() ? Number(values.subCredits) : null,
+    subCreditHrs: values.subCreditHrs?.trim()
+      ? Number(values.subCreditHrs)
+      : null,
+    shortName: values.shortName.trim(),
+    orderNo: values.orderNo?.trim() ? Number(values.orderNo) : null,
+    isLanguage: values.isLanguage,
+    isActive: values.isActive,
+    reason: values.isActive ? "active" : values.reason?.trim() || "",
+  });
 
-    const payload: AnyRow = {
-      courseId,
-      subjectName: values.subjectName.trim(),
-      subjectCode: values.subjectCode.trim(),
-      subjectTypeId: parseOptionalNumber(values.subjectTypeId),
-      subjectCategoryId: parseOptionalNumber(values.subjectCategoryId),
-      subCredits: parseOptionalNumber(values.subCredits),
-      subCreditHrs: parseOptionalNumber(values.subCreditHrs),
-      shortName: values.shortName.trim(),
-      orderNo: parseOptionalNumber(values.orderNo),
-      isLanguage: values.isLanguage,
-      isActive: values.isActive,
-      reason: values.reason?.trim() || '',
-    }
-
+  const handleFormSubmit = form.handleSubmit(async (values) => {
+    setSaving(true);
+    setError("");
     try {
-      if (isEditing) {
-        await updateSubjectWithOptionalFile(pickNum(row, ['subjectId']), payload, syllabusFile)
-      } else {
-        await createSubjectWithOptionalFile(payload, syllabusFile)
+      const payload = buildPayload(values);
+      const subjectId = pickNum(row, ["subjectId"]);
+
+      if (
+        isDuplicateSubject(existingRows, {
+          subjectName: payload.subjectName as string,
+          subjectCode: payload.subjectCode as string,
+          subjectId: isEdit ? subjectId : undefined,
+        })
+      ) {
+        setError("Subject with same name or code already exists");
+        return;
       }
-      onSaved()
-      onClose()
-    } catch (error: unknown) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to save subject')
+
+      if (isEdit && subjectId) {
+        await updateSubject(subjectId, payload);
+      } else {
+        await createSubject(payload);
+      }
+
+      onSaved?.();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save subject");
+    } finally {
+      setSaving(false);
     }
-  }
+  });
 
   return (
-    <Dialog open={open} onOpenChange={(n) => { if (!n) onClose() }}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pr-8">
-          <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
-            {isEditing ? 'Edit Subject' : 'Add Subject'}
-          </DialogTitle>
-        </DialogHeader>
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={isEdit ? "Edit Subject" : "Add Subject"}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void handleFormSubmit();
+      }}
+      submitLabel={isEdit ? "Update" : "Save"}
+      isSubmitting={saving}
+      size="lg"
+    >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Select
+          label="University"
+          required
+          value={watchUniversityId ? String(watchUniversityId) : ""}
+          onChange={(v) => {
+            form.setValue("universityId", Number(v) || 0, {
+              shouldValidate: true,
+            });
+            form.setValue("courseId", 0);
+          }}
+          options={universityOptions}
+          placeholder="Select university"
+          isLoading={loadingLookups}
+          disabled={saving}
+        />
+        <Select
+          label="Course"
+          required
+          value={form.watch("courseId") ? String(form.watch("courseId")) : ""}
+          onChange={(v) =>
+            form.setValue("courseId", Number(v) || 0, { shouldValidate: true })
+          }
+          options={courseOptions}
+          placeholder="Select course"
+          disabled={!watchUniversityId || saving}
+        />
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 py-1">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div className="md:col-span-2">
-              <Label htmlFor="subject-name" className="text-[12px] font-medium">Subject Name *</Label>
-              <Input id="subject-name" {...register('subjectName')} />
-              {errors.subjectName && <p className="text-xs text-red-500">{errors.subjectName.message}</p>}
-            </div>
-            <div>
-              <Label htmlFor="subject-code" className="text-[12px] font-medium">Subject Code *</Label>
-              <Input id="subject-code" {...register('subjectCode')} />
-              {errors.subjectCode && <p className="text-xs text-red-500">{errors.subjectCode.message}</p>}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <Controller
-              name="subjectTypeId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="Subject Type"
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                  options={subjectTypeOptions}
-                  placeholder="Select subject type"
-                  searchable
-                  className="[&_label]:text-[12px] [&_label]:font-medium"
-                />
-              )}
-            />
-            <Controller
-              name="subjectCategoryId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="Subject Category"
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                  options={subjectCategoryOptions}
-                  placeholder="Select subject category"
-                  searchable
-                  className="[&_label]:text-[12px] [&_label]:font-medium"
-                />
-              )}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <div>
-              <Label htmlFor="sub-credits" className="text-[12px] font-medium">Credits</Label>
-              <Input id="sub-credits" type="number" step="any" value={watch('subCredits') ?? ''} onChange={(e) => setValue('subCredits', parseOptionalNumber(e.target.value))} />
-            </div>
-            <div>
-              <Label htmlFor="sub-hrs" className="text-[12px] font-medium">Credit Hours</Label>
-              <Input id="sub-hrs" type="number" step="any" value={watch('subCreditHrs') ?? ''} onChange={(e) => setValue('subCreditHrs', parseOptionalNumber(e.target.value))} />
-            </div>
-            <div>
-              <Label htmlFor="short-name" className="text-[12px] font-medium">Short Name *</Label>
-              <Input id="short-name" {...register('shortName')} />
-              {errors.shortName && <p className="text-xs text-red-500">{errors.shortName.message}</p>}
-            </div>
-            <div>
-              <Label htmlFor="order-no" className="text-[12px] font-medium">Order No</Label>
-              <Input id="order-no" type="number" value={watch('orderNo') ?? ''} onChange={(e) => setValue('orderNo', parseOptionalNumber(e.target.value))} />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="syllabus-file" className="text-[12px] font-medium">Syllabus File</Label>
-            <Input id="syllabus-file" type="file" accept=".png,.jpg,.jpeg,.pdf,.doc,.docx" onChange={(e) => setSyllabusFile(e.target.files?.[0] ?? null)} />
-          </div>
-
-          <div className="flex items-center gap-6">
-            <label className="inline-flex items-center gap-2 text-[12px] font-medium">
-              <input
-                type="checkbox"
-                checked={watch('isLanguage')}
-                onChange={(e) => setValue('isLanguage', e.target.checked)}
-              />
-              <span>Is Language</span>
-            </label>
-          </div>
-
-          {isEditing && (
-            <Controller
-              name="isActive"
-              control={control}
-              render={({ field }) => (
-                <ActiveStatusField
-                  isActive={field.value}
-                  reason={watch('reason') ?? ''}
-                  onActiveChange={field.onChange}
-                  onReasonChange={(v) => setValue('reason', v)}
-                  reasonError={errors.reason?.message}
-                />
-              )}
-            />
+        <div className="space-y-1.5">
+          <Label>
+            Subject Name <span className="text-destructive">*</span>
+          </Label>
+          <Input {...form.register("subjectName")} disabled={saving} />
+          {form.formState.errors.subjectName && (
+            <p className="text-xs text-destructive">
+              {form.formState.errors.subjectName.message}
+            </p>
           )}
+        </div>
+        <div className="space-y-1.5">
+          <Label>
+            Subject Code <span className="text-destructive">*</span>
+          </Label>
+          <Input {...form.register("subjectCode")} disabled={saving} />
+          {form.formState.errors.subjectCode && (
+            <p className="text-xs text-destructive">
+              {form.formState.errors.subjectCode.message}
+            </p>
+          )}
+        </div>
 
-          {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-          <DialogFooter className="pt-1">
-            <Button variant="outline" type="button" onClick={onClose}>Close</Button>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Save'}</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
+        <Select
+          label="Subject Type"
+          required
+          value={
+            form.watch("subjectTypeId")
+              ? String(form.watch("subjectTypeId"))
+              : ""
+          }
+          onChange={(v) =>
+            form.setValue("subjectTypeId", Number(v) || 0, {
+              shouldValidate: true,
+            })
+          }
+          options={typeOptions}
+          placeholder="Select type"
+          isLoading={loadingLookups}
+          disabled={saving}
+        />
+        <Select
+          label="Subject Category"
+          required
+          value={
+            form.watch("subjectCategoryId")
+              ? String(form.watch("subjectCategoryId"))
+              : ""
+          }
+          onChange={(v) =>
+            form.setValue("subjectCategoryId", Number(v) || 0, {
+              shouldValidate: true,
+            })
+          }
+          options={categoryOptions}
+          placeholder="Select category"
+          isLoading={loadingLookups}
+          disabled={saving}
+        />
+
+        <div className="space-y-1.5">
+          <Label>Credits</Label>
+          <Input
+            type="number"
+            step="any"
+            {...form.register("subCredits")}
+            disabled={saving}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Credit Hours</Label>
+          <Input
+            type="number"
+            step="any"
+            {...form.register("subCreditHrs")}
+            disabled={saving}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>
+            Short Name <span className="text-destructive">*</span>
+          </Label>
+          <Input {...form.register("shortName")} disabled={saving} />
+          {form.formState.errors.shortName && (
+            <p className="text-xs text-destructive">
+              {form.formState.errors.shortName.message}
+            </p>
+          )}
+        </div>
+        <div className="space-y-1.5">
+          <Label>Order No</Label>
+          <Input
+            type="number"
+            {...form.register("orderNo")}
+            disabled={saving}
+          />
+        </div>
+
+        <div className="flex items-center gap-6 sm:col-span-2">
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={form.watch("isLanguage")}
+              onCheckedChange={(v) => form.setValue("isLanguage", v === true)}
+              disabled={saving}
+            />
+            Is Language
+          </label>
+        </div>
+
+        <div className="sm:col-span-2">
+          <ActiveStatusField
+            isActive={watchIsActive}
+            reason={form.watch("reason") ?? ""}
+            onActiveChange={(v) => form.setValue("isActive", v === true)}
+            onReasonChange={(v) => form.setValue("reason", v)}
+            reasonError={form.formState.errors.reason?.message}
+          />
+        </div>
+      </div>
+
+      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+    </FormModal>
+  );
 }
-
