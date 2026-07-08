@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import {
 	listActiveBuildings,
@@ -64,11 +64,28 @@ export default function AddRoomSeatingPlanPage() {
 			courseCode: searchParams?.get('courseCode') ?? '',
 			academicYear: searchParams?.get('academicYear') ?? '',
 			examName: searchParams?.get('examName') ?? '',
+			/** Parent filter: `0` External / `1` Internal */
+			examType: searchParams?.get('examType') ?? '',
 		}),
 		[searchParams],
 	)
 
 	const [exam, setExam] = useState<AnyRow | null>(null)
+
+	const examTypeLabel = useMemo(() => {
+		// Angular room-allotment: (Internal) / (Regular) / (Supple) from exam master flags
+		const parts: string[] = []
+		if (exam) {
+			if (exam.isInternalExam === true) parts.push('Internal')
+			if (exam.isRegularExam === true) parts.push('Regular')
+			if (exam.isSupplyExam === true) parts.push('Supple')
+			if (parts.length === 0 && params.examType === '0') parts.push('External')
+			return parts.length > 0 ? parts.map((p) => `(${p})`).join(' ') : '—'
+		}
+		if (params.examType === '1') return '(Internal)'
+		if (params.examType === '0') return '(External)'
+		return '—'
+	}, [exam, params.examType])
 	const [buildings, setBuildings] = useState<AnyRow[]>([])
 	const [blocks, setBlocks] = useState<AnyRow[]>([])
 	const [floors, setFloors] = useState<AnyRow[]>([])
@@ -314,19 +331,27 @@ export default function AddRoomSeatingPlanPage() {
 
 	return (
 		<PageContainer className="space-y-4">
-			<PageHeader title="Add Room Seating Plan" subtitle="Allot exam rooms with seat layout" />
+			<h2 className="text-lg font-semibold tracking-tight text-foreground">Add Room Seating Plan</h2>
 
-			<div className="rounded-md border border-border bg-card p-4 space-y-3">
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[13px]">
-					<div>
-						<span className="font-semibold">Course :</span>{' '}
-						{params.courseCode ? `${params.courseCode} / ${params.academicYear}` : '—'}
-					</div>
-					<div className="md:col-span-2">
-						<span className="font-semibold">Exam :</span>{' '}
+			<div className="rounded-md border border-border bg-card px-4 py-3">
+				<div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-2 gap-y-2 text-[13px]">
+					<span className="font-medium text-foreground">Course</span>
+					<span className="min-w-0 text-[hsl(var(--primary))]">
+						:{' '}
+						{params.courseCode
+							? `/ ${params.academicYear || '—'} / ${params.courseCode}`
+							: '—'}
+					</span>
+					<span className="font-medium text-foreground">Exam</span>
+					<span className="min-w-0 text-[hsl(var(--primary))]">
+						:{' '}
 						{params.examName ||
-							(exam ? `${exam.examName} (${toDateStr(exam.fromDate)} - ${toDateStr(exam.toDate)})` : '—')}
-					</div>
+							(exam
+								? `${exam.examName} (${toDateStr(exam.fromDate)} - ${toDateStr(exam.toDate)})`
+								: '—')}
+					</span>
+					<span className="font-medium text-foreground">Exam Type</span>
+					<span className="min-w-0 text-[hsl(var(--primary))]">: {examTypeLabel}</span>
 				</div>
 			</div>
 

@@ -33,10 +33,11 @@ export function rowIndexGetter(p: ValueGetterParams): number {
  * Returns a deduplicated copy of `arr`, preserving the first occurrence of each
  * item as identified by a numeric key returned from `keyFn`.
  */
-export function distinct<T>(arr: T[], keyFn: (item: T) => number): T[] {
-  const seen = new Set<number>()
+export function distinct<T>(arr: T[], keyFn: (item: T) => string | number): T[] {
+  const seen = new Set<string | number>()
   return arr.filter((item) => {
     const key = keyFn(item)
+    if (key === '' || key === 0 || Number.isNaN(key)) return true
     if (seen.has(key)) return false
     seen.add(key)
     return true

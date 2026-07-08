@@ -133,8 +133,15 @@ function FileInput({
   )
 }
 
-function parseDate(val: string | undefined | null): Date | null {
-  if (!val) return null
+function parseDate(val: string | Date | undefined | null): Date | null {
+  if (val == null || val === '') return null
+  if (val instanceof Date) return isNaN(val.getTime()) ? null : val
+  // Date-only (yyyy-MM-dd) — parse as local calendar date to avoid UTC day shift.
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(val)
+  if (ymd) {
+    const d = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]))
+    return isNaN(d.getTime()) ? null : d
+  }
   const d = new Date(val)
   return isNaN(d.getTime()) ? null : d
 }
@@ -172,15 +179,6 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
       setToast(null)
     }
   }, [open, exam, reset])
-
-  const examMonthYr = watch('examMonthYr')
-  useEffect(() => {
-    if (examMonthYr) {
-      const d = new Date(examMonthYr.getFullYear(), examMonthYr.getMonth(), 1)
-      setValue('fromDate', d)
-      setValue('toDate', d)
-    }
-  }, [examMonthYr, setValue])
 
   const fromDate = watch('fromDate')
   const toDate = watch('toDate')
@@ -274,7 +272,19 @@ export default function ExamMasterModal({ open, onClose, exam, context, onSaved 
                 control={control}
                 name="examMonthYr"
                 render={({ field }) => (
-                  <MonthYearPicker value={field.value} onChange={field.onChange} placeholder="Pick month/year" />
+                  <MonthYearPicker
+                    value={field.value}
+                    onChange={(d) => {
+                      field.onChange(d)
+                      // Angular `chosenMonthHandler`: only when user picks a month, seed From/To to the 1st.
+                      if (d) {
+                        const firstOfMonth = new Date(d.getFullYear(), d.getMonth(), 1)
+                        setValue('fromDate', firstOfMonth)
+                        setValue('toDate', firstOfMonth)
+                      }
+                    }}
+                    placeholder="Pick month/year"
+                  />
                 )}
               />
             </div>

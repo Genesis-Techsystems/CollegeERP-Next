@@ -207,6 +207,17 @@ export default function CreateExamTimetablePage() {
 		})
 	}
 
+	const allGroupsSelected =
+		courseGroups.length > 0 && courseGroups.every((g) => selectedGroups.has(g.code))
+
+	function toggleSelectAllGroups() {
+		if (allGroupsSelected) {
+			setSelectedGroups(new Set())
+			return
+		}
+		setSelectedGroups(new Set(courseGroups.map((g) => g.code)))
+	}
+
 	useEffect(() => {
 		setCourseGroups([])
 		setSelectedGroups(new Set())
@@ -750,18 +761,28 @@ export default function CreateExamTimetablePage() {
 									{selectedCourseId ? 'No course groups for this course.' : 'Pick a course to load groups.'}
 								</div>
 							) : (
-								courseGroups.map((g) => {
-									const checked = selectedGroups.has(g.code)
-									return (
-										<label key={g.code} className="flex items-center gap-2 text-[12px]">
-											<input type="checkbox" checked={checked} onChange={() => toggleGroup(g.code)} />
-											<span>
-												{g.code}
-												{g.regulationName ? <span className="text-muted-foreground"> ({g.regulationName})</span> : null}
-											</span>
-										</label>
-									)
-								})
+								<>
+									<label className="flex items-center gap-2 text-[12px] font-medium border-b border-border pb-1.5 mb-1">
+										<input
+											type="checkbox"
+											checked={allGroupsSelected}
+											onChange={toggleSelectAllGroups}
+										/>
+										<span>Select All</span>
+									</label>
+									{courseGroups.map((g) => {
+										const checked = selectedGroups.has(g.code)
+										return (
+											<label key={g.code} className="flex items-center gap-2 text-[12px]">
+												<input type="checkbox" checked={checked} onChange={() => toggleGroup(g.code)} />
+												<span>
+													{g.code}
+													{g.regulationName ? <span className="text-muted-foreground"> ({g.regulationName})</span> : null}
+												</span>
+											</label>
+										)
+									})}
+								</>
 							)}
 						</div>
 					</div>
