@@ -9,7 +9,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listDocumentRepositories } from '@/services'
 import type { DocumentRepository } from '@/types/document-repository'
 import DocumentRepositoryModal from './DocumentRepositoryModal'
@@ -107,6 +107,7 @@ export default function DocumentRepositoryPage() {
       </div>
 
       <DocumentRepositoryModal
+        key={getCrudModalKey(row, open, 'documentRepositoryId')}
         open={open}
         onClose={() => { setOpen(false); setRow(null) }}
         row={row}

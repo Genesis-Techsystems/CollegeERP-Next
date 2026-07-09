@@ -8,7 +8,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listBatchesAdmin } from '@/services'
 import type { Batch } from '@/types/batch'
 import BatchModal from './BatchModal'
@@ -70,7 +70,13 @@ export default function BatchesPage() {
           />
         </div>
       </div>
-      <BatchModal open={open} onClose={() => { setOpen(false); setRow(null) }} row={row} onSaved={invalidate} />
+      <BatchModal
+        key={getCrudModalKey(row, open, 'batchId')}
+        open={open}
+        onClose={() => { setOpen(false); setRow(null) }}
+        row={row}
+        onSaved={invalidate}
+      />
     </PageContainer>
   )
 }

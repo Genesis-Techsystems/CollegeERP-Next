@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PlusIcon, Building2 } from 'lucide-react'
+import { PlusIcon } from 'lucide-react'
 import { PageContainer } from '@/components/layout'
 import { DataTable, TableRowActions } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,7 @@ import { MINIO_URL } from '@/config/constants/api'
 import noImgLogo from '@/assets/images/no-img-logo.png'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 
 const COL_DEFS = {
   siNo:         { headerName: 'SL.No', valueGetter: rowIndexGetter, width: 72, flex: 0, filter: false, sortable: false } as ColDef<Organization>,
@@ -81,34 +81,28 @@ export default function OrganizationsPage() {
 
   return (
     <PageContainer className="space-y-4">
-      {!loading && organizations.length === 0 ? (
-        <div className="app-card flex flex-col items-center justify-center py-16 text-muted-foreground">
-          <Building2 className="mb-3 h-10 w-10 opacity-40" />
-          <p className="text-sm">No organizations found</p>
-        </div>
-      ) : (
-        <DataTable
-          title="Organizations"
-          bordered
-          rowData={organizations}
-          columnDefs={columnDefs}
-          loading={loading}
-          pagination
-          toolbar={{ searchPlaceholder: 'Search organizations…', pdfDocumentTitle: 'Organizations' }}
-          toolbarTrailing={
-            <Button
-              size="sm"
-              data-table-primary-action
-              onClick={() => { setEditingOrg(null); setModalOpen(true) }}
-            >
-              <PlusIcon className="mr-1.5 h-4 w-4" />
-              New Organization
-            </Button>
-          }
-        />
-      )}
+      <DataTable
+        title="Organizations"
+        bordered
+        rowData={organizations}
+        columnDefs={columnDefs}
+        loading={loading}
+        pagination
+        toolbar={{ searchPlaceholder: 'Search organizations…', pdfDocumentTitle: 'Organizations' }}
+        toolbarTrailing={
+          <Button
+            size="sm"
+            data-table-primary-action
+            onClick={() => { setEditingOrg(null); setModalOpen(true) }}
+          >
+            <PlusIcon className="mr-1.5 h-4 w-4" />
+            New Organization
+          </Button>
+        }
+      />
 
       <OrganizationModal
+        key={getCrudModalKey(editingOrg, modalOpen, 'organizationId')}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingOrg(null) }}
         organization={editingOrg}

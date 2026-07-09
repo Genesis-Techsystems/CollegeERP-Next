@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Blocks, PencilIcon, PlusIcon } from 'lucide-react'
+import { PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listBlocks } from '@/services'
 import type { Block } from '@/types/block'
 import BlockModal from './BlockModal'
@@ -18,7 +18,7 @@ const COL_DEFS = {
   siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<Block>,
   blockName: { field: 'blockName', headerName: 'Block Name', minWidth: 160, flex: 1.2 } as ColDef<Block>,
   blockCode: { field: 'blockCode', headerName: 'Block Code', minWidth: 115, flex: 0.85 } as ColDef<Block>,
-  buildingName: { field: 'buildingName', headerName: 'Building', minWidth: 150, flex: 1 } as ColDef<Block>,
+  buildingName: { field: 'buildingName', headerName: 'Building Name', minWidth: 150, flex: 1 } as ColDef<Block>,
   noOfFloors: { field: 'noOfFloors', headerName: 'No Of Floors', minWidth: 110, flex: 0.75 } as ColDef<Block>,
   isActive: { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<Block>,
   actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<Block>,
@@ -83,31 +83,25 @@ export default function BlocksPage() {
         </div>
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!loading && blocks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Blocks className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No blocks found</p>
-              </div>
-            ) : (
-              <DataTable
-                rowData={blocks}
-                columnDefs={columnDefs}
-                loading={loading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search blocks…', pdfDocumentTitle: 'Blocks' }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setEditingBlock(null); setModalOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Block
-                  </Button>
-                }
-              />
-            )}
+            <DataTable
+              rowData={blocks}
+              columnDefs={columnDefs}
+              loading={loading}
+              pagination
+              toolbar={{ search: true, searchPlaceholder: 'Search blocks…', pdfDocumentTitle: 'Blocks' }}
+              toolbarTrailing={
+                <Button size="sm" onClick={() => { setEditingBlock(null); setModalOpen(true) }}>
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Add Block
+                </Button>
+              }
+            />
           </div>
         </div>
       </div>
 
       <BlockModal
+        key={getCrudModalKey(editingBlock, modalOpen, 'blockId')}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingBlock(null) }}
         block={editingBlock}

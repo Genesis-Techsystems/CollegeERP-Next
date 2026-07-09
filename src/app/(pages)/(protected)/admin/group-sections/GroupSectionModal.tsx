@@ -319,7 +319,7 @@ export default function GroupSectionModal({
                 onChange={(v) => { field.onChange(v ? Number(v) : undefined); resetBelowCourseGroup() }}
                 options={courseGroups.map((g) => ({
                   value: String(num(g.fk_course_group_id)),
-                  label: String(g.group_name ?? g.groupName ?? g.group_code ?? ''),
+                  label: String(g.group_code ?? g.groupCode ?? ''),
                 }))}
                 placeholder="Select course group"
                 searchable

@@ -135,6 +135,8 @@ export function normalizeHref(path: string): string {
     .replace(/\/institutional-masters\/block(?=\/|$)/gi, '/admin/blocks')
     .replace(/\/institutional-masters\/floors(?=\/|$)/gi, '/admin/floors')
     .replace(/\/institutional-masters\/floor(?=\/|$)/gi, '/admin/floors')
+    // Angular Admin academic-settings submodule → flat App Router admin pages.
+    .replace(/\/admin\/academic-settings\//gi, '/admin/')
     // Angular E-Office module (`Office/` menu prefix) → App Router path.
     .replace(/\/Office\//gi, '/e-office/')
     .replace(/\/apps\/e-office\//gi, '/e-office/')
@@ -761,6 +763,17 @@ function resolveNavItemHrefForBreadcrumb(item: NavItem): string | null {
   if (masterSettingsIndex !== -1) {
     const slug = hrefLower
       .slice(masterSettingsIndex + masterSettingsMarker.length)
+      .split('?')[0]
+    if (slug) {
+      return normalizeHref(`/admin/${slug}`).replace(/\/$/, '')
+    }
+  }
+
+  const academicSettingsMarker = 'academic-settings/'
+  const academicSettingsIndex = hrefLower.indexOf(academicSettingsMarker)
+  if (academicSettingsIndex !== -1) {
+    const slug = hrefLower
+      .slice(academicSettingsIndex + academicSettingsMarker.length)
       .split('?')[0]
     if (slug) {
       return normalizeHref(`/admin/${slug}`).replace(/\/$/, '')

@@ -2,27 +2,26 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DoorOpen, PencilIcon, PlusIcon } from 'lucide-react'
+import { PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { Select } from '@/common/components/select'
 import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { useCrudList } from '@/hooks/useCrudList'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import {
   getRoomDeviceDetails,
   listActiveBlocksByBuilding,
   listActiveBuildingsForRooms,
   listActiveCampuses,
   listActiveFloorsByBlock,
-  listRoomDetails,
+  listRooms,
 } from '@/services'
 import type { Block } from '@/types/block'
 import type { Building } from '@/types/building'
 import type { Campus } from '@/types/campus'
+import type { Room } from '@/types/room'
 import type { RoomDetail } from '@/types/room-detail'
 import RoomDetailModal from './RoomDetailModal'
 
@@ -35,35 +34,6 @@ type Floor = {
 function num(value: unknown): number {
   const n = Number(value)
   return Number.isFinite(n) ? n : 0
-}
-
-function pickCampusId(row: RoomDetail): number {
-  const r = row as unknown as Record<string, unknown>
-  const campus = (r.campus ?? r.Campus) as Record<string, unknown> | undefined
-  return num(row.campusId ?? r.fk_campus_id ?? r.campusId ?? campus?.campusId ?? campus?.campus_id)
-}
-
-function pickBuildingId(row: RoomDetail): number {
-  const r = row as unknown as Record<string, unknown>
-  const building = (r.building ?? r.Building) as Record<string, unknown> | undefined
-  return num(row.buildingId ?? r.fk_building_id ?? r.buildingId ?? building?.buildingId ?? building?.building_id)
-}
-
-function pickBlockId(row: RoomDetail): number {
-  const r = row as unknown as Record<string, unknown>
-  const block = (r.block ?? r.Block) as Record<string, unknown> | undefined
-  return num(row.blockId ?? r.fk_block_id ?? r.blockId ?? block?.blockId ?? block?.block_id)
-}
-
-function pickFloorId(row: RoomDetail): number {
-  const r = row as unknown as Record<string, unknown>
-  const floor = (r.floor ?? r.Floor) as Record<string, unknown> | undefined
-  return num(row.floorId ?? r.fk_floor_id ?? r.floorId ?? floor?.floorId ?? floor?.floor_id)
-}
-
-function pickRoomId(row: RoomDetail): number {
-  const r = row as unknown as Record<string, unknown>
-  return num(row.roomId ?? r.roomId ?? r.fk_room_id ?? r.pk_room_id)
 }
 
 function pickText(row: RoomDetail, keys: string[]): string {
@@ -300,6 +270,8 @@ export default function RoomDetailsPage() {
   const [buildings, setBuildings] = useState<Building[]>([])
   const [blocks, setBlocks] = useState<Block[]>([])
   const [floors, setFloors] = useState<Floor[]>([])
+  const [allRooms, setAllRooms] = useState<Room[]>([])
+  const [rooms, setRooms] = useState<Room[]>([])
 
   const [campusId, setCampusId] = useState<string | null>(null)
   const [buildingId, setBuildingId] = useState<string | null>(null)
@@ -329,16 +301,12 @@ export default function RoomDetailsPage() {
   }
 
 
-  const { data: rooms, invalidate } = useCrudList({
-    queryKey: QK.roomDetails.list(),
-    queryFn: listRoomDetails,
-  })
-
   useEffect(() => {
-    Promise.all([listActiveCampuses(), listActiveBuildingsForRooms()])
-      .then(([campusRows, buildingRows]) => {
+    Promise.all([listActiveCampuses(), listActiveBuildingsForRooms(), listRooms()])
+      .then(([campusRows, buildingRows, roomRows]) => {
         setCampuses(campusRows)
         setBuildings(buildingRows)
+        setAllRooms(roomRows)
       })
       .catch(console.error)
   }, [])
@@ -361,6 +329,22 @@ export default function RoomDetailsPage() {
     listActiveFloorsByBlock(id).then(setFloors).catch(console.error)
   }, [blockId])
 
+  useEffect(() => {
+    const selectedBlockId = num(blockId ?? 0)
+    const selectedFloorId = num(floorId ?? 0)
+    const filtered = allRooms.filter((room) => {
+      if (selectedBlockId && room.blockId !== selectedBlockId) return false
+      if (selectedFloorId && room.floorId !== selectedFloorId) return false
+      return room.isActive !== false
+    })
+    setRooms(filtered)
+  }, [allRooms, blockId, floorId])
+
+  // Results should render only after explicit "Get Details".
+  useEffect(() => {
+    setShowResults(false)
+  }, [campusId, buildingId, blockId, floorId, roomId])
+
   const campusOptions = useMemo(
     () => campuses.map((campus) => ({ value: String(campus.campusId), label: campus.campusName })),
     [campuses],
@@ -372,38 +356,27 @@ export default function RoomDetailsPage() {
       : buildings
     return filtered.map((building) => ({
       value: String(building.buildingId),
-      label: `${building.buildingCode ?? ''} - ${building.buildingName}`.trim(),
+      label: building.buildingCode ?? building.buildingName ?? '',
     }))
   }, [buildings, campusId])
   const blockOptions = useMemo(
-    () => blocks.map((block) => ({ value: String(block.blockId), label: `${block.blockCode ?? ''} - ${block.blockName ?? ''}`.trim() })),
+    () => blocks.map((block) => ({ value: String(block.blockId), label: block.blockName ?? '' })),
     [blocks],
   )
   const floorOptions = useMemo(
-    () => floors.map((floor) => {
-      const floorNoText = floor.floorNo ? `(${String(floor.floorNo)})` : ''
-      return {
-        value: String(floor.floorId),
-        label: `${floor.floorName ?? ''} ${floorNoText}`.trim(),
-      }
-    }),
+    () => floors.map((floor) => ({
+      value: String(floor.floorId),
+      label: floor.floorName ?? '',
+    })),
     [floors],
   )
-  const roomOptions = useMemo(() => {
-    const selectedBuildingId = Number(buildingId ?? 0)
-    const selectedBlockId = Number(blockId ?? 0)
-    const selectedFloorId = Number(floorId ?? 0)
-    const filtered = rooms.filter((room) => {
-      if (selectedBuildingId && pickBuildingId(room) !== selectedBuildingId) return false
-      if (selectedBlockId && pickBlockId(room) !== selectedBlockId) return false
-      if (selectedFloorId && pickFloorId(room) !== selectedFloorId) return false
-      return true
-    })
-    return filtered.map((room) => ({
-      value: String(pickRoomId(room)),
-      label: `${room.roomCode} - ${room.roomName}`,
-    }))
-  }, [rooms, buildingId, blockId, floorId])
+  const roomOptions = useMemo(
+    () => rooms.map((room) => ({
+      value: String(room.roomId),
+      label: room.roomCode ?? '',
+    })),
+    [rooms],
+  )
 
   const filteredData = useMemo(() => {
     return resultRows
@@ -508,32 +481,26 @@ export default function RoomDetailsPage() {
           </div>
           <div className="px-3 pb-3 pt-2">
             <div className="rounded-lg border border-border bg-card overflow-hidden">
-              {!detailsLoading && filteredData.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                  <DoorOpen className="h-10 w-10 mb-3 opacity-40" />
-                  <p className="text-sm">No room details found</p>
-                </div>
-              ) : (
-                <DataTable
-                  rowData={filteredData}
-                  columnDefs={columnDefs}
-                  loading={detailsLoading}
-                  pagination
-                  toolbar={{ search: true, searchPlaceholder: 'Search room detailsΓÇª', pdfDocumentTitle: 'Room Details List' }}
-                  toolbarTrailing={
-                    <Button size="sm" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
-                      <PlusIcon className="h-4 w-4 mr-1" />
-                      Add Room Details
-                    </Button>
-                  }
-                />
-              )}
+              <DataTable
+                rowData={filteredData}
+                columnDefs={columnDefs}
+                loading={detailsLoading}
+                pagination
+                toolbar={{ search: true, searchPlaceholder: 'Search room details…', pdfDocumentTitle: 'Room Details List' }}
+                toolbarTrailing={
+                  <Button size="sm" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Add Room Details
+                  </Button>
+                }
+              />
             </div>
           </div>
         </div>
       )}
 
       <RoomDetailModal
+        key={getCrudModalKey(editingRoom, modalOpen, 'roomDetailId', 'roomId')}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingRoom(null) }}
         room={editingRoom}
@@ -543,7 +510,12 @@ export default function RoomDetailsPage() {
         initialFloorId={num(floorId ?? 0) || null}
         initialRoomId={num(roomId ?? 0) || null}
         roomDeviceRows={resultRows}
-        onSaved={() => { invalidate(); void loadDetails() }}
+        onSaved={() => {
+          void listRooms()
+            .then((rows) => setAllRooms(rows))
+            .catch(() => setAllRooms([]))
+          void loadDetails()
+        }}
       />
     </PageContainer>
   )

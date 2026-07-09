@@ -324,23 +324,23 @@
 }
 
 .app-card[data-filters-collapsed="true"]
-  :not(:has(.app-data-table))
-  :not(:has(.app-data-table-card))
-  :has([role="combobox"]),
+:not(:has(.app-data-table))
+:not(:has(.app-data-table-card))
+:has([role="combobox"]),
 .app-card[data-filters-collapsed="true"]
-  :not(:has(.app-data-table))
-  :not(:has(.app-data-table-card))
-  :has(button[data-slot="popover-trigger"]) {
+:not(:has(.app-data-table))
+:not(:has(.app-data-table-card))
+:has(button[data-slot="popover-trigger"]) {
   /* Keep shell; just hide the body. */
 }
 .app-card[data-filters-collapsed="true"]
-  :not(:has(.app-data-table))
-  :not(:has(.app-data-table-card))
+:not(:has(.app-data-table))
+:not(:has(.app-data-table-card))
   :has([role="combobox"])
   > :not(:first-child),
 .app-card[data-filters-collapsed="true"]
-  :not(:has(.app-data-table))
-  :not(:has(.app-data-table-card))
+:not(:has(.app-data-table))
+:not(:has(.app-data-table-card))
   :has(button[data-slot="popover-trigger"])
   > :not(:first-child) {
   display: none !important;
@@ -463,17 +463,8 @@
 }
 
 /* Legacy filter labels — uppercase style */
-.app-card:has(> button .app-card-title):not(:has(.app-data-table))
-  label:not([for="isForDisabledFilter"]):not(.cursor-pointer),
-.app-card:has(> div:first-child .app-card-title):has(
-    > div:first-child
-      button:has(
-        svg[class*="lucide-funnel"],
-        svg[class*="lucide-filter"],
-        svg[class*="lucide-chevron"]
-      )
-  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
-  label:not([for="isForDisabledFilter"]):not(.cursor-pointer) {
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) label:not([for="isForDisabledFilter"]):not(.cursor-pointer),
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) label:not([for="isForDisabledFilter"]):not(.cursor-pointer) {
   display: block;
   font-size: 10px !important;
   font-weight: 600 !important;
@@ -483,28 +474,10 @@
   margin-bottom: 0.375rem;
 }
 
-.app-card:has(> button .app-card-title):not(:has(.app-data-table))
-  [role="combobox"],
-.app-card:has(> button .app-card-title):not(:has(.app-data-table))
-  button[data-slot="popover-trigger"],
-.app-card:has(> div:first-child .app-card-title):has(
-    > div:first-child
-      button:has(
-        svg[class*="lucide-funnel"],
-        svg[class*="lucide-filter"],
-        svg[class*="lucide-chevron"]
-      )
-  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
-  [role="combobox"],
-.app-card:has(> div:first-child .app-card-title):has(
-    > div:first-child
-      button:has(
-        svg[class*="lucide-funnel"],
-        svg[class*="lucide-filter"],
-        svg[class*="lucide-chevron"]
-      )
-  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
-  button[data-slot="popover-trigger"] {
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) [role="combobox"],
+.app-card:has(> button .app-card-title):not(:has(.app-data-table)) button[data-slot="popover-trigger"],
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) [role="combobox"],
+.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) button[data-slot="popover-trigger"] {
   min-height: 2.25rem;
   border-radius: 0.5rem;
   border-color: #e5e7eb;
@@ -518,7 +491,7 @@
   --ag-header-height: 42px;
   --ag-row-height: 40px;
   --ag-cell-horizontal-padding: 14px;
-  --ag-font-family: var(--font-body), "Manrope", system-ui, sans-serif;
+  --ag-font-family: var(--font-body), 'Manrope', system-ui, sans-serif;
   --ag-background-color: hsl(var(--card));
   --ag-header-background-color: hsl(var(--primary) / 0.06);
   --ag-border-color: hsl(var(--border));
@@ -554,22 +527,52 @@
   color: hsl(var(--app-table-header-color));
 }
 
-.app-data-table .ag-theme-quartz .ag-cell,
-.app-data-table .ag-theme-quartz .ag-cell-value {
+.app-data-table .ag-theme-quartz .ag-cell {
   font-size: var(--app-table-row-font-size) !important;
   line-height: 1.4;
   font-weight: 500;
   display: flex;
   align-items: center;
   color: hsl(var(--foreground));
-}
-
-/* Single-line cell text with ellipsis (long text columns only). Headers stay single-line via fit. */
-.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis {
-  overflow: hidden !important;
+  user-select: text;
+  -webkit-user-select: text;
+  overflow: hidden;
   min-width: 0;
 }
 
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-actions {
+  overflow: visible;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell .ag-cell-wrapper {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-actions .ag-cell-wrapper {
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell-value {
+  font-size: var(--app-table-row-font-size) !important;
+  line-height: 1.4;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  user-select: text;
+  -webkit-user-select: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  width: 100%;
+}
+
+/* Single-line ellipsis for all data cells; action columns stay unconstrained. */
 .app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis,
 .app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis .ag-cell-value,
 .app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis .ag-cell-wrapper {
@@ -578,11 +581,6 @@
   overflow: hidden !important;
   min-width: 0;
   max-width: 100%;
-}
-
-.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis .ag-cell-value {
-  display: block;
-  width: 100%;
 }
 
 .app-data-table .ag-theme-quartz .ag-row {
@@ -928,6 +926,8 @@ input[type="reset"]:disabled,
 
 .app-table-value-cell {
   font-size: var(--app-table-row-font-size);
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* Native table typography baseline (for pages not using DataTable yet) */
@@ -941,6 +941,8 @@ input[type="reset"]:disabled,
   line-height: 1.2;
   font-weight: 500;
   vertical-align: middle;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* ── App-wide card shadow utility ─────────────────────────────────────────── */

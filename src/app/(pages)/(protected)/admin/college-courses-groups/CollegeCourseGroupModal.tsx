@@ -60,11 +60,7 @@ function groupCodeValue(row: AnyRow): string {
 }
 
 function groupLabel(row: AnyRow): string {
-  return (
-    pickText(row, ['groupName', 'group_name', 'courseGroupName'])
-    || pickText((row.courseGroup ?? {}) as AnyRow, ['groupName', 'group_name', 'courseGroupName'])
-    || groupCodeValue(row)
-  )
+  return groupCodeValue(row)
 }
 
 function courseCodeValue(row: AnyRow): string {

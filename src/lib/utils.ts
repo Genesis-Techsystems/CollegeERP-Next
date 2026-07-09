@@ -43,3 +43,17 @@ export function distinct<T>(arr: T[], keyFn: (item: T) => string | number): T[] 
     return true
   })
 }
+
+/** React key for CRUD modals — remounts between add/edit so form state does not leak. */
+export function getCrudModalKey<T extends object>(
+  entity: T | null | undefined,
+  open: boolean,
+  ...idFields: Array<keyof T & string>
+): string {
+  if (!entity) return open ? 'new' : 'new-closed'
+  for (const field of idFields) {
+    const id = entity[field]
+    if (id != null && id !== '') return String(id)
+  }
+  return 'edit'
+}

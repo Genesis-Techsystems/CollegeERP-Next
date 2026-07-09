@@ -11,7 +11,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useQuery } from '@tanstack/react-query'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import {
   getExamMasterCollegeFilters,
   listGroupSectionsByFilters,
@@ -181,7 +181,7 @@ export default function GroupSectionsPage() {
   const invalidate = () => sectionsQuery.refetch()
   const columnDefs = useMemo<ColDef<GroupSection>[]>(() => [
     COLS.siNo,
-    { ...COLS.courseGroup, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['groupName', 'group_name', 'groupCode', 'courseGroupCode']) },
+    { ...COLS.courseGroup, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['groupCode', 'group_code', 'courseGroupCode']) },
     { ...COLS.courseYear, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['courseYearCode', 'courseYearName']) },
     { ...COLS.academicYear, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['academicYear', 'academicYearCode', 'academicYearName']) },
     { ...COLS.section, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['groupSectionName', 'groupSectionCode']) },
@@ -294,7 +294,7 @@ export default function GroupSectionsPage() {
             label="Course Group *"
             value={courseGroupId ? String(courseGroupId) : null}
             onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
-            options={courseGroups.map((g: any) => ({ value: String(g.fk_course_group_id ?? 0), label: String(g.group_name ?? g.groupName ?? g.group_code ?? '') }))}
+            options={courseGroups.map((g: any) => ({ value: String(g.fk_course_group_id ?? 0), label: String(g.group_code ?? g.groupCode ?? '') }))}
             searchable
             className="md:col-span-2"
           />
@@ -334,6 +334,7 @@ export default function GroupSectionsPage() {
         </div>
       ) : null}
       <GroupSectionModal
+        key={getCrudModalKey(row, open, 'groupSectionId')}
         open={open}
         onClose={() => { setOpen(false); setRow(null) }}
         row={row}

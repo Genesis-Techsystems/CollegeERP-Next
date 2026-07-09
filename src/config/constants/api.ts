@@ -876,6 +876,7 @@ export const AFFILIATED_COLLEGES_API = {
   AFFILIATED_COLLEGE_SUMMARY: 'getAllRecords/s_get_affilated_college_summary_details',
   UNIV_COLLEGE_WISE_PAYMENTS: 'UnivCollegeWisePayments',
   AFFILIATED_STD_DETAILS: 'getAffiliatedStdDetails',
+  IMPORT_AFFILIATED_STUDENT_DETAILS: 'importAffiliatedStudentDetails',
   STUDENT_SUBJECTS_BY_UPLOAD: 'tables/getStudentSubjects',
   STUDENT_ATTENDANCE_BY_UPLOAD: 'getStudentAttendance',
   UNIV_STG_EXAM_STD_FEE: 'getUnivStgExamStdFee',

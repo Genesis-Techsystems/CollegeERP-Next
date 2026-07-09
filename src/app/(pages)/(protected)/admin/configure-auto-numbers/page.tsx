@@ -19,6 +19,7 @@ import {
 } from '@/services'
 import type { ConfigAutoNumber } from '@/types/config-auto-number'
 import NewAttributeModal from './NewAttributeModal'
+import { getCrudModalKey } from '@/lib/utils'
 
 export default function ConfigureAutoNumbersPage() {
   const [organizationId, setOrganizationId] = useState<number | undefined>()
@@ -162,7 +163,8 @@ export default function ConfigureAutoNumbersPage() {
         </div>
       )}
 
-      <NewAttributeModal
+<NewAttributeModal
+        key={getCrudModalKey(null, attributeOpen)}
         open={attributeOpen}
         onClose={() => setAttributeOpen(false)}
         onSaved={async () => {
