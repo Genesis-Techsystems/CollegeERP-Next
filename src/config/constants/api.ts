@@ -149,6 +149,8 @@ export const EXAM_API = {
   SAVE_EXAM_ROOM_ALLOTMENT: 'examroomallotment',
   /** POST: save/update an array of ExamMarkssetup rows in one request */
   SAVE_EXAM_MARKS_SETUP: 'exammarkssetup',
+  /** POST: save/update exam fee structure rows (Angular `examFeeStructureUrl`) */
+  SAVE_EXAM_FEE_STRUCTURE: 'examfeestructure',
   /** GET: exam course-year subjects (Angular examCourseYearSubjectUrl) — params collegeId, academicYearId, courseyearId, courseGroupId */
   EXAM_COURSE_YEAR_SUBJECT: 'examCourseYearSubject',
 } as const
@@ -1506,4 +1508,12 @@ export const NEXT_API = {
    * // → '/api/proxy/useraccess'
    */
   PROXY: (path: string) => `/api/proxy/${path}` as const,
+  /**
+   * Build a /api/cms/{path} URL — use when `SPRING_API_URL` already ends with `/cms`
+   * (avoids `/api/proxy/cms/...` double-prefixing the CMS segment).
+   *
+   * @example  NEXT_API.CMS(EXAM_API.SAVE_EXAM_FEE_STRUCTURE)
+   * // → '/api/cms/examfeestructure'
+   */
+  CMS: (path: string) => `/api/cms/${path}` as const,
 } as const
