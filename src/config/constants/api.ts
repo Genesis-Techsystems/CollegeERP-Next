@@ -1506,6 +1506,8 @@ export const NEXT_API = {
     /** GET: return current SessionUser from iron-session */
     ME:     '/api/auth/me',
   },
+  /** POST (multipart) to store a file in S3; DELETE ?key=... to remove one */
+  UPLOAD: '/api/upload',
   /**
    * Build a /api/proxy/{path} URL for any Spring Boot endpoint.
    *
