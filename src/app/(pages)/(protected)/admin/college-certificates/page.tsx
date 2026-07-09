@@ -9,7 +9,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listCollegeCertificates } from '@/services'
 import type { CollegeCertificate } from '@/types/college-certificate'
 import CollegeCertificateModal from './CollegeCertificateModal'
@@ -99,7 +99,13 @@ export default function CollegeCertificatesPage() {
         </div>
       </div>
 
-      <CollegeCertificateModal open={open} onClose={() => { setOpen(false); setRow(null) }} row={row} onSaved={invalidate} />
+      <CollegeCertificateModal
+        key={getCrudModalKey(row, open, 'collegeCertificateId')}
+        open={open}
+        onClose={() => { setOpen(false); setRow(null) }}
+        row={row}
+        onSaved={invalidate}
+      />
     </PageContainer>
   )
 }

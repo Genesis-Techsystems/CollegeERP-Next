@@ -115,6 +115,8 @@ export const EXAM_API = {
   GET_EXAM_ALLOTMENT_DETAILS: 'getAllRecords/s_get_exam_allotment_details',
   /** GET: exam detail status by codes */
   GET_EXAM_DETAIL_STATUS: 'getAllRecords/s_get_examdetail_status_bycodes',
+  /** GET: room vacancy for exam room allotment (Angular `getExamRoomDetailsUrl`) */
+  GET_EXAM_MASTER_DETAILS: 's_get_exam_masterdetails',
   /** POST: exam room allotment */
   EXAM_ROOM_ALLOTMENT: 'examroomallotment',
   /** GET: exam student results */
@@ -151,6 +153,8 @@ export const EXAM_API = {
   EXAM_INVIGILATION_ALLOTMENT: 'examinvigilationallotment',
   /** POST: save/update an array of ExamMarkssetup rows in one request */
   SAVE_EXAM_MARKS_SETUP: 'exammarkssetup',
+  /** POST: save/update exam fee structure rows (Angular `examFeeStructureUrl`) */
+  SAVE_EXAM_FEE_STRUCTURE: 'examfeestructure',
   /** GET: exam course-year subjects (Angular examCourseYearSubjectUrl) — params collegeId, academicYearId, courseyearId, courseGroupId */
   EXAM_COURSE_YEAR_SUBJECT: 'examCourseYearSubject',
 } as const
@@ -876,6 +880,7 @@ export const AFFILIATED_COLLEGES_API = {
   AFFILIATED_COLLEGE_SUMMARY: 'getAllRecords/s_get_affilated_college_summary_details',
   UNIV_COLLEGE_WISE_PAYMENTS: 'UnivCollegeWisePayments',
   AFFILIATED_STD_DETAILS: 'getAffiliatedStdDetails',
+  IMPORT_AFFILIATED_STUDENT_DETAILS: 'importAffiliatedStudentDetails',
   STUDENT_SUBJECTS_BY_UPLOAD: 'tables/getStudentSubjects',
   STUDENT_ATTENDANCE_BY_UPLOAD: 'getStudentAttendance',
   UNIV_STG_EXAM_STD_FEE: 'getUnivStgExamStdFee',
@@ -1508,4 +1513,12 @@ export const NEXT_API = {
    * // → '/api/proxy/useraccess'
    */
   PROXY: (path: string) => `/api/proxy/${path}` as const,
+  /**
+   * Build a /api/cms/{path} URL — use when `SPRING_API_URL` already ends with `/cms`
+   * (avoids `/api/proxy/cms/...` double-prefixing the CMS segment).
+   *
+   * @example  NEXT_API.CMS(EXAM_API.SAVE_EXAM_FEE_STRUCTURE)
+   * // → '/api/cms/examfeestructure'
+   */
+  CMS: (path: string) => `/api/cms/${path}` as const,
 } as const

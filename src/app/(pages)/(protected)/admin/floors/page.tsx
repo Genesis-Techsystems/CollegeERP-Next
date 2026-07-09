@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Layers, PencilIcon, PlusIcon } from 'lucide-react'
+import { PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listFloors } from '@/services'
 import type { Floor } from '@/types/floor'
 import FloorModal from './FloorModal'
@@ -99,31 +99,25 @@ export default function FloorsPage() {
         </div>
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!loading && floors.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Layers className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No floors found</p>
-              </div>
-            ) : (
-              <DataTable
-                rowData={floors}
-                columnDefs={columnDefs}
-                loading={loading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search floors…', pdfDocumentTitle: 'Floors' }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setEditingFloor(null); setModalOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Floor
-                  </Button>
-                }
-              />
-            )}
+            <DataTable
+              rowData={floors}
+              columnDefs={columnDefs}
+              loading={loading}
+              pagination
+              toolbar={{ search: true, searchPlaceholder: 'Search floors…', pdfDocumentTitle: 'Floors' }}
+              toolbarTrailing={
+                <Button size="sm" onClick={() => { setEditingFloor(null); setModalOpen(true) }}>
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Add Floor
+                </Button>
+              }
+            />
           </div>
         </div>
       </div>
 
       <FloorModal
+        key={getCrudModalKey(editingFloor, modalOpen, 'floorId')}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingFloor(null) }}
         floor={editingFloor}

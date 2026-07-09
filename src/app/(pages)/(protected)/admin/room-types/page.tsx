@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PencilIcon, PlusIcon, Warehouse } from 'lucide-react'
+import { PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listRoomTypes } from '@/services'
 import type { RoomType } from '@/types/room-type'
 import RoomTypeModal from './RoomTypeModal'
@@ -106,31 +106,25 @@ export default function RoomTypesPage() {
         </div>
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!loading && roomTypes.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Warehouse className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No room types found</p>
-              </div>
-            ) : (
-              <DataTable
-                rowData={roomTypes}
-                columnDefs={columnDefs}
-                loading={loading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search room types…', pdfDocumentTitle: 'Room Types' }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setEditingRoomType(null); setModalOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Room Type
-                  </Button>
-                }
-              />
-            )}
+            <DataTable
+              rowData={roomTypes}
+              columnDefs={columnDefs}
+              loading={loading}
+              pagination
+              toolbar={{ search: true, searchPlaceholder: 'Search room types…', pdfDocumentTitle: 'Room Types' }}
+              toolbarTrailing={
+                <Button size="sm" onClick={() => { setEditingRoomType(null); setModalOpen(true) }}>
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Add Room Type
+                </Button>
+              }
+            />
           </div>
         </div>
       </div>
 
       <RoomTypeModal
+        key={getCrudModalKey(editingRoomType, modalOpen, 'roomTypeId')}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingRoomType(null) }}
         roomType={editingRoomType}

@@ -9,7 +9,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listWorkflowMemberAuthorizations } from '@/services'
 import type { WorkflowMemberAuthorization } from '@/types/workflow-member-authorization'
 import WorkflowMemberAuthorizationModal from './WorkflowMemberAuthorizationModal'
@@ -83,6 +83,7 @@ export default function WorkflowMemberAuthorizationPage() {
         </div>
       </div>
       <WorkflowMemberAuthorizationModal
+        key={getCrudModalKey(row, open, 'wfMemberAuthorizationId')}
         open={open}
         onClose={() => { setOpen(false); setRow(null) }}
         row={row}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Building2, PencilIcon, PlusIcon } from 'lucide-react'
+import { PencilIcon, PlusIcon } from 'lucide-react'
 import { PageContainer } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
@@ -11,7 +11,7 @@ import { MINIO_URL } from '@/config/constants/api'
 import noImgLogo from '@/assets/images/no-img-logo.png'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listUniversities } from '@/services'
 import type { University } from '@/types/university'
 import UniversityModal from './UniversityModal'
@@ -98,31 +98,25 @@ export default function UniversityPage() {
         </div>
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!loading && universities.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Building2 className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No universities found</p>
-              </div>
-            ) : (
-              <DataTable
-                rowData={universities}
-                columnDefs={columnDefs}
-                loading={loading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search universities…', pdfDocumentTitle: 'University' }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setEditingUniversity(null); setModalOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add University
-                  </Button>
-                }
-              />
-            )}
+            <DataTable
+              rowData={universities}
+              columnDefs={columnDefs}
+              loading={loading}
+              pagination
+              toolbar={{ search: true, searchPlaceholder: 'Search universities…', pdfDocumentTitle: 'University' }}
+              toolbarTrailing={
+                <Button size="sm" onClick={() => { setEditingUniversity(null); setModalOpen(true) }}>
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Add University
+                </Button>
+              }
+            />
           </div>
         </div>
       </div>
 
       <UniversityModal
+        key={getCrudModalKey(editingUniversity, modalOpen, 'universityId')}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingUniversity(null) }}
         university={editingUniversity}

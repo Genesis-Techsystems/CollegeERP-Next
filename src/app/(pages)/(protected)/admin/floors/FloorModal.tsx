@@ -120,7 +120,7 @@ export default function FloorModal({ open, onClose, floor, onSaved }: Readonly<F
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
             <Controller
               name="blockId"
               control={control}

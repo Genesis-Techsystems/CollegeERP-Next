@@ -202,6 +202,20 @@ function isActionsColumn(def: ColDef): boolean {
   return header === 'actions' || header === 'action'
 }
 
+function withCellClass(def: ColDef, className: string): ColDef {
+  const existing = def.cellClass
+  if (!existing) return { ...def, cellClass: className }
+  if (typeof existing === 'string') {
+    return existing.split(/\s+/).includes(className)
+      ? def
+      : { ...def, cellClass: `${existing} ${className}` }
+  }
+  if (Array.isArray(existing)) {
+    return existing.includes(className) ? def : { ...def, cellClass: [...existing, className] }
+  }
+  return def
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -396,9 +410,12 @@ export function DataTable<T>({
 
   const resolvedColumnDefs = useMemo(
     () =>
-      columnDefs.map((def) =>
-        isActionsColumn(def) ? { ...def, filter: false, sortable: false } : def,
-      ),
+      columnDefs.map((def) => {
+        if (isActionsColumn(def)) {
+          return withCellClass({ ...def, filter: false, sortable: false }, 'app-cell-actions')
+        }
+        return withCellClass(def, 'app-cell-ellipsis')
+      }),
     [columnDefs],
   )
 
@@ -574,6 +591,8 @@ export function DataTable<T>({
           onRowDataUpdated={(e) => fitColumns(e.api)}
           onGridSizeChanged={(e) => fitColumns(e.api)}
           alwaysShowHorizontalScroll={!fitColumnsToWidth}
+          enableCellTextSelection
+          ensureDomOrder
           getRowId={getRowId}
           onCellClicked={onCellClicked}
           onRowClicked={onRowClick ? handleRowClicked : undefined}

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PlusIcon, MapPin, PencilIcon } from 'lucide-react'
+import { PlusIcon, PencilIcon } from 'lucide-react'
 import { PageContainer } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,7 @@ import { listCampuses } from '@/services/admin/campus'
 import type { Campus } from '@/types/campus'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 
 // ─── Column shape (pure data, no renderers) ────────────────────────────────
 
@@ -84,31 +84,25 @@ export default function CampusPage() {
         </div>
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!loading && campuses.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <MapPin className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No campuses found</p>
-              </div>
-            ) : (
-              <DataTable
-                rowData={campuses}
-                columnDefs={columnDefs}
-                loading={loading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search campuses…', pdfDocumentTitle: 'Campus' }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setEditingCampus(null); setModalOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Campus
-                  </Button>
-                }
-              />
-            )}
+            <DataTable
+              rowData={campuses}
+              columnDefs={columnDefs}
+              loading={loading}
+              pagination
+              toolbar={{ search: true, searchPlaceholder: 'Search campuses…', pdfDocumentTitle: 'Campus' }}
+              toolbarTrailing={
+                <Button size="sm" onClick={() => { setEditingCampus(null); setModalOpen(true) }}>
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Add Campus
+                </Button>
+              }
+            />
           </div>
         </div>
       </div>
 
       <CampusModal
+        key={getCrudModalKey(editingCampus, modalOpen, 'campusId')}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingCampus(null) }}
         campus={editingCampus}

@@ -73,6 +73,8 @@ export function FormModal({
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
       <DialogContent
+        closeOnOutsideClick={false}
+        closeOnEscape={false}
         className={cn(
           'flex max-h-[90vh] flex-col overflow-hidden sm:max-h-[92vh]',
           !showCloseButton && '[&>button]:hidden',

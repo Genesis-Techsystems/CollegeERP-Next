@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PencilIcon, PlusIcon, Settings2 } from 'lucide-react'
+import { PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listGeneralMasters } from '@/services'
 import type { GeneralMaster } from '@/types/general-master'
 import GeneralMasterDetailsModal from './GeneralMasterDetailsModal'
@@ -75,31 +75,31 @@ export default function GeneralMasterSettingsPage() {
         </div>
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!isLoading && data.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Settings2 className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No general masters found</p>
-              </div>
-            ) : (
-              <DataTable
-                rowData={data}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search general masters…', pdfDocumentTitle: 'General Master Settings' }}
-                toolbarTrailing={(
-                  <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add General Master
-                  </Button>
-                )}
-              />
-            )}
+            <DataTable
+              rowData={data}
+              columnDefs={columnDefs}
+              loading={isLoading}
+              pagination
+              toolbar={{ search: true, searchPlaceholder: 'Search general masters…', pdfDocumentTitle: 'General Master Settings' }}
+              toolbarTrailing={(
+                <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Add General Master
+                </Button>
+              )}
+            />
           </div>
         </div>
       </div>
-      <GeneralMasterModal open={open} onClose={() => { setOpen(false); setRow(null) }} row={row} onSaved={invalidate} />
+      <GeneralMasterModal
+        key={getCrudModalKey(row, open, 'generalMasterId')}
+        open={open}
+        onClose={() => { setOpen(false); setRow(null) }}
+        row={row}
+        onSaved={invalidate}
+      />
       <GeneralMasterDetailsModal
+        key={getCrudModalKey(detailsRow, detailsOpen, 'generalDetailId')}
         open={detailsOpen}
         onClose={() => { setDetailsOpen(false); setDetailsRow(null) }}
         row={detailsRow}

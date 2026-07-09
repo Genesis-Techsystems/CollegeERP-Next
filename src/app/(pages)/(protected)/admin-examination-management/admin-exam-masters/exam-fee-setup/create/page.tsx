@@ -41,6 +41,8 @@ type FineRow = {
 	fineToDate: string
 	regFeeFine?: string
 	suppleFeeFine?: string
+	examFeeFineId?: number
+	serverSnapshot?: Record<string, unknown>
 }
 
 // Angular `courseGroupYears` row — one selectable entry per course-group × course-year
@@ -165,6 +167,7 @@ export default function CreateExamFeeStructurePage() {
 		suppleFeeFine: '',
 	})
 	const [fines, setFines] = useState<FineRow[]>([])
+	const [deletedFines, setDeletedFines] = useState<Record<string, unknown>[]>([])
 
 	// Additional fees — master data + rows
 	const [additionalTypes, setAdditionalTypes] = useState<any[]>([])
@@ -465,8 +468,11 @@ export default function CreateExamFeeStructurePage() {
 					fineToDate: toDateString(parseDateValue(String(x.fineToDate ?? ''))),
 					regFeeFine: x.regFeeFine != null ? String(x.regFeeFine) : '',
 					suppleFeeFine: x.supplyFeeFine != null ? String(x.supplyFeeFine) : '',
+					examFeeFineId: x.examFeeFineId != null ? Number(x.examFeeFineId) : undefined,
+					serverSnapshot: { ...x },
 				}))
 			setFines(fineRows)
+			setDeletedFines([])
 
 			const additionalLoaded: AdditionalFeeRow[] = []
 			const revisionLoaded: RevalFeeRow[] = []
@@ -545,7 +551,13 @@ export default function CreateExamFeeStructurePage() {
 		})
 	}
 	function removeFineRow(i: number) {
-		setFines((s) => s.filter((_, idx) => idx !== i))
+		setFines((s) => {
+			const row = s[i]
+			if (row?.examFeeFineId != null && row.serverSnapshot) {
+				setDeletedFines((d) => [...d, { ...row.serverSnapshot, isActive: false }])
+			}
+			return s.filter((_, idx) => idx !== i)
+		})
 	}
 
 	function addAdditionalRow() {
@@ -761,6 +773,27 @@ export default function CreateExamFeeStructurePage() {
 			}
 		}
 
+		const buildFinePayload = (row: FineRow): Record<string, unknown> => {
+			const base = row.serverSnapshot ?? {}
+			return {
+				...base,
+				...(row.examFeeFineId ? { examFeeFineId: row.examFeeFineId } : {}),
+				fineName: row.fineName,
+				fineFromDate: row.fineFromDate || null,
+				fineToDate: row.fineToDate || null,
+				regFeeFine: row.regFeeFine === '' || row.regFeeFine == null ? null : Number(row.regFeeFine),
+				supplyFeeFine: row.suppleFeeFine === '' || row.suppleFeeFine == null ? null : Number(row.suppleFeeFine),
+				isActive: true,
+				collegeId,
+				...(isEditMode && pageParams.examFeeStructureId
+					? {
+							examFeeStructureId: pageParams.examFeeStructureId,
+							examFeeStructureName: form.examFeeStructureName,
+						}
+					: {}),
+			}
+		}
+
 		const buildRevisionFeePayload = (row: RevalFeeRow): Record<string, unknown> => {
 			const base = row.serverSnapshot ?? {}
 			const revisionType = revisionTypes.find((t) => String(t.generalDetailId ?? t.id) === String(row.typeId))
@@ -798,15 +831,7 @@ export default function CreateExamFeeStructurePage() {
 			subject7Fee: parseNumberOrNull(form.subject7Fee),
 			isActive: form.isActive,
 			examFeeStructureCourseyr,
-			examFeeFine: fines.map((f) => ({
-				fineName: f.fineName,
-				fineFromDate: f.fineFromDate || null,
-				fineToDate: f.fineToDate || null,
-				regFeeFine: f.regFeeFine === '' ? null : Number(f.regFeeFine),
-				supplyFeeFine: f.suppleFeeFine === '' ? null : Number(f.suppleFeeFine),
-				isActive: true,
-				collegeId,
-			})),
+			examFeeFine: [...fines.map(buildFinePayload), ...deletedFines],
 			examFeeAdditionalStructure: [
 				...additionalRows.map(buildAdditionalFeePayload),
 				...revalRows.map(buildRevisionFeePayload),

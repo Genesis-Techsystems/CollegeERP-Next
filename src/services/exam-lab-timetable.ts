@@ -1,3 +1,4 @@
+import { EXAM_API } from '@/config/constants/api'
 import { getAllRecords, postDetails } from '@/services/crud'
 
 type AnyRow = Record<string, any>
@@ -68,7 +69,7 @@ export async function getExamLabTimetableGrid(params: {
   empId: number
 }): Promise<AnyRow[]> {
   const data = await getAllRecords<{ result?: AnyRow[][]; data?: { result?: AnyRow[][] } }>(
-    's_get_collegewisedetails_bycode',
+    EXAM_API.COLLEGE_WISE_LAB_DETAILS,
     {
       in_flag: 'view_timetable',
       in_org_id: params.orgId,
@@ -102,7 +103,7 @@ export async function getLabCreateFilters(params: {
   empId: number
 }): Promise<{ details: AnyRow[]; sessions: AnyRow[] }> {
   const data = await getAllRecords<{ result?: AnyRow[][]; data?: { result?: AnyRow[][] } }>(
-    's_get_collegewisedetails_bycode',
+    EXAM_API.COLLEGE_WISE_LAB_DETAILS,
     {
       in_flag: 'clg_exam_labsubject_filters',
       in_org_id: params.orgId,

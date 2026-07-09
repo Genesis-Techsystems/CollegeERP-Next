@@ -9,7 +9,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listCourseYearsAdmin } from '@/services'
 import type { CourseYear } from '@/types/course-year'
 import CourseYearModal from './CourseYearModal'
@@ -67,7 +67,13 @@ export default function CourseYearsPage() {
           />
         </div>
       </div>
-      <CourseYearModal open={open} onClose={() => { setOpen(false); setRow(null) }} row={row} onSaved={invalidate} />
+      <CourseYearModal
+        key={getCrudModalKey(row, open, 'courseYearId')}
+        open={open}
+        onClose={() => { setOpen(false); setRow(null) }}
+        row={row}
+        onSaved={invalidate}
+      />
     </PageContainer>
   )
 }

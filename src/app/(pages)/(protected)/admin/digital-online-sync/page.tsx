@@ -1,14 +1,16 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Filter, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { PageContainer } from '@/components/layout'
 import { Select, type SelectOption } from '@/common/components/select'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
 import { useSessionContext } from '@/context/SessionContext'
+import { toastError, toastInfo, toastSuccess } from '@/lib/toast'
 import {
+  collectSubjectRegulationIdsForSync,
   getDigitalOnlineSyncFilters,
-  getCourseYearsForDigitalSync,
   syncSubjectRegulationIds,
   type ClgFilterRow,
   type ClgFilterAcademicYearRow,
@@ -60,7 +62,6 @@ export default function DigitalOnlineSyncPage() {
   const [courseId, setCourseId] = useState<number | null>(null)
   const [courseGroupId, setCourseGroupId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
-  const [subjectRegulationIds, setSubjectRegulationIds] = useState<Array<{ subjectRegulationId: number }>>([])
 
   const courseRows = useMemo(
     () => filtersData.filter((row) => num((row as Record<string, unknown>).fk_college_id) === num(collegeId)),
@@ -132,6 +133,8 @@ export default function DigitalOnlineSyncPage() {
     [academicYears],
   )
 
+  const canSync = Boolean(collegeId && courseId && courseGroupId && academicYearId)
+
   async function loadFilters() {
     const organizationId = Number(
       user?.organizationId ??
@@ -156,6 +159,8 @@ export default function DigitalOnlineSyncPage() {
       if (colleges.length > 0) {
         setCollegeId(num((colleges[0] as Record<string, unknown>).fk_college_id))
       }
+    } catch (error) {
+      toastError(error, 'Failed to load filters')
     } finally {
       setLoadingFilters(false)
     }
@@ -170,7 +175,6 @@ export default function DigitalOnlineSyncPage() {
     setCourseId(null)
     setCourseGroupId(null)
     setAcademicYearId(null)
-    setSubjectRegulationIds([])
     if (courses.length > 0) setCourseId(num((courses[0] as Record<string, unknown>).fk_course_id))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collegeId])
@@ -178,50 +182,40 @@ export default function DigitalOnlineSyncPage() {
   useEffect(() => {
     setCourseGroupId(null)
     setAcademicYearId(null)
-    setSubjectRegulationIds([])
     if (courseGroups.length > 0) setCourseGroupId(num((courseGroups[0] as Record<string, unknown>).fk_course_group_id))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId])
 
   useEffect(() => {
     setAcademicYearId(null)
-    setSubjectRegulationIds([])
     if (academicYears.length > 0) setAcademicYearId(num((academicYears[0] as Record<string, unknown>).fk_academic_year_id))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseGroupId, selectedUniversityId])
 
-  useEffect(() => {
-    async function loadCourseYears() {
-      if (!collegeId || !courseId || !courseGroupId || !academicYearId) {
-        setSubjectRegulationIds([])
-        return
-      }
-      const rows = await getCourseYearsForDigitalSync({
+  async function handleSync() {
+    if (!collegeId || !courseId || !courseGroupId || !academicYearId) {
+      toastInfo('Please select College, Course, Course Group, and Academic Year.')
+      return
+    }
+
+    setSyncing(true)
+    try {
+      const subjectRegulationIds = await collectSubjectRegulationIdsForSync({
         collegeId,
         courseId,
         courseGroupId,
         academicYearId,
-      }).catch(() => [])
+      })
 
-      const ids: Array<{ subjectRegulationId: number }> = []
-      for (const row of rows) {
-        const regs = (row as { subjectregulations?: Array<{ subjectRegulationId?: number }> }).subjectregulations
-        if (!Array.isArray(regs)) continue
-        for (const reg of regs) {
-          if (reg?.subjectRegulationId) ids.push({ subjectRegulationId: reg.subjectRegulationId })
-        }
+      if (subjectRegulationIds.length === 0) {
+        toastInfo('No subject regulations found for the selected filters.')
+        return
       }
-      setSubjectRegulationIds(ids)
-    }
 
-    void loadCourseYears()
-  }, [collegeId, courseId, courseGroupId, academicYearId])
-
-  async function handleSync() {
-    if (subjectRegulationIds.length === 0) return
-    setSyncing(true)
-    try {
-      await syncSubjectRegulationIds(subjectRegulationIds)
+      const message = await syncSubjectRegulationIds(subjectRegulationIds)
+      toastSuccess(message)
+    } catch (error) {
+      toastError(error, 'Digital online sync failed')
     } finally {
       setSyncing(false)
     }
@@ -229,19 +223,10 @@ export default function DigitalOnlineSyncPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between">
-          <h2 className="app-card-title">Digital Online Sync</h2>
-          <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            <Filter className="h-3.5 w-3.5" />
-            Filter
-          </div>
-        </div>
-
-        <div className="p-3">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+      <GlobalFilterBar title="Digital Online Sync" collapsible defaultOpen>
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="College">
             <Select
-              label="College"
               value={collegeId ? String(collegeId) : null}
               onChange={(v) => setCollegeId(v ? Number(v) : null)}
               options={collegeOptions}
@@ -249,8 +234,9 @@ export default function DigitalOnlineSyncPage() {
               searchable
               isLoading={loadingFilters}
             />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course">
             <Select
-              label="Course"
               value={courseId ? String(courseId) : null}
               onChange={(v) => setCourseId(v ? Number(v) : null)}
               options={courseOptions}
@@ -258,8 +244,9 @@ export default function DigitalOnlineSyncPage() {
               searchable
               disabled={!collegeId}
             />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course Group">
             <Select
-              label="Course Group"
               value={courseGroupId ? String(courseGroupId) : null}
               onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
               options={groupOptions}
@@ -267,8 +254,9 @@ export default function DigitalOnlineSyncPage() {
               searchable
               disabled={!courseId}
             />
+          </GlobalFilterField>
+          <GlobalFilterField label="Academic Year">
             <Select
-              label="Academic Year"
               value={academicYearId ? String(academicYearId) : null}
               onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
               options={yearOptions}
@@ -276,18 +264,20 @@ export default function DigitalOnlineSyncPage() {
               searchable
               disabled={!courseGroupId}
             />
+          </GlobalFilterField>
+          <GlobalFilterField label=" " className="global-filter-field--action">
             <Button
               type="button"
-              onClick={handleSync}
-              disabled={syncing || subjectRegulationIds.length === 0}
-              className="h-9"
+              onClick={() => { void handleSync() }}
+              disabled={syncing || !canSync}
+              className="h-9 w-full shrink-0"
             >
               {syncing ? <RefreshCw className="mr-1 h-4 w-4 animate-spin" /> : null}
               Sync
             </Button>
-          </div>
-        </div>
-      </div>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      </GlobalFilterBar>
     </PageContainer>
   )
 }

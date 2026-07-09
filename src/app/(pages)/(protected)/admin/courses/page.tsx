@@ -8,7 +8,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listCourses } from '@/services'
 import type { Course } from '@/types/course'
 import CourseModal from './CourseModal'
@@ -55,7 +55,13 @@ export default function CoursesPage() {
           />
         </div>
       </div>
-      <CourseModal open={open} onClose={() => { setOpen(false); setRow(null) }} row={row} onSaved={invalidate} />
+      <CourseModal
+        key={getCrudModalKey(row, open, 'courseId')}
+        open={open}
+        onClose={() => { setOpen(false); setRow(null) }}
+        row={row}
+        onSaved={invalidate}
+      />
     </PageContainer>
   )
 }

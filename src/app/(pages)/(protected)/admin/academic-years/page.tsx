@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { GraduationCap, PencilIcon, PlusIcon } from 'lucide-react'
+import { PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listAcademicYears } from '@/services'
 import type { AcademicYear } from '@/types/academic-year'
 import AcademicYearModal from './AcademicYearModal'
@@ -104,31 +104,25 @@ export default function AcademicYearsPage() {
         </div>
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!loading && academicYears.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <GraduationCap className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No academic years found</p>
-              </div>
-            ) : (
-              <DataTable
-                rowData={academicYears}
-                columnDefs={columnDefs}
-                loading={loading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search academic years…', pdfDocumentTitle: 'Academic Years' }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setEditingAcademicYear(null); setModalOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Academic Year
-                  </Button>
-                }
-              />
-            )}
+            <DataTable
+              rowData={academicYears}
+              columnDefs={columnDefs}
+              loading={loading}
+              pagination
+              toolbar={{ search: true, searchPlaceholder: 'Search academic years…', pdfDocumentTitle: 'Academic Years' }}
+              toolbarTrailing={
+                <Button size="sm" onClick={() => { setEditingAcademicYear(null); setModalOpen(true) }}>
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Add Academic Year
+                </Button>
+              }
+            />
           </div>
         </div>
       </div>
 
       <AcademicYearModal
+        key={getCrudModalKey(editingAcademicYear, modalOpen, 'academicYearId')}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingAcademicYear(null) }}
         academicYear={editingAcademicYear}

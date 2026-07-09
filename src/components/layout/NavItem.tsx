@@ -859,6 +859,11 @@ function mapLegacyMasterSettingsHref(href?: string): string | null {
     'student-category': '/admin/student-categories',
     'student-categories': '/admin/student-categories',
     'subject-type': '/admin/course-types',
+    'subject-types': '/admin/course-types',
+    'course-type': '/admin/course-types',
+    'course-types': '/admin/course-types',
+    'courses-type': '/admin/course-types',
+    'courses-types': '/admin/course-types',
     designation: '/admin/designations',
     designations: '/admin/designations',
     'qualification-group': '/admin/qualification-groups',
@@ -1741,10 +1746,19 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return '/admin/college-courses-groups'
     }
     if (
-      labelLower.includes('subject type')
+      hrefLower.includes('academic-settings/course-type')
+      || hrefLower.includes('master-settings/subject-type')
+      || hrefLower.includes('master-settings/course-type')
+      || hrefLower.endsWith('/course-types')
+      || hrefLower.endsWith('/subject-type')
+      || hrefLower.endsWith('/course-type')
+      || labelLower.includes('subject type')
       || labelLower.includes('subjects type')
       || labelLower.includes('subject types')
       || labelLower.includes('course type')
+      || labelLower.includes('course types')
+      || labelLower.includes('courses type')
+      || labelLower.includes('courses types')
     ) {
       return '/admin/course-types'
     }

@@ -1,5 +1,6 @@
 import { SUBJECT_API } from '@/config/constants/api'
 import { getAllRecords, fetchDetails, postDetails } from '../crud'
+import { listSubjectRegulationsByCourseYear } from './semester-subject-allocation'
 
 type ProcResponse = { result?: Array<Array<Record<string, unknown>>> }
 
@@ -106,8 +107,79 @@ export async function getCourseYearsForDigitalSync(params: {
   return []
 }
 
+function num(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
+function pickSubjectRegulationId(row: Record<string, unknown>): number {
+  return num(
+    row.subjectRegulationId
+    ?? row.subjectregulationId
+    ?? row.subject_regulation_id
+    ?? row.fk_subject_regulation_id,
+  )
+}
+
+function pickCourseYearId(row: Record<string, unknown>): number {
+  return num(row.courseYearId ?? row.courseyearId ?? row.fk_course_year_id ?? row.course_year_id)
+}
+
+function extractIdsFromCourseYearRows(rows: Array<Record<string, unknown>>): Set<number> {
+  const ids = new Set<number>()
+  for (const row of rows) {
+    const regLists = [row.subjectregulations, row.subjectRegulations].filter(Array.isArray) as Array<
+      Array<Record<string, unknown>>
+    >
+    for (const regs of regLists) {
+      for (const reg of regs) {
+        const id = pickSubjectRegulationId(reg)
+        if (id > 0) ids.add(id)
+      }
+    }
+  }
+  return ids
+}
+
+/** Resolves subject regulation ids for the selected college/course/group/academic year filters. */
+export async function collectSubjectRegulationIdsForSync(params: {
+  collegeId: number
+  courseId: number
+  courseGroupId: number
+  academicYearId: number
+}): Promise<Array<{ subjectRegulationId: number }>> {
+  const courseYearRows = (await getCourseYearsForDigitalSync(params)) as Array<Record<string, unknown>>
+  const ids = extractIdsFromCourseYearRows(courseYearRows)
+
+  if (ids.size === 0) {
+    for (const row of courseYearRows) {
+      const courseYearId = pickCourseYearId(row)
+      if (!courseYearId) continue
+      const regs = await listSubjectRegulationsByCourseYear({
+        collegeId: params.collegeId,
+        academicYearId: params.academicYearId,
+        courseGroupId: params.courseGroupId,
+        courseYearId,
+      }).catch(() => [])
+      for (const reg of regs) {
+        const id = pickSubjectRegulationId(reg as Record<string, unknown>)
+        if (id > 0) ids.add(id)
+      }
+    }
+  }
+
+  return Array.from(ids, (subjectRegulationId) => ({ subjectRegulationId }))
+}
+
 export async function syncSubjectRegulationIds(
   payload: Array<{ subjectRegulationId: number }>,
-): Promise<void> {
-  await postDetails(SUBJECT_API.SUBJECT_REGULATION_DATA_SYNC, payload)
+): Promise<string> {
+  const data = await postDetails<unknown>(SUBJECT_API.SUBJECT_REGULATION_DATA_SYNC, payload)
+  if (typeof data === 'string' && data.trim()) return data.trim()
+  if (data && typeof data === 'object' && typeof (data as Record<string, unknown>).message === 'string') {
+    return String((data as Record<string, unknown>).message)
+  }
+  return payload.length > 0
+    ? `Successfully synced ${payload.length} subject regulation record(s).`
+    : 'Sync completed successfully.'
 }

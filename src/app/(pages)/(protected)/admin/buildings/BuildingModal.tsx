@@ -78,12 +78,13 @@ export default function BuildingModal({ open, onClose, building, onSaved }: Read
 
   useEffect(() => {
     if (building) {
+      const raw = building as unknown as Record<string, unknown>
       reset({
         organizationId: building.organizationId,
         campusId: building.campusId,
         buildingName: building.buildingName,
         buildingCode: building.buildingCode,
-        landMark: building.landMark ?? '',
+        landMark: building.landMark ?? (typeof raw.landmark === 'string' ? raw.landmark : '') ?? '',
         noOfFloors: building.noOfFloors ?? undefined,
         isActive: building.isActive,
         reason: building.isActive ? '' : (building.reason ?? ''),
@@ -129,7 +130,7 @@ export default function BuildingModal({ open, onClose, building, onSaved }: Read
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
             <Controller
               name="campusId"
               control={control}
@@ -148,7 +149,7 @@ export default function BuildingModal({ open, onClose, building, onSaved }: Read
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
             <div className="space-y-0.5">
               <Label htmlFor="buildingName">Building Name *</Label>
               <Input id="buildingName" placeholder="Enter building name" {...register('buildingName')} />
@@ -161,7 +162,7 @@ export default function BuildingModal({ open, onClose, building, onSaved }: Read
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
             <div className="space-y-0.5">
               <Label htmlFor="landMark">Land Mark</Label>
               <Input id="landMark" placeholder="Enter land mark" {...register('landMark')} />

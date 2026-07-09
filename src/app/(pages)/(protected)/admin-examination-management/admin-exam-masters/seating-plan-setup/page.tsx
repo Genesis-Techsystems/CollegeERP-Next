@@ -37,7 +37,7 @@ import {
 	listExamTimetablesByExam,
 	listExamRoomAllotments as listExamRoomAllotmentsPre,
 } from '@/services/pre-examination'
-import { ChevronDown, Filter, Plus, Printer } from 'lucide-react'
+import { CalendarDays, ChevronDown, Filter, Plus, Printer } from 'lucide-react'
 import { SearchInput } from '@/common/components/search'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toDateStr } from '@/common/generic-functions'
@@ -851,8 +851,30 @@ export default function SeatingPlanSetupPage() {
 			selectedTimetable?.subject_id,
 		)
 
+		const collegeRow = colleges.find(
+			(c: any) => Number(c.fk_college_id ?? c.collegeId) === Number(resolvedCollegeId),
+		)
+		const courseRow = courses.find(
+			(c: any) => Number(c.fk_course_id ?? c.courseId ?? c.id) === Number(resolvedCourseId),
+		)
+		const collegeCode = String(
+			collegeRow?.college_code ??
+			collegeRow?.collegeCode ??
+			collegeRow?.college_name ??
+			collegeRow?.collegeName ??
+			'',
+		)
+		const courseCode = String(
+			courseRow?.course_code ??
+			courseRow?.courseCode ??
+			raw.courseCode ??
+			raw.course_code ??
+			'',
+		)
+
 		const params = new URLSearchParams({
 			collegeId: String(resolvedCollegeId ?? ''),
+			collegeCode,
 			courseId: String(resolvedCourseId ?? ''),
 			examId: String(resolvedExamId ?? ''),
 			examTimetableId: String(resolvedExamTimetableId ?? ''),
@@ -860,13 +882,7 @@ export default function SeatingPlanSetupPage() {
 			academicYear: String(
 				academicYearOptions.find((a) => a.id === selectedAcademicYearId)?.label ?? ''
 			),
-			courseCode: String(
-				courses.find((c: any) => Number(c.courseId ?? c.id ?? c.fk_course_id) === Number(resolvedCourseId))?.courseCode ??
-				courses.find((c: any) => Number(c.courseId ?? c.id ?? c.fk_course_id) === Number(resolvedCourseId))?.course_code ??
-				raw.courseCode ??
-				raw.course_code ??
-				''
-			),
+			courseCode,
 			examName: String(
 				examMasters.find((e: any) => Number(e.examId ?? e.id ?? e.fk_exam_id) === Number(resolvedExamId))?.examName ??
 				raw.examName ??
@@ -1755,13 +1771,27 @@ export default function SeatingPlanSetupPage() {
 			<ConfirmDialog
 				open={assignSeatingOpen}
 				title="Assign Seating Allotment"
-				description="If you have already created a seating plan, this action will erase the existing plan and generate a new one. You may also need to reprint all related summaries. Are you sure you want to continue? Press OK to proceed, or Cancel to go back."
+				headerIcon={<CalendarDays className="h-5 w-5 shrink-0 text-primary" />}
+				contentClassName="sm:max-w-[400px]"
 				confirmLabel="OK"
+				cancelLabel="Cancel"
+				confirmFirst
 				confirmVariant="default"
+				showCloseButton={false}
 				isLoading={assignSeatingBusy}
 				onConfirm={confirmAssignSeating}
 				onCancel={() => setAssignSeatingOpen(false)}
-			/>
+			>
+				<p>
+					If you have already created a seating plan, this action will erase the existing plan and
+					generate a new one. You may also need to reprint all related summaries.
+				</p>
+				<p className="text-center text-base font-semibold">
+					Are you sure you want to continue?
+					<br />
+					Press OK to proceed, or Cancel to go back.
+				</p>
+			</ConfirmDialog>
 		</PageContainer>
 	)
 }

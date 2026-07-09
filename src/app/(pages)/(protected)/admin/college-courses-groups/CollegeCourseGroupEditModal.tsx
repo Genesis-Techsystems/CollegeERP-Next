@@ -115,7 +115,7 @@ export default function CollegeCourseGroupEditModal({
 
   const groupOptions: SelectOption[] = groups.map((g) => {
     const id = num((g as any).courseGroupId ?? (g as any).coursegroupId ?? (g as any).fk_course_group_id)
-    const label = String((g as any).groupName ?? (g as any).group_name ?? (g as any).courseGroupName ?? (g as any).groupCode ?? (g as any).group_code ?? '')
+    const label = String((g as any).groupCode ?? (g as any).group_code ?? (g as any).courseGroupCode ?? '')
     return { value: String(id), label: label || String(id) }
   }).filter((o) => Number(o.value) > 0)
 

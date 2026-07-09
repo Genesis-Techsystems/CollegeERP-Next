@@ -9,7 +9,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listWorkflowStages } from '@/services'
 import type { WorkflowStage } from '@/types/workflow-stage'
 import WorkflowStageModal from './WorkflowStageModal'
@@ -86,6 +86,7 @@ export default function WorkflowStagesPage() {
         </div>
       </div>
       <WorkflowStageModal
+        key={getCrudModalKey(row, open, 'workflowStageId')}
         open={open}
         onClose={() => { setOpen(false); setRow(null) }}
         row={row}

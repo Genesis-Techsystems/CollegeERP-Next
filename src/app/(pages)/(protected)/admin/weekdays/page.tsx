@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { CalendarDays, PencilIcon, PlusIcon } from 'lucide-react'
+import { PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listWeekdays } from '@/services'
 import type { Weekday } from '@/types/weekday'
 import WeekdayModal from './WeekdayModal'
@@ -69,31 +69,30 @@ export default function WeekdaysPage() {
         </div>
         <div className="px-3 pb-3 pt-2">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!isLoading && data.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <CalendarDays className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No weekdays found</p>
-              </div>
-            ) : (
-              <DataTable
-                rowData={data}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search weekdays...', pdfDocumentTitle: 'Weekdays' }}
-                toolbarTrailing={(
-                  <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Week Day
-                  </Button>
-                )}
-              />
-            )}
+            <DataTable
+              rowData={data}
+              columnDefs={columnDefs}
+              loading={isLoading}
+              pagination
+              toolbar={{ search: true, searchPlaceholder: 'Search weekdays...', pdfDocumentTitle: 'Weekdays' }}
+              toolbarTrailing={(
+                <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Add Week Day
+                </Button>
+              )}
+            />
           </div>
         </div>
       </div>
 
-      <WeekdayModal open={open} onClose={() => { setOpen(false); setRow(null) }} row={row} onSaved={invalidate} />
+      <WeekdayModal
+        key={getCrudModalKey(row, open, 'weekdayId')}
+        open={open}
+        onClose={() => { setOpen(false); setRow(null) }}
+        row={row}
+        onSaved={invalidate}
+      />
     </PageContainer>
   )
 }

@@ -11,7 +11,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useQuery } from '@tanstack/react-query'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listActiveCollegesForStudentBatches, listStudentBatches } from '@/services'
 import type { StudentBatch } from '@/types/student-batch'
 import StudentBatchModal from './StudentBatchModal'
@@ -191,6 +191,7 @@ export default function StudentBatchesPage() {
       </div>
 
       <StudentBatchModal
+        key={getCrudModalKey(row, open, 'studentbatchId')}
         open={open}
         onClose={() => {
           setOpen(false)
