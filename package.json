@@ -72,6 +72,7 @@
   },
   "overrides": {
     "markdown-it": "^14.3.0",
-    "linkify-it": "^5.0.2"
+    "linkify-it": "^5.0.2",
+    "postcss": "^8.5.16"
   }
 }
