@@ -76,6 +76,19 @@ export function toDateStr(value: string | Date | null | undefined): string {
 }
 
 /**
+ * Angular `momentFormatYMD` — legacy exam APIs expect `YYYY/MM/DD` (slashes).
+ */
+export function toExamApiDate(value: string | Date | null | undefined): string {
+  const iso = toDateStr(value)
+  if (!iso) {
+    const slash = String(value ?? '').match(/(\d{4})\/(\d{2})\/(\d{2})/)
+    return slash ? `${slash[1]}/${slash[2]}/${slash[3]}` : String(value ?? '')
+  }
+  const [y, m, d] = iso.split('-')
+  return `${y}/${m}/${d}`
+}
+
+/**
  * Format a Date object to YYYY-MM-DD.
  * Convenience wrapper around `format(d, 'yyyy-MM-dd')`.
  */

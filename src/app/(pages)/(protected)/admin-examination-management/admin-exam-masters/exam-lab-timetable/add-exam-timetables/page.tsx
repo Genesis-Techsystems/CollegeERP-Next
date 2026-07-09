@@ -20,6 +20,7 @@ import {
 import { PageContainer } from '@/components/layout'
 import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
 import { useSessionContext } from '@/context/SessionContext'
+import { toastError, toastSuccess } from '@/lib/toast'
 
 type AnyRow = Record<string, any>
 
@@ -204,10 +205,10 @@ export default function AddExamLabTimetablesPage() {
     if (staged.length === 0) return
     const res = await saveExamLabTimetableBatches(staged).catch(() => null)
     if (res?.success === false) {
-      alert(res.message ?? 'Save failed')
+      toastError(res.message ?? 'Save failed')
       return
     }
-    alert('Saved')
+    toastSuccess('Saved successfully')
     setStaged([])
     const grid = await getExamLabTimetableGrid({
       orgId,
@@ -252,9 +253,20 @@ export default function AddExamLabTimetablesPage() {
     }))
   }, [existingRows, groupCodes, dateColumns])
 
+  function goBack() {
+    router.push(
+      `/admin-examination-management/admin-exam-masters/exam-lab-timetable?collegeId=${pageParams.collegeId}&courseId=${pageParams.courseId}&courseYearId=${pageParams.courseYearId}&academicYearId=${pageParams.academicYearId}&examId=${pageParams.examId}`,
+    )
+  }
+
   return (
     <PageContainer className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">Create College Timetable</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">Create College Timetable</h2>
+        <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={goBack}>
+          Back
+        </Button>
+      </div>
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40">
           <h2 className="app-card-title">Create College Timetable</h2>
@@ -341,7 +353,7 @@ export default function AddExamLabTimetablesPage() {
                 <table className="w-full min-w-[780px] text-[12px]">
                   <thead className="bg-muted/40">
                     <tr>
-                      <th className="px-2 py-1 text-left">SI.No</th>
+                      <th className="px-2 py-1 text-left">S.NO</th>
                       <th className="px-2 py-1 text-left">Exam Date</th>
                       <th className="px-2 py-1 text-left">Group</th>
                       <th className="px-2 py-1 text-left">Subject</th>
@@ -423,19 +435,6 @@ export default function AddExamLabTimetablesPage() {
         </div>
       )}
 
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          className="h-8 text-[12px]"
-          onClick={() =>
-            router.push(
-              `/admin-examination-management/admin-exam-masters/exam-lab-timetable?collegeId=${pageParams.collegeId}&courseId=${pageParams.courseId}&courseYearId=${pageParams.courseYearId}&academicYearId=${pageParams.academicYearId}&examId=${pageParams.examId}`,
-            )
-          }
-        >
-          Back
-        </Button>
-      </div>
     </PageContainer>
   )
 }

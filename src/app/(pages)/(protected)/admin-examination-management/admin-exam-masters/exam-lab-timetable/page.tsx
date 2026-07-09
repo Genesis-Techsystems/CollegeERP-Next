@@ -183,7 +183,7 @@ export default function ExamLabTimetablePage() {
 
   return (
     <PageContainer className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">Lab Timetable</h2>
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">Exam Lab Timetable</h2>
       <GlobalFilterBar>
         <GlobalFilterBarRow columns={3}>
           <GlobalFilterField label="Course" icon={GraduationCap}>

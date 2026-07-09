@@ -17,8 +17,9 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { Select } from '@/common/components/select'
+import { RoomAllotmentTable, type RoomAllotmentRow } from '../../../_components/RoomAllotmentTable'
 import {
 	listBlocksByBuilding,
 	listFloorsByBlock,
@@ -32,13 +33,7 @@ import { listBuildingsByUnivExamCenter } from '@/services/exam-papers-delivery'
 
 type AnyRow = Record<string, any>
 
-interface ExamRoomRow extends AnyRow {
-	checked?: boolean
-	disabled?: boolean
-	total_rows?: number
-	total_columns?: number
-	room_strength?: number
-}
+interface ExamRoomRow extends RoomAllotmentRow {}
 
 const INDEX = '/admin-examination-management/exam-papers-delivery-process/exam-center-room-allotment'
 
@@ -53,13 +48,6 @@ function toDateStr(value: unknown): string {
 	const mm = String(d.getMonth() + 1).padStart(2, '0')
 	const dd = String(d.getDate()).padStart(2, '0')
 	return `${yyyy}-${mm}-${dd}`
-}
-
-function toYmdSlash(value: unknown): string {
-	const iso = toDateStr(value)
-	const [y, m, d] = iso.split('-')
-	if (!y || !m || !d) return ''
-	return `${y}/${m}/${d}`
 }
 
 export default function CenterRoomAllotmentPage() {
@@ -99,6 +87,7 @@ export default function CenterRoomAllotmentPage() {
 	const [globalCols, setGlobalCols] = useState<number>(0)
 	const [selectAll, setSelectAll] = useState<boolean>(false)
 	const [busy, setBusy] = useState<boolean>(false)
+	const [roomsLoading, setRoomsLoading] = useState<boolean>(false)
 
 	const minDate = toDateStr(exam?.fromDate)
 	const maxDate = toDateStr(exam?.toDate)
@@ -155,24 +144,44 @@ export default function CenterRoomAllotmentPage() {
 			return
 		}
 		let cancelled = false
+		setRoomsLoading(true)
 		void (async () => {
-			const rows = await getExamRoomDetails({ buildingId, blockId, floorId, examTimetableId }).catch(() => [])
-			if (cancelled) return
-			const arr: ExamRoomRow[] = (Array.isArray(rows) ? rows : []).map((r: AnyRow) => ({
-				...r,
-				checked: false,
-				disabled: r.pk_exam_room_allotment_id != null,
-				total_rows: 0,
-				total_columns: 0,
-				room_strength: 0,
-			}))
-			setVacancyRooms(arr)
-			setSelectAll(false)
+			try {
+				const rows = await getExamRoomDetails({
+					buildingId,
+					blockId,
+					floorId,
+					examTimetableId,
+				})
+				if (cancelled) return
+				const arr: ExamRoomRow[] = (Array.isArray(rows) ? rows : []).map((r: AnyRow) => ({
+					...r,
+					checked: false,
+					disabled: r.pk_exam_room_allotment_id != null,
+					priority: r.priority ?? 0,
+					total_rows: 0,
+					total_columns: 0,
+					room_strength: 0,
+				}))
+				setVacancyRooms(arr)
+				setSelectAll(false)
+			} catch {
+				if (!cancelled) {
+					setVacancyRooms([])
+					toast.error('Failed to load rooms for the selected filters.')
+				}
+			} finally {
+				if (!cancelled) setRoomsLoading(false)
+			}
 		})()
 		return () => {
 			cancelled = true
 		}
 	}, [buildingId, blockId, floorId, examTimetableId])
+
+	function handleRowPriority(idx: number, value: number) {
+		setVacancyRooms((prev) => prev.map((r, i) => (i === idx ? { ...r, priority: value } : r)))
+	}
 
 	function handleCheckAll(next: boolean) {
 		setSelectAll(next)
@@ -269,7 +278,7 @@ export default function CenterRoomAllotmentPage() {
 			createdDt: null,
 			examTimetableId,
 			roomId: r.pk_room_id,
-			examDate: toYmdSlash(examDate),
+			examDate: toDateStr(examDate),
 			priority: r.priority ?? 0,
 			totalRows: r.total_rows,
 			totalColumns: r.total_columns,
@@ -307,81 +316,47 @@ export default function CenterRoomAllotmentPage() {
 		router.push(`${INDEX}${q ? `?${q}` : ''}`)
 	}
 
-	const examTimetableOptions = useMemo(
-		() =>
-			examTimetables.map((t: AnyRow) => ({
-				value: String(t.examTimetableId),
-				label: `${toDateStr(t.examDate)} / ${t.examSessionName ?? t.examSession ?? ''}`,
-			})),
-		[examTimetables],
-	)
+	const examTimetableOptions = useMemo(() => {
+		const filtered = examDate
+			? examTimetables.filter((t: AnyRow) => toDateStr(t.examDate) === examDate)
+			: examTimetables
+		return filtered.map((t: AnyRow) => ({
+			value: String(t.examTimetableId),
+			label: `${toDateStr(t.examDate)} / ${t.examSessionName ?? t.examSession ?? ''}`,
+		}))
+	}, [examTimetables, examDate])
+
+	useEffect(() => {
+		if (!examTimetableOptions.length) return
+		const ids = examTimetableOptions.map((o) => Number(o.value))
+		if (!ids.includes(examTimetableId)) {
+			setExamTimetableId(Number(examTimetableOptions[0]?.value) || 0)
+		}
+	}, [examTimetableOptions, examTimetableId])
 
 	return (
 		<PageContainer className="space-y-4">
-			<PageHeader title="Add Room Seating Plan" subtitle="Allot exam-center rooms with seat layout" />
+			<h2 className="text-lg font-semibold tracking-tight text-foreground">Add Room Seating Plan</h2>
 
-			<div className="rounded-md border border-border bg-card p-4 space-y-3">
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[13px]">
-					<div>
-						<span className="font-semibold">Course :</span>{' '}
-						{params.courseCode ? `${params.courseCode} / ${params.academicYear}` : '—'}
-					</div>
-					<div className="md:col-span-2">
-						<span className="font-semibold">Exam :</span>{' '}
+			<div className="rounded-md border border-border bg-card px-4 py-3">
+				<div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-2 gap-y-2 text-[13px]">
+					<span className="font-medium text-foreground">Course</span>
+					<span className="min-w-0 text-[hsl(var(--primary))]">
+						: {params.courseCode ? `/ ${params.academicYear || '—'} / ${params.courseCode}` : '—'}
+					</span>
+					<span className="font-medium text-foreground">Exam</span>
+					<span className="min-w-0 text-[hsl(var(--primary))]">
+						:{' '}
 						{params.examName ||
-							(exam ? `${exam.examName} (${toDateStr(exam.fromDate)} - ${toDateStr(exam.toDate)})` : '—')}
-					</div>
+							(exam
+								? `${exam.examName} (${toDateStr(exam.fromDate)} - ${toDateStr(exam.toDate)})`
+								: '—')}
+					</span>
 				</div>
 			</div>
 
 			<div className="rounded-md border border-border bg-card p-4">
 				<div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-					<div>
-						<Label className="text-[12px]">Building</Label>
-						<Select
-							value={String(buildingId || '')}
-							onChange={(v) => {
-								setBuildingId(Number(v) || 0)
-								setBlockId(0)
-								setFloorId(0)
-							}}
-							options={buildings.map((b: AnyRow) => ({
-								value: String(b.buildingId ?? b.id),
-								label: String(b.buildingName ?? b.name ?? b.buildingCode ?? ''),
-							}))}
-							placeholder="All Buildings"
-							clearable
-						/>
-					</div>
-					<div>
-						<Label className="text-[12px]">Block</Label>
-						<Select
-							value={String(blockId || '')}
-							onChange={(v) => {
-								setBlockId(Number(v) || 0)
-								setFloorId(0)
-							}}
-							options={blocks.map((b: AnyRow) => ({
-								value: String(b.blockId ?? b.id),
-								label: String(b.blockName ?? b.name ?? b.blockCode ?? ''),
-							}))}
-							placeholder="All Blocks"
-							clearable
-						/>
-					</div>
-					<div>
-						<Label className="text-[12px]">Floor</Label>
-						<Select
-							value={String(floorId || '')}
-							onChange={(v) => setFloorId(Number(v) || 0)}
-							options={floors.map((f: AnyRow) => ({
-								value: String(f.floorId ?? f.id),
-								label: String(f.floorName ?? f.name ?? f.floorCode ?? ''),
-							}))}
-							placeholder="All Floors"
-							clearable
-						/>
-					</div>
 					<div>
 						<Label className="text-[12px]">Exam Date</Label>
 						<Input
@@ -402,86 +377,81 @@ export default function CenterRoomAllotmentPage() {
 						/>
 					</div>
 					<div>
-						<Label className="text-[12px]">Total Rows</Label>
-						<Input
-							type="number"
-							min={0}
-							value={globalRows || 0}
-							onChange={(e) => handleGlobalRowsCols(Number(e.target.value) || 0, globalCols)}
+						<Label className="text-[12px]">Building</Label>
+						<Select
+							value={String(buildingId || '')}
+							onChange={(v) => {
+								setBuildingId(Number(v) || 0)
+								setBlockId(0)
+								setFloorId(0)
+							}}
+							options={buildings.map((b: AnyRow) => ({
+								value: String(b.buildingId ?? b.id),
+								label: String(
+									b.campusName && b.buildingCode
+										? `${b.campusName} - ${b.buildingCode}`
+										: (b.buildingName ?? b.name ?? b.buildingCode ?? ''),
+								),
+							}))}
+							placeholder="Select Building"
+							clearable
 						/>
 					</div>
 					<div>
-						<Label className="text-[12px]">Total Columns</Label>
-						<Input
-							type="number"
-							min={0}
-							value={globalCols || 0}
-							onChange={(e) => handleGlobalRowsCols(globalRows, Number(e.target.value) || 0)}
+						<Label className="text-[12px]">Block</Label>
+						<Select
+							value={String(blockId || '')}
+							onChange={(v) => {
+								setBlockId(Number(v) || 0)
+								setFloorId(0)
+							}}
+							options={blocks.map((b: AnyRow) => ({
+								value: String(b.blockId ?? b.id),
+								label: String(b.blockCode ?? b.blockName ?? b.name ?? ''),
+							}))}
+							placeholder="Select Block"
+							clearable
+						/>
+					</div>
+					<div>
+						<Label className="text-[12px]">Floor</Label>
+						<Select
+							value={String(floorId || '')}
+							onChange={(v) => setFloorId(Number(v) || 0)}
+							options={floors.map((f: AnyRow) => ({
+								value: String(f.floorId ?? f.id),
+								label: String(
+									f.floorName && f.floorNo != null
+										? `${f.floorName} - ${f.floorNo}`
+										: (f.floorName ?? f.name ?? f.floorCode ?? ''),
+								),
+							}))}
+							placeholder="Select Floor"
+							clearable
 						/>
 					</div>
 				</div>
+				{roomsLoading && (
+					<p className="mt-3 text-[12px] text-muted-foreground">Loading rooms…</p>
+				)}
+				{!roomsLoading && examTimetableId > 0 && vacancyRooms.length === 0 && (
+					<p className="mt-3 text-[12px] text-muted-foreground">
+						No rooms found for the selected building, block, and floor.
+					</p>
+				)}
 			</div>
 
-			{vacancyRooms.length > 0 && (
-				<div className="rounded-md border border-border bg-card p-4">
-					<h2 className="text-[14px] font-semibold text-blue-700 mb-2">Available Rooms</h2>
-					<div className="overflow-x-auto">
-						<table className="w-full text-[12px] border-collapse">
-							<thead>
-								<tr className="border-b">
-									<th className="px-2 py-1 text-left">
-										<input type="checkbox" checked={selectAll} onChange={(e) => handleCheckAll(e.target.checked)} />
-									</th>
-									<th className="px-2 py-1 text-left">Room</th>
-									<th className="px-2 py-1 text-left">Capacity</th>
-									<th className="px-2 py-1 text-left">Rows</th>
-									<th className="px-2 py-1 text-left">Columns</th>
-									<th className="px-2 py-1 text-left">Strength</th>
-									<th className="px-2 py-1 text-left">Status</th>
-								</tr>
-							</thead>
-							<tbody>
-								{vacancyRooms.map((r, i) => (
-									<tr key={`${r.pk_room_id ?? i}`} className="border-b">
-										<td className="px-2 py-1">
-											<input
-												type="checkbox"
-												checked={Boolean(r.checked)}
-												disabled={Boolean(r.disabled)}
-												onChange={(e) => handleRowCheck(i, e.target.checked)}
-											/>
-										</td>
-										<td className="px-2 py-1">{r.room ?? r.room_name ?? r.roomCode ?? '—'}</td>
-										<td className="px-2 py-1">{r.room_strength_capacity ?? r.capacity ?? '—'}</td>
-										<td className="px-2 py-1">
-											<Input
-												type="number"
-												min={0}
-												className="h-7 w-16 text-[12px]"
-												value={r.total_rows ?? 0}
-												disabled={Boolean(r.disabled) || !r.checked}
-												onChange={(e) => handleRowCol(i, 'rows', Number(e.target.value) || 0)}
-											/>
-										</td>
-										<td className="px-2 py-1">
-											<Input
-												type="number"
-												min={0}
-												className="h-7 w-16 text-[12px]"
-												value={r.total_columns ?? 0}
-												disabled={Boolean(r.disabled) || !r.checked}
-												onChange={(e) => handleRowCol(i, 'cols', Number(e.target.value) || 0)}
-											/>
-										</td>
-										<td className="px-2 py-1">{(r.total_rows ?? 0) * (r.total_columns ?? 0)}</td>
-										<td className="px-2 py-1">{r.disabled ? 'Allotted' : 'Available'}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-				</div>
-			)}
+			<RoomAllotmentTable
+				rows={vacancyRooms}
+				selectAll={selectAll}
+				globalRows={globalRows}
+				globalCols={globalCols}
+				onCheckAll={handleCheckAll}
+				onRowCheck={handleRowCheck}
+				onRowPriority={handleRowPriority}
+				onRowCol={handleRowCol}
+				onGlobalRowsCols={handleGlobalRowsCols}
+			/>
 
 			<div className="flex justify-end gap-2">
 				<Button type="button" variant="outline" className="h-8 px-6" onClick={navigateBack}>

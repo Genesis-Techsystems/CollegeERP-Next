@@ -250,9 +250,8 @@ export default function ExamMaxMarksSetupPage() {
       finalExtPercentage: Number(r.finalExtPercentage ?? 0),
       disabled: isForDisabled,
       isActive: true,
-      university: { universityId },
-      course: { courseId },
-      regulation: { regulationId },
+      courseId,
+      regulationId,
     }));
     const res = await saveExamMarksSetup(payload).catch(() => ({
       success: false,

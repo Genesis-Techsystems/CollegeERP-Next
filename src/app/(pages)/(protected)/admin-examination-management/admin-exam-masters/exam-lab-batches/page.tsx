@@ -45,7 +45,7 @@ function dashIfEmpty(value: unknown): string {
 }
 
 const COL_DEFS = {
-  siNo:      { headerName: 'No.', valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1, width: 60, flex: 0 } as ColDef,
+  siNo:      { headerName: 'S.NO', valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1, width: 60, flex: 0 } as ColDef,
   examType:  {
     field: 'examtypeCatdetCode',
     headerName: 'Exam Type',

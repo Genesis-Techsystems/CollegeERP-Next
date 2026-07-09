@@ -34,7 +34,7 @@ import { StatusBadge } from '@/common/components/data-display'
 import { SearchInput } from '@/common/components/search'
 import { ConfirmDialog } from '@/common/components/feedback'
 import { PageContainer, PageHeader } from '@/components/layout'
-import { Filter, Plus, Printer } from 'lucide-react'
+import { CalendarDays, Filter, Plus, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { distinct } from '@/lib/utils'
 import { toDateStr } from '@/common/generic-functions'
@@ -364,7 +364,7 @@ export default function ExamCenterRoomAllotmentPage() {
 
 	const courseCode = useMemo(() => {
 		const row = courses.find((c) => num(c.fk_course_id) === num(selectedCourseId))
-		return String(row?.course_code ?? '')
+		return String(row?.course_code ?? row?.courseCode ?? '')
 	}, [courses, selectedCourseId])
 
 	// ── Navigation (Angular: copyExistingSeating / addExamRoomAllotment / editExamRoomAllotment) ──
@@ -373,6 +373,7 @@ export default function ExamCenterRoomAllotmentPage() {
 		const raw = row?.raw ?? {}
 		return new URLSearchParams({
 			collegeId: String(num(raw.collegeId ?? raw.fk_college_id) || ''),
+			collegeCode: String(raw.college_code ?? raw.collegeCode ?? ''),
 			univExamcenterId: String(selectedExamCenterId ?? ''),
 			courseId: String(selectedCourseId ?? ''),
 			examId: String(selectedExamId ?? ''),
@@ -1063,13 +1064,27 @@ export default function ExamCenterRoomAllotmentPage() {
 			<ConfirmDialog
 				open={assignSeatingOpen}
 				title="Assign Seating Allotment"
-				description="If you have already created a seating plan, this action will erase the existing plan and generate a new one. You may also need to reprint all related summaries. Are you sure you want to continue? Press OK to proceed, or Cancel to go back."
+				headerIcon={<CalendarDays className="h-5 w-5 shrink-0 text-primary" />}
+				contentClassName="sm:max-w-[400px]"
 				confirmLabel="OK"
+				cancelLabel="Cancel"
+				confirmFirst
 				confirmVariant="default"
+				showCloseButton={false}
 				isLoading={assignSeatingBusy}
 				onConfirm={confirmAssignSeating}
 				onCancel={() => setAssignSeatingOpen(false)}
-			/>
+			>
+				<p>
+					If you have already created a seating plan, this action will erase the existing plan and
+					generate a new one. You may also need to reprint all related summaries.
+				</p>
+				<p className="text-center text-base font-semibold">
+					Are you sure you want to continue?
+					<br />
+					Press OK to proceed, or Cancel to go back.
+				</p>
+			</ConfirmDialog>
 		</PageContainer>
 	)
 }

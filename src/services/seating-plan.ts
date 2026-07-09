@@ -1,5 +1,41 @@
-import { NEXT_API } from '@/config/constants/api'
-import { getAllRecords } from '@/services/crud'
+import { EXAM_API, NEXT_API } from '@/config/constants/api'
+import { toExamApiDate } from '@/common/generic-functions'
+import { getAllRecords, getAllRecordsEnvelope } from '@/services/crud'
+
+/** Angular room-allotment hard-codes `in_org_id=1`; prefer session/localStorage when set. */
+function resolveExamRoomOrgId(explicit?: number): number {
+	if (explicit != null && explicit > 0) return explicit
+	if (typeof globalThis.localStorage !== 'undefined') {
+		const fromStorage = Number(globalThis.localStorage.getItem('organizationId') ?? 0)
+		if (fromStorage > 0) return fromStorage
+	}
+	return 1
+}
+
+function isRoomRow(row: unknown): row is Record<string, unknown> {
+	if (!row || typeof row !== 'object') return false
+	const r = row as Record<string, unknown>
+	return r.pk_room_id != null || r.room != null || r.room_name != null || r.roomCode != null
+}
+
+/** Mirrors Angular `result.data.result[0]` from `s_get_exam_masterdetails`. */
+export function parseExamRoomProcResult(data: unknown): any[] {
+	if (data == null) return []
+	if (Array.isArray(data)) {
+		if (data.length === 0) return []
+		if (Array.isArray(data[0])) return data[0] as any[]
+		return data.filter(isRoomRow)
+	}
+	if (typeof data !== 'object') return []
+	const obj = data as Record<string, unknown>
+	const nested = obj.result ?? obj.data
+	if (nested != null && nested !== data) {
+		const fromNested = parseExamRoomProcResult(nested)
+		if (fromNested.length > 0) return fromNested
+	}
+	if (Array.isArray(obj.resultList)) return obj.resultList as any[]
+	return []
+}
 
 /**
  * Seating Plan services — wrappers over legacy SPs exposed via getAllRecords.
@@ -355,6 +391,134 @@ export async function getRoomwiseSubjectSummary(params: {
 	return flattenResult(body)
 }
 
+function extractExamStudentDetailRows(body: unknown): any[] {
+	if (!body) return []
+	if (Array.isArray(body)) return body
+
+	const record = body as Record<string, unknown>
+	const data = record.data ?? record.result
+
+	let rows: any[] = []
+	if (Array.isArray(data)) {
+		rows = data
+	} else if (data && typeof data === 'object') {
+		const nested = data as Record<string, unknown>
+		if (Array.isArray(nested.resultList)) rows = nested.resultList
+		else if (Array.isArray(nested.examStudentDetails)) rows = nested.examStudentDetails
+		else if (Array.isArray(nested.examStudentDetailDTOs)) rows = nested.examStudentDetailDTOs
+	}
+	if (rows.length === 0 && Array.isArray(record.resultList)) rows = record.resultList
+	if (rows.length > 0) return rows
+
+	if (record.success === false) return []
+	if (data === '' || data == null) {
+		if (record.statusCode === 200 || record.success === true) return []
+	}
+	return []
+}
+
+function normalizeExamStudentDetailRows(rows: any[]): any[] {
+	const seen = new Set<number>()
+	const out: any[] = []
+	for (const row of rows) {
+		const id = Number(row.examStdDetId ?? row.exam_std_det_id ?? row.studentId ?? row.student_id ?? 0)
+		if (id > 0 && seen.has(id)) continue
+		if (id > 0) seen.add(id)
+		const shortName = row.shortName ?? row.short_name
+		out.push({
+			...row,
+			shortName: shortName || row.subjectCode || row.subject_code || '',
+		})
+	}
+	return out
+}
+
+/** Angular `listByFourIds` — literal slashes in examDate, not `%2F`. */
+function buildExamStudentDetailsQuery(params: {
+	collegeId: number
+	courseId: number
+	examId: number
+	examDate: string
+}): string {
+	const examDate = toExamApiDate(params.examDate)
+	return `collegeId=${params.collegeId}&courseId=${params.courseId}&examId=${params.examId}&examDate=${examDate}`
+}
+
+/**
+ * Registered exam students for seat allotment modal.
+ * Mirrors Angular GET `/cms/examstudentdetails?collegeId=&courseId=&examId=&examDate=YYYY/MM/DD`.
+ */
+export async function listExamStudentsForSeatAllotment(params: {
+	collegeId: number
+	courseId: number
+	examId: number
+	examDate: string
+}): Promise<any[]> {
+	const examDate = toExamApiDate(params.examDate)
+	if (!params.collegeId || !params.courseId || !params.examId || !examDate) return []
+
+	const url = `${NEXT_API.CMS(EXAM_API.EXAM_STUDENT_DETAILS)}?${buildExamStudentDetailsQuery({
+		collegeId: params.collegeId,
+		courseId: params.courseId,
+		examId: params.examId,
+		examDate,
+	})}`
+
+	try {
+		const res = await fetch(url, { credentials: 'include', cache: 'no-store' })
+		if (!res.ok) return []
+		const body = await res.json().catch(() => null)
+		if (!body) return []
+		return normalizeExamStudentDetailRows(extractExamStudentDetailRows(body))
+	} catch {
+		return []
+	}
+}
+
+/** Angular `listBySevenIds` on `exammarksentrystddetails` — bulk allotment student list. */
+export async function listBulkAllotmentStudents(params: {
+	collegeId: number
+	courseId: number
+	examId: number
+	examDate: string
+	courseGroupId: number
+	courseYearId: number
+	subjectId?: number | string
+}): Promise<any[]> {
+	const examDate = toExamApiDate(params.examDate)
+	if (
+		!params.collegeId ||
+		!params.courseId ||
+		!params.examId ||
+		!examDate ||
+		!params.courseGroupId ||
+		!params.courseYearId
+	) {
+		return []
+	}
+
+	const subjectId = params.subjectId ?? 0
+	const query = `collegeId=${params.collegeId}&courseId=${params.courseId}&examId=${params.examId}&examDate=${examDate}&courseGroupId=${params.courseGroupId}&courseYearId=${params.courseYearId}&subjectId=${subjectId}`
+	const url = `${NEXT_API.CMS(EXAM_API.EXAM_MARKS_ENTRY_STUDENTS)}?${query}`
+
+	try {
+		const res = await fetch(url, { credentials: 'include', cache: 'no-store' })
+		if (!res.ok) return []
+		const body = await res.json().catch(() => null)
+		if (!body) return []
+		const rows = extractExamStudentDetailRows(body)
+		const seen = new Set<string>()
+		return rows.filter((row) => {
+			const roll = String(row.rollNumber ?? row.roll_number ?? row.hallticketNumber ?? row.hallticket_number ?? '')
+			if (!roll || seen.has(roll)) return false
+			seen.add(roll)
+			return true
+		})
+	} catch {
+		return []
+	}
+}
+
 export async function getExamRoomAllotmentById(examRoomAllotmentId: number): Promise<any | null> {
 	if (!examRoomAllotmentId) return null
 	const search = new URLSearchParams({
@@ -473,12 +637,8 @@ export async function assignSeatingAllSession(params: {
 }
 
 /**
- * Lists exam-room candidates from the legacy s_get_exam_room_details proc
- * (flag = 'exam_room_allotment') for the Add Room Seating Plan and Copy
- * Existing Seating flows. Each row carries vacancy info plus
- * `pk_exam_room_allotment_id` -- non-null means the room is already
- * allotted for this timetable (Angular disables it in the Add flow and
- * shows it as Existing in the Copy flow).
+ * Lists exam-room candidates from `s_get_exam_masterdetails` (flag = `exam_room_allotment`)
+ * for Add Room Seating Plan and Copy Existing Seating. Angular `getExamRoomDetailsUrl`.
  */
 export async function getExamRoomDetails(params: {
 	orgId?: number
@@ -492,22 +652,21 @@ export async function getExamRoomDetails(params: {
 	groupSectionId?: number
 	empId?: number
 }): Promise<any[]> {
-	const search = new URLSearchParams({
+	const envelope = await getAllRecordsEnvelope<{ result?: unknown }>(EXAM_API.GET_EXAM_MASTER_DETAILS, {
 		in_flag: 'exam_room_allotment',
-		in_org_id: String(params.orgId ?? 1),
-		in_building_id: String(params.buildingId ?? 0),
-		in_block_id: String(params.blockId ?? 0),
-		in_floor_id: String(params.floorId ?? 0),
-		in_room_id: String(params.roomId ?? 0),
-		in_exam_timetable_id: String(params.examTimetableId),
-		in_exam_id: String(params.examId ?? 0),
-		in_academicYearId: String(params.academicYearId ?? 0),
-		in_group_sectionId: String(params.groupSectionId ?? 0),
-		in_emp_id: String(params.empId ?? 0),
+		in_org_id: resolveExamRoomOrgId(params.orgId),
+		in_building_id: params.buildingId ?? 0,
+		in_block_id: params.blockId ?? 0,
+		in_floor_id: params.floorId ?? 0,
+		in_room_id: params.roomId ?? 0,
+		in_exam_timetable_id: params.examTimetableId,
+		// Angular getRooms() always sends 0 for these — do not pass page exam/year ids.
+		in_exam_id: 0,
+		in_academicYearId: 0,
+		in_group_sectionId: params.groupSectionId ?? 0,
+		in_emp_id: params.empId ?? 0,
 	})
-	const res = await fetch(NEXT_API.PROXY(`/getAllRecords/s_get_exam_room_details?${search.toString()}`))
-	const body = await res.json().catch(() => null)
-	return flattenResult(body)
+	return parseExamRoomProcResult(envelope.data)
 }
 
 /**
@@ -547,12 +706,17 @@ export async function copyExamRoomAllotmentSessions(params: {
  * Plan. Mirrors Angular's `crudService.add(examRoomAllotmentPostUrl, ...)`.
  */
 export async function createExamRoomAllotments(rows: any[]): Promise<{ ok: boolean; message?: string; raw: any }> {
-	const res = await fetch(NEXT_API.PROXY('/examroomallotment'), {
+	const res = await fetch(NEXT_API.PROXY(EXAM_API.EXAM_ROOM_ALLOTMENT), {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
 		body: JSON.stringify(rows),
 	})
 	const body = await res.json().catch(() => null)
-	const ok = Boolean(body?.success ?? body?.statusCode === 200)
-	return { ok, message: body?.message, raw: body }
+	const ok = Boolean(body?.success ?? (res.ok && body?.statusCode === 200))
+	return {
+		ok,
+		message: body?.message ?? (!res.ok ? `Request failed (${res.status})` : undefined),
+		raw: body,
+	}
 }

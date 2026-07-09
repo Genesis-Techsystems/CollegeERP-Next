@@ -64,7 +64,11 @@ function makeActionsRenderer(
         setEditing(p.data)
         setForm({
           examSessionName: p.data?.examSessionName ?? '',
-          examsessioninCatCode: p.data?.examsessioninCatCode ?? '',
+          examsessioninCatId: String(
+            p.data?.examsessioninCatId ??
+            p.data?.examsessionin_cat_id ??
+            '',
+          ),
           universityCode: p.data?.universityCode ?? '',
           sessionStartTime: p.data?.sessionStartTime ?? '',
           sessionEndTime: p.data?.sessionEndTime ?? '',
@@ -88,12 +92,12 @@ export default function ExamSessionPage() {
   const [editing, setEditing] = useState<any | null>(null)
   const [universityOptions, setUniversityOptions] = useState<{ code: string; name?: string }[]>([])
   const [universityOptionsLoaded, setUniversityOptionsLoaded] = useState(false)
-  const [sessionInOptions, setSessionInOptions] = useState<{ code: string; label: string }[]>([])
+  const [sessionInOptions, setSessionInOptions] = useState<{ id: number; code: string; label: string }[]>([])
   const [sessionInOptionsLoaded, setSessionInOptionsLoaded] = useState(false)
 
   const [form, setForm] = useState({
     examSessionName: '',
-    examsessioninCatCode: '',
+    examsessioninCatId: '',
     universityCode: '',
     sessionStartTime: '',
     sessionEndTime: '',
@@ -112,7 +116,7 @@ export default function ExamSessionPage() {
     setEditing(null)
     setForm({
       examSessionName: '',
-      examsessioninCatCode: '',
+      examsessioninCatId: '',
       universityCode: '',
       sessionStartTime: '',
       sessionEndTime: '',
@@ -167,10 +171,11 @@ export default function ExamSessionPage() {
     const rows = await listGeneralDetailsByMaster(GM_CODES.EXAM_SESSION).catch(() => [] as any[])
     const opts = (Array.isArray(rows) ? rows : [])
       .map((r: any) => ({
-        code: String(r.generalDetailCode ?? '').trim(),
-        label: String(r.generalDetailDisplayName ?? r.generalDetailName ?? r.generalDetailCode ?? '').trim(),
+        id: Number(r.generalDetailId ?? r.pk_gd_id ?? 0),
+        code: String(r.generalDetailCode ?? r.gd_code ?? '').trim(),
+        label: String(r.generalDetailDisplayName ?? r.generalDetailName ?? r.gd_name ?? r.generalDetailCode ?? r.gd_code ?? '').trim(),
       }))
-      .filter((o) => o.code)
+      .filter((o) => o.id > 0)
     setSessionInOptions(opts)
     setSessionInOptionsLoaded(true)
   }, [sessionInOptionsLoaded])
@@ -179,6 +184,15 @@ export default function ExamSessionPage() {
     if (!open) return
     void ensureSessionInOptionsLoaded()
   }, [ensureSessionInOptionsLoaded, open])
+
+  // Edit rows may only expose examsessioninCatCode — resolve to generalDetailId once options load.
+  useEffect(() => {
+    if (!open || !editing || form.examsessioninCatId || sessionInOptions.length === 0) return
+    const code = String(editing.examsessioninCatCode ?? '').trim()
+    if (!code) return
+    const match = sessionInOptions.find((o) => o.code === code)
+    if (match) setForm((s) => ({ ...s, examsessioninCatId: String(match.id) }))
+  }, [open, editing, form.examsessioninCatId, sessionInOptions])
 
   function formatTime12h(value?: string) {
     if (!value) return ''
@@ -212,8 +226,8 @@ export default function ExamSessionPage() {
     if (!form.examSessionName.trim()) {
       nextErrors.examSessionName = 'Exam session name is required'
     }
-    if (!form.examsessioninCatCode.trim()) {
-      nextErrors.examsessioninCatCode = 'Session in is required'
+    if (!form.examsessioninCatId.trim()) {
+      nextErrors.examsessioninCatId = 'Session in is required'
     }
     if (!form.universityCode.trim()) {
       nextErrors.universityCode = 'University code is required'
@@ -226,9 +240,7 @@ export default function ExamSessionPage() {
 
     const payload: Record<string, unknown> = {
       examSessionName: form.examSessionName.trim(),
-      examsessioninCatCode: form.examsessioninCatCode.trim(),
-      // Some backends still bind this camel-case variant.
-      examSessionInCatCode: form.examsessioninCatCode.trim(),
+      examsessioninCatId: Number(form.examsessioninCatId),
       universityCode: form.universityCode.trim(),
       sessionStartTime: form.sessionStartTime || null,
       sessionEndTime: form.sessionEndTime || null,
@@ -331,31 +343,31 @@ export default function ExamSessionPage() {
                 Session In <span className="text-red-500">*</span>
               </Label>
               <Select
-                value={form.examsessioninCatCode || undefined}
+                value={form.examsessioninCatId || undefined}
                 onValueChange={(v) => {
-                  setForm((s) => ({ ...s, examsessioninCatCode: v }))
-                  if (fieldErrors.examsessioninCatCode) {
+                  setForm((s) => ({ ...s, examsessioninCatId: v }))
+                  if (fieldErrors.examsessioninCatId) {
                     setFieldErrors((prev) => {
                       const next = { ...prev }
-                      delete next.examsessioninCatCode
+                      delete next.examsessioninCatId
                       return next
                     })
                   }
                 }}
               >
-                <SelectTrigger className="h-9 text-[12px]" aria-invalid={Boolean(fieldErrors.examsessioninCatCode)}>
+                <SelectTrigger className="h-9 text-[12px]" aria-invalid={Boolean(fieldErrors.examsessioninCatId)}>
                   <SelectValue placeholder="Select session in" />
                 </SelectTrigger>
                 <SelectContent>
                   {sessionInOptions.map((o) => (
-                    <SelectItem key={o.code} value={o.code}>
+                    <SelectItem key={o.id} value={String(o.id)}>
                       {o.code}{o.label && o.label !== o.code ? ` - ${o.label}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {fieldErrors.examsessioninCatCode ? (
-                <p className="text-[11px] text-destructive">{fieldErrors.examsessioninCatCode}</p>
+              {fieldErrors.examsessioninCatId ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.examsessioninCatId}</p>
               ) : null}
             </div>
             <div className="min-w-0 space-y-1">
