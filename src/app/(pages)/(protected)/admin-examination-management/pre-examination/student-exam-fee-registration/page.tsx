@@ -1,15 +1,23 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Select } from '@/common/components/select'
-import { StudentSearchSelect } from '@/common/components/student-search'
-import { DatePicker } from '@/common/components/date-picker'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { toast } from 'sonner'
-import { NEXT_API } from '@/config/constants/api'
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Filter } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/common/components/select";
+import { StudentSearchSelect } from "@/common/components/student-search";
+import { DatePicker } from "@/common/components/date-picker";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { toast } from "sonner";
+import { NEXT_API } from "@/config/constants/api";
 import {
   getExamMasterDetailsByGroup,
   getStudentAcademicBatches,
@@ -22,321 +30,386 @@ import {
   listPaymentModes,
   listStudents,
   payExamFeeReceipts,
-} from '@/services/pre-examination'
-import { PageContainer } from '@/components/layout'
+} from "@/services/pre-examination";
+import { PageContainer } from "@/components/layout";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, any>;
 
 /** State + always-current ref (Angular `this.x` parity for async chains). */
 function useStateRef<T>(initial: T) {
-  const [state, setState] = useState<T>(initial)
-  const ref = useRef<T>(state)
-  ref.current = state
-  return [state, setState, ref] as const
+  const [state, setState] = useState<T>(initial);
+  const ref = useRef<T>(state);
+  ref.current = state;
+  return [state, setState, ref] as const;
 }
 
-const isEmptyObject = (o: AnyRow | null | undefined) => !o || Object.keys(o).length === 0
+const isEmptyObject = (o: AnyRow | null | undefined) =>
+  !o || Object.keys(o).length === 0;
 
 /** YYYY-MM-DD from a Date (local). */
 function ymd(d: Date | null): string {
-  if (!d) return ''
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${m}-${day}`
+  if (!d) return "";
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
 }
-const dateOnly = (v: unknown): string => (v ? String(v).slice(0, 10) : '')
+const dateOnly = (v: unknown): string => (v ? String(v).slice(0, 10) : "");
 
 /** Display date "MMM d, y" (Angular date pipe). */
 function fmtDate(v: unknown): string {
-  const s = dateOnly(v)
-  if (!s) return '-'
-  const d = new Date(s)
-  if (Number.isNaN(d.getTime())) return String(v)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const s = dateOnly(v);
+  if (!s) return "-";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 const STATUS_CLASS: Record<string, string> = {
-  DTND: 'text-red-600 font-bold',
-  INCOLLEGE: 'text-green-700 font-bold',
-  PASSEDOUT: 'text-[#461eb6] font-bold',
-  DETAINRECOMMENDED: 'text-orange-600 font-bold',
-  DISCONTINUED: 'text-red-600 font-bold',
-}
+  DTND: "text-red-600 font-bold",
+  INCOLLEGE: "text-green-700 font-bold",
+  PASSEDOUT: "text-[#461eb6] font-bold",
+  DETAINRECOMMENDED: "text-orange-600 font-bold",
+  DISCONTINUED: "text-red-600 font-bold",
+};
 
 export default function StudentExamFeeRegistrationPage() {
+  const [filterOpen, setFilterOpen] = useState(true);
   // --- selection / lookups ---
-  const [students, setStudents] = useState<AnyRow[]>([])
-  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
-  const studentsRef = useRef<AnyRow[]>([])
-  studentsRef.current = students
-  const [studentId, setStudentId] = useState<number | null>(null)
-  const [student, setStudent, studentRef] = useStateRef<AnyRow>({})
-  const [examsList, setExamsList] = useState<AnyRow[]>([])
-  const [examId, setExamId, examIdRef] = useStateRef<number | null>(null)
-  const [flag, setFlag] = useState(false)
-  const [photoError, setPhotoError] = useState(false)
+  const [students, setStudents] = useState<AnyRow[]>([]);
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false);
+  const studentsRef = useRef<AnyRow[]>([]);
+  studentsRef.current = students;
+  const [studentId, setStudentId] = useState<number | null>(null);
+  const [student, setStudent, studentRef] = useStateRef<AnyRow>({});
+  const [examsList, setExamsList] = useState<AnyRow[]>([]);
+  const [examId, setExamId, examIdRef] = useStateRef<number | null>(null);
+  const [flag, setFlag] = useState(false);
+  const [photoError, setPhotoError] = useState(false);
 
-  const [paymentModes, setPaymentModes] = useState<AnyRow[]>([])
-  const [, setExamFeeTypes, examFeeTypesRef] = useStateRef<AnyRow[]>([])
+  const [paymentModes, setPaymentModes] = useState<AnyRow[]>([]);
+  const [, setExamFeeTypes, examFeeTypesRef] = useStateRef<AnyRow[]>([]);
 
   // --- course-year / subject flow ---
-  const [, setAllCourseYears, allCourseYearsRef] = useStateRef<AnyRow[]>([])
-  const [, setCourseYearsList, courseYearsListRef] = useStateRef<AnyRow[]>([])
-  const [, setExamDetailsList, examDetailsListRef] = useStateRef<AnyRow[]>([])
-  const [courseYears, setCourseYears] = useState<AnyRow[]>([])
-  const [courseYearId, setCourseYearId, courseYearIdRef] = useStateRef<number | null>(null)
-  const [checkExam, setCheckExam, checkExamRef] = useStateRef<1 | 2>(1)
-  const studentCurrentCourseYearIdRef = useRef<number | null>(null)
+  const [, setAllCourseYears, allCourseYearsRef] = useStateRef<AnyRow[]>([]);
+  const [, setCourseYearsList, courseYearsListRef] = useStateRef<AnyRow[]>([]);
+  const [, setExamDetailsList, examDetailsListRef] = useStateRef<AnyRow[]>([]);
+  const [courseYears, setCourseYears] = useState<AnyRow[]>([]);
+  const [courseYearId, setCourseYearId, courseYearIdRef] = useStateRef<
+    number | null
+  >(null);
+  const [checkExam, setCheckExam, checkExamRef] = useStateRef<1 | 2>(1);
+  const studentCurrentCourseYearIdRef = useRef<number | null>(null);
 
-  const [studentSubjects, setStudentSubjects, studentSubjectsRef] = useStateRef<AnyRow[]>([])
-  const [checksubject, setChecksubject] = useState(true)
-  const [searchText, setSearchText] = useState('')
+  const [studentSubjects, setStudentSubjects, studentSubjectsRef] = useStateRef<
+    AnyRow[]
+  >([]);
+  const [checksubject, setChecksubject] = useState(true);
+  const [searchText, setSearchText] = useState("");
 
   // --- fee structure + computed payment ---
-  const [examFeeStructure, setExamFeeStructure, examFeeStructureRef] = useStateRef<AnyRow[]>([])
-  const [courseYearFee, setCourseYearFee, courseYearFeeRef] = useStateRef<AnyRow[]>([])
+  const [examFeeStructure, setExamFeeStructure, examFeeStructureRef] =
+    useStateRef<AnyRow[]>([]);
+  const [courseYearFee, setCourseYearFee, courseYearFeeRef] = useStateRef<
+    AnyRow[]
+  >([]);
 
   // --- payment form ---
-  const [paymentModeCatId, setPaymentModeCatId] = useState<number | null>(131)
-  const [chequeNo, setChequeNo] = useState('')
-  const [ddno, setDdno] = useState('')
-  const [referenceNumber, setReferenceNumber] = useState('')
-  const [transactionNo, setTransactionNo] = useState('')
-  const [otherPaymentNumber] = useState('')
-  const [receiptDate, setReceiptDate] = useState<Date | null>(new Date())
-  const [feeComments, setFeeComments] = useState('')
-  const [paying, setPaying] = useState(false)
+  const [paymentModeCatId, setPaymentModeCatId] = useState<number | null>(131);
+  const [chequeNo, setChequeNo] = useState("");
+  const [ddno, setDdno] = useState("");
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [transactionNo, setTransactionNo] = useState("");
+  const [otherPaymentNumber] = useState("");
+  const [receiptDate, setReceiptDate] = useState<Date | null>(new Date());
+  const [feeComments, setFeeComments] = useState("");
+  const [paying, setPaying] = useState(false);
 
   // --- receipts ---
-  const [feeReceipts, setFeeReceipts] = useState<AnyRow[]>([])
-  const [coursesYearList, setCoursesYearList] = useState<AnyRow[]>([])
+  const [feeReceipts, setFeeReceipts] = useState<AnyRow[]>([]);
+  const [coursesYearList, setCoursesYearList] = useState<AnyRow[]>([]);
 
   // --- modals ---
-  const [payDialogOpen, setPayDialogOpen] = useState(false)
-  const payReceiptsRef = useRef<AnyRow[]>([])
-  const [viewSubjOpen, setViewSubjOpen] = useState(false)
-  const [viewSubjRows, setViewSubjRows] = useState<AnyRow[]>([])
-  const [viewSubjSearch, setViewSubjSearch] = useState('')
+  const [payDialogOpen, setPayDialogOpen] = useState(false);
+  const payReceiptsRef = useRef<AnyRow[]>([]);
+  const [viewSubjOpen, setViewSubjOpen] = useState(false);
+  const [viewSubjRows, setViewSubjRows] = useState<AnyRow[]>([]);
+  const [viewSubjSearch, setViewSubjSearch] = useState("");
 
-  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const employeeId = Number(
+    globalThis?.localStorage?.getItem("employeeId") ?? 0,
+  );
 
   // Derived: selected subjects + count
-  const selectedSubjects = useMemo(() => studentSubjects.filter((s) => s.isSelected), [studentSubjects])
-  const selectedCount = selectedSubjects.length
+  const selectedSubjects = useMemo(
+    () => studentSubjects.filter((s) => s.isSelected),
+    [studentSubjects],
+  );
+  const selectedCount = selectedSubjects.length;
   const selectableSubjectCount = useMemo(
     () => studentSubjects.filter((s) => !s.subjAlreadyRegistered).length,
     [studentSubjects],
-  )
-  const canAddFee = selectableSubjectCount > 0 && selectedCount > 0
+  );
+  const canAddFee = selectableSubjectCount > 0 && selectedCount > 0;
 
   const filteredSubjects = useMemo(() => {
-    const q = searchText.trim().toLowerCase()
-    if (!q) return studentSubjects
+    const q = searchText.trim().toLowerCase();
+    if (!q) return studentSubjects;
     return studentSubjects.filter((s) =>
-      `${s.shortName ?? ''} ${s.subjectName ?? ''} ${s.subjectCode ?? ''}`.toLowerCase().includes(q),
-    )
-  }, [studentSubjects, searchText])
+      `${s.shortName ?? ""} ${s.subjectName ?? ""} ${s.subjectCode ?? ""}`
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [studentSubjects, searchText]);
 
   const filteredViewSubjRows = useMemo(() => {
-    const q = viewSubjSearch.trim().toLowerCase()
-    if (!q) return viewSubjRows
+    const q = viewSubjSearch.trim().toLowerCase();
+    if (!q) return viewSubjRows;
     return viewSubjRows.filter((s) =>
-      `${s.subjectName ?? s.Subject_name ?? s.shortName ?? ''} ${s.subjectCode ?? s.Subject_code ?? ''}`.toLowerCase().includes(q),
-    )
-  }, [viewSubjRows, viewSubjSearch])
+      `${s.subjectName ?? s.Subject_name ?? s.shortName ?? ""} ${s.subjectCode ?? s.Subject_code ?? ""}`
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [viewSubjRows, viewSubjSearch]);
 
   const totalReceiptAmt = useMemo(
     () =>
       courseYearFee.reduce(
-        (sum, cy) => sum + Number(cy.examFeeAmount || 0) + Number(cy.examFineAmount || 0) + Number(cy.examAddFee || 0),
+        (sum, cy) =>
+          sum +
+          Number(cy.examFeeAmount || 0) +
+          Number(cy.examFineAmount || 0) +
+          Number(cy.examAddFee || 0),
         0,
       ),
     [courseYearFee],
-  )
+  );
 
-  const additionalStructures: AnyRow[] = examFeeStructure[0]?.examFeeAdditionalStructureDTOs ?? []
+  const additionalStructures: AnyRow[] =
+    examFeeStructure[0]?.examFeeAdditionalStructureDTOs ?? [];
 
   // ============== INIT (Angular getGeneralDetails → paymentMode + examFeeType) ==============
   useEffect(() => {
     void (async () => {
-      const [modes, types] = await Promise.all([listPaymentModes().catch(() => []), listExamFeeTypes().catch(() => [])])
-      setPaymentModes(Array.isArray(modes) ? modes : [])
-      setExamFeeTypes(Array.isArray(types) ? types : [])
-    })()
+      const [modes, types] = await Promise.all([
+        listPaymentModes().catch(() => []),
+        listExamFeeTypes().catch(() => []),
+      ]);
+      setPaymentModes(Array.isArray(modes) ? modes : []);
+      setExamFeeTypes(Array.isArray(types) ? types : []);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   // ============== STUDENT SEARCH ==============
   async function enteredStudent(term: string) {
-    const q = (term ?? '').trim()
+    const q = (term ?? "").trim();
     if (!q) {
-      setStudents([])
-      return
+      setStudents([]);
+      return;
     }
-    if (q.length < 5) return
-    setStudentSearchLoading(true)
+    if (q.length < 5) return;
+    setStudentSearchLoading(true);
     try {
-      const list = await listStudents(q).catch(() => [])
-      setStudents(Array.isArray(list) ? list : [])
+      const list = await listStudents(q).catch(() => []);
+      setStudents(Array.isArray(list) ? list : []);
     } finally {
-      setStudentSearchLoading(false)
+      setStudentSearchLoading(false);
     }
   }
 
   // ============== SELECT STUDENT ==============
   async function selectedStudent(sid: number | null, row: AnyRow | null) {
-    setPhotoError(false)
-    setCourseYearsList([])
-    setAllCourseYears([])
-    setFeeReceipts([])
-    setCoursesYearList([])
-    setSearchText('')
-    setCourseYearFee([])
-    setExamsList([])
-    setExamId(null)
-    setCourseYears([])
-    setStudentSubjects([])
-    setExamDetailsList([])
-    setCourseYearId(null)
-    setFlag(false)
-    setExamFeeStructure([])
-    setStudentId(sid)
+    setPhotoError(false);
+    setCourseYearsList([]);
+    setAllCourseYears([]);
+    setFeeReceipts([]);
+    setCoursesYearList([]);
+    setSearchText("");
+    setCourseYearFee([]);
+    setExamsList([]);
+    setExamId(null);
+    setCourseYears([]);
+    setStudentSubjects([]);
+    setExamDetailsList([]);
+    setCourseYearId(null);
+    setFlag(false);
+    setExamFeeStructure([]);
+    setStudentId(sid);
 
     if (!sid || !row) {
-      studentRef.current = {} as AnyRow
-      setStudent({} as AnyRow)
-      return
+      studentRef.current = {} as AnyRow;
+      setStudent({} as AnyRow);
+      return;
     }
 
     setStudents((prev) =>
       prev.some((x) => Number(x.studentId) === sid) ? prev : [...prev, row],
-    )
-    const found = row
-    studentRef.current = found // fresh for the async chain below
-    setStudent(found)
-    studentCurrentCourseYearIdRef.current = Number(found.courseYearId)
+    );
+    const found = row;
+    studentRef.current = found; // fresh for the async chain below
+    setStudent(found);
+    studentCurrentCourseYearIdRef.current = Number(found.courseYearId);
 
     // Course years (StudentAcademicbatch by studentDetail.studentId), dedupe by fromCourseYearId
-    const batches = await getStudentAcademicBatches(sid).catch(() => [])
-    setAllCourseYears(Array.isArray(batches) ? batches : [])
-    const byFrom = new Map<number, AnyRow>()
-    for (const b of Array.isArray(batches) ? batches : []) byFrom.set(Number(b.fromCourseYearId), b)
-    const cyList = [...byFrom.values()]
-    courseYearsListRef.current = cyList // fresh for supplyCourseYears
-    setCourseYearsList(cyList)
+    const batches = await getStudentAcademicBatches(sid).catch(() => []);
+    setAllCourseYears(Array.isArray(batches) ? batches : []);
+    const byFrom = new Map<number, AnyRow>();
+    for (const b of Array.isArray(batches) ? batches : [])
+      byFrom.set(Number(b.fromCourseYearId), b);
+    const cyList = [...byFrom.values()];
+    courseYearsListRef.current = cyList; // fresh for supplyCourseYears
+    setCourseYearsList(cyList);
 
     // Exams for this student's course
-    const exams = await listExamMastersByCourse(Number(found.courseId)).catch(() => [])
-    setExamsList((Array.isArray(exams) ? exams : []).filter((e) => !e.isInternalExam))
+    const exams = await listExamMastersByCourse(Number(found.courseId)).catch(
+      () => [],
+    );
+    setExamsList(
+      (Array.isArray(exams) ? exams : []).filter((e) => !e.isInternalExam),
+    );
   }
 
   // ============== SELECT EXAM ==============
   async function selectedExternalExam(eid: number) {
-    setFlag(true)
-    setFeeReceipts([])
-    setCoursesYearList([])
-    setSearchText('')
-    setExamDetailsList([])
-    setCourseYears([])
-    setStudentSubjects([])
-    const stu = studentRef.current
-    await loadFeeStructure(Number(stu.courseYearId))
-    await getExamDetails(1, eid)
+    setFlag(true);
+    setFeeReceipts([]);
+    setCoursesYearList([]);
+    setSearchText("");
+    setExamDetailsList([]);
+    setCourseYears([]);
+    setStudentSubjects([]);
+    const stu = studentRef.current;
+    await loadFeeStructure(Number(stu.courseYearId));
+    await getExamDetails(1, eid);
     // Receipts for already-paid history
-    await getExamFeeReceipts(Number(stu.studentId), eid)
+    await getExamFeeReceipts(Number(stu.studentId), eid);
   }
 
   // ============== EXAM DETAILS → COURSE YEARS ==============
   async function getExamDetails(type: 1 | 2, eid: number) {
-    const stu = studentRef.current
+    const stu = studentRef.current;
     const list = await getExamMasterDetailsByGroup({
       examId: eid,
       courseGroupId: Number(stu.courseGroupId),
       regulationId: Number(stu.regulationId),
-    }).catch(() => [])
-    const details = Array.isArray(list) ? list : []
-    examDetailsListRef.current = details
-    setExamDetailsList(details)
-    supplyCourseYears(type, details, stu, eid)
+    }).catch(() => []);
+    const details = Array.isArray(list) ? list : [];
+    examDetailsListRef.current = details;
+    setExamDetailsList(details);
+    supplyCourseYears(type, details, stu, eid);
   }
 
-  function supplyCourseYears(type: 1 | 2, examDetails: AnyRow[], stu: AnyRow, eid: number) {
-    setStudentSubjects([])
-    const cyList = courseYearsListRef.current
+  function supplyCourseYears(
+    type: 1 | 2,
+    examDetails: AnyRow[],
+    stu: AnyRow,
+    eid: number,
+  ) {
+    setStudentSubjects([]);
+    const cyList = courseYearsListRef.current;
     if (!examDetails || examDetails.length === 0) {
-      setCourseYears([])
-      return
+      setCourseYears([]);
+      return;
     }
     if (type === 1) {
-      const reg = examDetails.filter((x) => x.examTypeCatCode === 'Regular')
-      examDetailsListRef.current = reg
-      setExamDetailsList(reg)
-      let cys = cyList.filter((x) => Number(x.fromCourseYearId) === Number(stu.courseYearId))
-      cys = cys.filter((cy) => reg.some((ed) => Number(ed.courseYearId) === Number(cy.courseYearId)))
-      setCourseYears(cys)
+      const reg = examDetails.filter((x) => x.examTypeCatCode === "Regular");
+      examDetailsListRef.current = reg;
+      setExamDetailsList(reg);
+      let cys = cyList.filter(
+        (x) => Number(x.fromCourseYearId) === Number(stu.courseYearId),
+      );
+      cys = cys.filter((cy) =>
+        reg.some((ed) => Number(ed.courseYearId) === Number(cy.courseYearId)),
+      );
+      setCourseYears(cys);
       if (cys.length > 0) {
-        setCourseYearId(Number(cys[0].fromCourseYearId))
-        void getStudentSubjects(Number(stu.courseYearId), 1, eid)
+        setCourseYearId(Number(cys[0].fromCourseYearId));
+        void getStudentSubjects(Number(stu.courseYearId), 1, eid);
       } else {
-        toast.info('No Course Years in Exam Details')
+        toast.info("No Course Years in Exam Details");
       }
     } else {
-      const sup = examDetails.filter((x) => x.examTypeCatCode === 'Supple')
-      examDetailsListRef.current = sup
-      setExamDetailsList(sup)
-      let cys = cyList.filter((x) => Number(x.fromCourseYearId) !== Number(stu.courseYearId))
-      cys = cys.filter((cy) => sup.some((ed) => Number(ed.courseYearId) === Number(cy.courseYearId)))
-      setCourseYears(cys)
-      setCourseYearId(null)
-      if (cys.length === 0) toast.info('No Course Years in Exam Details')
+      const sup = examDetails.filter((x) => x.examTypeCatCode === "Supple");
+      examDetailsListRef.current = sup;
+      setExamDetailsList(sup);
+      let cys = cyList.filter(
+        (x) => Number(x.fromCourseYearId) !== Number(stu.courseYearId),
+      );
+      cys = cys.filter((cy) =>
+        sup.some((ed) => Number(ed.courseYearId) === Number(cy.courseYearId)),
+      );
+      setCourseYears(cys);
+      setCourseYearId(null);
+      if (cys.length === 0) toast.info("No Course Years in Exam Details");
     }
   }
 
   function onChangeCheckExam(value: 1 | 2) {
-    checkExamRef.current = value // keep ref fresh for loadFeeStructure's exam-type filter
-    setCheckExam(value)
-    clearOnExamTypeChange()
-    void getExamDetails(value, Number(examIdRef.current))
+    checkExamRef.current = value; // keep ref fresh for loadFeeStructure's exam-type filter
+    setCheckExam(value);
+    clearOnExamTypeChange();
+    void getExamDetails(value, Number(examIdRef.current));
   }
 
   function clearOnExamTypeChange() {
-    setCourseYearFee([])
-    setStudentSubjects([])
-    setExamFeeStructure([])
-    setCourseYearId(null)
+    setCourseYearFee([]);
+    setStudentSubjects([]);
+    setExamFeeStructure([]);
+    setCourseYearId(null);
   }
 
   // ============== FEE STRUCTURE ==============
   async function loadFeeStructure(cyId: number) {
-    const stu = studentRef.current
+    const stu = studentRef.current;
     if (!stu?.collegeId || !examIdRef.current || !cyId) {
-      setExamFeeStructure([])
-      return
+      setExamFeeStructure([]);
+      return;
     }
     const s = await getStudentExamFeeStructure({
       collegeId: Number(stu.collegeId),
       examId: Number(examIdRef.current),
       courseGroupId: Number(stu.courseGroupId),
       courseYearId: cyId,
-    }).catch(() => null)
+    }).catch(() => null);
     if (!s) {
-      setExamFeeStructure([])
-      return
+      setExamFeeStructure([]);
+      return;
     }
     // Angular: split additional structures, re-filter by exam type code, set ids + isDisable.
-    const code = checkExamRef.current === 1 ? 'Regular' : 'Supple'
-    const all: AnyRow[] = Array.isArray(s.examFeeAdditionalStructureDTOs) ? s.examFeeAdditionalStructureDTOs : []
+    const code = checkExamRef.current === 1 ? "Regular" : "Supple";
+    const all: AnyRow[] = Array.isArray(s.examFeeAdditionalStructureDTOs)
+      ? s.examFeeAdditionalStructureDTOs
+      : [];
     const filtered = all
       .filter((a) => a.examTypeCatDisplayCode === code)
-      .map((a) => ({ ...a, examFeeStructureId: s.examFeeStructureId, isDisable: Number(a.fee) > 0 }))
-    setExamFeeStructure([{ ...s, examFeeAdditionalStructures: all, examFeeAdditionalStructureDTOs: filtered }])
+      .map((a) => ({
+        ...a,
+        examFeeStructureId: s.examFeeStructureId,
+        isDisable: Number(a.fee) > 0,
+      }));
+    setExamFeeStructure([
+      {
+        ...s,
+        examFeeAdditionalStructures: all,
+        examFeeAdditionalStructureDTOs: filtered,
+      },
+    ]);
   }
 
   // ============== SUBJECTS ==============
   function getRelevantExamSubjects(cyId: number) {
-    if (cyId == null) return
-    if (cyId === Number(studentRef.current.courseYearId)) void getStudentSubjects(cyId, checkExamRef.current, Number(examIdRef.current))
-    else void getExamCourseYearSubjects(cyId, Number(examIdRef.current))
+    if (cyId == null) return;
+    if (cyId === Number(studentRef.current.courseYearId))
+      void getStudentSubjects(
+        cyId,
+        checkExamRef.current,
+        Number(examIdRef.current),
+      );
+    else void getExamCourseYearSubjects(cyId, Number(examIdRef.current));
   }
 
   function normalizeRegular(rows: AnyRow[], cyId: number): AnyRow[] {
@@ -344,163 +417,201 @@ export default function StudentExamFeeRegistrationPage() {
       ...r,
       subjectId: Number(r.subjectId ?? r.fk_subject_id ?? 0),
       courseYearId: cyId,
-      examType: 'Regular',
+      examType: "Regular",
       isSelected: !r.subjAlreadyRegistered,
       checked: !r.subjAlreadyRegistered,
-      shortName: r.shortName && String(r.shortName).trim() !== '' ? r.shortName : r.subjectCode,
+      shortName:
+        r.shortName && String(r.shortName).trim() !== ""
+          ? r.shortName
+          : r.subjectCode,
       Subject_name: r.subjectName,
       Subject_code: r.subjectCode,
-      subjectTypeCode: r.subjectTypeCode ?? r.subjecttypeName ?? r.subjectTypeName ?? '',
-      credits: r.credits ?? r.subCredits ?? r.subjectCredits ?? '',
-      regulationName: r.regulationName ?? r.regulationCode ?? '',
-    }))
+      subjectTypeCode:
+        r.subjectTypeCode ?? r.subjecttypeName ?? r.subjectTypeName ?? "",
+      credits: r.credits ?? r.subCredits ?? r.subjectCredits ?? "",
+      regulationName: r.regulationName ?? r.regulationCode ?? "",
+    }));
   }
   function normalizeSupply(rows: AnyRow[], cyId: number): AnyRow[] {
     return rows.map((r) => ({
       ...r,
       subjectId: Number(r.subjectId ?? r.fk_subject_id ?? 0),
       courseYearId: cyId,
-      examType: 'Supple',
+      examType: "Supple",
       isSelected: !r.subjAlreadyRegistered,
       checked: !r.subjAlreadyRegistered,
-      shortName: r.shortName && String(r.shortName).trim() !== '' ? r.shortName : r.subjectCode,
+      shortName:
+        r.shortName && String(r.shortName).trim() !== ""
+          ? r.shortName
+          : r.subjectCode,
       Subject_name: r.subjectName,
       Subject_code: r.subjectCode,
-      subjectTypeCode: r.subjectTypeCode ?? r.subjecttypeName ?? r.subjectTypeName ?? '',
-      credits: r.credits ?? r.subjectCredits ?? r.creditPoints ?? r.subCredits ?? '',
-      regulationName: r.regulationName ?? r.regulationCode ?? '',
-    }))
+      subjectTypeCode:
+        r.subjectTypeCode ?? r.subjecttypeName ?? r.subjectTypeName ?? "",
+      credits:
+        r.credits ?? r.subjectCredits ?? r.creditPoints ?? r.subCredits ?? "",
+      regulationName: r.regulationName ?? r.regulationCode ?? "",
+    }));
   }
 
   function applyBridgeFilterAndSort(rows: AnyRow[], cyId: number): AnyRow[] {
-    let list = rows
-    const match = examDetailsListRef.current.find((e) => Number(e.courseYearId) === Number(cyId))
+    let list = rows;
+    const match = examDetailsListRef.current.find(
+      (e) => Number(e.courseYearId) === Number(cyId),
+    );
     if (match && match.isBridgeCourse !== undefined) {
-      list = list.filter((s) => s.isBridgeCourse === match.isBridgeCourse)
+      list = list.filter((s) => s.isBridgeCourse === match.isBridgeCourse);
     }
     return [...list].sort((a, b) =>
-      a.subjAlreadyRegistered === b.subjAlreadyRegistered ? 0 : a.subjAlreadyRegistered ? 1 : -1,
-    )
+      a.subjAlreadyRegistered === b.subjAlreadyRegistered
+        ? 0
+        : a.subjAlreadyRegistered
+          ? 1
+          : -1,
+    );
   }
 
-  async function getStudentSubjects(cyId: number, checkExamVal: 1 | 2, eid: number) {
-    setExamFeeStructure([])
-    const stu = studentRef.current
-    if (eid != null) await loadFeeStructure(cyId)
-    let rows: AnyRow[] = []
+  async function getStudentSubjects(
+    cyId: number,
+    checkExamVal: 1 | 2,
+    eid: number,
+  ) {
+    setExamFeeStructure([]);
+    const stu = studentRef.current;
+    if (eid != null) await loadFeeStructure(cyId);
+    let rows: AnyRow[] = [];
     if (Number(stu.courseYearId) === Number(cyId)) {
-      const stdAcademicYearId = stu.academicYearId
+      const stdAcademicYearId = stu.academicYearId;
       rows = await getStudentSubjectsForRegularExam({
         collegeId: Number(stu.collegeId),
         academicYearId: Number(stdAcademicYearId),
         studentId: Number(stu.studentId),
         courseYearId: cyId,
         examId: eid,
-      })
-      rows = normalizeRegular(rows, cyId)
+      });
+      rows = normalizeRegular(rows, cyId);
     } else {
       rows = await getStudentSubjectsForSupplyExam({
         collegeId: Number(stu.collegeId),
         courseYearId: cyId,
         studentId: Number(stu.studentId),
         examId: eid,
-      })
-      rows = normalizeSupply(rows, cyId)
+      });
+      rows = normalizeSupply(rows, cyId);
     }
-    setStudentSubjects(applyBridgeFilterAndSort(rows, cyId))
-    markAll(true)
+    setStudentSubjects(applyBridgeFilterAndSort(rows, cyId));
+    markAll(true);
   }
 
   // Supple quick-link: only FAIL/ABSENT supply subjects.
   async function getExamCourseYearSubjects(cyId: number, eid: number) {
-    const stu = studentRef.current
-    await loadFeeStructure(cyId)
+    const stu = studentRef.current;
+    await loadFeeStructure(cyId);
     let rows = await getStudentSubjectsForSupplyExam({
       collegeId: Number(stu.collegeId),
       courseYearId: cyId,
       studentId: Number(stu.studentId),
       examId: eid,
-    })
-    rows = rows.filter((r) => r.examresultCatCode === 'FAIL' || r.examresultCatCode === 'ABSENT')
-    rows = normalizeSupply(rows, cyId).map((r) => ({ ...r, credits: r.creditPoints ?? r.credits }))
-    setStudentSubjects(applyBridgeFilterAndSort(rows, cyId))
-    markAll(true)
+    });
+    rows = rows.filter(
+      (r) => r.examresultCatCode === "FAIL" || r.examresultCatCode === "ABSENT",
+    );
+    rows = normalizeSupply(rows, cyId).map((r) => ({
+      ...r,
+      credits: r.creditPoints ?? r.credits,
+    }));
+    setStudentSubjects(applyBridgeFilterAndSort(rows, cyId));
+    markAll(true);
   }
 
   // ============== CHECK / MARK ALL ==============
   function markAll(checkAllValue?: boolean) {
-    const all = checkAllValue ?? checksubject
+    const all = checkAllValue ?? checksubject;
     setStudentSubjects((prev) =>
       prev.map((s) => {
-        if (!all) return { ...s, checked: false, isSelected: false }
-        if (!s.subjAlreadyRegistered) return { ...s, checked: true, isSelected: true }
-        return { ...s, checked: false, isSelected: false }
+        if (!all) return { ...s, checked: false, isSelected: false };
+        if (!s.subjAlreadyRegistered)
+          return { ...s, checked: true, isSelected: true };
+        return { ...s, checked: false, isSelected: false };
       }),
-    )
+    );
     // keep courseYearFee in sync if already built
-    if (courseYearFeeRef.current.length > 0) setTimeout(() => rebuildCourseYearFee(), 0)
+    if (courseYearFeeRef.current.length > 0)
+      setTimeout(() => rebuildCourseYearFee(), 0);
   }
 
   function checkedSubjects(check: boolean, item: AnyRow) {
     setStudentSubjects((prev) =>
-      prev.map((s) => (s.subjectId === item.subjectId && s.courseYearId === item.courseYearId ? { ...s, checked: check, isSelected: check } : s)),
-    )
-    if (!check && courseYearFeeRef.current.length > 0) setTimeout(() => rebuildCourseYearFee(), 0)
+      prev.map((s) =>
+        s.subjectId === item.subjectId && s.courseYearId === item.courseYearId
+          ? { ...s, checked: check, isSelected: check }
+          : s,
+      ),
+    );
+    if (!check && courseYearFeeRef.current.length > 0)
+      setTimeout(() => rebuildCourseYearFee(), 0);
   }
 
   function onToggleSelectAll(v: boolean) {
-    setChecksubject(v)
-    markAll(v)
+    setChecksubject(v);
+    markAll(v);
   }
 
   // ============== FEE CALC ==============
   function fineCheck(fineList: AnyRow[]): AnyRow {
-    const today = ymd(new Date())
+    const today = ymd(new Date());
     for (const f of fineList || []) {
-      const from = dateOnly(f.fineFromDate)
-      const to = dateOnly(f.fineToDate)
-      if (from && to && today >= from && today <= to) return f
+      const from = dateOnly(f.fineFromDate);
+      const to = dateOnly(f.fineToDate);
+      if (from && to && today >= from && today <= to) return f;
     }
-    return {}
+    return {};
   }
   function getSupplyFeeAmount(count: number, s: AnyRow): number {
-    if (count === 1) return Number(s.subject1Fee || 0)
-    if (count === 2) return Number(s.subject2Fee || 0)
-    if (count === 3) return Number(s.subject3Fee || 0)
-    if (count === 4) return Number(s.subject4Fee || 0)
-    if (count === 5) return Number(s.subject5Fee || s.supplyFee || 0)
-    if (count === 6) return Number(s.subject6Fee || s.supplyFee || 0)
-    if (count >= 7) return Number(s.supplyFee || 0)
-    return 0
+    if (count === 1) return Number(s.subject1Fee || 0);
+    if (count === 2) return Number(s.subject2Fee || 0);
+    if (count === 3) return Number(s.subject3Fee || 0);
+    if (count === 4) return Number(s.subject4Fee || 0);
+    if (count === 5) return Number(s.subject5Fee || s.supplyFee || 0);
+    if (count === 6) return Number(s.subject6Fee || s.supplyFee || 0);
+    if (count >= 7) return Number(s.supplyFee || 0);
+    return 0;
   }
 
   // Angular addExamSubjects(): build courseYearFee grouped by courseYearId.
   function buildCourseYearFee(): AnyRow[] {
-    const s = examFeeStructureRef.current[0]
-    if (!s) return []
-    const checked = studentSubjectsRef.current.filter((x) => x.checked)
-    if (checked.length === 0) return []
+    const s = examFeeStructureRef.current[0];
+    if (!s) return [];
+    const checked = studentSubjectsRef.current.filter((x) => x.checked);
+    if (checked.length === 0) return [];
 
-    let addF = 0
-    for (const a of s.examFeeAdditionalStructureDTOs ?? []) if (a.applyToAll) addF += Number(a.fee || 0)
+    let addF = 0;
+    for (const a of s.examFeeAdditionalStructureDTOs ?? [])
+      if (a.applyToAll) addF += Number(a.fee || 0);
 
-    const fineObj = (s.examFeeFineDTOs?.length ?? 0) > 0 ? fineCheck(s.examFeeFineDTOs) : {}
-    const noFine = isEmptyObject(fineObj)
-    const result: AnyRow[] = []
-    const currentCY = studentCurrentCourseYearIdRef.current
+    const fineObj =
+      (s.examFeeFineDTOs?.length ?? 0) > 0 ? fineCheck(s.examFeeFineDTOs) : {};
+    const noFine = isEmptyObject(fineObj);
+    const result: AnyRow[] = [];
+    const currentCY = studentCurrentCourseYearIdRef.current;
 
     for (const sub of checked) {
-      const cyId = Number(sub.courseYearId)
-      let existing = result.find((x) => x.courseYearId === cyId)
-      const isRegular = Number(currentCY) === cyId
-      const examFeeAmount = isRegular ? Number(s.regFee || 0) : getSupplyFeeAmount(checked.length, s)
-      const fineAmount = noFine ? 0 : Number((isRegular ? fineObj.regFeeFine : fineObj.supplyFeeFine) || 0)
+      const cyId = Number(sub.courseYearId);
+      let existing = result.find((x) => x.courseYearId === cyId);
+      const isRegular = Number(currentCY) === cyId;
+      const examFeeAmount = isRegular
+        ? Number(s.regFee || 0)
+        : getSupplyFeeAmount(checked.length, s);
+      const fineAmount = noFine
+        ? 0
+        : Number((isRegular ? fineObj.regFeeFine : fineObj.supplyFeeFine) || 0);
       if (!existing) {
         result.push({
           collegeCode: sub.collegeCode ?? studentRef.current.collegeCode,
           courseYearId: cyId,
           courseName: sub.courseName ?? studentRef.current.courseName,
-          courseYearName: sub.courseYearName ?? studentRef.current.courseYearName,
+          courseYearName:
+            sub.courseYearName ?? studentRef.current.courseYearName,
           examType: sub.examType,
           examFeeAmount,
           examFineAmount: fineAmount,
@@ -509,77 +620,90 @@ export default function StudentExamFeeRegistrationPage() {
           examFeeStructureId: s.examFeeStructureId,
           examAdditionalFeeReceiptDTOs: s.examFeeAdditionalStructureDTOs ?? [],
           subjects: [sub],
-        })
-      } else if (!existing.subjects.some((x: AnyRow) => x.subjectId === sub.subjectId)) {
-        existing.subjects.push(sub)
+        });
+      } else if (
+        !existing.subjects.some((x: AnyRow) => x.subjectId === sub.subjectId)
+      ) {
+        existing.subjects.push(sub);
       }
     }
-    return result
+    return result;
   }
 
   function addExamSubjects() {
     if (examFeeStructureRef.current.length === 0) {
-      toast.info('No Exam Fee Structure for this branch and Year.')
-      return
+      toast.info("No Exam Fee Structure for this branch and Year.");
+      return;
     }
-    setCourseYearFee(buildCourseYearFee())
+    setCourseYearFee(buildCourseYearFee());
   }
   function rebuildCourseYearFee() {
-    setCourseYearFee(buildCourseYearFee())
+    setCourseYearFee(buildCourseYearFee());
   }
 
   function updateAdditionalFee(idx: number, val: number) {
     setExamFeeStructure((prev) => {
-      if (prev.length === 0) return prev
-      const structure = { ...prev[0] }
-      const list = [...(structure.examFeeAdditionalStructureDTOs ?? [])]
-      list[idx] = { ...list[idx], fee: val }
-      structure.examFeeAdditionalStructureDTOs = list
-      return [structure]
-    })
+      if (prev.length === 0) return prev;
+      const structure = { ...prev[0] };
+      const list = [...(structure.examFeeAdditionalStructureDTOs ?? [])];
+      list[idx] = { ...list[idx], fee: val };
+      structure.examFeeAdditionalStructureDTOs = list;
+      return [structure];
+    });
   }
   function updateLateFee(idx: number, val: number) {
-    setCourseYearFee((prev) => prev.map((cy, i) => (i === idx ? { ...cy, examFineAmount: val } : cy)))
+    setCourseYearFee((prev) =>
+      prev.map((cy, i) => (i === idx ? { ...cy, examFineAmount: val } : cy)),
+    );
   }
 
   // ============== RECEIPTS ==============
   async function getExamFeeReceipts(sid: number, eid: number) {
-    const list = await listExamFeeReceipts({ studentId: sid, examId: eid }).catch(() => [])
-    const receipts = Array.isArray(list) ? list : []
-    setFeeReceipts(receipts)
+    const list = await listExamFeeReceipts({
+      studentId: sid,
+      examId: eid,
+    }).catch(() => []);
+    const receipts = Array.isArray(list) ? list : [];
+    setFeeReceipts(receipts);
     // dedupe by courseYearId (one receipts-block per course-year)
-    const byCY = new Map<number, AnyRow>()
-    for (const r of receipts) if (!byCY.has(Number(r.courseYearId))) byCY.set(Number(r.courseYearId), r)
-    setCoursesYearList([...byCY.values()])
+    const byCY = new Map<number, AnyRow>();
+    for (const r of receipts)
+      if (!byCY.has(Number(r.courseYearId)))
+        byCY.set(Number(r.courseYearId), r);
+    setCoursesYearList([...byCY.values()]);
   }
 
   // ============== PAY ==============
   function payExamFees() {
-    if (courseYearFeeRef.current.length === 0) return
+    if (courseYearFeeRef.current.length === 0) return;
     if (!paymentModeCatId) {
-      toastError('Select a payment mode.')
-      return
+      toastError("Select a payment mode.");
+      return;
     }
     if (!receiptDate) {
-      toastError('Select the payment date.')
-      return
+      toastError("Select the payment date.");
+      return;
     }
-    const stu = studentRef.current
-    const rdate = ymd(receiptDate)
-    const examRow = examsList.find((e) => Number(e.examId) === Number(examIdRef.current))
-    const examName = examRow?.examName ?? ''
-    const examFromDate = dateOnly(examRow?.fromDate)
-    const examToDate = dateOnly(examRow?.toDate)
+    const stu = studentRef.current;
+    const rdate = ymd(receiptDate);
+    const examRow = examsList.find(
+      (e) => Number(e.examId) === Number(examIdRef.current),
+    );
+    const examName = examRow?.examName ?? "";
+    const examFromDate = dateOnly(examRow?.fromDate);
+    const examToDate = dateOnly(examRow?.toDate);
 
     const receipts = courseYearFeeRef.current.map((cy) => {
-      const ft = examFeeTypesRef.current.find((x) => String(x.generalDetailCode) === String(cy.examType))
-      const examtypeCatId = ft ? Number(ft.generalDetailId) : null
-      let addFeeAmt = 0
-      const addTFee: AnyRow[] = []
+      const ft = examFeeTypesRef.current.find(
+        (x) => String(x.generalDetailCode) === String(cy.examType),
+      );
+      const examtypeCatId = ft ? Number(ft.generalDetailId) : null;
+      let addFeeAmt = 0;
+      const addTFee: AnyRow[] = [];
       for (const a of cy.examAdditionalFeeReceiptDTOs || []) {
         if (Number(a.fee) > 0) {
-          if (a.applyToAll === true) addFeeAmt += Number(a.fee)
-          else addFeeAmt = 0
+          if (a.applyToAll === true) addFeeAmt += Number(a.fee);
+          else addFeeAmt = 0;
           addTFee.push({
             ...a,
             collegeId: Number(stu.collegeId),
@@ -588,11 +712,11 @@ export default function StudentExamFeeRegistrationPage() {
             addtExamFeeTypeCatId: a.adtExamfeetypeCatId,
             collectedEmpId: employeeId,
             addtReceiptDate: rdate,
-          })
+          });
         }
       }
-      const examFeeAmount = Number(cy.examFeeAmount || 0)
-      const examFineAmount = Number(cy.examFineAmount || 0)
+      const examFeeAmount = Number(cy.examFeeAmount || 0);
+      const examFineAmount = Number(cy.examFineAmount || 0);
       return {
         chequeNo,
         ddno,
@@ -643,118 +767,145 @@ export default function StudentExamFeeRegistrationPage() {
             examStudentDetailDTOs: cy.subjects,
           },
         ],
-      }
-    })
-    payReceiptsRef.current = receipts
-    setPayDialogOpen(true)
+      };
+    });
+    payReceiptsRef.current = receipts;
+    setPayDialogOpen(true);
   }
 
   async function confirmPay() {
-    setPaying(true)
+    setPaying(true);
     try {
-      await payExamFeeReceipts(payReceiptsRef.current)
-      toastSuccess('Exam fee paid successfully.')
-      setPayDialogOpen(false)
-      clearAfterPay()
-      await getExamFeeReceipts(Number(studentRef.current.studentId), Number(examIdRef.current))
+      await payExamFeeReceipts(payReceiptsRef.current);
+      toastSuccess("Exam fee paid successfully.");
+      setPayDialogOpen(false);
+      clearAfterPay();
+      await getExamFeeReceipts(
+        Number(studentRef.current.studentId),
+        Number(examIdRef.current),
+      );
     } catch (e) {
-      toastError(e instanceof Error ? e.message : 'Failed to pay exam fees.')
+      toastError(e instanceof Error ? e.message : "Failed to pay exam fees.");
     } finally {
-      setPaying(false)
+      setPaying(false);
     }
   }
 
   function clearAfterPay() {
-    setCourseYearFee([])
-    setStudentSubjects([])
-    setExamFeeStructure([])
-    setCourseYearId(null)
-    setChequeNo('')
-    setReferenceNumber('')
-    setTransactionNo('')
-    setDdno('')
-    setFeeComments('')
+    setCourseYearFee([]);
+    setStudentSubjects([]);
+    setExamFeeStructure([]);
+    setCourseYearId(null);
+    setChequeNo("");
+    setReferenceNumber("");
+    setTransactionNo("");
+    setDdno("");
+    setFeeComments("");
   }
 
   // ============== VIEW SUBJECTS MODAL ==============
-  function viewCourseYearSubjects(row: AnyRow, mode: 'receipt' | 'noReceipt') {
+  function viewCourseYearSubjects(row: AnyRow, mode: "receipt" | "noReceipt") {
     const raw =
-      mode === 'receipt'
-        ? row.examStudentDTOs?.[0]?.examStudentDetailDTOs ?? row.examStdRegSubDTOs ?? []
-        : row.subjects ?? []
-    const regulationFallback = String(row.regulationName ?? row.regulationCode ?? studentRef.current.regulationName ?? '')
+      mode === "receipt"
+        ? (row.examStudentDTOs?.[0]?.examStudentDetailDTOs ??
+          row.examStdRegSubDTOs ??
+          [])
+        : (row.subjects ?? []);
+    const regulationFallback = String(
+      row.regulationName ??
+        row.regulationCode ??
+        studentRef.current.regulationName ??
+        "",
+    );
     const subs = (Array.isArray(raw) ? raw : []).map((s: AnyRow) => ({
       ...s,
-      subjectName: s.subjectName ?? s.Subject_name ?? s.shortName ?? '',
-      subjectCode: s.subjectCode ?? s.Subject_code ?? '',
+      subjectName: s.subjectName ?? s.Subject_name ?? s.shortName ?? "",
+      subjectCode: s.subjectCode ?? s.Subject_code ?? "",
       subjectTypeCode:
-        s.subjectTypeCode ?? s.subjecttypeName ?? s.subjectTypeName ?? s.subject_type_code ?? '',
-      credits: s.credits ?? s.subCredits ?? s.subjectCredits ?? '',
-      regulationName: s.regulationName ?? s.regulationCode ?? regulationFallback,
-    }))
-    setViewSubjSearch('')
-    setViewSubjRows(subs)
-    setViewSubjOpen(true)
+        s.subjectTypeCode ??
+        s.subjecttypeName ??
+        s.subjectTypeName ??
+        s.subject_type_code ??
+        "",
+      credits: s.credits ?? s.subCredits ?? s.subjectCredits ?? "",
+      regulationName:
+        s.regulationName ?? s.regulationCode ?? regulationFallback,
+    }));
+    setViewSubjSearch("");
+    setViewSubjRows(subs);
+    setViewSubjOpen(true);
   }
 
   // ============== PRINT ==============
   function printReceipt(row: AnyRow) {
-    const id = row?.examFeeReceiptId
-    if (!id) return
-    window.open(NEXT_API.PROXY(`studentExamFeeReceiptDownload?examFeeReceiptId=${id}`), '_blank')
+    const id = row?.examFeeReceiptId;
+    if (!id) return;
+    window.open(
+      NEXT_API.PROXY(`studentExamFeeReceiptDownload?examFeeReceiptId=${id}`),
+      "_blank",
+    );
   }
 
   return (
-    <PageContainer className="space-y-3">
-      {/* breadcrumb */}
-      <div className="text-[13px] text-muted-foreground">
-        Examination Management <span className="mx-1">›</span> Pre Examination <span className="mx-1">›</span>
-        <span className="text-foreground"> Examination Fee Collection</span>
-      </div>
-
-      <div className="rounded border bg-white shadow-sm">
-        {/* sub-header */}
-        <div className="flex items-center gap-2 border-b bg-[#eaf2ff] px-4 py-2">
-          <span className="material-icons text-[18px]">💰</span>
-          <span className="text-[14px] font-semibold">Exam Fee Collection</span>
+    <PageContainer className="space-y-4">
+      <div className="app-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
+          <h2 className="app-card-title">Exam Fee Collection</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            style={{ marginRight: "0px" }}
+            className="h-6 px-2.5 text-[12px]"
+            onClick={() => setFilterOpen((v) => !v)}
+            aria-expanded={filterOpen}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filter
+            <ChevronDown
+              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+            />
+          </Button>
         </div>
-
-        <div className="p-4 space-y-3">
-          {/* Student + Exam */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-            <div className="md:col-span-5">
-              <StudentSearchSelect
-                label="Student"
-                value={studentId}
-                students={students}
-                selectedStudent={!isEmptyObject(student) ? student : null}
-                isLoading={studentSearchLoading}
-                onSearch={(term) => void enteredStudent(term)}
-                onChange={(id, row) => void selectedStudent(id, row)}
-              />
-            </div>
-            <div className="md:col-span-7">
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => {
-                  const eid = v ? Number(v) : 0
-                  examIdRef.current = eid // keep ref fresh for the async chain (state updates next render)
-                  setExamId(eid)
-                  if (eid) void selectedExternalExam(eid)
-                }}
-                options={examsList.map((e) => ({
-                  value: String(e.examId),
-                  label: `${e.examName} (${fmtDate(e.fromDate)} - ${fmtDate(e.toDate)})${e.isRegularExam ? ' (Regular)' : ''}${e.isSupplyExam ? ' (Supple)' : ''}`,
-                }))}
-                placeholder="Exam"
-                label="Exam"
-                searchable
-              />
+        {filterOpen && (
+          <div className="p-3 space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+              <div className="md:col-span-5 space-y-1">
+                <StudentSearchSelect
+                  label="Student"
+                  value={studentId}
+                  students={students}
+                  selectedStudent={!isEmptyObject(student) ? student : null}
+                  isLoading={studentSearchLoading}
+                  onSearch={(term) => void enteredStudent(term)}
+                  onChange={(id, row) => void selectedStudent(id, row)}
+                />
+              </div>
+              <div className="md:col-span-7 space-y-1">
+                <Label>Exam *</Label>
+                <Select
+                  value={examId ? String(examId) : null}
+                  onChange={(v) => {
+                    const eid = v ? Number(v) : 0;
+                    examIdRef.current = eid;
+                    setExamId(eid);
+                    if (eid) void selectedExternalExam(eid);
+                  }}
+                  options={examsList.map((e) => ({
+                    value: String(e.examId),
+                    label: `${e.examName} (${fmtDate(e.fromDate)} - ${fmtDate(e.toDate)})${e.isRegularExam ? " (Regular)" : ""}${e.isSupplyExam ? " (Supple)" : ""}`,
+                  }))}
+                  placeholder="Select Exam"
+                  searchable
+                />
+              </div>
             </div>
           </div>
+        )}
+      </div>
 
-          {/* Student banner */}
-          {!isEmptyObject(student) && flag && (
+      {/* Student banner */}
+      {!isEmptyObject(student) && flag && (
             <div className="rounded border-4 border-[#c3d9ff] p-3">
               <div className="flex gap-4">
                 <div className="w-[120px] shrink-0">
@@ -772,28 +923,44 @@ export default function StudentExamFeeRegistrationPage() {
                       className="flex w-full items-center justify-center bg-[#c3d9ff] p-1.5 text-[28px] font-semibold text-white"
                       style={{ height: 110 }}
                     >
-                      {String(student.firstName ?? '?').trim().charAt(0).toUpperCase() || '?'}
+                      {String(student.firstName ?? "?")
+                        .trim()
+                        .charAt(0)
+                        .toUpperCase() || "?"}
                     </div>
                   )}
                 </div>
                 <div className="flex-1 text-[13px] leading-5">
                   <p className="font-medium">
-                    {student.firstName} (<span className="text-blue-600">{student.isLateral ? 'LATERAL' : 'REGULAR'}</span>)
+                    {student.firstName} (
+                    <span className="text-blue-600">
+                      {student.isLateral ? "LATERAL" : "REGULAR"}
+                    </span>
+                    )
                   </p>
                   <p className="text-[#8c8c8c]">{student.hallticketNumber}</p>
                   <p className="text-[#8c8c8c]">
-                    {student.collegeCode} / {student.academicYear} / {student.courseCode} / {student.groupCode} /{' '}
+                    {student.collegeCode} / {student.academicYear} /{" "}
+                    {student.courseCode} / {student.groupCode} /{" "}
                     {student.courseYearName} / Section {student.section}
                   </p>
                   <p className="text-[#8c8c8c]">{student.mobile}</p>
                 </div>
                 <div className="text-[14px]">
                   <div className="py-1">
-                    Quota : <span className="text-blue-600">{student.quotaDisplayName}</span>
+                    Quota :{" "}
+                    <span className="text-blue-600">
+                      {student.quotaDisplayName}
+                    </span>
                   </div>
                   <div className="py-1">
-                    Student Status :{' '}
-                    <span className={STATUS_CLASS[String(student.studentStatusCode)] ?? 'text-green-700 font-medium'}>
+                    Student Status :{" "}
+                    <span
+                      className={
+                        STATUS_CLASS[String(student.studentStatusCode)] ??
+                        "text-green-700 font-medium"
+                      }
+                    >
                       {student.studentStatusDisplayName}
                     </span>
                   </div>
@@ -802,19 +969,31 @@ export default function StudentExamFeeRegistrationPage() {
             </div>
           )}
 
-          {/* Select Exam Fee Courses */}
-          {studentId && flag && (
+      {/* Select Exam Fee Courses */}
+      {studentId && flag && (
             <div className="rounded border-2 border-[#89c5ff] p-2.5">
-              <h2 className="mb-2 rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">Select Exam Fee Courses</h2>
+              <h2 className="mb-2 rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
+                Select Exam Fee Courses
+              </h2>
 
               <div className="bg-white px-2 py-2">
                 <div className="flex items-center gap-8 text-[13px]">
                   <label className="flex items-center gap-2">
-                    <input type="radio" name="checkExam" checked={checkExam === 1} onChange={() => onChangeCheckExam(1)} />
+                    <input
+                      type="radio"
+                      name="checkExam"
+                      checked={checkExam === 1}
+                      onChange={() => onChangeCheckExam(1)}
+                    />
                     Regular
                   </label>
                   <label className="flex items-center gap-2">
-                    <input type="radio" name="checkExam" checked={checkExam === 2} onChange={() => onChangeCheckExam(2)} />
+                    <input
+                      type="radio"
+                      name="checkExam"
+                      checked={checkExam === 2}
+                      onChange={() => onChangeCheckExam(2)}
+                    />
                     Supplementary
                   </label>
                 </div>
@@ -827,13 +1006,14 @@ export default function StudentExamFeeRegistrationPage() {
                     <Select
                       value={courseYearId ? String(courseYearId) : null}
                       onChange={(v) => {
-                        const id = v ? Number(v) : null
-                        setCourseYearId(id)
-                        if (id) getRelevantExamSubjects(id)
+                        const id = v ? Number(v) : null;
+                        setCourseYearId(id);
+                        if (id) getRelevantExamSubjects(id);
                       }}
                       options={courseYears.map((o) => ({
                         value: String(o.fromCourseYearId),
-                        label: o.fromCourseYearName ?? `Sem ${o.fromCourseYearId}`,
+                        label:
+                          o.fromCourseYearName ?? `Sem ${o.fromCourseYearId}`,
                       }))}
                       placeholder="Semester"
                       label="Semester"
@@ -842,13 +1022,21 @@ export default function StudentExamFeeRegistrationPage() {
                       <div className="mt-2 flex gap-4">
                         <span
                           className="cursor-pointer text-[13px] text-blue-600 underline"
-                          onClick={() => void getStudentSubjects(Number(courseYearId), 2, Number(examIdRef.current))}
+                          onClick={() =>
+                            void getStudentSubjects(
+                              Number(courseYearId),
+                              2,
+                              Number(examIdRef.current),
+                            )
+                          }
                         >
                           All
                         </span>
                         <span
                           className="cursor-pointer text-[13px] text-blue-600 underline"
-                          onClick={() => getRelevantExamSubjects(Number(courseYearId))}
+                          onClick={() =>
+                            getRelevantExamSubjects(Number(courseYearId))
+                          }
                         >
                           Supple
                         </span>
@@ -868,44 +1056,67 @@ export default function StudentExamFeeRegistrationPage() {
                           value={searchText}
                           onChange={(e) => setSearchText(e.target.value)}
                         />
-                        <span className="material-icons absolute left-2 top-1.5 text-[14px] text-muted-foreground">🔍</span>
+                        <span className="material-icons absolute left-2 top-1.5 text-[14px] text-muted-foreground">
+                          🔍
+                        </span>
                       </div>
-                      <span className="text-[13px] font-medium text-blue-600">Courses: {selectedCount}</span>
+                      <span className="text-[13px] font-medium text-blue-600">
+                        Courses: {selectedCount}
+                      </span>
                     </div>
                     <table className="w-full text-[12px]">
-                      <thead className="block overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
+                      <thead
+                        className="block overflow-y-auto"
+                        style={{ scrollbarGutter: "stable" }}
+                      >
                         <tr className="flex w-full bg-[#C3D9FF]">
                           <th className="w-[40px] px-1 py-1 text-center">
                             <input
                               type="checkbox"
-                              checked={checksubject && selectableSubjectCount > 0}
+                              checked={
+                                checksubject && selectableSubjectCount > 0
+                              }
                               disabled={selectableSubjectCount === 0}
-                              onChange={(e) => onToggleSelectAll(e.target.checked)}
+                              onChange={(e) =>
+                                onToggleSelectAll(e.target.checked)
+                              }
                             />
                             <span className="ml-1">All</span>
                           </th>
-                          <th className="flex-1 px-1 py-1 text-left">Subjects</th>
+                          <th className="flex-1 px-1 py-1 text-left">
+                            Subjects
+                          </th>
                         </tr>
                       </thead>
-                      <tbody className="block max-h-[150px] overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
+                      <tbody
+                        className="block max-h-[150px] overflow-y-auto"
+                        style={{ scrollbarGutter: "stable" }}
+                      >
                         {filteredSubjects.map((obj, i) => (
                           <tr
                             key={`sub-${obj.subjectId || i}`}
-                            className={`flex w-full ${obj.subjAlreadyRegistered ? 'bg-[#f2f0f0]' : ''}`}
+                            className={`flex w-full ${obj.subjAlreadyRegistered ? "bg-[#f2f0f0]" : ""}`}
                           >
                             <td className="w-[40px] px-1 py-1 text-center">
                               <input
                                 type="checkbox"
                                 disabled={obj.subjAlreadyRegistered}
                                 checked={!!obj.checked}
-                                onChange={() => !obj.subjAlreadyRegistered && checkedSubjects(!obj.checked, obj)}
+                                onChange={() =>
+                                  !obj.subjAlreadyRegistered &&
+                                  checkedSubjects(!obj.checked, obj)
+                                }
                               />
                             </td>
                             <td className="flex-1 px-1 py-1">
                               {obj.shortName}
                               {obj.subjectCode != null && (
                                 <>
-                                  {' '}- <span className="text-blue-600">{obj.subjectCode}</span>
+                                  {" "}
+                                  -{" "}
+                                  <span className="text-blue-600">
+                                    {obj.subjectCode}
+                                  </span>
                                 </>
                               )}
                             </td>
@@ -922,7 +1133,9 @@ export default function StudentExamFeeRegistrationPage() {
                     <table className="w-full text-[12px]">
                       <thead>
                         <tr className="bg-[#C3D9FF]">
-                          <th className="px-1 py-1 text-left text-blue-700">Selected Courses : {selectedCount}</th>
+                          <th className="px-1 py-1 text-left text-blue-700">
+                            Selected Courses : {selectedCount}
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="block max-h-[150px] overflow-y-auto">
@@ -932,7 +1145,11 @@ export default function StudentExamFeeRegistrationPage() {
                               {sub.shortName}
                               {sub.subjectCode != null && (
                                 <>
-                                  {' '}- <span className="text-blue-600">{sub.subjectCode}</span>
+                                  {" "}
+                                  -{" "}
+                                  <span className="text-blue-600">
+                                    {sub.subjectCode}
+                                  </span>
                                 </>
                               )}
                             </td>
@@ -944,34 +1161,47 @@ export default function StudentExamFeeRegistrationPage() {
                 )}
 
                 {/* Additional Fee */}
-                {examFeeStructure.length > 0 && additionalStructures.length > 0 && (
-                  <div className="md:col-span-3 border border-[#dedede] bg-white">
-                    <table className="w-full text-[12px]">
-                      <thead>
-                        <tr className="bg-[#C3D9FF]">
-                          <th className="px-1 py-1 text-left">Additional Fee</th>
-                        </tr>
-                      </thead>
-                      <tbody className="block max-h-[150px] overflow-y-auto">
-                        {additionalStructures.map((addFeeStr, i) =>
-                          addFeeStr.applyToAll === true ? (
-                            <tr key={`addl-${i}`} className="flex w-full items-center">
-                              <td className="flex flex-1 items-center justify-between gap-2 px-1 py-1">
-                                <span>{addFeeStr.adtExamfeetypeCatDisplayName}</span>
-                                <Input
-                                  type="number"
-                                  className="h-7 w-20 border-2 border-[#c4c4c4] text-right text-[12px]"
-                                  value={String(addFeeStr.fee ?? 0)}
-                                  onChange={(e) => updateAdditionalFee(i, Number(e.target.value || 0))}
-                                />
-                              </td>
-                            </tr>
-                          ) : null,
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                {examFeeStructure.length > 0 &&
+                  additionalStructures.length > 0 && (
+                    <div className="md:col-span-3 border border-[#dedede] bg-white">
+                      <table className="w-full text-[12px]">
+                        <thead>
+                          <tr className="bg-[#C3D9FF]">
+                            <th className="px-1 py-1 text-left">
+                              Additional Fee
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="block max-h-[150px] overflow-y-auto">
+                          {additionalStructures.map((addFeeStr, i) =>
+                            addFeeStr.applyToAll === true ? (
+                              <tr
+                                key={`addl-${i}`}
+                                className="flex w-full items-center"
+                              >
+                                <td className="flex flex-1 items-center justify-between gap-2 px-1 py-1">
+                                  <span>
+                                    {addFeeStr.adtExamfeetypeCatDisplayName}
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    className="h-7 w-20 border-2 border-[#c4c4c4] text-right text-[12px]"
+                                    value={String(addFeeStr.fee ?? 0)}
+                                    onChange={(e) =>
+                                      updateAdditionalFee(
+                                        i,
+                                        Number(e.target.value || 0),
+                                      )
+                                    }
+                                  />
+                                </td>
+                              </tr>
+                            ) : null,
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
                 {/* Add Fee — disabled when all subjects already registered / none selectable */}
                 {studentSubjects.length > 0 && (
@@ -992,43 +1222,74 @@ export default function StudentExamFeeRegistrationPage() {
           {/* Exam Fee Payment summary */}
           {studentId && courseYearFee.length > 0 && (
             <div className="mx-1">
-              <h2 className="mb-1 rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">Exam Fee Payment</h2>
+              <h2 className="mb-1 rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
+                Exam Fee Payment
+              </h2>
               <div className="rounded bg-[#C3D9FF] p-1">
                 <table className="w-full bg-white text-[13px]">
                   <thead>
                     <tr className="bg-white">
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">SI No</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">Semester</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">Exam Type</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">No of Subjects</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">LateFee</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">Add. Fee Amt(₹)</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">Fee Amt (₹)</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-center">Action</th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
+                        SI No
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
+                        Semester
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">
+                        Exam Type
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">
+                        No of Subjects
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">
+                        LateFee
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">
+                        Add. Fee Amt(₹)
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">
+                        Fee Amt (₹)
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-center">
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {courseYearFee.map((cy, i) => (
-                      <tr key={`cy-${i}`} className={i % 2 ? 'bg-[#f1f6ff]' : 'bg-white'}>
+                      <tr
+                        key={`cy-${i}`}
+                        className={i % 2 ? "bg-[#f1f6ff]" : "bg-white"}
+                      >
                         <td className="px-2 py-1">{i + 1}</td>
                         <td className="px-2 py-1">{cy.courseYearName}</td>
                         <td className="px-2 py-1 text-right">{cy.examType}</td>
-                        <td className="px-2 py-1 text-right">{cy.subjects.length}</td>
+                        <td className="px-2 py-1 text-right">
+                          {cy.subjects.length}
+                        </td>
                         <td className="px-2 py-1 text-right">
                           <Input
                             type="number"
                             className="ml-auto h-7 w-24 text-right text-[12px]"
                             value={String(cy.examFineAmount ?? 0)}
-                            onChange={(e) => updateLateFee(i, Number(e.target.value || 0))}
+                            onChange={(e) =>
+                              updateLateFee(i, Number(e.target.value || 0))
+                            }
                           />
                         </td>
-                        <td className="px-2 py-1 text-right">{cy.examAddFee}</td>
-                        <td className="px-2 py-1 text-right">{cy.examFeeAmount}</td>
+                        <td className="px-2 py-1 text-right">
+                          {cy.examAddFee}
+                        </td>
+                        <td className="px-2 py-1 text-right">
+                          {cy.examFeeAmount}
+                        </td>
                         <td className="px-2 py-1 text-center">
                           <button
                             className="text-[#9E9E9E]"
                             title="View Courses"
-                            onClick={() => viewCourseYearSubjects(cy, 'noReceipt')}
+                            onClick={() =>
+                              viewCourseYearSubjects(cy, "noReceipt")
+                            }
                           >
                             👁
                           </button>
@@ -1037,7 +1298,10 @@ export default function StudentExamFeeRegistrationPage() {
                     ))}
                     <tr className="bg-transparent">
                       <td />
-                      <td colSpan={7} className="px-2 py-1 text-[15px] font-bold text-blue-700">
+                      <td
+                        colSpan={7}
+                        className="px-2 py-1 text-[15px] font-bold text-blue-700"
+                      >
                         Summary
                       </td>
                     </tr>
@@ -1046,7 +1310,9 @@ export default function StudentExamFeeRegistrationPage() {
                       <td colSpan={6} className="px-2 py-1 font-bold">
                         Total Fees
                       </td>
-                      <td className="px-2 py-1 text-right font-bold">{totalReceiptAmt}</td>
+                      <td className="px-2 py-1 text-right font-bold">
+                        {totalReceiptAmt}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -1064,7 +1330,10 @@ export default function StudentExamFeeRegistrationPage() {
                     onChange={(v) => setPaymentModeCatId(v ? Number(v) : null)}
                     options={paymentModes.map((m) => ({
                       value: String(m.generalDetailId),
-                      label: m.generalDetailDisplayName ?? m.generalDetailName ?? '-',
+                      label:
+                        m.generalDetailDisplayName ??
+                        m.generalDetailName ??
+                        "-",
                     }))}
                     placeholder="Pay Mode"
                     label="Pay Mode"
@@ -1072,30 +1341,56 @@ export default function StudentExamFeeRegistrationPage() {
                 </div>
                 {paymentModeCatId === 133 && (
                   <div className="w-full sm:w-56">
-                    <label className="text-[12px] text-muted-foreground">Cheque Number</label>
-                    <Input className="h-8 text-[12px]" value={chequeNo} onChange={(e) => setChequeNo(e.target.value)} />
+                    <label className="text-[12px] text-muted-foreground">
+                      Cheque Number
+                    </label>
+                    <Input
+                      className="h-8 text-[12px]"
+                      value={chequeNo}
+                      onChange={(e) => setChequeNo(e.target.value)}
+                    />
                   </div>
                 )}
                 {paymentModeCatId === 134 && (
                   <div className="w-full sm:w-56">
-                    <label className="text-[12px] text-muted-foreground">DD Number</label>
-                    <Input className="h-8 text-[12px]" value={ddno} onChange={(e) => setDdno(e.target.value)} />
+                    <label className="text-[12px] text-muted-foreground">
+                      DD Number
+                    </label>
+                    <Input
+                      className="h-8 text-[12px]"
+                      value={ddno}
+                      onChange={(e) => setDdno(e.target.value)}
+                    />
                   </div>
                 )}
                 {paymentModeCatId === 131 && (
                   <div className="w-full sm:w-56">
-                    <label className="text-[12px] text-muted-foreground">Reference Number</label>
-                    <Input className="h-8 text-[12px]" value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} />
+                    <label className="text-[12px] text-muted-foreground">
+                      Reference Number
+                    </label>
+                    <Input
+                      className="h-8 text-[12px]"
+                      value={referenceNumber}
+                      onChange={(e) => setReferenceNumber(e.target.value)}
+                    />
                   </div>
                 )}
                 {(paymentModeCatId === 135 || paymentModeCatId === 132) && (
                   <div className="w-full sm:w-56">
-                    <label className="text-[12px] text-muted-foreground">Transaction Number</label>
-                    <Input className="h-8 text-[12px]" value={transactionNo} onChange={(e) => setTransactionNo(e.target.value)} />
+                    <label className="text-[12px] text-muted-foreground">
+                      Transaction Number
+                    </label>
+                    <Input
+                      className="h-8 text-[12px]"
+                      value={transactionNo}
+                      onChange={(e) => setTransactionNo(e.target.value)}
+                    />
                   </div>
                 )}
                 <div className="ml-auto text-right">
-                  <label className="block text-[14px] font-medium">Payment Amount</label>
+                  <label className="block text-[14px] font-medium">
+                    Payment Amount
+                  </label>
                   <Input
                     type="number"
                     disabled
@@ -1107,15 +1402,31 @@ export default function StudentExamFeeRegistrationPage() {
               </div>
               <div className="mt-3 flex flex-wrap items-end gap-3">
                 <div className="w-full sm:w-56">
-                  <label className="text-[12px] text-muted-foreground">Payment Date *</label>
-                  <DatePicker value={receiptDate} onChange={setReceiptDate} placeholder="Payment Date" />
+                  <label className="text-[12px] text-muted-foreground">
+                    Payment Date *
+                  </label>
+                  <DatePicker
+                    value={receiptDate}
+                    onChange={setReceiptDate}
+                    placeholder="Payment Date"
+                  />
                 </div>
                 <div className="min-w-[200px] flex-1">
-                  <label className="text-[12px] text-muted-foreground">Fee Comments</label>
-                  <Input className="h-8 text-[12px]" value={feeComments} onChange={(e) => setFeeComments(e.target.value)} />
+                  <label className="text-[12px] text-muted-foreground">
+                    Fee Comments
+                  </label>
+                  <Input
+                    className="h-8 text-[12px]"
+                    value={feeComments}
+                    onChange={(e) => setFeeComments(e.target.value)}
+                  />
                 </div>
                 <div className="w-full sm:w-40">
-                  <Button className="h-9 w-full text-[12px]" onClick={payExamFees} disabled={paying}>
+                  <Button
+                    className="h-9 w-full text-[12px]"
+                    onClick={payExamFees}
+                    disabled={paying}
+                  >
                     Pay fees
                   </Button>
                 </div>
@@ -1140,45 +1451,94 @@ export default function StudentExamFeeRegistrationPage() {
                 <table className="w-full bg-white text-[12px]">
                   <thead>
                     <tr className="bg-white">
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">SI No.</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">Semester</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">Receipt No.</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">Payment Date</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">Payment Mode</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">Exam Type</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">Exam Fee (₹)</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">Add. Fee (₹)</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">LateFee(₹)</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">Amount (₹)</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">Subjects</th>
-                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-center">Actions</th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
+                        SI No.
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
+                        Semester
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
+                        Receipt No.
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
+                        Payment Date
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
+                        Payment Mode
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
+                        Exam Type
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">
+                        Exam Fee (₹)
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">
+                        Add. Fee (₹)
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">
+                        LateFee(₹)
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-right">
+                        Amount (₹)
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
+                        Subjects
+                      </th>
+                      <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-center">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {feeReceipts
-                      .filter((r) => Number(r.courseYearId) === Number(cyl.courseYearId))
+                      .filter(
+                        (r) =>
+                          Number(r.courseYearId) === Number(cyl.courseYearId),
+                      )
                       .map((r, i) => (
-                        <tr key={`rcpt-${i}`} className={i % 2 ? 'bg-[#f1f6ff]' : 'bg-white'}>
+                        <tr
+                          key={`rcpt-${i}`}
+                          className={i % 2 ? "bg-[#f1f6ff]" : "bg-white"}
+                        >
                           <td className="px-2 py-1">{i + 1}</td>
                           <td className="px-2 py-1">{r.courseYearName}</td>
                           <td className="px-2 py-1">{r.feeReceiptNo}</td>
-                          <td className="px-2 py-1">{fmtDate(r.receiptDate)}</td>
-                          <td className="px-2 py-1">{r.paymentModeCatDisplayName}</td>
-                          <td className="px-2 py-1">{r.examtypeCatDisplayName}</td>
-                          <td className="px-2 py-1 text-right">{r.examFeeAmount ?? '-'}</td>
-                          <td className="px-2 py-1 text-right">{r.examAddtFee ?? '-'}</td>
-                          <td className="px-2 py-1 text-right">{r.examFineAmount ?? '-'}</td>
-                          <td className="px-2 py-1 text-right">{r.examTotalAmount}</td>
+                          <td className="px-2 py-1">
+                            {fmtDate(r.receiptDate)}
+                          </td>
+                          <td className="px-2 py-1">
+                            {r.paymentModeCatDisplayName}
+                          </td>
+                          <td className="px-2 py-1">
+                            {r.examtypeCatDisplayName}
+                          </td>
+                          <td className="px-2 py-1 text-right">
+                            {r.examFeeAmount ?? "-"}
+                          </td>
+                          <td className="px-2 py-1 text-right">
+                            {r.examAddtFee ?? "-"}
+                          </td>
+                          <td className="px-2 py-1 text-right">
+                            {r.examFineAmount ?? "-"}
+                          </td>
+                          <td className="px-2 py-1 text-right">
+                            {r.examTotalAmount}
+                          </td>
                           <td className="px-2 py-1">
                             <button
                               className="rounded bg-[#ffcf46] px-2 py-1"
-                              onClick={() => viewCourseYearSubjects(r, 'receipt')}
+                              onClick={() =>
+                                viewCourseYearSubjects(r, "receipt")
+                              }
                             >
                               Courses
                             </button>
                           </td>
                           <td className="px-2 py-1 text-center">
-                            <button title="Print Receipt" onClick={() => printReceipt(r)}>
+                            <button
+                              title="Print Receipt"
+                              onClick={() => printReceipt(r)}
+                            >
                               🖨
                             </button>
                           </td>
@@ -1189,8 +1549,6 @@ export default function StudentExamFeeRegistrationPage() {
               </div>
             </div>
           ))}
-        </div>
-      </div>
 
       {/* Pay confirmation modal (ExamFeePayDialog) */}
       <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
@@ -1220,23 +1578,35 @@ export default function StudentExamFeeRegistrationPage() {
                     <tr key={`pr-${i}`} className="border-t">
                       <td className="px-2 py-1">{r.courseYearName}</td>
                       <td className="px-2 py-1">{r.examType}</td>
-                      <td className="px-2 py-1 text-right">{r.examFeeAmount}</td>
+                      <td className="px-2 py-1 text-right">
+                        {r.examFeeAmount}
+                      </td>
                       <td className="px-2 py-1 text-right">{r.examAddtFee}</td>
-                      <td className="px-2 py-1 text-right">{r.examFineAmount}</td>
-                      <td className="px-2 py-1 text-right font-semibold">{r.examTotalAmount}</td>
+                      <td className="px-2 py-1 text-right">
+                        {r.examFineAmount}
+                      </td>
+                      <td className="px-2 py-1 text-right font-semibold">
+                        {r.examTotalAmount}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="text-right text-[15px] font-bold">Total: ₹ {totalReceiptAmt}</div>
+            <div className="text-right text-[15px] font-bold">
+              Total: ₹ {totalReceiptAmt}
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPayDialogOpen(false)} disabled={paying}>
+            <Button
+              variant="outline"
+              onClick={() => setPayDialogOpen(false)}
+              disabled={paying}
+            >
               Cancel
             </Button>
             <Button onClick={confirmPay} disabled={paying}>
-              {paying ? 'Paying…' : 'Pay'}
+              {paying ? "Paying…" : "Pay"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1246,8 +1616,8 @@ export default function StudentExamFeeRegistrationPage() {
       <Dialog
         open={viewSubjOpen}
         onOpenChange={(open) => {
-          setViewSubjOpen(open)
-          if (!open) setViewSubjSearch('')
+          setViewSubjOpen(open);
+          if (!open) setViewSubjSearch("");
         }}
       >
         <DialogContent className="max-w-3xl">
@@ -1271,10 +1641,18 @@ export default function StudentExamFeeRegistrationPage() {
                 <thead className="sticky top-0 bg-[#C3D9FF]">
                   <tr>
                     <th className="px-2 py-2 text-left font-semibold">Sl.No</th>
-                    <th className="px-2 py-2 text-left font-semibold">Subject Name</th>
-                    <th className="px-2 py-2 text-left font-semibold">Subject Type</th>
-                    <th className="px-2 py-2 text-left font-semibold">Credits</th>
-                    <th className="px-2 py-2 text-left font-semibold">Regulation</th>
+                    <th className="px-2 py-2 text-left font-semibold">
+                      Subject Name
+                    </th>
+                    <th className="px-2 py-2 text-left font-semibold">
+                      Subject Type
+                    </th>
+                    <th className="px-2 py-2 text-left font-semibold">
+                      Credits
+                    </th>
+                    <th className="px-2 py-2 text-left font-semibold">
+                      Regulation
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1283,20 +1661,32 @@ export default function StudentExamFeeRegistrationPage() {
                       <td className="px-2 py-1.5">{i + 1}</td>
                       <td className="px-2 py-1.5">
                         <span className="text-blue-700">
-                          {s.subjectName || s.shortName || '-'}
+                          {s.subjectName || s.shortName || "-"}
                           {s.subjectCode ? (
-                            <span className="text-blue-600"> ({s.subjectCode})</span>
+                            <span className="text-blue-600">
+                              {" "}
+                              ({s.subjectCode})
+                            </span>
                           ) : null}
                         </span>
                       </td>
-                      <td className="px-2 py-1.5 uppercase">{s.subjectTypeCode || '-'}</td>
-                      <td className="px-2 py-1.5">{s.credits !== '' && s.credits != null ? String(s.credits) : '-'}</td>
-                      <td className="px-2 py-1.5">{s.regulationName || '-'}</td>
+                      <td className="px-2 py-1.5 uppercase">
+                        {s.subjectTypeCode || "-"}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        {s.credits !== "" && s.credits != null
+                          ? String(s.credits)
+                          : "-"}
+                      </td>
+                      <td className="px-2 py-1.5">{s.regulationName || "-"}</td>
                     </tr>
                   ))}
                   {filteredViewSubjRows.length === 0 && (
                     <tr className="border-t">
-                      <td colSpan={5} className="px-2 py-6 text-center text-muted-foreground">
+                      <td
+                        colSpan={5}
+                        className="px-2 py-6 text-center text-muted-foreground"
+                      >
                         No subjects found.
                       </td>
                     </tr>
@@ -1305,7 +1695,11 @@ export default function StudentExamFeeRegistrationPage() {
               </table>
             </div>
             <div className="flex justify-end">
-              <Button type="button" variant="outline" onClick={() => setViewSubjOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setViewSubjOpen(false)}
+              >
                 Close
               </Button>
             </div>
@@ -1313,5 +1707,5 @@ export default function StudentExamFeeRegistrationPage() {
         </DialogContent>
       </Dialog>
     </PageContainer>
-  )
+  );
 }

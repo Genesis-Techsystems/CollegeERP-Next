@@ -147,6 +147,8 @@ export const EXAM_API = {
   EXAM_TIMETABLE_DETAILS: 'examtimetabledetails',
   /** POST: save exam room allotment rows */
   SAVE_EXAM_ROOM_ALLOTMENT: 'examroomallotment',
+  /** POST: bulk save exam invigilation allotment rows (Angular examinvigilationallotmentUrl) */
+  EXAM_INVIGILATION_ALLOTMENT: 'examinvigilationallotment',
   /** POST: save/update an array of ExamMarkssetup rows in one request */
   SAVE_EXAM_MARKS_SETUP: 'exammarkssetup',
   /** GET: exam course-year subjects (Angular examCourseYearSubjectUrl) — params collegeId, academicYearId, courseyearId, courseGroupId */
