@@ -9,7 +9,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listDepartments } from '@/services'
 import type { Department } from '@/types/department'
 import DepartmentModal from './DepartmentModal'
@@ -76,6 +76,7 @@ export default function DepartmentsPage() {
         </div>
       </div>
       <DepartmentModal
+        key={getCrudModalKey(row, open, 'departmentId')}
         open={open}
         onClose={() => { setOpen(false); setRow(null) }}
         row={row}

@@ -24,8 +24,9 @@ const schema = z.object({
   universityId: z.number().min(1, 'University is required'),
   courseId: z.number().min(1, 'Course is required'),
   yearNo: z.coerce.number().min(1, 'Year no is required'),
+  sortOrder: z.coerce.number().min(0, 'Sort order must be 0 or greater').optional(),
   courseYearCode: z.string().min(1, 'Semester code is required'),
-  courseYearName: z.string().optional(),
+  courseYearName: z.string().min(1, 'Semester name is required'),
   isActive: z.boolean(),
   reason: z.string().optional(),
 })
@@ -40,14 +41,23 @@ export default function CourseYearModal({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const { register, handleSubmit, reset, control, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
-    defaultValues: { universityId: undefined, courseId: undefined, yearNo: 1, courseYearCode: '', courseYearName: '', isActive: true, reason: '' },
+    defaultValues: { universityId: undefined, courseId: undefined, yearNo: 1, sortOrder: 0, courseYearCode: '', courseYearName: '', isActive: true, reason: '' },
   })
   const selectedUniversityId = watch('universityId')
 
   useEffect(() => { if (open) listActiveUniversities().then(setUniversities).catch(console.error) }, [open])
   useEffect(() => { if (selectedUniversityId) listActiveCoursesByUniversityForYear(selectedUniversityId).then(setCourses).catch(console.error) }, [selectedUniversityId])
   useEffect(() => {
-    if (row) reset({ universityId: row.universityId, courseId: row.courseId, yearNo: row.yearNo ?? 1, courseYearCode: row.courseYearCode, courseYearName: row.courseYearName ?? '', isActive: row.isActive, reason: row.reason ?? '' })
+    if (row) reset({
+      universityId: row.universityId,
+      courseId: row.courseId,
+      yearNo: row.yearNo ?? 1,
+      sortOrder: row.sortOrder ?? 0,
+      courseYearCode: row.courseYearCode,
+      courseYearName: row.courseYearName ?? '',
+      isActive: row.isActive,
+      reason: row.reason ?? '',
+    })
     else reset()
     setSubmitError(null)
   }, [row, open, reset])
@@ -55,7 +65,7 @@ export default function CourseYearModal({
   async function onSubmit(data: FormValues) {
     setSubmitError(null)
     try {
-      if (isEditing) await updateCourseYear(row!.courseYearId, data)
+      if (isEditing) await updateCourseYear(row!.courseYearId, data, row!)
       else await createCourseYear(data)
       onSaved()
       onClose()
@@ -81,10 +91,13 @@ export default function CourseYearModal({
             <Select label="Course" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)}
               options={courses.map((c) => ({ value: String(c.courseId), label: `${c.courseCode} - ${c.courseName}` }))} placeholder="Select course" searchable error={errors.courseId?.message} />
           )} />
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div><Label htmlFor="yno">Year No *</Label><Input id="yno" type="number" min={1} {...register('yearNo')} />{errors.yearNo && <p className="text-xs text-red-500">{errors.yearNo.message}</p>}</div>
+            <div><Label htmlFor="sortOrder">Sort Order</Label><Input id="sortOrder" type="number" min={0} {...register('sortOrder', { valueAsNumber: true })} />{errors.sortOrder && <p className="text-xs text-red-500">{errors.sortOrder.message}</p>}</div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
             <div><Label htmlFor="cyc">Semester Code *</Label><Input id="cyc" {...register('courseYearCode')} />{errors.courseYearCode && <p className="text-xs text-red-500">{errors.courseYearCode.message}</p>}</div>
-            <div><Label htmlFor="cyn">Semester Name</Label><Input id="cyn" {...register('courseYearName')} /></div>
+            <div><Label htmlFor="cyn">Semester Name *</Label><Input id="cyn" {...register('courseYearName')} />{errors.courseYearName && <p className="text-xs text-red-500">{errors.courseYearName.message}</p>}</div>
           </div>
           {isEditing && (
             <Controller name="isActive" control={control} render={({ field }) => (

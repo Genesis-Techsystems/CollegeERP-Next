@@ -17,16 +17,23 @@ import {
   getLabCreateFilters,
   saveExamLabTimetableBatches,
 } from '@/services/exam-lab-timetable'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
+import { useSessionContext } from '@/context/SessionContext'
+import { toastError, toastSuccess } from '@/lib/toast'
 
 type AnyRow = Record<string, any>
 
 export default function AddExamLabTimetablesPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const empId = 31754
-  const orgId = 0
+  const { user } = useSessionContext()
+  const empId = Number(user?.employeeId ?? 31754)
+  const orgId = useMemo(() => {
+    const fromStorage = Number(globalThis.localStorage?.getItem('organizationId') ?? 0)
+    const fromSession = Number(user?.organizationId ?? 0)
+    return fromStorage || fromSession || 1
+  }, [user?.organizationId])
 
   const pageParams = {
     collegeId: Number(searchParams.get('collegeId') ?? 0),
@@ -86,7 +93,15 @@ export default function AddExamLabTimetablesPage() {
       setExistingRows(Array.isArray(grid) ? grid : [])
     }
     load()
-  }, [])
+  }, [
+    orgId,
+    empId,
+    pageParams.collegeId,
+    pageParams.courseId,
+    pageParams.courseYearId,
+    pageParams.academicYearId,
+    pageParams.examId,
+  ])
 
   const regulations = useMemo(
     () => dedupeBy(details.map((d) => ({ regulationId: d.fk_regulation_id, regulationName: d.regulation_code })), 'regulationId'),
@@ -190,10 +205,10 @@ export default function AddExamLabTimetablesPage() {
     if (staged.length === 0) return
     const res = await saveExamLabTimetableBatches(staged).catch(() => null)
     if (res?.success === false) {
-      alert(res.message ?? 'Save failed')
+      toastError(res.message ?? 'Save failed')
       return
     }
-    alert('Saved')
+    toastSuccess('Saved successfully')
     setStaged([])
     const grid = await getExamLabTimetableGrid({
       orgId,
@@ -238,9 +253,20 @@ export default function AddExamLabTimetablesPage() {
     }))
   }, [existingRows, groupCodes, dateColumns])
 
+  function goBack() {
+    router.push(
+      `/admin-examination-management/admin-exam-masters/exam-lab-timetable?collegeId=${pageParams.collegeId}&courseId=${pageParams.courseId}&courseYearId=${pageParams.courseYearId}&academicYearId=${pageParams.academicYearId}&examId=${pageParams.examId}`,
+    )
+  }
+
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Create College Timetable" subtitle="Schedule lab exam timetables" />
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">Create College Timetable</h2>
+        <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={goBack}>
+          Back
+        </Button>
+      </div>
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40">
           <h2 className="app-card-title">Create College Timetable</h2>
@@ -327,7 +353,7 @@ export default function AddExamLabTimetablesPage() {
                 <table className="w-full min-w-[780px] text-[12px]">
                   <thead className="bg-muted/40">
                     <tr>
-                      <th className="px-2 py-1 text-left">SI.No</th>
+                      <th className="px-2 py-1 text-left">S.NO</th>
                       <th className="px-2 py-1 text-left">Exam Date</th>
                       <th className="px-2 py-1 text-left">Group</th>
                       <th className="px-2 py-1 text-left">Subject</th>
@@ -409,19 +435,6 @@ export default function AddExamLabTimetablesPage() {
         </div>
       )}
 
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          className="h-8 text-[12px]"
-          onClick={() =>
-            router.push(
-              `/admin-examination-management/admin-exam-masters/exam-lab-timetable?collegeId=${pageParams.collegeId}&courseId=${pageParams.courseId}&courseYearId=${pageParams.courseYearId}&academicYearId=${pageParams.academicYearId}&examId=${pageParams.examId}`,
-            )
-          }
-        >
-          Back
-        </Button>
-      </div>
     </PageContainer>
   )
 }

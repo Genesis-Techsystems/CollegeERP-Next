@@ -25,7 +25,7 @@ import {
 } from '@/services/revision-master'
 import { Building2, GraduationCap, PencilIcon, PlusIcon } from 'lucide-react'
 import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 
 type RevisionRow = Record<string, unknown> & {
@@ -121,7 +121,15 @@ export default function RevisionMasterPage() {
 	const [isActive, setIsActive] = useState(true)
 	const [reason, setReason] = useState('active')
 	const [saveError, setSaveError] = useState('')
+	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 	const [isSaving, setIsSaving] = useState(false)
+
+	function closeModal() {
+		setOpen(false)
+		setEditing(null)
+		setSaveError('')
+		setFieldErrors({})
+	}
 
 	const collegeOptions = useMemo<SelectOption[]>(
 		() =>
@@ -168,6 +176,7 @@ export default function RevisionMasterPage() {
 
 	const openEdit = useCallback((row: RevisionRow) => {
 		setSaveError('')
+		setFieldErrors({})
 		setEditing(row)
 		setExamRevisionTypeId(Number(row.examRevisionTypeId ?? 0) || null)
 		setFromDate(toDateStr(String(row.fromDate ?? '')))
@@ -251,11 +260,12 @@ export default function RevisionMasterPage() {
 	function openAdd() {
 		setEditing(null)
 		setSaveError('')
+		setFieldErrors({})
 		setExamRevisionTypeId(revisionTypes[0]?.generalDetailId ?? null)
 		const today = toDateOnlyISO(new Date())
 		setFromDate(today)
 		setToDate(today)
-		setAmount('0')
+		setAmount('')
 		setIsActive(true)
 		setReason('active')
 		setOpen(true)
@@ -263,7 +273,16 @@ export default function RevisionMasterPage() {
 
 	async function save() {
 		setSaveError('')
-		if (!collegeId || !courseId || !examRevisionTypeId || !fromDate || !toDate) return
+		const cleanAmount = amount.trim()
+		const nextErrors: Record<string, string> = {}
+		if (!examRevisionTypeId) nextErrors.examRevisionTypeId = 'Exam Revision Type is required.'
+		if (!cleanAmount) nextErrors.amount = 'Amount is required.'
+		setFieldErrors(nextErrors)
+		if (Object.keys(nextErrors).length > 0) return
+		if (!collegeId || !courseId || !fromDate || !toDate) {
+			setSaveError('Please select College and Course filters before saving.')
+			return
+		}
 		if (fromDate > toDate) {
 			setSaveError('From Date should be less than or equal to To Date.')
 			return
@@ -275,7 +294,7 @@ export default function RevisionMasterPage() {
 			examRevisionTypeId,
 			fromDate,
 			toDate,
-			amount: Number(amount || 0),
+			amount: Number(cleanAmount || 0),
 			isActive,
 			reason,
 		}
@@ -286,7 +305,7 @@ export default function RevisionMasterPage() {
 			} else {
 				await createRevisionMaster(payload)
 			}
-			setOpen(false)
+			closeModal()
 			const list = await listRevisionMastersByCourse(courseId).catch(() => [])
 			setRows(Array.isArray(list) ? (list as RevisionRow[]) : [])
 		} catch (err: any) {
@@ -298,12 +317,12 @@ export default function RevisionMasterPage() {
 
 	return (
 		<PageContainer className="space-y-4">
-			<PageHeader title="Exam Revision Master" subtitle="Manage revision types and rules" />
-			<GlobalFilterBar>
+			<h2 className="text-lg font-semibold tracking-tight text-foreground">Exam Revision Master</h2>
+			<GlobalFilterBar title="Exam Revision Master">
 				<GlobalFilterBarRow>
 					<GlobalFilterField label="College" icon={Building2}>
 						<CommonSelect
-							placeholder="College"
+							placeholder="Select college"
 							value={collegeId != null ? String(collegeId) : null}
 							onChange={(v) => setCollegeId(v ? Number(v) : null)}
 							options={collegeOptions}
@@ -312,7 +331,7 @@ export default function RevisionMasterPage() {
 					</GlobalFilterField>
 					<GlobalFilterField label="Course" icon={GraduationCap}>
 						<CommonSelect
-							placeholder="Course"
+							placeholder="Select course"
 							value={courseId != null ? String(courseId) : null}
 							onChange={(v) => setCourseId(v ? Number(v) : null)}
 							options={courseOptions}
@@ -324,6 +343,9 @@ export default function RevisionMasterPage() {
 			{courseId != null && (
 				<TableCard withHeaderBorder={false}>
 					<DataTable<RevisionRow>
+						title=""
+						subtitle=""
+						toolbarLeading={<span />}
 						rowData={gridRows}
 						columnDefs={columnDefs}
 						loading={loadingRows}
@@ -352,9 +374,18 @@ export default function RevisionMasterPage() {
 				</TableCard>
 			)}
 
-			<Dialog open={open} onOpenChange={setOpen}>
-				<DialogContent className="max-w-2xl">
-					<DialogHeader>
+			<Dialog
+				open={open}
+				onOpenChange={(v) => {
+					if (!v) closeModal()
+				}}
+			>
+				<DialogContent
+					className="max-w-2xl"
+					closeOnOutsideClick={false}
+					onEscapeKeyDown={(e) => e.preventDefault()}
+				>
+					<DialogHeader className="pr-12">
 						<DialogTitle className="text-[hsl(var(--primary))]">
 							{editing ? 'Edit Exam Revision Master' : 'Add Exam Revision Master'}
 						</DialogTitle>
@@ -363,22 +394,55 @@ export default function RevisionMasterPage() {
 						<div className="space-y-1 md:col-span-2">
 							<CommonSelect
 								label="Exam Revision Type"
-								placeholder="Revision Type"
+								required
+								placeholder="Select revision type"
 								value={examRevisionTypeId != null ? String(examRevisionTypeId) : null}
-								onChange={(v) => setExamRevisionTypeId(v ? Number(v) : null)}
+								onChange={(v) => {
+									setExamRevisionTypeId(v ? Number(v) : null)
+									if (fieldErrors.examRevisionTypeId) {
+										setFieldErrors((prev) => {
+											const next = { ...prev }
+											delete next.examRevisionTypeId
+											return next
+										})
+									}
+								}}
 								options={revisionTypeModalOptions}
+								error={fieldErrors.examRevisionTypeId}
 							/>
 						</div>
 						<div className="space-y-1">
-							<Label>Amount</Label>
-							<Input className="h-8 text-[12px]" type="number" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} />
+							<Label className="text-[12px]">
+								Amount <span className="text-red-500">*</span>
+							</Label>
+							<Input
+								className="h-8 text-[12px]"
+								type="number"
+								step="any"
+								placeholder="Enter amount"
+								value={amount}
+								aria-invalid={Boolean(fieldErrors.amount)}
+								onChange={(e) => {
+									setAmount(e.target.value)
+									if (fieldErrors.amount) {
+										setFieldErrors((prev) => {
+											const next = { ...prev }
+											delete next.amount
+											return next
+										})
+									}
+								}}
+							/>
+							{fieldErrors.amount ? (
+								<p className="text-[11px] text-destructive">{fieldErrors.amount}</p>
+							) : null}
 						</div>
 						<div className="space-y-1">
-							<Label>From Date</Label>
+							<Label className="text-[12px]">From Date</Label>
 							<Input className="h-8 text-[12px]" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
 						</div>
 						<div className="space-y-1">
-							<Label>To Date</Label>
+							<Label className="text-[12px]">To Date</Label>
 							<Input
 								className="h-8 text-[12px]"
 								type="date"
@@ -390,7 +454,7 @@ export default function RevisionMasterPage() {
 						<div className="space-y-1">
 							<CommonSelect
 								label="Status"
-								placeholder="Status"
+								placeholder="Select status"
 								value={isActive ? '1' : '0'}
 								onChange={(v) => setIsActive(v === '1')}
 								options={statusModalOptions}
@@ -398,17 +462,22 @@ export default function RevisionMasterPage() {
 						</div>
 						{!isActive && (
 							<div className="space-y-1 md:col-span-2">
-								<Label>Reason</Label>
-								<Input className="h-8 text-[12px]" value={reason} onChange={(e) => setReason(e.target.value)} />
+								<Label className="text-[12px]">Reason</Label>
+								<Input
+									className="h-8 text-[12px]"
+									placeholder="Reason for deactivation"
+									value={reason}
+									onChange={(e) => setReason(e.target.value)}
+								/>
 							</div>
 						)}
 					</div>
 					<DialogFooter>
 						{saveError ? <p className="mr-auto text-[12px] text-red-600">{saveError}</p> : null}
-						<Button variant="outline" onClick={() => setOpen(false)}>
-							Close
+						<Button type="button" variant="outline" onClick={closeModal}>
+							Cancel
 						</Button>
-						<Button onClick={() => void save()} disabled={isSaving}>
+						<Button type="button" onClick={save} disabled={isSaving}>
 							{isSaving ? 'Saving...' : 'Save'}
 						</Button>
 					</DialogFooter>

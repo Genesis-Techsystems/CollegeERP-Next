@@ -9,7 +9,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listDesignations } from '@/services'
 import type { Designation } from '@/types/designation'
 import DesignationModal from './DesignationModal'
@@ -43,7 +43,7 @@ export default function DesignationsPage() {
 
   const columnDefs = useMemo<ColDef<Designation>[]>(() => [
     COLS.siNo,
-    { ...COLS.orgName, valueGetter: (p) => p.data?.orgName ?? p.data?.orgCode ?? '-' },
+    { ...COLS.orgName, valueGetter: (p) => p.data?.orgCode ?? p.data?.orgName ?? '-' },
     COLS.designationName,
     { ...COLS.isActive, cellRenderer: statusRenderer },
     { ...COLS.actions, cellRenderer: actionRenderer(setRow, setOpen) },
@@ -74,6 +74,7 @@ export default function DesignationsPage() {
         </div>
       </div>
       <DesignationModal
+        key={getCrudModalKey(row, open, 'designationId')}
         open={open}
         onClose={() => { setOpen(false); setRow(null) }}
         row={row}

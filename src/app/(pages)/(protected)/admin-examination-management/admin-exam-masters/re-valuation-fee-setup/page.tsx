@@ -22,7 +22,7 @@ import {
 } from '@/services'
 import { Pencil, Plus, Filter, ChevronDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { format } from 'date-fns'
 
 function statusRenderer(p: ICellRendererParams) {
@@ -241,6 +241,10 @@ export default function RevaluationFeeSetupPage() {
         setColleges(list)
         // No default college — user must choose; table shows only after selection (Angular parity).
         setSelectedCollegeId(null)
+      } catch {
+        if (cancelled) return
+        setColleges([])
+        setSelectedCollegeId(null)
       } finally {
         if (!cancelled) setLoadingColleges(false)
       }
@@ -408,29 +412,29 @@ export default function RevaluationFeeSetupPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Exam Re-Valuation Fee Setup" subtitle="Configure re-valuation fee structures per college and exam" />
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">
+        Exam Re-Valuation Fee Setup
+      </h2>
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
           <h2 className="app-card-title">Exam Re-Valuation Fee Setup</h2>
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
+            className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             onClick={() => setFilterOpen((v) => !v)}
+            aria-label="Toggle filters"
             aria-expanded={filterOpen}
           >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
+            <Filter className="h-3.5 w-3.5" aria-hidden />
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} aria-hidden />
+          </button>
         </div>
-        {(
+        {filterOpen ? (
           <div className="px-3 py-3 bg-card">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
               <div className="min-w-0 lg:col-span-2">
                 <Select
-                  label="University *"
+                  label="University"
                   required
                   className="[&_button]:h-8 [&_button]:text-[12px]"
                   value={selectedUniversityId != null ? String(selectedUniversityId) : null}
@@ -448,7 +452,7 @@ export default function RevaluationFeeSetupPage() {
               </div>
               <div className="min-w-0 lg:col-span-2">
                 <Select
-                  label="Course *"
+                  label="Course"
                   required
                   className="[&_button]:h-8 [&_button]:text-[12px]"
                   value={selectedCourseId != null ? String(selectedCourseId) : null}
@@ -466,7 +470,7 @@ export default function RevaluationFeeSetupPage() {
               </div>
               <div className="min-w-0 lg:col-span-2">
                 <Select
-                  label="Exam Year *"
+                  label="Exam Year"
                   required
                   className="[&_button]:h-8 [&_button]:text-[12px]"
                   value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
@@ -484,7 +488,7 @@ export default function RevaluationFeeSetupPage() {
               </div>
               <div className="min-w-0 lg:col-span-4">
                 <Select
-                  label="Exam Master *"
+                  label="Exam Master"
                   required
                   searchable
                   className="[&_button]:h-8 [&_button]:text-[12px]"
@@ -515,7 +519,7 @@ export default function RevaluationFeeSetupPage() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {selectedCollegeId != null && (

@@ -16,13 +16,14 @@ import {
   listActiveCampuses,
   listActiveEttlDevices,
   listActiveFloorsByBlock,
-  listRoomDetails,
+  listRooms,
   updateRoomDetails,
 } from '@/services'
 import type { ColDef } from 'ag-grid-community'
 import type { Block } from '@/types/block'
 import type { Building } from '@/types/building'
 import type { Campus } from '@/types/campus'
+import type { Room } from '@/types/room'
 import type { RoomDetail } from '@/types/room-detail'
 import type { EttlDevice } from '@/services/admin/room-detail'
 import { requiredNumber } from '@/lib/zod-fields'
@@ -72,18 +73,6 @@ function pickRoomIdFromRow(row: RoomDetail): number {
       room?.roomId ??
       room?.room_id,
   )
-}
-
-function pickRoomLabelFromRow(row: RoomDetail): string {
-  const raw = row as unknown as Record<string, unknown>
-  const room = (raw.room ?? raw.Room) as Record<string, unknown> | undefined
-  const roomCode = pickText(raw, ['roomCode', 'room_code']) || pickText(room ?? {}, ['roomCode', 'room_code'])
-  const roomName = pickText(
-    raw,
-    ['roomName', 'room_name', 'roomNumber', 'room_number', 'room_no', 'roomNo'],
-  ) || pickText(room ?? {}, ['roomName', 'room_name', 'roomNumber', 'room_number'])
-  const label = `${roomCode} ${roomName}`.trim()
-  return label || `Room ${pickRoomIdFromRow(row)}`
 }
 
 const schema = z.object({
@@ -162,7 +151,7 @@ export default function RoomDetailModal({
   const [buildings, setBuildings] = useState<Building[]>([])
   const [blocks, setBlocks] = useState<Block[]>([])
   const [floors, setFloors] = useState<Floor[]>([])
-  const [rooms, setRooms] = useState<RoomDetail[]>([])
+  const [rooms, setRooms] = useState<Room[]>([])
   const [devices, setDevices] = useState<EttlDevice[]>([])
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -195,39 +184,17 @@ export default function RoomDetailModal({
 
   const roomOptions = useMemo(
     () => {
-      const campusId = selectedCampusId ?? 0
-      const buildingId = selectedBuildingId ?? 0
       const blockId = selectedBlockId ?? 0
       const floorId = selectedFloorId ?? 0
-      const sourceRows = roomDeviceRows.length > 0 ? roomDeviceRows : rooms
-      const filtered = sourceRows.filter((row) => {
-        const raw = row as unknown as Record<string, unknown>
-        const rowCampusId = num(row.campusId ?? raw.fk_campus_id ?? raw.campus_id)
-        const rowBuildingId = num(row.buildingId ?? raw.fk_building_id ?? raw.building_id)
-        const rowBlockId = num(row.blockId ?? raw.fk_block_id ?? raw.block_id)
-        const rowFloorId = num(row.floorId ?? raw.fk_floor_id ?? raw.floor_id)
-
-        // Be permissive when backend rows omit hierarchy IDs.
-        if (campusId && rowCampusId > 0 && rowCampusId !== campusId) return false
-        if (buildingId && rowBuildingId > 0 && rowBuildingId !== buildingId) return false
-        if (blockId && rowBlockId > 0 && rowBlockId !== blockId) return false
-        if (floorId && rowFloorId > 0 && rowFloorId !== floorId) return false
-        return pickRoomIdFromRow(row) > 0
+      const filtered = rooms.filter((r) => {
+        if (r.isActive === false) return false
+        if (blockId && r.blockId !== blockId) return false
+        if (floorId && r.floorId !== floorId) return false
+        return true
       })
-
-      const uniqueOptions = new Map<number, string>()
-      for (const row of filtered) {
-        const id = pickRoomIdFromRow(row)
-        if (!id || uniqueOptions.has(id)) continue
-        uniqueOptions.set(id, pickRoomLabelFromRow(row))
-      }
-
-      return Array.from(uniqueOptions.entries()).map(([value, label]) => ({
-        value: String(value),
-        label,
-      }))
+      return asOptions(filtered, (r) => r.roomId, (r) => r.roomCode ?? '')
     },
-    [rooms, roomDeviceRows, selectedCampusId, selectedBuildingId, selectedBlockId, selectedFloorId],
+    [rooms, selectedBlockId, selectedFloorId],
   )
   const deviceOptions = useMemo(
     () => asOptions(
@@ -243,7 +210,7 @@ export default function RoomDetailModal({
 
   useEffect(() => {
     if (!open) return
-    Promise.all([listActiveCampuses(), listActiveBuildingsForRooms(), listRoomDetails(), listActiveEttlDevices()])
+    Promise.all([listActiveCampuses(), listActiveBuildingsForRooms(), listRooms(), listActiveEttlDevices()])
       .then(([campusRows, buildingRows, roomRows, deviceRows]) => {
         setCampuses(campusRows)
         setBuildings(buildingRows)
@@ -252,6 +219,13 @@ export default function RoomDetailModal({
       })
       .catch(console.error)
   }, [open])
+
+  useEffect(() => {
+    // If hierarchy changes, clear downstream selection.
+    if (!selectedFloorId) {
+      setValue('roomId', undefined as unknown as number)
+    }
+  }, [selectedFloorId, setValue])
 
   useEffect(() => {
     if (!selectedBuildingId) {
@@ -373,7 +347,7 @@ export default function RoomDetailModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-2 [&>*]:min-w-0">
             <Controller
               name="campusId"
               control={control}
@@ -470,7 +444,7 @@ export default function RoomDetailModal({
             />
           </div>
 
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-2 [&>*]:min-w-0">
             <Controller
               name="ettlDeviceId"
               control={control}

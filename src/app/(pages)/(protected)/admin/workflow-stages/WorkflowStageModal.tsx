@@ -105,9 +105,9 @@ export default function WorkflowStageModal({
         wfFor: row.wfFor ?? '',
         wfForCode: row.wfForCode,
         wfStatus: row.wfStatus ?? '',
-        availableFor: row.availableFor ?? '',
-        goBackPoint: row.goBackPoint ?? false,
-        isSelfAvailable: row.isSelfAvailable ?? false,
+        availableFor: row.availableFor != null ? String(row.availableFor) : '',
+        goBackPoint: row.goBackPoint === true || row.goBackPoint === 1,
+        isSelfAvailable: row.isSelfAvailable === true || row.isSelfAvailable === 1,
         isActive: row.isActive,
         reason: row.reason ?? '',
       })
@@ -142,9 +142,13 @@ export default function WorkflowStageModal({
 
   async function onSubmit(data: FormValues) {
     setSubmitError(null)
+    const payload = {
+      ...data,
+      availableFor: data.availableFor?.trim() ? Number(data.availableFor) : null,
+    }
     try {
-      if (isEditing) await updateWorkflowStage(row!.workflowStageId, data)
-      else await createWorkflowStage(data as Omit<WorkflowStage, 'workflowStageId'>)
+      if (isEditing) await updateWorkflowStage(row!.workflowStageId, payload, row!)
+      else await createWorkflowStage(payload as Omit<WorkflowStage, 'workflowStageId'>)
       onSaved()
       onClose()
     } catch (error: unknown) {

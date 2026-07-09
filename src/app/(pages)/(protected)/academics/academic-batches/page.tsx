@@ -8,6 +8,7 @@ import { StatusBadge } from '@/common/components/data-display'
 import { FormModal } from '@/common/components/feedback'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select } from '@/common/components/select'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { PageContainer } from '@/components/layout'
 import { Input } from '@/components/ui/input'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -50,7 +51,6 @@ function pickIdText(obj: AnyRow | null | undefined, keys: string[]): string {
 }
 
 export default function AcademicBatchesPage() {
-  const [filterOpen, setFilterOpen] = useState(true)
   const [searchRows, setSearchRows] = useState<AnyRow[]>([])
   const [loadingSearch, setLoadingSearch] = useState(false)
   const [studentId, setStudentId] = useState<number | null>(null)
@@ -377,21 +377,19 @@ export default function AcademicBatchesPage() {
 
   return (
     <PageContainer>
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-2.5 border-b flex items-center justify-between gap-4">
-          <h2 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
+      <GlobalFilterBar
+        title={(
+          <span className="inline-flex items-center gap-2">
             <List className="h-4 w-4" />
             Academic Batches Of Student
-          </h2>
-          <button type="button" className="ml-auto inline-flex items-center gap-1 text-sm text-foreground" onClick={() => setFilterOpen((v) => !v)}>
-            <span>Filter</span>
-            <Filter className="h-4 w-4" />
-          </button>
-        </div>
-        {filterOpen ? (
-          <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          </span>
+        )}
+        defaultOpen={false}
+        collapsible
+      >
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Student">
             <Select
-              label="Student"
               value={studentId ? String(studentId) : null}
               onChange={(v) => setStudentId(v ? Number(v) : null)}
               options={studentOptions}
@@ -400,11 +398,10 @@ export default function AcademicBatchesPage() {
               clearable
               onSearch={(term) => { void onSearchStudents(term) }}
               isLoading={loadingSearch}
-              className="md:col-span-6"
             />
-          </div>
-        ) : null}
-      </div>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      </GlobalFilterBar>
       {studentId ? (
         <div className="app-card mt-4 overflow-hidden">
           <div className="px-2.5 py-2 border-b text-sm font-semibold text-primary">

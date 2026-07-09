@@ -9,14 +9,14 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listQualificationGroups } from '@/services'
 import type { QualificationGroup } from '@/types/qualification-group'
 import QualificationGroupModal from './QualificationGroupModal'
 
 const COLS = {
   siNo: { colId: 'siNo', headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<QualificationGroup>,
-  qualificationName: { colId: 'qualificationName', field: 'qualificationName', headerName: 'Qualification', minWidth: 170, flex: 1.2 } as ColDef<QualificationGroup>,
+  qualificationName: { colId: 'qualificationName', field: 'qualificationName', headerName: 'Qualification Name', minWidth: 170, flex: 1.2 } as ColDef<QualificationGroup>,
   qualificationGroupCode: { colId: 'qualificationGroupCode', field: 'qualificationGroupCode', headerName: 'Qualification Group Code', minWidth: 170, flex: 1.1 } as ColDef<QualificationGroup>,
   qualificationGroupName: { colId: 'qualificationGroupName', field: 'qualificationGroupName', headerName: 'Qualification Group Name', minWidth: 190, flex: 1.2 } as ColDef<QualificationGroup>,
   sortOrder: { colId: 'sortOrder', field: 'sortOrder', headerName: 'Sort Order', minWidth: 100, flex: 0.8 } as ColDef<QualificationGroup>,
@@ -78,6 +78,7 @@ export default function QualificationGroupsPage() {
         </div>
       </div>
       <QualificationGroupModal
+        key={getCrudModalKey(row, open, 'qualificationGroupId')}
         open={open}
         onClose={() => { setOpen(false); setRow(null) }}
         row={row}

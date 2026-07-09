@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
 import { DataTable } from '@/common/components/table'
 import { Select } from '@/common/components/select'
+import { FilterCard } from '@/common/components/feedback'
 import { PageContainer, PageHeader } from '@/components/layout'
 import {
   getDigitalOnlineSyncFilters,
@@ -172,10 +173,10 @@ export default function CourseYearSubjectsPage() {
   ], [])
 
   return (
-    <PageContainer>
+    <PageContainer className="space-y-4">
       <PageHeader title="Course Year Subjects" />
-      <div className="app-card p-3">
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+      <FilterCard title="Course Year Subjects">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-7">
           <Select label="University" value={universityId ? String(universityId) : null} onChange={(v) => setUniversityId(v ? Number(v) : null)} options={universities.map((x) => ({ value: String(num(x.fk_university_id)), label: text(x.university_code) }))} searchable />
           <Select label="College" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(num(x.fk_college_id)), label: text(x.college_code) }))} searchable disabled={!universityId} />
           <Select label="Course" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(num(x.fk_course_id)), label: text(x.course_code) }))} searchable disabled={!collegeId} />
@@ -184,7 +185,7 @@ export default function CourseYearSubjectsPage() {
           <Select label="Academic Year" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(num(x.fk_academic_year_id)), label: text(x.academic_year) }))} searchable disabled={!courseYearId} />
           <Select label="Section" value={groupSectionId ? String(groupSectionId) : null} onChange={(v) => setGroupSectionId(v ? Number(v) : null)} options={sections.map((x) => ({ value: String(num(x.groupSectionId ?? x.pk_group_section_id)), label: text(x.section) }))} searchable disabled={!academicYearId} />
         </div>
-      </div>
+      </FilterCard>
 
       {rows.length > 0 && (
         <div className="app-card mt-3 p-0 overflow-hidden">

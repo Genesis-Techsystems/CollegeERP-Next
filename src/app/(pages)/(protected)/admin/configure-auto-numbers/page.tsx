@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/common/components/select'
+import { FilterCard } from '@/common/components/feedback'
 import { PageContainer } from '@/components/layout'
 import { APP_CONFIG } from '@/config/constants/app'
 import { QK } from '@/lib/query-keys'
@@ -18,6 +19,7 @@ import {
 } from '@/services'
 import type { ConfigAutoNumber } from '@/types/config-auto-number'
 import NewAttributeModal from './NewAttributeModal'
+import { getCrudModalKey } from '@/lib/utils'
 
 export default function ConfigureAutoNumbersPage() {
   const [organizationId, setOrganizationId] = useState<number | undefined>()
@@ -80,40 +82,35 @@ export default function ConfigureAutoNumbersPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Auto Number Configuration</h2>
+      <FilterCard title="Auto Number Configuration">
+        <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-4">
+          <Select
+            label="Organization"
+            value={organizationId ? String(organizationId) : null}
+            onChange={(value) => {
+              const next = value ? Number(value) : undefined
+              setOrganizationId(next)
+              setCollegeId(undefined)
+              setRows([])
+            }}
+            options={orgOptions}
+            searchable
+          />
+          <Select
+            label="College"
+            value={collegeId ? String(collegeId) : null}
+            onChange={(value) => {
+              setCollegeId(value ? Number(value) : undefined)
+              setRows([])
+            }}
+            options={collegeOptions}
+            searchable
+            disabled={!organizationId}
+          />
+          <Button onClick={getList} disabled={!organizationId || !collegeId}>Get List</Button>
+          <Button variant="outline" onClick={() => setAttributeOpen(true)}>New Attribute</Button>
         </div>
-        <div className="px-3 pb-3 pt-2 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
-            <Select
-              label="Organization"
-              value={organizationId ? String(organizationId) : null}
-              onChange={(value) => {
-                const next = value ? Number(value) : undefined
-                setOrganizationId(next)
-                setCollegeId(undefined)
-                setRows([])
-              }}
-              options={orgOptions}
-              searchable
-            />
-            <Select
-              label="College"
-              value={collegeId ? String(collegeId) : null}
-              onChange={(value) => {
-                setCollegeId(value ? Number(value) : undefined)
-                setRows([])
-              }}
-              options={collegeOptions}
-              searchable
-              disabled={!organizationId}
-            />
-            <Button onClick={getList} disabled={!organizationId || !collegeId}>Get List</Button>
-            <Button variant="outline" onClick={() => setAttributeOpen(true)}>New Attribute</Button>
-          </div>
-        </div>
-      </div>
+      </FilterCard>
 
       {rows.length > 0 && (
         <div className="app-card overflow-hidden">
@@ -166,7 +163,8 @@ export default function ConfigureAutoNumbersPage() {
         </div>
       )}
 
-      <NewAttributeModal
+<NewAttributeModal
+        key={getCrudModalKey(null, attributeOpen)}
         open={attributeOpen}
         onClose={() => setAttributeOpen(false)}
         onSaved={async () => {

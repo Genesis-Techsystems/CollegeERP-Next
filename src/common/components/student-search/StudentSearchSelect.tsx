@@ -8,7 +8,7 @@ type AnyRow = Record<string, any>
 
 const DEFAULT_STUDENT_PHOTO = '/assets/images/avatars/default_Student.png'
 const SEARCH_DEBOUNCE_MS = 300
-const MIN_SEARCH_LEN = 5
+const DEFAULT_MIN_SEARCH_LEN = 5
 
 export interface StudentSearchSelectProps {
   label?: string
@@ -17,6 +17,8 @@ export interface StudentSearchSelectProps {
   students: AnyRow[]
   selectedStudent?: AnyRow | null
   isLoading?: boolean
+  /** Minimum characters before search fires. Defaults to 5 (Students List parity). */
+  minChars?: number
   onSearch: (term: string) => void
   onChange: (studentId: number | null, student: AnyRow | null) => void
   className?: string
@@ -142,11 +144,18 @@ function StudentSearchOption({
         }}
       />
       <div className="min-w-0 flex-1 pt-0.5">
-        <p className={cn('text-sm font-medium leading-snug', selected ? 'text-blue-600' : 'text-foreground')}>
+        <p
+          className={cn(
+            'text-sm font-medium leading-snug',
+            selected ? 'text-blue-600' : 'text-foreground',
+          )}
+        >
           {name || '—'}
         </p>
         <p className="mt-0.5 text-xs leading-relaxed">
-          {hallticket ? <span className="text-[#828282] font-medium">{hallticket}</span> : null}
+          {hallticket ? (
+            <span className="text-[#828282] font-medium">{hallticket}</span>
+          ) : null}
           {hallticket && status ? <span className="text-[#828282]"> </span> : null}
           {status ? <span className={statusTone(statusCode || status)}>{status}</span> : null}
         </p>
@@ -162,6 +171,7 @@ export function StudentSearchSelect({
   students,
   selectedStudent,
   isLoading = false,
+  minChars = DEFAULT_MIN_SEARCH_LEN,
   onSearch,
   onChange,
   className,
@@ -180,7 +190,10 @@ export function StudentSearchSelect({
     },
     [onSearch],
   )
-  const { run: scheduleSearch, cancel: cancelSearch } = useDebouncedCallback(searchNotify, SEARCH_DEBOUNCE_MS)
+  const { run: scheduleSearch, cancel: cancelSearch } = useDebouncedCallback(
+    searchNotify,
+    SEARCH_DEBOUNCE_MS,
+  )
 
   const resolvedSelected =
     selectedStudent ??
@@ -207,7 +220,7 @@ export function StudentSearchSelect({
     setSearchTerm(term)
     setDisplayValue(term)
     setOpen(true)
-    if (term.trim().length >= MIN_SEARCH_LEN) {
+    if (term.trim().length >= minChars) {
       scheduleSearch(term)
     } else {
       cancelSearch()
@@ -242,7 +255,8 @@ export function StudentSearchSelect({
     onChange(sid || null, row)
   }
 
-  const showList = open && (isLoading || students.length > 0 || searchTerm.trim().length >= MIN_SEARCH_LEN)
+  const showList =
+    open && (isLoading || students.length > 0 || searchTerm.trim().length >= minChars)
 
   return (
     <div ref={rootRef} className={cn('flex flex-col gap-1', className)}>
@@ -268,7 +282,7 @@ export function StudentSearchSelect({
             onFocus={handleFocus}
             className="h-10 w-full bg-transparent px-3 pr-9 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
           />
-          {(displayValue || value) ? (
+          {displayValue || value ? (
             <button
               type="button"
               aria-label="Clear student"
@@ -281,10 +295,7 @@ export function StudentSearchSelect({
         </div>
 
         {showList ? (
-          <div
-            role="listbox"
-            className="max-h-72 overflow-y-auto border-t border-slate-200"
-          >
+          <div role="listbox" className="max-h-72 overflow-y-auto border-t border-slate-200">
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -292,8 +303,8 @@ export function StudentSearchSelect({
               </div>
             ) : students.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">
-                {searchTerm.trim().length < MIN_SEARCH_LEN
-                  ? `Type at least ${MIN_SEARCH_LEN} characters to search`
+                {searchTerm.trim().length < minChars
+                  ? `Type at least ${minChars} characters to search`
                   : 'No matching students found'}
               </div>
             ) : (

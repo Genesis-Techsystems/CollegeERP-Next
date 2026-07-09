@@ -56,6 +56,7 @@ interface DocumentRepositoryModalProps {
   open: boolean
   onClose: () => void
   row: DocumentRepository | null
+  existingRows?: DocumentRepository[]
   onSaved: () => void
 }
 
@@ -63,6 +64,7 @@ export default function DocumentRepositoryModal({
   open,
   onClose,
   row,
+  existingRows = [],
   onSaved,
 }: Readonly<DocumentRepositoryModalProps>) {
   const isEditing = Boolean(row)
@@ -183,10 +185,26 @@ export default function DocumentRepositoryModal({
   async function onSubmit(values: FormValues) {
     setSubmitError(null)
     try {
-      if (isEditing) {
-        await updateDocumentRepository(row!.documentRepositoryId, values)
-      } else {
+      if (!isEditing) {
+        const docName = values.docName.trim().toLowerCase()
+        const docCode = (values.docCode ?? '').trim().toLowerCase()
+        const duplicate = existingRows.some((item) =>
+          item.courseId === values.courseId
+          && item.collegeId === values.collegeId
+          && item.universityId === values.universityId
+          && item.organizationId === values.organizationId
+          && (item.docName ?? '').trim().toLowerCase() === docName
+          && (item.docCode ?? '').trim().toLowerCase() === docCode,
+        )
+        if (duplicate) {
+          setSubmitError(
+            'Already document type exists with same name or code in organization or university or college or course.',
+          )
+          return
+        }
         await createDocumentRepository(values)
+      } else {
+        await updateDocumentRepository(row!.documentRepositoryId, values)
       }
       onSaved()
       onClose()

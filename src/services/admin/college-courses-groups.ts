@@ -15,12 +15,18 @@ export type CollegeFilterRow = {
   collegeId?: number
   college_code?: string
   collegeCode?: string
+  college_name?: string
+  collegeName?: string
   fk_course_id?: number
   course_id?: number
   fk_course_group_id?: number
   course_group_id?: number
   course_code?: string
+  course_name?: string
+  courseName?: string
   group_code?: string
+  group_name?: string
+  groupName?: string
 }
 
 export type CollegeCourseGroupRow = {
@@ -36,8 +42,10 @@ export type CollegeCourseGroupRow = {
   univCollegeWiseCoursesId?: number
   courseGroupId?: number
   courseGroupCode?: string
+  courseGroupName?: string
   courseYearId?: number
   courseYearCode?: string
+  reason?: string
 }
 
 function num(value: unknown): number {
@@ -114,6 +122,9 @@ export async function listCollegeCourseGroups(params: {
       univCollegeWiseCoursesId: num(group.univCollegeWiseCoursesId),
       courseGroupId: num(group.courseGroupId),
       courseGroupCode: pick(group, ['courseGroupCode', 'groupCode', 'group_code']),
+      courseGroupName:
+        pick(group, ['courseGroupName', 'groupName', 'group_name'])
+        || pick((group.courseGroup ?? {}) as AnyRow, ['groupName', 'group_name', 'courseGroupName']),
       courseYearId: num(group.courseYearId),
       courseYearCode: pick(group, ['courseYearCode', 'course_year_code']),
     }

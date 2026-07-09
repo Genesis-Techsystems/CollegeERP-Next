@@ -4,11 +4,12 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
+import { useBreadcrumbLabel } from '@/common/components'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listCourseYearsAdmin } from '@/services'
 import type { CourseYear } from '@/types/course-year'
 import CourseYearModal from './CourseYearModal'
@@ -18,6 +19,7 @@ const COLS = {
   university: { colId: 'university', headerName: 'University', minWidth: 130, flex: 1 } as ColDef<CourseYear>,
   course: { colId: 'course', headerName: 'Course', minWidth: 130, flex: 1 } as ColDef<CourseYear>,
   yearNo: { colId: 'yearNo', field: 'yearNo', headerName: 'Year No', minWidth: 90, flex: 0.7 } as ColDef<CourseYear>,
+  sortOrder: { colId: 'sortOrder', field: 'sortOrder', headerName: 'Sort Order', minWidth: 100, flex: 0.7 } as ColDef<CourseYear>,
   code: { colId: 'courseYearCode', field: 'courseYearCode', headerName: 'Semester Code', minWidth: 140, flex: 1 } as ColDef<CourseYear>,
   name: { colId: 'courseYearName', field: 'courseYearName', headerName: 'Semester Name', minWidth: 160, flex: 1.1 } as ColDef<CourseYear>,
   isActive: { colId: 'isActive', field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<CourseYear>,
@@ -28,6 +30,7 @@ function statusRenderer(p: ICellRendererParams<CourseYear>) { return <StatusBadg
 function actionRenderer(setRow: (r: CourseYear | null) => void, setOpen: (b: boolean) => void) { return (p: ICellRendererParams<CourseYear>) => <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setRow(p.data ?? null); setOpen(true) }}><PencilIcon className="h-3.5 w-3.5" /></Button> }
 
 export default function CourseYearsPage() {
+  useBreadcrumbLabel('Semester')
   const [open, setOpen] = useState(false)
   const [row, setRow] = useState<CourseYear | null>(null)
   const { data, isLoading, invalidate } = useCrudList({ queryKey: QK.courseYears.list(), queryFn: listCourseYearsAdmin })
@@ -36,6 +39,7 @@ export default function CourseYearsPage() {
     { ...COLS.university, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['universityCode', 'universityName']) },
     { ...COLS.course, valueGetter: (p) => pick((p.data ?? {}) as Record<string, unknown>, ['courseCode', 'courseName']) },
     COLS.yearNo,
+    COLS.sortOrder,
     COLS.code,
     COLS.name,
     { ...COLS.isActive, cellRenderer: statusRenderer },
@@ -63,7 +67,13 @@ export default function CourseYearsPage() {
           />
         </div>
       </div>
-      <CourseYearModal open={open} onClose={() => { setOpen(false); setRow(null) }} row={row} onSaved={invalidate} />
+      <CourseYearModal
+        key={getCrudModalKey(row, open, 'courseYearId')}
+        open={open}
+        onClose={() => { setOpen(false); setRow(null) }}
+        row={row}
+        onSaved={invalidate}
+      />
     </PageContainer>
   )
 }

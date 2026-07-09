@@ -2,6 +2,7 @@
 
 import { approvalDetailKindFromSlug } from '../_lib/approval-upload-config'
 import { AffiliatedBulkUploadPage } from './AffiliatedBulkUploadPage'
+import { CollegeStudentBulkUploadPage } from './CollegeStudentBulkUploadPage'
 import { AffiliatedSummaryPage } from './AffiliatedSummaryPage'
 import { AffiliatedUniversityReportPage } from './AffiliatedUniversityReportPage'
 import { AffiliatedViewStubPage } from './AffiliatedViewStubPage'
@@ -18,6 +19,9 @@ export function AffiliatedRoutePage({ slug }: AffiliatedRoutePageProps) {
     return <AffiliatedSummaryPage slug={slug} />
   }
   if (config.kind === 'bulk-upload') {
+    if (slug === 'college-student-bulk-upload') {
+      return <CollegeStudentBulkUploadPage />
+    }
     return <AffiliatedBulkUploadPage slug={slug} />
   }
   if (config.kind === 'report' && config.summaryProcFlag) {

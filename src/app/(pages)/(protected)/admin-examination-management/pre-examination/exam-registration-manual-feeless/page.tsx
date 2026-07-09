@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/common/components/select'
+import { StudentSearchSelect } from '@/common/components/student-search'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { toast } from 'sonner'
@@ -66,6 +67,7 @@ const STATUS_CLASS: Record<string, string> = {
 
 export default function ExamRegistrationManualFeelessPage() {
   const [students, setStudents] = useState<AnyRow[]>([])
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
   const studentsRef = useRef<AnyRow[]>([])
   studentsRef.current = students
   const [studentId, setStudentId] = useState<number | null>(null)
@@ -135,12 +137,21 @@ export default function ExamRegistrationManualFeelessPage() {
   // ===== STUDENT SEARCH =====
   async function enteredStudent(term: string) {
     const q = (term ?? '').trim()
-    if (q.length <= 4) return
-    const list = await listStudents(q).catch(() => [])
-    setStudents(Array.isArray(list) ? list : [])
+    if (!q) {
+      setStudents([])
+      return
+    }
+    if (q.length < 5) return
+    setStudentSearchLoading(true)
+    try {
+      const list = await listStudents(q).catch(() => [])
+      setStudents(Array.isArray(list) ? list : [])
+    } finally {
+      setStudentSearchLoading(false)
+    }
   }
 
-  async function selectedStudent(sid: number) {
+  async function selectedStudent(sid: number | null, row: AnyRow | null) {
     setPhotoError(false)
     setExamsList([])
     setExamId(null)
@@ -152,9 +163,18 @@ export default function ExamRegistrationManualFeelessPage() {
     setCourseYearFee([])
     setCheckExam(1)
     checkExamRef.current = 1
+    setStudentId(sid)
 
-    const found = studentsRef.current.find((x) => Number(x.studentId) === sid)
-    if (!found) return
+    if (!sid || !row) {
+      studentRef.current = {} as AnyRow
+      setStudent({} as AnyRow)
+      return
+    }
+
+    setStudents((prev) =>
+      prev.some((x) => Number(x.studentId) === sid) ? prev : [...prev, row],
+    )
+    const found = row
     studentRef.current = found
     setStudent(found)
     studentCurrentCourseYearIdRef.current = Number(found.courseYearId)
@@ -465,21 +485,14 @@ export default function ExamRegistrationManualFeelessPage() {
           {/* Student + Exam */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <div className="md:col-span-5">
-              <Select
+              <StudentSearchSelect
                 label="Student"
-                value={studentId ? String(studentId) : null}
-                onChange={(v) => {
-                  const sid = v ? Number(v) : 0
-                  setStudentId(sid)
-                  void selectedStudent(sid)
-                }}
-                options={students.map((s) => ({
-                  value: String(n(s, ['studentId', 'fk_student_id'])),
-                  label: `${g(s, ['hallticketNumber', 'rollNumber']) || '-'} - ${g(s, ['firstName', 'studentName']) || '-'}${s.studentStatusDisplayName ? ` (${s.studentStatusDisplayName})` : ''}`,
-                }))}
-                placeholder="Search student name or hallticket…"
-                searchable
-                onSearch={enteredStudent}
+                value={studentId}
+                students={students}
+                selectedStudent={!isEmptyObject(student) ? student : null}
+                isLoading={studentSearchLoading}
+                onSearch={(term) => void enteredStudent(term)}
+                onChange={(id, row) => void selectedStudent(id, row)}
               />
             </div>
             <div className="md:col-span-7">

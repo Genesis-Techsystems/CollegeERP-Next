@@ -8,15 +8,15 @@
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   /* Semantic surface tokens */
-  --background: 0 0% 100%;            /* pure white canvas */
-  --foreground: 210 50% 10%;          /* deep navy text */
-  --card: 0 0% 100%;                  /* pure white */
+  --background: 0 0% 100%; /* pure white canvas */
+  --foreground: 210 50% 10%; /* deep navy text */
+  --card: 0 0% 100%; /* pure white */
   --card-foreground: 210 50% 10%;
   --popover: 0 0% 100%;
   --popover-foreground: 210 50% 10%;
 
   /* Brand: INDIGO primary + TEAL accent (default theme = "indigo-teal") */
-  --primary: 243 75% 59%;            /* indigo #4F46E5 */
+  --primary: 243 75% 59%; /* indigo #4F46E5 */
   --primary-foreground: 0 0% 100%;
 
   /* Secondary — soft surface */
@@ -25,7 +25,7 @@
 
   --muted: 210 20% 94%;
   --muted-foreground: 210 15% 45%;
-  --accent: 173 70% 41%;              /* teal #14B8A6 */
+  --accent: 173 70% 41%; /* teal #14B8A6 */
   --accent-foreground: 0 0% 100%;
 
   /* Status */
@@ -44,12 +44,12 @@
   --radius: 0.625rem;
 
   /* Sidebar — DARK navy (EduPulse default, matches --gradient-sidebar) */
-  --sidebar-background: 210 60% 11%;        /* deep navy top */
-  --sidebar-background-end: 210 55% 8%;     /* deep navy bottom (gradient) */
+  --sidebar-background: 210 60% 11%; /* deep navy top */
+  --sidebar-background-end: 210 55% 8%; /* deep navy bottom (gradient) */
   --sidebar-surface: 210 45% 14%;
-  --sidebar-foreground: 210 22% 70%;        /* muted slate text */
-  --sidebar-foreground-active: 0 0% 100%;   /* white on active */
-  --sidebar-primary: 174 55% 55%;           /* bright teal — readable on dark */
+  --sidebar-foreground: 210 22% 70%; /* muted slate text */
+  --sidebar-foreground-active: 0 0% 100%; /* white on active */
+  --sidebar-primary: 174 55% 55%; /* bright teal — readable on dark */
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 174 55% 55%;
   --sidebar-accent-foreground: 0 0% 100%;
@@ -57,12 +57,12 @@
   --sidebar-ring: 174 55% 55%;
   /* Active item pill + hover (dark variant) */
   --sidebar-active-bg: 174 55% 55% / 0.12;
-  --sidebar-active-border: 174 55% 55% / 0.30;
+  --sidebar-active-border: 174 55% 55% / 0.3;
   --sidebar-hover-bg: 210 45% 14%;
   --sidebar-section-label: 210 18% 55%;
 
   /* Custom brand vars */
-  --amber: 35 90% 48%;               /* matches --secondary */
+  --amber: 35 90% 48%; /* matches --secondary */
   --amber-light: 40 95% 58%;
   --navy-deep: 225 47% 7%;
 
@@ -70,26 +70,38 @@
   --shadow-sm: 0 1px 2px 0 hsl(210 50% 10% / 0.04);
   --shadow-md: 0 4px 12px -2px hsl(210 50% 10% / 0.08);
   --shadow-lg: 0 12px 32px -4px hsl(210 50% 10% / 0.12);
-  --shadow-glow: 0 0 20px -4px hsl(174 45% 48% / 0.30);
+  --shadow-glow: 0 0 20px -4px hsl(174 45% 48% / 0.3);
   --shadow-card-hover: 0 4px 12px -2px hsl(210 50% 10% / 0.08);
   --shadow-indigo: 0 4px 20px hsl(243 75% 59% / 0.18);
 
   /* Brand gradients */
-  --gradient-primary: linear-gradient(135deg, hsl(243 75% 59%), hsl(173 70% 41%));
-  --gradient-card-hover: linear-gradient(135deg, hsl(200 55% 35% / 0.05), hsl(174 45% 48% / 0.05));
-  --gradient-sidebar: linear-gradient(180deg, hsl(210 60% 12%), hsl(210 55% 8%));
+  --gradient-primary: linear-gradient(
+    135deg,
+    hsl(243 75% 59%),
+    hsl(173 70% 41%)
+  );
+  --gradient-card-hover: linear-gradient(
+    135deg,
+    hsl(200 55% 35% / 0.05),
+    hsl(174 45% 48% / 0.05)
+  );
+  --gradient-sidebar: linear-gradient(
+    180deg,
+    hsl(210 60% 12%),
+    hsl(210 55% 8%)
+  );
 
   /* Headings (centralized) */
-  --page-title: 222 47% 15%;          /* main page H1 */
-  --card-title: var(--primary);       /* card header titles use brand color */
-  --section-title: 222 47% 22%;       /* small section headers */
+  --page-title: 222 47% 15%; /* main page H1 */
+  --card-title: var(--primary); /* card header titles use brand color */
+  --section-title: 222 47% 22%; /* small section headers */
 
   /* ── Status colors ──────────────────────────────────────────────────────── */
-  --color-status-active: oklch(0.527 0.154 150.069);      /* green */
-  --color-status-inactive: oklch(0.577 0.245 27.325);     /* red */
-  --color-status-pending: oklch(0.714 0.143 85.873);      /* amber */
-  --color-status-draft: oklch(0.551 0.027 264.364);       /* slate */
-  --color-status-published: oklch(0.546 0.245 262.881);   /* blue */
+  --color-status-active: oklch(0.527 0.154 150.069); /* green */
+  --color-status-inactive: oklch(0.577 0.245 27.325); /* red */
+  --color-status-pending: oklch(0.714 0.143 85.873); /* amber */
+  --color-status-draft: oklch(0.551 0.027 264.364); /* slate */
+  --color-status-published: oklch(0.546 0.245 262.881); /* blue */
 
   /* ── Feedback colors ────────────────────────────────────────────────────── */
   --color-success: oklch(0.527 0.154 150.069);
@@ -98,25 +110,25 @@
   --color-info: oklch(0.546 0.245 262.881);
 
   /* ── Data display ───────────────────────────────────────────────────────── */
-  --color-table-header-bg: oklch(0.967 0.003 264.542);    /* light gray */
-  --color-table-row-hover: oklch(0.985 0.002 264.542);    /* very light */
-  --color-table-row-stripe: oklch(0.975 0.002 264.542);   /* alternate row */
+  --color-table-header-bg: oklch(0.967 0.003 264.542); /* light gray */
+  --color-table-row-hover: oklch(0.985 0.002 264.542); /* very light */
+  --color-table-row-stripe: oklch(0.975 0.002 264.542); /* alternate row */
 
   /* ── Spacing ────────────────────────────────────────────────────────────── */
   --spacing-page-x: 1.5rem;
   --spacing-page-y: 1.25rem;
   --spacing-card-x: 1.25rem;
   --spacing-card-y: 1rem;
-  --spacing-stack: 1rem;   /* default vertical gap between page sections */
+  --spacing-stack: 1rem; /* default vertical gap between page sections */
 
   /* ── Typography ─────────────────────────────────────────────────────────── */
-  --font-size-page-title: 1.375rem;     /* 22px — H1 */
-  --font-size-section-title: 1rem;      /* 16px — H2 */
-  --font-size-label: 0.8125rem;         /* 13px */
-  --font-size-caption: 0.75rem;         /* 12px */
-  --font-size-body: 0.875rem;           /* 14px base */
-  --font-size-nav: 0.8125rem;           /* 13px nav items */
-  --font-size-nav-section: 0.6875rem;   /* 11px uppercase section label */
+  --font-size-page-title: 1.375rem; /* 22px — H1 */
+  --font-size-section-title: 1rem; /* 16px — H2 */
+  --font-size-label: 0.8125rem; /* 13px */
+  --font-size-caption: 0.75rem; /* 12px */
+  --font-size-body: 0.875rem; /* 14px base */
+  --font-size-nav: 0.8125rem; /* 13px nav items */
+  --font-size-nav-section: 0.6875rem; /* 11px uppercase section label */
   --app-control-height: 32px;
   --app-control-font-size: 13px;
   --app-label-font-size: 13px;
@@ -145,11 +157,7 @@
 /* ── Global filter bar — Review Queue reference layout ───────────────────── */
 
 .global-filter-bar {
-  border-radius: 1rem;
-  overflow: hidden;
-  background: hsl(var(--card));
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  /* Shell is rendered by the component using `.app-card` utilities. */
 }
 
 .global-filter-bar__inner {
@@ -182,7 +190,7 @@
 }
 
 .page-header__title {
-  font-family: var(--font-heading), 'Sora', system-ui, sans-serif;
+  font-family: var(--font-heading), "Sora", system-ui, sans-serif;
   font-size: var(--font-size-page-title);
   font-weight: 600;
   line-height: 1.25;
@@ -282,7 +290,14 @@
 /* Legacy page filter cards — card shell + filter body restyle.
    Scoped to cards with a collapse toggle — not plain content cards (e.g. Exam Marks Setup list). */
 .app-card:has(> button .app-card-title):not(:has(.app-data-table)),
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) {
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card)) {
   border-radius: 1rem;
   overflow: hidden;
   background: hsl(var(--card));
@@ -291,17 +306,65 @@
 }
 
 /* Hide in-card heading row — page title lives in PageHeader above the card */
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) {
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
+  > div:first-child:has(.app-card-title) {
   display: none !important;
 }
 
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button:first-child {
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  > button:first-child {
+  display: none !important;
+}
+
+.app-card[data-filters-collapsed="true"]
+:not(:has(.app-data-table))
+:not(:has(.app-data-table-card))
+:has([role="combobox"]),
+.app-card[data-filters-collapsed="true"]
+:not(:has(.app-data-table))
+:not(:has(.app-data-table-card))
+:has(button[data-slot="popover-trigger"]) {
+  /* Keep shell; just hide the body. */
+}
+.app-card[data-filters-collapsed="true"]
+:not(:has(.app-data-table))
+:not(:has(.app-data-table-card))
+  :has([role="combobox"])
+  > :not(:first-child),
+.app-card[data-filters-collapsed="true"]
+:not(:has(.app-data-table))
+:not(:has(.app-data-table-card))
+  :has(button[data-slot="popover-trigger"])
+  > :not(:first-child) {
+  display: none !important;
+}
+
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  > button:first-child {
   display: none !important;
 }
 
 /* Restyle legacy filter body — outer wrapper stacks rows vertically */
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button + div,
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) + div {
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  > button
+  + div,
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
+  > div:first-child:has(.app-card-title)
+  + div {
   display: flex !important;
   flex-direction: column !important;
   align-items: stretch !important;
@@ -313,8 +376,17 @@
 }
 
 /* Radio / mode toggle row */
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) [role="radiogroup"],
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) [role="radiogroup"] {
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
+  [role="radiogroup"],
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  [role="radiogroup"] {
   display: flex !important;
   flex-wrap: nowrap !important;
   align-items: center !important;
@@ -323,8 +395,26 @@
 }
 
 /* Dropdown / action row */
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) .flex-wrap.items-end,
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) + div > [class*="grid"] {
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
+  .flex-wrap.items-end,
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
+  > div:first-child:has(.app-card-title)
+  + div
+  > [class*="grid"] {
   display: flex !important;
   flex-wrap: nowrap !important;
   align-items: flex-end !important;
@@ -336,7 +426,10 @@
   background: transparent !important;
 }
 
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button + div > [class*="grid"] {
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  > button
+  + div
+  > [class*="grid"] {
   display: flex !important;
   flex-wrap: nowrap !important;
   align-items: flex-end;
@@ -345,9 +438,26 @@
   overflow-x: auto;
 }
 
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) > button + div > [class*="grid"] > *,
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) > div:first-child:has(.app-card-title) + div > [class*="grid"] > *,
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) .flex-wrap.items-end > * {
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  > button
+  + div
+  > [class*="grid"]
+  > *,
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
+  > div:first-child:has(.app-card-title)
+  + div
+  > [class*="grid"]
+  > *,
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  .flex-wrap.items-end
+  > * {
   flex: 1 1 0;
   min-width: 8.5rem;
 }
@@ -417,14 +527,60 @@
   color: hsl(var(--app-table-header-color));
 }
 
-.app-data-table .ag-theme-quartz .ag-cell,
-.app-data-table .ag-theme-quartz .ag-cell-value {
+.app-data-table .ag-theme-quartz .ag-cell {
   font-size: var(--app-table-row-font-size) !important;
   line-height: 1.4;
   font-weight: 500;
   display: flex;
   align-items: center;
   color: hsl(var(--foreground));
+  user-select: text;
+  -webkit-user-select: text;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-actions {
+  overflow: visible;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell .ag-cell-wrapper {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-actions .ag-cell-wrapper {
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell-value {
+  font-size: var(--app-table-row-font-size) !important;
+  line-height: 1.4;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  user-select: text;
+  -webkit-user-select: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  width: 100%;
+}
+
+/* Single-line ellipsis for all data cells; action columns stay unconstrained. */
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis,
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis .ag-cell-value,
+.app-data-table .ag-theme-quartz .ag-cell.app-cell-ellipsis .ag-cell-wrapper {
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  overflow: hidden !important;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .app-data-table .ag-theme-quartz .ag-row {
@@ -537,8 +693,8 @@
 }
 
 /* Toolbar search */
-.app-data-table-toolbar-wrap input[type='search'],
-.app-data-table-toolbar-wrap input[type='text'] {
+.app-data-table-toolbar-wrap input[type="search"],
+.app-data-table-toolbar-wrap input[type="text"] {
   height: 2.25rem;
   border-radius: calc(var(--radius) - 2px);
 }
@@ -563,14 +719,22 @@
   background: hsl(var(--primary) / 0.08) !important;
 }
 
-.app-data-table .ag-row .ag-cell:last-child button.h-8.w-8.p-0:not(.app-table-action-delete):not(.app-table-action-edit) {
+.app-data-table
+  .ag-row
+  .ag-cell:last-child
+  button.h-8.w-8.p-0:not(.app-table-action-delete):not(.app-table-action-edit) {
   border-radius: 0.375rem;
   border: 1px solid hsl(var(--primary) / 0.4);
   color: hsl(var(--primary));
   background: hsl(var(--card));
 }
 
-.app-data-table .ag-row .ag-cell:last-child button.h-8.w-8.p-0:not(.app-table-action-delete):not(.app-table-action-edit):hover {
+.app-data-table
+  .ag-row
+  .ag-cell:last-child
+  button.h-8.w-8.p-0:not(.app-table-action-delete):not(
+    .app-table-action-edit
+  ):hover {
   background: hsl(var(--primary) / 0.08);
 }
 
@@ -620,9 +784,18 @@
   --ag-cell-horizontal-padding: 6px;
 }
 
-.college-counselling-table .app-data-table .ag-theme-quartz .ag-body-horizontal-scroll,
-.college-counselling-table .app-data-table .ag-theme-quartz .ag-horizontal-left-spacer,
-.college-counselling-table .app-data-table .ag-theme-quartz .ag-horizontal-right-spacer {
+.college-counselling-table
+  .app-data-table
+  .ag-theme-quartz
+  .ag-body-horizontal-scroll,
+.college-counselling-table
+  .app-data-table
+  .ag-theme-quartz
+  .ag-horizontal-left-spacer,
+.college-counselling-table
+  .app-data-table
+  .ag-theme-quartz
+  .ag-horizontal-right-spacer {
   display: none !important;
   height: 0 !important;
   min-height: 0 !important;
@@ -646,13 +819,18 @@
   border-right: 1px solid #cbd5e1 !important;
 }
 
-.fee-mgmt-data-table .ag-theme-quartz .ag-header-cell.fee-mgmt-grid-cell:last-child,
+.fee-mgmt-data-table
+  .ag-theme-quartz
+  .ag-header-cell.fee-mgmt-grid-cell:last-child,
 .fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-grid-cell:last-child {
   border-right: none !important;
 }
 
 .fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-student-cell,
-.fee-mgmt-data-table .ag-theme-quartz .ag-cell.fee-mgmt-student-cell .ag-cell-value {
+.fee-mgmt-data-table
+  .ag-theme-quartz
+  .ag-cell.fee-mgmt-student-cell
+  .ag-cell-value {
   align-items: flex-start !important;
   padding-top: 8px;
   padding-bottom: 8px;
@@ -748,6 +926,8 @@ input[type="reset"]:disabled,
 
 .app-table-value-cell {
   font-size: var(--app-table-row-font-size);
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* Native table typography baseline (for pages not using DataTable yet) */
@@ -761,6 +941,8 @@ input[type="reset"]:disabled,
   line-height: 1.2;
   font-weight: 500;
   vertical-align: middle;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* ── App-wide card shadow utility ─────────────────────────────────────────── */
@@ -769,16 +951,15 @@ input[type="reset"]:disabled,
   background: hsl(var(--card));
   border-radius: 0.625rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  transition: box-shadow 150ms ease, border-color 150ms ease;
+  transition:
+    box-shadow 150ms ease,
+    border-color 150ms ease;
 }
 .app-card:hover {
   border-color: hsl(var(--border) / 0.8);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 16px rgba(15, 23, 42, 0.04);
-}
-
-/* Global compact spacing between stacked cards */
-main .app-card + .app-card {
-  margin-top: 0.5rem;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 6px 16px rgba(15, 23, 42, 0.04);
 }
 
 /* ── Page name inside the filters card (fallback) ───────────────────────────
@@ -793,7 +974,9 @@ main .app-card + .app-card {
 /* First card WITHOUT its own heading: inject the page name as a header row.
    (AppShell tags the card; cards that render a title/heading are covered by
    the .app-card-title override above instead.) */
-[data-page-first-card]:not(:has(.app-card-title)):not(:has(h1, h2, h3))::before {
+[data-page-first-card]:not(:has(.app-card-title)):not(:has(h1, h2, h3)):not(
+    [data-no-page-name]
+  )::before {
   content: var(--page-name, none);
   display: block;
   padding: 0.4rem 0.75rem;
@@ -817,12 +1000,12 @@ main .app-card + .app-card {
    ───────────────────────────────────────────────────────────────────────── */
 .theme-examination {
   /* Typography */
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
 
   /* Canvas and surfaces (warm, subtle contrast) */
-  --background: 0 0% 100%;             /* pure white canvas */
-  --foreground: 222 47% 12%;           /* near-navy text */
-  --card: 0 0% 100%;                   /* pure white cards */
+  --background: 0 0% 100%; /* pure white canvas */
+  --foreground: 222 47% 12%; /* near-navy text */
+  --card: 0 0% 100%; /* pure white cards */
   --card-foreground: 222 47% 12%;
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 12%;
@@ -830,7 +1013,7 @@ main .app-card + .app-card {
   /* Brand and accents — NOTE: --primary/--ring intentionally NOT set here so
      the active [data-theme] brand color flows into exam pages too. */
   --primary-foreground: 0 0% 100%;
-  --secondary: 39 84% 55%;             /* amber-500 */
+  --secondary: 39 84% 55%; /* amber-500 */
   --secondary-foreground: 0 0% 100%;
   --muted: 220 14% 97%;
   --muted-foreground: 215 16% 47%;
@@ -865,15 +1048,17 @@ main .app-card + .app-card {
   --sidebar-border: 217 33% 20%;
 
   /* Typography scale tuning for the reference */
-  --font-size-page-title: 2rem;        /* 32px */
+  --font-size-page-title: 2rem; /* 32px */
   --font-size-section-title: 1.125rem; /* 18px */
-  --font-size-label: 0.875rem;         /* 14px */
-  --font-size-caption: 0.8125rem;      /* 13px */
+  --font-size-label: 0.875rem; /* 14px */
+  --font-size-caption: 0.8125rem; /* 13px */
 
   /* Shadows matching the soft, airy design */
-  --shadow-sm: 0 1px 2px rgba(15,23,42,0.05);
-  --shadow-md: 0 4px 12px rgba(15,23,42,0.07), 0 1px 3px rgba(15,23,42,0.04);
-  --shadow-lg: 0 12px 28px rgba(15,23,42,0.10), 0 4px 8px rgba(15,23,42,0.06);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md:
+    0 4px 12px rgba(15, 23, 42, 0.07), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-lg:
+    0 12px 28px rgba(15, 23, 42, 0.1), 0 4px 8px rgba(15, 23, 42, 0.06);
 
   /* Headings (theme overrides) */
   --page-title: 222 47% 14%;
@@ -932,102 +1117,169 @@ main .app-card + .app-card {
 
 /* Indigo + Teal (explicit; identical to :root default) */
 [data-theme="indigo-teal"] {
-  --primary: 243 75% 59%;  --ring: 243 75% 59%;  --accent: 173 70% 41%;
-  --sidebar-primary: 243 80% 74%; --sidebar-accent: 243 80% 74%; --sidebar-ring: 243 80% 74%;
-  --sidebar-active-bg: 243 80% 74% / 0.14; --sidebar-active-border: 243 80% 74% / 0.32;
-  --gradient-primary: linear-gradient(135deg, hsl(243 75% 59%), hsl(173 70% 41%));
-  --shadow-glow: 0 0 20px -4px hsl(243 75% 59% / 0.30);
+  --primary: 243 75% 59%;
+  --ring: 243 75% 59%;
+  --accent: 173 70% 41%;
+  --sidebar-primary: 243 80% 74%;
+  --sidebar-accent: 243 80% 74%;
+  --sidebar-ring: 243 80% 74%;
+  --sidebar-active-bg: 243 80% 74% / 0.14;
+  --sidebar-active-border: 243 80% 74% / 0.32;
+  --gradient-primary: linear-gradient(
+    135deg,
+    hsl(243 75% 59%),
+    hsl(173 70% 41%)
+  );
+  --shadow-glow: 0 0 20px -4px hsl(243 75% 59% / 0.3);
 }
 
 /* Deep Blue (corporate) */
 [data-theme="deep-blue"] {
-  --primary: 221 83% 53%;  --ring: 221 83% 53%;  --accent: 199 89% 48%;
-  --sidebar-primary: 217 91% 72%; --sidebar-accent: 217 91% 72%; --sidebar-ring: 217 91% 72%;
-  --sidebar-active-bg: 217 91% 72% / 0.14; --sidebar-active-border: 217 91% 72% / 0.32;
-  --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(199 89% 48%));
-  --shadow-glow: 0 0 20px -4px hsl(221 83% 53% / 0.30);
+  --primary: 221 83% 53%;
+  --ring: 221 83% 53%;
+  --accent: 199 89% 48%;
+  --sidebar-primary: 217 91% 72%;
+  --sidebar-accent: 217 91% 72%;
+  --sidebar-ring: 217 91% 72%;
+  --sidebar-active-bg: 217 91% 72% / 0.14;
+  --sidebar-active-border: 217 91% 72% / 0.32;
+  --gradient-primary: linear-gradient(
+    135deg,
+    hsl(221 83% 53%),
+    hsl(199 89% 48%)
+  );
+  --shadow-glow: 0 0 20px -4px hsl(221 83% 53% / 0.3);
 }
 
 /* Emerald */
 [data-theme="emerald"] {
-  --primary: 160 84% 36%;  --ring: 160 84% 36%;  --accent: 173 70% 41%;
-  --sidebar-primary: 152 70% 60%; --sidebar-accent: 152 70% 60%; --sidebar-ring: 152 70% 60%;
-  --sidebar-active-bg: 152 70% 60% / 0.14; --sidebar-active-border: 152 70% 60% / 0.32;
-  --gradient-primary: linear-gradient(135deg, hsl(160 84% 36%), hsl(173 70% 41%));
-  --shadow-glow: 0 0 20px -4px hsl(160 84% 36% / 0.30);
+  --primary: 160 84% 36%;
+  --ring: 160 84% 36%;
+  --accent: 173 70% 41%;
+  --sidebar-primary: 152 70% 60%;
+  --sidebar-accent: 152 70% 60%;
+  --sidebar-ring: 152 70% 60%;
+  --sidebar-active-bg: 152 70% 60% / 0.14;
+  --sidebar-active-border: 152 70% 60% / 0.32;
+  --gradient-primary: linear-gradient(
+    135deg,
+    hsl(160 84% 36%),
+    hsl(173 70% 41%)
+  );
+  --shadow-glow: 0 0 20px -4px hsl(160 84% 36% / 0.3);
 }
 
 /* Violet */
 [data-theme="violet"] {
-  --primary: 262 83% 58%;  --ring: 262 83% 58%;  --accent: 292 84% 61%;
-  --sidebar-primary: 255 92% 78%; --sidebar-accent: 255 92% 78%; --sidebar-ring: 255 92% 78%;
-  --sidebar-active-bg: 255 92% 78% / 0.14; --sidebar-active-border: 255 92% 78% / 0.32;
-  --gradient-primary: linear-gradient(135deg, hsl(262 83% 58%), hsl(292 84% 61%));
-  --shadow-glow: 0 0 20px -4px hsl(262 83% 58% / 0.30);
+  --primary: 262 83% 58%;
+  --ring: 262 83% 58%;
+  --accent: 292 84% 61%;
+  --sidebar-primary: 255 92% 78%;
+  --sidebar-accent: 255 92% 78%;
+  --sidebar-ring: 255 92% 78%;
+  --sidebar-active-bg: 255 92% 78% / 0.14;
+  --sidebar-active-border: 255 92% 78% / 0.32;
+  --gradient-primary: linear-gradient(
+    135deg,
+    hsl(262 83% 58%),
+    hsl(292 84% 61%)
+  );
+  --shadow-glow: 0 0 20px -4px hsl(262 83% 58% / 0.3);
 }
 
 /* Rose */
 [data-theme="rose"] {
-  --primary: 347 77% 50%;  --ring: 347 77% 50%;  --accent: 25 95% 53%;
-  --sidebar-primary: 350 89% 72%; --sidebar-accent: 350 89% 72%; --sidebar-ring: 350 89% 72%;
-  --sidebar-active-bg: 350 89% 72% / 0.14; --sidebar-active-border: 350 89% 72% / 0.32;
-  --gradient-primary: linear-gradient(135deg, hsl(347 77% 50%), hsl(25 95% 53%));
-  --shadow-glow: 0 0 20px -4px hsl(347 77% 50% / 0.30);
+  --primary: 347 77% 50%;
+  --ring: 347 77% 50%;
+  --accent: 25 95% 53%;
+  --sidebar-primary: 350 89% 72%;
+  --sidebar-accent: 350 89% 72%;
+  --sidebar-ring: 350 89% 72%;
+  --sidebar-active-bg: 350 89% 72% / 0.14;
+  --sidebar-active-border: 350 89% 72% / 0.32;
+  --gradient-primary: linear-gradient(
+    135deg,
+    hsl(347 77% 50%),
+    hsl(25 95% 53%)
+  );
+  --shadow-glow: 0 0 20px -4px hsl(347 77% 50% / 0.3);
 }
 
 /* Amber */
 [data-theme="amber"] {
-  --primary: 32 95% 44%;  --ring: 32 95% 44%;  --accent: 173 70% 41%;
-  --sidebar-primary: 43 96% 64%; --sidebar-accent: 43 96% 64%; --sidebar-ring: 43 96% 64%;
-  --sidebar-active-bg: 43 96% 64% / 0.14; --sidebar-active-border: 43 96% 64% / 0.32;
+  --primary: 32 95% 44%;
+  --ring: 32 95% 44%;
+  --accent: 173 70% 41%;
+  --sidebar-primary: 43 96% 64%;
+  --sidebar-accent: 43 96% 64%;
+  --sidebar-ring: 43 96% 64%;
+  --sidebar-active-bg: 43 96% 64% / 0.14;
+  --sidebar-active-border: 43 96% 64% / 0.32;
   --gradient-primary: linear-gradient(135deg, hsl(32 95% 44%), hsl(43 96% 64%));
-  --shadow-glow: 0 0 20px -4px hsl(32 95% 44% / 0.30);
+  --shadow-glow: 0 0 20px -4px hsl(32 95% 44% / 0.3);
 }
 
 /* Slate Teal (original EduPulse) */
 [data-theme="slate-teal"] {
-  --primary: 200 55% 35%;  --ring: 200 55% 35%;  --accent: 174 45% 48%;
-  --sidebar-primary: 174 55% 55%; --sidebar-accent: 174 55% 55%; --sidebar-ring: 174 55% 55%;
-  --sidebar-active-bg: 174 55% 55% / 0.12; --sidebar-active-border: 174 55% 55% / 0.30;
-  --gradient-primary: linear-gradient(135deg, hsl(200 55% 35%), hsl(174 45% 48%));
-  --shadow-glow: 0 0 20px -4px hsl(174 45% 48% / 0.30);
+  --primary: 200 55% 35%;
+  --ring: 200 55% 35%;
+  --accent: 174 45% 48%;
+  --sidebar-primary: 174 55% 55%;
+  --sidebar-accent: 174 55% 55%;
+  --sidebar-ring: 174 55% 55%;
+  --sidebar-active-bg: 174 55% 55% / 0.12;
+  --sidebar-active-border: 174 55% 55% / 0.3;
+  --gradient-primary: linear-gradient(
+    135deg,
+    hsl(200 55% 35%),
+    hsl(174 45% 48%)
+  );
+  --shadow-glow: 0 0 20px -4px hsl(174 45% 48% / 0.3);
 }
 
 /* University Blue (UniERP reference) — medium-blue sidebar + #185FA5 primary.
    Unlike the accent-only themes, this also recolours the sidebar + canvas. */
 [data-theme="university-blue"] {
-  --background: 0 0% 100%;             /* pure white canvas */
-  --foreground: 218 32% 15%;           /* #1A2433 */
-  --muted-foreground: 218 10% 47%;     /* #6B7384 */
-  --border: 218 25% 91%;               /* #E2E6EE thin light border */
+  --background: 0 0% 100%; /* pure white canvas */
+  --foreground: 218 32% 15%; /* #1A2433 */
+  --muted-foreground: 218 10% 47%; /* #6B7384 */
+  --border: 218 25% 91%; /* #E2E6EE thin light border */
   --input: 218 25% 91%;
-  --primary: 208 75% 37%;              /* #185FA5 */
+  --primary: 208 75% 37%; /* #185FA5 */
   --primary-foreground: 0 0% 100%;
   --ring: 208 75% 37%;
-  --accent: 210 70% 54%;               /* #378ADD */
+  --accent: 210 70% 54%; /* #378ADD */
   --accent-foreground: 0 0% 100%;
   --card-title: var(--primary);
   --section-title: 218 32% 18%;
 
   /* Sidebar — deep navy (#0A2F5C) + white text + solid blue active pill (Option C) */
-  --sidebar-background: 213 80% 20%;        /* #0A2F5C deep navy */
+  --sidebar-background: 213 80% 20%; /* #0A2F5C deep navy */
   --sidebar-background-end: 213 82% 15%;
   --sidebar-surface: 213 45% 28%;
-  --sidebar-foreground: 210 35% 92%;        /* near-white nav text + icons */
-  --sidebar-foreground-active: 0 0% 100%;   /* pure white on active */
-  --sidebar-section-label: 210 58% 74%;     /* light blue MAIN MENU label */
+  --sidebar-foreground: 210 35% 92%; /* near-white nav text + icons */
+  --sidebar-foreground-active: 0 0% 100%; /* pure white on active */
+  --sidebar-section-label: 210 58% 74%; /* light blue MAIN MENU label */
   --sidebar-primary: 0 0% 100%;
   --sidebar-primary-foreground: 213 80% 20%;
   --sidebar-accent: 0 0% 100%;
   --sidebar-border: 213 45% 26%;
   --sidebar-ring: 0 0% 100%;
-  --sidebar-active-bg: 213 52% 44%;         /* solid medium-blue pill */
+  --sidebar-active-bg: 213 52% 44%; /* solid medium-blue pill */
   --sidebar-active-border: 213 60% 62% / 0.55;
   --sidebar-hover-bg: 0 0% 100% / 0.07;
 
-  --gradient-sidebar: linear-gradient(180deg, hsl(213 80% 20%), hsl(213 82% 15%));
-  --gradient-primary: linear-gradient(135deg, hsl(208 75% 37%), hsl(210 70% 54%));
-  --shadow-glow: 0 0 20px -4px hsl(208 75% 37% / 0.30);
+  --gradient-sidebar: linear-gradient(
+    180deg,
+    hsl(213 80% 20%),
+    hsl(213 82% 15%)
+  );
+  --gradient-primary: linear-gradient(
+    135deg,
+    hsl(208 75% 37%),
+    hsl(210 70% 54%)
+  );
+  --shadow-glow: 0 0 20px -4px hsl(208 75% 37% / 0.3);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1096,62 +1348,115 @@ main .app-card + .app-card {
 
 /* Skeleton shimmer — sweeps right */
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 /* Page/section entrance — rises with fade */
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Quick alpha fade */
 @keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Sidebar / panel slide in */
 @keyframes slide-in-left {
-  from { opacity: 0; transform: translateX(-16px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 /* Popup / modal scale in */
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Smooth rotation for spinner */
 @keyframes spin-smooth {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Three dots bounce */
 @keyframes bounce-dots {
-  0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
-  40%            { transform: scale(1); opacity: 1; }
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* Pulsing ring (notification indicator) */
 @keyframes pulse-ring {
-  0%   { transform: scale(0.8); opacity: 1; }
-  100% { transform: scale(1.8); opacity: 0; }
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
 }
 
 /* Bars loader height oscillation */
 @keyframes bar-grow {
-  0%, 100% { transform: scaleY(0.4); }
-  50%       { transform: scaleY(1); }
+  0%,
+  100% {
+    transform: scaleY(0.4);
+  }
+  50% {
+    transform: scaleY(1);
+  }
 }
 
 /* Horizontal progress sweep */
 @keyframes progress {
-  0%   { transform: translateX(-100%); }
-  50%  { transform: translateX(0%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* Login card entrance — blur + scale + rise */
@@ -1170,17 +1475,23 @@ main .app-card + .app-card {
 
 /* Individual form field stagger */
 @keyframes field-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-
-
 
 /* ─────────────────────────────────────────────────────────────────────────────
    BASE STYLES
    ───────────────────────────────────────────────────────────────────────── */
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   border-color: hsl(var(--border));
   box-sizing: border-box;
 }
@@ -1194,7 +1505,12 @@ html {
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: var(--font-body), 'Manrope', system-ui, -apple-system, sans-serif;
+  font-family:
+    var(--font-body),
+    "Manrope",
+    system-ui,
+    -apple-system,
+    sans-serif;
   font-size: var(--font-size-body);
   line-height: 1.5;
   letter-spacing: -0.005em;
@@ -1204,8 +1520,19 @@ body {
    size via Tailwind utilities. Only utility classes .h1/.h2 carry the full
    token-driven sizing; raw <h1>/<h2> get font-family + color only so existing
    page-level `text-[Npx]` overrides are honored. */
-h1, h2, h3, h4, .h1, .h2, .h3 {
-  font-family: var(--font-heading), 'Sora', system-ui, -apple-system, sans-serif;
+h1,
+h2,
+h3,
+h4,
+.h1,
+.h2,
+.h3 {
+  font-family:
+    var(--font-heading),
+    "Sora",
+    system-ui,
+    -apple-system,
+    sans-serif;
   letter-spacing: -0.015em;
 }
 .h1 {
@@ -1278,12 +1605,42 @@ h1, h2, h3, h4, .h1, .h2, .h3 {
    `font-size: 0` hides the "Filter" text node; the svg keeps its own size.
    `pointer-events: none` makes the header row the single accordion trigger —
    clicks on the icon fall through to the header and are forwarded back. */
-.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-funnel']),
+
+.app-card:not(.global-filter-bar)
+  > div:has(> .app-card-title)
+  button:has(svg[class*="lucide-funnel"]),
+.app-card:not(.global-filter-bar)
+  > div:has(> .app-card-title)
+  button:has(svg[class*="lucide-filter"]),
+.app-card:not(.global-filter-bar)
+  > div:has(> .app-card-title)
+  button:has(svg[class*="lucide-chevron-down"]),
+.app-card:not(.global-filter-bar)
+  > button:has(> .app-card-title)
+  span:has(svg[class*="lucide-funnel"]),
+.app-card:not(.global-filter-bar)
+  > button:has(> .app-card-title)
+  span:has(svg[class*="lucide-filter"]),
+.app-card:not(.global-filter-bar)
+  > button:has(> .app-card-title)
+  span:has(svg[class*="lucide-chevron-down"]) {
+  /* .app-card > div:has(> .app-card-title) button:has(svg[class*="lucide-funnel"]),
+.app-card > div:has(> .app-card-title) button:has(svg[class*="lucide-filter"]),
+.app-card
+  > div:has(> .app-card-title)
+  button:has(svg[class*="lucide-chevron-down"]),
+.app-card > button:has(> .app-card-title) span:has(svg[class*="lucide-funnel"]),
+.app-card > button:has(> .app-card-title) span:has(svg[class*="lucide-filter"]),
+.app-card
+  > button:has(> .app-card-title)
+  span:has(svg[class*="lucide-chevron-down"]) { */
+
+  /* .app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-funnel']),
 .app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-filter']),
 .app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-chevron-down']),
 .app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-funnel']),
 .app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-filter']),
-.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-chevron-down']) {
+.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-chevron-down']) { */
   border: 0;
   background: transparent;
   box-shadow: none;
@@ -1298,12 +1655,30 @@ h1, h2, h3, h4, .h1, .h2, .h3 {
      right margin pulls the icon next to the title instead of the far edge. */
   margin-right: auto;
 }
-.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-funnel']) svg,
-.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-filter']) svg,
-.app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-chevron-down']) svg,
-.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-funnel']) svg,
-.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-filter']) svg,
-.app-card > button:has(> .app-card-title) span:has(svg[class*='lucide-chevron-down']) svg {
+.app-card
+  > div:has(> .app-card-title)
+  button:has(svg[class*="lucide-funnel"])
+  svg,
+.app-card
+  > div:has(> .app-card-title)
+  button:has(svg[class*="lucide-filter"])
+  svg,
+.app-card
+  > div:has(> .app-card-title)
+  button:has(svg[class*="lucide-chevron-down"])
+  svg,
+.app-card
+  > button:has(> .app-card-title)
+  span:has(svg[class*="lucide-funnel"])
+  svg,
+.app-card
+  > button:has(> .app-card-title)
+  span:has(svg[class*="lucide-filter"])
+  svg,
+.app-card
+  > button:has(> .app-card-title)
+  span:has(svg[class*="lucide-chevron-down"])
+  svg {
   width: 1rem;
   height: 1rem;
   margin: 0;
@@ -1316,8 +1691,14 @@ h1, h2, h3, h4, .h1, .h2, .h3 {
   animation: filters-panel-in 160ms ease-out;
 }
 @keyframes filters-panel-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1355,8 +1736,8 @@ h1, h2, h3, h4, .h1, .h2, .h3 {
    ───────────────────────────────────────────────────────────────────────── */
 
 *:focus-visible {
-  outline: none;            /* remove double outline */
-  box-shadow: none;         /* avoid glow */
+  outline: none; /* remove double outline */
+  box-shadow: none; /* avoid glow */
 }
 
 /* Ensure all form controls use the brand color for focus borders */
@@ -1434,12 +1815,24 @@ textarea:focus-visible,
    STAGGER HELPERS — dashboard card entrance
    ───────────────────────────────────────────────────────────────────────── */
 
-.stagger-children > *:nth-child(1) { animation-delay:   0ms; }
-.stagger-children > *:nth-child(2) { animation-delay:  70ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 140ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 210ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 280ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 350ms; }
+.stagger-children > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.stagger-children > *:nth-child(2) {
+  animation-delay: 70ms;
+}
+.stagger-children > *:nth-child(3) {
+  animation-delay: 140ms;
+}
+.stagger-children > *:nth-child(4) {
+  animation-delay: 210ms;
+}
+.stagger-children > *:nth-child(5) {
+  animation-delay: 280ms;
+}
+.stagger-children > *:nth-child(6) {
+  animation-delay: 350ms;
+}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Table toolbar standardization (search + buttons)
@@ -1470,7 +1863,11 @@ textarea:focus-visible,
   font-size: 0.875rem;
   color: #94a3b8; /* slate-400 */
   pointer-events: none;
-  transition: top 0.2s ease, transform 0.2s ease, font-size 0.2s ease, color 0.2s ease;
+  transition:
+    top 0.2s ease,
+    transform 0.2s ease,
+    font-size 0.2s ease,
+    color 0.2s ease;
 }
 
 /* Float up when field has content */
@@ -1486,9 +1883,8 @@ textarea:focus-visible,
   top: 0.625rem;
   transform: translateY(0);
   font-size: 0.6875rem;
-  color: #4F46E5;
+  color: #4f46e5;
 }
-
 
 /* ─────────────────────────────────────────────────────────────────────────────
    REDUCED MOTION — respect user preference
@@ -1496,7 +1892,9 @@ textarea:focus-visible,
 
 @media (prefers-reduced-motion: reduce) {
   /* Suppress decorative animations but leave functional ones (spinners, loaders) alone */
-  *:not([data-animate="functional"]), *:not([data-animate="functional"])::before, *:not([data-animate="functional"])::after {
+  *:not([data-animate="functional"]),
+  *:not([data-animate="functional"])::before,
+  *:not([data-animate="functional"])::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -1535,7 +1933,9 @@ textarea:focus-visible,
      html/body/main and reset Tailwind utility classes that trap print
      content into a single screen-sized box (overflow-hidden, h-screen,
      overflow-y-auto). */
-  html, body, main {
+  html,
+  body,
+  main {
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
@@ -1556,10 +1956,31 @@ textarea:focus-visible,
   /* Force white background everywhere — Tailwind bg-[hsl(var(--background))]
      and friends were bleeding through and printing as a grey sheet when the
      browser was set to use default margins. */
-  html, body, main, .bg-card, .bg-background, .bg-muted, .bg-muted\/40 {
+  html,
+  body,
+  body > div,
+  main,
+  [data-page-content],
+  div.flex.h-screen,
+  div.flex.h-screen > div,
+  div.flex.min-w-0.flex-1.flex-col,
+  [data-print-root],
+  .bg-card,
+  .bg-background,
+  .bg-muted,
+  .bg-muted\/20,
+  .bg-muted\/40 {
     background: #fff !important;
     background-color: #fff !important;
     color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  [data-print-root] {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
   }
 
   /* Render background colours / images during print. */

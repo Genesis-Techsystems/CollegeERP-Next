@@ -9,7 +9,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listWorkflowStages } from '@/services'
 import type { WorkflowStage } from '@/types/workflow-stage'
 import WorkflowStageModal from './WorkflowStageModal'
@@ -18,11 +18,11 @@ const COLS = {
   siNo: { colId: 'siNo', headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<WorkflowStage>,
   orgCode: { colId: 'orgCode', headerName: 'Organization', minWidth: 120, flex: 1 } as ColDef<WorkflowStage>,
   collegeCode: { colId: 'collegeCode', headerName: 'College', minWidth: 120, flex: 1 } as ColDef<WorkflowStage>,
-  wfCode: { colId: 'wfCode', field: 'wfCode', headerName: 'WF Code', minWidth: 100, flex: 0.9 } as ColDef<WorkflowStage>,
-  wfName: { colId: 'wfName', field: 'wfName', headerName: 'WF Name', minWidth: 140, flex: 1.1 } as ColDef<WorkflowStage>,
-  wfStage: { colId: 'wfStage', field: 'wfStage', headerName: 'WF Stage', minWidth: 90, flex: 0.8 } as ColDef<WorkflowStage>,
-  wfFor: { colId: 'wfFor', field: 'wfFor', headerName: 'WF For', minWidth: 110, flex: 1 } as ColDef<WorkflowStage>,
-  wfStatus: { colId: 'wfStatus', field: 'wfStatus', headerName: 'WF Status', minWidth: 100, flex: 1 } as ColDef<WorkflowStage>,
+  wfCode: { colId: 'wfCode', field: 'wfCode', headerName: 'Workflow Code', minWidth: 100, flex: 0.9 } as ColDef<WorkflowStage>,
+  wfName: { colId: 'wfName', field: 'wfName', headerName: 'Workflow Name', minWidth: 140, flex: 1.1 } as ColDef<WorkflowStage>,
+  wfStage: { colId: 'wfStage', field: 'wfStage', headerName: 'Workflow Stage', minWidth: 90, flex: 0.8 } as ColDef<WorkflowStage>,
+  wfFor: { colId: 'wfFor', field: 'wfFor', headerName: 'Workflow For', minWidth: 110, flex: 1 } as ColDef<WorkflowStage>,
+  wfStatus: { colId: 'wfStatus', field: 'wfStatus', headerName: 'Workflow Status', minWidth: 100, flex: 1 } as ColDef<WorkflowStage>,
   availableFor: { colId: 'availableFor', field: 'availableFor', headerName: 'Available For', minWidth: 120, flex: 1 } as ColDef<WorkflowStage>,
   isActive: { colId: 'isActive', field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<WorkflowStage>,
   actions: { colId: 'actions', headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<WorkflowStage>,
@@ -86,6 +86,7 @@ export default function WorkflowStagesPage() {
         </div>
       </div>
       <WorkflowStageModal
+        key={getCrudModalKey(row, open, 'workflowStageId')}
         open={open}
         onClose={() => { setOpen(false); setRow(null) }}
         row={row}

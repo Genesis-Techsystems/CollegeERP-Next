@@ -12,9 +12,9 @@ import {
 	SelectValue,
 } from '@/components/ui/select'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
+import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { distinct } from '@/lib/utils'
 import { listCourseYears, getExamTimetableDetails } from '@/services/examination'
 import {
@@ -37,7 +37,7 @@ import {
 	listExamTimetablesByExam,
 	listExamRoomAllotments as listExamRoomAllotmentsPre,
 } from '@/services/pre-examination'
-import { ChevronDown, Filter, Plus, Printer } from 'lucide-react'
+import { CalendarDays, ChevronDown, Filter, Plus, Printer } from 'lucide-react'
 import { SearchInput } from '@/common/components/search'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toDateStr } from '@/common/generic-functions'
@@ -851,8 +851,30 @@ export default function SeatingPlanSetupPage() {
 			selectedTimetable?.subject_id,
 		)
 
+		const collegeRow = colleges.find(
+			(c: any) => Number(c.fk_college_id ?? c.collegeId) === Number(resolvedCollegeId),
+		)
+		const courseRow = courses.find(
+			(c: any) => Number(c.fk_course_id ?? c.courseId ?? c.id) === Number(resolvedCourseId),
+		)
+		const collegeCode = String(
+			collegeRow?.college_code ??
+			collegeRow?.collegeCode ??
+			collegeRow?.college_name ??
+			collegeRow?.collegeName ??
+			'',
+		)
+		const courseCode = String(
+			courseRow?.course_code ??
+			courseRow?.courseCode ??
+			raw.courseCode ??
+			raw.course_code ??
+			'',
+		)
+
 		const params = new URLSearchParams({
 			collegeId: String(resolvedCollegeId ?? ''),
+			collegeCode,
 			courseId: String(resolvedCourseId ?? ''),
 			examId: String(resolvedExamId ?? ''),
 			examTimetableId: String(resolvedExamTimetableId ?? ''),
@@ -860,13 +882,7 @@ export default function SeatingPlanSetupPage() {
 			academicYear: String(
 				academicYearOptions.find((a) => a.id === selectedAcademicYearId)?.label ?? ''
 			),
-			courseCode: String(
-				courses.find((c: any) => Number(c.courseId ?? c.id ?? c.fk_course_id) === Number(resolvedCourseId))?.courseCode ??
-				courses.find((c: any) => Number(c.courseId ?? c.id ?? c.fk_course_id) === Number(resolvedCourseId))?.course_code ??
-				raw.courseCode ??
-				raw.course_code ??
-				''
-			),
+			courseCode,
 			examName: String(
 				examMasters.find((e: any) => Number(e.examId ?? e.id ?? e.fk_exam_id) === Number(resolvedExamId))?.examName ??
 				raw.examName ??
@@ -898,6 +914,7 @@ export default function SeatingPlanSetupPage() {
 			academicYearId: String(selectedAcademicYearId ?? ''),
 			examTimetableId: String(selectedExamTimetableId ?? ''),
 			examDate: toDateStr(session?.examDate ?? ''),
+			examType: String(selectedExamType ?? '0'),
 			courseCode: String(
 				courses.find((c: any) => Number(c.courseId ?? c.id ?? c.fk_course_id) === Number(selectedCourseId))?.courseCode ??
 					courses.find((c: any) => Number(c.courseId ?? c.id ?? c.fk_course_id) === Number(selectedCourseId))?.course_code ??
@@ -1476,25 +1493,25 @@ export default function SeatingPlanSetupPage() {
 					</div>
 				</div>
 			)}
-			<PageHeader title="Exam Room Seating Plan" subtitle="Allocate exam room seating" />
-			<div className="app-card overflow-hidden">
+			<h2 className="text-lg font-semibold tracking-tight text-foreground">
+				Exam Room Seating Plan
+			</h2>
+			<div className="global-filter-bar app-card overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
 				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
 					<h2 className="app-card-title">Exam Room Seating Plan</h2>
-					<Button
+					<button
 						type="button"
-						variant="outline"
-						size="sm"
-						className="h-6 px-2.5 text-[12px]"
+						className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
 						onClick={() => setFilterOpen((v) => !v)}
+						aria-label="Toggle filters"
 						aria-expanded={filterOpen}
 					>
-						<Filter className="mr-1.5 h-3.5 w-3.5" />
-						Filter
-						<ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-					</Button>
+						<Filter className="h-3.5 w-3.5" aria-hidden />
+						<ChevronDown className={`h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} aria-hidden />
+					</button>
 				</div>
 
-				{(
+				{filterOpen ? (
 				<div className="px-3 py-3">
 					<div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
 						<div className="space-y-1">
@@ -1594,7 +1611,7 @@ export default function SeatingPlanSetupPage() {
 						</div>
 					</div>
 				</div>
-				)}
+				) : null}
 			</div>
 
 			{selectedExamTimetableId != null && (
@@ -1741,19 +1758,40 @@ export default function SeatingPlanSetupPage() {
 						</div>
 					</div>
 
-					<DataTable rowData={filteredRows} columnDefs={columnDefs} pagination />
+					<DataTable
+						rowData={filteredRows}
+						columnDefs={columnDefs}
+						pagination
+						title=""
+						subtitle=""
+						toolbarLeading={<span />}
+					/>
 				</div>
 			)}
 			<ConfirmDialog
 				open={assignSeatingOpen}
 				title="Assign Seating Allotment"
-				description="If you have already created a seating plan, this action will erase the existing plan and generate a new one. You may also need to reprint all related summaries. Are you sure you want to continue? Press OK to proceed, or Cancel to go back."
+				headerIcon={<CalendarDays className="h-5 w-5 shrink-0 text-primary" />}
+				contentClassName="sm:max-w-[400px]"
 				confirmLabel="OK"
+				cancelLabel="Cancel"
+				confirmFirst
 				confirmVariant="default"
+				showCloseButton={false}
 				isLoading={assignSeatingBusy}
 				onConfirm={confirmAssignSeating}
 				onCancel={() => setAssignSeatingOpen(false)}
-			/>
+			>
+				<p>
+					If you have already created a seating plan, this action will erase the existing plan and
+					generate a new one. You may also need to reprint all related summaries.
+				</p>
+				<p className="text-center text-base font-semibold">
+					Are you sure you want to continue?
+					<br />
+					Press OK to proceed, or Cancel to go back.
+				</p>
+			</ConfirmDialog>
 		</PageContainer>
 	)
 }

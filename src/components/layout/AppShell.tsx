@@ -75,7 +75,10 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
       const candidates = root.querySelectorAll(
         ':scope > *:not([data-breadcrumb-card]) > div, :scope > *:not([data-breadcrumb-card]) > * > div',
       )
-      const first = Array.from(candidates).find(isCardShell) ?? null
+      const first =
+        Array.from(candidates).find(
+          (el) => isCardShell(el) && !el.hasAttribute('data-no-page-name'),
+        ) ?? null
       if (first && !first.hasAttribute('data-page-first-card')) {
         root
           .querySelectorAll('[data-page-first-card]')
@@ -110,7 +113,17 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
     const toggle = headerRow.querySelector<HTMLButtonElement>(
       'button:has(svg[class*="lucide-funnel"]), button:has(svg[class*="lucide-filter"]), button:has(svg[class*="lucide-chevron-down"])',
     )
-    if (!toggle) return
+    if (!toggle) {
+      const card = headerRow.closest<HTMLElement>('.app-card')
+      if (!card) return
+      // Only treat it like a filter card when it contains dropdowns and does not contain a table.
+      if (!card.querySelector('[role="combobox"], button[data-slot="popover-trigger"]')) return
+      if (card.querySelector('.app-data-table, .app-data-table-card, [role="grid"]')) return
+      const isCollapsed = card.getAttribute('data-filters-collapsed') === 'true'
+      const next = !isCollapsed
+      card.setAttribute('data-filters-collapsed', next ? 'true' : 'false')
+      return
+    }
     // Pages unmount the panel conditionally, so closing can't be CSS-animated.
     // A View Transition snapshots before/after and cross-fades the change
     // (no-op in browsers without support).

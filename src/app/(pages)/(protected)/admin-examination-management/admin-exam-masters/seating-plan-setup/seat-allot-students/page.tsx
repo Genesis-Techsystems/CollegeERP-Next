@@ -10,10 +10,28 @@ import {
 	listRoomwiseOmrStudents,
 	getExamRoomAllotmentById,
 	getSingleDomain,
+	createExamRoomAllotments,
+	listUnivExamFiltersByCode,
+	listExamStudentsForSeatAllotment,
+	listBulkAllotmentStudents,
 } from '@/services/seating-plan'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { listCourseGroups, listCourseYears, listGeneralDetailsByMaster } from '@/services/examination'
+import { GM_CODES } from '@/config/constants/ui'
+import { PageContainer } from '@/components/layout'
 import { usePrintMode } from '@/lib/print'
 import { useCollegeLogo } from '@/hooks/useCollegeLogo'
+import { SeatAllotmentModal, type SeatAllotmentResult } from '@/app/(pages)/(protected)/admin-examination-management/_components/SeatAllotmentModal'
+import {
+	ExamSeatChairFilledIcon,
+	ExamSeatChairOutlineIcon,
+	ExamSeatPersonIcon,
+} from '@/app/(pages)/(protected)/admin-examination-management/_components/ExamSeatIcons'
+import { toast } from 'sonner'
+import { Select } from '@/common/components/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import { toDateStr, toExamApiDate } from '@/common/generic-functions'
+
+type BulkStudentRow = Record<string, any> & { checked: boolean }
 
 function flattenLegacyResult(body: any): any[] {
 	const result = (body?.result ?? body?.data?.result ?? body?.data ?? body ?? []) as any[]
@@ -122,6 +140,127 @@ function maxSeatRowCol(rows: any[]): { maxRow: number; maxCol: number } {
 	return { maxRow, maxCol }
 }
 
+type SeatCell = {
+	key: string
+	rowNo: number
+	columnNo: number
+	serial: string
+	examRoomStdAllotId: number | null
+	collegeId: number
+	examId: number
+	examTimetableId: number
+	roomId: number
+	examseatstatusCatId: number
+	studentId: number | null
+	subjectId: number | null
+	stdName: string
+	hallticketNumber: string
+	subjectCode: string
+	examSeatStatusCode: string
+	examDisplaySeatStatusCode: string
+	createdDt: string | null
+	isActive: boolean
+}
+
+function availableStatusId(statuses: any[]): number {
+	const row =
+		statuses.find((s) => String(s.generalDetailCode ?? '').toLowerCase() === 'available') ??
+		statuses[0]
+	return Number(row?.generalDetailId ?? 0)
+}
+
+function buildSeatCells(
+	allotment: any,
+	examSeatStatuses: any[],
+	ids: {
+		collegeId: number
+		examId: number
+		examTimetableId: number
+		roomId: number
+	},
+): SeatCell[] {
+	const totalRows = num(pick(allotment, ROW_DIM_KEYS, 0))
+	const totalCols = num(pick(allotment, COL_DIM_KEYS, 0))
+	if (!totalRows || !totalCols) return []
+
+	const inferred = maxSeatRowCol(examRoomSeatDto(allotment))
+	const rows = totalRows || inferred.maxRow
+	const cols = totalCols || inferred.maxCol
+	const defaultStatusId = availableStatusId(examSeatStatuses)
+	const defaultStatus = examSeatStatuses.find((s) => Number(s.generalDetailId) === defaultStatusId)
+	const defaultCode = String(defaultStatus?.generalDetailCode ?? 'Available')
+	const defaultLabel = String(defaultStatus?.generalDetailDisplayName ?? defaultStatus?.generalDetailName ?? 'Available')
+
+	const seatByCell = new Map<string, any>()
+	for (const item of examRoomSeatDto(allotment)) {
+		const rowNo = num(pick(item, ['rowNo', 'row_no', 'rowNO', 'row'], 0))
+		const colNo = num(pick(item, ['columnNo', 'column_no', 'columnNO', 'colNo', 'col_no', 'column'], 0))
+		if (!rowNo || !colNo) continue
+		seatByCell.set(`${rowNo}-${colNo}`, item)
+	}
+
+	let serial = 1
+	const serialMap = new Map<string, string>()
+	for (let col = 1; col <= cols; col++) {
+		const rowOrder = Array.from({ length: rows }, (_, i) => i + 1)
+		if (col % 2 === 0) rowOrder.reverse()
+		for (const row of rowOrder) {
+			serialMap.set(`${row}-${col}`, `S${serial++}`)
+		}
+	}
+
+	const cells: SeatCell[] = []
+	for (let rowNo = 1; rowNo <= rows; rowNo++) {
+		for (let columnNo = 1; columnNo <= cols; columnNo++) {
+			const key = `${rowNo}-${columnNo}`
+			const seat = seatByCell.get(key) ?? {}
+			const statusCode = String(
+				pick(seat, ['examSeatStatusCode', 'examseatstatusCatCode', 'seat_status', 'exam_display_seat_status_code'], defaultCode),
+			)
+			const statusRow =
+				examSeatStatuses.find((s) => String(s.generalDetailCode) === statusCode) ??
+				examSeatStatuses.find((s) => Number(s.generalDetailId) === num(pick(seat, ['examseatstatusCatId', 'examseatstatus_cat_id'], 0)))
+			cells.push({
+				key,
+				rowNo,
+				columnNo,
+				serial: serialMap.get(key) ?? '',
+				examRoomStdAllotId: num(pick(seat, ['examRoomStdAllotId', 'exam_room_std_allot_id', 'pk_exam_room_std_allot_id'], 0)) || null,
+				collegeId: ids.collegeId,
+				examId: ids.examId,
+				examTimetableId: ids.examTimetableId,
+				roomId: ids.roomId,
+				examseatstatusCatId: num(pick(seat, ['examseatstatusCatId', 'examseatstatus_cat_id'], statusRow?.generalDetailId ?? defaultStatusId)),
+				studentId: num(pick(seat, ['studentId', 'student_id', 'fk_student_id'], 0)) || null,
+				subjectId: num(pick(seat, ['subjectId', 'subject_id', 'fk_subject_id'], 0)) || null,
+				stdName: String(pick(seat, ['stdName', 'student_name', 'firstName', 'first_name'], '')),
+				hallticketNumber: String(pick(seat, ['hallticketNumber', 'hallticket_number', 'rollNumber', 'roll_number'], '')),
+				subjectCode: String(pick(seat, ['subjectCode', 'subject_code', 'shortName', 'short_name'], '')),
+				examSeatStatusCode: statusCode || defaultCode,
+				examDisplaySeatStatusCode: String(
+					pick(seat, ['examDisplaySeatStatusCode', 'examseatstatusCatDisplayName', 'exam_display_seat_status_code'], statusRow?.generalDetailDisplayName ?? defaultLabel),
+				),
+				createdDt: pick(seat, ['createdDt', 'created_dt'], null) as string | null,
+				isActive: pick(seat, ['isActive', 'is_active'], true) as boolean,
+			})
+		}
+	}
+	return cells
+}
+
+function seatCounts(cells: SeatCell[]) {
+	let blocked = 0
+	let booked = 0
+	let available = 0
+	for (const cell of cells) {
+		const code = cell.examSeatStatusCode.toLowerCase()
+		if (code === 'available') available++
+		else if (code === 'booked') booked++
+		else blocked++
+	}
+	return { blocked, booked, available }
+}
+
 type PrintMode = 'seating' | 'attendance' | 'stickers' | 'groupwise-stickers'
 
 export default function SeatAllotStudentsPage() {
@@ -133,8 +272,42 @@ export default function SeatAllotStudentsPage() {
 	const [roomAllotment, setRoomAllotment] = useState<any | null>(null)
 	const [resolvedCourse, setResolvedCourse] = useState('')
 	const [resolvedAcademicYear, setResolvedAcademicYear] = useState('')
+	const [resolvedCollegeCode, setResolvedCollegeCode] = useState('')
+	const [scheduleMeta, setScheduleMeta] = useState({
+		collegeCode: '',
+		academicYear: '',
+		courseCode: '',
+	})
 	const [loading, setLoading] = useState(false)
+	const [savingSeat, setSavingSeat] = useState(false)
 	const [mode, setMode] = useState<'student' | 'bulk'>('student')
+	const [bulkCourseGroups, setBulkCourseGroups] = useState<any[]>([])
+	const [bulkCourseYears, setBulkCourseYears] = useState<any[]>([])
+	const [bulkCourseGroupId, setBulkCourseGroupId] = useState<string>('')
+	const [bulkCourseYearId, setBulkCourseYearId] = useState<string>('')
+	const [bulkStudents, setBulkStudents] = useState<BulkStudentRow[]>([])
+	const [bulkCheckAll, setBulkCheckAll] = useState(true)
+	const [bulkSearch, setBulkSearch] = useState('')
+	const [bulkSelectedSearch, setBulkSelectedSearch] = useState('')
+	const [loadingBulkStudents, setLoadingBulkStudents] = useState(false)
+	const [savingBulk, setSavingBulk] = useState(false)
+	const [examSeatStatuses, setExamSeatStatuses] = useState<any[]>([])
+	const [seatCells, setSeatCells] = useState<SeatCell[]>([])
+	const [selectedSeat, setSelectedSeat] = useState<SeatCell | null>(null)
+	const [seatModalOpen, setSeatModalOpen] = useState(false)
+	const [modalStudents, setModalStudents] = useState<any[]>([])
+	const [modalStudentsLoading, setModalStudentsLoading] = useState(false)
+	const [examFilterIds, setExamFilterIds] = useState({
+		collegeId: 0,
+		courseId: 0,
+		examId: 0,
+	})
+	const [resolvedAllotmentIds, setResolvedAllotmentIds] = useState({
+		collegeId: 0,
+		courseId: 0,
+		examId: 0,
+		examDate: '',
+	})
 
 	const details = useMemo(
 		() => ({
@@ -160,123 +333,471 @@ export default function SeatAllotStudentsPage() {
 	const collegeLogo = useCollegeLogo(Number(details.collegeId) || null)
 
 	useEffect(() => {
-		async function load() {
-			const routeExamId = Number(details.examId || 0)
-			const routeCourseId = Number(details.courseId || 0)
-			const routeExamTimetableId = Number(details.examTimetableId || 0)
-			const routeSessionId = Number(details.sessionId || 0)
-			const examRoomAllotmentId = Number(details.examRoomAllotmentId || 0)
-			if (!routeExamId && !examRoomAllotmentId) {
-				setAttendanceRows([])
-				setSeatRows([])
-				setRoomAllotment(null)
-				return
-			}
-			setLoading(true)
-			try {
-				const allotmentData = await fetchExamRoomAllotmentById(examRoomAllotmentId)
-				const allotment = unwrapExamRoomAllotRecord(allotmentData)
-				const examId = routeExamId || num(pick(allotment, ['examId', 'fk_exam_id', 'exam_id'], 0))
-				const courseId =
-					routeCourseId ||
-					num(
-						pick(
-							allotment,
-							['courseId', 'fk_course_id', 'course_id', 'Course.courseId', 'Course.course_id'],
-							0,
-						),
-					)
-				const examTimetableId =
-					routeExamTimetableId ||
-					num(
-						pick(
-							allotment,
-							[
-								'examTimetableId',
-								'fk_exam_timetable_id',
-								'exam_timetable_id',
-								'ExamTimetable.examTimetableId',
-								'ExamTimetable.exam_timetable_id',
-							],
-							0,
-						),
-					)
-				const sessionId =
-					routeSessionId ||
-					num(pick(allotment, ['examSessionId', 'fk_exam_session_id', 'sessionId', 'exam_session_id'], 0))
-				const examDate = details.examDate || String(pick(allotment, ['examDate', 'exam_date'], ''))
-				// Pull college / room ids so the OMR proc matches the Angular call:
-				// in_college_id and in_room_id are required to scope the result to
-				// this room — without them the proc returns an empty rowset on
-				// some installations.
-				const collegeId =
-					Number(details.collegeId || 0) ||
-					num(pick(allotment, ['collegeId', 'fk_college_id', 'college_id', 'College.collegeId', 'College.college_id'], 0))
-				const roomId =
-					num(pick(allotment, ['roomId', 'fk_room_id', 'room_id', 'examRoomId', 'fk_exam_room_id', 'exam_room_id', 'ExamRoom.examRoomId', 'Room.roomId'], 0))
+		listGeneralDetailsByMaster(GM_CODES.EXAM_SEAT_STATUS)
+			.then((rows) => setExamSeatStatuses(Array.isArray(rows) ? rows : []))
+			.catch(() => setExamSeatStatuses([]))
+	}, [])
 
-				const [attData, seatsData] = await Promise.all([
-					examId > 0 && courseId > 0 && examTimetableId > 0
-						? fetchExamStdAttDetails({ examId, courseId, examTimetableId })
-						: Promise.resolve([]),
-					examId > 0
-						? fetchRoomwiseOmrStudents({
-								examId,
-								courseId,
-								examDate,
-								sessionId,
-								collegeId,
-								roomId,
-							})
-						: Promise.resolve([]),
-				])
-				setAttendanceRows(Array.isArray(attData) ? attData : [])
-				setSeatRows(Array.isArray(seatsData) ? seatsData : [])
-				setRoomAllotment(allotment)
-			} finally {
-				setLoading(false)
-			}
+	async function reloadRoomAllotment() {
+		const routeExamId = Number(details.examId || 0)
+		const routeCourseId = Number(details.courseId || 0)
+		const routeExamTimetableId = Number(details.examTimetableId || 0)
+		const routeSessionId = Number(details.sessionId || 0)
+		const examRoomAllotmentId = Number(details.examRoomAllotmentId || 0)
+		if (!routeExamId && !examRoomAllotmentId) {
+			setAttendanceRows([])
+			setSeatRows([])
+			setRoomAllotment(null)
+			setSeatCells([])
+			return
 		}
-		load()
-	}, [details.examId, details.courseId, details.examTimetableId, details.examDate, details.sessionId, details.examRoomAllotmentId])
+		setLoading(true)
+		try {
+			const allotmentData = await fetchExamRoomAllotmentById(examRoomAllotmentId)
+			const allotment = unwrapExamRoomAllotRecord(allotmentData)
+			const examId = routeExamId || num(pick(allotment, ['examId', 'fk_exam_id', 'exam_id'], 0))
+			const courseId =
+				routeCourseId ||
+				num(
+					pick(
+						allotment,
+						['courseId', 'fk_course_id', 'course_id', 'Course.courseId', 'Course.course_id'],
+						0,
+					),
+				)
+			const examTimetableId =
+				routeExamTimetableId ||
+				num(
+					pick(
+						allotment,
+						[
+							'examTimetableId',
+							'fk_exam_timetable_id',
+							'exam_timetable_id',
+							'ExamTimetable.examTimetableId',
+							'ExamTimetable.exam_timetable_id',
+						],
+						0,
+					),
+				)
+			const sessionId =
+				routeSessionId ||
+				num(pick(allotment, ['examSessionId', 'fk_exam_session_id', 'sessionId', 'exam_session_id'], 0))
+			const examDate = details.examDate || String(pick(allotment, ['examDate', 'exam_date'], ''))
+			const collegeId =
+				Number(details.collegeId || 0) ||
+				num(pick(allotment, ['collegeId', 'fk_college_id', 'college_id', 'College.collegeId', 'College.college_id'], 0))
+			const roomId = num(
+				pick(
+					allotment,
+					['roomId', 'fk_room_id', 'room_id', 'examRoomId', 'fk_exam_room_id', 'exam_room_id', 'ExamRoom.examRoomId', 'Room.roomId'],
+					0,
+				),
+			)
+
+			const [attData, seatsData] = await Promise.all([
+				examId > 0 && courseId > 0 && examTimetableId > 0
+					? fetchExamStdAttDetails({ examId, courseId, examTimetableId })
+					: Promise.resolve([]),
+				examId > 0
+					? fetchRoomwiseOmrStudents({
+							examId,
+							courseId,
+							examDate,
+							sessionId,
+							collegeId,
+							roomId,
+						})
+					: Promise.resolve([]),
+			])
+			setAttendanceRows(Array.isArray(attData) ? attData : [])
+			setSeatRows(Array.isArray(seatsData) ? seatsData : [])
+			setRoomAllotment(allotment)
+			setResolvedAllotmentIds({
+				collegeId,
+				courseId,
+				examId,
+				examDate: toExamApiDate(examDate),
+			})
+			if (allotment && examSeatStatuses.length > 0) {
+				setSeatCells(
+					buildSeatCells(allotment, examSeatStatuses, {
+						collegeId,
+						examId,
+						examTimetableId,
+						roomId,
+					}),
+				)
+			}
+
+			const ayId = Number(searchParams?.get('academicYearId') || 0)
+			const filterRows = await listUnivExamFiltersByCode({
+				courseId: courseId || undefined,
+				examId: examId || undefined,
+				academicYearId: ayId || undefined,
+			}).catch(() => [])
+			const filterRow =
+				filterRows.find((r) => num(r.fk_course_id) === courseId) ??
+				filterRows.find((r) => num(r.fk_exam_id) === examId) ??
+				filterRows[0]
+			if (filterRow) {
+				setExamFilterIds({
+					collegeId:
+						collegeId ||
+						num(filterRow.fk_college_id ?? filterRow.college_id ?? filterRow.collegeId),
+					courseId:
+						courseId ||
+						num(filterRow.fk_course_id ?? filterRow.course_id ?? filterRow.courseId),
+					examId:
+						examId || num(filterRow.fk_exam_id ?? filterRow.exam_id ?? filterRow.examId),
+				})
+				setScheduleMeta({
+					collegeCode: String(
+						filterRow.college_code ??
+						filterRow.collegeCode ??
+						pick(allotment, ['college_code', 'collegeCode', 'College.collegeCode'], ''),
+					),
+					academicYear: String(filterRow.academic_year ?? filterRow.academicYear ?? '')
+						.replace(/\s*-\s*/g, '-'),
+					courseCode: String(filterRow.course_code ?? filterRow.courseCode ?? ''),
+				})
+			}
+		} finally {
+			setLoading(false)
+		}
+	}
+
+	useEffect(() => {
+		void reloadRoomAllotment()
+	}, [details.examId, details.courseId, details.examTimetableId, details.examDate, details.sessionId, details.examRoomAllotmentId, examSeatStatuses.length])
+
+	const allotmentContext = useMemo(() => {
+		const collegeId =
+			Number(details.collegeId || 0) ||
+			examFilterIds.collegeId ||
+			resolvedAllotmentIds.collegeId ||
+			seatCells[0]?.collegeId ||
+			num(pick(roomAllotment, ['collegeId', 'fk_college_id', 'college_id'], 0))
+		const courseId =
+			Number(details.courseId || 0) ||
+			examFilterIds.courseId ||
+			resolvedAllotmentIds.courseId ||
+			num(pick(roomAllotment, ['courseId', 'fk_course_id', 'course_id'], 0))
+		const examId =
+			Number(details.examId || 0) ||
+			examFilterIds.examId ||
+			resolvedAllotmentIds.examId ||
+			num(pick(roomAllotment, ['examId', 'fk_exam_id', 'exam_id'], 0))
+		const examDate = toExamApiDate(
+			details.examDate ||
+				resolvedAllotmentIds.examDate ||
+				String(pick(roomAllotment, ['examDate', 'exam_date'], '')),
+		)
+		return { collegeId, courseId, examId, examDate }
+	}, [
+		details.collegeId,
+		details.courseId,
+		details.examId,
+		details.examDate,
+		examFilterIds,
+		resolvedAllotmentIds,
+		seatCells,
+		roomAllotment,
+	])
+
+	const bulkSubjectId = useMemo(() => {
+		const raw = pick(roomAllotment, ['subjectIds', 'subjectId', 'subject_ids'], 0)
+		if (raw == null || raw === '') return 0
+		if (typeof raw === 'number') return raw
+		const first = String(raw).split(',')[0]?.trim()
+		return Number(first) || 0
+	}, [roomAllotment])
+
+	const selectedBulkStudents = useMemo(
+		() => bulkStudents.filter((s) => s.checked),
+		[bulkStudents],
+	)
+
+	const filteredBulkStudents = useMemo(() => {
+		const q = bulkSearch.trim().toLowerCase()
+		if (!q) return bulkStudents
+		return bulkStudents.filter((s) => {
+			const name = String(s.firstName ?? s.first_name ?? s.stdName ?? '').toLowerCase()
+			const roll = String(s.rollNumber ?? s.roll_number ?? s.hallticketNumber ?? s.hallticket_number ?? '').toLowerCase()
+			return name.includes(q) || roll.includes(q)
+		})
+	}, [bulkStudents, bulkSearch])
+
+	const filteredSelectedBulkStudents = useMemo(() => {
+		const q = bulkSelectedSearch.trim().toLowerCase()
+		if (!q) return selectedBulkStudents
+		return selectedBulkStudents.filter((s) => {
+			const name = String(s.firstName ?? s.first_name ?? s.stdName ?? '').toLowerCase()
+			const roll = String(s.rollNumber ?? s.roll_number ?? s.hallticketNumber ?? s.hallticket_number ?? '').toLowerCase()
+			return name.includes(q) || roll.includes(q)
+		})
+	}, [selectedBulkStudents, bulkSelectedSearch])
+
+	const bulkCourseGroupOptions = useMemo(
+		() =>
+			bulkCourseGroups.map((g) => ({
+				value: String(g.courseGroupId ?? g.fk_course_group_id ?? g.course_group_id ?? ''),
+				label: String(g.groupCode ?? g.group_code ?? g.groupName ?? g.group_name ?? ''),
+			})).filter((o) => o.value && o.label),
+		[bulkCourseGroups],
+	)
+
+	const bulkCourseYearOptions = useMemo(
+		() =>
+			bulkCourseYears.map((y) => ({
+				value: String(y.courseYearId ?? y.fk_course_year_id ?? y.course_year_id ?? ''),
+				label: String(y.courseYearName ?? y.course_year_name ?? y.courseYearCode ?? y.course_year_code ?? ''),
+			})).filter((o) => o.value && o.label),
+		[bulkCourseYears],
+	)
+
+	useEffect(() => {
+		if (mode !== 'bulk') return
+		const courseId = allotmentContext.courseId
+		if (!courseId) {
+			setBulkCourseGroups([])
+			return
+		}
+		let mounted = true
+		listCourseGroups(courseId)
+			.then((rows) => {
+				if (!mounted) return
+				setBulkCourseGroups(Array.isArray(rows) ? rows : [])
+			})
+			.catch(() => {
+				if (mounted) setBulkCourseGroups([])
+			})
+		return () => {
+			mounted = false
+		}
+	}, [mode, allotmentContext.courseId])
+
+	useEffect(() => {
+		if (mode !== 'bulk' || bulkCourseGroupId || bulkCourseGroups.length === 0) return
+		const first = bulkCourseGroups[0]
+		const id = first?.courseGroupId ?? first?.fk_course_group_id ?? first?.course_group_id
+		if (id) setBulkCourseGroupId(String(id))
+	}, [mode, bulkCourseGroups, bulkCourseGroupId])
+
+	useEffect(() => {
+		if (mode !== 'bulk' || bulkCourseYearId || bulkCourseYears.length === 0) return
+		const first = bulkCourseYears[0]
+		const id = first?.courseYearId ?? first?.fk_course_year_id ?? first?.course_year_id
+		if (id) setBulkCourseYearId(String(id))
+	}, [mode, bulkCourseYears, bulkCourseYearId])
+
+	useEffect(() => {
+		if (mode !== 'bulk' || !bulkCourseGroupId) {
+			setBulkCourseYears([])
+			return
+		}
+		const courseId = allotmentContext.courseId
+		if (!courseId) return
+		let mounted = true
+		listCourseYears(courseId)
+			.then((rows) => {
+				if (!mounted) return
+				setBulkCourseYears(Array.isArray(rows) ? rows : [])
+			})
+			.catch(() => {
+				if (mounted) setBulkCourseYears([])
+			})
+		return () => {
+			mounted = false
+		}
+	}, [mode, bulkCourseGroupId, allotmentContext.courseId])
+
+	useEffect(() => {
+		if (mode !== 'bulk' || !bulkCourseGroupId || !bulkCourseYearId) {
+			setBulkStudents([])
+			return
+		}
+		const { collegeId, courseId, examId, examDate } = allotmentContext
+		if (!collegeId || !courseId || !examId || !examDate) return
+		let mounted = true
+		setLoadingBulkStudents(true)
+		listBulkAllotmentStudents({
+			collegeId,
+			courseId,
+			examId,
+			examDate,
+			courseGroupId: Number(bulkCourseGroupId),
+			courseYearId: Number(bulkCourseYearId),
+			subjectId: bulkSubjectId,
+		})
+			.then((rows) => {
+				if (!mounted) return
+				const list = (Array.isArray(rows) ? rows : []).map((row) => ({ ...row, checked: true }))
+				setBulkStudents(list)
+				setBulkCheckAll(list.length > 0)
+			})
+			.catch(() => {
+				if (mounted) setBulkStudents([])
+			})
+			.finally(() => {
+				if (mounted) setLoadingBulkStudents(false)
+			})
+		return () => {
+			mounted = false
+		}
+	}, [
+		mode,
+		bulkCourseGroupId,
+		bulkCourseYearId,
+		allotmentContext.collegeId,
+		allotmentContext.courseId,
+		allotmentContext.examId,
+		allotmentContext.examDate,
+		bulkSubjectId,
+	])
 
 	useEffect(() => {
 		let mounted = true
 		async function resolveLabels() {
-			const cId = Number(details.courseId || 0)
+			const cId = Number(details.courseId || 0) || allotmentContext.courseId
+			const collegeId = Number(details.collegeId || 0) || allotmentContext.collegeId
 			const ayId = Number(searchParams?.get('academicYearId') || 0)
-			if (!cId) {
+			if (!cId && !collegeId) {
 				setResolvedCourse('')
 				setResolvedAcademicYear('')
+				setResolvedCollegeCode('')
 				return
 			}
-			const [course, ay] = await Promise.all([
-				fetchSingleDomain('Course', 'courseId', cId).catch(() => null),
+			const [course, ay, college] = await Promise.all([
+				cId ? fetchSingleDomain('Course', 'courseId', cId).catch(() => null) : Promise.resolve(null),
 				ayId ? fetchSingleDomain('AcademicYear', 'academicYearId', ayId).catch(() => null) : Promise.resolve(null),
+				collegeId ? fetchSingleDomain('College', 'collegeId', collegeId).catch(() => null) : Promise.resolve(null),
 			])
 			if (!mounted) return
 			setResolvedCourse(
 				String(
 					course?.courseCode ??
-					course?.course_name ??
+					course?.course_code ??
 					course?.courseName ??
+					course?.course_name ??
 					course?.name ??
-					''
-				)
+					'',
+				),
 			)
 			setResolvedAcademicYear(
-				String(
-					ay?.academicYear ??
-					ay?.academic_year ??
-					''
-				)
+				String(ay?.academicYear ?? ay?.academic_year ?? '').replace(/\s*-\s*/g, '-'),
+			)
+			setResolvedCollegeCode(
+				String(college?.collegeCode ?? college?.college_code ?? college?.collegeName ?? college?.college_name ?? ''),
 			)
 		}
 		resolveLabels()
 		return () => {
 			mounted = false
 		}
-	}, [details.courseId, searchParams])
+	}, [details.courseId, details.collegeId, searchParams, allotmentContext.courseId, allotmentContext.collegeId])
+
+	const courseLine = useMemo(() => {
+		// Angular: {{examsList.collegeCode}} / {{pageParams.academicYear}} / {{pageParams.courseCode}}
+		const college =
+			searchParams?.get('collegeCode') ||
+			resolvedCollegeCode ||
+			scheduleMeta.collegeCode ||
+			''
+		const ay = details.academicYear || resolvedAcademicYear || scheduleMeta.academicYear
+		const course =
+			details.courseCode ||
+			details.courseName ||
+			resolvedCourse ||
+			scheduleMeta.courseCode ||
+			''
+		const parts = [college, ay, course].filter(Boolean)
+		return parts.length > 0 ? parts.join(' / ') : '—'
+	}, [
+		searchParams,
+		details.academicYear,
+		details.courseCode,
+		details.courseName,
+		resolvedAcademicYear,
+		resolvedCourse,
+		resolvedCollegeCode,
+		scheduleMeta,
+	])
+
+	const collegeCodeLabel = useMemo(
+		() => searchParams?.get('collegeCode') || resolvedCollegeCode || '',
+		[searchParams, resolvedCollegeCode],
+	)
+
+	useEffect(() => {
+		let mounted = true
+		async function resolveFromFilters() {
+			const courseId = allotmentContext.courseId
+			const examId = allotmentContext.examId
+			const ayId = Number(searchParams?.get('academicYearId') || 0)
+			if (!courseId && !examId) return
+			if (details.courseCode && details.academicYear) return
+
+			const filters = await listUnivExamFiltersByCode({
+				courseId: courseId || undefined,
+				examId: examId || undefined,
+				academicYearId: ayId || undefined,
+			}).catch(() => [])
+
+			const row =
+				filters.find((r) => num(r.fk_course_id) === courseId) ??
+				filters.find((r) => num(r.fk_exam_id) === examId) ??
+				filters[0]
+			if (!row || !mounted) return
+
+			if (!details.courseCode && !resolvedCourse) {
+				const code = String(row.course_code ?? row.courseCode ?? '')
+				if (code) setResolvedCourse(code)
+			}
+			if (!details.academicYear && !resolvedAcademicYear) {
+				const ay = String(row.academic_year ?? row.academicYear ?? '').replace(/\s*-\s*/g, '-')
+				if (ay) setResolvedAcademicYear(ay)
+			}
+			if (!searchParams?.get('collegeCode') && !resolvedCollegeCode) {
+				const code = String(row.college_code ?? row.collegeCode ?? '')
+				if (code) setResolvedCollegeCode(code)
+			}
+			if (!Number(details.collegeId || 0) && !resolvedAllotmentIds.collegeId) {
+				const collegeId = num(row.fk_college_id ?? row.college_id ?? row.collegeId)
+				if (collegeId > 0) {
+					setResolvedAllotmentIds((prev) => ({ ...prev, collegeId }))
+					setExamFilterIds((prev) => ({ ...prev, collegeId: prev.collegeId || collegeId }))
+				}
+			}
+			if (!Number(details.courseId || 0) && !resolvedAllotmentIds.courseId) {
+				const courseId = num(row.fk_course_id ?? row.course_id ?? row.courseId)
+				if (courseId > 0) {
+					setResolvedAllotmentIds((prev) => ({ ...prev, courseId }))
+					setExamFilterIds((prev) => ({ ...prev, courseId: prev.courseId || courseId }))
+				}
+			}
+			if (!Number(details.examId || 0) && !resolvedAllotmentIds.examId) {
+				const examId = num(row.fk_exam_id ?? row.exam_id ?? row.examId)
+				if (examId > 0) {
+					setResolvedAllotmentIds((prev) => ({ ...prev, examId }))
+					setExamFilterIds((prev) => ({ ...prev, examId: prev.examId || examId }))
+				}
+			}
+		}
+		void resolveFromFilters()
+		return () => {
+			mounted = false
+		}
+	}, [
+		allotmentContext.courseId,
+		allotmentContext.examId,
+		details.courseCode,
+		details.academicYear,
+		resolvedCourse,
+		resolvedAcademicYear,
+		resolvedCollegeCode,
+		searchParams,
+	])
 
 	const roomMeta = useMemo(() => {
 		const allotSeatsFromAllotment = examRoomSeatDto(roomAllotment ?? null)
@@ -290,25 +811,34 @@ export default function SeatAllotStudentsPage() {
 		const totalColsRaw = num(pick(metaSource, COL_DIM_KEYS, 0))
 		const totalRows = totalRowsRaw > 0 ? totalRowsRaw : inferRow > 0 ? inferRow : 0
 		const totalCols = totalColsRaw > 0 ? totalColsRaw : inferCol > 0 ? inferCol : 0
-		const blockedFromGrid = seatsSource.filter(
-			(r) =>
-				String(pick(r, ['examSeatStatusCode', 'examseatstatusCatCode', 'seat_status'], '')).toLowerCase() === 'blocked',
-		).length
-		const bookedFromGrid = seatsSource.filter((r) => {
-			const status = String(pick(r, ['examSeatStatusCode', 'examseatstatusCatCode', 'seat_status'], '')).toLowerCase()
-			return status === 'booked' || num(pick(r, ['studentId', 'student_id', 'fk_std_id'], 0)) > 0
-		}).length
 		const totalSeats = totalRows > 0 && totalCols > 0 ? totalRows * totalCols : 0
 		const roomStrength = num(pick(metaSource, ['roomStrength', 'room_strength'], 0))
-		const blockedSeats = num(pick(metaSource, ['blockedSeats', 'blocked_seats'], blockedFromGrid))
-		const bookedSeats = num(pick(metaSource, ['bookedSeats', 'booked_seats', 'noOfSeats'], bookedFromGrid))
-		const availableSeats = num(
-			pick(
-				metaSource,
-				['availableSeats', 'available_seats'],
-				Math.max((roomStrength || totalSeats || seatsSource.length) - bookedSeats - blockedSeats, 0),
-			),
-		)
+		const blockedFromGrid = seatCells.length
+			? seatCounts(seatCells).blocked
+			: seatsSource.filter(
+					(r) =>
+						String(pick(r, ['examSeatStatusCode', 'examseatstatusCatCode', 'seat_status'], '')).toLowerCase() === 'blocked',
+				).length
+		const bookedFromGrid = seatCells.length
+			? seatCounts(seatCells).booked
+			: seatsSource.filter((r) => {
+					const status = String(pick(r, ['examSeatStatusCode', 'examseatstatusCatCode', 'seat_status'], '')).toLowerCase()
+					return status === 'booked' || num(pick(r, ['studentId', 'student_id', 'fk_std_id'], 0)) > 0
+				}).length
+		const availableFromGrid = seatCells.length
+			? seatCounts(seatCells).available
+			: Math.max((roomStrength || totalSeats || seatsSource.length) - bookedFromGrid - blockedFromGrid, 0)
+		const blockedSeats = seatCells.length ? blockedFromGrid : num(pick(metaSource, ['blockedSeats', 'blocked_seats'], blockedFromGrid))
+		const bookedSeats = seatCells.length ? bookedFromGrid : num(pick(metaSource, ['bookedSeats', 'booked_seats', 'noOfSeats'], bookedFromGrid))
+		const availableSeats = seatCells.length
+			? availableFromGrid
+			: num(
+					pick(
+						metaSource,
+						['availableSeats', 'available_seats'],
+						Math.max((roomStrength || totalSeats || seatsSource.length) - bookedSeats - blockedSeats, 0),
+					),
+				)
 		return {
 			totalRows,
 			totalCols,
@@ -320,12 +850,32 @@ export default function SeatAllotStudentsPage() {
 			capacity: totalSeats || seatsSource.length,
 			roomLabel: details.roomCode || String(pick(metaSource, ['room_name', 'roomName', 'roomCode', 'room_code'], '')),
 		}
-	}, [seatRows, roomAllotment, details.roomCode])
+	}, [seatRows, roomAllotment, details.roomCode, seatCells])
 
 	const seatingGrid = useMemo(() => {
 		const totalRows = roomMeta.totalRows
 		const totalCols = roomMeta.totalCols
 		if (!totalRows || !totalCols) return []
+		if (seatCells.length > 0) {
+			const byRow = new Map<number, SeatCell[]>()
+			for (const cell of seatCells) {
+				if (!byRow.has(cell.rowNo)) byRow.set(cell.rowNo, [])
+				byRow.get(cell.rowNo)!.push(cell)
+			}
+			return Array.from({ length: totalRows }, (_, rIdx) => {
+				const rowNo = rIdx + 1
+				const rowCells = (byRow.get(rowNo) ?? []).sort((a, b) => a.columnNo - b.columnNo)
+				return rowCells.map((seat) => ({
+					key: seat.key,
+					serial: seat.serial,
+					status: seat.examSeatStatusCode || 'Available',
+					hallticket: seat.hallticketNumber,
+					subjectCode: seat.subjectCode,
+					stdName: seat.stdName,
+					cell: seat,
+				}))
+			})
+		}
 		const allotSeatsFromAllotment = examRoomSeatDto(roomAllotment ?? null)
 		const seatsSource = allotSeatsFromAllotment.length > 0 ? allotSeatsFromAllotment : seatRows
 		const seatByCell = new Map<string, any>()
@@ -360,10 +910,322 @@ export default function SeatAllotStudentsPage() {
 					hallticket: String(pick(seat, ['hallticketNumber', 'hallticket_number'], '')),
 					subjectCode: String(pick(seat, ['subjectCode', 'subject_code'], '')),
 					stdName: String(pick(seat, ['stdName', 'student_name'], '')),
+					cell: null as SeatCell | null,
 				}
 			})
 		})
-	}, [seatRows, roomAllotment, roomMeta.totalRows, roomMeta.totalCols])
+	}, [seatRows, roomAllotment, roomMeta.totalRows, roomMeta.totalCols, seatCells])
+
+	function buildStudentFetchParams(seat?: SeatCell | null) {
+		const collegeId =
+			Number(searchParams?.get('collegeId') ?? 0) ||
+			Number(details.collegeId || 0) ||
+			allotmentContext.collegeId ||
+			examFilterIds.collegeId ||
+			resolvedAllotmentIds.collegeId ||
+			seat?.collegeId ||
+			num(pick(roomAllotment, ['collegeId', 'fk_college_id', 'college_id', 'College.collegeId', 'College.college_id'], 0))
+		const courseId =
+			Number(searchParams?.get('courseId') ?? 0) ||
+			Number(details.courseId || 0) ||
+			allotmentContext.courseId ||
+			examFilterIds.courseId ||
+			resolvedAllotmentIds.courseId ||
+			num(pick(roomAllotment, ['courseId', 'fk_course_id', 'course_id', 'Course.courseId', 'Course.course_id'], 0))
+		const examId =
+			Number(searchParams?.get('examId') ?? 0) ||
+			Number(details.examId || 0) ||
+			allotmentContext.examId ||
+			examFilterIds.examId ||
+			resolvedAllotmentIds.examId ||
+			seat?.examId ||
+			num(pick(roomAllotment, ['examId', 'fk_exam_id', 'exam_id'], 0))
+		const examDate =
+			toExamApiDate(searchParams?.get('examDate')) ||
+			toExamApiDate(details.examDate) ||
+			allotmentContext.examDate ||
+			resolvedAllotmentIds.examDate ||
+			toExamApiDate(String(pick(roomAllotment, ['examDate', 'exam_date'], ''))) ||
+			toExamApiDate(String(pick(seatRows[0], ['examDate', 'exam_date'], '')))
+		return { collegeId, courseId, examId, examDate }
+	}
+
+	function describeMissingStudentParams(params: {
+		collegeId: number
+		courseId: number
+		examId: number
+		examDate: string
+	}) {
+		return [
+			!params.collegeId && 'college',
+			!params.courseId && 'course',
+			!params.examId && 'exam',
+			!params.examDate && 'date',
+		]
+			.filter(Boolean)
+			.join(', ')
+	}
+
+	async function enrichStudentParamsFromFilters(params: {
+		collegeId: number
+		courseId: number
+		examId: number
+		examDate: string
+	}) {
+		const ayId = Number(searchParams?.get('academicYearId') || 0)
+		const filters = await listUnivExamFiltersByCode({
+			examId: params.examId || Number(details.examId || 0) || undefined,
+			courseId: params.courseId || Number(details.courseId || 0) || undefined,
+			academicYearId: ayId || undefined,
+		}).catch(() => [])
+		const row =
+			filters.find((r) => num(r.fk_exam_id) === Number(details.examId || 0)) ??
+			filters.find((r) => num(r.fk_course_id) === Number(details.courseId || 0)) ??
+			filters[0]
+		if (!row) return params
+		return {
+			collegeId:
+				params.collegeId ||
+				num(row.fk_college_id ?? row.college_id ?? row.collegeId),
+			courseId:
+				params.courseId ||
+				num(row.fk_course_id ?? row.course_id ?? row.courseId),
+			examId:
+				params.examId || num(row.fk_exam_id ?? row.exam_id ?? row.examId),
+			examDate:
+				params.examDate ||
+				toExamApiDate(details.examDate) ||
+				toExamApiDate(String(row.exam_date ?? row.examDate ?? '')),
+		}
+	}
+
+	async function openSeatModal(seat: SeatCell) {
+		setSelectedSeat(seat)
+		setSeatModalOpen(true)
+		setModalStudents([])
+
+		let params = buildStudentFetchParams(seat)
+		if (describeMissingStudentParams(params)) {
+			params = await enrichStudentParamsFromFilters(params)
+		}
+
+		const missing = describeMissingStudentParams(params)
+		if (missing) {
+			toast.error(`Missing ${missing} — cannot load students.`)
+			return
+		}
+
+		setModalStudentsLoading(true)
+		void listExamStudentsForSeatAllotment(params)
+			.then((rows) => setModalStudents(rows))
+			.catch(() => toast.error('Failed to load students for seat allotment.'))
+			.finally(() => setModalStudentsLoading(false))
+	}
+
+	function onBulkCourseGroupChange(value: string | null) {
+		setBulkCourseGroupId(value ?? '')
+		setBulkCourseYearId('')
+		setBulkStudents([])
+	}
+
+	function toggleBulkCheckAll(checked: boolean) {
+		setBulkCheckAll(checked)
+		setBulkStudents((rows) => rows.map((row) => ({ ...row, checked })))
+	}
+
+	function toggleBulkStudent(studentId: number, checked: boolean) {
+		setBulkStudents((rows) =>
+			rows.map((row) => {
+				const id = Number(row.studentId ?? row.student_id ?? row.pk_student_id ?? 0)
+				return id === studentId ? { ...row, checked } : row
+			}),
+		)
+		setBulkCheckAll(false)
+	}
+
+	async function handleBulkSave() {
+		if (!roomAllotment || selectedBulkStudents.length === 0) return
+		const bookedStatus = examSeatStatuses.find((s) => String(s.generalDetailCode) === 'Booked')
+		const bookedId = Number(bookedStatus?.generalDetailId ?? 0)
+		const bookedCode = String(bookedStatus?.generalDetailCode ?? 'Booked')
+		const bookedLabel = String(
+			bookedStatus?.generalDetailDisplayName ?? bookedStatus?.generalDetailName ?? 'Booked',
+		)
+		if (!bookedId) {
+			toast.error('Booked seat status is not configured.')
+			return
+		}
+
+		let studentIdx = 0
+		const nextCells = seatCells.map((cell) => {
+			if (studentIdx >= selectedBulkStudents.length) return cell
+			const isAvailable = cell.examSeatStatusCode.toLowerCase() === 'available' && !cell.studentId
+			if (!isAvailable) return cell
+			const stu = selectedBulkStudents[studentIdx++]
+			const studentId = Number(stu.studentId ?? stu.student_id ?? stu.pk_student_id ?? 0) || null
+			const roll = String(stu.rollNumber ?? stu.roll_number ?? stu.hallticketNumber ?? stu.hallticket_number ?? '')
+			return {
+				...cell,
+				examseatstatusCatId: bookedId,
+				studentId,
+				subjectId: Number(stu.subjectId ?? stu.subject_id ?? 0) || null,
+				examSeatStatusCode: bookedCode,
+				examDisplaySeatStatusCode: bookedLabel,
+				hallticketNumber: roll,
+				subjectCode: String(stu.shortName ?? stu.subjectCode ?? stu.subject_code ?? ''),
+				stdName: String(stu.firstName ?? stu.first_name ?? stu.stdName ?? ''),
+			}
+		})
+
+		if (studentIdx === 0) {
+			toast.error('No available seats to allot selected students.')
+			return
+		}
+		if (studentIdx < selectedBulkStudents.length) {
+			toast.warning(`Only ${studentIdx} of ${selectedBulkStudents.length} students were allotted (not enough available seats).`)
+		}
+
+		const counts = seatCounts(nextCells)
+		const examRoomAllotmentId = num(
+			pick(roomAllotment, ['examRoomAllotmentId', 'exam_room_allotment_id', 'pk_exam_room_allotment_id'], 0),
+		)
+		const examDate =
+			toDateStr(details.examDate) || toDateStr(String(pick(roomAllotment, ['examDate', 'exam_date'], '')))
+		const payload = [
+			{
+				collegeId: nextCells[0]?.collegeId ?? Number(details.collegeId || 0),
+				examId: nextCells[0]?.examId ?? Number(details.examId || 0),
+				examRoomAllotmentId: examRoomAllotmentId || null,
+				examTimetableId: nextCells[0]?.examTimetableId ?? Number(details.examTimetableId || 0),
+				roomId: nextCells[0]?.roomId ?? 0,
+				examDate,
+				totalRows: roomMeta.totalRows,
+				totalColumns: roomMeta.totalCols,
+				priority: roomMeta.priority,
+				roomStrength: roomMeta.roomStrength || roomMeta.capacity,
+				availableSeats: counts.available,
+				blockedSeats: counts.blocked,
+				bookedSeats: counts.booked,
+				isActive: true,
+				createdDt: pick(roomAllotment, ['createdDt', 'created_dt'], null),
+				examRoomStudentAllotmentDTO: nextCells.map((cell) => ({
+					examRoomStdAllotId: cell.examRoomStdAllotId,
+					collegeId: cell.collegeId,
+					examId: cell.examId,
+					examTimetableId: cell.examTimetableId,
+					roomId: cell.roomId,
+					rowNo: cell.rowNo,
+					columnNo: cell.columnNo,
+					createdDt: cell.createdDt,
+					examseatstatusCatId: cell.examseatstatusCatId,
+					studentId: cell.studentId,
+					subjectId: cell.subjectId,
+					stdName: cell.stdName,
+					hallticketNumber: cell.hallticketNumber,
+					subjectCode: cell.subjectCode,
+					examSeatStatusCode: cell.examSeatStatusCode,
+					examDisplaySeatStatusCode: cell.examDisplaySeatStatusCode,
+					isActive: cell.isActive,
+				})),
+			},
+		]
+
+		setSavingBulk(true)
+		const { ok, message } = await createExamRoomAllotments(payload).catch(() => ({
+			ok: false,
+			message: 'Network error',
+			raw: null,
+		}))
+		setSavingBulk(false)
+		if (!ok) {
+			toast.error(message || 'Failed to save bulk allotment.')
+			return
+		}
+		toast.success(message || 'Bulk allotment saved.')
+		setSeatCells(nextCells)
+		setBulkStudents([])
+		setBulkCourseYearId('')
+		await reloadRoomAllotment()
+	}
+
+	async function handleSeatSave(result: SeatAllotmentResult) {
+		if (!selectedSeat || !roomAllotment) return
+		const nextCells = seatCells.map((cell) =>
+			cell.key === selectedSeat.key
+				? {
+						...cell,
+						examseatstatusCatId: result.examseatstatusCatId,
+						studentId: result.studentId,
+						subjectId: result.subjectId,
+						examSeatStatusCode: result.examSeatStatusCode,
+						examDisplaySeatStatusCode: result.examDisplaySeatStatusCode,
+						hallticketNumber: result.hallticketNumber,
+						subjectCode: result.subjectCode,
+						stdName: result.stdName,
+					}
+				: cell,
+		)
+		const counts = seatCounts(nextCells)
+		const examRoomAllotmentId = num(
+			pick(roomAllotment, ['examRoomAllotmentId', 'exam_room_allotment_id', 'pk_exam_room_allotment_id'], 0),
+		)
+		const examDate =
+			toDateStr(details.examDate) || toDateStr(String(pick(roomAllotment, ['examDate', 'exam_date'], '')))
+		const payload = [
+			{
+				collegeId: nextCells[0]?.collegeId ?? Number(details.collegeId || 0),
+				examId: nextCells[0]?.examId ?? Number(details.examId || 0),
+				examRoomAllotmentId: examRoomAllotmentId || null,
+				examTimetableId: nextCells[0]?.examTimetableId ?? Number(details.examTimetableId || 0),
+				roomId: nextCells[0]?.roomId ?? 0,
+				examDate,
+				totalRows: roomMeta.totalRows,
+				totalColumns: roomMeta.totalCols,
+				priority: roomMeta.priority,
+				roomStrength: roomMeta.roomStrength || roomMeta.capacity,
+				availableSeats: counts.available,
+				blockedSeats: counts.blocked,
+				bookedSeats: counts.booked,
+				isActive: true,
+				createdDt: pick(roomAllotment, ['createdDt', 'created_dt'], null),
+				examRoomStudentAllotmentDTO: nextCells.map((cell) => ({
+					examRoomStdAllotId: cell.examRoomStdAllotId,
+					collegeId: cell.collegeId,
+					examId: cell.examId,
+					examTimetableId: cell.examTimetableId,
+					roomId: cell.roomId,
+					rowNo: cell.rowNo,
+					columnNo: cell.columnNo,
+					createdDt: cell.createdDt,
+					examseatstatusCatId: cell.examseatstatusCatId,
+					studentId: cell.studentId,
+					subjectId: cell.subjectId,
+					stdName: cell.stdName,
+					hallticketNumber: cell.hallticketNumber,
+					subjectCode: cell.subjectCode,
+					examSeatStatusCode: cell.examSeatStatusCode,
+					examDisplaySeatStatusCode: cell.examDisplaySeatStatusCode,
+					isActive: cell.isActive,
+				})),
+			},
+		]
+		setSavingSeat(true)
+		const { ok, message } = await createExamRoomAllotments(payload).catch(() => ({
+			ok: false,
+			message: 'Network error',
+			raw: null,
+		}))
+		setSavingSeat(false)
+		if (!ok) {
+			toast.error(message || 'Failed to save seat allotment.')
+			return
+		}
+		toast.success(message || 'Seat allotment saved.')
+		setSeatCells(nextCells)
+		setSeatModalOpen(false)
+		setSelectedSeat(null)
+		await reloadRoomAllotment()
+	}
 
 	// ── Print layouts ─────────────────────────────────────────────────────────
 	// While printMode is set, the normal UI is unmounted and only the chosen
@@ -698,7 +1560,9 @@ export default function SeatAllotStudentsPage() {
 					</div>
 				</div>
 			)}
-		<PageHeader title="Seat Allot Students" subtitle="Allocate seating for exam students" />
+		<h1 className="mb-3 text-[15px] font-semibold tracking-tight text-[hsl(var(--page-title))]">
+			Seat Allot Students
+		</h1>
 			<div className="app-card overflow-hidden">
 				<div className="px-4 py-3 border-b border-border bg-muted/40">
 					<h2 className="app-card-title">Exam Scheduling Forms</h2>
@@ -708,11 +1572,7 @@ export default function SeatAllotStudentsPage() {
 						<div className="flex flex-wrap items-center gap-2">
 							<span className="font-semibold text-slate-700 min-w-16">Course</span>
 							<span>:</span>
-							<span className="font-semibold text-blue-700">
-								{`${(details.academicYear || resolvedAcademicYear) ? `${details.academicYear || resolvedAcademicYear} / ` : ''}${
-									details.courseName || details.courseCode || resolvedCourse || details.courseId || '-'
-								}`}
-							</span>
+							<span className="font-semibold text-blue-700">{courseLine}</span>
 						</div>
 						<div className="flex flex-wrap items-center gap-2">
 							<span className="font-semibold text-slate-700 min-w-16">Exam</span>
@@ -781,9 +1641,143 @@ export default function SeatAllotStudentsPage() {
 						</label>
 					</div>
 
+					{mode === 'bulk' && roomMeta.totalRows > 0 && roomMeta.totalCols > 0 && (
+						<div className="rounded border border-blue-200 bg-blue-50/20 p-3 space-y-3 mt-2">
+							<div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+								<Select
+									label="Course Group"
+									value={bulkCourseGroupId || null}
+									onChange={onBulkCourseGroupChange}
+									options={bulkCourseGroupOptions}
+									placeholder="Course Group"
+									searchable
+								/>
+								<Select
+									label="Course Year"
+									value={bulkCourseYearId || null}
+									onChange={(v) => setBulkCourseYearId(v ?? '')}
+									options={bulkCourseYearOptions}
+									placeholder="Course Year"
+									searchable
+									disabled={!bulkCourseGroupId}
+								/>
+							</div>
+
+							{loadingBulkStudents ? (
+								<p className="text-[11px] text-muted-foreground px-1">Loading students...</p>
+							) : null}
+
+							{bulkStudents.length > 0 ? (
+								<div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+									<div className="rounded border border-border bg-card p-2 space-y-2">
+										<Input
+											value={bulkSearch}
+											onChange={(e) => setBulkSearch(e.target.value)}
+											placeholder="Search..."
+											className="h-8 text-[12px]"
+										/>
+										<table className="w-full border-collapse text-[12px]">
+											<thead>
+												<tr className="border-b border-border">
+													<th className="px-2 py-1 text-left w-12">
+														<Checkbox
+															checked={bulkCheckAll}
+															onCheckedChange={(v) => toggleBulkCheckAll(v === true)}
+														/>
+														<span className="ml-1">All</span>
+													</th>
+													<th className="px-2 py-1 text-left">
+														Student List: <span className="text-blue-700">{bulkStudents.length}</span>
+													</th>
+												</tr>
+											</thead>
+											<tbody>
+												{filteredBulkStudents.map((stu) => {
+													const studentId = Number(stu.studentId ?? stu.student_id ?? stu.pk_student_id ?? 0)
+													const name = String(stu.firstName ?? stu.first_name ?? stu.stdName ?? '')
+													const roll = String(
+														stu.rollNumber ?? stu.roll_number ?? stu.hallticketNumber ?? stu.hallticket_number ?? '',
+													)
+													return (
+														<tr key={studentId || roll} className="border-b border-border/60">
+															<td className="px-2 py-1 align-top">
+																<Checkbox
+																	checked={stu.checked}
+																	onCheckedChange={(v) => toggleBulkStudent(studentId, v === true)}
+																/>
+															</td>
+															<td className="px-2 py-1 text-left">
+																{name}
+																{roll ? <span className="text-muted-foreground"> ({roll})</span> : null}
+															</td>
+														</tr>
+													)
+												})}
+											</tbody>
+										</table>
+									</div>
+
+									<div className="rounded border border-border bg-card p-2 space-y-2">
+										<Input
+											value={bulkSelectedSearch}
+											onChange={(e) => setBulkSelectedSearch(e.target.value)}
+											placeholder="Search..."
+											className="h-8 text-[12px]"
+										/>
+										<table className="w-full border-collapse text-[12px]">
+											<thead>
+												<tr className="border-b border-border">
+													<th className="px-2 py-1 text-left">
+														Selected Students:{' '}
+														<span className="text-blue-700">{selectedBulkStudents.length}</span>
+													</th>
+												</tr>
+											</thead>
+											<tbody>
+												{filteredSelectedBulkStudents.map((stu) => {
+													const studentId = Number(stu.studentId ?? stu.student_id ?? stu.pk_student_id ?? 0)
+													const name = String(stu.firstName ?? stu.first_name ?? stu.stdName ?? '')
+													const roll = String(
+														stu.rollNumber ?? stu.roll_number ?? stu.hallticketNumber ?? stu.hallticket_number ?? '',
+													)
+													return (
+														<tr key={`sel-${studentId || roll}`} className="border-b border-border/60">
+															<td className="px-2 py-1 text-left">
+																{name}
+																{roll ? <span className="text-muted-foreground"> ({roll})</span> : null}
+															</td>
+														</tr>
+													)
+												})}
+											</tbody>
+										</table>
+									</div>
+								</div>
+							) : null}
+
+							{!loadingBulkStudents && bulkCourseYearId && bulkStudents.length === 0 ? (
+								<p className="text-[11px] text-muted-foreground px-1">No students found for the selected group and year.</p>
+							) : null}
+
+							{selectedBulkStudents.length > 0 ? (
+								<div className="flex justify-end">
+									<Button
+										type="button"
+										className="h-8 px-6 text-[12px]"
+										disabled={savingBulk}
+										onClick={() => void handleBulkSave()}
+									>
+										{savingBulk ? 'Saving...' : 'Save'}
+									</Button>
+								</div>
+							) : null}
+						</div>
+					)}
+
 					{mode === 'student' && (
 						<div className="rounded border border-blue-200 p-2 space-y-2">
 							<h3 className="text-[13px] font-semibold leading-tight text-blue-700 px-1">Seating Order</h3>
+							<p className="text-[11px] text-muted-foreground px-1">Click a seat to allot or change student assignment.</p>
 							<div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-2">
 								<div className="border border-border overflow-auto max-h-[520px] min-h-[120px]">
 									{seatingGrid.length === 0 && !loading ? (
@@ -795,25 +1789,46 @@ export default function SeatAllotStudentsPage() {
 													: 'No seating data to render.'}
 										</p>
 									) : (
-										<table className="w-full border-collapse text-[12px]">
+										<table className="w-full border-collapse text-[12px] table-fixed">
 											<tbody>
 												{seatingGrid.map((row, rIdx) => (
 													<tr key={`row-${rIdx}`}>
 														{row.map((seat) => {
-															const blocked = seat.status.toLowerCase() === 'blocked'
-															const booked = seat.status.toLowerCase() === 'booked' || !!seat.hallticket
+															const status = seat.status.toLowerCase()
+															const blocked = status === 'blocked'
+															const booked = status === 'booked' || !!seat.hallticket
+															const hasStudent = booked && !!seat.hallticket
 															return (
 																<td
 																	key={seat.key}
-																	title={seat.stdName ? `Student: ${seat.stdName}` : ''}
-																	className={`min-w-[72px] h-[76px] align-top border border-blue-100 p-1 ${
-																		blocked ? 'bg-slate-200/70' : 'bg-card'
-																	}`}
+																	title={seat.stdName ? `Student: ${seat.stdName}` : 'Click to allot student'}
+																	onClick={() => {
+																		if (seat.cell) void openSeatModal(seat.cell)
+																	}}
+																	className={`relative w-[13%] min-w-[88px] h-[92px] align-top border border-blue-100 p-1 text-center ${
+																		blocked ? 'bg-[#ffc0c0]' : 'bg-card'
+																	} ${seat.cell ? 'cursor-pointer hover:bg-blue-50/80' : ''}`}
 																>
-																	<div className="text-right text-[11px]">{seat.serial}</div>
-																	<div className="text-center text-[18px] leading-none text-muted-foreground">{booked ? '■' : '□'}</div>
-																	<div className="text-center font-medium leading-tight">{seat.hallticket || ''}</div>
-																	<div className="text-center text-[10px] text-slate-600 leading-tight">{seat.subjectCode || ''}</div>
+																	<span className="absolute right-2 top-1 text-[11px] font-medium text-blue-600">
+																		{seat.serial}
+																	</span>
+																	<div className="flex h-full flex-col items-center justify-center pt-3">
+																		{hasStudent ? (
+																			<>
+																				<ExamSeatPersonIcon size={50} />
+																				<p className="mt-0.5 text-[11px] font-medium leading-tight text-slate-900">
+																					{seat.hallticket}
+																				</p>
+																				{seat.subjectCode ? (
+																					<p className="text-[10px] text-slate-700 leading-tight">{seat.subjectCode}</p>
+																				) : null}
+																			</>
+																		) : booked ? (
+																			<ExamSeatChairFilledIcon size={50} />
+																		) : (
+																			<ExamSeatChairOutlineIcon size={50} />
+																		)}
+																	</div>
 																</td>
 															)
 														})}
@@ -828,18 +1843,39 @@ export default function SeatAllotStudentsPage() {
 										<tbody>
 											<tr>
 												<td className="border border-blue-100 px-3 py-2 font-medium">Total Seats</td>
-												<td className="border border-blue-100 px-3 py-2 font-semibold">{roomMeta.capacity}</td>
+												<td className="border border-blue-100 px-3 py-2 font-semibold">
+													{roomMeta.totalRows && roomMeta.totalCols
+														? roomMeta.totalRows * roomMeta.totalCols
+														: roomMeta.capacity}
+												</td>
 											</tr>
 											<tr>
-												<td className="border border-blue-100 px-3 py-2 font-medium">Blocked Seats</td>
+												<td className="border border-blue-100 px-3 py-2 font-medium">
+													<span className="inline-flex items-center gap-2">
+														<span className="inline-flex rounded bg-[#c5c5c5] p-0.5">
+															<ExamSeatChairOutlineIcon size={25} />
+														</span>
+														Blocked Seats
+													</span>
+												</td>
 												<td className="border border-blue-100 px-3 py-2 font-semibold">{roomMeta.blockedSeats}</td>
 											</tr>
 											<tr>
-												<td className="border border-blue-100 px-3 py-2 font-medium">Booked Seats</td>
+												<td className="border border-blue-100 px-3 py-2 font-medium">
+													<span className="inline-flex items-center gap-2">
+														<ExamSeatChairFilledIcon size={25} />
+														Booked Seats
+													</span>
+												</td>
 												<td className="border border-blue-100 px-3 py-2 font-semibold">{roomMeta.bookedSeats}</td>
 											</tr>
 											<tr>
-												<td className="border border-blue-100 px-3 py-2 font-medium">Available Seats</td>
+												<td className="border border-blue-100 px-3 py-2 font-medium">
+													<span className="inline-flex items-center gap-2">
+														<ExamSeatChairOutlineIcon size={25} />
+														Available Seats
+													</span>
+												</td>
 												<td className="border border-blue-100 px-3 py-2 font-semibold">{roomMeta.availableSeats}</td>
 											</tr>
 										</tbody>
@@ -898,6 +1934,35 @@ export default function SeatAllotStudentsPage() {
 					</div>
 				</div>
 			</div>
+
+			<SeatAllotmentModal
+				open={seatModalOpen}
+				onClose={() => {
+					if (savingSeat) return
+					setSeatModalOpen(false)
+					setSelectedSeat(null)
+					setModalStudents([])
+				}}
+				onSave={handleSeatSave}
+				isSaving={savingSeat}
+				seat={selectedSeat}
+				students={modalStudents}
+				loadingStudents={modalStudentsLoading}
+				examSeatStatuses={examSeatStatuses}
+				context={{
+					collegeCode: collegeCodeLabel,
+					academicYear: details.academicYear || resolvedAcademicYear,
+					courseCode: details.courseCode || resolvedCourse,
+					examName: details.examName,
+					examSession: details.examSession,
+					examType: details.examType,
+					examDate: allotmentContext.examDate,
+					roomName: roomMeta.roomLabel,
+					collegeId: allotmentContext.collegeId,
+					courseId: allotmentContext.courseId,
+					examId: allotmentContext.examId,
+				}}
+			/>
 		</PageContainer>
 	)
 }

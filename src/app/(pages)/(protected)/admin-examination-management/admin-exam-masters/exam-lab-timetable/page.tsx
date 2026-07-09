@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { Button } from '@/components/ui/button'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import {
   Select,
   SelectContent,
@@ -19,13 +19,23 @@ import {
 import { useRouter } from 'next/navigation'
 import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Building2, Calendar, GraduationCap, ScrollText } from 'lucide-react'
+import { useSessionContext } from '@/context/SessionContext'
 
 type AnyRow = Record<string, any>
 
 export default function ExamLabTimetablePage() {
   const router = useRouter()
-  const empId = 31754
-  const orgId = 0
+  const { user } = useSessionContext()
+  const empId = Number(user?.employeeId ?? 31754)
+  const orgId = useMemo(() => {
+    const fromStorage = Number(globalThis.localStorage?.getItem('organizationId') ?? 0)
+    const fromSession = Number(user?.organizationId ?? 0)
+    return fromStorage || fromSession || 1
+  }, [user?.organizationId])
+  const orgIdRef = useRef(orgId)
+  const empIdRef = useRef(empId)
+  orgIdRef.current = orgId
+  empIdRef.current = empId
 
   const [base, setBase] = useState<AnyRow[]>([])
   const [rest, setRest] = useState<AnyRow[]>([])
@@ -114,12 +124,12 @@ export default function ExamLabTimetablePage() {
       setGridRows([])
       if (!collegeId || !courseId || !courseYearId || !examId) return
       const rows = await getExamLabTimetableGrid({
-        orgId,
+        orgId: orgIdRef.current,
         collegeId,
         courseId,
         courseYearId,
         examId,
-        empId,
+        empId: empIdRef.current,
       }).catch(() => [])
       setGridRows(Array.isArray(rows) ? rows : [])
     }
@@ -173,7 +183,7 @@ export default function ExamLabTimetablePage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Lab Timetable" subtitle="View examination lab schedules" />
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">Exam Lab Timetable</h2>
       <GlobalFilterBar>
         <GlobalFilterBarRow columns={3}>
           <GlobalFilterField label="Course" icon={GraduationCap}>

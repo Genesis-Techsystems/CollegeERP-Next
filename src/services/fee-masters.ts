@@ -39,6 +39,7 @@ export type FeeMasterCollegeFilters = {
   filtersData: AnyRow[]
   academicData: AnyRow[]
   batchesData: AnyRow[]
+  regulationData: AnyRow[]
 }
 
 export type UnivFeeMasterFilters = {
@@ -50,10 +51,12 @@ function splitProcFilterGroups(groups: AnyRow[][]): {
   filtersData: AnyRow[]
   academicData: AnyRow[]
   batchesData: AnyRow[]
+  regulationData: AnyRow[]
 } {
   let filtersData: AnyRow[] = []
   let academicData: AnyRow[] = []
   let batchesData: AnyRow[] = []
+  let regulationData: AnyRow[] = []
 
   for (const group of groups) {
     if (!Array.isArray(group) || group.length === 0) continue
@@ -61,6 +64,7 @@ function splitProcFilterGroups(groups: AnyRow[][]): {
     if (first.flag === 'clg_filters') filtersData = group
     if (first.clg_filters_ay === 'clg_filters_ay') academicData = group
     if (first.clg_filters_batches === 'clg_filters_batches') batchesData = group
+    if (first.clg_filters_regulation === 'clg_filters_regulation') regulationData = group
   }
 
   if (filtersData.length === 0) {
@@ -70,7 +74,7 @@ function splitProcFilterGroups(groups: AnyRow[][]): {
     if (clgGroup?.length) filtersData = clgGroup
   }
 
-  return { filtersData, academicData, batchesData }
+  return { filtersData, academicData, batchesData, regulationData }
 }
 
 function fallbackUnivFiltersWhenEmpty(groups: AnyRow[][], filtersData: AnyRow[]): AnyRow[] {

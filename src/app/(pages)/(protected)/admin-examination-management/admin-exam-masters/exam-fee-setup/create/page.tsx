@@ -29,8 +29,11 @@ import { createExamFeeStructure, updateExamFeeStructure } from '@/services/exami
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { listGeneralDetailsByMaster } from '@/services/examination'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
+import { GM_CODES } from '@/config/constants/ui'
+
+const REVISION_GENERAL_MASTER_ID = 103
 
 type FineRow = {
 	fineName: string
@@ -38,6 +41,8 @@ type FineRow = {
 	fineToDate: string
 	regFeeFine?: string
 	suppleFeeFine?: string
+	examFeeFineId?: number
+	serverSnapshot?: Record<string, unknown>
 }
 
 // Angular `courseGroupYears` row — one selectable entry per course-group × course-year
@@ -51,6 +56,49 @@ type CourseGroupYear = {
 	check: boolean
 	examFeeStructureId?: number
 	examFeeCourseyrId?: number
+}
+
+type AdditionalFeeRow = {
+	typeId: string | number
+	typeName: string
+	examType: 'REG' | 'SUPPLE'
+	includeInReg: boolean
+	amount: string
+	feeAddtId?: number
+	serverSnapshot?: Record<string, unknown>
+}
+
+type RevalFeeRow = {
+	typeId: string | number
+	typeName: string
+	fromDate: string
+	toDate: string
+	amount: string
+	feeAddtId?: number
+	serverSnapshot?: Record<string, unknown>
+}
+
+function isRevisionFeeItem(item: Record<string, unknown>) {
+	const masterId = Number(item.generalMasterId ?? 0)
+	const masterCode = String(item.generalMasterCode ?? '')
+	return masterId === REVISION_GENERAL_MASTER_ID || masterCode === GM_CODES.REVISION_TYPE
+}
+
+function toBackendDateTime(dateStr: string, original?: unknown) {
+	if (!dateStr) return null
+	if (original) {
+		const orig = new Date(String(original))
+		const next = new Date(dateStr)
+		if (
+			!Number.isNaN(orig.getTime()) &&
+			!Number.isNaN(next.getTime()) &&
+			orig.toISOString().slice(0, 10) === next.toISOString().slice(0, 10)
+		) {
+			return String(original)
+		}
+	}
+	const d = new Date(dateStr)
+	return Number.isNaN(d.getTime()) ? null : d.toISOString()
 }
 
 function formatDateTime(value?: string) {
@@ -119,9 +167,12 @@ export default function CreateExamFeeStructurePage() {
 		suppleFeeFine: '',
 	})
 	const [fines, setFines] = useState<FineRow[]>([])
+	const [deletedFines, setDeletedFines] = useState<Record<string, unknown>[]>([])
 
 	// Additional fees — master data + rows
 	const [additionalTypes, setAdditionalTypes] = useState<any[]>([])
+	const [examFeeTypes, setExamFeeTypes] = useState<any[]>([])
+	const [revisionTypes, setRevisionTypes] = useState<any[]>([])
 	const [additionalDraft, setAdditionalDraft] = useState({
 		typeId: '' as string,
 		typeName: '' as string,
@@ -129,18 +180,21 @@ export default function CreateExamFeeStructurePage() {
 		includeInReg: false,
 		amount: '' as string,
 	})
-	const [additionalRows, setAdditionalRows] = useState<
-		{ typeId: string | number; typeName: string; examType: 'REG' | 'SUPPLE'; includeInReg: boolean; amount: string }[]
-	>([])
+	const [additionalRows, setAdditionalRows] = useState<AdditionalFeeRow[]>([])
+	const [deletedAdditionalFees, setDeletedAdditionalFees] = useState<Record<string, unknown>[]>([])
 
-	// Re-evaluation fees — local rows (captured here for parity; saved via dedicated module)
+	// Re-evaluation fees — merged into examFeeAdditionalStructure on save (Angular parity)
 	const [revalDraft, setRevalDraft] = useState({
+		typeId: '' as string,
 		typeName: 'Revaluation',
 		fromDate: '',
 		toDate: '',
 		amount: '',
 	})
-	const [revalRows, setRevalRows] = useState<{ typeName: string; fromDate: string; toDate: string; amount: string }[]>([])
+	const [revalRows, setRevalRows] = useState<RevalFeeRow[]>([])
+	const [deletedRevisionFees, setDeletedRevisionFees] = useState<Record<string, unknown>[]>([])
+	const [loadedCollegeId, setLoadedCollegeId] = useState<number | null>(null)
+	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
 	const pageParams = useMemo(
 		() => ({
@@ -156,6 +210,7 @@ export default function CreateExamFeeStructurePage() {
 			fromDate: String(searchParams.get('fromDate') ?? ''),
 			toDate: String(searchParams.get('toDate') ?? ''),
 			examFeeStructureId: Number(searchParams.get('examFeeStructureId') ?? 0),
+			collegeId: Number(searchParams.get('collegeId') ?? 0),
 		}),
 		[searchParams],
 	)
@@ -230,14 +285,35 @@ export default function CreateExamFeeStructurePage() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [courses, academicYears, pageParams.courseId, pageParams.academicYearId])
 
-	// Load Additional Fee Types (ADDFEETYPE)
+	// Load additional fee types, exam fee types (Regular/Supple), and revision types
 	useEffect(() => {
 		async function loadTypes() {
 			try {
-				const rows = await listGeneralDetailsByMaster('ADDFEETYPE').catch(() => [])
-				setAdditionalTypes(Array.isArray(rows) ? rows : [])
+				const [additional, examTypes, revision] = await Promise.all([
+					listGeneralDetailsByMaster(GM_CODES.ADDITIONAL_FEE_TYPE).catch(() => []),
+					listGeneralDetailsByMaster(GM_CODES.EXAM_FEE_TYPE).catch(() => []),
+					listGeneralDetailsByMaster(GM_CODES.REVISION_TYPE).catch(() => []),
+				])
+				setAdditionalTypes(Array.isArray(additional) ? additional : [])
+				const regSupple = (Array.isArray(examTypes) ? examTypes : []).filter((t: any) => {
+					const code = String(t.generalDetailCode ?? '').toLowerCase()
+					return code === 'regular' || code === 'supple'
+				})
+				setExamFeeTypes(regSupple)
+				const revisionList = Array.isArray(revision) ? revision : []
+				setRevisionTypes(revisionList)
+				if (revisionList.length > 0) {
+					const first = revisionList[0]
+					setRevalDraft((s) => ({
+						...s,
+						typeId: String(first.generalDetailId ?? first.id ?? ''),
+						typeName: String(first.generalDetailDisplayName ?? first.generalDetailName ?? 'Revaluation'),
+					}))
+				}
 			} catch {
 				setAdditionalTypes([])
+				setExamFeeTypes([])
+				setRevisionTypes([])
 			}
 		}
 		loadTypes()
@@ -357,6 +433,9 @@ export default function CreateExamFeeStructurePage() {
 			const row = Array.isArray(rows) ? rows[0] : null
 			if (!row) return
 
+			const rowCollegeId = Number(row.collegeId ?? 0)
+			setLoadedCollegeId(rowCollegeId > 0 ? rowCollegeId : null)
+
 			setForm((s) => ({
 				...s,
 				examFeeStructureName: String(row.examFeeStructureName ?? ''),
@@ -389,19 +468,43 @@ export default function CreateExamFeeStructurePage() {
 					fineToDate: toDateString(parseDateValue(String(x.fineToDate ?? ''))),
 					regFeeFine: x.regFeeFine != null ? String(x.regFeeFine) : '',
 					suppleFeeFine: x.supplyFeeFine != null ? String(x.supplyFeeFine) : '',
+					examFeeFineId: x.examFeeFineId != null ? Number(x.examFeeFineId) : undefined,
+					serverSnapshot: { ...x },
 				}))
 			setFines(fineRows)
+			setDeletedFines([])
 
-			const addRows = asRecordArray(row.examFeeAdditionalStructure)
-				.filter((x) => x.isActive !== false)
-				.map((x) => ({
-					typeId: String(x.adtExamfeetypeCatId ?? ''),
-					typeName: String(x.adtExamfeetypeCatDisplayName ?? x.type ?? ''),
-					examType: String(x.type ?? '').toLowerCase().includes('supp') ? 'SUPPLE' as const : 'REG' as const,
-					includeInReg: Boolean(x.includeInReg),
-					amount: x.fee != null ? String(x.fee) : '',
-				}))
-			setAdditionalRows(addRows)
+			const additionalLoaded: AdditionalFeeRow[] = []
+			const revisionLoaded: RevalFeeRow[] = []
+			for (const x of asRecordArray(row.examFeeAdditionalStructure).filter((item) => item.isActive !== false)) {
+				const snapshot = { ...x }
+				if (isRevisionFeeItem(x)) {
+					revisionLoaded.push({
+						typeId: String(x.adtExamfeetypeCatId ?? ''),
+						typeName: String(x.adtExamfeetypeCatDisplayName ?? x.adtExamfeetypeCatCode ?? x.type ?? ''),
+						fromDate: toDateString(parseDateValue(String(x.fromDate ?? ''))),
+						toDate: toDateString(parseDateValue(String(x.toDate ?? ''))),
+						amount: x.fee != null ? String(x.fee) : '',
+						feeAddtId: x.feeAddtId != null ? Number(x.feeAddtId) : undefined,
+						serverSnapshot: snapshot,
+					})
+				} else {
+					const displayCode = String(x.examTypeCatDisplayCode ?? '')
+					additionalLoaded.push({
+						typeId: String(x.adtExamfeetypeCatId ?? ''),
+						typeName: String(x.adtExamfeetypeCatDisplayName ?? x.type ?? ''),
+						examType: displayCode.toLowerCase().includes('supp') ? 'SUPPLE' : 'REG',
+						includeInReg: Boolean(x.includeInReg),
+						amount: x.fee != null ? String(x.fee) : '',
+						feeAddtId: x.feeAddtId != null ? Number(x.feeAddtId) : undefined,
+						serverSnapshot: snapshot,
+					})
+				}
+			}
+			setAdditionalRows(additionalLoaded)
+			setRevalRows(revisionLoaded)
+			setDeletedAdditionalFees([])
+			setDeletedRevisionFees([])
 		}
 		loadExisting()
 	// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -416,7 +519,28 @@ export default function CreateExamFeeStructurePage() {
 	}
 
 	function addFineRow() {
-		if (!fineDraft.fineName || !fineDraft.fineFromDate || !fineDraft.fineToDate) return
+		if (!fineDraft.fineName.trim()) {
+			toastError('Late Fee Fine Name is required')
+			return
+		}
+		if (!fineDraft.fineFromDate || !fineDraft.fineToDate) {
+			toastError('Fine Start Date and Fine End Date are required')
+			return
+		}
+		const fineStart = new Date(fineDraft.fineFromDate).getTime()
+		const fineEnd = new Date(fineDraft.fineToDate).getTime()
+		if (Number.isFinite(fineStart) && Number.isFinite(fineEnd) && fineStart > fineEnd) {
+			toastError('Fine End Date must be on or after Start Date')
+			return
+		}
+		if (fineDraft.regFeeFine !== '' && parseNumberOrNull(fineDraft.regFeeFine ?? '') == null) {
+			toastError('Reg fee fine must be a number')
+			return
+		}
+		if (fineDraft.suppleFeeFine !== '' && parseNumberOrNull(fineDraft.suppleFeeFine ?? '') == null) {
+			toastError('Supple fee fine must be a number')
+			return
+		}
 		setFines((s) => [...s, fineDraft])
 		setFineDraft({
 			fineName: '',
@@ -427,13 +551,34 @@ export default function CreateExamFeeStructurePage() {
 		})
 	}
 	function removeFineRow(i: number) {
-		setFines((s) => s.filter((_, idx) => idx !== i))
+		setFines((s) => {
+			const row = s[i]
+			if (row?.examFeeFineId != null && row.serverSnapshot) {
+				setDeletedFines((d) => [...d, { ...row.serverSnapshot, isActive: false }])
+			}
+			return s.filter((_, idx) => idx !== i)
+		})
 	}
 
 	function addAdditionalRow() {
-		if (!additionalDraft.typeId || !additionalDraft.amount) return
+		if (!additionalDraft.typeId) {
+			toastError('Additional fee type is required')
+			return
+		}
+		if (!additionalDraft.amount.trim()) {
+			toastError('Additional fee amount is required')
+			return
+		}
+		if (parseNumberOrNull(additionalDraft.amount) == null) {
+			toastError('Additional fee amount must be a number')
+			return
+		}
 		const selected = additionalTypeOptions.find((t) => t.value === String(additionalDraft.typeId))
 		const typeName = additionalDraft.typeName || selected?.label || '—'
+		const examTypeCat = examFeeTypes.find((t) => {
+			const code = String(t.generalDetailCode ?? '')
+			return additionalDraft.examType === 'REG' ? code === 'Regular' : code === 'Supple'
+		})
 		setAdditionalRows((s) => [
 			...s,
 			{
@@ -442,6 +587,13 @@ export default function CreateExamFeeStructurePage() {
 				examType: additionalDraft.examType,
 				includeInReg: additionalDraft.includeInReg,
 				amount: additionalDraft.amount,
+				serverSnapshot: {
+					collegeId: effectiveCollegeId ?? null,
+					examTypeCatId: examTypeCat?.generalDetailId,
+					examTypeCatDisplayCode: additionalDraft.examType === 'REG' ? 'Regular' : 'Supple',
+					includeInRev: false,
+					isActive: true,
+				},
 			},
 		])
 		setAdditionalDraft({
@@ -453,16 +605,54 @@ export default function CreateExamFeeStructurePage() {
 		})
 	}
 	function removeAdditionalRow(i: number) {
-		setAdditionalRows((s) => s.filter((_, idx) => idx !== i))
+		setAdditionalRows((s) => {
+			const row = s[i]
+			if (row?.feeAddtId && row.serverSnapshot) {
+				setDeletedAdditionalFees((d) => [...d, { ...row.serverSnapshot, isActive: false }])
+			}
+			return s.filter((_, idx) => idx !== i)
+		})
 	}
 
 	function addRevalRow() {
-		if (!revalDraft.amount || !revalDraft.fromDate || !revalDraft.toDate) return
-		setRevalRows((s) => [...s, revalDraft])
-		setRevalDraft({ typeName: 'Revaluation', fromDate: '', toDate: '', amount: '' })
+		if (!revalDraft.typeId) {
+			toastError('Re-evaluation type is required')
+			return
+		}
+		if (!revalDraft.fromDate || !revalDraft.toDate) {
+			toastError('Re-evaluation From Date and To Date are required')
+			return
+		}
+		if (!revalDraft.amount.trim()) {
+			toastError('Re-evaluation amount is required')
+			return
+		}
+		if (parseNumberOrNull(revalDraft.amount) == null) {
+			toastError('Re-evaluation amount must be a number')
+			return
+		}
+		const revalStart = new Date(revalDraft.fromDate).getTime()
+		const revalEnd = new Date(revalDraft.toDate).getTime()
+		if (Number.isFinite(revalStart) && Number.isFinite(revalEnd) && revalStart > revalEnd) {
+			toastError('Re-evaluation To Date must be on or after From Date')
+			return
+		}
+		setRevalRows((s) => [...s, { ...revalDraft }])
+		setRevalDraft((s) => ({
+			...s,
+			fromDate: '',
+			toDate: '',
+			amount: '',
+		}))
 	}
 	function removeRevalRow(i: number) {
-		setRevalRows((s) => s.filter((_, idx) => idx !== i))
+		setRevalRows((s) => {
+			const row = s[i]
+			if (row?.feeAddtId && row.serverSnapshot) {
+				setDeletedRevisionFees((d) => [...d, { ...row.serverSnapshot, isActive: false }])
+			}
+			return s.filter((_, idx) => idx !== i)
+		})
 	}
 
 	function parseNumberOrNull(v: string): number | null {
@@ -475,38 +665,49 @@ export default function CreateExamFeeStructurePage() {
 	// college-filter lookups did not resolve a selection (e.g. admins with no employeeId).
 	const effectiveCourseId = selectedCourseId ?? (pageParams.courseId > 0 ? pageParams.courseId : null)
 	const effectiveExamId = selectedExamId ?? (pageParams.examId > 0 ? pageParams.examId : null)
+	const effectiveCollegeId = pageParams.collegeId > 0 ? pageParams.collegeId : loadedCollegeId
 	const hasCheckedCourseYear = courseGroupYears.some((c) => c.check)
 
 	function validate(): string[] {
 		const errs: string[] = []
+		const next: Record<string, string> = {}
 		if (!effectiveCourseId) errs.push('Course is required')
 		if (!effectiveExamId) errs.push('Exam Master is required')
-		if (!form.examFeeStructureName.trim()) errs.push('Exam Fee Structure name is required')
-		if (!hasCheckedCourseYear) errs.push('Select at least one Course Year')
+		if (!form.examFeeStructureName.trim()) {
+			errs.push('Exam Fee Structure name is required')
+			next.examFeeStructureName = 'Exam Fee Structure name is required'
+		}
+		if (!hasCheckedCourseYear) {
+			errs.push('Select at least one Course Year')
+			next.courseYears = 'Select at least one Course Year'
+		}
 		if (form.collectionStartDate && form.collectionEndDate) {
 			const s = new Date(form.collectionStartDate).getTime()
 			const e = new Date(form.collectionEndDate).getTime()
 			if (Number.isFinite(s) && Number.isFinite(e) && s > e) {
 				errs.push('Collection End Date must be on or after Start Date')
+				next.collectionEndDate = 'Collection End Date must be on or after Start Date'
 			}
 		}
 		// Numeric sanity checks
 		const numericFields = [
-			['Reg Fee', form.regFee],
-			['Supple Fee', form.suppleFee],
-			['1 Subject Fee', form.subject1Fee],
-			['2 Subject Fee', form.subject2Fee],
-			['3 Subject Fee', form.subject3Fee],
-			['4 Subject Fee', form.subject4Fee],
-			['5 Subject Fee', form.subject5Fee],
-			['6 Subject Fee', form.subject6Fee],
-			['7 Subject Fee', form.subject7Fee],
+			['regFee', 'Reg Fee', form.regFee],
+			['suppleFee', 'Supple Fee', form.suppleFee],
+			['subject1Fee', '1 Subject Fee', form.subject1Fee],
+			['subject2Fee', '2 Subject Fee', form.subject2Fee],
+			['subject3Fee', '3 Subject Fee', form.subject3Fee],
+			['subject4Fee', '4 Subject Fee', form.subject4Fee],
+			['subject5Fee', '5 Subject Fee', form.subject5Fee],
+			['subject6Fee', '6 Subject Fee', form.subject6Fee],
+			['subject7Fee', '7 Subject Fee', form.subject7Fee],
 		] as const
-		for (const [label, value] of numericFields) {
+		for (const [key, label, value] of numericFields) {
 			if (value !== '' && parseNumberOrNull(value) == null) {
 				errs.push(`${label} must be a number`)
+				next[key] = `${label} must be a number`
 			}
 		}
+		setFieldErrors(next)
 		return errs
 	}
 
@@ -526,31 +727,96 @@ export default function CreateExamFeeStructurePage() {
 			return
 		}
 
+		const collegeId = effectiveCollegeId ?? null
+
 		// Angular addExamFeestructurePost(): one examFeeStructureCourseyr per group+year
 		// combination. New rows only when checked; existing rows (examFeeCourseyrId) are
 		// always sent with their current isActive so unchecking deactivates them.
 		const examFeeStructureCourseyr = courseGroupYears.flatMap((c) => {
+			const base = {
+				collegeId,
+				courseGroupId: c.courseGroupId,
+				courseYearId: c.courseYearId,
+			}
 			if (c.examFeeCourseyrId) {
 				return [{
-					courseId: effectiveCourseId ?? undefined,
+					...base,
 					isActive: c.check,
-					courseGroupId: c.courseGroupId,
-					courseYearId: c.courseYearId,
 					examFeeCourseyrId: c.examFeeCourseyrId,
 				}]
 			}
 			if (c.check) {
-				return [{
-					courseId: effectiveCourseId ?? undefined,
-					isActive: true,
-					courseGroupId: c.courseGroupId,
-					courseYearId: c.courseYearId,
-				}]
+				return [{ ...base, isActive: true }]
 			}
 			return []
 		})
 
+		const buildAdditionalFeePayload = (row: AdditionalFeeRow): Record<string, unknown> => {
+			const base = row.serverSnapshot ?? {}
+			const examTypeCat = examFeeTypes.find((t) => {
+				const code = String(t.generalDetailCode ?? '')
+				return row.examType === 'REG' ? code === 'Regular' : code === 'Supple'
+			})
+			const typeOption = additionalTypes.find((t) => String(t.generalDetailId ?? t.id) === String(row.typeId))
+			return {
+				...base,
+				...(row.feeAddtId ? { feeAddtId: row.feeAddtId } : {}),
+				adtExamfeetypeCatId: Number(row.typeId) || base.adtExamfeetypeCatId,
+				fee: row.amount === '' ? null : Number(row.amount),
+				includeInReg: row.includeInReg,
+				includeInRev: false,
+				type: row.typeName || base.type || typeOption?.generalDetailDisplayName || typeOption?.generalDetailName,
+				isActive: true,
+				collegeId,
+				examTypeCatId: examTypeCat?.generalDetailId ?? base.examTypeCatId,
+				examTypeCatDisplayCode: row.examType === 'REG' ? 'Regular' : 'Supple',
+			}
+		}
+
+		const buildFinePayload = (row: FineRow): Record<string, unknown> => {
+			const base = row.serverSnapshot ?? {}
+			return {
+				...base,
+				...(row.examFeeFineId ? { examFeeFineId: row.examFeeFineId } : {}),
+				fineName: row.fineName,
+				fineFromDate: row.fineFromDate || null,
+				fineToDate: row.fineToDate || null,
+				regFeeFine: row.regFeeFine === '' || row.regFeeFine == null ? null : Number(row.regFeeFine),
+				supplyFeeFine: row.suppleFeeFine === '' || row.suppleFeeFine == null ? null : Number(row.suppleFeeFine),
+				isActive: true,
+				collegeId,
+				...(isEditMode && pageParams.examFeeStructureId
+					? {
+							examFeeStructureId: pageParams.examFeeStructureId,
+							examFeeStructureName: form.examFeeStructureName,
+						}
+					: {}),
+			}
+		}
+
+		const buildRevisionFeePayload = (row: RevalFeeRow): Record<string, unknown> => {
+			const base = row.serverSnapshot ?? {}
+			const revisionType = revisionTypes.find((t) => String(t.generalDetailId ?? t.id) === String(row.typeId))
+			return {
+				...base,
+				...(row.feeAddtId ? { feeAddtId: row.feeAddtId } : {}),
+				adtExamfeetypeCatId: Number(row.typeId) || base.adtExamfeetypeCatId,
+				fee: row.amount === '' ? null : Number(row.amount),
+				includeInRev: true,
+				includeInReg: false,
+				fromDate: toBackendDateTime(row.fromDate, base.fromDate),
+				toDate: toBackendDateTime(row.toDate, base.toDate),
+				isActive: true,
+				collegeId,
+				generalMasterId: REVISION_GENERAL_MASTER_ID,
+				generalMasterCode: GM_CODES.REVISION_TYPE,
+				adtExamfeetypeCatCode: revisionType?.generalDetailDisplayName ?? base.adtExamfeetypeCatCode ?? row.typeName,
+			}
+		}
+
 		const payload: Record<string, unknown> = {
+			collegeId,
+			examId: effectiveExamId,
 			examFeeStructureName: form.examFeeStructureName,
 			collectionStartDate: form.collectionStartDate || null,
 			collectionEndDate: form.collectionEndDate || null,
@@ -564,29 +830,14 @@ export default function CreateExamFeeStructurePage() {
 			subject6Fee: parseNumberOrNull(form.subject6Fee),
 			subject7Fee: parseNumberOrNull(form.subject7Fee),
 			isActive: form.isActive,
-			// relationships
-			examId: effectiveExamId,
-			examMaster: { examId: effectiveExamId },
-			// nested: course year applicability (group × year combinations)
 			examFeeStructureCourseyr,
-			// nested: fines
-			examFeeFine: fines.map((f) => ({
-				fineName: f.fineName,
-				fineFromDate: f.fineFromDate || null,
-				fineToDate: f.fineToDate || null,
-				regFeeFine: f.regFeeFine === '' ? null : Number(f.regFeeFine),
-				supplyFeeFine: f.suppleFeeFine === '' ? null : Number(f.suppleFeeFine),
-				isActive: true,
-			})),
-			// nested: additional fees (ADDFEETYPE)
-			examFeeAdditionalStructure: additionalRows.map((r) => ({
-				adtExamfeetypeCatId: Number(r.typeId) || undefined,
-				fee: r.amount === '' ? null : Number(r.amount),
-				includeInReg: r.includeInReg,
-				type: r.examType === 'REG' ? 'Regular' : 'Supple',
-				isActive: true,
-			})),
-			// Note: Revaluation fees are managed in a dedicated module; captured here for UI parity only.
+			examFeeFine: [...fines.map(buildFinePayload), ...deletedFines],
+			examFeeAdditionalStructure: [
+				...additionalRows.map(buildAdditionalFeePayload),
+				...revalRows.map(buildRevisionFeePayload),
+				...deletedAdditionalFees,
+				...deletedRevisionFees,
+			],
 		}
 
 		try {
@@ -615,12 +866,10 @@ export default function CreateExamFeeStructurePage() {
 
 	return (
 		<PageContainer className="space-y-4">
-		<PageHeader title={isEditMode ? 'Edit Exam Fee Structure' : 'Add Exam Fee Structure'} subtitle={isEditMode ? 'Update existing exam fee structure' : 'Create a new exam fee structure'} />
+			<h2 className="text-lg font-semibold tracking-tight text-foreground">
+				{isEditMode ? 'Edit Exam Fee Structure' : 'Add Exam Fee Structure'}
+			</h2>
 			<div className="app-card overflow-hidden">
-				<div className="px-4 py-3 border-b border-border bg-muted/40">
-					<h2 className="app-card-title">{isEditMode ? 'Edit Exam Fee Structure' : 'Add Exam Fee Structure'}</h2>
-				</div>
-
 				<div className="px-3 py-3 space-y-3">
 					<div className="mb-3 rounded-md border bg-muted/40/50 px-3 py-2 text-[12px]">
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -644,7 +893,24 @@ export default function CreateExamFeeStructurePage() {
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 						<div className="space-y-1.5">
 							<Label>Exam Fee Structure <span className="text-red-500">*</span></Label>
-							<Input value={form.examFeeStructureName} onChange={(e) => setForm((s) => ({ ...s, examFeeStructureName: e.target.value }))} />
+							<Input
+								value={form.examFeeStructureName}
+								onChange={(e) => {
+									setForm((s) => ({ ...s, examFeeStructureName: e.target.value }))
+									if (fieldErrors.examFeeStructureName) {
+										setFieldErrors((prev) => {
+											const next = { ...prev }
+											delete next.examFeeStructureName
+											return next
+										})
+									}
+								}}
+								placeholder="Enter exam fee structure name"
+								aria-invalid={Boolean(fieldErrors.examFeeStructureName)}
+							/>
+							{fieldErrors.examFeeStructureName ? (
+								<p className="text-[11px] text-destructive">{fieldErrors.examFeeStructureName}</p>
+							) : null}
 						</div>
 						<div className="grid grid-cols-2 gap-3">
 							<div className="space-y-1.5">
@@ -660,10 +926,22 @@ export default function CreateExamFeeStructurePage() {
 								<Label>Collection End Date</Label>
 								<DatePicker
 									value={parseDateValue(form.collectionEndDate)}
-									onChange={(date) => setForm((s) => ({ ...s, collectionEndDate: toDateString(date) }))}
+									onChange={(date) => {
+										setForm((s) => ({ ...s, collectionEndDate: toDateString(date) }))
+										if (fieldErrors.collectionEndDate) {
+											setFieldErrors((prev) => {
+												const next = { ...prev }
+												delete next.collectionEndDate
+												return next
+											})
+										}
+									}}
 									placeholder="dd-mm-yyyy"
 									className="text-[12px]"
 								/>
+								{fieldErrors.collectionEndDate ? (
+									<p className="text-[11px] text-destructive">{fieldErrors.collectionEndDate}</p>
+								) : null}
 							</div>
 						</div>
 					</div>
@@ -680,10 +958,13 @@ export default function CreateExamFeeStructurePage() {
 					<div className="p-3 space-y-3">
 						<Input
 							className="h-8 text-[12px]"
-							placeholder="Search…"
+							placeholder="Search course years…"
 							value={q}
 							onChange={(e) => setQ(e.target.value)}
 						/>
+						{fieldErrors.courseYears ? (
+							<p className="text-[11px] text-destructive px-1">{fieldErrors.courseYears}</p>
+						) : null}
 						<div className="max-h-[360px] overflow-y-auto scrollbar-hidden space-y-1">
 							{filteredCourseGroupYears.map((c) => {
 								const key = `${c.courseGroupId}-${c.courseYearId}`
@@ -691,7 +972,19 @@ export default function CreateExamFeeStructurePage() {
 								const yearLabel = c.courseYearCode || c.courseYearName || `Year ${c.courseYearId}`
 								return (
 									<label key={key} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/40 text-[12px]">
-										<Checkbox checked={c.check} onCheckedChange={() => toggleCourseGroupYear(c.courseGroupId, c.courseYearId)} />
+										<Checkbox
+											checked={c.check}
+											onCheckedChange={() => {
+												toggleCourseGroupYear(c.courseGroupId, c.courseYearId)
+												if (fieldErrors.courseYears) {
+													setFieldErrors((prev) => {
+														const next = { ...prev }
+														delete next.courseYears
+														return next
+													})
+												}
+											}}
+										/>
 										<span>
 											{c.groupCode ? `${c.groupCode} - ` : ''}
 											{yearLabel}
@@ -753,7 +1046,12 @@ export default function CreateExamFeeStructurePage() {
 						<div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
 							<div className="md:col-span-3 space-y-1.5">
 								<Label>Late Fee Fine Name</Label>
-								<Input className="h-8 text-[12px]" value={fineDraft.fineName} onChange={(e) => setFineDraft((s) => ({ ...s, fineName: e.target.value }))} />
+								<Input
+									className="h-8 text-[12px]"
+									placeholder="Enter fine name"
+									value={fineDraft.fineName}
+									onChange={(e) => setFineDraft((s) => ({ ...s, fineName: e.target.value }))}
+								/>
 							</div>
 							<div className="md:col-span-2 space-y-1.5">
 								<Label>Fine Start Date</Label>
@@ -775,11 +1073,23 @@ export default function CreateExamFeeStructurePage() {
 							</div>
 							<div className="md:col-span-2 space-y-1.5">
 								<Label>Reg</Label>
-								<Input inputMode="numeric" className="h-8 text-[12px]" value={fineDraft.regFeeFine ?? ''} onChange={(e) => setFineDraft((s) => ({ ...s, regFeeFine: e.target.value }))} />
+								<Input
+									inputMode="numeric"
+									className="h-8 text-[12px]"
+									placeholder="Reg fee fine"
+									value={fineDraft.regFeeFine ?? ''}
+									onChange={(e) => setFineDraft((s) => ({ ...s, regFeeFine: e.target.value }))}
+								/>
 							</div>
 							<div className="md:col-span-2 space-y-1.5">
 								<Label>Supple</Label>
-								<Input inputMode="numeric" className="h-8 text-[12px]" value={fineDraft.suppleFeeFine ?? ''} onChange={(e) => setFineDraft((s) => ({ ...s, suppleFeeFine: e.target.value }))} />
+								<Input
+									inputMode="numeric"
+									className="h-8 text-[12px]"
+									placeholder="Supple fee fine"
+									value={fineDraft.suppleFeeFine ?? ''}
+									onChange={(e) => setFineDraft((s) => ({ ...s, suppleFeeFine: e.target.value }))}
+								/>
 							</div>
 							<div className="md:col-span-1 space-y-1.5">
 								<Label className="invisible">Add</Label>
@@ -835,16 +1145,34 @@ export default function CreateExamFeeStructurePage() {
 							<div className="md:col-span-2 space-y-1.5">
 								<Label>Exam Revision Type</Label>
 								<Select
-									value={revalDraft.typeName}
-									onValueChange={(v) => setRevalDraft((s) => ({ ...s, typeName: v }))}
+									value={revalDraft.typeId || undefined}
+									onValueChange={(v) => {
+										const selected = revisionTypes.find((t) => String(t.generalDetailId ?? t.id) === v)
+										setRevalDraft((s) => ({
+											...s,
+											typeId: v,
+											typeName: String(selected?.generalDetailDisplayName ?? selected?.generalDetailName ?? v),
+										}))
+									}}
 								>
 									<SelectTrigger className="h-8 text-[12px]">
-										<SelectValue placeholder="Select Type" />
+										<SelectValue placeholder="Select re-valuation type" />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="Revaluation">Revaluation</SelectItem>
-										<SelectItem value="Re-Totaling">Re-Totaling</SelectItem>
-										<SelectItem value="Photocopy">Photocopy</SelectItem>
+										{revisionTypes.length === 0 && (
+											<SelectItem value="__no_data__" disabled>
+												No revision types available
+											</SelectItem>
+										)}
+										{revisionTypes.map((t) => {
+											const id = String(t.generalDetailId ?? t.id ?? '')
+											const label = String(t.generalDetailDisplayName ?? t.generalDetailName ?? id)
+											return (
+												<SelectItem key={id} value={id}>
+													{label}
+												</SelectItem>
+											)
+										})}
 									</SelectContent>
 								</Select>
 							</div>
@@ -868,7 +1196,13 @@ export default function CreateExamFeeStructurePage() {
 							</div>
 							<div className="space-y-1.5">
 								<Label>Amount</Label>
-								<Input inputMode="numeric" className="h-8 text-[12px]" value={revalDraft.amount} onChange={(e) => setRevalDraft((s) => ({ ...s, amount: e.target.value }))} />
+								<Input
+									inputMode="numeric"
+									className="h-8 text-[12px]"
+									placeholder="Amount"
+									value={revalDraft.amount}
+									onChange={(e) => setRevalDraft((s) => ({ ...s, amount: e.target.value }))}
+								/>
 							</div>
 							<div className="space-y-1.5">
 								<Label className="invisible">Add</Label>
@@ -928,7 +1262,7 @@ export default function CreateExamFeeStructurePage() {
 									}}
 								>
 									<SelectTrigger className="h-8 text-[12px]">
-										<SelectValue placeholder="Select Fee Type" />
+										<SelectValue placeholder="Select additional fee type" />
 									</SelectTrigger>
 									<SelectContent>
 										{additionalTypeOptions.length === 0 && (
@@ -965,7 +1299,13 @@ export default function CreateExamFeeStructurePage() {
 							</div>
 							<div className="space-y-1.5">
 								<Label>Amount</Label>
-								<Input inputMode="numeric" className="h-8 text-[12px]" value={additionalDraft.amount} onChange={(e) => setAdditionalDraft((s) => ({ ...s, amount: e.target.value }))} />
+								<Input
+									inputMode="numeric"
+									className="h-8 text-[12px]"
+									placeholder="Amount"
+									value={additionalDraft.amount}
+									onChange={(e) => setAdditionalDraft((s) => ({ ...s, amount: e.target.value }))}
+								/>
 							</div>
 							<div className="space-y-1.5">
 								<Label className="invisible">Add</Label>

@@ -139,6 +139,11 @@ export interface DataTableProps<T> {
   /** @deprecated Use toolbar.exportExcel instead */
   exportCsv?: boolean
   onGridApiReady?: (api: GridApi<T>) => void
+  /**
+   * When false, columns keep their defined widths/minWidths (horizontal scroll if needed)
+   * instead of being squeezed by `sizeColumnsToFit`. Default **true**.
+   */
+  fitColumnsToWidth?: boolean
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -195,6 +200,20 @@ function filterInactiveRows<T>(rows: T[], showInactive: boolean): T[] {
 function isActionsColumn(def: ColDef): boolean {
   const header = String(def.headerName ?? '').trim().toLowerCase()
   return header === 'actions' || header === 'action'
+}
+
+function withCellClass(def: ColDef, className: string): ColDef {
+  const existing = def.cellClass
+  if (!existing) return { ...def, cellClass: className }
+  if (typeof existing === 'string') {
+    return existing.split(/\s+/).includes(className)
+      ? def
+      : { ...def, cellClass: `${existing} ${className}` }
+  }
+  if (Array.isArray(existing)) {
+    return existing.includes(className) ? def : { ...def, cellClass: [...existing, className] }
+  }
+  return def
 }
 
 function escapeHtml(s: string): string {
@@ -320,6 +339,7 @@ export function DataTable<T>({
   toolbarTrailing,
   exportCsv = false,
   onGridApiReady,
+  fitColumnsToWidth = true,
 }: DataTableProps<T>) {
   const tb = useMemo(() => resolveToolbar(toolbarProp), [toolbarProp])
 
@@ -390,9 +410,12 @@ export function DataTable<T>({
 
   const resolvedColumnDefs = useMemo(
     () =>
-      columnDefs.map((def) =>
-        isActionsColumn(def) ? { ...def, filter: false, sortable: false } : def,
-      ),
+      columnDefs.map((def) => {
+        if (isActionsColumn(def)) {
+          return withCellClass({ ...def, filter: false, sortable: false }, 'app-cell-actions')
+        }
+        return withCellClass(def, 'app-cell-ellipsis')
+      }),
     [columnDefs],
   )
 
@@ -413,9 +436,16 @@ export function DataTable<T>({
     return filteredRowData.slice(start, start + clientPageSize)
   }, [rowData, filteredRowData, clientPaginationEnabled, serverSide, safePage, clientPageSize])
 
+  const rowNumberOffset = clientPaginationEnabled
+    ? safePage * clientPageSize
+    : serverSide
+      ? currentPage * serverPageSize
+      : 0
+
   const totalPages = serverSide ? Math.max(1, Math.ceil(totalCount / serverPageSize)) : 1
 
   function fitColumns(api: GridApi<T>) {
+    if (!fitColumnsToWidth) return
     api.sizeColumnsToFit()
   }
 
@@ -548,6 +578,7 @@ export function DataTable<T>({
       >
         <AgGridReact<T>
           ref={gridRef}
+          context={{ __rowNumberOffset: rowNumberOffset }}
           rowData={pagedRowData}
           columnDefs={resolvedColumnDefs}
           defaultColDef={defaultColDef}
@@ -559,6 +590,9 @@ export function DataTable<T>({
           onFirstDataRendered={(e) => fitColumns(e.api)}
           onRowDataUpdated={(e) => fitColumns(e.api)}
           onGridSizeChanged={(e) => fitColumns(e.api)}
+          alwaysShowHorizontalScroll={!fitColumnsToWidth}
+          enableCellTextSelection
+          ensureDomOrder
           getRowId={getRowId}
           onCellClicked={onCellClicked}
           onRowClicked={onRowClick ? handleRowClicked : undefined}

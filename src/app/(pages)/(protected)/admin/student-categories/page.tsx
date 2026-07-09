@@ -9,7 +9,7 @@ import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listStudentCategories } from '@/services'
 import type { StudentCategory } from '@/types/student-category'
 import StudentCategoryModal from './StudentCategoryModal'
@@ -44,7 +44,7 @@ export default function StudentCategoriesPage() {
 
   const columnDefs = useMemo<ColDef<StudentCategory>[]>(() => [
     COLS.siNo,
-    { ...COLS.orgName, valueGetter: (p) => p.data?.orgName ?? p.data?.orgCode ?? '-' },
+    { ...COLS.orgName, valueGetter: (p) => p.data?.orgCode ?? p.data?.orgName ?? '-' },
     COLS.studentCategory,
     { ...COLS.isActive, cellRenderer: statusRenderer },
     { ...COLS.actions, cellRenderer: actionRenderer(setRow, setOpen) },
@@ -75,6 +75,7 @@ export default function StudentCategoriesPage() {
         </div>
       </div>
       <StudentCategoryModal
+        key={getCrudModalKey(row, open, 'studentCatId')}
         open={open}
         onClose={() => { setOpen(false); setRow(null) }}
         row={row}

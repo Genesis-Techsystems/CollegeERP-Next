@@ -1,300 +1,359 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Filter } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { Select } from '@/common/components/select'
-import { DatePicker } from '@/common/components/date-picker'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { useSessionContext } from '@/context/SessionContext'
-import { toastError, toastSuccess } from '@/lib/toast'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown, Filter } from "lucide-react";
+import { PageContainer, PageHeader } from "@/components/layout";
+import { Select } from "@/common/components/select";
+import { DatePicker } from "@/common/components/date-picker";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useSessionContext } from "@/context/SessionContext";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   getStudentInfoCollegeFilters,
   listGroupSectionsByFilters,
   promoteStudents,
   listStudentsForPromotionPreview,
   normalizeStudentRow,
-} from '@/services'
+} from "@/services";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, any>;
 
-const COL = ['fk_college_id', 'collegeId']
-const AY = ['fk_academic_year_id', 'academicYearId']
-const CRS = ['fk_course_id', 'courseId']
-const GRP = ['fk_course_group_id', 'courseGroupId']
-const YR = ['fk_course_year_id', 'courseYearId']
-const SEC = ['fk_group_section_id', 'groupSectionId', 'group_section_id', 'fk_section_id', 'sectionId']
+const COL = ["fk_college_id", "collegeId"];
+const AY = ["fk_academic_year_id", "academicYearId"];
+const CRS = ["fk_course_id", "courseId"];
+const GRP = ["fk_course_group_id", "courseGroupId"];
+const YR = ["fk_course_year_id", "courseYearId"];
+const SEC = [
+  "fk_group_section_id",
+  "groupSectionId",
+  "group_section_id",
+  "fk_section_id",
+  "sectionId",
+];
 
 function dedupeBy<T>(rows: T[], keyFn: (r: T) => string | number): T[] {
-  const seen = new Set<string | number>()
+  const seen = new Set<string | number>();
   return rows.filter((r) => {
-    const key = keyFn(r)
-    if (!key || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+    const key = keyFn(r);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function pickNum(row: AnyRow | null | undefined, keys: string[]): number {
-  if (!row) return 0
+  if (!row) return 0;
   for (const k of keys) {
-    const n = Number(row[k])
-    if (Number.isFinite(n) && n > 0) return n
+    const n = Number(row[k]);
+    if (Number.isFinite(n) && n > 0) return n;
   }
-  return 0
+  return 0;
 }
 
 function pickText(row: AnyRow | null | undefined, keys: string[]): string {
-  if (!row) return ''
+  if (!row) return "";
   for (const k of keys) {
-    const v = row[k]
-    if (v != null && String(v).trim() !== '') return String(v)
+    const v = row[k];
+    if (v != null && String(v).trim() !== "") return String(v);
   }
-  return ''
+  return "";
 }
 
 /** When AY lives in `academicData` only, filter rows often have `fk_academic_year_id` 0 — still match. */
-function rowDimMatches(row: AnyRow | null | undefined, keys: string[], selectedId: number | null): boolean {
-  if (!selectedId) return true
-  const rowValue = pickNum(row ?? {}, keys)
-  return rowValue === 0 || rowValue === Number(selectedId)
+function rowDimMatches(
+  row: AnyRow | null | undefined,
+  keys: string[],
+  selectedId: number | null,
+): boolean {
+  if (!selectedId) return true;
+  const rowValue = pickNum(row ?? {}, keys);
+  return rowValue === 0 || rowValue === Number(selectedId);
 }
 
-function rowAyMatches(row: AnyRow | null | undefined, ayId: number | null): boolean {
-  return rowDimMatches(row, AY, ayId)
+function rowAyMatches(
+  row: AnyRow | null | undefined,
+  ayId: number | null,
+): boolean {
+  return rowDimMatches(row, AY, ayId);
 }
 
-function hasSelected(rows: AnyRow[], keys: string[], value: number | null): boolean {
-  if (!value) return false
-  return rows.some((row) => pickNum(row, keys) === Number(value))
+function hasSelected(
+  rows: AnyRow[],
+  keys: string[],
+  value: number | null,
+): boolean {
+  if (!value) return false;
+  return rows.some((row) => pickNum(row, keys) === Number(value));
 }
 
 function rawSectionLabel(row: AnyRow): string {
-  return pickText(row, ['group_section_name', 'groupSectionName', 'sectionName', 'section'])
+  return pickText(row, [
+    "group_section_name",
+    "groupSectionName",
+    "sectionName",
+    "section",
+  ]);
 }
 
 function sectionLabel(row: AnyRow): string {
-  return rawSectionLabel(row) || 'Section'
+  return rawSectionLabel(row) || "Section";
 }
 
 function sectionValue(row: AnyRow): string {
-  const id = pickNum(row, SEC)
-  if (id > 0) return String(id)
-  return ''
+  const id = pickNum(row, SEC);
+  if (id > 0) return String(id);
+  return "";
 }
 
 function hasSection(row: AnyRow): boolean {
-  return pickNum(row, SEC) > 0
+  return pickNum(row, SEC) > 0;
 }
 
 function sectionKey(row: AnyRow): string {
-  const id = pickNum(row, SEC)
-  if (id > 0) return `id:${id}`
-  return `name:${rawSectionLabel(row).toLowerCase()}`
+  const id = pickNum(row, SEC);
+  if (id > 0) return `id:${id}`;
+  return `name:${rawSectionLabel(row).toLowerCase()}`;
 }
 
 function parseSelectNumber(v: string | null): number | null {
-  if (!v) return null
-  const n = Number(v)
-  return Number.isFinite(n) && n > 0 ? n : null
+  if (!v) return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 function rowStudentId(row: AnyRow, fallback: number): number {
-  return pickNum(row, ['studentId', 'fk_student_id', 'student_id', 'id']) || fallback
+  return (
+    pickNum(row, ["studentId", "fk_student_id", "student_id", "id"]) || fallback
+  );
 }
 
 function toIsoDate(date: Date | null): string {
-  if (!date) return ''
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+  if (!date) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function parseResultRows(data: AnyRow | null | undefined): AnyRow[] {
-  if (!data) return []
-  if (Array.isArray(data)) return data
-  if (Array.isArray(data.resultList)) return data.resultList
-  if (Array.isArray(data.result)) return data.result
-  if (Array.isArray(data.data)) return data.data
-  if (Array.isArray(data?.data?.resultList)) return data.data.resultList
-  if (Array.isArray(data?.data?.result)) return data.data.result
-  return []
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.resultList)) return data.resultList;
+  if (Array.isArray(data.result)) return data.result;
+  if (Array.isArray(data.data)) return data.data;
+  if (Array.isArray(data?.data?.resultList)) return data.data.resultList;
+  if (Array.isArray(data?.data?.result)) return data.data.result;
+  return [];
 }
 
 function attendanceRowKey(row: AnyRow, index: number): string {
-  const studentId = pickNum(row, ['studentId', 'fk_student_id', 'student_id'])
-  const fromDate = pickText(row, ['fromDate', 'from_date'])
-  const toDate = pickText(row, ['toDate', 'to_date'])
-  const reason = pickText(row, ['reason'])
-  return `${studentId || 'na'}-${fromDate || 'na'}-${toDate || 'na'}-${reason || index}`
+  const studentId = pickNum(row, ["studentId", "fk_student_id", "student_id"]);
+  const fromDate = pickText(row, ["fromDate", "from_date"]);
+  const toDate = pickText(row, ["toDate", "to_date"]);
+  const reason = pickText(row, ["reason"]);
+  return `${studentId || "na"}-${fromDate || "na"}-${toDate || "na"}-${reason || index}`;
 }
 
 function yearNo(row: AnyRow | null | undefined): number {
-  return pickNum(row ?? {}, ['year_no', 'yearNo', 'year_order', 'yearOrder'])
+  return pickNum(row ?? {}, ["year_no", "yearNo", "year_order", "yearOrder"]);
 }
 
 function academicYearEndLabel(label: string): number {
-  const match = label.match(/(\d{4})\s*$/)
-  return match ? Number(match[1]) : 0
+  const match = label.match(/(\d{4})\s*$/);
+  return match ? Number(match[1]) : 0;
 }
 
 function validatePromotionRules(params: {
-  fromAyId: number | null
-  toAyId: number | null
-  fromYearId: number | null
-  toYearId: number | null
-  fromYears: AnyRow[]
+  fromAyId: number | null;
+  toAyId: number | null;
+  fromYearId: number | null;
+  toYearId: number | null;
+  fromYears: AnyRow[];
 }): string | null {
-  const { fromAyId, toAyId, fromYearId, toYearId, fromYears } = params
-  if (!fromYearId || !toYearId) return 'Semester number is empty please check...'
+  const { fromAyId, toAyId, fromYearId, toYearId, fromYears } = params;
+  if (!fromYearId || !toYearId)
+    return "Semester number is empty please check...";
 
-  const fromRow = fromYears.find((r) => pickNum(r, YR) === Number(fromYearId))
-  const toRow = fromYears.find((r) => pickNum(r, YR) === Number(toYearId))
-  const fromYearNo = yearNo(fromRow)
-  const toYearNo = yearNo(toRow)
+  const fromRow = fromYears.find((r) => pickNum(r, YR) === Number(fromYearId));
+  const toRow = fromYears.find((r) => pickNum(r, YR) === Number(toYearId));
+  const fromYearNo = yearNo(fromRow);
+  const toYearNo = yearNo(toRow);
 
   if (fromAyId === toAyId && toYearNo >= fromYearNo) {
-    if (fromYearId !== toYearId) return null
-    return 'Should not promote in same academic year and same course year'
+    if (fromYearId !== toYearId) return null;
+    return "Should not promote in same academic year and same course year";
   }
   if (fromAyId !== toAyId && fromYearNo !== toYearNo) {
-    if (fromYearNo < toYearNo) return null
-    return 'Your are promoting to worng course year please check...'
+    if (fromYearNo < toYearNo) return null;
+    return "Your are promoting to worng course year please check...";
   }
-  return 'Your are promoting to worng class please check...'
+  return "Your are promoting to worng class please check...";
 }
 
 function selectClass() {
-  return '[&_label]:text-xs [&_label]:font-medium [&_button[role=\'combobox\']]:h-8 [&_button[role=\'combobox\']]:text-[12px]'
+  return "[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]";
 }
 
 function mapCollegeOptsFrom(colleges: AnyRow[]) {
   return colleges.map((r) => ({
     value: String(pickNum(r, COL)),
-    label: pickText(r, ['college_code', 'collegeCode', 'college_name', 'collegeName']) || 'College',
-  }))
+    label:
+      pickText(r, [
+        "college_code",
+        "collegeCode",
+        "college_name",
+        "collegeName",
+      ]) || "College",
+  }));
 }
 
 function mapAyOptsFrom(rows: AnyRow[]) {
   return rows.map((r) => ({
     value: String(pickNum(r, AY)),
-    label: pickText(r, ['academic_year', 'academicYear']) || `AY ${pickNum(r, AY)}`,
-  }))
+    label:
+      pickText(r, ["academic_year", "academicYear"]) || `AY ${pickNum(r, AY)}`,
+  }));
 }
 
 function mapCourseOptsFrom(rows: AnyRow[]) {
   return rows.map((r) => ({
     value: String(pickNum(r, CRS)),
-    label: pickText(r, ['course_code', 'courseCode', 'course_name', 'courseName']) || 'Course',
-  }))
+    label:
+      pickText(r, ["course_code", "courseCode", "course_name", "courseName"]) ||
+      "Course",
+  }));
 }
 
 function mapGroupOptsFrom(rows: AnyRow[]) {
   return rows.map((r) => ({
     value: String(pickNum(r, GRP)),
-    label: pickText(r, ['group_code', 'groupCode', 'group_name', 'groupName']) || 'Group',
-  }))
+    label:
+      pickText(r, ["group_code", "groupCode", "group_name", "groupName"]) ||
+      "Group",
+  }));
 }
 
 function mapYearOptsFrom(rows: AnyRow[]) {
   return rows.map((r) => ({
     value: String(pickNum(r, YR)),
     label:
-      pickText(r, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) || 'Year',
-  }))
+      pickText(r, [
+        "course_year_code",
+        "courseYearCode",
+        "course_year_name",
+        "courseYearName",
+      ]) || "Year",
+  }));
 }
 
 function mapSectionOptsFrom(rows: AnyRow[]) {
   return rows.map((r) => ({
     value: sectionValue(r),
     label: sectionLabel(r),
-  }))
+  }));
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity -- Promote From/To filter cascades mirror legacy UI
 export default function StudentPromotionPage() {
-  const { user } = useSessionContext()
+  const { user } = useSessionContext();
 
-  const [fromFilterOpen, setFromFilterOpen] = useState(true)
-  const [toFilterOpen, setToFilterOpen] = useState(true)
-  const [loadingFilters, setLoadingFilters] = useState(true)
-  const [loadingList, setLoadingList] = useState(false)
-  const [allRows, setAllRows] = useState<AnyRow[]>([])
-  const [academicData, setAcademicData] = useState<AnyRow[]>([])
-  const [fromSectionApiRows, setFromSectionApiRows] = useState<AnyRow[]>([])
-  const [toSectionApiRows, setToSectionApiRows] = useState<AnyRow[]>([])
-  const [resultRows, setResultRows] = useState<AnyRow[]>([])
-  const [listSearch, setListSearch] = useState('')
-  const [selectedPromotionIds, setSelectedPromotionIds] = useState<number[]>([])
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewSearch, setPreviewSearch] = useState('')
-  const [submittingPromotion, setSubmittingPromotion] = useState(false)
-  const [attendanceOpen, setAttendanceOpen] = useState(false)
-  const [attendanceRows, setAttendanceRows] = useState<AnyRow[]>([])
-  const [attendanceMessage, setAttendanceMessage] = useState('No academic batches found for this date.')
+  const [fromFilterOpen, setFromFilterOpen] = useState(true);
+  const [toFilterOpen, setToFilterOpen] = useState(true);
+  const [loadingFilters, setLoadingFilters] = useState(true);
+  const [loadingList, setLoadingList] = useState(false);
+  const [allRows, setAllRows] = useState<AnyRow[]>([]);
+  const [academicData, setAcademicData] = useState<AnyRow[]>([]);
+  const [fromSectionApiRows, setFromSectionApiRows] = useState<AnyRow[]>([]);
+  const [toSectionApiRows, setToSectionApiRows] = useState<AnyRow[]>([]);
+  const [resultRows, setResultRows] = useState<AnyRow[]>([]);
+  const [listSearch, setListSearch] = useState("");
+  const [selectedPromotionIds, setSelectedPromotionIds] = useState<number[]>(
+    [],
+  );
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewSearch, setPreviewSearch] = useState("");
+  const [submittingPromotion, setSubmittingPromotion] = useState(false);
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
+  const [attendanceRows, setAttendanceRows] = useState<AnyRow[]>([]);
+  const [attendanceMessage, setAttendanceMessage] = useState(
+    "No academic batches found for this date.",
+  );
 
-  const [fromCollegeId, setFromCollegeId] = useState<number | null>(null)
-  const [fromAyId, setFromAyId] = useState<number | null>(null)
-  const [fromCourseId, setFromCourseId] = useState<number | null>(null)
-  const [fromGroupId, setFromGroupId] = useState<number | null>(null)
-  const [fromYearId, setFromYearId] = useState<number | null>(null)
-  const [fromSectionId, setFromSectionId] = useState<number | null>(null)
+  const [fromCollegeId, setFromCollegeId] = useState<number | null>(null);
+  const [fromAyId, setFromAyId] = useState<number | null>(null);
+  const [fromCourseId, setFromCourseId] = useState<number | null>(null);
+  const [fromGroupId, setFromGroupId] = useState<number | null>(null);
+  const [fromYearId, setFromYearId] = useState<number | null>(null);
+  const [fromSectionId, setFromSectionId] = useState<number | null>(null);
 
-  const [toCollegeId, setToCollegeId] = useState<number | null>(null)
-  const [toAyId, setToAyId] = useState<number | null>(null)
-  const [toCourseId, setToCourseId] = useState<number | null>(null)
-  const [toGroupId, setToGroupId] = useState<number | null>(null)
-  const [toYearId, setToYearId] = useState<number | null>(null)
-  const [toSectionId, setToSectionId] = useState<number | null>(null)
-  const [changeFrom, setChangeFrom] = useState<Date | null>(null)
+  const [toCollegeId, setToCollegeId] = useState<number | null>(null);
+  const [toAyId, setToAyId] = useState<number | null>(null);
+  const [toCourseId, setToCourseId] = useState<number | null>(null);
+  const [toGroupId, setToGroupId] = useState<number | null>(null);
+  const [toYearId, setToYearId] = useState<number | null>(null);
+  const [toSectionId, setToSectionId] = useState<number | null>(null);
+  const [changeFrom, setChangeFrom] = useState<Date | null>(null);
 
   useEffect(() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    setChangeFrom(d)
-  }, [])
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    setChangeFrom(d);
+  }, []);
 
   const loadFilters = useCallback(async () => {
-    const employeeId = Number(user?.employeeId ?? 0)
-    const organizationId = Number(user?.organizationId ?? 0)
-    setLoadingFilters(true)
+    const employeeId = Number(user?.employeeId ?? 0);
+    const organizationId = Number(user?.organizationId ?? 0);
+    setLoadingFilters(true);
     try {
-      const { filtersData, academicData: ayRows } = await getStudentInfoCollegeFilters(
-        organizationId,
-        employeeId,
-      )
-      setAllRows(Array.isArray(filtersData) ? filtersData : [])
-      setAcademicData(Array.isArray(ayRows) ? ayRows : [])
+      const { filtersData, academicData: ayRows } =
+        await getStudentInfoCollegeFilters(organizationId, employeeId);
+      setAllRows(Array.isArray(filtersData) ? filtersData : []);
+      setAcademicData(Array.isArray(ayRows) ? ayRows : []);
     } catch {
-      setAllRows([])
-      setAcademicData([])
+      setAllRows([]);
+      setAcademicData([]);
     } finally {
-      setLoadingFilters(false)
+      setLoadingFilters(false);
     }
-  }, [user?.employeeId, user?.organizationId])
+  }, [user?.employeeId, user?.organizationId]);
 
   useEffect(() => {
-    void loadFilters()
-  }, [loadFilters])
+    void loadFilters();
+  }, [loadFilters]);
 
   const colleges = useMemo(
     () =>
-      dedupeBy(allRows.filter((r) => pickNum(r, COL) > 0), (r) => pickNum(r, COL)),
+      dedupeBy(
+        allRows.filter((r) => pickNum(r, COL) > 0),
+        (r) => pickNum(r, COL),
+      ),
     [allRows],
-  )
+  );
 
   const fromAcademicYears = useMemo(() => {
-    if (!fromCollegeId) return []
-    const collegeRow = allRows.find((r) => pickNum(r, COL) === Number(fromCollegeId))
-    const univId = pickNum(collegeRow ?? {}, ['fk_university_id', 'universityId'])
+    if (!fromCollegeId) return [];
+    const collegeRow = allRows.find(
+      (r) => pickNum(r, COL) === Number(fromCollegeId),
+    );
+    const univId = pickNum(collegeRow ?? {}, [
+      "fk_university_id",
+      "universityId",
+    ]);
     return dedupeBy(
-      academicData.filter((r) => pickNum(r, ['fk_university_id', 'universityId']) === univId),
+      academicData.filter(
+        (r) => pickNum(r, ["fk_university_id", "universityId"]) === univId,
+      ),
       (r) => pickNum(r, AY),
-    ).filter((r) => pickNum(r, AY) > 0)
-  }, [allRows, academicData, fromCollegeId])
+    ).filter((r) => pickNum(r, AY) > 0);
+  }, [allRows, academicData, fromCollegeId]);
 
   const fromCourses = useMemo(
     () =>
@@ -303,7 +362,7 @@ export default function StudentPromotionPage() {
         (r) => pickNum(r, CRS),
       ).filter((r) => pickNum(r, CRS) > 0),
     [allRows, fromCollegeId],
-  )
+  );
   const fromGroups = useMemo(
     () =>
       dedupeBy(
@@ -315,7 +374,7 @@ export default function StudentPromotionPage() {
         (r) => pickNum(r, GRP),
       ).filter((r) => pickNum(r, GRP) > 0),
     [allRows, fromCollegeId, fromCourseId],
-  )
+  );
   const fromYears = useMemo(
     () =>
       dedupeBy(
@@ -328,7 +387,7 @@ export default function StudentPromotionPage() {
         (r) => pickNum(r, YR),
       ).filter((r) => pickNum(r, YR) > 0),
     [allRows, fromCollegeId, fromCourseId, fromGroupId],
-  )
+  );
   const fromSectionsFromFilters = useMemo(
     () =>
       dedupeBy(
@@ -343,31 +402,43 @@ export default function StudentPromotionPage() {
         sectionKey,
       ).filter(hasSection),
     [allRows, fromCollegeId, fromAyId, fromCourseId, fromGroupId, fromYearId],
-  )
+  );
   const fromSections = useMemo(
-    () => (fromSectionApiRows.length > 0 ? fromSectionApiRows : fromSectionsFromFilters),
+    () =>
+      fromSectionApiRows.length > 0
+        ? fromSectionApiRows
+        : fromSectionsFromFilters,
     [fromSectionApiRows, fromSectionsFromFilters],
-  )
+  );
 
   const toRowsBase = useMemo(() => {
-    if (!toCollegeId) return []
-    const filtered = allRows.filter((r) => pickNum(r, COL) === Number(toCollegeId))
-    return filtered.length > 0 ? filtered : allRows
-  }, [allRows, toCollegeId])
+    if (!toCollegeId) return [];
+    const filtered = allRows.filter(
+      (r) => pickNum(r, COL) === Number(toCollegeId),
+    );
+    return filtered.length > 0 ? filtered : allRows;
+  }, [allRows, toCollegeId]);
 
   const toAcademicYears = useMemo(() => {
-    if (!toCollegeId) return []
-    const collegeRow = allRows.find((r) => pickNum(r, COL) === Number(toCollegeId))
-    const univId = pickNum(collegeRow ?? {}, ['fk_university_id', 'universityId'])
+    if (!toCollegeId) return [];
+    const collegeRow = allRows.find(
+      (r) => pickNum(r, COL) === Number(toCollegeId),
+    );
+    const univId = pickNum(collegeRow ?? {}, [
+      "fk_university_id",
+      "universityId",
+    ]);
     return dedupeBy(
-      academicData.filter((r) => pickNum(r, ['fk_university_id', 'universityId']) === univId),
+      academicData.filter(
+        (r) => pickNum(r, ["fk_university_id", "universityId"]) === univId,
+      ),
       (r) => pickNum(r, AY),
-    ).filter((r) => pickNum(r, AY) > 0)
-  }, [allRows, academicData, toCollegeId])
+    ).filter((r) => pickNum(r, AY) > 0);
+  }, [allRows, academicData, toCollegeId]);
 
-  const toCourses = fromCourses
-  const toGroups = fromGroups
-  const toYears = fromYears
+  const toCourses = fromCourses;
+  const toGroups = fromGroups;
+  const toYears = fromYears;
   const toSectionsFromFilters = useMemo(
     () =>
       dedupeBy(
@@ -381,142 +452,161 @@ export default function StudentPromotionPage() {
         sectionKey,
       ).filter(hasSection),
     [toRowsBase, toAyId, toCourseId, toGroupId, toYearId],
-  )
+  );
   const toSections = useMemo(
-    () => (toSectionApiRows.length > 0 ? toSectionApiRows : toSectionsFromFilters),
+    () =>
+      toSectionApiRows.length > 0 ? toSectionApiRows : toSectionsFromFilters,
     [toSectionApiRows, toSectionsFromFilters],
-  )
+  );
 
   const previewRows = useMemo(
     () =>
-      resultRows.filter((row, idx) => selectedPromotionIds.includes(rowStudentId(row, idx + 1))),
+      resultRows.filter((row, idx) =>
+        selectedPromotionIds.includes(rowStudentId(row, idx + 1)),
+      ),
     [resultRows, selectedPromotionIds],
-  )
+  );
 
-  const previewStudent = previewRows[0] ?? resultRows[0] ?? null
+  const previewStudent = previewRows[0] ?? resultRows[0] ?? null;
 
   const previewCollegeCode = useMemo(
     () =>
-      pickText(previewStudent, ['collegeCode', 'college_code']) ||
-      pickText(allRows.find((r) => pickNum(r, COL) === Number(toCollegeId)), [
-        'college_code',
-        'collegeCode',
-      ]) ||
+      pickText(previewStudent, ["collegeCode", "college_code"]) ||
+      pickText(
+        allRows.find((r) => pickNum(r, COL) === Number(toCollegeId)),
+        ["college_code", "collegeCode"],
+      ) ||
       user?.collegeCode ||
-      '-',
+      "-",
     [previewStudent, allRows, toCollegeId, user?.collegeCode],
-  )
+  );
   const previewCourseCode = useMemo(
     () =>
-      pickText(previewStudent, ['courseCode', 'course_code']) ||
-      pickText(allRows.find((r) => pickNum(r, CRS) === Number(fromCourseId)), [
-        'course_code',
-        'courseCode',
-      ]) ||
-      '-',
+      pickText(previewStudent, ["courseCode", "course_code"]) ||
+      pickText(
+        allRows.find((r) => pickNum(r, CRS) === Number(fromCourseId)),
+        ["course_code", "courseCode"],
+      ) ||
+      "-",
     [previewStudent, allRows, fromCourseId],
-  )
+  );
   const previewGroupCode = useMemo(
     () =>
-      pickText(previewStudent, ['groupCode', 'group_code']) ||
-      pickText(allRows.find((r) => pickNum(r, GRP) === Number(toGroupId)), [
-        'group_code',
-        'groupCode',
-      ]) ||
-      '-',
+      pickText(previewStudent, ["groupCode", "group_code"]) ||
+      pickText(
+        allRows.find((r) => pickNum(r, GRP) === Number(toGroupId)),
+        ["group_code", "groupCode"],
+      ) ||
+      "-",
     [previewStudent, allRows, toGroupId],
-  )
+  );
   const previewFromCourseYear = useMemo(
     () =>
-      pickText(previewStudent, ['courseYearName', 'course_year_name']) ||
-      pickText(fromYears.find((r) => pickNum(r, YR) === Number(fromYearId)), [
-        'course_year_code',
-        'courseYearCode',
-      ]) ||
-      '-',
+      pickText(previewStudent, ["courseYearName", "course_year_name"]) ||
+      pickText(
+        fromYears.find((r) => pickNum(r, YR) === Number(fromYearId)),
+        ["course_year_code", "courseYearCode"],
+      ) ||
+      "-",
     [previewStudent, fromYears, fromYearId],
-  )
+  );
   const previewToCourseYear = useMemo(
     () =>
-      pickText(fromYears.find((r) => pickNum(r, YR) === Number(toYearId)), [
-        'course_year_code',
-        'courseYearCode',
-      ]) || '-',
+      pickText(
+        fromYears.find((r) => pickNum(r, YR) === Number(toYearId)),
+        ["course_year_code", "courseYearCode"],
+      ) || "-",
     [fromYears, toYearId],
-  )
+  );
   const previewFromSection = useMemo(
     () =>
-      pickText(previewStudent, ['section', 'sectionName']) ||
-      sectionLabel(fromSections.find((r) => pickNum(r, SEC) === Number(fromSectionId)) ?? {}) ||
-      '-',
+      pickText(previewStudent, ["section", "sectionName"]) ||
+      sectionLabel(
+        fromSections.find((r) => pickNum(r, SEC) === Number(fromSectionId)) ??
+          {},
+      ) ||
+      "-",
     [previewStudent, fromSections, fromSectionId],
-  )
+  );
   const previewToSection = useMemo(() => {
-    const apiRow = toSectionApiRows.find((r) => pickNum(r, SEC) === Number(toSectionId))
-    if (apiRow) return pickText(apiRow, ['section', 'sectionName']) || sectionLabel(apiRow)
-    const row = toSections.find((r) => pickNum(r, SEC) === Number(toSectionId))
-    return sectionLabel(row ?? {}) || '-'
-  }, [toSectionApiRows, toSections, toSectionId])
+    const apiRow = toSectionApiRows.find(
+      (r) => pickNum(r, SEC) === Number(toSectionId),
+    );
+    if (apiRow)
+      return (
+        pickText(apiRow, ["section", "sectionName"]) || sectionLabel(apiRow)
+      );
+    const row = toSections.find((r) => pickNum(r, SEC) === Number(toSectionId));
+    return sectionLabel(row ?? {}) || "-";
+  }, [toSectionApiRows, toSections, toSectionId]);
   const previewFromAy = useMemo(
     () =>
-      pickText(previewStudent, ['academicYear', 'academic_year']) ||
-      pickText(fromAcademicYears.find((r) => pickNum(r, AY) === Number(fromAyId)), [
-        'academic_year',
-        'academicYear',
-      ]) ||
-      '-',
+      pickText(previewStudent, ["academicYear", "academic_year"]) ||
+      pickText(
+        fromAcademicYears.find((r) => pickNum(r, AY) === Number(fromAyId)),
+        ["academic_year", "academicYear"],
+      ) ||
+      "-",
     [previewStudent, fromAcademicYears, fromAyId],
-  )
+  );
   const previewToAy = useMemo(
     () =>
-      pickText(toAcademicYears.find((r) => pickNum(r, AY) === Number(toAyId)), [
-        'academic_year',
-        'academicYear',
-      ]) || '-',
+      pickText(
+        toAcademicYears.find((r) => pickNum(r, AY) === Number(toAyId)),
+        ["academic_year", "academicYear"],
+      ) || "-",
     [toAcademicYears, toAyId],
-  )
+  );
 
   const toCollegeLabel = useMemo(() => {
-    const row = allRows.find((r) => pickNum(r, COL) === Number(toCollegeId))
+    const row = allRows.find((r) => pickNum(r, COL) === Number(toCollegeId));
     return (
-      pickText(row, ['college_code', 'collegeCode', 'college_name', 'collegeName']) ||
+      pickText(row, [
+        "college_code",
+        "collegeCode",
+        "college_name",
+        "collegeName",
+      ]) ||
       user?.collegeCode ||
-      'College'
-    )
-  }, [allRows, toCollegeId, user?.collegeCode])
+      "College"
+    );
+  }, [allRows, toCollegeId, user?.collegeCode]);
 
   const previewYearWarning =
     academicYearEndLabel(previewFromAy) > 0 &&
     academicYearEndLabel(previewToAy) > 0 &&
-    academicYearEndLabel(previewFromAy) > academicYearEndLabel(previewToAy)
+    academicYearEndLabel(previewFromAy) > academicYearEndLabel(previewToAy);
 
   const filteredResultRows = useMemo(() => {
-    const q = listSearch.trim().toLowerCase()
-    if (!q) return resultRows
+    const q = listSearch.trim().toLowerCase();
+    if (!q) return resultRows;
     return resultRows.filter((row) =>
-      [pickText(row, ['rollNumber', 'hallticketNumber']), pickText(row, ['firstName', 'studentName'])]
-        .join(' ')
+      [
+        pickText(row, ["rollNumber", "hallticketNumber"]),
+        pickText(row, ["firstName", "studentName"]),
+      ]
+        .join(" ")
         .toLowerCase()
         .includes(q),
-    )
-  }, [resultRows, listSearch])
+    );
+  }, [resultRows, listSearch]);
 
   const previewFilteredRows = useMemo(() => {
-    const q = previewSearch.trim().toLowerCase()
-    if (!q) return previewRows
+    const q = previewSearch.trim().toLowerCase();
+    if (!q) return previewRows;
     return previewRows.filter((row) =>
       [
-        pickText(row, ['hallticketNumber', 'rollNumber']),
-        pickText(row, ['studentName', 'firstName']),
-        pickText(row, ['mobileNumber', 'mobile_number']),
+        pickText(row, ["hallticketNumber", "rollNumber"]),
+        pickText(row, ["studentName", "firstName"]),
+        pickText(row, ["mobileNumber", "mobile_number"]),
       ]
-        .join(' ')
+        .join(" ")
         .toLowerCase()
         .includes(q),
-    )
-  }, [previewRows, previewSearch])
-  const effectiveToCollegeId = toCollegeId ?? fromCollegeId
-  const effectiveToSectionId = toSectionId
+    );
+  }, [previewRows, previewSearch]);
+  const effectiveToCollegeId = toCollegeId ?? fromCollegeId;
+  const effectiveToSectionId = toSectionId;
   const hasRequiredPromotionFilters = useMemo(
     () =>
       Boolean(
@@ -528,261 +618,278 @@ export default function StudentPromotionPage() {
         toYearId &&
         effectiveToSectionId,
       ),
-    [fromCollegeId, fromGroupId, fromYearId, fromSectionId, toGroupId, toYearId, effectiveToSectionId],
-  )
+    [
+      fromCollegeId,
+      fromGroupId,
+      fromYearId,
+      fromSectionId,
+      toGroupId,
+      toYearId,
+      effectiveToSectionId,
+    ],
+  );
 
   useEffect(() => {
-    if (loadingFilters || colleges.length === 0) return
+    if (loadingFilters || colleges.length === 0) return;
     if (!fromCollegeId) {
-      const first = pickNum(colleges[0], COL)
-      if (first) setFromCollegeId(first)
+      const first = pickNum(colleges[0], COL);
+      if (first) setFromCollegeId(first);
     }
-  }, [loadingFilters, colleges, fromCollegeId])
+  }, [loadingFilters, colleges, fromCollegeId]);
 
   useEffect(() => {
-    if (!fromCollegeId) return
-    setFromCourseId(null)
-    setFromGroupId(null)
-    setFromYearId(null)
-    setFromSectionId(null)
-  }, [fromCollegeId])
+    if (!fromCollegeId) return;
+    setFromCourseId(null);
+    setFromGroupId(null);
+    setFromYearId(null);
+    setFromSectionId(null);
+  }, [fromCollegeId]);
 
   useEffect(() => {
     if (!fromCollegeId) {
-      setFromAyId(null)
-      return
+      setFromAyId(null);
+      return;
     }
-    const first = fromAcademicYears[0]
-    setFromAyId(first ? pickNum(first, AY) : null)
-  }, [fromCollegeId, fromAcademicYears])
+    const first = fromAcademicYears[0];
+    setFromAyId(first ? pickNum(first, AY) : null);
+  }, [fromCollegeId, fromAcademicYears]);
 
   useEffect(() => {
     if (!fromAyId || !hasSelected(fromAcademicYears, AY, fromAyId)) {
-      const first = fromAcademicYears[0]
-      setFromAyId(first ? pickNum(first, AY) : null)
-      return
+      const first = fromAcademicYears[0];
+      setFromAyId(first ? pickNum(first, AY) : null);
+      return;
     }
-    setFromCourseId(null)
-    setFromGroupId(null)
-    setFromYearId(null)
-    setFromSectionId(null)
-    const first = fromCourses[0]
-    if (first) setFromCourseId(pickNum(first, CRS))
-  }, [fromAyId, fromCourses])
+    setFromCourseId(null);
+    setFromGroupId(null);
+    setFromYearId(null);
+    setFromSectionId(null);
+    const first = fromCourses[0];
+    if (first) setFromCourseId(pickNum(first, CRS));
+  }, [fromAyId, fromCourses]);
 
   useEffect(() => {
     if (!fromCourseId || !hasSelected(fromCourses, CRS, fromCourseId)) {
-      const first = fromCourses[0]
-      setFromCourseId(first ? pickNum(first, CRS) : null)
-      return
+      const first = fromCourses[0];
+      setFromCourseId(first ? pickNum(first, CRS) : null);
+      return;
     }
-    setFromGroupId(null)
-    setFromYearId(null)
-    setFromSectionId(null)
-    const first = fromGroups[0]
-    if (first) setFromGroupId(pickNum(first, GRP))
-  }, [fromCourseId, fromGroups])
+    setFromGroupId(null);
+    setFromYearId(null);
+    setFromSectionId(null);
+    const first = fromGroups[0];
+    if (first) setFromGroupId(pickNum(first, GRP));
+  }, [fromCourseId, fromGroups]);
 
   useEffect(() => {
     if (!fromGroupId || !hasSelected(fromGroups, GRP, fromGroupId)) {
-      const first = fromGroups[0]
-      setFromGroupId(first ? pickNum(first, GRP) : null)
-      return
+      const first = fromGroups[0];
+      setFromGroupId(first ? pickNum(first, GRP) : null);
+      return;
     }
-    setFromYearId(null)
-    setFromSectionId(null)
-    const first = fromYears[0]
-    if (first) setFromYearId(pickNum(first, YR))
-  }, [fromGroupId, fromYears])
+    setFromYearId(null);
+    setFromSectionId(null);
+    const first = fromYears[0];
+    if (first) setFromYearId(pickNum(first, YR));
+  }, [fromGroupId, fromYears]);
 
   useEffect(() => {
     if (!fromYearId || !hasSelected(fromYears, YR, fromYearId)) {
-      const first = fromYears[0]
-      setFromYearId(first ? pickNum(first, YR) : null)
-      return
+      const first = fromYears[0];
+      setFromYearId(first ? pickNum(first, YR) : null);
+      return;
     }
-    setFromSectionId(null)
-  }, [fromYearId, fromYears])
+    setFromSectionId(null);
+  }, [fromYearId, fromYears]);
 
   useEffect(() => {
     async function loadFromSections() {
       if (!fromCollegeId || !fromAyId || !fromGroupId || !fromYearId) {
-        setFromSectionApiRows([])
-        return
+        setFromSectionApiRows([]);
+        return;
       }
       const rows = await listGroupSectionsByFilters({
         collegeId: fromCollegeId,
         academicYearId: fromAyId,
         courseGroupId: fromGroupId,
         courseYearId: fromYearId,
-      }).catch(() => [])
-      setFromSectionApiRows(Array.isArray(rows) ? rows : [])
+      }).catch(() => []);
+      setFromSectionApiRows(Array.isArray(rows) ? rows : []);
     }
-    void loadFromSections()
-  }, [fromCollegeId, fromAyId, fromGroupId, fromYearId])
+    void loadFromSections();
+  }, [fromCollegeId, fromAyId, fromGroupId, fromYearId]);
 
   useEffect(() => {
-    if (!fromCollegeId) return
-    if (toCollegeId !== fromCollegeId) setToCollegeId(fromCollegeId)
-  }, [fromCollegeId, toCollegeId])
+    if (!fromCollegeId) return;
+    if (toCollegeId !== fromCollegeId) setToCollegeId(fromCollegeId);
+  }, [fromCollegeId, toCollegeId]);
 
   useEffect(() => {
-    if (!toCollegeId) return
-    setToCourseId(null)
-    setToGroupId(null)
-    setToYearId(null)
-    setToSectionId(null)
-  }, [toCollegeId])
+    if (!toCollegeId) return;
+    setToCourseId(null);
+    setToGroupId(null);
+    setToYearId(null);
+    setToSectionId(null);
+  }, [toCollegeId]);
 
   useEffect(() => {
     if (!toCollegeId) {
-      setToAyId(null)
-      return
+      setToAyId(null);
+      return;
     }
-    const first = toAcademicYears[0]
-    setToAyId(first ? pickNum(first, AY) : null)
-  }, [toCollegeId, toAcademicYears])
+    const first = toAcademicYears[0];
+    setToAyId(first ? pickNum(first, AY) : null);
+  }, [toCollegeId, toAcademicYears]);
 
   useEffect(() => {
     if (!toAyId || !hasSelected(toAcademicYears, AY, toAyId)) {
-      const first = toAcademicYears[0]
-      setToAyId(first ? pickNum(first, AY) : null)
-      return
+      const first = toAcademicYears[0];
+      setToAyId(first ? pickNum(first, AY) : null);
+      return;
     }
-    setToCourseId(null)
-    setToGroupId(null)
-    setToYearId(null)
-    setToSectionId(null)
-    const first = toCourses[0]
-    if (first) setToCourseId(pickNum(first, CRS))
-  }, [toAyId, toCourses])
+    setToCourseId(null);
+    setToGroupId(null);
+    setToYearId(null);
+    setToSectionId(null);
+    const first = toCourses[0];
+    if (first) setToCourseId(pickNum(first, CRS));
+  }, [toAyId, toCourses]);
 
   useEffect(() => {
     if (!toCourseId || !hasSelected(toCourses, CRS, toCourseId)) {
-      const first = toCourses[0]
-      setToCourseId(first ? pickNum(first, CRS) : null)
-      return
+      const first = toCourses[0];
+      setToCourseId(first ? pickNum(first, CRS) : null);
+      return;
     }
-    setToGroupId(null)
-    setToYearId(null)
-    setToSectionId(null)
-    const first = toGroups[0]
-    if (first) setToGroupId(pickNum(first, GRP))
-  }, [toCourseId, toGroups])
+    setToGroupId(null);
+    setToYearId(null);
+    setToSectionId(null);
+    const first = toGroups[0];
+    if (first) setToGroupId(pickNum(first, GRP));
+  }, [toCourseId, toGroups]);
 
   useEffect(() => {
     if (!toGroupId || !hasSelected(toGroups, GRP, toGroupId)) {
-      const first = toGroups[0]
-      setToGroupId(first ? pickNum(first, GRP) : null)
-      return
+      const first = toGroups[0];
+      setToGroupId(first ? pickNum(first, GRP) : null);
+      return;
     }
-    setToYearId(null)
-    setToSectionId(null)
-    const first = toYears[0]
-    if (first) setToYearId(pickNum(first, YR))
-  }, [toGroupId, toYears])
+    setToYearId(null);
+    setToSectionId(null);
+    const first = toYears[0];
+    if (first) setToYearId(pickNum(first, YR));
+  }, [toGroupId, toYears]);
 
   useEffect(() => {
     if (!toYearId || !hasSelected(toYears, YR, toYearId)) {
-      const first = toYears[0]
-      setToYearId(first ? pickNum(first, YR) : null)
-      return
+      const first = toYears[0];
+      setToYearId(first ? pickNum(first, YR) : null);
+      return;
     }
-    setToSectionId(null)
-  }, [toYearId, toYears])
+    setToSectionId(null);
+  }, [toYearId, toYears]);
 
   useEffect(() => {
-    if (toSectionId || toSectionApiRows.length === 0) return
-    const first = pickNum(toSectionApiRows[0], SEC)
-    if (first) setToSectionId(first)
-  }, [toSectionApiRows, toSectionId])
+    if (toSectionId || toSectionApiRows.length === 0) return;
+    const first = pickNum(toSectionApiRows[0], SEC);
+    if (first) setToSectionId(first);
+  }, [toSectionApiRows, toSectionId]);
 
   useEffect(() => {
     async function loadToSections() {
       if (!toCollegeId || !toAyId || !toGroupId || !toYearId) {
-        setToSectionApiRows([])
-        return
+        setToSectionApiRows([]);
+        return;
       }
       const rows = await listGroupSectionsByFilters({
         collegeId: toCollegeId,
         academicYearId: toAyId,
         courseGroupId: toGroupId,
         courseYearId: toYearId,
-      }).catch(() => [])
-      setToSectionApiRows(Array.isArray(rows) ? rows : [])
+      }).catch(() => []);
+      setToSectionApiRows(Array.isArray(rows) ? rows : []);
     }
-    void loadToSections()
-  }, [toCollegeId, toAyId, toGroupId, toYearId])
+    void loadToSections();
+  }, [toCollegeId, toAyId, toGroupId, toYearId]);
 
   useEffect(() => {
-    if (!fromCourseId) return
-    setToCourseId(fromCourseId)
-  }, [fromCourseId])
+    if (!fromCourseId) return;
+    setToCourseId(fromCourseId);
+  }, [fromCourseId]);
 
   useEffect(() => {
-    if (!fromGroupId) return
-    setToGroupId(fromGroupId)
-  }, [fromGroupId])
+    if (!fromGroupId) return;
+    setToGroupId(fromGroupId);
+  }, [fromGroupId]);
 
   const loadStudentList = useCallback(async () => {
     if (!fromCollegeId || !fromGroupId || !fromSectionId) {
-      setResultRows([])
-      setSelectedPromotionIds([])
-      return
+      setResultRows([]);
+      setSelectedPromotionIds([]);
+      return;
     }
-    setLoadingList(true)
+    setLoadingList(true);
     try {
       const raw = await listStudentsForPromotionPreview({
         collegeId: fromCollegeId,
         courseGroupId: fromGroupId,
         groupSectionId: fromSectionId,
-      })
-      const normalized = (Array.isArray(raw) ? raw : []).map((row) => normalizeStudentRow(row))
-      setResultRows(normalized)
-      setSelectedPromotionIds(normalized.map((row, idx) => rowStudentId(row, idx + 1)))
+      });
+      const normalized = (Array.isArray(raw) ? raw : []).map((row) =>
+        normalizeStudentRow(row),
+      );
+      setResultRows(normalized);
+      setSelectedPromotionIds(
+        normalized.map((row, idx) => rowStudentId(row, idx + 1)),
+      );
     } catch {
-      setResultRows([])
-      setSelectedPromotionIds([])
+      setResultRows([]);
+      setSelectedPromotionIds([]);
     } finally {
-      setLoadingList(false)
+      setLoadingList(false);
     }
-  }, [fromCollegeId, fromGroupId, fromSectionId])
+  }, [fromCollegeId, fromGroupId, fromSectionId]);
 
   useEffect(() => {
-    void loadStudentList()
-  }, [loadStudentList])
+    void loadStudentList();
+  }, [loadStudentList]);
 
   function togglePromote(studentId: number, checked: boolean) {
     setSelectedPromotionIds((prev) => {
-      if (checked) return prev.includes(studentId) ? prev : [...prev, studentId]
-      return prev.filter((id) => id !== studentId)
-    })
+      if (checked)
+        return prev.includes(studentId) ? prev : [...prev, studentId];
+      return prev.filter((id) => id !== studentId);
+    });
   }
 
   function toggleAllPromote(checked: boolean) {
     if (!checked) {
-      setSelectedPromotionIds([])
-      return
+      setSelectedPromotionIds([]);
+      return;
     }
-    setSelectedPromotionIds(resultRows.map((row, idx) => rowStudentId(row, idx + 1)))
+    setSelectedPromotionIds(
+      resultRows.map((row, idx) => rowStudentId(row, idx + 1)),
+    );
   }
 
   function onOpenPreview() {
     if (!hasRequiredPromotionFilters) {
-      const missing: string[] = []
-      if (!fromSectionId) missing.push('Promote From section')
-      if (!toAyId) missing.push('Promote To academic year')
-      if (!toGroupId) missing.push('Promote To course group')
-      if (!toYearId) missing.push('Promote To course year')
-      if (!effectiveToSectionId) missing.push('Promote To section')
+      const missing: string[] = [];
+      if (!fromSectionId) missing.push("Promote From section");
+      if (!toAyId) missing.push("Promote To academic year");
+      if (!toGroupId) missing.push("Promote To course group");
+      if (!toYearId) missing.push("Promote To course year");
+      if (!effectiveToSectionId) missing.push("Promote To section");
       if (missing.length > 0) {
-        toastError(new Error(`Please select: ${missing.join(', ')}`))
+        toastError(new Error(`Please select: ${missing.join(", ")}`));
       } else {
-        toastError(new Error('Please select valid Promote From and Promote To filters.'))
+        toastError(
+          new Error("Please select valid Promote From and Promote To filters."),
+        );
       }
-      setFromFilterOpen(true)
-      setToFilterOpen(true)
-      return
+      setFromFilterOpen(true);
+      setToFilterOpen(true);
+      return;
     }
     const validationError = validatePromotionRules({
       fromAyId,
@@ -790,29 +897,33 @@ export default function StudentPromotionPage() {
       fromYearId,
       toYearId,
       fromYears,
-    })
+    });
     if (validationError) {
-      toastError(new Error(validationError))
-      return
+      toastError(new Error(validationError));
+      return;
     }
     if (selectedPromotionIds.length === 0) {
-      toastError(new Error('Please select at least one student to promote.'))
-      return
+      toastError(new Error("Please select at least one student to promote."));
+      return;
     }
-    setPreviewSearch('')
-    setPreviewOpen(true)
+    setPreviewSearch("");
+    setPreviewOpen(true);
   }
 
   async function onSubmitPromotion() {
     if (!hasRequiredPromotionFilters) {
-      toastError(new Error('Promotion filters are incomplete.'))
-      setFromFilterOpen(true)
-      setToFilterOpen(true)
-      return
+      toastError(new Error("Promotion filters are incomplete."));
+      setFromFilterOpen(true);
+      setToFilterOpen(true);
+      return;
     }
     if (previewYearWarning) {
-      toastError(new Error(`You are try to promoting worng academic year : (${previewFromAy} - ${previewToAy})`))
-      return
+      toastError(
+        new Error(
+          `You are try to promoting worng academic year : (${previewFromAy} - ${previewToAy})`,
+        ),
+      );
+      return;
     }
     const validationError = validatePromotionRules({
       fromAyId,
@@ -820,21 +931,27 @@ export default function StudentPromotionPage() {
       fromYearId,
       toYearId,
       fromYears,
-    })
+    });
     if (validationError) {
-      toastError(new Error(validationError))
-      return
+      toastError(new Error(validationError));
+      return;
     }
 
-    const selectedRows = resultRows.filter((row, idx) => selectedPromotionIds.includes(rowStudentId(row, idx + 1)))
+    const selectedRows = resultRows.filter((row, idx) =>
+      selectedPromotionIds.includes(rowStudentId(row, idx + 1)),
+    );
     if (selectedRows.length === 0) {
-      toastError(new Error('No students selected for promotion.'))
-      return
+      toastError(new Error("No students selected for promotion."));
+      return;
     }
 
-    const fromYearRow = fromYears.find((r) => pickNum(r, YR) === Number(fromYearId))
-    const toYearRow = fromYears.find((r) => pickNum(r, YR) === Number(toYearId))
-    const changeDate = toIsoDate(changeFrom)
+    const fromYearRow = fromYears.find(
+      (r) => pickNum(r, YR) === Number(fromYearId),
+    );
+    const toYearRow = fromYears.find(
+      (r) => pickNum(r, YR) === Number(toYearId),
+    );
+    const changeDate = toIsoDate(changeFrom);
 
     const angularPayload: Record<string, unknown> = {
       collegeId: fromCollegeId,
@@ -855,47 +972,67 @@ export default function StudentPromotionPage() {
       toAcademicYearId: toAyId,
       fromCourseGroupId: fromGroupId,
       studentIdsList: selectedRows,
-    }
+    };
 
-    setSubmittingPromotion(true)
+    setSubmittingPromotion(true);
     try {
-      const data = await promoteStudents(angularPayload)
-      const rows = parseResultRows(data)
-      const success = data?.success !== false
-      setAttendanceRows(rows)
+      const data = await promoteStudents(angularPayload);
+      const rows = parseResultRows(data);
+      const success = data?.success !== false;
+      setAttendanceRows(rows);
       setAttendanceMessage(
-        rows.length > 0 ? '' : success ? 'Promotion completed.' : 'No academic batches found for this date.',
-      )
-      setPreviewOpen(false)
+        rows.length > 0
+          ? ""
+          : success
+            ? "Promotion completed."
+            : "No academic batches found for this date.",
+      );
+      setPreviewOpen(false);
       if (success) {
-        toastSuccess(typeof data?.message === 'string' ? data.message : 'Promotion submitted successfully')
-        await loadStudentList()
+        toastSuccess(
+          typeof data?.message === "string"
+            ? data.message
+            : "Promotion submitted successfully",
+        );
+        await loadStudentList();
       } else {
-        toastError(new Error(typeof data?.message === 'string' ? data.message : 'Promotion completed with warnings'))
-        await loadStudentList()
+        toastError(
+          new Error(
+            typeof data?.message === "string"
+              ? data.message
+              : "Promotion completed with warnings",
+          ),
+        );
+        await loadStudentList();
       }
-      if (!success || rows.length > 0) setAttendanceOpen(true)
+      if (!success || rows.length > 0) setAttendanceOpen(true);
     } catch (e) {
-      setAttendanceRows([])
-      setAttendanceMessage('Promotion submit failed. Please verify data and try again.')
-      setAttendanceOpen(true)
-      toastError(e, 'Promotion submit failed')
+      setAttendanceRows([]);
+      setAttendanceMessage(
+        "Promotion submit failed. Please verify data and try again.",
+      );
+      setAttendanceOpen(true);
+      toastError(e, "Promotion submit failed");
     } finally {
-      setSubmittingPromotion(false)
+      setSubmittingPromotion(false);
     }
   }
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Student Promotion" subtitle="Student Information System" />
+      <PageHeader
+        title="Student Promotion"
+        subtitle="Student Information System"
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="app-card overflow-hidden">
+        <div className="app-card overflow-hidden" data-no-page-name>
           <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
             <h2 className="app-card-title">Promote From</h2>
             <Button
               type="button"
               variant="outline"
+              style={{ marginRight: "0px" }}
               size="sm"
               className="h-6 px-2.5 text-[12px]"
               onClick={() => setFromFilterOpen((v) => !v)}
@@ -903,7 +1040,9 @@ export default function StudentPromotionPage() {
             >
               <Filter className="mr-1.5 h-3.5 w-3.5" />
               Filter
-              <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${fromFilterOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown
+                className={`ml-1.5 h-3.5 w-3.5 transition-transform ${fromFilterOpen ? "rotate-180" : ""}`}
+              />
             </Button>
           </div>
           {fromFilterOpen && (
@@ -975,20 +1114,23 @@ export default function StudentPromotionPage() {
           )}
         </div>
 
-        <div className="app-card overflow-hidden">
+        <div className="app-card overflow-hidden" data-no-page-name>
           <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
             <h2 className="app-card-title">Promote To</h2>
             <Button
               type="button"
               variant="outline"
+              style={{ marginRight: "0px" }}
               size="sm"
-              className="h-6 px-2.5 text-[12px]"
+              className="ml-auto h-6 px-2.5 text-[12px]"
               onClick={() => setToFilterOpen((v) => !v)}
               aria-expanded={toFilterOpen}
             >
               <Filter className="mr-1.5 h-3.5 w-3.5" />
               Filter
-              <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${toFilterOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown
+                className={`ml-1.5 h-3.5 w-3.5 transition-transform ${toFilterOpen ? "rotate-180" : ""}`}
+              />
             </Button>
           </div>
           {toFilterOpen && (
@@ -1094,43 +1236,61 @@ export default function StudentPromotionPage() {
                     <label className="inline-flex items-center gap-1.5">
                       <input
                         type="checkbox"
-                        checked={selectedPromotionIds.length > 0 && selectedPromotionIds.length === resultRows.length}
+                        checked={
+                          selectedPromotionIds.length > 0 &&
+                          selectedPromotionIds.length === resultRows.length
+                        }
                         onChange={(e) => toggleAllPromote(e.target.checked)}
-                      />
-                      {' '}
-                      {selectedPromotionIds.length === resultRows.length && resultRows.length > 0
-                        ? 'UnMark All'
-                        : 'Mark All'}
+                      />{" "}
+                      {selectedPromotionIds.length === resultRows.length &&
+                      resultRows.length > 0
+                        ? "UnMark All"
+                        : "Mark All"}
                     </label>
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredResultRows.map((row, index) => (
-                  <tr key={`r-${rowStudentId(row, index + 1)}-${index}`} className="border-t">
+                  <tr
+                    key={`r-${rowStudentId(row, index + 1)}-${index}`}
+                    className="border-t"
+                  >
                     <td className="px-2 py-1">{resultRows.indexOf(row) + 1}</td>
-                    <td className="px-2 py-1">{pickText(row, ['rollNumber', 'hallticketNumber'])}</td>
-                    <td className="px-2 py-1">{pickText(row, ['firstName', 'studentName'])}</td>
+                    <td className="px-2 py-1">
+                      {pickText(row, ["rollNumber", "hallticketNumber"])}
+                    </td>
+                    <td className="px-2 py-1">
+                      {pickText(row, ["firstName", "studentName"])}
+                    </td>
                     <td className="px-2 py-1">
                       <label className="inline-flex items-center gap-1.5">
                         <input
                           type="checkbox"
-                          checked={selectedPromotionIds.includes(rowStudentId(row, resultRows.indexOf(row) + 1))}
+                          checked={selectedPromotionIds.includes(
+                            rowStudentId(row, resultRows.indexOf(row) + 1),
+                          )}
                           onChange={(e) =>
-                            togglePromote(rowStudentId(row, resultRows.indexOf(row) + 1), e.target.checked)
+                            togglePromote(
+                              rowStudentId(row, resultRows.indexOf(row) + 1),
+                              e.target.checked,
+                            )
                           }
-                        />
-                        {' '}
+                        />{" "}
                         <span
                           className={
-                            selectedPromotionIds.includes(rowStudentId(row, resultRows.indexOf(row) + 1))
-                              ? 'text-emerald-700'
-                              : 'text-muted-foreground'
+                            selectedPromotionIds.includes(
+                              rowStudentId(row, resultRows.indexOf(row) + 1),
+                            )
+                              ? "text-emerald-700"
+                              : "text-muted-foreground"
                           }
                         >
-                          {selectedPromotionIds.includes(rowStudentId(row, resultRows.indexOf(row) + 1))
-                            ? 'Promote'
-                            : 'Unpromote'}
+                          {selectedPromotionIds.includes(
+                            rowStudentId(row, resultRows.indexOf(row) + 1),
+                          )
+                            ? "Promote"
+                            : "Unpromote"}
                         </span>
                       </label>
                     </td>
@@ -1140,7 +1300,12 @@ export default function StudentPromotionPage() {
             </table>
           </div>
           <div className="flex justify-end">
-            <Button type="button" className="h-8 text-[12px]" disabled={selectedPromotionIds.length === 0} onClick={onOpenPreview}>
+            <Button
+              type="button"
+              className="h-8 text-[12px]"
+              disabled={selectedPromotionIds.length === 0}
+              onClick={onOpenPreview}
+            >
               Save
             </Button>
           </div>
@@ -1154,14 +1319,29 @@ export default function StudentPromotionPage() {
           <div className="space-y-3">
             {previewYearWarning ? (
               <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                You are try to promoting worng academic year : ({previewFromAy} - {previewToAy})
+                You are try to promoting worng academic year : ({previewFromAy}{" "}
+                - {previewToAy})
               </div>
             ) : null}
             <div className="rounded border border-sky-100 bg-sky-50/40 p-3 text-[14px] leading-7">
-              <div><span className="font-semibold">College :</span> {previewCollegeCode}</div>
-              <div><span className="font-semibold">Course :</span> {previewCourseCode} / {previewGroupCode}</div>
-              <div><span className="font-semibold">Promotion From :</span> {previewFromCourseYear} / Section {previewFromSection} ({previewFromAy})</div>
-              <div><span className="font-semibold">Promotion To :</span> {previewToCourseYear} / Section {previewToSection} ({previewToAy})</div>
+              <div>
+                <span className="font-semibold">College :</span>{" "}
+                {previewCollegeCode}
+              </div>
+              <div>
+                <span className="font-semibold">Course :</span>{" "}
+                {previewCourseCode} / {previewGroupCode}
+              </div>
+              <div>
+                <span className="font-semibold">Promotion From :</span>{" "}
+                {previewFromCourseYear} / Section {previewFromSection} (
+                {previewFromAy})
+              </div>
+              <div>
+                <span className="font-semibold">Promotion To :</span>{" "}
+                {previewToCourseYear} / Section {previewToSection} (
+                {previewToAy})
+              </div>
             </div>
             <Input
               value={previewSearch}
@@ -1181,11 +1361,20 @@ export default function StudentPromotionPage() {
                 </thead>
                 <tbody>
                   {previewFilteredRows.map((row, index) => (
-                    <tr key={`preview-${rowStudentId(row, index + 1)}-${index}`} className="border-t">
+                    <tr
+                      key={`preview-${rowStudentId(row, index + 1)}-${index}`}
+                      className="border-t"
+                    >
                       <td className="px-2 py-1">{index + 1}</td>
-                      <td className="px-2 py-1">{pickText(row, ['hallticketNumber', 'rollNumber'])}</td>
-                      <td className="px-2 py-1">{pickText(row, ['studentName', 'firstName'])}</td>
-                      <td className="px-2 py-1">{pickText(row, ['mobileNumber', 'mobile_number'])}</td>
+                      <td className="px-2 py-1">
+                        {pickText(row, ["hallticketNumber", "rollNumber"])}
+                      </td>
+                      <td className="px-2 py-1">
+                        {pickText(row, ["studentName", "firstName"])}
+                      </td>
+                      <td className="px-2 py-1">
+                        {pickText(row, ["mobileNumber", "mobile_number"])}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1193,14 +1382,21 @@ export default function StudentPromotionPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" className="h-8 text-xs" onClick={() => setPreviewOpen(false)}>Close</Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => setPreviewOpen(false)}
+            >
+              Close
+            </Button>
             <Button
               type="button"
               className="h-8 text-xs"
               disabled={submittingPromotion || previewYearWarning}
               onClick={onSubmitPromotion}
             >
-              {submittingPromotion ? 'Saving…' : 'Save'}
+              {submittingPromotion ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1230,18 +1426,40 @@ export default function StudentPromotionPage() {
                 <tbody>
                   {attendanceRows.length === 0 ? (
                     <tr className="border-t">
-                      <td className="px-2 py-2 text-rose-600" colSpan={7}>{attendanceMessage}</td>
+                      <td className="px-2 py-2 text-rose-600" colSpan={7}>
+                        {attendanceMessage}
+                      </td>
                     </tr>
                   ) : (
                     attendanceRows.map((row, index) => (
-                      <tr key={attendanceRowKey(row, index)} className="border-t">
+                      <tr
+                        key={attendanceRowKey(row, index)}
+                        className="border-t"
+                      >
                         <td className="px-2 py-1">{index + 1}</td>
-                        <td className="px-2 py-1">{pickText(row, ['studentName', 'student_name', 'name']) || '-'}</td>
-                        <td className="px-2 py-1">{pickText(row, ['regulationCode', 'regulation']) || '-'}</td>
-                        <td className="px-2 py-1">{pickText(row, ['courseName', 'course']) || '-'}</td>
-                        <td className="px-2 py-1">{pickText(row, ['fromDate', 'from_date']) || '-'}</td>
-                        <td className="px-2 py-1">{pickText(row, ['toDate', 'to_date']) || '-'}</td>
-                        <td className="px-2 py-1">{pickText(row, ['reason']) || '-'}</td>
+                        <td className="px-2 py-1">
+                          {pickText(row, [
+                            "studentName",
+                            "student_name",
+                            "name",
+                          ]) || "-"}
+                        </td>
+                        <td className="px-2 py-1">
+                          {pickText(row, ["regulationCode", "regulation"]) ||
+                            "-"}
+                        </td>
+                        <td className="px-2 py-1">
+                          {pickText(row, ["courseName", "course"]) || "-"}
+                        </td>
+                        <td className="px-2 py-1">
+                          {pickText(row, ["fromDate", "from_date"]) || "-"}
+                        </td>
+                        <td className="px-2 py-1">
+                          {pickText(row, ["toDate", "to_date"]) || "-"}
+                        </td>
+                        <td className="px-2 py-1">
+                          {pickText(row, ["reason"]) || "-"}
+                        </td>
                       </tr>
                     ))
                   )}
@@ -1250,11 +1468,16 @@ export default function StudentPromotionPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setAttendanceOpen(false)}>Close</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAttendanceOpen(false)}
+            >
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </PageContainer>
-  )
+  );
 }
-

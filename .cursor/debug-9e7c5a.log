@@ -1,0 +1,6 @@
+{"sessionId":"9e7c5a","runId":"pre-fix","hypothesisId":"H2","location":"student-promotion/page.tsx:858","message":"Promotion page rendered","data":{"route":"student-promotion"},"timestamp":1783417056120}
+{"sessionId":"9e7c5a","runId":"pre-fix","hypothesisId":"H1","location":"student-promotion/page.tsx:895","message":"Expected source title literal","data":{"sourceLiteral":"Promote From"},"timestamp":1783417056121}
+{"sessionId":"9e7c5a","runId":"pre-fix","hypothesisId":"H3","location":"student-promotion/page.tsx:876","message":"First card title runtime snapshot","data":{"textContent":"Promote From","beforeContent":"none"},"timestamp":1783417056121}
+{"sessionId":"9e7c5a","runId":"pre-fix","hypothesisId":"H2","location":"student-promotion/page.tsx:858","message":"Promotion page rendered","data":{"route":"student-promotion"},"timestamp":1783417056135}
+{"sessionId":"9e7c5a","runId":"pre-fix","hypothesisId":"H3","location":"student-promotion/page.tsx:876","message":"First card title runtime snapshot","data":{"textContent":"Promote From","beforeContent":"\"Student Promotions\""},"timestamp":1783417056136}
+{"sessionId":"9e7c5a","runId":"pre-fix","hypothesisId":"H1","location":"student-promotion/page.tsx:895","message":"Expected source title literal","data":{"sourceLiteral":"Promote From"},"timestamp":1783417056136}

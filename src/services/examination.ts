@@ -1,4 +1,6 @@
+import { AppError, parseApiError } from '@/lib/errors'
 import { buildQuery, domainCreate, domainList, domainUpdate, getAllRecords, uploadFile } from '@/services/crud'
+import type { ApiResponse } from '@/types/api'
 import { ENTITIES } from '@/config/constants/entities'
 import { EXAM_API, NEXT_API } from '@/config/constants/api'
 import type {
@@ -95,35 +97,42 @@ export async function getUnivExamRestCollegesForRevaluationFee(args: {
 	examId: number
 	academicYearId: number
 }): Promise<any[]> {
-	const data = await getAllRecords<{ result?: any[][] }>('s_get_exam_filters_bycode', {
-		in_flag: 'univ_exam_rest_in_regexamstd',
-		in_flag_type: 'ALL',
-		in_university_id: args.universityId,
-		in_college_id: 0,
-		in_course_id: args.courseId,
-		in_course_group_id: 0,
-		in_course_year_id: 0,
-		in_exam_id: args.examId,
-		in_academic_year_id: args.academicYearId,
-		in_regulation_id: 0,
-		in_subject_id: 0,
-		in_loginuser_empid: args.employeeId || 0,
-		in_loginuser_roleid: 0,
-		in_sub_flag_type: 0,
-		in_param1: 0,
-		in_param2: 0,
-	})
-	const groups = (data?.result ?? []) as any[][]
-	for (const g of groups) {
-		if (!Array.isArray(g) || g.length === 0) continue
-		const head = g[0] as Record<string, unknown>
-		if (String(head?.flag ?? head?.FLAG ?? '') === 'univ_exam_rest_filters') {
-			return g.filter((r) => r && (r as Record<string, unknown>).fk_college_id != null)
+	try {
+		const data = await getAllRecords<{ result?: any[][] }>('s_get_exam_filters_bycode', {
+			in_flag: 'univ_exam_rest_in_regexamstd',
+			in_flag_type: 'ALL',
+			in_university_id: args.universityId,
+			in_college_id: 0,
+			in_course_id: args.courseId,
+			in_course_group_id: 0,
+			in_course_year_id: 0,
+			in_exam_id: args.examId,
+			in_academic_year_id: args.academicYearId,
+			in_regulation_id: 0,
+			in_subject_id: 0,
+			in_loginuser_empid: args.employeeId || 0,
+			in_loginuser_roleid: 0,
+			in_sub_flag_type: 0,
+			in_param1: 0,
+			in_param2: 0,
+		})
+		const groups = (data?.result ?? []) as any[][]
+		for (const g of groups) {
+			if (!Array.isArray(g) || g.length === 0) continue
+			const head = g[0] as Record<string, unknown>
+			if (String(head?.flag ?? head?.FLAG ?? '') === 'univ_exam_rest_filters') {
+				return g.filter((r) => r && (r as Record<string, unknown>).fk_college_id != null)
+			}
 		}
+		return groups
+			.flatMap((g) => (Array.isArray(g) ? g : []))
+			.filter((r) => r && (r as Record<string, unknown>).fk_college_id != null)
+	} catch (error) {
+		// Spring returns success:false + "No Records(s) found." when no colleges match — empty is valid.
+		const msg = String((error as Error)?.message ?? '').toLowerCase()
+		if (msg.includes('no record')) return []
+		throw error
 	}
-	return groups
-		.flatMap((g) => (Array.isArray(g) ? g : []))
-		.filter((r) => r && (r as Record<string, unknown>).fk_college_id != null)
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -312,12 +321,30 @@ export async function listExamFeeStructures(query?: string) {
 	return domainList(ENTITIES.EXAM_FEE_STRUCTURE.name, query)
 }
 
+/** Angular `crudService.add(examFeeStructureUrl, examFeeStructure)` — POST array to CMS batch endpoint. */
+export async function saveExamFeeStructure(
+	rows: Record<string, unknown> | Record<string, unknown>[],
+): Promise<ApiResponse<unknown>> {
+	const payload = Array.isArray(rows) ? rows : [rows]
+	const res = await fetch(NEXT_API.CMS(EXAM_API.SAVE_EXAM_FEE_STRUCTURE), {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(payload),
+	})
+	const body = (await res.json().catch(() => ({}))) as ApiResponse<unknown>
+	if (!res.ok) throw parseApiError(res, body)
+	if (!body.success) {
+		throw new AppError('API_ERROR', body.message ?? 'Failed to save exam fee structure')
+	}
+	return body
+}
+
 export async function createExamFeeStructure(payload: Record<string, unknown>) {
-	return domainCreate(ENTITIES.EXAM_FEE_STRUCTURE.name, payload)
+	return saveExamFeeStructure(payload)
 }
 
 export async function updateExamFeeStructure(id: number, payload: Record<string, unknown>) {
-	return domainUpdate(ENTITIES.EXAM_FEE_STRUCTURE.name, ENTITIES.EXAM_FEE_STRUCTURE.pk, id, payload)
+	return saveExamFeeStructure({ ...payload, examFeeStructureId: id })
 }
 
 export async function getExamFeeStructure(id: number) {

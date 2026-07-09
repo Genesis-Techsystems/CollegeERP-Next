@@ -154,7 +154,7 @@ export function Select({
   }
 
   return (
-    <div className={cn('flex flex-col gap-1', className)}>
+    <div className={cn('flex min-w-0 flex-col gap-1', className)}>
       {/* Label */}
       {label && (
         <label
@@ -184,7 +184,7 @@ export function Select({
             aria-haspopup="listbox"
             disabled={disabled}
             className={cn(
-              'app-control flex w-full items-center justify-between rounded-md border bg-white px-3 py-1.5 text-[length:var(--app-control-font-size)] text-slate-900 shadow-sm transition-colors',
+              'app-control flex min-w-0 w-full items-center justify-between rounded-md border bg-white px-3 py-1.5 text-[length:var(--app-control-font-size)] text-slate-900 shadow-sm transition-colors',
               'focus-visible:outline-none focus:ring-0 focus-visible:ring-0',
               'disabled:cursor-not-allowed disabled:opacity-50',
               open && 'border-[hsl(var(--ring))]',
@@ -197,7 +197,7 @@ export function Select({
             {/* Label / placeholder */}
             <span
               className={cn(
-                'truncate',
+                'min-w-0 truncate',
                 !selectedOption && 'text-slate-400',
               )}
             >

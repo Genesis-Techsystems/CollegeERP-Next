@@ -9,20 +9,37 @@ import {
   resolveAffiliatedEmployeeId,
   resolveAffiliatedOrgId,
 } from '@/services'
+import { academicYearRowsForCollegeFromProc } from '@/services/student-information'
 import type { AffiliatedCollegeFilterRow } from '@/types/affiliated-colleges'
 
 type AnyRow = AffiliatedCollegeFilterRow
 
-function num(row: AnyRow, key: string): number {
-  const n = Number(row[key])
-  return Number.isFinite(n) ? n : 0
+const COL = ['fk_college_id', 'collegeId', 'fk_collegeId']
+const AY = ['fk_academic_year_id', 'academicYearId']
+const CRS = ['fk_course_id', 'courseId']
+const GRP = ['fk_course_group_id', 'courseGroupId', 'CourseGroup.courseGroupId']
+const CYR = ['fk_course_year_id', 'courseYearId']
+const EX = ['fk_exam_id', 'examId']
+
+function pickNum(row: AnyRow, keys: string[]): number {
+  for (const key of keys) {
+    const n = Number(row[key])
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  return 0
 }
 
-function distinctBy<T extends AnyRow>(rows: T[], key: keyof T | string): T[] {
+function rowMatches(row: AnyRow, keys: string[], selectedId: number | null): boolean {
+  if (!selectedId) return true
+  const rowValue = pickNum(row, keys)
+  return rowValue === 0 || rowValue === Number(selectedId)
+}
+
+function distinctBy<T extends AnyRow>(rows: T[], keys: string[]): T[] {
   const seen = new Set<number>()
   const out: T[] = []
   for (const row of rows) {
-    const id = num(row, String(key))
+    const id = pickNum(row, keys)
     if (id <= 0 || seen.has(id)) continue
     seen.add(id)
     out.push(row)
@@ -47,6 +64,14 @@ export type AffiliatedCascadeOptions = {
   autoSelectFirst?: boolean
   /** College uploads approval only needs college / year / course (Angular staffForm). */
   requireGroupYear?: boolean
+  /** Pre-select filters (e.g. navigated from Student Summary upload link). */
+  initialSelection?: {
+    collegeId?: number
+    academicYearId?: number
+    courseId?: number
+    courseGroupId?: number
+    courseYearId?: number
+  }
 }
 
 export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
@@ -59,14 +84,29 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
       : QK.affiliatedColleges.collegeFilters(orgId, empId),
     queryFn: () =>
       options.examFilters
-        ? getAffiliatedCollegeExamFilters(orgId, empId)
+        ? getAffiliatedCollegeExamFilters(orgId, empId).then((r) => ({
+            filtersData: r.filtersData,
+            academicData: [] as AnyRow[],
+            batchesData: [] as AnyRow[],
+            regulationData: [] as AnyRow[],
+            regulationDataExam: r.regulationData ?? [],
+          }))
         : getAffiliatedCollegeFilters(orgId, empId).then((r) => ({
             filtersData: r.filtersData,
-            regulationData: [] as AnyRow[],
+            academicData: r.academicData ?? [],
+            batchesData: r.batchesData ?? [],
+            regulationData: r.regulationData ?? [],
+            regulationDataExam: [] as AnyRow[],
           })),
   })
 
   const filtersData = filterBundle?.filtersData ?? []
+  const academicData = filterBundle?.academicData ?? []
+  const batchesData = filterBundle?.batchesData ?? []
+  const regulationData = [
+    ...(filterBundle?.regulationData ?? []),
+    ...(filterBundle?.regulationDataExam ?? []),
+  ]
 
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
@@ -77,108 +117,135 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
 
   const colleges = useMemo(
     () =>
-      distinctBy(filtersData, 'fk_college_id').sort(
-        (a, b) => num(a, 'clg_sort_order') - num(b, 'clg_sort_order'),
+      distinctBy(filtersData, COL).sort(
+        (a, b) => Number(a.clg_sort_order ?? 0) - Number(b.clg_sort_order ?? 0),
       ),
     [filtersData],
   )
 
   const academicYears = useMemo(() => {
     if (!collegeId) return []
+    return academicYearRowsForCollegeFromProc(filtersData, academicData, collegeId)
+  }, [filtersData, academicData, collegeId])
+
+  const courses = useMemo(() => {
+    if (!collegeId) return []
     return distinctBy(
-      filtersData.filter((r) => num(r, 'fk_college_id') === collegeId),
-      'fk_academic_year_id',
+      filtersData.filter((r) => rowMatches(r, COL, collegeId)),
+      CRS,
     )
   }, [filtersData, collegeId])
 
-  const courses = useMemo(() => {
-    if (!collegeId || !academicYearId) return []
-    return distinctBy(
-      filtersData.filter(
-        (r) => num(r, 'fk_college_id') === collegeId && num(r, 'fk_academic_year_id') === academicYearId,
-      ),
-      'fk_course_id',
-    )
-  }, [filtersData, collegeId, academicYearId])
-
   const courseGroups = useMemo(() => {
-    if (!collegeId || !academicYearId || !courseId) return []
+    if (!collegeId || !courseId) return []
     return distinctBy(
       filtersData.filter(
-        (r) =>
-          num(r, 'fk_college_id') === collegeId &&
-          num(r, 'fk_academic_year_id') === academicYearId &&
-          num(r, 'fk_course_id') === courseId,
+        (r) => rowMatches(r, COL, collegeId) && rowMatches(r, CRS, courseId),
       ),
-      'fk_course_group_id',
+      GRP,
     )
-  }, [filtersData, collegeId, academicYearId, courseId])
+  }, [filtersData, collegeId, courseId])
 
   const courseYears = useMemo(() => {
-    if (!collegeId || !academicYearId || !courseId || courseGroupId == null) return []
+    if (!collegeId || !courseId || courseGroupId == null) return []
     const base = filtersData.filter(
       (r) =>
-        num(r, 'fk_college_id') === collegeId &&
-        num(r, 'fk_academic_year_id') === academicYearId &&
-        num(r, 'fk_course_id') === courseId &&
-        (courseGroupId === 0 || num(r, 'fk_course_group_id') === courseGroupId),
+        rowMatches(r, COL, collegeId) &&
+        rowMatches(r, CRS, courseId) &&
+        (courseGroupId === 0 || rowMatches(r, GRP, courseGroupId)),
     )
-    return distinctBy(base, 'fk_course_year_id').sort(
-      (a, b) => num(a, 'year_order') - num(b, 'year_order'),
+    return distinctBy(base, CYR).sort(
+      (a, b) => Number(a.year_order ?? 0) - Number(b.year_order ?? 0),
     )
-  }, [filtersData, collegeId, academicYearId, courseId, courseGroupId])
+  }, [filtersData, collegeId, courseId, courseGroupId])
 
   const exams = useMemo(() => {
     if (!collegeId || !academicYearId || !courseId || courseGroupId == null || !courseYearId) return []
     return distinctBy(
       filtersData.filter(
         (r) =>
-          num(r, 'fk_college_id') === collegeId &&
-          num(r, 'fk_academic_year_id') === academicYearId &&
-          num(r, 'fk_course_id') === courseId &&
-          num(r, 'fk_course_group_id') === courseGroupId &&
-          num(r, 'fk_course_year_id') === courseYearId,
+          rowMatches(r, COL, collegeId) &&
+          rowMatches(r, AY, academicYearId) &&
+          rowMatches(r, CRS, courseId) &&
+          rowMatches(r, GRP, courseGroupId) &&
+          rowMatches(r, CYR, courseYearId),
       ),
-      'fk_exam_id',
+      EX,
     )
   }, [filtersData, collegeId, academicYearId, courseId, courseGroupId, courseYearId])
 
   useEffect(() => {
-    if (!options.autoSelectFirst || colleges.length === 0 || collegeId != null) return
-    setCollegeId(num(colleges[0], 'fk_college_id'))
-  }, [options.autoSelectFirst, colleges, collegeId])
+    if (colleges.length === 0 || collegeId != null) return
+    const seed = options.initialSelection?.collegeId
+    if (seed && seed > 0) {
+      setCollegeId(seed)
+      return
+    }
+    if (!options.autoSelectFirst) return
+    setCollegeId(pickNum(colleges[0], COL))
+  }, [options.autoSelectFirst, options.initialSelection?.collegeId, colleges, collegeId])
 
   useEffect(() => {
-    if (!options.autoSelectFirst || academicYears.length === 0) return
-    if (academicYearId == null) setAcademicYearId(num(academicYears[0], 'fk_academic_year_id'))
-  }, [options.autoSelectFirst, academicYears, academicYearId])
+    if (academicYears.length === 0) return
+    if (academicYearId == null) {
+      const seed = options.initialSelection?.academicYearId
+      setAcademicYearId(seed && seed > 0 ? seed : options.autoSelectFirst ? pickNum(academicYears[0], AY) : null)
+    }
+  }, [options.autoSelectFirst, options.initialSelection?.academicYearId, academicYears, academicYearId])
 
   useEffect(() => {
-    if (!options.autoSelectFirst || courses.length === 0) return
-    if (courseId == null) setCourseId(num(courses[0], 'fk_course_id'))
-  }, [options.autoSelectFirst, courses, courseId])
+    if (courses.length === 0) return
+    if (courseId == null) {
+      const seed = options.initialSelection?.courseId
+      setCourseId(seed && seed > 0 ? seed : options.autoSelectFirst ? pickNum(courses[0], CRS) : null)
+    }
+  }, [options.autoSelectFirst, options.initialSelection?.courseId, courses, courseId])
 
   useEffect(() => {
-    if (!options.autoSelectFirst || courseGroups.length === 0) return
+    if (courseGroups.length === 0) return
     if (courseGroupId == null) {
+      const seed = options.initialSelection?.courseGroupId
+      if (seed != null) {
+        setCourseGroupId(seed)
+        return
+      }
+      if (!options.autoSelectFirst) return
       setCourseGroupId(
-        options.allowAllGroupYear ? 0 : num(courseGroups[0], 'fk_course_group_id'),
+        options.allowAllGroupYear ? 0 : pickNum(courseGroups[0], GRP),
       )
     }
-  }, [options.autoSelectFirst, courseGroups, courseGroupId, options.allowAllGroupYear])
+  }, [
+    options.autoSelectFirst,
+    options.initialSelection?.courseGroupId,
+    options.allowAllGroupYear,
+    courseGroups,
+    courseGroupId,
+  ])
 
   useEffect(() => {
-    if (!options.autoSelectFirst || courseYears.length === 0) return
+    if (courseYears.length === 0) return
     if (courseYearId == null) {
+      const seed = options.initialSelection?.courseYearId
+      if (seed != null) {
+        setCourseYearId(seed)
+        return
+      }
+      if (!options.autoSelectFirst) return
       setCourseYearId(
-        options.allowAllGroupYear ? 0 : num(courseYears[0], 'fk_course_year_id'),
+        options.allowAllGroupYear ? 0 : pickNum(courseYears[0], CYR),
       )
     }
-  }, [options.autoSelectFirst, courseYears, courseYearId, options.allowAllGroupYear])
+  }, [
+    options.autoSelectFirst,
+    options.initialSelection?.courseYearId,
+    options.allowAllGroupYear,
+    courseYears,
+    courseYearId,
+  ])
 
   useEffect(() => {
     if (!options.examFilters || exams.length === 0 || examId != null) return
-    setExamId(num(exams[0], 'fk_exam_id'))
+    setExamId(pickNum(exams[0], EX))
   }, [options.examFilters, exams, examId])
 
   const onCollegeChange = useCallback((id: number) => {
@@ -218,17 +285,25 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
 
   const contextLabel = useMemo(() => {
     const parts: string[] = []
-    const college = colleges.find((c) => num(c, 'fk_college_id') === collegeId)
+    const college = colleges.find((c) => pickNum(c, COL) === collegeId)
     if (college) parts.push(label(college, 'college_code', 'collegeCode'))
-    const ay = academicYears.find((a) => num(a, 'fk_academic_year_id') === academicYearId)
+    const ay = academicYears.find((a) => pickNum(a, AY) === academicYearId)
     if (ay) parts.push(label(ay, 'academic_year', 'academicYear'))
-    const course = courses.find((c) => num(c, 'fk_course_id') === courseId)
+    const course = courses.find((c) => pickNum(c, CRS) === courseId)
     if (course) parts.push(label(course, 'course_code', 'courseCode'))
-    const grp = courseGroups.find((g) => num(g, 'fk_course_group_id') === courseGroupId)
-    if (grp) parts.push(label(grp, 'group_code', 'groupCode'))
-    const yr = courseYears.find((y) => num(y, 'fk_course_year_id') === courseYearId)
-    if (yr) parts.push(label(yr, 'course_year_name', 'courseYearName'))
-    const ex = exams.find((e) => num(e, 'fk_exam_id') === examId)
+    if (courseGroupId === 0) {
+      parts.push('All')
+    } else {
+      const grp = courseGroups.find((g) => pickNum(g, GRP) === courseGroupId)
+      if (grp) parts.push(label(grp, 'group_name', 'groupName', 'group_code', 'groupCode'))
+    }
+    if (courseYearId === 0) {
+      parts.push('All')
+    } else {
+      const yr = courseYears.find((y) => pickNum(y, CYR) === courseYearId)
+      if (yr) parts.push(label(yr, 'course_year_name', 'courseYearName'))
+    }
+    const ex = exams.find((e) => pickNum(e, EX) === examId)
     if (ex) parts.push(label(ex, 'exam_name', 'examName'))
     return parts.filter(Boolean).join(' / ')
   }, [
@@ -267,6 +342,8 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
   return {
     isLoading,
     filtersData,
+    batchesData,
+    regulationData,
     collegeId,
     academicYearId,
     courseId,
