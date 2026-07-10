@@ -1052,7 +1052,7 @@ export async function getAssignSubjectsEvaluatorRoles(): Promise<AnyRow[]> {
     in_select: '',
     in_whereclause: '',
   }
-  const procs = ['s_get_viewdetails_bycode', 's_get_view_details_bycode', 's_get_viewdetails']
+  const procs = ['s_get_viewdata', 's_get_viewdetails_bycode', 's_get_view_details_bycode', 's_get_viewdetails']
   for (const proc of procs) {
     try {
       const data = await getAllRecords<{ result: AnyRow[][] }>(proc, params)

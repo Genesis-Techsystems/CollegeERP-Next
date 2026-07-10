@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ColDef } from 'ag-grid-community'
-import { LayoutList, PencilIcon, Settings } from 'lucide-react'
+import { FileText, Mail, PencilIcon, Settings } from 'lucide-react'
 import { Select, MultiSelect, type SelectOption } from '@/common/components/select'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,7 @@ import { listRegulations } from '@/services/examination'
 import {
   createEvaluatorBankDetails,
   createEvaluatorProfile,
+  getAssignSubjectsEvaluatorRoles,
   getEvaluationExamFilters,
   getEvaluatorBankDetails,
   listActiveCourses,
@@ -106,6 +107,17 @@ function makeDetailsRenderer(
   )
 }
 
+function BankSummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-5 gap-1 px-2 py-1">
+      <p className="sm:col-span-1 text-[13px] font-medium m-0">{label}</p>
+      <p className="sm:col-span-4 text-[13px] font-medium m-0">
+        <span className="text-[#0d29ff]">{value || '—'}</span>
+      </p>
+    </div>
+  )
+}
+
 function makeActionsRenderer(
   openEdit: (row: AnyRow) => void,
   sendOne: (row: AnyRow) => void,
@@ -123,12 +135,26 @@ function makeActionsRenderer(
       >
         <PencilIcon className="h-3.5 w-3.5" />
       </Button>
-      <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => sendOne(p.data ?? {})}>
-        Mail
-      </button>
-      <button type="button" className="text-[12px] text-blue-700 hover:underline" onClick={() => openBank(p.data ?? {})}>
-        Bank Copy
-      </button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0"
+        aria-label="Send credentials"
+        onClick={() => sendOne(p.data ?? {})}
+      >
+        <Mail className="h-3.5 w-3.5" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0"
+        aria-label="Bank copy"
+        onClick={() => openBank(p.data ?? {})}
+      >
+        <FileText className="h-3.5 w-3.5" />
+      </Button>
     </div>
   )
 }
@@ -181,6 +207,26 @@ const RE_PHONE = /^[6-9][0-9]{9}$/
 const RE_AADHAR = /^[0-9]{12}$/
 const RE_PAN = /^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/
 
+function validateEvaluatorFields(form: FormState): Record<string, string> {
+  const errors: Record<string, string> = {}
+  if (!form.isEmp && !form.collegeId) errors.collegeId = 'University College is required.'
+  if (!form.titleId) errors.titleId = 'Title is required.'
+  if (!form.evaluatorName.trim()) errors.evaluatorName = 'Name is required.'
+  if (form.email.trim() && !RE_EMAIL.test(form.email.trim())) errors.email = 'Enter a valid email.'
+  if (!RE_PHONE.test(form.phoneNumber.trim())) errors.phoneNumber = 'Phone Number must be 10 digits starting with 6-9.'
+  if (!RE_PHONE.test(form.alternatePhoneNumber.trim())) {
+    errors.alternatePhoneNumber = 'Alternate Phone must be 10 digits starting with 6-9.'
+  }
+  if (!RE_AADHAR.test(form.aadhar.trim())) errors.aadhar = 'Aadhar must be 12 digits.'
+  if (form.panCardNo.trim() && !RE_PAN.test(form.panCardNo.trim())) {
+    errors.panCardNo = 'Enter a valid PAN number (e.g. ABCDE1234F).'
+  }
+  if (!form.profileValidFromDate) errors.profileValidFromDate = 'Start Date is required.'
+  if (!form.profileValidToDate) errors.profileValidToDate = 'End Date is required.'
+  if (!form.isActive && !form.reason.trim()) errors.reason = 'Reason is required when inactive.'
+  return errors
+}
+
 export default function CreateEvaluatorsPage() {
   const router = useRouter()
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
@@ -192,8 +238,10 @@ export default function CreateEvaluatorsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editRow, setEditRow] = useState<AnyRow | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
-  const [employees, setEmployees] = useState<AnyRow[]>([])
-  const [empQuery, setEmpQuery] = useState('')
+  const [employeeOptions, setEmployeeOptions] = useState<SelectOption[]>([])
+  const [employeeCache, setEmployeeCache] = useState<AnyRow[]>([])
+  const [employeeSearchLoading, setEmployeeSearchLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const [prefOpen, setPrefOpen] = useState(false)
   const [prefRow, setPrefRow] = useState<AnyRow | null>(null)
@@ -214,6 +262,8 @@ export default function CreateEvaluatorsPage() {
   const [credAcademicYearId, setCredAcademicYearId] = useState<number | null>(null)
   const [credExamId, setCredExamId] = useState<number | null>(null)
   const [credExamSearch, setCredExamSearch] = useState('')
+  const [credRoleId, setCredRoleId] = useState<number | null>(null)
+  const [credRoles, setCredRoles] = useState<AnyRow[]>([])
 
   const [bankOpen, setBankOpen] = useState(false)
   const [bankProfile, setBankProfile] = useState<AnyRow | null>(null)
@@ -225,7 +275,6 @@ export default function CreateEvaluatorsPage() {
     phone: '',
     ifscCode: '',
     accountNumber: '',
-    ddPayableAddress: '',
     upi: '',
     isActive: true,
     reason: '',
@@ -301,8 +350,12 @@ export default function CreateEvaluatorsPage() {
   useEffect(() => {
     if (!credOpen) return
     void (async () => {
-      const f = await getEvaluationExamFilters(employeeId).catch(() => [])
+      const [f, roles] = await Promise.all([
+        getEvaluationExamFilters(employeeId).catch(() => []),
+        getAssignSubjectsEvaluatorRoles().catch(() => []),
+      ])
       setCredFilterRows(Array.isArray(f) ? f : [])
+      setCredRoles(Array.isArray(roles) ? roles : [])
     })()
   }, [credOpen, employeeId])
 
@@ -326,7 +379,17 @@ export default function CreateEvaluatorsPage() {
     setCredCourseId(null)
     setCredAcademicYearId(null)
     setCredExamId(null)
+    setCredRoleId(null)
   }
+
+  const credRoleOptions: SelectOption[] = useMemo(
+    () =>
+      credRoles.map((r) => ({
+        value: String(pickNum(r, ['pk_role_id', 'roleId'])),
+        label: pickText(r, ['role_name', 'roleName']),
+      })),
+    [credRoles],
+  )
 
   function openSendCredentialsModal(mode: 'bulk' | 'single', row?: AnyRow) {
     setCredMode(mode)
@@ -335,19 +398,39 @@ export default function CreateEvaluatorsPage() {
     setCredOpen(true)
   }
 
+  function buildSendCredentialsItem(examEvaluatorProfileId: number, examId: number, evaluatorRoleId: number): AnyRow {
+    return {
+      examEvaluatorProfileId,
+      examId,
+      examEvaluatorProfileDetailsDTOS: [{ evaluatorRoleId }],
+    }
+  }
+
   async function submitSendCredentials() {
     if (!credExamId) {
       toastError('Please select an exam.')
+      return
+    }
+    if (!credRoleId) {
+      toastError('Please select a role.')
       return
     }
     setLoading(true)
     try {
       let payload: AnyRow[]
       if (credMode === 'single' && credSingleRow?.examEvaluatorProfileId) {
-        payload = [{ examEvaluatorProfileId: credSingleRow.examEvaluatorProfileId, examId: credExamId }]
+        payload = [buildSendCredentialsItem(
+          Number(credSingleRow.examEvaluatorProfileId),
+          credExamId,
+          credRoleId,
+        )]
       } else {
         payload = rows
-          .map((r) => ({ examEvaluatorProfileId: r.examEvaluatorProfileId, examId: credExamId }))
+          .map((r) => buildSendCredentialsItem(
+            Number(r.examEvaluatorProfileId),
+            credExamId,
+            credRoleId,
+          ))
           .filter((p) => Number(p.examEvaluatorProfileId) > 0)
       }
       if (payload.length === 0) {
@@ -358,8 +441,8 @@ export default function CreateEvaluatorsPage() {
       toastSuccess('Credentials sent.')
       setCredOpen(false)
       await loadList()
-    } catch (e: any) {
-      toastError(e?.message ?? 'Failed to send credentials.')
+    } catch (error) {
+      toastError(error, 'Failed to send credentials.')
     } finally {
       setLoading(false)
     }
@@ -387,7 +470,6 @@ export default function CreateEvaluatorsPage() {
           phone: String(b.phone ?? row.phoneNumber ?? ''),
           ifscCode: String(b.ifscCode ?? ''),
           accountNumber: String(b.accountNumber ?? ''),
-          ddPayableAddress: String(b.ddPayableAddress ?? ''),
           upi: String(b.upi ?? ''),
           isActive: b.isActive !== false,
           reason: String(b.reason ?? ''),
@@ -401,7 +483,6 @@ export default function CreateEvaluatorsPage() {
           phone: String(row.phoneNumber ?? ''),
           ifscCode: '',
           accountNumber: '',
-          ddPayableAddress: '',
           upi: '',
           isActive: true,
           reason: '',
@@ -428,7 +509,6 @@ export default function CreateEvaluatorsPage() {
         phone: bankForm.phone,
         ifscCode: bankForm.ifscCode,
         accountNumber: bankForm.accountNumber,
-        ddPayableAddress: bankForm.ddPayableAddress || null,
         upi: bankForm.upi || null,
         isActive: bankForm.isActive,
         reason: bankForm.isActive ? null : bankForm.reason || null,
@@ -449,18 +529,34 @@ export default function CreateEvaluatorsPage() {
   }
 
   // Angular enteredEmployee(): search once the term exceeds 4 chars.
-  async function searchEmployees(q: string) {
-    setEmpQuery(q)
+  const onEmployeeSearch = useCallback(async (q: string) => {
     if (!q || q.trim().length <= 4) {
-      setEmployees([])
+      setEmployeeOptions([])
       return
     }
-    const list = await searchEvaluatorEmployees(q.trim()).catch(() => [])
-    setEmployees(Array.isArray(list) ? list : [])
-  }
+    setEmployeeSearchLoading(true)
+    try {
+      const list = await searchEvaluatorEmployees(q.trim()).catch(() => [])
+      const rows = Array.isArray(list) ? list : []
+      setEmployeeCache(rows)
+      setEmployeeOptions(
+        rows.map((emp, i) => ({
+          value: String(emp?.employeeId ?? i),
+          label: `${String(emp?.empNumber ?? '')}${emp?.firstName ? ` (${String(emp.firstName)})` : ''}`,
+        })),
+      )
+    } finally {
+      setEmployeeSearchLoading(false)
+    }
+  }, [])
 
   // Angular setEmployee(): autofill college/email/name/phone/userId from the pick.
-  function onSelectEmployee(emp: AnyRow) {
+  function onSelectEmployeeId(employeeId: string | null) {
+    const emp = employeeCache.find((e) => String(e?.employeeId) === employeeId)
+    if (!emp) {
+      setForm((p) => ({ ...p, evaluatorEmpId: '', userId: null }))
+      return
+    }
     setForm((p) => ({
       ...p,
       evaluatorEmpId: emp?.employeeId != null ? String(emp.employeeId) : '',
@@ -470,19 +566,19 @@ export default function CreateEvaluatorsPage() {
       evaluatorName: emp?.firstName != null ? String(emp.firstName) : p.evaluatorName,
       phoneNumber: emp?.mobile != null ? String(emp.mobile) : p.phoneNumber,
     }))
-    setEmpQuery(`${emp?.empNumber ?? ''}${emp?.firstName ? ` (${emp.firstName})` : ''}`)
-    setEmployees([])
   }
 
   function openAdd() {
     setEditRow(null)
     setForm(emptyForm())
-    setEmployees([])
-    setEmpQuery('')
+    setEmployeeOptions([])
+    setEmployeeCache([])
+    setFieldErrors({})
     setModalOpen(true)
   }
 
   function openEdit(row: AnyRow) {
+    setFieldErrors({})
     setEditRow(row)
     setForm({
       collegeId: row?.collegeId != null ? String(row.collegeId) : '',
@@ -504,24 +600,6 @@ export default function CreateEvaluatorsPage() {
     setModalOpen(true)
   }
 
-  function validateEvaluatorForm(): string | null {
-    // Required + pattern checks mirror the Angular create-evaluator form:
-    // required: collegeId, titleId, evaluatorName, phoneNumber, alternate
-    // phone, aadhar, both dates, isActive; pattern-only (optional): email, PAN.
-    if (!form.collegeId) return 'University College is required.'
-    if (!form.titleId) return 'Title is required.'
-    if (!form.evaluatorName.trim()) return 'Name is required.'
-    if (form.email.trim() && !RE_EMAIL.test(form.email.trim())) return 'Enter a valid email.'
-    if (!RE_PHONE.test(form.phoneNumber.trim())) return 'Phone Number must be 10 digits starting with 6-9.'
-    if (!RE_PHONE.test(form.alternatePhoneNumber.trim())) return 'Alternate Phone must be 10 digits starting with 6-9.'
-    if (!RE_AADHAR.test(form.aadhar.trim())) return 'Aadhar must be 12 digits.'
-    if (form.panCardNo.trim() && !RE_PAN.test(form.panCardNo.trim())) return 'Enter a valid PAN number (e.g. ABCDE1234F).'
-    if (!form.profileValidFromDate) return 'Start Date is required.'
-    if (!form.profileValidToDate) return 'End Date is required.'
-    if (!form.isActive && !form.reason.trim()) return 'Reason is required when inactive.'
-    return null
-  }
-
   /** Angular serializes form Dates straight into JSON (full ISO datetime). */
   function toIsoDateTime(value: string): string {
     const d = new Date(value)
@@ -529,11 +607,9 @@ export default function CreateEvaluatorsPage() {
   }
 
   async function onSave() {
-    const err = validateEvaluatorForm()
-    if (err) {
-      toastError(err)
-      return
-    }
+    const nextErrors = validateEvaluatorFields(form)
+    setFieldErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
     // Mirror Angular submit() Obj exactly (same JSON for add + edit).
     const payload: AnyRow = {
       collegeId: form.collegeId ? Number(form.collegeId) : null,
@@ -732,8 +808,8 @@ export default function CreateEvaluatorsPage() {
 
   const cols = useMemo<ColDef[]>(
     () => [
-      { headerName: 'No.', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70 },
-      { field: 'collegeCode', headerName: 'Faculty', minWidth: 120 },
+      { headerName: 'S.NO', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70 },
+      { field: 'collegeCode', headerName: 'College', minWidth: 120 },
       { field: 'evaluatorName', headerName: 'Name', minWidth: 220 },
       { field: 'phoneNumber', headerName: 'Phone', minWidth: 130 },
       { field: 'email', headerName: 'Email', minWidth: 220 },
@@ -742,7 +818,7 @@ export default function CreateEvaluatorsPage() {
       { field: 'isActive', headerName: 'Status', minWidth: 100, cellRenderer: statusRenderer },
       {
         headerName: 'Actions',
-        minWidth: 220,
+        minWidth: 130,
         cellRenderer: makeActionsRenderer(openEdit, (row) => openSendCredentialsModal('single', row), openBank),
       },
     ],
@@ -753,7 +829,7 @@ export default function CreateEvaluatorsPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Create Evaluators" subtitle="Assign evaluators to examinations" />
+      {/* <PageHeader title="Create Evaluators" subtitle="Assign evaluators to examinations" /> */}
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40">
           <h2 className="app-card-title">Evaluator&apos;s Profile</h2>
@@ -764,6 +840,7 @@ export default function CreateEvaluatorsPage() {
             columnDefs={cols}
             pagination
             loading={loading}
+            subtitle=""
             toolbar={{
               search: true,
               searchPlaceholder: 'Search…',
@@ -795,39 +872,31 @@ export default function CreateEvaluatorsPage() {
                   checked={form.isEmp}
                   onCheckedChange={(v) => {
                     setForm((p) => ({ ...p, isEmp: v === true, evaluatorEmpId: '', userId: null }))
-                    setEmployees([])
-                    setEmpQuery('')
+                    setEmployeeOptions([])
+                    setEmployeeCache([])
                   }}
                 />
                 <span className="text-[12px]">Existing Employee</span>
               </div>
             )}
             {form.isEmp ? (
-              <div className="md:col-span-2 relative">
+              <div className="md:col-span-2 space-y-1">
                 <Label className="text-[12px]">Employee</Label>
-                <Input
-                  value={empQuery}
-                  onChange={(e) => void searchEmployees(e.target.value)}
-                  placeholder="Search by employee name or number…"
+                <Select
+                  value={form.evaluatorEmpId || null}
+                  onChange={onSelectEmployeeId}
+                  options={employeeOptions}
+                  placeholder="Search by employee name or empNo."
+                  searchable
+                  onSearch={onEmployeeSearch}
+                  isLoading={employeeSearchLoading}
                 />
-                {employees.length > 0 && (
-                  <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-md border border-border bg-popover shadow">
-                    {employees.map((emp, i) => (
-                      <button
-                        type="button"
-                        key={`emp-${emp?.employeeId ?? i}`}
-                        className="block w-full px-3 py-1.5 text-left text-[12px] hover:bg-muted"
-                        onClick={() => onSelectEmployee(emp)}
-                      >
-                        {String(emp?.empNumber ?? '')}
-                        {emp?.firstName ? <span className="text-blue-700"> ({String(emp.firstName)})</span> : null}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {fieldErrors.evaluatorEmpId ? (
+                  <p className="text-[11px] text-destructive">{fieldErrors.evaluatorEmpId}</p>
+                ) : null}
               </div>
             ) : (
-              <div>
+              <div className="space-y-1">
                 <Label className="text-[12px]">University College <span className="text-red-600">*</span></Label>
                 <Select
                   value={form.collegeId || null}
@@ -838,9 +907,12 @@ export default function CreateEvaluatorsPage() {
                   } as SelectOption))}
                   placeholder="University College"
                 />
+                {fieldErrors.collegeId ? (
+                  <p className="text-[11px] text-destructive">{fieldErrors.collegeId}</p>
+                ) : null}
               </div>
             )}
-            <div>
+            <div className="space-y-1">
               <Label className="text-[12px]">Title <span className="text-red-600">*</span></Label>
               <Select
                 value={form.titleId || null}
@@ -848,53 +920,123 @@ export default function CreateEvaluatorsPage() {
                 options={titleOptions}
                 placeholder="Title"
               />
+              {fieldErrors.titleId ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.titleId}</p>
+              ) : null}
             </div>
-            <div>
+            <div className="space-y-1">
               <Label className="text-[12px]">Name <span className="text-red-600">*</span></Label>
-              <Input value={form.evaluatorName} onChange={(e) => setForm((p) => ({ ...p, evaluatorName: e.target.value }))} />
+              <Input
+                value={form.evaluatorName}
+                onChange={(e) => setForm((p) => ({ ...p, evaluatorName: e.target.value }))}
+                placeholder="Name"
+              />
+              {fieldErrors.evaluatorName ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.evaluatorName}</p>
+              ) : null}
             </div>
-            <div>
+            <div className="space-y-1">
               <Label className="text-[12px]">Email <span className="text-red-600">*</span></Label>
-              <Input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+              <Input
+                value={form.email}
+                onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                placeholder="Email"
+              />
+              {fieldErrors.email ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.email}</p>
+              ) : null}
             </div>
-            <div>
+            <div className="space-y-1">
               <Label className="text-[12px]">Phone Number <span className="text-red-600">*</span></Label>
-              <Input value={form.phoneNumber} onChange={(e) => setForm((p) => ({ ...p, phoneNumber: e.target.value }))} />
+              <Input
+                value={form.phoneNumber}
+                onChange={(e) => setForm((p) => ({ ...p, phoneNumber: e.target.value }))}
+                placeholder="Phone Number"
+              />
+              {fieldErrors.phoneNumber ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.phoneNumber}</p>
+              ) : null}
             </div>
-            <div>
+            <div className="space-y-1">
               <Label className="text-[12px]">Alternate Phone <span className="text-red-600">*</span></Label>
-              <Input value={form.alternatePhoneNumber} onChange={(e) => setForm((p) => ({ ...p, alternatePhoneNumber: e.target.value }))} />
+              <Input
+                value={form.alternatePhoneNumber}
+                onChange={(e) => setForm((p) => ({ ...p, alternatePhoneNumber: e.target.value }))}
+                placeholder="Alternate Phone"
+              />
+              {fieldErrors.alternatePhoneNumber ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.alternatePhoneNumber}</p>
+              ) : null}
             </div>
-            <div>
+            <div className="space-y-1">
               <Label className="text-[12px]">Aadhar <span className="text-red-600">*</span></Label>
-              <Input value={form.aadhar} onChange={(e) => setForm((p) => ({ ...p, aadhar: e.target.value }))} />
+              <Input
+                value={form.aadhar}
+                onChange={(e) => setForm((p) => ({ ...p, aadhar: e.target.value }))}
+                placeholder="Aadhar"
+              />
+              {fieldErrors.aadhar ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.aadhar}</p>
+              ) : null}
             </div>
-            <div>
+            <div className="space-y-1">
               <Label className="text-[12px]">Pan Card No. <span className="text-red-600">*</span></Label>
-              <Input value={form.panCardNo} onChange={(e) => setForm((p) => ({ ...p, panCardNo: e.target.value }))} />
+              <Input
+                value={form.panCardNo}
+                onChange={(e) => setForm((p) => ({ ...p, panCardNo: e.target.value }))}
+                placeholder="Pan Card No."
+              />
+              {fieldErrors.panCardNo ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.panCardNo}</p>
+              ) : null}
             </div>
-            <div>
+            <div className="space-y-1">
               <Label className="text-[12px]">Start Date <span className="text-red-600">*</span></Label>
-              <Input type="date" value={form.profileValidFromDate} onChange={(e) => setForm((p) => ({ ...p, profileValidFromDate: e.target.value }))} />
+              <Input
+                type="date"
+                className="org-modal-date-input pr-10"
+                value={form.profileValidFromDate}
+                onChange={(e) => setForm((p) => ({ ...p, profileValidFromDate: e.target.value }))}
+                placeholder="Start Date"
+              />
+              {fieldErrors.profileValidFromDate ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.profileValidFromDate}</p>
+              ) : null}
             </div>
-            <div>
+            <div className="space-y-1">
               <Label className="text-[12px]">End Date <span className="text-red-600">*</span></Label>
-              <Input type="date" value={form.profileValidToDate} onChange={(e) => setForm((p) => ({ ...p, profileValidToDate: e.target.value }))} />
+              <Input
+                type="date"
+                className="org-modal-date-input pr-10"
+                value={form.profileValidToDate}
+                onChange={(e) => setForm((p) => ({ ...p, profileValidToDate: e.target.value }))}
+                placeholder="End Date"
+              />
+              {fieldErrors.profileValidToDate ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.profileValidToDate}</p>
+              ) : null}
             </div>
             <div className="md:col-span-3 flex items-center gap-2">
               <Checkbox checked={form.isActive} onCheckedChange={(v) => setForm((p) => ({ ...p, isActive: v === true }))} />
               <span className="text-[12px]">Active</span>
             </div>
             {!form.isActive && (
-              <div className="md:col-span-3">
+              <div className="md:col-span-3 space-y-1">
                 <Label className="text-[12px]">Reason</Label>
-                <Input value={form.reason} onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))} />
+                <Input
+                  value={form.reason}
+                  onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
+                  placeholder="Reason"
+                />
+                {fieldErrors.reason ? (
+                  <p className="text-[11px] text-destructive">{fieldErrors.reason}</p>
+                ) : null}
               </div>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)} disabled={loading}>
-              Close
+              Cancel
             </Button>
             <Button onClick={() => void onSave()} disabled={loading}>
               Save
@@ -1000,17 +1142,13 @@ export default function CreateEvaluatorsPage() {
       </Dialog>
 
       <Dialog open={credOpen} onOpenChange={setCredOpen}>
-        <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden sm:max-w-2xl">
-          <div className="bg-card px-4 py-3">
-            <div className="flex items-center gap-2 text-[15px] font-semibold text-[hsl(var(--primary))]">
-              <LayoutList className="h-5 w-5 shrink-0 text-[hsl(var(--primary))]" aria-hidden />
-              <span>Send Credentials</span>
-            </div>
-            <div className="mt-2 h-px w-full bg-amber-400/80" />
-          </div>
-          <div className="p-4 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-              <div>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Send Credentials</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+              <div className="md:col-span-3">
                 <Label className="text-[12px]">
                   Course <span className="text-red-600">*</span>
                 </Label>
@@ -1021,8 +1159,10 @@ export default function CreateEvaluatorsPage() {
                   placeholder="Course"
                 />
               </div>
-              <div>
-                <Label className="text-[12px]">Academic Year</Label>
+              <div className="md:col-span-3">
+                <Label className="text-[12px]">
+                  Academic Year <span className="text-red-600">*</span>
+                </Label>
                 <Select
                   value={credAcademicYearId ? String(credAcademicYearId) : null}
                   onChange={(v) => { setCredAcademicYearId(v ? Number(v) : null); setCredExamId(null) }}
@@ -1030,7 +1170,7 @@ export default function CreateEvaluatorsPage() {
                   placeholder="Academic Year"
                 />
               </div>
-              <div className="sm:col-span-1">
+              <div className="md:col-span-6">
                 <Label className="text-[12px]">
                   Exam <span className="text-red-600">*</span>
                 </Label>
@@ -1040,7 +1180,22 @@ export default function CreateEvaluatorsPage() {
                   options={credExams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id'])), label: `${pickText(e, ['exam_name'])} (${formatYmd(e.from_date ?? e.fromDate)} – ${formatYmd(e.to_date ?? e.toDate)})` } as SelectOption))}
                   placeholder="Exam"
                   searchable
+                  wrapOptionLabels
                   disabled={!credCourseId || !credAcademicYearId}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+              <div className="md:col-span-6">
+                <Label className="text-[12px]">
+                  Select Role <span className="text-red-600">*</span>
+                </Label>
+                <Select
+                  value={credRoleId ? String(credRoleId) : null}
+                  onChange={(v) => setCredRoleId(v ? Number(v) : null)}
+                  options={credRoleOptions}
+                  placeholder="Select Role"
+                  wrapOptionLabels
                 />
               </div>
             </div>
@@ -1053,7 +1208,7 @@ export default function CreateEvaluatorsPage() {
               )}
             </p>
           </div>
-          <DialogFooter className="border-t border-border px-4 py-3 sm:justify-end gap-2">
+          <DialogFooter className="gap-2">
             <Button onClick={() => void submitSendCredentials()} disabled={loading}>
               Send
             </Button>
@@ -1067,62 +1222,90 @@ export default function CreateEvaluatorsPage() {
       <Dialog open={bankOpen} onOpenChange={setBankOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>
-              {bankEditId ? 'Edit Bank Details' : 'Add Bank Details'}
-              {pickText(bankProfile, ['evaluatorName']) ? (
-                <span className="ml-2 text-[13px] font-medium text-blue-700">
-                  — {pickText(bankProfile, ['evaluatorName'])}
-                </span>
-              ) : null}
-            </DialogTitle>
+            <DialogTitle>{bankEditId ? 'Edit Bank Details' : 'Add Bank Details'}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <Label className="text-[12px]">Bank Name</Label>
-              <Input value={bankForm.bankName} onChange={(e) => setBankForm((p) => ({ ...p, bankName: e.target.value }))} />
+          <div className="space-y-4">
+            <div className="rounded-md border-2 border-[#B2EBF2] p-2">
+              <BankSummaryRow label="Evaluator :" value={pickText(bankProfile, ['evaluatorName'])} />
+              <BankSummaryRow label="Role :" value={pickText(bankProfile, ['roleName', 'role_name'])} />
+              <BankSummaryRow label="Mobile :" value={pickText(bankProfile, ['phoneNumber', 'phone'])} />
             </div>
-            <div>
-              <Label className="text-[12px]">Branch Name</Label>
-              <Input value={bankForm.branchName} onChange={(e) => setBankForm((p) => ({ ...p, branchName: e.target.value }))} />
-            </div>
-            <div className="md:col-span-2">
-              <Label className="text-[12px]">Bank Address</Label>
-              <Input value={bankForm.bankAddress} onChange={(e) => setBankForm((p) => ({ ...p, bankAddress: e.target.value }))} />
-            </div>
-            <div>
-              <Label className="text-[12px]">Phone <span className="text-red-600">*</span></Label>
-              <Input value={bankForm.phone} onChange={(e) => setBankForm((p) => ({ ...p, phone: e.target.value }))} />
-            </div>
-            <div>
-              <Label className="text-[12px]">IFSC Code <span className="text-red-600">*</span></Label>
-              <Input value={bankForm.ifscCode} onChange={(e) => setBankForm((p) => ({ ...p, ifscCode: e.target.value }))} />
-            </div>
-            <div>
-              <Label className="text-[12px]">Account Number <span className="text-red-600">*</span></Label>
-              <Input value={bankForm.accountNumber} onChange={(e) => setBankForm((p) => ({ ...p, accountNumber: e.target.value }))} />
-            </div>
-            <div>
-              <Label className="text-[12px]">UPI</Label>
-              <Input value={bankForm.upi} onChange={(e) => setBankForm((p) => ({ ...p, upi: e.target.value }))} />
-            </div>
-            <div className="md:col-span-2">
-              <Label className="text-[12px]">DD Payable Address</Label>
-              <Input value={bankForm.ddPayableAddress} onChange={(e) => setBankForm((p) => ({ ...p, ddPayableAddress: e.target.value }))} />
-            </div>
-            <div className="md:col-span-2 flex items-center gap-2">
-              <Checkbox checked={bankForm.isActive} onCheckedChange={(v) => setBankForm((p) => ({ ...p, isActive: v === true }))} />
-              <span className="text-[12px]">Active</span>
-            </div>
-            {!bankForm.isActive && (
-              <div className="md:col-span-2">
-                <Label className="text-[12px]">Reason</Label>
-                <Input value={bankForm.reason} onChange={(e) => setBankForm((p) => ({ ...p, reason: e.target.value }))} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-[12px]">Bank Name</Label>
+                <Input
+                  value={bankForm.bankName}
+                  onChange={(e) => setBankForm((p) => ({ ...p, bankName: e.target.value }))}
+                  placeholder="Bank Name"
+                />
               </div>
-            )}
+              <div>
+                <Label className="text-[12px]">Branch Name</Label>
+                <Input
+                  value={bankForm.branchName}
+                  onChange={(e) => setBankForm((p) => ({ ...p, branchName: e.target.value }))}
+                  placeholder="Branch Name"
+                />
+              </div>
+              <div>
+                <Label className="text-[12px]">Account Number</Label>
+                <Input
+                  value={bankForm.accountNumber}
+                  onChange={(e) => setBankForm((p) => ({ ...p, accountNumber: e.target.value }))}
+                  placeholder="Account Number"
+                />
+              </div>
+              <div>
+                <Label className="text-[12px]">Ifsc Code</Label>
+                <Input
+                  value={bankForm.ifscCode}
+                  onChange={(e) => setBankForm((p) => ({ ...p, ifscCode: e.target.value }))}
+                  placeholder="Ifsc Code"
+                />
+              </div>
+              <div>
+                <Label className="text-[12px]">Bank Address</Label>
+                <Input
+                  value={bankForm.bankAddress}
+                  onChange={(e) => setBankForm((p) => ({ ...p, bankAddress: e.target.value }))}
+                  placeholder="Bank Address"
+                />
+              </div>
+              <div>
+                <Label className="text-[12px]">Phone no</Label>
+                <Input
+                  value={bankForm.phone}
+                  onChange={(e) => setBankForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="Phone no"
+                />
+              </div>
+              <div>
+                <Label className="text-[12px]">Upi</Label>
+                <Input
+                  value={bankForm.upi}
+                  onChange={(e) => setBankForm((p) => ({ ...p, upi: e.target.value }))}
+                  placeholder="Upi"
+                />
+              </div>
+              <div className="md:col-span-3 flex items-center gap-2">
+                <Checkbox checked={bankForm.isActive} onCheckedChange={(v) => setBankForm((p) => ({ ...p, isActive: v === true }))} />
+                <span className="text-[12px]">Active</span>
+              </div>
+              {!bankForm.isActive && (
+                <div className="md:col-span-3">
+                  <Label className="text-[12px]">Reason</Label>
+                  <Input
+                    value={bankForm.reason}
+                    onChange={(e) => setBankForm((p) => ({ ...p, reason: e.target.value }))}
+                    placeholder="Reason"
+                  />
+                </div>
+              )}
+            </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setBankOpen(false)} disabled={loading}>
-              Close
+              Cancel
             </Button>
             <Button onClick={() => void saveBank()} disabled={loading}>
               Save

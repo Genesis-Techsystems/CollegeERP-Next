@@ -35,6 +35,8 @@ export interface SelectProps {
   isLoading?: boolean
   /** Render a × button in the trigger to clear the current value. */
   clearable?: boolean
+  /** When true, dropdown options wrap to multiple lines; the trigger always shows ellipsis. */
+  wrapOptionLabels?: boolean
   className?: string
 }
 
@@ -43,6 +45,24 @@ export interface SelectProps {
 // ---------------------------------------------------------------------------
 
 const SEARCH_DEBOUNCE_MS = 300
+
+/** Radix Dialog scroll-lock can swallow wheel events on portaled popovers — scroll the list manually. */
+function scrollListOnWheel(
+  e: React.WheelEvent,
+  list: HTMLDivElement | null,
+) {
+  if (!list) return
+
+  e.stopPropagation()
+
+  const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight)
+  const next = Math.min(maxScroll, Math.max(0, list.scrollTop + e.deltaY))
+
+  if (next !== list.scrollTop) {
+    list.scrollTop = next
+    e.preventDefault()
+  }
+}
 
 function useDebouncedCallback(fn: (v: string) => void, delay: number) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -83,6 +103,7 @@ export function Select({
   onOpenChange,
   isLoading = false,
   clearable = false,
+  wrapOptionLabels = false,
   className,
 }: SelectProps) {
   const id = useId()
@@ -92,6 +113,7 @@ export function Select({
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   const selectedOption = options.find((o) => o.value === value) ?? null
 
@@ -235,6 +257,7 @@ export function Select({
           align="start"
           sideOffset={4}
           className="w-[var(--radix-popover-trigger-width)] min-w-[180px] p-0"
+          onWheel={(e) => scrollListOnWheel(e, listRef.current)}
           // Prevent closing when clicking the search input
           onInteractOutside={(e) => {
             if (searchInputRef.current?.contains(e.target as Node)) {
@@ -263,7 +286,7 @@ export function Select({
           )}
 
           {/* Options list */}
-          <div role="listbox" className="max-h-60 overflow-y-auto py-1">
+          <div ref={listRef} role="listbox" className="max-h-60 overflow-y-auto overscroll-contain py-1 touch-pan-y">
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -285,7 +308,8 @@ export function Select({
                     disabled={opt.disabled}
                     onClick={() => !opt.disabled && handleSelect(opt.value)}
                     className={cn(
-                      'flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors',
+                      'flex w-full gap-2 px-3 py-2 text-sm transition-colors',
+                      wrapOptionLabels ? 'items-start' : 'items-center',
                       'hover:bg-accent hover:text-accent-foreground',
                       'focus:bg-accent focus:text-accent-foreground focus:outline-none',
                       'disabled:cursor-not-allowed disabled:opacity-50',
@@ -296,7 +320,14 @@ export function Select({
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center">
                       {isSelected && <Check className="h-3.5 w-3.5 text-primary" />}
                     </span>
-                    <span className="truncate">{opt.label}</span>
+                    <span
+                      className={cn(
+                        'min-w-0 flex-1 text-left',
+                        wrapOptionLabels ? 'whitespace-normal leading-snug' : 'truncate',
+                      )}
+                    >
+                      {opt.label}
+                    </span>
                   </button>
                 )
               })
