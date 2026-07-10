@@ -26,29 +26,18 @@ const PAGES: { slug: string; label: string }[] = [
   { slug: 'univ-examcenter-question-paper-config', label: 'Question paper config (center)' },
   { slug: 'exam-center-courses', label: 'Exam center courses' },
   { slug: 'exam-center-subjects', label: 'Exam center subjects' },
+  { slug: 'exam-center-subject-attendance', label: 'Exam center subject attendance' },
   { slug: 'exam-center-barcodes', label: 'Exam center barcodes' },
   { slug: 'exam-seatno-barcodes', label: 'Exam seatno barcodes' },
-  { slug: 'buildings', label: 'Exam center buildings' },
-  { slug: 'blocks', label: 'Exam center blocks' },
-  { slug: 'floors', label: 'Exam center floors' },
-  { slug: 'rooms-type', label: 'Exam center room types' },
-  { slug: 'rooms', label: 'Exam center rooms' },
+  { slug: 'exam-center-buildings', label: 'Exam center buildings' },
+  { slug: 'exam-center-blocks', label: 'Exam center blocks' },
+  { slug: 'exam-center-floors', label: 'Exam center floors' },
+  { slug: 'exam-center-room-types', label: 'Exam center room types' },
+  { slug: 'exam-center-rooms', label: 'Exam center rooms' },
   { slug: 'exam-center-room-allotment', label: 'Exam Room Seating Plan' },
-  { slug: 'exam-center-seating-plan', label: 'Exam center seating plan' },
-  {
-    slug: 'exam-center-seating-plan/add-exam-center-allotment',
-    label: 'Seating — add / edit allotment',
-  },
-  {
-    slug: 'exam-center-seating-plan/add-exam-center-allotment/print-seating-stickers',
-    label: 'Seating — print seating stickers',
-  },
-  {
-    slug: 'exam-center-seating-plan/add-exam-center-allotment/print-group-seating-stickers',
-    label: 'Seating — print group stickers',
-  },
-  { slug: 'exam-center-seating-plan/center-room-allotment', label: 'Seating — center room allotment' },
-  { slug: 'exam-center-seating-plan/copy-existing-seating', label: 'Seating — copy existing seating' },
+  { slug: 'exam-center-room-allotment/room-allotment', label: 'Seating — room allotment' },
+  { slug: 'exam-center-room-allotment/seat-allot-students', label: 'Seating — seat allot students' },
+  { slug: 'exam-center-room-allotment/copy-existing-seating', label: 'Seating — copy existing seating' },
 ]
 
 export default function ExamPapersDeliveryProcessIndexPage() {
