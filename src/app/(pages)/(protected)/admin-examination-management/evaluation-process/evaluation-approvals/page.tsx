@@ -15,6 +15,7 @@ import {
   listEvaluationApprovals,
 } from '@/services/evaluation-process'
 import { PageContainer, PageHeader } from '@/components/layout'
+import { GENERALCONSTANTS } from '@/common/general-constants'
 
 type AnyRow = Record<string, any>
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
@@ -96,7 +97,12 @@ export default function EvaluationApprovalsPage() {
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
   const organizationId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
   const profileId = Number(globalThis?.localStorage?.getItem('examEvaluatorProfileId') ?? 0)
-  const finalizedCatDetId = Number(globalThis?.localStorage?.getItem('Finalized') ?? 0)
+  // "Finalised" evaluation-status id, from the shared status list (single source of truth,
+  // already used for eval-status colouring). Previously read from localStorage['Finalized'],
+  // a key that is never written anywhere → approve wrote evaluationStatusCatDetId: 0 (invalid)
+  // while the UI toasted success.
+  const finalizedCatDetId =
+    GENERALCONSTANTS.statusColors.find((s) => s.status === 'Finalised')?.id ?? 0
 
   const courses = useMemo(
     () => dedupeBy(filters, (r) => pickNum(r, ['fk_course_id', 'courseId'])),
