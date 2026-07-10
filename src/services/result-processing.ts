@@ -12,7 +12,7 @@
  * what `s_pop_exam_subjectwisemoderation` expects.
  */
 
-import { crud, domainList, fetchDetails, getAllRecords } from './crud'
+import { crud, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords } from './crud'
 import { buildQuery } from './query'
 import { EXAM_API, EXAM_EVAL_API } from '@/config/constants/api'
 
@@ -21,6 +21,46 @@ type AnyRow = Record<string, any>
 // ─── Moderation rule filter cascades (Angular apply-moderation-rule) ──────────
 
 /** Angular getData(): College list, isActive==true. */
+/**
+ * Grade rule settings live on the `ExamResultProcessingSettings` entity (pk `examrpsettingId`),
+ * NOT `ExamGrade` (the A/B/C grade scale used by grade-setup). The grade-rule-settings screen
+ * previously read/wrote ExamGrade, so its rule columns (firstmodmarks, grafting %, grace marks…)
+ * were always blank. Mirrors Angular grade-rule-settings.component.ts.
+ */
+export async function listGradeRuleSettings(params: {
+  collegeId: number
+  courseId: number
+  regulationId: number
+}): Promise<AnyRow[]> {
+  const { courseId, regulationId } = params
+  if (!courseId || !regulationId) return []
+  try {
+    // Rules are scoped to course + regulation (collegeId is null on the records),
+    // so we intentionally do NOT filter by College here — otherwise the grid is
+    // always empty. College remains a navigation aid in the UI to pick the course.
+    return await domainList<AnyRow>(
+      'ExamResultProcessingSettings',
+      buildQuery({
+        'Course.courseId': courseId,
+        'regulation.regulationId': regulationId,
+      }),
+    )
+  } catch {
+    return []
+  }
+}
+
+export async function createGradeRuleSetting(payload: Record<string, unknown>): Promise<AnyRow> {
+  return domainCreate<AnyRow>('ExamResultProcessingSettings', payload)
+}
+
+export async function updateGradeRuleSetting(
+  examrpsettingId: number,
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  return domainUpdate<AnyRow>('ExamResultProcessingSettings', 'examrpsettingId', examrpsettingId, payload)
+}
+
 export async function getModerationColleges(): Promise<AnyRow[]> {
   return domainList<AnyRow>('College', buildQuery({ isActive: true }))
 }
