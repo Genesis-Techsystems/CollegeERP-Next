@@ -235,7 +235,7 @@ export function ViewAllocatedTimetableModal({
 }: ViewAllocatedTimetableModalProps) {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="flex max-h-[92vh] w-[95vw] max-w-4xl flex-col gap-0 overflow-hidden p-6 sm:max-w-[1000px]">
+      <DialogContent className="flex max-h-[92vh] w-[95vw] max-w-4xl flex-col gap-0 overflow-hidden p-6 sm:max-w-[1000px]" hasDescription>
         <DialogHeader className="shrink-0 space-y-0 border-b border-border pb-3">
           <DialogTitle className={MODAL_TITLE_CLASS}>View Allocated timetable</DialogTitle>
           <DialogDescription className="sr-only">
