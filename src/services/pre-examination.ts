@@ -1070,7 +1070,7 @@ export async function saveRegisteredExamSubjects(
  * crudService.upload(uploadExamRegFormsUrl, formData). Multipart fields: file, collegeCode,
  * examId, collegeId, courseId.
  */
-export async function uploadExamRegForms(formData: FormData): Promise<void> {
+export async function uploadExamRegForms(formData: FormData): Promise<unknown> {
   return uploadFile("uploadExamRegForms", formData);
 }
 

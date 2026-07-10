@@ -538,7 +538,7 @@ class CrudService {
    * @param path     - API path constant (e.g. EXAM_API.UPLOAD_EXAM_NOTIFICATION)
    * @param formData - FormData with files and metadata
    */
-  async uploadFile(path: string, formData: FormData): Promise<void> {
+  async uploadFile(path: string, formData: FormData): Promise<unknown> {
     const res = await fetch(`${this.base}/${path}`, {
       method: 'POST',
       body: formData,
@@ -553,6 +553,10 @@ class CrudService {
     if (body?.success === false) {
       throw new AppError('API_ERROR', body.message ?? `Upload to ${path} failed`)
     }
+    // Return the parsed response body so callers can read the stored file path
+    // (e.g. extractUploadedPath). Previously returned void → uploaded path was
+    // always undefined → UI showed "File not found" on every successful upload.
+    return body
   }
 }
 
@@ -621,5 +625,5 @@ export const putDetails = <T = void>(
   params?: Record<string, string | number>,
 ): Promise<T> => crud.putDetails<T>(path, data, params)
 
-export const uploadFile = (path: string, formData: FormData): Promise<void> =>
+export const uploadFile = (path: string, formData: FormData): Promise<unknown> =>
   crud.uploadFile(path, formData)
