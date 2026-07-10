@@ -821,6 +821,7 @@ export async function getEvaluationModerationSubjects(params: {
 }
 
 export async function listEvaluationModerationData(params: {
+  organizationId: number
   employeeId: number
   courseId: number
   academicYearId: number
@@ -830,7 +831,7 @@ export async function listEvaluationModerationData(params: {
   regulationId: number
 }): Promise<{ evaluators: AnyRow[]; totals: AnyRow[]; omrRows: AnyRow[]; students: AnyRow[] }> {
   const common = {
-    in_orgid: 1,
+    in_orgid: params.organizationId || 1,
     in_fdate: '1990-01-01',
     in_tdate: '1990-01-01',
     in_evalutor_profileid: 0,
@@ -849,7 +850,7 @@ export async function listEvaluationModerationData(params: {
     in_loginuser_empid: params.employeeId || 0,
   }
   const toResultGroups = async (
-    flag: 'list_evaluatorassignment_list' | 'list_evaluationstudent_list',
+    flag: 'list_moderation_evaluatorassignment_list' | 'list_moderation_evaluationstudent_list',
     evaluatorRoleId: number,
   ): Promise<AnyRow[][]> => {
     try {
@@ -867,8 +868,8 @@ export async function listEvaluationModerationData(params: {
     }
   }
 
-  const evaluatorGroups = await toResultGroups('list_evaluatorassignment_list', 64)
-  const studentGroups = await toResultGroups('list_evaluationstudent_list', 0)
+  const evaluatorGroups = await toResultGroups('list_moderation_evaluatorassignment_list', 64)
+  const studentGroups = await toResultGroups('list_moderation_evaluationstudent_list', 0)
   return {
     // Angular getEvaluationList(): result[0]=evaluators, result[1]=stats
     // (totalStudents/NoOfAnswerpapersUploaded/UnAssinged), result[2]=omr-per-evaluator.

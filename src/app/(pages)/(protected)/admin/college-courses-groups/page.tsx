@@ -96,7 +96,7 @@ export default function CollegeCoursesGroupsPage() {
     for (const r of filters.filter((x) => num(x.fk_university_id ?? x.universityId) === selectedUniversityId)) {
       const id = num(r.fk_college_id ?? r.collegeId)
       if (!id || map.has(id)) continue
-      map.set(id, String(r.college_name ?? r.collegeName ?? r.college_code ?? r.collegeCode ?? ''))
+      map.set(id, String(r.college_code ?? r.collegeCode ?? r.college_name ?? r.collegeName ?? ''))
     }
     return Array.from(map.entries()).map(([value, label]) => ({ value: String(value), label }))
   }, [filters, selectedUniversityId])
@@ -257,7 +257,7 @@ export default function CollegeCoursesGroupsPage() {
       )}
 
       <CollegeCourseGroupModal
-        key={getCrudModalKey(null, modalOpen)}
+        key={`add-${getCrudModalKey(null, modalOpen)}`}
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         collegeId={selectedCollegeId}
@@ -269,7 +269,7 @@ export default function CollegeCoursesGroupsPage() {
         onSaved={() => { void getList() }}
       />
       <CollegeCourseGroupEditModal
-        key={getCrudModalKey(editRow, editOpen, 'univCollegeWiseGroupId', 'univCollegeWiseCourseId')}
+        key={`edit-${getCrudModalKey(editRow, editOpen, 'univCollegeWiseGroupId', 'univCollegeWiseCourseId')}`}
         open={editOpen}
         onClose={() => { setEditOpen(false); setEditRow(null) }}
         row={editRow}

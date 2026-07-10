@@ -18,7 +18,7 @@ import StudentBatchModal from './StudentBatchModal'
 
 const COLS = {
   siNo: { colId: 'siNo', headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<StudentBatch>,
-  collegeName: { colId: 'collegeName', headerName: 'College Name', minWidth: 150, flex: 1.1 } as ColDef<StudentBatch>,
+  collegeName: { colId: 'collegeName', headerName: 'College', minWidth: 150, flex: 1.1 } as ColDef<StudentBatch>,
   courseName: { colId: 'courseName', headerName: 'Course', minWidth: 130, flex: 1 } as ColDef<StudentBatch>,
   subjectType: { colId: 'subjectType', headerName: 'Subject Type', minWidth: 130, flex: 1 } as ColDef<StudentBatch>,
   batchName: { colId: 'batchName', field: 'batchName', headerName: 'Batch', minWidth: 130, flex: 1 } as ColDef<StudentBatch>,
@@ -89,7 +89,7 @@ export default function StudentBatchesPage() {
   const collegeOptions = useMemo(
     () => colleges.map((c) => ({
       value: String(c.collegeId),
-      label: c.collegeName ?? c.collegeCode,
+      label: c.collegeCode ?? c.collegeName,
     })),
     [colleges],
   )
@@ -105,7 +105,7 @@ export default function StudentBatchesPage() {
       {
         ...COLS.collegeName,
         valueGetter: (p) =>
-          pick((p.data ?? {}) as Record<string, unknown>, ['collegeName', 'collegeCode']),
+          pick((p.data ?? {}) as Record<string, unknown>, ['collegeCode', 'collegeName']),
       },
       {
         ...COLS.courseName,

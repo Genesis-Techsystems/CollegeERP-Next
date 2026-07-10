@@ -4,11 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
 import { SearchInput } from '@/common/components/search'
 import { DataTable } from '@/common/components/table'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
 import { Select, type SelectOption } from '@/common/components/select'
-import { ChevronDown, Filter } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   assignModerationEvaluation,
@@ -17,7 +16,7 @@ import {
   getEvaluationModerationSubjects,
   listEvaluationModerationData,
 } from '@/services/evaluation-process'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 
@@ -47,7 +46,7 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
   })
 }
 
-function makeAssignedRenderer(onOpen: (row: AnyRow, listType: 'AssignedList' | 'CompletedList') => void) {
+function makeAssignedRenderer(onOpen: (row: AnyRow, listType: 'AssignedList' | 'CompletedList' | 'DueList') => void) {
   return (p: { data?: AnyRow }) => {
     const row = p.data ?? {}
     const count = Number(row?.no_of_students_assigned ?? 0)
@@ -59,7 +58,7 @@ function makeAssignedRenderer(onOpen: (row: AnyRow, listType: 'AssignedList' | '
   }
 }
 
-function makeEvaluatedRenderer(onOpen: (row: AnyRow, listType: 'AssignedList' | 'CompletedList') => void) {
+function makeEvaluatedRenderer(onOpen: (row: AnyRow, listType: 'AssignedList' | 'CompletedList' | 'DueList') => void) {
   return (p: { data?: AnyRow }) => {
     const row = p.data ?? {}
     const count = Number(row?.no_of_evaluations_completed ?? 0)
@@ -71,8 +70,19 @@ function makeEvaluatedRenderer(onOpen: (row: AnyRow, listType: 'AssignedList' | 
   }
 }
 
+function makeDueRenderer(onOpen: (row: AnyRow, listType: 'AssignedList' | 'CompletedList' | 'DueList') => void) {
+  return (p: { data?: AnyRow }) => {
+    const row = p.data ?? {}
+    const count = Number(row?.no_of_students_assigned ?? 0) - Number(row?.no_of_evaluations_completed ?? 0)
+    return (
+      <button type="button" className="text-blue-700 hover:underline disabled:text-muted-foreground" disabled={count <= 0} onClick={() => onOpen(row, 'DueList')}>
+        {count}
+      </button>
+    )
+  }
+}
+
 export default function EvaluationModerationPage() {
-  const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
@@ -104,16 +114,27 @@ export default function EvaluationModerationPage() {
   const [subjectId, setSubjectId] = useState<number | null>(null)
 
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const organizationId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
+
+  function resetFetchedState() {
+    setHasFetched(false)
+    setSelectedEvaluatorId(null)
+    setSelectedOmr([])
+    setOmrSearch('')
+  }
 
   const courses = useMemo(() => dedupeBy(baseRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])), [baseRows])
-  const academicYears = useMemo(
-    () =>
-      dedupeBy(
-        baseRows.filter((r) => pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId)),
-        (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId']),
-      ),
-    [baseRows, courseId],
-  )
+  const academicYears = useMemo(() => {
+    const rows = dedupeBy(
+      baseRows.filter((r) => pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId)),
+      (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId']),
+    )
+    return [...rows].sort(
+      (a, b) =>
+        parseInt(pickText(b, ['academic_year', 'academicYear']), 10) -
+        parseInt(pickText(a, ['academic_year', 'academicYear']), 10),
+    )
+  }, [baseRows, courseId])
   const exams = useMemo(
     () =>
       dedupeBy(
@@ -211,6 +232,7 @@ export default function EvaluationModerationPage() {
     setLoading(true)
     try {
       const data = await listEvaluationModerationData({
+        organizationId: organizationId || 1,
         employeeId,
         courseId,
         academicYearId,
@@ -219,7 +241,9 @@ export default function EvaluationModerationPage() {
         subjectId,
         regulationId,
       })
-      setEvaluatorRows(data.evaluators)
+      setEvaluatorRows(
+        dedupeBy(data.evaluators, (e) => pickNum(e, ['pk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])),
+      )
       setTotalsRows(data.totals)
       setStudentRows(data.students)
       setOmrRows(data.omrRows)
@@ -252,13 +276,23 @@ export default function EvaluationModerationPage() {
     return raw.split(',').map((v) => v.trim()).filter(Boolean).includes(String(evaluatorId))
   }
 
+  // Angular radioChange(): disable when excluded OR disable_omr === 1.
+  const isOmrDisabledFor = (s: AnyRow, evaluatorId: number | null) =>
+    isExcludedFor(s, evaluatorId) || Number(s?.disable_omr) === 1
+
   // OMR list (maintDataList) is shown ONLY after an evaluator radio is selected.
   const visibleStudents = useMemo(() => {
     if (!selectedEvaluatorId) return []
     const q = omrSearch.trim().toLowerCase()
-    return q
+    const base = q
       ? uploadedStudents.filter((s) => String(s?.omr_serial_no ?? '').toLowerCase().includes(q))
       : uploadedStudents
+    return [...base].sort((a, b) => {
+      const aDisabled = isOmrDisabledFor(a, selectedEvaluatorId)
+      const bDisabled = isOmrDisabledFor(b, selectedEvaluatorId)
+      if (aDisabled !== bDisabled) return aDisabled ? 1 : -1
+      return Number(a?.omr_mapped ?? 0) - Number(b?.omr_mapped ?? 0)
+    })
   }, [uploadedStudents, omrSearch, selectedEvaluatorId])
 
   const assignableStudents = visibleStudents
@@ -271,7 +305,7 @@ export default function EvaluationModerationPage() {
   const visibleAssignableOmrs = useMemo(
     () =>
       visibleStudents
-        .filter((s) => !isExcludedFor(s, selectedEvaluatorId))
+        .filter((s) => !isOmrDisabledFor(s, selectedEvaluatorId))
         .map((s) => String(s?.omr_serial_no ?? ''))
         .filter(Boolean),
     [visibleStudents, selectedEvaluatorId],
@@ -320,14 +354,22 @@ export default function EvaluationModerationPage() {
     setSelectedOmr((prev) => (checked ? [...new Set([...prev, omr])] : prev.filter((v) => v !== omr)))
   }
 
-  function openStudentListPopup(row: AnyRow, listType: 'AssignedList' | 'CompletedList') {
+  function openStudentListPopup(row: AnyRow, listType: 'AssignedList' | 'CompletedList' | 'DueList') {
     const evaluatorProfileId = pickNum(row, ['pk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])
     const base = omrRowsRef.current.filter((x) => pickNum(x, ['pk_exam_evaluator_profile_id', 'examEvaluatorProfileId']) === evaluatorProfileId)
     const filtered =
       listType === 'CompletedList'
         ? base.filter((x) => x?.evaluated_totalmarks != null && x?.omr_serial_no != null)
-        : base.filter((x) => x?.omr_serial_no != null)
-    setPopupTitle(listType === 'CompletedList' ? 'Evaluated Answer Sheets List' : 'Student Answer Sheets List')
+        : listType === 'DueList'
+          ? base.filter((x) => x?.evaluated_totalmarks == null && x?.omr_serial_no != null)
+          : base.filter((x) => x?.omr_serial_no != null)
+    setPopupTitle(
+      listType === 'CompletedList'
+        ? 'Evaluated Answer Sheets List'
+        : listType === 'DueList'
+          ? 'Due Answer Sheets List'
+          : 'Student Answer Sheets List',
+    )
     setPopupRows(filtered)
     setPopupSearch('')
     setPopupOpen(true)
@@ -356,6 +398,7 @@ export default function EvaluationModerationPage() {
         minWidth: 150,
         valueGetter: (p) =>
           Number(p.data?.no_of_students_assigned ?? 0) - Number(p.data?.no_of_evaluations_completed ?? 0),
+        cellRenderer: makeDueRenderer(openStudentListPopup),
       },
     ],
     [],
@@ -363,82 +406,69 @@ export default function EvaluationModerationPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Evaluation Moderation" subtitle="Manage evaluation moderation assignments" />
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Evaluation Moderation</h2>
-          <Button type="button" variant="outline" size="sm" className="h-6 px-2.5 text-[12px]" onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen}>
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-        {(
-          <div className="p-3 space-y-2 text-[13px]">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">Course</Label>
-                <Select
-                  value={courseId ? String(courseId) : null}
-                  onChange={(v) => setCourseId(v ? Number(v) : null)}
-                  options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode']) } as SelectOption))}
-                  placeholder="Course"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">Academic Year</Label>
-                <Select
-                  value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-                  options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) } as SelectOption))}
-                  placeholder="Academic Year"
-                />
-              </div>
-              <div className="md:col-span-4">
-                <Label className="text-[12px] text-muted-foreground">Exam</Label>
-                <Select
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => setExamId(v ? Number(v) : null)}
-                  options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) } as SelectOption))}
-                  placeholder="Exam"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">Course Year</Label>
-                <Select
-                  value={courseYearId ? String(courseYearId) : null}
-                  onChange={(v) => setCourseYearId(v ? Number(v) : null)}
-                  options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_code', 'courseYearCode']) } as SelectOption))}
-                  placeholder="Course Year"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">Regulation</Label>
-                <Select
-                  value={regulationId ? String(regulationId) : null}
-                  onChange={(v) => setRegulationId(v ? Number(v) : null)}
-                  options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id', 'regulationId'])), label: pickText(r, ['regulation_code', 'regulationCode']) } as SelectOption))}
-                  placeholder="Regulation"
-                />
-              </div>
-              <div className="md:col-span-4">
-                <Label className="text-[12px] text-muted-foreground">Subject</Label>
-                <Select
-                  value={subjectId ? String(subjectId) : null}
-                  onChange={(v) => setSubjectId(v ? Number(v) : null)}
-                  options={subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id', 'subjectId'])), label: `${pickText(s, ['subject_name', 'subjectName'])} - ${pickText(s, ['subject_code', 'subjectCode'])}` } as SelectOption))}
-                  placeholder="Subject"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Button className="h-8 px-3 text-[12px] w-full" onClick={onGetList} disabled={loading}>
-                  Get List
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      <h2 className="px-1 text-lg font-semibold tracking-tight text-foreground">Evaluation Moderation</h2>
+
+      <GlobalFilterBar title="Evaluation Moderation" defaultOpen={false}>
+        <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r1">
+          <GlobalFilterField label="Course">
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => { resetFetchedState(); setCourseId(v ? Number(v) : null) }}
+              options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode']) } as SelectOption))}
+              placeholder="Course"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Academic Year">
+            <Select
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => { resetFetchedState(); setAcademicYearId(v ? Number(v) : null) }}
+              options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) } as SelectOption))}
+              placeholder="Academic Year"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam">
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => { resetFetchedState(); setExamId(v ? Number(v) : null) }}
+              options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) } as SelectOption))}
+              placeholder="Exam"
+              searchable
+            />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+        <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r2">
+          <GlobalFilterField label="Course Year">
+            <Select
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => { resetFetchedState(); setCourseYearId(v ? Number(v) : null) }}
+              options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_code', 'courseYearCode']) } as SelectOption))}
+              placeholder="Course Year"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Regulation">
+            <Select
+              value={regulationId ? String(regulationId) : null}
+              onChange={(v) => { resetFetchedState(); setRegulationId(v ? Number(v) : null) }}
+              options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id', 'regulationId'])), label: pickText(r, ['regulation_code', 'regulationCode']) } as SelectOption))}
+              placeholder="Regulation"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Subject">
+            <Select
+              value={subjectId ? String(subjectId) : null}
+              onChange={(v) => { resetFetchedState(); setSubjectId(v ? Number(v) : null) }}
+              options={subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id', 'subjectId'])), label: `${pickText(s, ['subject_name', 'subjectName'])} - ${pickText(s, ['subject_code', 'subjectCode'])}` } as SelectOption))}
+              placeholder="Subject"
+              searchable
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label=" " className="global-filter-field--action">
+            <Button size="sm" onClick={() => void onGetList()} disabled={loading} className="shrink-0 w-full">
+              Get List
+            </Button>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      </GlobalFilterBar>
 
       {hasFetched && (
         <>
@@ -448,22 +478,6 @@ export default function EvaluationModerationPage() {
             <span className="font-semibold">UnAssigned:</span> {unassigned} |{' '}
             <span className="font-semibold">Assigned:</span> {assigned} |{' '}
             <span className="font-semibold">No of Evaluators:</span> {evaluatorRows.length}
-          </div>
-
-          <div className="app-card overflow-hidden">
-            <div className="p-4">
-              <DataTable
-                rowData={evaluatorRows}
-                columnDefs={cols}
-                pagination
-                loading={loading}
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search…',
-                  pdfDocumentTitle: 'Evaluation Moderation',
-                }}
-              />
-            </div>
           </div>
 
           <div className="app-card p-3 space-y-3">
@@ -486,42 +500,42 @@ export default function EvaluationModerationPage() {
 
               <div className="md:col-span-5 border rounded-md p-2">
                 <div className="flex items-center justify-between mb-2 gap-2">
-                  <SearchInput value={omrSearch} onChange={setOmrSearch} placeholder="Search OMR…" className="w-full max-w-sm" />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-2 text-[11px]"
-                      disabled={!selectedEvaluatorId || visibleAssignableOmrs.length === 0}
-                      onClick={toggleSelectAllVisible}
-                    >
-                      {areAllVisibleSelected ? 'Unselect Visible' : 'Select All Visible'}
-                    </Button>
-                    <span className="text-[12px] font-semibold">Selected: {selectedOmr.length}</span>
-                  </div>
+                  <SearchInput value={omrSearch} onChange={setOmrSearch} placeholder="Search…" className="w-full max-w-sm" />
+                  <span className="shrink-0 text-[12px] font-semibold text-blue-700">
+                    Total : {selectedEvaluatorId ? assignableStudents.length : 0}
+                  </span>
                 </div>
-                <p className="text-[12px] font-semibold mb-2">OMR List ({assignableStudents.length})</p>
                 <div className="max-h-[280px] overflow-auto border rounded">
                   <table className="w-full text-[12px]">
                     <thead>
                       <tr className="bg-muted/40">
-                        <th className="text-left px-2 py-1 w-10">Sel</th>
+                        <th className="text-left px-2 py-1 w-14">
+                          <label className="inline-flex items-center gap-1 font-normal">
+                            <input
+                              type="checkbox"
+                              checked={areAllVisibleSelected}
+                              disabled={!selectedEvaluatorId || visibleAssignableOmrs.length === 0}
+                              onChange={() => toggleSelectAllVisible()}
+                            />
+                            All
+                          </label>
+                        </th>
                         <th className="text-left px-2 py-1">Serial No</th>
-                        <th className="text-left px-2 py-1">Marks</th>
+                        <th className="text-center px-2 py-1">Answer Papers Assigned</th>
+                        <th className="text-left px-2 py-1">Evaluated Total Marks</th>
                       </tr>
                     </thead>
                     <tbody>
                       {assignableStudents.length === 0 ? (
                         <tr>
-                          <td colSpan={3} className="px-2 py-3 text-center text-muted-foreground">
+                          <td colSpan={4} className="px-2 py-3 text-center text-muted-foreground">
                             {selectedEvaluatorId ? 'No OMR sheets found.' : 'Select an evaluator to list OMR sheets.'}
                           </td>
                         </tr>
                       ) : (
                         assignableStudents.map((s, idx) => {
                           const omr = String(s?.omr_serial_no ?? '')
-                          const disabled = isExcludedFor(s, selectedEvaluatorId)
+                          const disabled = isOmrDisabledFor(s, selectedEvaluatorId)
                           const checked = selectedOmr.includes(omr)
                           return (
                             <tr key={`omr-${omr}-${idx}`} className={`border-t ${disabled ? 'opacity-50' : ''}`}>
@@ -534,13 +548,17 @@ export default function EvaluationModerationPage() {
                                 />
                               </td>
                               <td className="px-2 py-1">{omr || '-'}</td>
-                              <td className="px-2 py-1">{String(s?.list_evaluated_totalmarks ?? '-')}</td>
+                              <td className="px-2 py-1 text-center">{Number(s?.omr_mapped ?? 0)}</td>
+                              <td className="px-2 py-1">{s?.list_evaluated_totalmarks != null && String(s.list_evaluated_totalmarks).trim() !== '' ? String(s.list_evaluated_totalmarks) : ''}</td>
                             </tr>
                           )
                         })
                       )}
                     </tbody>
                   </table>
+                </div>
+                <div className="mt-2 flex items-center justify-end gap-2">
+                  <span className="text-[12px] font-semibold text-blue-700">Selected : {selectedOmr.length}</span>
                 </div>
               </div>
 
@@ -565,6 +583,26 @@ export default function EvaluationModerationPage() {
               <Button disabled={assigning || loading || !selectedEvaluator || selectedOmr.length === 0} onClick={() => void onAssign()}>
                 {assigning ? 'Assigning…' : 'Assign'}
               </Button>
+            </div>
+          </div>
+
+          <div className="app-card overflow-hidden">
+            <div className="px-3 pb-3 pt-2">
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                <DataTable
+                  toolbarLeading={<span className="hidden" />}
+                  rowData={evaluatorRows}
+                  columnDefs={cols}
+                  pagination
+                  loading={loading}
+                  subtitle=""
+                  toolbar={{
+                    search: true,
+                    searchPlaceholder: 'Search…',
+                    pdfDocumentTitle: 'Evaluation Moderation',
+                  }}
+                />
+              </div>
             </div>
           </div>
         </>

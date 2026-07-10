@@ -1,6 +1,6 @@
 import { ENTITIES } from '@/config/constants/entities'
 import type { Batch } from '@/types/batch'
-import type { College } from '@/types/college'
+import type { University } from '@/types/university'
 import { buildAngularBatchCreatePayload, buildAngularBatchUpdatePayload } from './academic-master-payload'
 import { buildQuery, domainCreate, domainList, domainUpdate } from '../crud'
 
@@ -51,6 +51,7 @@ function pickText(row: Record<string, unknown>, keys: string[]): string {
 function normalizeBatch(row: Batch | Record<string, unknown>): Batch {
   const r = row as Record<string, unknown>
   const college = { ...nested(r, 'college'), ...nested(r, 'College') }
+  const university = { ...nested(r, 'university'), ...nested(r, 'University'), ...nested(r, 'universities'), ...nested(r, 'Universities') }
   const course = { ...nested(r, 'course'), ...nested(r, 'Course') }
   const regulation = { ...nested(r, 'regulation'), ...nested(r, 'Regulation') }
 
@@ -60,6 +61,16 @@ function normalizeBatch(row: Batch | Record<string, unknown>): Batch {
   return {
     ...(row as Batch),
     batchId: pickNum(r, ['batchId', 'fk_batch_id', 'batch_id', 'id']),
+    universityId:
+      pickNum(r, [
+        'universityId', 'fk_university_id', 'university_id',
+        'university.universityId', 'University.universityId',
+        'Universities.universityId', 'universities.universityId',
+        'course.universityId', 'Course.universityId',
+        'course.Universities.universityId', 'Course.Universities.universityId',
+      ])
+      || pickNum(university, ['universityId', 'fk_university_id', 'university_id'])
+      || pickNum(course, ['universityId', 'fk_university_id', 'university_id']),
     collegeId:
       pickNum(r, [
         'collegeId', 'fk_college_id', 'college_id',
@@ -95,6 +106,10 @@ function normalizeBatch(row: Batch | Record<string, unknown>): Batch {
     batchName: String(pickText(r, ['batchName', 'batch_name', 'name']) || (row as Batch).batchName || ''),
     isActive: Boolean((row as Batch).isActive ?? r.is_active ?? r.isActive ?? true),
     reason: (row as Batch).reason ?? (r.reason as string | undefined),
+    universityCode:
+      pickText(r, ['universityCode', 'university_code'])
+      || pickText(university, ['universityCode', 'university_code'])
+      || undefined,
     collegeCode:
       pickText(r, ['collegeCode', 'college_code'])
       || pickText(college, ['collegeCode', 'college_code', 'collegeName', 'college_name'])
@@ -130,28 +145,9 @@ export async function getBatchById(batchId: number): Promise<Batch | null> {
   return null
 }
 
-export async function listActiveCollegesForBatches(): Promise<College[]> {
-  return domainList<College>(ENTITIES.COLLEGE.name, buildQuery({ isActive: true }))
-}
-
 export async function createBatch(data: Omit<Batch, 'batchId'>): Promise<Batch> {
-  const collegeId = Number((data as Record<string, unknown>).collegeId ?? 0)
   const angular = buildAngularBatchCreatePayload(data as unknown as Record<string, unknown>)
-  const payloads: Array<Record<string, unknown>> = [
-    { ...angular },
-    { ...angular, fk_college_id: collegeId },
-    { ...angular, 'College.collegeId': collegeId },
-    { ...angular, college: { collegeId } },
-  ]
-  for (const payload of payloads) {
-    try {
-      const created = await domainCreate<Batch>(ENTITIES.BATCH.name, payload)
-      return normalizeBatch(created as unknown as Record<string, unknown>)
-    } catch {
-      // Try next payload shape for backend compatibility.
-    }
-  }
-  const created = await domainCreate<Batch>(ENTITIES.BATCH.name, data)
+  const created = await domainCreate<Batch>(ENTITIES.BATCH.name, angular)
   return normalizeBatch(created as unknown as Record<string, unknown>)
 }
 

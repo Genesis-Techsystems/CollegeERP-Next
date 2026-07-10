@@ -152,12 +152,12 @@ export default function StudentBatchModal({
   const collegeOptions = useMemo(() => {
     const opts = colleges.map((c) => ({
       value: String(c.collegeId),
-      label: c.collegeName ?? c.collegeCode,
+      label: c.collegeCode ?? c.collegeName,
     }))
     if (selectedCollegeId && !opts.some((o) => o.value === String(selectedCollegeId))) {
       opts.unshift({
         value: String(selectedCollegeId),
-        label: row?.collegeName ?? row?.collegeCode ?? String(selectedCollegeId),
+        label: row?.collegeCode ?? row?.collegeName ?? String(selectedCollegeId),
       })
     }
     return opts

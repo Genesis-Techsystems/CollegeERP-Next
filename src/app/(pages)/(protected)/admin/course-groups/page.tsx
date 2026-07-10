@@ -57,7 +57,7 @@ export default function CourseGroupsPage() {
                 Add Course Group
               </Button>
             }
-            toolbar={{ search: true, searchPlaceholder: 'Search subject groups…', pdfDocumentTitle: 'Subject groups' }}
+            toolbar={{ search: true, searchPlaceholder: 'Search course groups…', pdfDocumentTitle: 'Course Groups' }}
           />
         </div>
       </div>

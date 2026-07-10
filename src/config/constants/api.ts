@@ -389,7 +389,7 @@ export const STUDENT_API = {
   GET_BULK_STUDENTS: 'getAllRecords/s_get_bulk_student_upload',
 } as const
 
-// ─── Employee / Staff Management ───────────────────────────���─────────────────
+// ─── Employee / Staff Management ───────────────────────────   ─────────────────
 
 export const EMPLOYEE_API = {
   /** POST: import employee details */
@@ -1184,6 +1184,8 @@ export const UNIV_EXAM_CENTER_API = {
   EC_COLLEGE_DETAILS: 'UnivEcCollegeDetails',
   /** GET: `getAllRecords/s_get_exam_center_bycode` — exam-center filters / group-year-subject mapping */
   GET_COLLEGE_EXAM_CENTERS: 's_get_exam_center_bycode',
+  /** GET: `getAllRecords/s_get_exam_center_details` — bundle/scan lists (Angular getCollegeExamCentersUrl) */
+  GET_COLLEGE_EXAM_CENTER_DETAILS: 's_get_exam_center_details',
   /** POST: add univ EC college details */
   ADD_EC_COLLEGE_DETAILS: 'addUnivEcCollegeDetails',
   /** PUT: update inactive univ EC college details */
@@ -1200,8 +1202,8 @@ export const UNIV_EXAM_CENTER_API = {
   BAG_DISPATCH_STATUS: 'ExamBagDispatchStatus',
   /** POST: add list univ exam answer paper bags */
   ADD_ANSWER_PAPER_BAGS: 'addListUnivExamAnswerPaperBags',
-  /** GET: `getAllRecords/s_get_examcenter_bundle_bycode` — bundle OMR / student attendance lookup (CONSTANTS.getExamCenterBundleByCodeUrl) */
-  EXAM_CENTER_BUNDLE_BY_CODE: 's_get_examcenter_bundle_bycode',
+  /** GET: `getAllRecords/s_get_exam_center_bundle_bycode` — bundle OMR / stickers / attendance (Angular getExamCenterBundleByCodeUrl) */
+  EXAM_CENTER_BUNDLE_BY_CODE: 's_get_exam_center_bundle_bycode',
 } as const
 
 // ─── University Committees ───────────────────────────────────────────────────

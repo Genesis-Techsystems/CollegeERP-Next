@@ -174,6 +174,7 @@ export function buildAngularBatchUpdatePayload(
 
   return {
     collegeId: asFiniteNumber(data.collegeId, prior?.collegeId),
+    universityId: asFiniteNumber(data.universityId, prior?.universityId),
     courseId: asFiniteNumber(data.courseId, prior?.courseId),
     regulationId: asFiniteNumber(data.regulationId, prior?.regulationId),
     // Angular APIs vary: some expect fromDate/toDate, others batchFrom/batchTo.
@@ -197,6 +198,7 @@ export function buildAngularBatchCreatePayload(
   const { isActive, reason } = activeReason(data, existing)
   return {
     collegeId: asFiniteNumber(data.collegeId, prior?.collegeId),
+    universityId: asFiniteNumber(data.universityId, prior?.universityId),
     courseId: asFiniteNumber(data.courseId, prior?.courseId),
     regulationId: asFiniteNumber(data.regulationId, prior?.regulationId),
     fromDate: asString(data.fromDate ?? data.batchFrom ?? prior?.fromDate ?? prior?.batchFrom),
