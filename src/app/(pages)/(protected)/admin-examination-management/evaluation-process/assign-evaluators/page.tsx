@@ -16,6 +16,7 @@ import {
   runPopStudentAssignment,
 } from '@/services/evaluation'
 import { dedupeBy, num, txt } from '@/common/utils/data-helpers'
+import { toastError, toastSuccess } from '@/lib/toast'
 
 type AnyRow = Record<string, any>
 
@@ -149,8 +150,11 @@ export default function AssignEvaluatorsPage() {
     if (!ok) return
     setLoading(true)
     try {
-      await runPopStudentAssignment({ examId, subjectId, courseYearId }).catch(() => null)
+      await runPopStudentAssignment({ examId, subjectId, courseYearId })
+      toastSuccess('Assignment allocation completed successfully.')
       await getEvaluationList()
+    } catch (err) {
+      toastError(err, 'Failed to run assignment allocation')
     } finally {
       setLoading(false)
     }
@@ -165,8 +169,11 @@ export default function AssignEvaluatorsPage() {
         examId,
         subjectId,
         courseYearId,
-      }).catch(() => null)
+      })
+      toastSuccess('Evaluators assigned successfully.')
       await getEvaluationList()
+    } catch (err) {
+      toastError(err, 'Failed to assign evaluators')
     } finally {
       setLoading(false)
     }

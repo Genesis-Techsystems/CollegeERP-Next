@@ -49,13 +49,16 @@ function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
 }
 
 function MarksInputRenderer(
-  params: ICellRendererParams<AnyRow> & { onChange: (row: AnyRow, value: number) => void; readOnly: boolean },
+  params: ICellRendererParams<AnyRow> & { maxMarks?: number; onChange: (row: AnyRow, value: number) => void; readOnly: boolean },
 ) {
   const value = Number(params.data?.marks ?? 0)
   const disabled = params.readOnly || params.data?.isPresent !== true
+  const max = params.maxMarks && params.maxMarks > 0 ? params.maxMarks : undefined
   return (
     <Input
       type="number"
+      min={0}
+      max={max}
       className="h-8 text-[12px]"
       value={Number.isFinite(value) ? String(value) : '0'}
       disabled={disabled}
@@ -303,11 +306,17 @@ export default function SecureExamMarksEntryPage() {
 
   function updateMarks(target: AnyRow, marks: number) {
     const sid = Number(target.studentId ?? target.fk_student_id ?? 0)
+    let parsed = Number(marks)
+    if (!Number.isFinite(parsed) || parsed < 0) parsed = 0
+    if (maxMarks > 0 && parsed > maxMarks) {
+      parsed = maxMarks
+      toastError(`Entered marks should not exceed ${maxMarks}.`)
+    }
     setRows((prev) =>
       prev.map((r) => {
         const rsid = Number(r.studentId ?? r.fk_student_id ?? 0)
         if (sid > 0 ? rsid !== sid : String(r.hallticketNumber) !== String(target.hallticketNumber)) return r
-        return { ...r, marks }
+        return { ...r, marks: parsed }
       }),
     )
   }
@@ -451,7 +460,7 @@ export default function SecureExamMarksEntryPage() {
         headerName: 'Marks',
         minWidth: 120,
         cellRenderer: MarksInputRenderer,
-        cellRendererParams: { onChange: updateMarks, readOnly: !saveUnlocked },
+        cellRendererParams: { maxMarks, onChange: updateMarks, readOnly: !saveUnlocked },
       },
       {
         headerName: 'Result',
@@ -460,7 +469,7 @@ export default function SecureExamMarksEntryPage() {
         valueGetter: (p: any) => toResultText(p.data?.isPass),
       },
     ]
-  }, [saveUnlocked])
+  }, [saveUnlocked, maxMarks])
 
   // While printing, replace the page with the marks sheet (AppShell @media
   // print rules hide the app chrome so only the sheet prints).
@@ -516,6 +525,7 @@ export default function SecureExamMarksEntryPage() {
                 rowData={rows}
                 columnDefs={columnDefs}
                 loading={loading}
+                getRowId={(p) => String(p.data.studentId ?? p.data.fk_student_id ?? p.data.hallticketNumber ?? '')}
                 pagination
                 toolbar={{
                   search: true,

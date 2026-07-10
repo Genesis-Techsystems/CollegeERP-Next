@@ -327,8 +327,15 @@ export async function getCompleteExamProcessFilters(employeeId: number): Promise
   return getGradeMemoIssueFilters(employeeId)
 }
 
-export async function runCompleteExamSetupAssignments(examId: number): Promise<void> {
-  await getAllRecords('s_pop_exam_evaluatorassignment', {
+/**
+ * These pop procs report their real outcome via the envelope `message`, not the
+ * `success` flag — same HTTP-200/`message` contract as the result-processing
+ * procs below. Using {@link getAllRecordsEnvelope} (which does not throw on
+ * `success: false`) and returning `message` lets the page surface the true
+ * outcome instead of a false success.
+ */
+export async function runCompleteExamSetupAssignments(examId: number): Promise<string> {
+  const body = await getAllRecordsEnvelope('s_pop_exam_evaluatorassignment', {
     in_flag: 'popstudentassignment',
     in_profileids: '',
     in_exam_evaluationassignment_ids: '',
@@ -338,10 +345,11 @@ export async function runCompleteExamSetupAssignments(examId: number): Promise<v
     in_subject_id: 0,
     in_course_year_id: 0,
   })
+  return body.message ?? ''
 }
 
-export async function runCompleteExamReEvaluationAssignments(examId: number): Promise<void> {
-  await getAllRecords('s_pop_exam_evaluatorassignment', {
+export async function runCompleteExamReEvaluationAssignments(examId: number): Promise<string> {
+  const body = await getAllRecordsEnvelope('s_pop_exam_evaluatorassignment', {
     in_flag: 're_evaluation_assignment_pop',
     in_profileids: '',
     in_exam_evaluationassignment_ids: '',
@@ -351,17 +359,20 @@ export async function runCompleteExamReEvaluationAssignments(examId: number): Pr
     in_subject_id: 0,
     in_course_year_id: 0,
   })
+  return body.message ?? ''
 }
 
-export async function runCompleteExamFinalizeAction(flag: string, examId: number): Promise<void> {
-  await getAllRecords('s_pop_exam_evaluationmarksfinalise', {
+export async function runCompleteExamFinalizeAction(flag: string, examId: number): Promise<string> {
+  const body = await getAllRecordsEnvelope('s_pop_exam_evaluationmarksfinalise', {
     in_flag: flag,
     in_examid: examId,
   })
+  return body.message ?? ''
 }
 
-export async function runCompleteExamFinalizeProfiles(): Promise<void> {
-  await getAllRecords('s_pop_exam_committees', { in_flag: 'exam_committees' })
+export async function runCompleteExamFinalizeProfiles(): Promise<string> {
+  const body = await getAllRecordsEnvelope('s_pop_exam_committees', { in_flag: 'exam_committees' })
+  return body.message ?? ''
 }
 
 /**

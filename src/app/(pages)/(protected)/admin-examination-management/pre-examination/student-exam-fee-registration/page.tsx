@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ChevronDown, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,6 +143,27 @@ export default function StudentExamFeeRegistrationPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
+
+  // Deep-link context forwarded from online-exam-fee-registration
+  // (?collegeId&courseId&academicYearId&examId). This page is student-driven,
+  // so the exam dropdown only populates after a student is picked. Once it does,
+  // pre-select the exam that matches the deep-linked examId (once), so the
+  // operator does not lose the context they came in with. Absent params => no-op.
+  const searchParams = useSearchParams();
+  const deepLinkExamAppliedRef = useRef(false);
+
+  useEffect(() => {
+    if (deepLinkExamAppliedRef.current) return;
+    const qpExam = Number(searchParams.get("examId") ?? 0);
+    if (!qpExam || examsList.length === 0 || examId) return;
+    const match = examsList.find((e) => Number(e.examId) === qpExam);
+    if (!match) return;
+    deepLinkExamAppliedRef.current = true;
+    examIdRef.current = qpExam;
+    setExamId(qpExam);
+    void selectedExternalExam(qpExam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examsList, searchParams]);
 
   // Derived: selected subjects + count
   const selectedSubjects = useMemo(
@@ -694,10 +716,37 @@ export default function StudentExamFeeRegistrationPage() {
     const examToDate = dateOnly(examRow?.toDate);
 
     const receipts = courseYearFeeRef.current.map((cy) => {
-      const ft = examFeeTypesRef.current.find(
-        (x) => String(x.generalDetailCode) === String(cy.examType),
-      );
+      // Lenient match (mirrors additional-exam-fees): the row's examType is a
+      // display literal ("Regular"/"Supple"/"Supplementary") that rarely equals
+      // the GeneralDetail code verbatim, so a strict === misses and posts null.
+      // Match by lowercased substring on the fee type's code/name instead.
+      const want = String(cy.examType ?? "").toLowerCase();
+      const wantsRegular = want.includes("reg");
+      const wantsSupple = want.includes("sup");
+      const matchesFeeType = (x: AnyRow) => {
+        const code = String(
+          x.generalDetailCode ??
+            x.generalDetailName ??
+            x.generalDetailDisplayName ??
+            "",
+        ).toLowerCase();
+        if (wantsRegular) return code.includes("reg");
+        if (wantsSupple) return code.includes("sup");
+        return code === want;
+      };
+      const ft =
+        examFeeTypesRef.current.find(matchesFeeType) ??
+        examFeeTypesRef.current.find(
+          (x) => String(x.generalDetailCode) === String(cy.examType),
+        );
       const examtypeCatId = ft ? Number(ft.generalDetailId) : null;
+      if (examtypeCatId == null) {
+        console.warn(
+          "[student-exam-fee-registration] Could not resolve examtypeCatId for examType:",
+          cy.examType,
+          examFeeTypesRef.current,
+        );
+      }
       let addFeeAmt = 0;
       const addTFee: AnyRow[] = [];
       for (const a of cy.examAdditionalFeeReceiptDTOs || []) {
@@ -769,6 +818,12 @@ export default function StudentExamFeeRegistrationPage() {
         ],
       };
     });
+    if (receipts.some((r) => r.examtypeCatId == null)) {
+      toastError(
+        "Could not resolve the exam fee type for this exam. Please verify the exam fee type configuration before collecting the fee.",
+      );
+      return;
+    }
     payReceiptsRef.current = receipts;
     setPayDialogOpen(true);
   }
