@@ -102,8 +102,6 @@ export default function InternalExamAttendanceMarkingPage() {
   const [subjectId, setSubjectId] = useState<number | null>(null)
   const [labBatchId, setLabBatchId] = useState<number | null>(0)
   const [examDate, setExamDate] = useState('')
-  const [invigilatorEmpId, setInvigilatorEmpId] = useState<number | null>(0)
-  const [roomId, setRoomId] = useState<number | null>(0)
 
   const courses = useMemo(() => dedupeBy(allFilters, 'fk_course_id'), [allFilters])
   const academicYears = useMemo(
@@ -188,14 +186,6 @@ export default function InternalExamAttendanceMarkingPage() {
         'fk_stdbatch_id',
       ),
     [subjectRows, collegeId, courseGroupId, courseYearId, regulationId, subjectId],
-  )
-  const invigilators = useMemo(
-    () => dedupeBy(subjectRows.filter((x) => Number(x.fk_attendance_taken_emp_id ?? x.fk_invgilator_emp_id ?? 0) > 0), 'fk_attendance_taken_emp_id'),
-    [subjectRows],
-  )
-  const rooms = useMemo(
-    () => dedupeBy(subjectRows.filter((x) => Number(x.fk_room_id ?? 0) > 0), 'fk_room_id'),
-    [subjectRows],
   )
 
   useEffect(() => {
@@ -446,9 +436,7 @@ export default function InternalExamAttendanceMarkingPage() {
                 onChange={(e) => setExamDate(e.target.value)}
               />
             </div>
-            <div className="space-y-1 md:col-span-4"><Label>Invigilator Employee</Label><Select value={invigilatorEmpId === null ? '0' : String(invigilatorEmpId)} onValueChange={(v) => setInvigilatorEmpId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent><SelectItem value="0">All</SelectItem>{invigilators.map((x, i) => <SelectItem key={`inv-${x.fk_attendance_taken_emp_id ?? x.fk_invgilator_emp_id ?? i}`} value={String(x.fk_attendance_taken_emp_id ?? x.fk_invgilator_emp_id)}>{x.invigilatorName ?? x.employeeName ?? x.empName ?? x.empNumber ?? `Employee ${i + 1}`}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1 md:col-span-3"><Label>Room</Label><Select value={roomId === null ? '0' : String(roomId)} onValueChange={(v) => setRoomId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent><SelectItem value="0">All</SelectItem>{rooms.map((x, i) => <SelectItem key={`room-${x.fk_room_id ?? i}`} value={String(x.fk_room_id)}>{x.room_name ?? x.roomCode ?? x.roomNumber ?? `Room ${i + 1}`}</SelectItem>)}</SelectContent></Select></div>
-            <div className="md:col-span-1"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loadingList}>{loadingList ? 'Loading...' : 'Get List'}</Button></div>
+            <div className="md:col-span-2"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loadingList}>{loadingList ? 'Loading...' : 'Get List'}</Button></div>
           </div>
         )}
       </div>
@@ -462,8 +450,6 @@ export default function InternalExamAttendanceMarkingPage() {
             <div className="p-3 text-[12px] text-slate-700">
               <p>{exams.find((e) => Number(e.fk_exam_id) === Number(examId))?.exam_name ?? '-'}</p>
               <p>{colleges.find((c) => Number(c.fk_college_id) === Number(collegeId))?.college_code ?? '-'} / {courses.find((c) => Number(c.fk_course_id) === Number(courseId))?.course_code ?? '-'}</p>
-              <p>Invigilator: {invigilators.find((x) => Number(x.fk_attendance_taken_emp_id ?? x.fk_invgilator_emp_id ?? 0) === Number(invigilatorEmpId))?.invigilatorName ?? 'All'}</p>
-              <p>Room: {rooms.find((x) => Number(x.fk_room_id ?? 0) === Number(roomId))?.room_name ?? 'All'}</p>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
