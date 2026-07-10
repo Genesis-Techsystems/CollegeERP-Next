@@ -51,7 +51,7 @@ export default function CoursesPage() {
                 Add Course
               </Button>
             }
-            toolbar={{ search: true, searchPlaceholder: 'Search subjects…', pdfDocumentTitle: 'Subjects' }}
+            toolbar={{ search: true, searchPlaceholder: 'Search courses…', pdfDocumentTitle: 'Courses' }}
           />
         </div>
       </div>

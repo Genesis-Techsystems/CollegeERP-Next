@@ -13,18 +13,18 @@ import { Label } from '@/components/ui/label'
 import {
   createBatch,
   getBatchById,
-  listActiveCollegesForBatches,
-  listCollegeWiseCourses,
+  listActiveCoursesByUniversity,
+  listActiveUniversities,
   listRegulationsByCourse,
   updateBatch,
 } from '@/services'
 import type { Batch } from '@/types/batch'
-import type { College } from '@/types/college'
+import type { University } from '@/types/university'
 
 const DATE_INPUT_CLASS = 'org-modal-date-input pr-10'
 
 const schema = z.object({
-  collegeId: z.number().min(1, 'College is required'),
+  universityId: z.number().min(1, 'University is required'),
   courseId: z.number().min(1, 'Course is required'),
   regulationId: z.number().min(1, 'Regulation is required'),
   fromDate: z.string().min(1, 'From date is required'),
@@ -96,11 +96,11 @@ function asDateInputValue(value: string | undefined): string {
 }
 
 function valuesFromRow(row: Batch): FormValues {
-  const collegeId = num(row.collegeId)
+  const universityId = num(row.universityId)
   const courseId = num(row.courseId)
   const regulationId = num(row.regulationId)
   return {
-    collegeId: collegeId > 0 ? collegeId : (undefined as unknown as number),
+    universityId: universityId > 0 ? universityId : (undefined as unknown as number),
     courseId: courseId > 0 ? courseId : (undefined as unknown as number),
     regulationId: regulationId > 0 ? regulationId : (undefined as unknown as number),
     fromDate: asDateInputValue(row.fromDate ?? row.batchFrom),
@@ -114,7 +114,7 @@ function valuesFromRow(row: Batch): FormValues {
 
 function emptyValues(): FormValues {
   return {
-    collegeId: undefined as unknown as number,
+    universityId: undefined as unknown as number,
     courseId: undefined as unknown as number,
     regulationId: undefined as unknown as number,
     fromDate: asDateInputValue(new Date().toISOString()),
@@ -130,7 +130,7 @@ export default function BatchModal({
   open, onClose, row, onSaved,
 }: Readonly<{ open: boolean; onClose: () => void; row: Batch | null; onSaved: () => void }>) {
   const isEditing = Boolean(row)
-  const [colleges, setColleges] = useState<College[]>([])
+  const [universities, setUniversities] = useState<University[]>([])
   const [courses, setCourses] = useState<AnyRow[]>([])
   const [regulations, setRegulations] = useState<AnyRow[]>([])
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -142,24 +142,24 @@ export default function BatchModal({
     resolver: zodResolver(schema),
     defaultValues: emptyValues(),
   })
-  const selectedCollegeId = watch('collegeId')
+  const selectedUniversityId = watch('universityId')
   const selectedCourseId = watch('courseId')
   const selectedRegulationId = watch('regulationId')
   const source = editSource ?? row
 
-  const collegeOptions = useMemo(() => {
-    const opts = colleges.map((c) => ({
-      value: String(c.collegeId),
-      label: c.collegeName ?? c.collegeCode,
+  const universityOptions = useMemo(() => {
+    const opts = universities.map((u) => ({
+      value: String(u.universityId),
+      label: u.universityCode ?? u.universityName,
     }))
-    if (selectedCollegeId && !opts.some((o) => o.value === String(selectedCollegeId))) {
+    if (selectedUniversityId && !opts.some((o) => o.value === String(selectedUniversityId))) {
       opts.unshift({
-        value: String(selectedCollegeId),
-        label: source?.collegeCode ?? String(selectedCollegeId),
+        value: String(selectedUniversityId),
+        label: source?.universityCode ?? String(selectedUniversityId),
       })
     }
     return opts
-  }, [colleges, selectedCollegeId, source?.collegeCode])
+  }, [universities, selectedUniversityId, source?.universityCode])
 
   const courseOptions = useMemo(() => {
     const seen = new Set<string>()
@@ -169,9 +169,7 @@ export default function BatchModal({
           'courseId', 'fk_course_id', 'course_id', 'course.courseId', 'Course.courseId',
         ]))
         const code = pickText(c, ['courseCode', 'course_code', 'course.courseCode', 'Course.courseCode'])
-        const name = pickText(c, ['courseName', 'course_name', 'course.courseName', 'Course.courseName'])
-        const label = code && name ? `${code} - ${name}` : (code || name)
-        return { value, label }
+        return { value, label: code }
       })
       .filter((o) => {
         if (!o.value || o.value === '0' || !o.label) return false
@@ -181,13 +179,13 @@ export default function BatchModal({
       })
 
     if (selectedCourseId && !opts.some((o) => o.value === String(selectedCourseId))) {
-      const code = source?.courseCode ?? ''
-      const name = source?.courseName ?? ''
-      const label = code && name ? `${code} - ${name}` : (code || name || String(selectedCourseId))
-      opts.unshift({ value: String(selectedCourseId), label })
+      opts.unshift({
+        value: String(selectedCourseId),
+        label: source?.courseCode || String(selectedCourseId),
+      })
     }
     return opts
-  }, [courses, selectedCourseId, source?.courseCode, source?.courseName])
+  }, [courses, selectedCourseId, source?.courseCode])
 
   const regulationOptions = useMemo(() => {
     const seen = new Set<string>()
@@ -216,7 +214,6 @@ export default function BatchModal({
     return opts
   }, [regulations, selectedRegulationId, source?.regulationCode, source?.regulationName])
 
-  // Open: hydrate from list row immediately, then refresh from detail API.
   useEffect(() => {
     if (!open) {
       userDrivenCascade.current = false
@@ -227,7 +224,7 @@ export default function BatchModal({
 
     userDrivenCascade.current = false
     setSubmitError(null)
-    listActiveCollegesForBatches().then(setColleges).catch(console.error)
+    listActiveUniversities().then(setUniversities).catch(console.error)
 
     if (!row) {
       setEditSource(null)
@@ -236,7 +233,6 @@ export default function BatchModal({
       return
     }
 
-    // Fill immediately from grid row so fields are not blank while detail loads.
     setEditSource(row)
     reset(valuesFromRow(row))
 
@@ -250,16 +246,15 @@ export default function BatchModal({
           ...row,
           ...(detail ?? {}),
           batchId: row.batchId,
-          collegeId: num(detail?.collegeId) || num(row.collegeId) || undefined,
+          universityId: num(detail?.universityId) || num(row.universityId) || undefined,
           courseId: num(detail?.courseId) || num(row.courseId) || undefined,
           regulationId: num(detail?.regulationId) || num(row.regulationId) || undefined,
           batchCode: (detail?.batchCode || row.batchCode || '').trim(),
           batchName: (detail?.batchName || row.batchName || '').trim(),
           fromDate: detail?.fromDate || detail?.batchFrom || row.fromDate || row.batchFrom,
           toDate: detail?.toDate || detail?.batchTo || row.toDate || row.batchTo,
-          collegeCode: detail?.collegeCode || row.collegeCode,
+          universityCode: detail?.universityCode || row.universityCode,
           courseCode: detail?.courseCode || row.courseCode,
-          courseName: detail?.courseName || row.courseName,
           regulationCode: detail?.regulationCode || row.regulationCode,
           regulationName: detail?.regulationName || row.regulationName,
           isActive: detail?.isActive ?? row.isActive,
@@ -280,29 +275,28 @@ export default function BatchModal({
     }
   }, [open, row, reset])
 
-  // If college still missing after hydration, infer from college-wise courses by courseId.
   useEffect(() => {
     if (!open || !isEditing) return
-    const collegeId = num(getValues('collegeId'))
+    const universityId = num(getValues('universityId'))
     const courseId = num(selectedCourseId)
-    if (collegeId > 0 || courseId <= 0 || colleges.length === 0) return
+    if (universityId > 0 || courseId <= 0 || universities.length === 0) return
 
     let cancelled = false
     void (async () => {
-      for (const college of colleges) {
+      for (const university of universities) {
         if (cancelled) return
         try {
-          const rows = await listCollegeWiseCourses(college.collegeId)
-          const found = (Array.isArray(rows) ? rows : []).some(
-            (c) => pickNum(c as AnyRow, ['courseId', 'fk_course_id', 'course_id']) === courseId,
-          )
+          const rows = await listActiveCoursesByUniversity(university.universityId)
+          const found = rows.some((c) => num(c.courseId) === courseId)
           if (found) {
-            setValue('collegeId', college.collegeId, { shouldDirty: false })
-            setEditSource((prev) => prev ? { ...prev, collegeId: college.collegeId, collegeCode: college.collegeCode } : prev)
+            setValue('universityId', university.universityId, { shouldDirty: false })
+            setEditSource((prev) => prev
+              ? { ...prev, universityId: university.universityId, universityCode: university.universityCode }
+              : prev)
             return
           }
         } catch {
-          // try next college
+          // try next university
         }
       }
     })()
@@ -310,18 +304,18 @@ export default function BatchModal({
     return () => {
       cancelled = true
     }
-  }, [open, isEditing, selectedCourseId, colleges, getValues, setValue])
+  }, [open, isEditing, selectedCourseId, universities, getValues, setValue])
 
   useEffect(() => {
     if (!open) return
-    if (!selectedCollegeId) {
+    if (!selectedUniversityId) {
       setCourses([])
       return
     }
-    listCollegeWiseCourses(selectedCollegeId)
+    listActiveCoursesByUniversity(selectedUniversityId)
       .then((rows) => setCourses(Array.isArray(rows) ? rows : []))
       .catch(() => setCourses([]))
-  }, [open, selectedCollegeId])
+  }, [open, selectedUniversityId])
 
   useEffect(() => {
     if (!open) return
@@ -338,7 +332,7 @@ export default function BatchModal({
     setSubmitError(null)
     try {
       const payload = {
-        collegeId: data.collegeId,
+        universityId: data.universityId,
         courseId: data.courseId,
         regulationId: data.regulationId,
         fromDate: data.fromDate,
@@ -368,9 +362,9 @@ export default function BatchModal({
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
-          <Controller name="collegeId" control={control} render={({ field }) => (
+          <Controller name="universityId" control={control} render={({ field }) => (
             <Select
-              label="College"
+              label="University"
               required
               value={field.value ? String(field.value) : null}
               onChange={(v) => {
@@ -380,11 +374,11 @@ export default function BatchModal({
                   setValue('regulationId', undefined as unknown as number)
                 }
               }}
-              options={collegeOptions}
-              placeholder={hydrating ? 'Loading…' : 'Select college'}
+              options={universityOptions}
+              placeholder={hydrating ? 'Loading…' : 'Select university'}
               searchable
               isLoading={hydrating && !field.value}
-              error={errors.collegeId?.message}
+              error={errors.universityId?.message}
             />
           )} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -402,7 +396,7 @@ export default function BatchModal({
                 options={courseOptions}
                 placeholder="Select course"
                 searchable
-                disabled={!selectedCollegeId}
+                disabled={!selectedUniversityId}
                 error={errors.courseId?.message}
               />
             )} />

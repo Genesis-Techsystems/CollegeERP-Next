@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { BookMarked, Pencil, Plus } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { Pencil, Plus } from 'lucide-react'
+import { PageContainer } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
@@ -183,15 +183,6 @@ export default function UnivExamBagCollectionPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Exam bag collection" subtitle="Exam papers delivery process · Exam bag collection" />
-
-      <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center gap-2">
-          <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
-          <h2 className="app-card-title">Exam Bag Collection</h2>
-        </div>
-      </div>
-
       <div className="app-card overflow-hidden">
         <div className="p-2">
           <DataTable

@@ -6,6 +6,7 @@ import {
   fetchDetails,
   getAllRecords,
   postDetails,
+  putDetails,
 } from "@/services/crud";
 import {
   EXAM_EVAL_API,
@@ -989,37 +990,23 @@ export async function getEvaluationModerationSubjects(params: {
   );
 }
 
-function evaluationOrgId(): number {
-  if (typeof window === "undefined") return 0;
-  return Number(globalThis?.localStorage?.getItem("organizationId") ?? 0) || 0;
-}
-
-function evaluationEmployeeId(fallback = 0): number {
-  if (typeof window === "undefined") return fallback;
-  return (
-    Number(globalThis?.localStorage?.getItem("employeeId") ?? 0) || fallback
-  );
-}
-
-/**
- * Standard Angular payload for GET getAllRecords/s_get_examevaluation_bycodes.
- * Mirrors evaluation-moderation / multi-evaluator-assign request arrays.
- */
-function buildExamEvaluationByCodesPayload(params: {
-  in_flag: string;
-  in_evaluator_role_id: number;
+export async function listEvaluationModerationData(params: {
+  organizationId: number;
+  employeeId: number;
+  courseId: number;
+  academicYearId: number;
   examId: number;
   courseYearId: number;
   subjectId: number;
   regulationId: number;
-  courseId: number;
-  academicYearId: number;
-  employeeId?: number;
-  orgId?: number;
-}): Record<string, string | number> {
-  return {
-    in_flag: params.in_flag,
-    in_orgid: params.orgId ?? evaluationOrgId(),
+}): Promise<{
+  evaluators: AnyRow[];
+  totals: AnyRow[];
+  omrRows: AnyRow[];
+  students: AnyRow[];
+}> {
+  const common = {
+    in_orgid: params.organizationId || 1,
     in_fdate: "1990-01-01",
     in_tdate: "1990-01-01",
     in_evalutor_profileid: 0,
@@ -1036,73 +1023,40 @@ function buildExamEvaluationByCodesPayload(params: {
     in_regulation_id: params.regulationId,
     in_course_id: params.courseId,
     in_academic_year_id: params.academicYearId,
-    in_loginuser_empid: params.employeeId ?? evaluationEmployeeId(),
+    in_loginuser_empid: params.employeeId || 0,
   };
-}
-
-async function callExamEvaluationByCodes(
-  payload: Record<string, string | number>,
-): Promise<AnyRow[][]> {
-  try {
-    const data = await getAllRecords<{ result: AnyRow[][] }>(
-      "s_get_examevaluation_bycodes",
-      payload,
-    );
-    return data?.result ?? [];
-  } catch (error: any) {
-    const msg = String(error?.message ?? "");
-    if (msg.toLowerCase().includes("no records")) return [];
-    throw error;
-  }
-}
-
-/** Angular evaluation-moderation stored-proc flags (NOT generic assign flags). */
-type ModerationListFlag =
-  | "list_evaluatorassignment_list"
-  | "list_evaluationstudent_list";
-
-export async function listEvaluationModerationData(params: {
-  employeeId: number;
-  courseId: number;
-  academicYearId: number;
-  examId: number;
-  courseYearId: number;
-  subjectId: number;
-  regulationId: number;
-}): Promise<{
-  evaluators: AnyRow[];
-  totals: AnyRow[];
-  omrRows: AnyRow[];
-  students: AnyRow[];
-}> {
-  const base = {
-    examId: params.examId,
-    courseYearId: params.courseYearId,
-    subjectId: params.subjectId,
-    regulationId: params.regulationId,
-    courseId: params.courseId,
-    academicYearId: params.academicYearId,
-    employeeId: params.employeeId,
+  const toResultGroups = async (
+    flag:
+      | "list_moderation_evaluatorassignment_list"
+      | "list_moderation_evaluationstudent_list",
+    evaluatorRoleId: number,
+  ): Promise<AnyRow[][]> => {
+    try {
+      const data = await getAllRecords<{ result: AnyRow[][] }>(
+        "s_get_examevaluation_bycodes",
+        {
+          in_flag: flag,
+          ...common,
+          in_evaluator_role_id: evaluatorRoleId,
+        },
+      );
+      return data?.result ?? [];
+    } catch (error: any) {
+      // "No Records(s) found." is a valid empty-state for this flow.
+      const msg = String(error?.message ?? "");
+      if (msg.toLowerCase().includes("no records")) return [];
+      throw error;
+    }
   };
 
-  // Angular getstudentList() → list_moderation_evaluationstudent_list (role 0)
-  const studentGroups = await callExamEvaluationByCodes(
-    buildExamEvaluationByCodesPayload({
-      ...base,
-      in_flag: "list_evaluationstudent_list",
-      in_evaluator_role_id: 0,
-    }),
+  const evaluatorGroups = await toResultGroups(
+    "list_moderation_evaluatorassignment_list",
+    64,
   );
-
-  // Angular getEvaluationList() — called after students in getstudentList()
-  const evaluatorGroups = await callExamEvaluationByCodes(
-    buildExamEvaluationByCodesPayload({
-      ...base,
-      in_flag: "list_evaluatorassignment_list",
-      in_evaluator_role_id: 64,
-    }),
+  const studentGroups = await toResultGroups(
+    "list_moderation_evaluationstudent_list",
+    0,
   );
-
   return {
     evaluators: evaluatorGroups[0] ?? [],
     totals: evaluatorGroups[1] ?? [],
@@ -1311,6 +1265,7 @@ export async function getAssignSubjectsEvaluatorRoles(): Promise<AnyRow[]> {
     in_whereclause: "",
   };
   const procs = [
+    "s_get_viewdata",
     "s_get_viewdetails_bycode",
     "s_get_view_details_bycode",
     "s_get_viewdetails",
@@ -1677,40 +1632,10 @@ export async function listExamEvaluatorPreferences(
 }
 
 /**
- * Bulk replace/update preferences — Angular `updateMasterDetails(updateexamevaluatorereferencesUrl, details)`.
- * Spring path is often `updateexamevaluatorereferences` (typo in legacy name); not `updateExamEvaluatorReferences`.
+ * Bulk replace/update preferences — Angular `updateMasterDetails(updateexamevaluatorereferencesUrl, details)` uses PUT.
  */
 export async function updateExamEvaluatorPreferences(
   payload: AnyRow[],
 ): Promise<void> {
-  const paths = [
-    EXAM_EVAL_API.UPDATE_EVALUATOR_PREFERENCES,
-    "updateexamevaluatorreferences",
-    "updateExamEvaluatorReferences",
-    "updateExamEvaluatorPreferences",
-  ];
-  const methods: ("POST" | "PUT")[] = ["POST", "PUT"];
-
-  let lastMessage = "Failed to save evaluator preferences.";
-  for (const path of paths) {
-    for (const method of methods) {
-      const res = await fetch(NEXT_API.PROXY(path), {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const body = (await res.json().catch(() => null)) as {
-        success?: boolean;
-        message?: string;
-      } | null;
-      if (res.ok && body?.success !== false) {
-        return;
-      }
-      if (body?.message) lastMessage = body.message;
-      if (res.status !== 404) {
-        throw new Error(body?.message ?? `Save failed (${res.status})`);
-      }
-    }
-  }
-  throw new Error(lastMessage);
+  await putDetails(EXAM_EVAL_API.UPDATE_EVALUATOR_PREFERENCES, payload);
 }

@@ -59,17 +59,17 @@ export default function CourseModal({ open, onClose, row, onSaved }: Readonly<{ 
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pr-8">
           <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
-            {isEditing ? 'Edit Subject' : 'Add Subject'}
+            {isEditing ? 'Edit Course' : 'Add Course'}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <Controller name="universityId" control={control} render={({ field }) => <Select className="[&>label]:text-xs" label="University" required value={field.value ? String(field.value) : null} onChange={(v) => { field.onChange(v ? Number(v) : undefined); setValue('courseTypeId', undefined as unknown as number) }} options={universities.map((u) => ({ value: String(u.universityId), label: u.universityCode ?? u.universityName }))} placeholder="Select university" searchable />} />
-            <Controller name="courseTypeId" control={control} render={({ field }) => <Select className="[&>label]:text-xs" label="Subject Type" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)} options={types.map((t) => ({ value: String(t.courseTypeId), label: `${t.courseTypeCode} - ${t.courseTypeName}` }))} placeholder="Select subject type" searchable />} />
+            <Controller name="courseTypeId" control={control} render={({ field }) => <Select className="[&>label]:text-xs" label="Course Type" required value={field.value ? String(field.value) : null} onChange={(v) => field.onChange(v ? Number(v) : undefined)} options={types.map((t) => ({ value: String(t.courseTypeId), label: `${t.courseTypeCode} - ${t.courseTypeName}` }))} placeholder="Select course type" searchable />} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div><Label htmlFor="cn">Subject Name *</Label><Input id="cn" {...register('courseName')} /></div>
-            <div><Label htmlFor="cc">Subject Code *</Label><Input id="cc" {...register('courseCode')} /></div>
+            <div><Label htmlFor="cn">Course Name *</Label><Input id="cn" {...register('courseName')} /></div>
+            <div><Label htmlFor="cc">Course Code *</Label><Input id="cc" {...register('courseCode')} /></div>
             <div><Label htmlFor="csn">Short Name</Label><Input id="csn" {...register('courseShortName')} /></div>
             <div><Label htmlFor="dur">Duration</Label><Input id="dur" type="number" {...register('duration', { valueAsNumber: true })} /></div>
             <div><Label htmlFor="it">Intake</Label><Input id="it" type="number" {...register('inTake', { valueAsNumber: true })} /></div>

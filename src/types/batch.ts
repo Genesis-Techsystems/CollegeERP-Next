@@ -1,5 +1,7 @@
 export interface Batch {
   batchId: number
+  universityId?: number
+  universityCode?: string
   collegeId?: number
   collegeCode?: string
   courseId?: number
