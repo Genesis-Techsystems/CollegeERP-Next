@@ -860,6 +860,72 @@ export async function listBatchwiseLabStudents(params: {
   }
 }
 
+/** Elective groups mapped to a section (Angular `electivegroupyrmapping` listByThreeIds). */
+export async function listSectionElectiveGroups(params: {
+  collegeId: number
+  academicYearId: number
+  groupSectionId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, groupSectionId } = params
+  if (!collegeId || !academicYearId || !groupSectionId) return []
+  try {
+    const data = await fetchDetails<any>('electivegroupyrmapping', {
+      collegeId,
+      academicYearId,
+      groupSectionId,
+    })
+    return asArray<AnyRow>(data)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Students currently in a section's elective batch.
+ * Mirrors Angular `selectedElective`: intersect the section's student list (`StudentList`)
+ * with the elective batch roster (`batchwisestudents` subjectTypeCode=ELECTIVE) by studentId.
+ */
+export async function listElectiveBatchStudents(params: {
+  collegeId: number
+  courseGroupId: number
+  groupSectionId: number
+  electiveGroupyrMappingId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, courseGroupId, groupSectionId, electiveGroupyrMappingId } = params
+  if (!collegeId || !courseGroupId || !groupSectionId || !electiveGroupyrMappingId) return []
+  try {
+    const [studentsRaw, batchRaw] = await Promise.all([
+      fetchDetails<any>('StudentList', { collegeId, courseGroupId, groupSectionId }),
+      fetchDetails<any>('batchwisestudents', {
+        collegeId,
+        groupSectionId,
+        subjectTypeCode: 'ELECTIVE',
+        electiveGroupyrMappingId,
+        isActive: 'true',
+      }),
+    ])
+    const sectionStudentIds = new Set(
+      asArray<AnyRow>(studentsRaw).map((r) => num(r, ['studentId', 'fk_student_id', 'student_id'])),
+    )
+    return asArray<AnyRow>(batchRaw)
+      .filter((b) => sectionStudentIds.has(num(b, ['studentId', 'fk_student_id', 'student_id'])))
+      .map((b) => ({ ...normalizeStudentRow(b), checked: false }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Reassign selected students to a target elective batch.
+ * Mirrors Angular `assignStudents` → `crudService.update('batchWiseStudentsElective', rows)`.
+ */
+export async function submitElectiveBatchChange(rows: AnyRow[]): Promise<unknown> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error('No students selected for elective batch change')
+  }
+  return putDetails<unknown>('batchWiseStudentsElective', rows)
+}
+
 export async function listStudentBatchesByCollegeCourse(params: {
   collegeId: number
   courseId: number

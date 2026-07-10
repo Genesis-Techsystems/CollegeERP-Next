@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { BookOpen, Filter, Plus } from 'lucide-react'
+import { BookOpen, Filter, Plus, Send } from 'lucide-react'
 import { Select } from '@/common/components/select'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { getDigitalOnlineSyncFilters, listRegulationsByCourse } from '@/services'
+import { toastError, toastSuccess } from '@/lib/toast'
+import { allocateStudentSubjects, getAllocateStudentSubjectFilters } from '@/services'
 
 type AnyRow = Record<string, any>
 
@@ -28,8 +29,9 @@ const uniq = (rows: AnyRow[], key: string) => {
 export default function AllocateStudentSubjectPage() {
   const [filtersData, setFiltersData] = useState<AnyRow[]>([])
   const [academicData, setAcademicData] = useState<AnyRow[]>([])
-  const [regulations, setRegulations] = useState<AnyRow[]>([])
+  const [regulationData, setRegulationData] = useState<AnyRow[]>([])
   const [filterOpen, setFilterOpen] = useState(true)
+  const [saving, setSaving] = useState(false)
 
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
@@ -41,14 +43,16 @@ export default function AllocateStudentSubjectPage() {
   useEffect(() => {
     const orgId = Number(localStorage.getItem('organizationId') ?? 0)
     const empId = Number(localStorage.getItem('employeeId') ?? 0)
-    getDigitalOnlineSyncFilters(orgId, empId)
+    getAllocateStudentSubjectFilters(orgId, empId)
       .then((d) => {
         setFiltersData(d.filtersData as AnyRow[])
         setAcademicData(d.academicYearData as AnyRow[])
+        setRegulationData(d.regulationData as AnyRow[])
       })
       .catch(() => {
         setFiltersData([])
         setAcademicData([])
+        setRegulationData([])
       })
   }, [])
 
@@ -61,6 +65,15 @@ export default function AllocateStudentSubjectPage() {
     return uniq(academicData.filter((r) => n(r.fk_university_id) === univId), 'fk_academic_year_id')
       .sort((a, b) => String(b.academic_year ?? '').localeCompare(String(a.academic_year ?? '')))
   }, [academicData, filtersData, collegeId])
+  // Regulations come from the proc's `clg_filters_regulation` set — filtered by the selected
+  // college's university and the selected course (Angular `selectedYear`).
+  const regulations = useMemo(() => {
+    const univId = n(filtersData.find((x) => n(x.fk_college_id) === (collegeId ?? 0))?.fk_university_id)
+    return uniq(
+      regulationData.filter((r) => n(r.fk_university_id) === univId && n(r.fk_course_id) === (courseId ?? 0)),
+      'fk_regulation_id',
+    )
+  }, [regulationData, filtersData, collegeId, courseId])
 
   useEffect(() => { if (!collegeId && colleges.length) setCollegeId(n(colleges[0].fk_college_id)) }, [colleges, collegeId])
   useEffect(() => { setCourseId(null); setCourseGroupId(null); setCourseYearId(null); setAcademicYearId(null); setRegulationId(null) }, [collegeId])
@@ -71,27 +84,36 @@ export default function AllocateStudentSubjectPage() {
   useEffect(() => { if (!courseYearId && courseYears.length) setCourseYearId(n(courseYears[0].fk_course_year_id)) }, [courseYears, courseYearId])
   useEffect(() => { if (!academicYearId && academicYears.length) setAcademicYearId(n([...academicYears].sort((a, b) => n(b.is_curr_ay) - n(a.is_curr_ay))[0]?.fk_academic_year_id)) }, [academicYears, academicYearId])
 
-  useEffect(() => {
-    async function loadRegulations() {
-      if (!courseId) {
-        setRegulations([])
-        setRegulationId(null)
-        return
-      }
-      const rows = await listRegulationsByCourse(courseId).catch(() => [])
-      setRegulations(Array.isArray(rows) ? rows : [])
-    }
-    void loadRegulations()
-  }, [courseId])
-
   const regulationOptions = useMemo(
-    () => regulations.map((x) => ({
-      value: String(n(x.regulationId ?? x.fk_regulation_id)),
-      label: s(x.regulationCode ?? x.regulationName) || 'Regulation',
-    })),
+    () => regulations.map((x) => ({ value: String(n(x.fk_regulation_id)), label: s(x.regulation_code) || 'Regulation' })),
     [regulations],
   )
-  useEffect(() => { if (!regulationId && regulationOptions.length) setRegulationId(n(regulationOptions[0].value)) }, [regulationId, regulationOptions])
+
+  // Angular `allocate` flag: the action card only appears once a regulation is chosen.
+  const canAllocate = Boolean(collegeId && academicYearId && courseGroupId && courseYearId && regulationId)
+
+  async function onAllocate() {
+    if (!canAllocate) {
+      toastError('Please complete all filters before allocating')
+      return
+    }
+    setSaving(true)
+    try {
+      await allocateStudentSubjects({
+        collegeId: collegeId!,
+        academicYearId: academicYearId!,
+        courseGroupId: courseGroupId!,
+        courseYearId: courseYearId!,
+        regulationId: regulationId!,
+        studentId: 0,
+      })
+      toastSuccess('Student subjects allocated successfully')
+    } catch {
+      toastError('Failed to allocate student subjects')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <PageContainer>
@@ -118,18 +140,20 @@ export default function AllocateStudentSubjectPage() {
         ) : null}
       </div>
 
-      <div className="app-card mt-4 p-0 overflow-hidden">
-        <div className="px-4 py-2.5 border-b text-sm font-semibold text-primary inline-flex items-center gap-2">
-          <span>{'>'}</span>
-          <span>Allocate Student Subjects</span>
+      {canAllocate ? (
+        <div className="app-card mt-4 p-0 overflow-hidden">
+          <div className="px-4 py-2.5 border-b text-sm font-semibold text-primary inline-flex items-center gap-2">
+            <Send className="h-4 w-4" />
+            <span>Allocate Student Subjects</span>
+          </div>
+          <div className="p-4">
+            <Button type="button" className="h-8 rounded-full px-4 text-xs inline-flex items-center gap-1" onClick={() => { void onAllocate() }} disabled={saving}>
+              <Plus className="h-3.5 w-3.5" />
+              Allocate Student Subjects
+            </Button>
+          </div>
         </div>
-        <div className="p-4">
-          <Button type="button" className="h-8 rounded-full px-4 text-xs inline-flex items-center gap-1">
-            <Plus className="h-3.5 w-3.5" />
-            Allocate Student Subjects
-          </Button>
-        </div>
-      </div>
+      ) : null}
     </PageContainer>
   )
 }
