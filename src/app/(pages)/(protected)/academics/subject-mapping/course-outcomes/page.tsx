@@ -9,9 +9,11 @@ import { DataTable } from '@/common/components/table'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { toastError, toastSuccess } from '@/lib/toast'
 import {
+  createProgramOutcome,
   getDigitalOnlineSyncFilters,
-  listProgramOutcomeCategories,
+  listProgramOutcomeCategoryDetails,
   listRegulationsByCourse,
 } from '@/services'
 
@@ -61,6 +63,7 @@ export default function CourseOutcomesPage() {
   const [coActive, setCoActive] = useState(true)
   const [poCategoryRows, setPoCategoryRows] = useState<AnyRow[]>([])
   const [searchText, setSearchText] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const orgId = Number(localStorage.getItem('organizationId') ?? 0)
@@ -92,20 +95,17 @@ export default function CourseOutcomesPage() {
     })),
     [regulations],
   )
+  // Program Outcome category options. Value = generalDetailId (sent as
+  // `prgoutcomeCatdetId` on save, mirroring the Angular modal), label =
+  // generalDetailDisplayName.
   const poCategoryOptions = useMemo(() => {
     const seen = new Set<string>()
-    const mapped = poCategoryRows
+    return poCategoryRows
       .map((row) => {
-        const value =
-          pickText(row, [
-            'generalDetailCode',
-            'general_detail_code',
-            'detailCode',
-            'code',
-            'value',
-          ]) ||
-          String(n(row.generalDetailId ?? row.general_detail_id ?? row.id))
+        const value = String(n(row.generalDetailId ?? row.general_detail_id ?? row.id))
         const label = pickText(row, [
+          'generalDetailDisplayName',
+          'general_detail_display_name',
           'generalDetailName',
           'general_detail_name',
           'generalDetail',
@@ -113,7 +113,7 @@ export default function CourseOutcomesPage() {
           'name',
           'label',
         ])
-        return value && label ? { value, label } : null
+        return value !== '0' && label ? { value, label } : null
       })
       .filter((x): x is { value: string; label: string } => Boolean(x))
       .filter((opt) => {
@@ -121,21 +121,6 @@ export default function CourseOutcomesPage() {
         seen.add(opt.value)
         return true
       })
-    if (mapped.length > 0) return mapped
-    return [
-      { value: 'PO1', label: 'Engineering Knowledge' },
-      { value: 'PO2', label: 'Problem Analysis' },
-      { value: 'PO3', label: 'Design / Development of Solutions' },
-      { value: 'PO4', label: 'Conduct Investigations of Complex Problems' },
-      { value: 'PO5', label: 'Modern Tool Usage' },
-      { value: 'PO6', label: 'The Engineer and Society' },
-      { value: 'PO7', label: 'Environment and Sustainability' },
-      { value: 'PO8', label: 'Ethics' },
-      { value: 'PO9', label: 'Individual and Team Work' },
-      { value: 'PO10', label: 'Communication' },
-      { value: 'PO11', label: 'Project Management and Finance' },
-      { value: 'PO12', label: 'Life-long Learning' },
-    ]
   }, [poCategoryRows])
   const tableColumns = useMemo<ColDef<AnyRow>[]>(
     () => [
@@ -183,7 +168,7 @@ export default function CourseOutcomesPage() {
   }, [courseId])
   useEffect(() => { if (!regulationId && regulationOptions.length) setRegulationId(n(regulationOptions[0].value)) }, [regulationId, regulationOptions])
   useEffect(() => {
-    listProgramOutcomeCategories()
+    listProgramOutcomeCategoryDetails()
       .then((rows) => setPoCategoryRows(Array.isArray(rows) ? rows : []))
       .catch(() => setPoCategoryRows([]))
   }, [])
@@ -201,9 +186,40 @@ export default function CourseOutcomesPage() {
     setAddOpen(true)
   }
 
-  function onSaveAdd() {
-    // UI parity scaffold for now; API wiring will be added once endpoint is confirmed.
-    setAddOpen(false)
+  async function onSaveAdd(e: { preventDefault: () => void }) {
+    e.preventDefault()
+    // Mirrors the Angular ProgramOutcomesModal submit + parent addDetails('CmProgramOutcome').
+    // Required fields (Angular form validators + UI asterisks): category, code, credits, description.
+    const prgoutcomeCatdetId = n(coCategory)
+    if (!collegeId || !academicYearId) {
+      toastError('Select College and Academic Year first', 'Validation')
+      return
+    }
+    if (!prgoutcomeCatdetId || !coCode.trim() || !coCredits.trim() || !coDescription.trim()) {
+      toastError('Please fill Code, Program Outcomes Category, Credits and Description', 'Validation')
+      return
+    }
+    const payload = {
+      prgoutcomeCatdetId,
+      collegeId,
+      academicYearId,
+      code: coCode.trim(),
+      description: coDescription.trim(),
+      credits: coCredits.trim(),
+      isActive: coActive,
+      reason: coActive ? 'active' : '',
+    }
+    try {
+      setSaving(true)
+      await createProgramOutcome(payload)
+      toastSuccess('Program outcome added successfully')
+      setAddOpen(false)
+      resetAddForm()
+    } catch (error) {
+      toastError(error, 'Failed to add program outcome')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -268,6 +284,7 @@ export default function CourseOutcomesPage() {
         title="Add Program Outcomes"
         titleClassName="text-teal-600"
         onSubmit={onSaveAdd}
+        isSubmitting={saving}
         submitLabel="Save"
         cancelLabel="Cancel"
         size="xl"

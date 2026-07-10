@@ -11,7 +11,15 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageContainer, PageHeader } from '@/components/layout'
-import { getDigitalOnlineSyncFilters, listElectiveGroupMappings } from '@/services'
+import { toastError, toastInfo, toastSuccess } from '@/lib/toast'
+import {
+  createElectiveGroupMapping,
+  getDigitalOnlineSyncFilters,
+  listElectiveGroupMappings,
+  listElectiveGroupSections,
+  listElectiveGroupStaff,
+  listElectiveSubjectsForGroup,
+} from '@/services'
 
 type AnyRow = Record<string, any>
 
@@ -55,8 +63,13 @@ export default function ElectiveGroupMappingPage() {
   const [addCourseYearId, setAddCourseYearId] = useState<number | null>(null)
   const [addElectiveId, setAddElectiveId] = useState<number | null>(null)
   const [addStaffId, setAddStaffId] = useState<number | null>(null)
-  const [addGroupName, setAddGroupName] = useState('')
   const [addIsActive, setAddIsActive] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  // Modal cascade data (Angular AddElectiveGroupComponent)
+  const [electiveSubjects, setElectiveSubjects] = useState<AnyRow[]>([])
+  const [employees, setEmployees] = useState<AnyRow[]>([])
+  const [sections, setSections] = useState<AnyRow[]>([])
 
   useEffect(() => {
     const orgId = Number(localStorage.getItem('organizationId') ?? 0)
@@ -106,10 +119,37 @@ export default function ElectiveGroupMappingPage() {
     ).sort((a, b) => n(a.year_order) - n(b.year_order)),
     [filtersData, collegeId, addCourseId, addCourseGroupId],
   )
+  // Elective dropdown = elective subjects for the chosen course-group/year (Angular electiveSubjects)
   const addElectiveOptions = useMemo(
-    () => uniq(rows, 'electiveGroupyrMappingId').map((r, i) => ({ value: String(n(r.electiveGroupyrMappingId) || i + 1), label: electiveGroupNameOf(r) })),
-    [rows],
+    () => electiveSubjects
+      .filter((x) => n(x.subjectId))
+      .map((x) => ({ value: String(n(x.subjectId)), label: s(x.subjectName) || s(x.subjectCode) })),
+    [electiveSubjects],
   )
+  // Staff dropdown = employees mapped to the chosen elective (Angular employees)
+  const addStaffOptions = useMemo(
+    () => employees
+      .filter((e) => n(e.employeeId))
+      .map((e) => ({ value: String(n(e.employeeId)), label: s(e.firstName) || s(e.employeeName) })),
+    [employees],
+  )
+  // subjectTypeId of the chosen elective — needed by the staff query (Angular subjecttypeId)
+  const selectedSubjectTypeId = useMemo(() => {
+    const sub = electiveSubjects.find((x) => n(x.subjectId) === (addElectiveId ?? 0))
+    return sub ? (sub.subjecttypeId ?? sub.subjectTypeId ?? '') : ''
+  }, [electiveSubjects, addElectiveId])
+  // Computed elective group name (Angular checkedSection) — read-only, also sent in payload
+  const electiveGroupName = useMemo(() => {
+    const collegeCode = s(colleges.find((c) => n(c.fk_college_id) === (collegeId ?? 0))?.college_code)
+    const groupCode = s(addCourseGroups.find((g) => n(g.fk_course_group_id) === (addCourseGroupId ?? 0))?.group_code)
+    const courseYearName = s(addCourseYears.find((y) => n(y.fk_course_year_id) === (addCourseYearId ?? 0))?.course_year_name)
+    const subject = s(electiveSubjects.find((x) => n(x.subjectId) === (addElectiveId ?? 0))?.subjectName)
+    const staff = s(employees.find((e) => n(e.employeeId) === (addStaffId ?? 0))?.firstName)
+    const checkedSections = sections.filter((sec) => sec.checked)
+    if (!subject && !staff && checkedSections.length === 0) return ''
+    const secStr = checkedSections.map((sec) => s(sec.section)).join('-')
+    return `${collegeCode}-${groupCode}-${courseYearName}[${secStr}] (${subject})${staff}`
+  }, [colleges, collegeId, addCourseGroups, addCourseGroupId, addCourseYears, addCourseYearId, electiveSubjects, addElectiveId, employees, addStaffId, sections])
 
   useEffect(() => { if (!collegeId && colleges.length) setCollegeId(n(colleges[0].fk_college_id)) }, [colleges, collegeId])
   useEffect(() => { setAcademicYearId(null) }, [collegeId])
@@ -129,6 +169,78 @@ export default function ElectiveGroupMappingPage() {
   useEffect(() => { if (!addCourseGroupId && addCourseGroups.length) setAddCourseGroupId(n(addCourseGroups[0].fk_course_group_id)) }, [addCourseGroups, addCourseGroupId])
   useEffect(() => { setAddCourseYearId(null) }, [addCourseGroupId])
   useEffect(() => { if (!addCourseYearId && addCourseYears.length) setAddCourseYearId(n(addCourseYears[0].fk_course_year_id)) }, [addCourseYears, addCourseYearId])
+
+  // Elective subjects for the chosen course-group/year (Angular selectedYear → getElectiveSubjects1)
+  useEffect(() => {
+    async function load() {
+      setAddElectiveId(null)
+      setAddStaffId(null)
+      setEmployees([])
+      setSections([])
+      if (!addOpen || !collegeId || !academicYearId || !addCourseGroupId || !addCourseYearId) {
+        setElectiveSubjects([])
+        return
+      }
+      const list = await listElectiveSubjectsForGroup({
+        collegeId, academicYearId, courseGroupId: addCourseGroupId, courseYearId: addCourseYearId,
+      }).catch(() => [])
+      setElectiveSubjects(Array.isArray(list) ? list : [])
+    }
+    void load()
+  }, [addOpen, collegeId, academicYearId, addCourseGroupId, addCourseYearId])
+
+  // Staff mapped to the chosen elective (Angular selectedSubject → staffcourseyrsubjects)
+  useEffect(() => {
+    async function load() {
+      setAddStaffId(null)
+      setSections([])
+      if (!addElectiveId || !collegeId || !academicYearId || !addCourseGroupId || !addCourseYearId) {
+        setEmployees([])
+        return
+      }
+      const list = await listElectiveGroupStaff({
+        collegeId,
+        academicYearId,
+        subjectId: addElectiveId,
+        subjectTypeId: selectedSubjectTypeId,
+        courseGroupId: addCourseGroupId,
+        courseYearId: addCourseYearId,
+      }).catch(() => [])
+      const seen = new Set<number>()
+      const emps: AnyRow[] = []
+      for (const e of Array.isArray(list) ? list : []) {
+        const id = n(e.employeeId)
+        if (id && !seen.has(id)) { seen.add(id); emps.push(e) }
+      }
+      setEmployees(emps)
+    }
+    void load()
+  }, [addElectiveId, selectedSubjectTypeId, collegeId, academicYearId, addCourseGroupId, addCourseYearId])
+
+  // Sections for the chosen subject + staff (Angular selectedStaff → staffSections)
+  useEffect(() => {
+    async function load() {
+      if (!addStaffId || !collegeId || !academicYearId || !addElectiveId || !addCourseYearId || !addCourseGroupId) {
+        setSections([])
+        return
+      }
+      const list = await listElectiveGroupSections({
+        collegeId,
+        academicYearId,
+        subjectId: addElectiveId,
+        employeeId: addStaffId,
+        courseYearId: addCourseYearId,
+        courseGroupId: addCourseGroupId,
+      }).catch(() => [])
+      setSections((Array.isArray(list) ? list : []).map((sec) => ({
+        ...sec,
+        checked: false,
+        check: true,
+        batchwiseStudents: Array.isArray(sec.batchwiseStudents) ? sec.batchwiseStudents : [],
+      })))
+    }
+    void load()
+  }, [addStaffId, collegeId, academicYearId, addElectiveId, addCourseYearId, addCourseGroupId])
 
   function electiveGroupNameOf(row: AnyRow) {
     const direct = pickText(row, [
@@ -168,6 +280,54 @@ export default function ElectiveGroupMappingPage() {
     const list = await listElectiveGroupMappings({ collegeId, academicYearId }).catch(() => [])
     setRows(Array.isArray(list) ? list : [])
     setLoading(false)
+  }
+
+  function toggleSection(index: number, checked: boolean) {
+    setSections((prev) => prev.map((sec, i) => (i === index ? { ...sec, checked, check: checked } : sec)))
+  }
+
+  // Angular AddElectiveGroupComponent.submit() + parent openDialog/postMapping
+  async function onSave() {
+    if (!collegeId || !academicYearId || !addCourseId || !addCourseGroupId || !addCourseYearId || !addElectiveId) {
+      toastInfo('Please fill all required fields.')
+      return
+    }
+    // Only checked, brand-new sections are created (Angular: no electiveGroupyrMappingId → else branch)
+    const eleGroup = sections
+      .filter((sec) => sec.checked && !sec.electiveGroupyrMappingId)
+      .map((sec) => ({
+        academicYearId,
+        subjectId: addElectiveId,
+        groupSectionId: n(sec.groupSectionId),
+        electivegroupname: electiveGroupName,
+        isActive: addIsActive,
+        collegeId,
+        employeeId: addStaffId ?? null,
+      }))
+    if (eleGroup.length === 0) {
+      toastInfo('Please select at least one section.')
+      return
+    }
+    // Duplicate guard (Angular openDialog.afterClosed): same college/AY/subject/staff/course-year already mapped
+    const duplicate = rows.some((r) =>
+      n(r.subjectId) === addElectiveId
+      && n(r.employeeId) === (addStaffId ?? 0)
+      && n(r.courseYearId) === addCourseYearId)
+    if (duplicate) {
+      toastInfo('Already elective mapping has done please check.')
+      return
+    }
+    setSaving(true)
+    try {
+      await createElectiveGroupMapping(eleGroup)
+      toastSuccess('Elective group added successfully.')
+      setAddOpen(false)
+      await loadElectives()
+    } catch (err) {
+      toastError(err, 'Failed to add elective group')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function actionsRenderer(_p: ICellRendererParams<AnyRow>) {
@@ -303,16 +463,17 @@ export default function ElectiveGroupMappingPage() {
                 label="Staff *"
                 value={addStaffId ? String(addStaffId) : null}
                 onChange={(v) => setAddStaffId(v ? Number(v) : null)}
-                options={[]}
+                options={addStaffOptions}
                 placeholder="Select staff"
                 searchable
+                disabled={!addElectiveId}
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
               <div className="md:col-span-9">
                 <Label className="text-xs">Elective Group Name</Label>
-                <Input value={addGroupName} onChange={(e) => setAddGroupName(e.target.value)} className="h-9 mt-1" />
+                <Input value={electiveGroupName} readOnly className="h-9 mt-1" />
               </div>
               <div className="md:col-span-3 flex items-center gap-2 pb-1">
                 <Checkbox checked={addIsActive} onCheckedChange={(v) => setAddIsActive(Boolean(v))} />
@@ -321,13 +482,30 @@ export default function ElectiveGroupMappingPage() {
             </div>
 
             <div className="w-[230px] border border-input p-3">
-              <p className="text-sm">Select Section - 0</p>
-              <p className="mt-3 text-red-600 text-sm leading-tight">No sections at present.</p>
+              <p className="text-sm">Select Section - {sections.length}</p>
+              {sections.length === 0 ? (
+                <p className="mt-3 text-red-600 text-sm leading-tight">No sections at present.</p>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  {sections.map((sec, i) => (
+                    <label key={n(sec.groupSectionId) || i} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={Boolean(sec.checked)}
+                        disabled={Array.isArray(sec.batchwiseStudents) && sec.batchwiseStudents.length > 0}
+                        onCheckedChange={(v) => toggleSection(i, Boolean(v))}
+                      />
+                      Section - {s(sec.section)}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter className="pt-1">
             <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>Close</Button>
-            <Button type="button" className="bg-primary hover:bg-[#123d79] text-white">Save</Button>
+            <Button type="button" className="bg-primary hover:bg-[#123d79] text-white" onClick={() => { void onSave() }} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
