@@ -19,7 +19,7 @@ import {
   listExamEvaluationSettings,
   updateExamEvaluationSetting,
 } from '@/services/evaluation-process'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 
@@ -129,6 +129,7 @@ export default function ExamEvaluationSettingsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editRow, setEditRow] = useState<AnyRow | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const courses = useMemo(
     () => dedupeBy(filterRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])),
@@ -199,6 +200,7 @@ export default function ExamEvaluationSettingsPage() {
   function openAdd() {
     setEditRow(null)
     setForm(emptyForm())
+    setFieldErrors({})
     setModalOpen(true)
   }
 
@@ -218,7 +220,28 @@ export default function ExamEvaluationSettingsPage() {
       isActive: Boolean(row?.isActive),
       reason: String(row?.reason ?? ''),
     })
+    setFieldErrors({})
     setModalOpen(true)
+  }
+
+  function clearFieldError(key: string) {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
+
+  function validateForm(): boolean {
+    const next: Record<string, string> = {}
+    if (!form.noOfEvaluations.trim()) next.noOfEvaluations = 'No of evaluations is required.'
+    if (!form.noOfReEvaluations.trim()) next.noOfReEvaluations = 'No of re-evaluations is required.'
+    if (!form.marksDiffForModEvaluatoin.trim()) next.marksDiffForModEvaluatoin = 'Marks diff. for mod evaluation is required.'
+    if (!form.noOfChiefEvaluations.trim()) next.noOfChiefEvaluations = 'No of chief evaluations is required.'
+    if (!form.noOfChiefReevaluations.trim()) next.noOfChiefReevaluations = 'No of chief re-evaluations is required.'
+    setFieldErrors(next)
+    return Object.keys(next).length === 0
   }
 
   async function onSave() {
@@ -226,10 +249,7 @@ export default function ExamEvaluationSettingsPage() {
       toastError('Please select Exam.')
       return
     }
-    if (!form.noOfEvaluations || !form.noOfReEvaluations || !form.marksDiffForModEvaluatoin) {
-      toastError('Please fill required fields.')
-      return
-    }
+    if (!validateForm()) return
     const payload = {
       examId,
       minEvaluationTIme: Number(form.minEvaluationTIme || 0),
@@ -288,7 +308,7 @@ export default function ExamEvaluationSettingsPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Exam Evaluation Settings" subtitle="Configure evaluation parameters" />
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">Exam Evaluation Settings</h2>
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
           <h2 className="app-card-title">Exam Evaluation Settings</h2>
@@ -344,6 +364,8 @@ export default function ExamEvaluationSettingsPage() {
             pagination
             paginationPageSize={10}
             loading={loading}
+            title=""
+            subtitle=""
             toolbar={{
               search: true,
               searchPlaceholder: 'Search…',
@@ -360,35 +382,168 @@ export default function ExamEvaluationSettingsPage() {
       )}
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-3xl pt-3 [&>button]:hidden">
-          <DialogHeader className="pb-0">
-            <DialogTitle className="text-[12px] leading-none font-semibold text-[hsl(var(--primary))]">
-              {editRow ? 'Edit Existing Evaluation Settings' : 'Add New Evaluation Settings'} - {pickText(exams.find((e) => pickNum(e, ['fk_exam_id']) === Number(examId)), ['exam_name'])}
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editRow ? 'Edit Evaluation Settings' : 'Add Evaluation Settings'}
+              {pickText(exams.find((e) => pickNum(e, ['fk_exam_id']) === Number(examId)), ['exam_name'])
+                ? ` — ${pickText(exams.find((e) => pickNum(e, ['fk_exam_id']) === Number(examId)), ['exam_name'])}`
+                : ''}
             </DialogTitle>
           </DialogHeader>
-          <div className="-mx-6 border-b border-border mt-1" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Input placeholder="Evaluation Time" type="number" value={form.minEvaluationTIme} onChange={(e) => setForm((p) => ({ ...p, minEvaluationTIme: e.target.value }))} />
-            <Input placeholder="Evaluation Start Date" type="date" value={form.evaluationStartDate} onChange={(e) => setForm((p) => ({ ...p, evaluationStartDate: e.target.value }))} />
-            <Input placeholder="Evaluation End Date" type="date" value={form.evaluationEndDate} onChange={(e) => setForm((p) => ({ ...p, evaluationEndDate: e.target.value }))} />
-            <Input placeholder="Max No Of Evaluations" type="number" value={form.maxNoOfEvaluationsAssign} onChange={(e) => setForm((p) => ({ ...p, maxNoOfEvaluationsAssign: e.target.value }))} />
-            <Input placeholder="Max No Of Re-Evaluations" type="number" value={form.maxNoOfReevaluationsAssign} onChange={(e) => setForm((p) => ({ ...p, maxNoOfReevaluationsAssign: e.target.value }))} />
-            <Input placeholder="No Of Evaluations" type="number" value={form.noOfEvaluations} onChange={(e) => setForm((p) => ({ ...p, noOfEvaluations: e.target.value }))} />
-            <Input placeholder="No Of Re-Evaluations" type="number" value={form.noOfReEvaluations} onChange={(e) => setForm((p) => ({ ...p, noOfReEvaluations: e.target.value }))} />
-            <Input placeholder="Marks Diff.For ModEvaluatoin" type="number" value={form.marksDiffForModEvaluatoin} onChange={(e) => setForm((p) => ({ ...p, marksDiffForModEvaluatoin: e.target.value }))} />
-            <Input placeholder="No of Chief Evaluations" type="number" value={form.noOfChiefEvaluations} onChange={(e) => setForm((p) => ({ ...p, noOfChiefEvaluations: e.target.value }))} />
-            <Input placeholder="No of Chief Re-Evaluations" type="number" value={form.noOfChiefReevaluations} onChange={(e) => setForm((p) => ({ ...p, noOfChiefReevaluations: e.target.value }))} />
-            <div className="flex items-center gap-2">
+            <div className="space-y-1">
+              <Label className="text-[12px]">Evaluation Time</Label>
+              <Input
+                type="number"
+                value={form.minEvaluationTIme}
+                onChange={(e) => setForm((p) => ({ ...p, minEvaluationTIme: e.target.value }))}
+                placeholder="Evaluation Time"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">Evaluation Start Date</Label>
+              <Input
+                type="date"
+                className="org-modal-date-input pr-10"
+                value={form.evaluationStartDate}
+                onChange={(e) => setForm((p) => ({ ...p, evaluationStartDate: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">Evaluation End Date</Label>
+              <Input
+                type="date"
+                className="org-modal-date-input pr-10"
+                value={form.evaluationEndDate}
+                onChange={(e) => setForm((p) => ({ ...p, evaluationEndDate: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">Max No Of Evaluations</Label>
+              <Input
+                type="number"
+                value={form.maxNoOfEvaluationsAssign}
+                onChange={(e) => setForm((p) => ({ ...p, maxNoOfEvaluationsAssign: e.target.value }))}
+                placeholder="Max No Of Evaluations"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">Max No Of Re-Evaluations</Label>
+              <Input
+                type="number"
+                value={form.maxNoOfReevaluationsAssign}
+                onChange={(e) => setForm((p) => ({ ...p, maxNoOfReevaluationsAssign: e.target.value }))}
+                placeholder="Max No Of Re-Evaluations"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">
+                No Of Evaluations <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                type="number"
+                value={form.noOfEvaluations}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, noOfEvaluations: e.target.value }))
+                  clearFieldError('noOfEvaluations')
+                }}
+                placeholder="No Of Evaluations"
+              />
+              {fieldErrors.noOfEvaluations ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.noOfEvaluations}</p>
+              ) : null}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">
+                No Of Re-Evaluations <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                type="number"
+                value={form.noOfReEvaluations}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, noOfReEvaluations: e.target.value }))
+                  clearFieldError('noOfReEvaluations')
+                }}
+                placeholder="No Of Re-Evaluations"
+              />
+              {fieldErrors.noOfReEvaluations ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.noOfReEvaluations}</p>
+              ) : null}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">
+                Marks Diff. For ModEvaluation <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                type="number"
+                value={form.marksDiffForModEvaluatoin}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, marksDiffForModEvaluatoin: e.target.value }))
+                  clearFieldError('marksDiffForModEvaluatoin')
+                }}
+                placeholder="Marks Diff. For ModEvaluation"
+              />
+              {fieldErrors.marksDiffForModEvaluatoin ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.marksDiffForModEvaluatoin}</p>
+              ) : null}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">
+                No of Chief Evaluations <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                type="number"
+                value={form.noOfChiefEvaluations}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, noOfChiefEvaluations: e.target.value }))
+                  clearFieldError('noOfChiefEvaluations')
+                }}
+                placeholder="No of Chief Evaluations"
+              />
+              {fieldErrors.noOfChiefEvaluations ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.noOfChiefEvaluations}</p>
+              ) : null}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[12px]">
+                No of Chief Re-Evaluations <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                type="number"
+                value={form.noOfChiefReevaluations}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, noOfChiefReevaluations: e.target.value }))
+                  clearFieldError('noOfChiefReevaluations')
+                }}
+                placeholder="No of Chief Re-Evaluations"
+              />
+              {fieldErrors.noOfChiefReevaluations ? (
+                <p className="text-[11px] text-destructive">{fieldErrors.noOfChiefReevaluations}</p>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2 self-end pb-1">
               <Checkbox checked={form.isActive} onCheckedChange={(v) => setForm((p) => ({ ...p, isActive: v === true }))} />
               <span className="text-[12px]">Active</span>
             </div>
             {!form.isActive && (
-              <Input placeholder="Reason" value={form.reason} onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))} />
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-[12px]">Reason</Label>
+                <Input
+                  value={form.reason}
+                  onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
+                  placeholder="Reason"
+                />
+              </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)} disabled={loading}>Close</Button>
-            <Button onClick={() => void onSave()} disabled={loading}>Save</Button>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setModalOpen(false)} disabled={loading}>
+              Cancel
+            </Button>
+            <Button onClick={() => void onSave()} disabled={loading}>
+              Save
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

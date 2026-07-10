@@ -1,4 +1,4 @@
-import { buildQuery, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords, postDetails } from '@/services/crud'
+import { buildQuery, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords, postDetails, putDetails } from '@/services/crud'
 import { EXAM_EVAL_API, NEXT_API, QUESTION_PAPER_API } from '@/config/constants/api'
 import { getUnivExamFiltersByType, getUnivExamRestNoTtBundle, getUnivExamSubjectUc } from '@/services/pre-examination'
 
@@ -1341,36 +1341,9 @@ export async function listExamEvaluatorPreferences(profileId: number): Promise<A
 }
 
 /**
- * Bulk replace/update preferences — Angular `updateMasterDetails(updateexamevaluatorereferencesUrl, details)`.
- * Spring path is often `updateexamevaluatorereferences` (typo in legacy name); not `updateExamEvaluatorReferences`.
+ * Bulk replace/update preferences — Angular `updateMasterDetails(updateexamevaluatorereferencesUrl, details)` uses PUT.
  */
 export async function updateExamEvaluatorPreferences(payload: AnyRow[]): Promise<void> {
-  const paths = [
-    EXAM_EVAL_API.UPDATE_EVALUATOR_PREFERENCES,
-    'updateexamevaluatorreferences',
-    'updateExamEvaluatorReferences',
-    'updateExamEvaluatorPreferences',
-  ]
-  const methods: ('POST' | 'PUT')[] = ['POST', 'PUT']
-
-  let lastMessage = 'Failed to save evaluator preferences.'
-  for (const path of paths) {
-    for (const method of methods) {
-      const res = await fetch(NEXT_API.PROXY(path), {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const body = (await res.json().catch(() => null)) as { success?: boolean; message?: string } | null
-      if (res.ok && body?.success !== false) {
-        return
-      }
-      if (body?.message) lastMessage = body.message
-      if (res.status !== 404) {
-        throw new Error(body?.message ?? `Save failed (${res.status})`)
-      }
-    }
-  }
-  throw new Error(lastMessage)
+  await putDetails(EXAM_EVAL_API.UPDATE_EVALUATOR_PREFERENCES, payload)
 }
 

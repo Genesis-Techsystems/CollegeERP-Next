@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { ColDef } from 'ag-grid-community'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { FileText, Mail, PencilIcon } from 'lucide-react'
 import { Select, MultiSelect, type SelectOption } from '@/common/components/select'
-import { DataTable } from '@/common/components/table'
+import { DataTable, TableRowActions } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -53,6 +53,45 @@ const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
     if (v != null && String(v).trim() !== '') return String(v)
   }
   return ''
+}
+
+function prefCourseIdOf(row: AnyRow | null | undefined) {
+  return pickNum(row, ['courseId', 'fk_course_id', 'course_id'])
+}
+
+function prefRegulationIdOf(row: AnyRow | null | undefined) {
+  return pickNum(row, ['regulationId', 'fk_regulation_id', 'regulation_id'])
+}
+
+function prefSubjectIdOf(row: AnyRow | null | undefined) {
+  return pickNum(row, ['subjectId', 'fk_subject_id', 'subject_id'])
+}
+
+function prefRowKey(row: AnyRow | null | undefined) {
+  return `${prefCourseIdOf(row)}-${prefRegulationIdOf(row)}-${prefSubjectIdOf(row)}`
+}
+
+function prefRowsMatch(a: AnyRow, b: AnyRow) {
+  const key = prefRowKey(a)
+  return key !== '0-0-0' && key === prefRowKey(b)
+}
+
+function isPersistedPrefRow(row: AnyRow) {
+  return pickNum(row, ['examEvaluatorPreferenceId', 'examEvaluatorPreferencesId', 'pk_exam_evaluator_preference_id']) > 0
+}
+
+function normalizePrefRow(row: AnyRow, profileId: number): AnyRow {
+  return {
+    ...row,
+    examEvaluatorProfileId: pickNum(row, ['examEvaluatorProfileId']) || profileId,
+    courseId: prefCourseIdOf(row),
+    courseCode: pickText(row, ['courseCode', 'course_code']),
+    regulationId: prefRegulationIdOf(row),
+    regulationCode: pickText(row, ['regulationCode', 'regulation_code', 'regulationName']),
+    subjectId: prefSubjectIdOf(row),
+    subjectCode: pickText(row, ['subjectCode', 'subject_code']),
+    isActive: row.isActive !== false,
+  }
 }
 
 function dedupeBy<T>(rows: T[], keyFn: (r: T) => string | number) {
@@ -156,6 +195,19 @@ function makeActionsRenderer(
         <FileText className="h-3.5 w-3.5" />
       </Button>
     </div>
+  )
+}
+
+const PREF_COL_DEFS = {
+  course: { field: 'courseCode', headerName: 'Course', minWidth: 120, flex: 1 } as ColDef<AnyRow>,
+  regulation: { field: 'regulationCode', headerName: 'Regulation', minWidth: 120, flex: 1 } as ColDef<AnyRow>,
+  subject: { field: 'subjectCode', headerName: 'Subject', minWidth: 160, flex: 1 } as ColDef<AnyRow>,
+  actions: { headerName: 'Actions', minWidth: 90, width: 90, flex: 0 } as ColDef<AnyRow>,
+}
+
+function makePrefActionsRenderer(onDelete: (row: AnyRow) => void) {
+  return (p: ICellRendererParams<AnyRow>) => (
+    <TableRowActions onDelete={() => onDelete(p.data ?? {})} deleteLabel="Remove preference" />
   )
 }
 
@@ -688,7 +740,7 @@ export default function CreateEvaluatorsPage() {
       ])
       setPrefCourses(Array.isArray(courses) ? courses : [])
       const list = Array.isArray(existing) ? existing : []
-      setPrefAll(list.map((r) => ({ ...r })))
+      setPrefAll(list.map((r) => normalizePrefRow(r, profileId)))
       setPrefCourseId(null)
       setPrefRegulationId(null)
       setPrefSubjectIds([])
@@ -752,9 +804,9 @@ export default function CreateEvaluatorsPage() {
       const subjectObj = prefSubjects.find((s) => pickNum(s, ['subjectId']) === sid)
       const existing = next.find(
         (p) =>
-          pickNum(p, ['courseId']) === prefCourseId &&
-          pickNum(p, ['regulationId']) === prefRegulationId &&
-          pickNum(p, ['subjectId']) === sid,
+          prefCourseIdOf(p) === prefCourseId &&
+          prefRegulationIdOf(p) === prefRegulationId &&
+          prefSubjectIdOf(p) === sid,
       )
       if (!existing) {
         next.push({
@@ -781,19 +833,26 @@ export default function CreateEvaluatorsPage() {
     setPrefFieldErrors({})
   }
 
-  function deletePrefRow(row: AnyRow) {
-    setPrefAll((prev) =>
-      prev.map((p) => {
-        const match =
-          pickNum(p, ['courseId']) === pickNum(row, ['courseId']) &&
-          pickNum(p, ['regulationId']) === pickNum(row, ['regulationId']) &&
-          pickNum(p, ['subjectId']) === pickNum(row, ['subjectId'])
-        return match ? { ...p, isActive: false } : p
-      }),
-    )
-  }
+  const deletePrefRow = useCallback((row: AnyRow) => {
+    setPrefAll((prev) => {
+      if (!isPersistedPrefRow(row)) {
+        return prev.filter((p) => !prefRowsMatch(p, row))
+      }
+      return prev.map((p) => (prefRowsMatch(p, row) ? { ...p, isActive: false } : p))
+    })
+  }, [])
 
   const prefTableRows = useMemo(() => prefAll.filter((p) => p.isActive !== false), [prefAll])
+
+  const prefColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      PREF_COL_DEFS.course,
+      PREF_COL_DEFS.regulation,
+      PREF_COL_DEFS.subject,
+      { ...PREF_COL_DEFS.actions, cellRenderer: makePrefActionsRenderer(deletePrefRow) },
+    ],
+    [deletePrefRow],
+  )
 
   const subjectOptions: SelectOption[] = useMemo(
     () =>
@@ -809,7 +868,8 @@ export default function CreateEvaluatorsPage() {
       toastError('Invalid evaluator profile.')
       return
     }
-    if (prefTableRows.length === 0) {
+    const hasPendingDeletes = prefAll.some((p) => p.isActive === false)
+    if (prefTableRows.length === 0 && !hasPendingDeletes) {
       if (!validatePrefAdd()) return
       setPrefFieldErrors({ subjectIds: 'Add at least one preference before saving.' })
       return
@@ -1151,36 +1211,15 @@ export default function CreateEvaluatorsPage() {
             </div>
 
             {prefTableRows.length > 0 && (
-              <div className="max-h-[210px] overflow-auto rounded border border-border">
-                <table className="w-full text-[12px]">
-                  <thead className="bg-muted/40 sticky top-0">
-                    <tr className="border-b border-border text-left">
-                      <th className="p-2 font-medium">Course</th>
-                      <th className="p-2 font-medium">Regulation</th>
-                      <th className="p-2 font-medium">Subject</th>
-                      <th className="p-2 w-16"> </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {prefTableRows.map((row, i) => (
-                      <tr key={`pref-${i}-${pickNum(row, ['subjectId'])}`} className="border-b border-slate-100">
-                        <td className="p-2">{pickText(row, ['courseCode'])}</td>
-                        <td className="p-2">{pickText(row, ['regulationCode'])}</td>
-                        <td className="p-2">{pickText(row, ['subjectCode'])}</td>
-                        <td className="p-2">
-                          <button
-                            type="button"
-                            className="text-red-600 text-[12px] hover:underline"
-                            onClick={() => deletePrefRow(row)}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                rowData={prefTableRows}
+                columnDefs={prefColumnDefs}
+                pagination={false}
+                toolbar={false}
+                bordered
+                height="210px"
+                getRowId={(p) => prefRowKey(p.data)}
+              />
             )}
           </div>
           <DialogFooter className="gap-2">
