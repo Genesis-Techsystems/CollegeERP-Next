@@ -319,7 +319,7 @@ export default function StudentCcActivitiesPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent hasDescription>
           <DialogHeader>
             <DialogTitle>{editingRow ? 'Edit Student Co-Curriculum Activity' : 'Add Student Co-Curriculum Activity'}</DialogTitle>
             <DialogDescription>Select activity and update status.</DialogDescription>

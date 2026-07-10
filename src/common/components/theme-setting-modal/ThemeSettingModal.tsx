@@ -129,7 +129,7 @@ export function ThemeSettingModal({ isOpen, onClose }: ThemeSettingModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md" hasDescription>
         <DialogHeader>
           <DialogTitle className="text-base font-semibold">Theme Settings</DialogTitle>
           <DialogDescription className="sr-only">

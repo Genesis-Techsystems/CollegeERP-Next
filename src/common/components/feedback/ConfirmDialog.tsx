@@ -75,6 +75,7 @@ export function ConfirmDialog({
       <DialogContent
         className={cn('sm:max-w-lg', contentClassName)}
         hideClose={!showCloseButton}
+        hasDescription
       >
         <DialogHeader>
           <div className="flex items-center gap-2">
@@ -89,7 +90,7 @@ export function ConfirmDialog({
           <DialogDescription className="text-sm text-muted-foreground">{description}</DialogDescription>
         ) : null}
 
-        {children && !description ? (
+        {children || !description ? (
           <DialogDescription className="sr-only">{title}</DialogDescription>
         ) : null}
 

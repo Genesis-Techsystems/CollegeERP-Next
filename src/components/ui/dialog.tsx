@@ -30,19 +30,48 @@ type DialogContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.
   closeOnOutsideClick?: boolean
   /** When false, pressing Escape does not close the dialog. Default false. */
   closeOnEscape?: boolean
+  /**
+   * Accessible description for screen readers. When provided it is rendered as a
+   * visually-hidden DialogDescription (linked automatically by Radix).
+   */
+  description?: React.ReactNode
+  /**
+   * Set by callers that render their own <DialogDescription> child (e.g.
+   * ConfirmDialog / FormModal) so this component does NOT clear aria-describedby.
+   * When neither `description`, `hasDescription`, nor an explicit
+   * `aria-describedby` is supplied, aria-describedby is cleared so Radix does not
+   * emit the "Missing Description or aria-describedby" warning for description-less
+   * dialogs.
+   */
+  hasDescription?: boolean
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, hideClose = false, closeOnOutsideClick = false, closeOnEscape = false, onInteractOutside, onEscapeKeyDown, ...props }, ref) => {
+>(({ className, children, hideClose = false, closeOnOutsideClick = false, closeOnEscape = false, onInteractOutside, onEscapeKeyDown, description, hasDescription = false, "aria-describedby": ariaDescribedBy, ...props }, ref) => {
   const padded = !/\bp-0\b/.test(className ?? "")
+
+  // Silence Radix's "Missing Description or aria-describedby" warning:
+  // - explicit aria-describedby → pass it through
+  // - a `description` prop (rendered as a hidden DialogDescription below) or a
+  //   caller-rendered <DialogDescription> child (hasDescription) → leave the
+  //   default so Radix links its own id
+  // - none of the above (description-less dialog) → clear aria-describedby (the
+  //   valid Radix opt-out) so no dangling reference / warning
+  const ariaDescribedByProps =
+    ariaDescribedBy !== undefined
+      ? { "aria-describedby": ariaDescribedBy }
+      : description !== undefined || hasDescription
+        ? {}
+        : { "aria-describedby": undefined }
 
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         ref={ref}
+        {...ariaDescribedByProps}
         data-dialog-padded={padded ? "" : undefined}
         onInteractOutside={(e) => {
           if (!closeOnOutsideClick) e.preventDefault()
@@ -59,6 +88,9 @@ const DialogContent = React.forwardRef<
         )}
         {...props}
       >
+        {description !== undefined ? (
+          <DialogDescription className="sr-only">{description}</DialogDescription>
+        ) : null}
         {children}
         {!hideClose && (
           <DialogPrimitive.Close className="absolute right-4 top-0 z-10 flex h-14 w-9 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">

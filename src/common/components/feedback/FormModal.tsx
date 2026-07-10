@@ -75,6 +75,7 @@ export function FormModal({
       <DialogContent
         closeOnOutsideClick={false}
         closeOnEscape={false}
+        hasDescription
         className={cn(
           'flex max-h-[90vh] flex-col overflow-hidden sm:max-h-[92vh]',
           !showCloseButton && '[&>button]:hidden',
@@ -86,8 +87,10 @@ export function FormModal({
           className={cn('shrink-0', showHeaderDivider && 'border-b border-border pb-3')}
         >
           <DialogTitle className={titleClassName}>{title}</DialogTitle>
-          {description && (
+          {description ? (
             <DialogDescription>{description}</DialogDescription>
+          ) : (
+            <DialogDescription className="sr-only">{title}</DialogDescription>
           )}
         </DialogHeader>
 
