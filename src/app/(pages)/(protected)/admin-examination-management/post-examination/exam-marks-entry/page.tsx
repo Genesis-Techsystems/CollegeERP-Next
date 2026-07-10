@@ -43,12 +43,15 @@ function numFrom(row: AnyRow, keys: string[]): number {
   return 0
 }
 
-function MarksInputRenderer(params: ICellRendererParams<AnyRow> & { onChange: (row: AnyRow, value: number) => void }) {
+function MarksInputRenderer(params: ICellRendererParams<AnyRow> & { maxMarks?: number; onChange: (row: AnyRow, value: number) => void }) {
   const val = Number(params.data?.marks ?? 0)
   const disabled = params.data?.isPresent !== true
+  const max = params.maxMarks && params.maxMarks > 0 ? params.maxMarks : undefined
   return (
     <Input
       type="number"
+      min={0}
+      max={max}
       className="h-8 text-[12px]"
       value={Number.isFinite(val) ? String(val) : '0'}
       disabled={disabled}
@@ -300,11 +303,17 @@ export default function ExamMarksEntryPage() {
 
   function onMarkChange(target: AnyRow, marks: number) {
     const sid = Number(target.studentId ?? target.fk_student_id ?? 0)
+    let parsed = Number(marks)
+    if (!Number.isFinite(parsed) || parsed < 0) parsed = 0
+    if (maxMarks > 0 && parsed > maxMarks) {
+      parsed = maxMarks
+      toastError(`Entered marks should not exceed ${maxMarks}.`)
+    }
     setRows((prev) =>
       prev.map((row) => {
         const rid = Number(row.studentId ?? row.fk_student_id ?? 0)
         if (sid > 0 ? rid !== sid : String(row.hallticketNumber) !== String(target.hallticketNumber)) return row
-        return { ...row, marks }
+        return { ...row, marks: parsed }
       }),
     )
   }
@@ -441,9 +450,9 @@ export default function ExamMarksEntryPage() {
         minWidth: 140,
         valueGetter: (p: any) => attendanceText(p.data),
       },
-      { headerName: 'Marks', minWidth: 120, cellRenderer: MarksInputRenderer, cellRendererParams: { onChange: onMarkChange } },
+      { headerName: 'Marks', minWidth: 120, cellRenderer: MarksInputRenderer, cellRendererParams: { maxMarks, onChange: onMarkChange } },
     ],
-    [],
+    [maxMarks],
   )
 
   return (
@@ -491,6 +500,7 @@ export default function ExamMarksEntryPage() {
                 rowData={rows}
                 columnDefs={columnDefs}
                 loading={loading}
+                getRowId={(p) => String(p.data.studentId ?? p.data.fk_student_id ?? p.data.hallticketNumber ?? '')}
                 pagination
                 toolbar={{
                   search: true,

@@ -249,7 +249,7 @@ export default function ExamMaxMarksSetupPage() {
       finalIntPercentage: Number(r.finalIntPercentage ?? 0),
       finalExtPercentage: Number(r.finalExtPercentage ?? 0),
       disabled: isForDisabled,
-      isActive: true,
+      isActive: r.isActive ?? true,
       courseId,
       regulationId,
     }));

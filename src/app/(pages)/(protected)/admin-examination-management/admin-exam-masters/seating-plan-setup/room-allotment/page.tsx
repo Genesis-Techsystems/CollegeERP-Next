@@ -271,6 +271,13 @@ export default function AddRoomSeatingPlanPage() {
 			toast.error('Select at least one room to allot.')
 			return
 		}
+		const emptyRoom = checked.find(
+			(r) => (r.total_rows ?? 0) <= 0 || (r.total_columns ?? 0) <= 0,
+		)
+		if (emptyRoom) {
+			toast.error('Each selected room must have rows and columns greater than 0.')
+			return
+		}
 		const session = examTimetables.find(
 			(t: AnyRow) => Number(t.examTimetableId) === Number(examTimetableId),
 		)

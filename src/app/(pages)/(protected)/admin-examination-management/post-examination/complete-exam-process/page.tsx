@@ -5,6 +5,7 @@ import { PageContainer, PageHeader } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select as CommonSelect } from '@/common/components/select'
+import { ConfirmDialog } from '@/common/components/feedback'
 import {
   getCompleteExamProcessFilters,
   runCompleteExamFinalizeAction,
@@ -79,6 +80,12 @@ export default function CompleteExamProcessPage() {
   const [courseId, setCourseId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
   const [examId, setExamId] = useState<number | null>(null)
+  const [pending, setPending] = useState<{
+    title: string
+    description: string
+    fn: () => Promise<void | string>
+    success: string
+  } | null>(null)
 
   const courses = useMemo(() => dedupeBy(filters, ['fk_course_id', 'courseId']), [filters])
   const years = useMemo(
@@ -149,6 +156,17 @@ export default function CompleteExamProcessPage() {
       setLoading(false)
     }
   }
+
+  // Irreversible finalize/setup actions are gated behind a confirmation.
+  function confirmAction(
+    title: string,
+    fn: () => Promise<void | string>,
+    success: string,
+    description = 'This action is irreversible and cannot be undone. Do you want to continue?',
+  ) {
+    if (!examId) return
+    setPending({ title, description, fn, success })
+  }
   const selectedExamId = examId ?? 0
 
   return (
@@ -168,18 +186,18 @@ export default function CompleteExamProcessPage() {
 
       <div className="app-card p-3 space-y-3">
         <h3 className="text-[14px] font-semibold">Complete Exam Process</h3>
-        <ActionCard title="Finalise Evaluator Profiles" subtitle="Finalise evaluator profiles by skipping committee." button="Finalise Evaluator Profiles" disabled={!examId || loading} onClick={() => void runAction(() => runCompleteExamFinalizeProfiles(), 'Evaluator profiles finalised')} />
-        <ActionCard title="Setup Assignments" subtitle="Review student assignments, OMR details, and answer papers." button="Setup Assignments" disabled={!examId || loading} onClick={() => void runAction(() => runCompleteExamSetupAssignments(selectedExamId), 'Assignments setup completed')} />
-        <ActionCard title="Finalize Evaluation Status" subtitle="Update status from Evaluated to Finalized." button="Finalize Evaluation Status" disabled={!examId || loading} onClick={() => void runAction(() => runCompleteExamFinalizeAction('exam_finalise_evaluation_status', selectedExamId), 'Evaluation status finalized')} />
-        <ActionCard title="Finalize Evaluation Marks" subtitle="Finalize marks after finalized evaluation status." button="Finalize Evaluation Marks" disabled={!examId || loading} onClick={() => void runAction(() => runCompleteExamFinalizeAction('exam_finalise_evaluation_marks', selectedExamId), 'Evaluation marks finalized')} />
+        <ActionCard title="Finalise Evaluator Profiles" subtitle="Finalise evaluator profiles by skipping committee." button="Finalise Evaluator Profiles" disabled={!examId || loading} onClick={() => confirmAction('Finalise Evaluator Profiles?', () => runCompleteExamFinalizeProfiles(), 'Evaluator profiles finalised')} />
+        <ActionCard title="Setup Assignments" subtitle="Review student assignments, OMR details, and answer papers." button="Setup Assignments" disabled={!examId || loading} onClick={() => confirmAction('Setup Assignments?', () => runCompleteExamSetupAssignments(selectedExamId), 'Assignments setup completed')} />
+        <ActionCard title="Finalize Evaluation Status" subtitle="Update status from Evaluated to Finalized." button="Finalize Evaluation Status" disabled={!examId || loading} onClick={() => confirmAction('Finalize Evaluation Status?', () => runCompleteExamFinalizeAction('exam_finalise_evaluation_status', selectedExamId), 'Evaluation status finalized')} />
+        <ActionCard title="Finalize Evaluation Marks" subtitle="Finalize marks after finalized evaluation status." button="Finalize Evaluation Marks" disabled={!examId || loading} onClick={() => confirmAction('Finalize Evaluation Marks?', () => runCompleteExamFinalizeAction('exam_finalise_evaluation_marks', selectedExamId), 'Evaluation marks finalized')} />
         <ActionCard title="Marks Entered Status" subtitle="View evaluator marks status report." button="Verify Exam Marks" disabled={!examId || loading} onClick={() => router.push('/admin-examination-management/post-examination/verify-exam-marks')} />
       </div>
 
       <div className="app-card p-3 space-y-3">
         <h3 className="text-[14px] font-semibold">Exam Re-Evaluation</h3>
-        <ActionCard title="Setup Re-Evaluation Assignments" subtitle="Review re-evaluation assignments and answer papers." button="Setup Re-Evaluation Assignments" disabled={!examId || loading} onClick={() => void runAction(() => runCompleteExamReEvaluationAssignments(selectedExamId), 'Re-evaluation assignments setup completed')} />
-        <ActionCard title="Finalize Re-Evaluation Status" subtitle="Update status from Evaluated to Finalized." button="Finalize Re-Evaluation Status" disabled={!examId || loading} onClick={() => void runAction(() => runCompleteExamFinalizeAction('exam_finalise_reevaluation_status', selectedExamId), 'Re-evaluation status finalized')} />
-        <ActionCard title="Finalize Re-Evaluation Marks" subtitle="Finalize marks after finalized re-evaluation status." button="Finalize Re-Evaluation Marks" disabled={!examId || loading} onClick={() => void runAction(() => runCompleteExamFinalizeAction('exam_finalise_reevaluation_marks', selectedExamId), 'Re-evaluation marks finalized')} />
+        <ActionCard title="Setup Re-Evaluation Assignments" subtitle="Review re-evaluation assignments and answer papers." button="Setup Re-Evaluation Assignments" disabled={!examId || loading} onClick={() => confirmAction('Setup Re-Evaluation Assignments?', () => runCompleteExamReEvaluationAssignments(selectedExamId), 'Re-evaluation assignments setup completed')} />
+        <ActionCard title="Finalize Re-Evaluation Status" subtitle="Update status from Evaluated to Finalized." button="Finalize Re-Evaluation Status" disabled={!examId || loading} onClick={() => confirmAction('Finalize Re-Evaluation Status?', () => runCompleteExamFinalizeAction('exam_finalise_reevaluation_status', selectedExamId), 'Re-evaluation status finalized')} />
+        <ActionCard title="Finalize Re-Evaluation Marks" subtitle="Finalize marks after finalized re-evaluation status." button="Finalize Re-Evaluation Marks" disabled={!examId || loading} onClick={() => confirmAction('Finalize Re-Evaluation Marks?', () => runCompleteExamFinalizeAction('exam_finalise_reevaluation_marks', selectedExamId), 'Re-evaluation marks finalized')} />
       </div>
 
       <div className="app-card p-3 space-y-3">
@@ -189,6 +207,22 @@ export default function CompleteExamProcessPage() {
           <Button className="h-8 text-[12px]" disabled={!examId || loading} onClick={() => void runAction(() => runCompleteExamResultProcessingPublish(selectedExamId), 'Result publishing completed')}>Publish Result Processing</Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pending !== null}
+        title={pending?.title ?? ''}
+        description={pending?.description}
+        confirmLabel="Proceed"
+        confirmVariant="default"
+        isLoading={loading}
+        onCancel={() => setPending(null)}
+        onConfirm={() => {
+          if (!pending) return
+          const { fn, success } = pending
+          setPending(null)
+          void runAction(fn, success)
+        }}
+      />
     </PageContainer>
   )
 }

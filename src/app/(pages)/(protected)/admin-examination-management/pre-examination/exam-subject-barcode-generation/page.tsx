@@ -14,6 +14,7 @@ import {
   getUnivExamSubjectUc,
 } from "@/services/pre-examination";
 import { PageContainer, PageHeader } from "@/components/layout";
+import { toastError } from "@/lib/toast";
 import { useBarcodeStickerPrint } from "./_print/useBarcodeStickerPrint";
 import type { ColDef } from "ag-grid-community";
 
@@ -785,9 +786,12 @@ export default function ExamSubjectBarcodeGenerationPage() {
 
   async function generateBarcode() {
     const ids = rows
-      .map((r) => Number(r.fk_exam_std_det_id ?? 0))
-      .filter((x) => x > 0);
-    if (ids.length === 0) return;
+      .map((r) => Number(getRowId({ data: r })))
+      .filter((x) => Number.isFinite(x) && x > 0);
+    if (ids.length === 0) {
+      toastError("No students available to generate barcodes.");
+      return;
+    }
     setTableLoading(true);
     try {
       await generateBarcodesForExamStudents(ids).catch(() => null);

@@ -35,11 +35,14 @@ function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
   return out
 }
 
-function MarkInputRenderer(params: ICellRendererParams<MarkRow> & { field: string; onChange: (row: MarkRow, field: string, value: number) => void; disabled?: boolean }) {
+function MarkInputRenderer(params: ICellRendererParams<MarkRow> & { field: string; maxMarks?: number; onChange: (row: MarkRow, field: string, value: number) => void; disabled?: boolean }) {
   const value = Number(params.data?.[params.field] ?? 0)
+  const max = params.maxMarks && params.maxMarks > 0 ? params.maxMarks : undefined
   return (
     <Input
       type="number"
+      min={0}
+      max={max}
       className="h-8 text-[12px]"
       value={Number.isFinite(value) ? String(value) : '0'}
       disabled={Boolean(params.disabled)}
@@ -243,6 +246,12 @@ export default function InternalMarksEntryPage() {
   function updateMarks(row: MarkRow, field: string, value: number) {
     const targetStudentId = Number(row.studentId ?? row.fk_student_id ?? 0)
     const targetHallTicket = String(row.hallticketNumber ?? row.hallticket_number ?? '')
+    let parsed = Number(value)
+    if (!Number.isFinite(parsed) || parsed < 0) parsed = 0
+    if (maxMarks > 0 && parsed > maxMarks) {
+      parsed = maxMarks
+      toastError(`Entered marks should not exceed ${maxMarks}.`)
+    }
     setRows((prev) =>
       prev.map((r) => {
         const sid = Number(r.studentId ?? r.fk_student_id ?? 0)
@@ -251,7 +260,7 @@ export default function InternalMarksEntryPage() {
           (targetStudentId > 0 && sid === targetStudentId) ||
           (targetStudentId <= 0 && targetHallTicket.length > 0 && hall === targetHallTicket)
         if (!sameRow) return r
-        const next = { ...r, [field]: value }
+        const next = { ...r, [field]: parsed }
         if (field !== 'internal_total_marks') {
           const total =
             Number(next.internal_exam_marks ?? 0) +
@@ -355,19 +364,19 @@ export default function InternalMarksEntryPage() {
         headerName: 'Exam',
         minWidth: 110,
         cellRenderer: MarkInputRenderer,
-        cellRendererParams: { field: 'internal_exam_marks', onChange: updateMarks, disabled: false },
+        cellRendererParams: { field: 'internal_exam_marks', maxMarks, onChange: updateMarks, disabled: false },
       },
       {
         headerName: 'Assignment',
         minWidth: 120,
         cellRenderer: MarkInputRenderer,
-        cellRendererParams: { field: 'internal_assignment_marks', onChange: updateMarks, disabled: false },
+        cellRendererParams: { field: 'internal_assignment_marks', maxMarks, onChange: updateMarks, disabled: false },
       },
       {
         headerName: 'Quiz',
         minWidth: 110,
         cellRenderer: MarkInputRenderer,
-        cellRendererParams: { field: 'internal_quiz_marks', onChange: updateMarks, disabled: false },
+        cellRendererParams: { field: 'internal_quiz_marks', maxMarks, onChange: updateMarks, disabled: false },
       },
       {
         headerName: 'Total Internal',
@@ -376,7 +385,7 @@ export default function InternalMarksEntryPage() {
         valueGetter: (p: any) => Number(p.data?.internal_total_marks ?? 0),
       },
     ]
-  }, [])
+  }, [maxMarks])
 
   // ── Print layout ─────────────────────────────────────────────────────────
   // Mirrors Angular's #printsection: banner placeholder, MARKS SHEET title,
@@ -589,6 +598,7 @@ export default function InternalMarksEntryPage() {
                 rowData={rows}
                 columnDefs={columnDefs}
                 loading={loading}
+                getRowId={(p) => String(p.data.studentId ?? p.data.fk_student_id ?? p.data.hallticketNumber ?? p.data.hallticket_number ?? '')}
                 pagination
                 toolbar={{
                   search: true,

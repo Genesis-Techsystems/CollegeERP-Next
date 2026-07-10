@@ -22,6 +22,7 @@ import {
 import { MINIO_URL, NEXT_API } from "@/config/constants/api";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toDateStr } from "@/common/generic-functions";
+import { toastError } from "@/lib/toast";
 
 type AnyRow = Record<string, any>;
 
@@ -254,7 +255,7 @@ export default function ScanUploadProcessPage() {
     setShowResult(true);
     setSummaryRow(null);
     try {
-      const examDateParam = toDateStr(examDate) || "undefined";
+      const examDateParam = toDateStr(examDate) || "";
       const groups = await getProcResult({
         in_flag: "exam_timetable_answerpaper_details",
         in_org_id: organizationId || 0,
@@ -268,6 +269,11 @@ export default function ScanUploadProcessPage() {
         in_loginuser_empid: 0,
         in_loginuser_roleid: 0,
       });
+      if (groups.length === 0) {
+        // Every candidate endpoint failed / returned nothing — surface it so an
+        // empty page is distinguishable from a genuine "no answer papers" result.
+        toastError("Unable to load answer paper details. Please try again.");
+      }
       const summaryGroup = pickFlagGroup(
         groups,
         "exam_timetable_answerpaper_details",

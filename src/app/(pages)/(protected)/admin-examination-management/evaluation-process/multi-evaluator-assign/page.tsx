@@ -30,6 +30,7 @@ import {
   getRegSupSubjectFilters,
 } from "@/services/evaluation";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
+import { toastError, toastSuccess } from "@/lib/toast";
 
 type AnyRow = Record<string, unknown>;
 type PreparedRow = AnyRow & { disabled: boolean; excludedByEvaluator: boolean };
@@ -420,7 +421,10 @@ export default function MultiEvaluatorAssignPage() {
         subjectId,
         courseYearId,
       });
+      toastSuccess("Answer papers assigned successfully.");
       await getList();
+    } catch (err) {
+      toastError(err, "Failed to assign answer papers");
     } finally {
       setLoading(false);
     }

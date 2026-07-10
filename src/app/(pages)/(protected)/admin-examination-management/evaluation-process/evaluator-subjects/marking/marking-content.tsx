@@ -47,6 +47,7 @@ import {
   type NotAnsweredPayload,
 } from '@/services/evaluation'
 import { MINIO_URL } from '@/config/constants/api'
+import { toastError } from '@/lib/toast'
 import { PDFDocument } from 'pdf-lib'
 
 const ANSWER_SHEETS_PATH = '/admin-examination-management/evaluation-process/evaluator-subjects/answer-sheets'
@@ -1061,6 +1062,9 @@ export default function MarkingPage() {
   const [stamps, setStamps] = useState<Stamp[]>([])
   const [selectedMark, setSelectedMark] = useState<number | null>(null)
   const [notViewedOpen, setNotViewedOpen] = useState(false)
+  // Set when an on-click mark/NA save throws. Blocks Finish so a mark that
+  // silently failed to persist can never be baked into the finalized total.
+  const [hasUnsavedMarkFailure, setHasUnsavedMarkFailure] = useState(false)
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const blobUrlRef = useRef<string | null>(null)
@@ -1388,9 +1392,24 @@ export default function MarkingPage() {
 
       // Immediate save (Angular: addAnnotation saves each stamp as it's placed)
       const payload = buildMarkStampPayload(activeQuestion, pageNum, x, y, selectedMark)
+      const savedQId = activeQId
       saveStudentEvalPages([payload])
-        .then(() => refreshAnnotations())
-        .catch(() => {})
+        .then(() => { setHasUnsavedMarkFailure(false); return refreshAnnotations() })
+        .catch((err) => {
+          // The save genuinely failed. Surface it and revert this question to a
+          // pending/unsaved state so it re-enters pendingQuestions (which blocks
+          // Finish) instead of being silently counted as evaluated.
+          toastError(err, 'Failed to save mark')
+          setHasUnsavedMarkFailure(true)
+          setStamps((prev) => prev.filter((s) => s.questionId !== savedQId))
+          setQuestions((prev) =>
+            prev.map((q) =>
+              q.questionPaperMarksId === savedQId
+                ? { ...q, answeredMarks: null, isNotAnswered: false, no_action_yet: 1, color: '#009688' }
+                : q,
+            ),
+          )
+        })
     },
     [activeQId, selectedMark, activeQuestion, handleMarksChange, buildMarkStampPayload, refreshAnnotations],
   )
@@ -1416,8 +1435,20 @@ export default function MarkingPage() {
     const payloads: NotAnsweredPayload[] = affected.map(buildNotAnsweredPayload)
     if (payloads.length > 0) {
       saveStudentEvalPages(payloads)
-        .then(() => refreshAnnotations())
-        .catch(() => {})
+        .then(() => { setHasUnsavedMarkFailure(false); return refreshAnnotations() })
+        .catch((err) => {
+          // NA save failed — revert the affected questions to pending so they are
+          // not treated as answered/complete, and block Finish until re-saved.
+          toastError(err, 'Failed to mark Not Answered')
+          setHasUnsavedMarkFailure(true)
+          setQuestions((prev) =>
+            prev.map((q) =>
+              idSet.has(q.questionPaperMarksId)
+                ? { ...q, isNotAnswered: false, answeredMarks: null, no_action_yet: 1, color: '#009688' }
+                : q,
+            ),
+          )
+        })
     }
   }, [pushUndo, questions, buildNotAnsweredPayload, refreshAnnotations])
 
@@ -1477,6 +1508,10 @@ export default function MarkingPage() {
   //   4. Call s_pop_exam_questionpaper_details with exam_questionpaper_finalmarks_update.
   //   5. updateEvaluationsCompletedCount, then navigate back.
   const handleSubmit = useCallback(async () => {
+    if (hasUnsavedMarkFailure) {
+      toastError('One or more marks failed to save. Please re-mark the highlighted question(s) before finishing.')
+      return
+    }
     if (pendingQuestions.length > 0) {
       alert(`Please evaluate the following question(s): ${pendingQuestions.map((q) => q.qvalue).join(', ')}`)
       return
@@ -1519,7 +1554,7 @@ export default function MarkingPage() {
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to submit.')
     } finally { setSaving(false) }
-  }, [pendingQuestions, examEvaluationAssignmentId, examEvaluatorProfileDetId, assignmentDetail, navigateBack])
+  }, [hasUnsavedMarkFailure, pendingQuestions, examEvaluationAssignmentId, examEvaluatorProfileDetId, assignmentDetail, navigateBack])
 
   // ── Reject ─────────────────────────────────────────────────────────────────
 

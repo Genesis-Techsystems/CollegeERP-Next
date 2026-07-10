@@ -17,6 +17,7 @@ import {
   updateManualEvaluationAssignment,
 } from '@/services/evaluation'
 import { dedupeBy, num, txt } from '@/common/utils/data-helpers'
+import { toastError, toastSuccess } from '@/lib/toast'
 
 type AnyRow = Record<string, any>
 
@@ -190,8 +191,11 @@ export default function AssignEvaluatorsManualPage() {
         examId: examId || 0,
         subjectId: subjectId || 0,
         courseYearId: courseYearId || 0,
-      }).catch(() => null)
+      })
+      toastSuccess('Answer papers assigned successfully.')
       await getEvaluationList()
+    } catch (err) {
+      toastError(err, 'Failed to assign answer papers')
     } finally {
       setLoading(false)
     }
