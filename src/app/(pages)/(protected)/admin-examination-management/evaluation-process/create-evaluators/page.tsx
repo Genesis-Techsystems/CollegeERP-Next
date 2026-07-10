@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ColDef } from 'ag-grid-community'
-import { FileText, Mail, PencilIcon, Settings } from 'lucide-react'
+import { FileText, Mail, PencilIcon } from 'lucide-react'
 import { Select, MultiSelect, type SelectOption } from '@/common/components/select'
 import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
@@ -242,6 +242,7 @@ export default function CreateEvaluatorsPage() {
   const [employeeCache, setEmployeeCache] = useState<AnyRow[]>([])
   const [employeeSearchLoading, setEmployeeSearchLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [prefFieldErrors, setPrefFieldErrors] = useState<Record<string, string>>({})
 
   const [prefOpen, setPrefOpen] = useState(false)
   const [prefRow, setPrefRow] = useState<AnyRow | null>(null)
@@ -255,6 +256,7 @@ export default function CreateEvaluatorsPage() {
   const [prefLoading, setPrefLoading] = useState(false)
 
   const [credOpen, setCredOpen] = useState(false)
+  const [credFieldErrors, setCredFieldErrors] = useState<Record<string, string>>({})
   const [credMode, setCredMode] = useState<'bulk' | 'single'>('bulk')
   const [credSingleRow, setCredSingleRow] = useState<AnyRow | null>(null)
   const [credFilterRows, setCredFilterRows] = useState<AnyRow[]>([])
@@ -380,6 +382,7 @@ export default function CreateEvaluatorsPage() {
     setCredAcademicYearId(null)
     setCredExamId(null)
     setCredRoleId(null)
+    setCredFieldErrors({})
   }
 
   const credRoleOptions: SelectOption[] = useMemo(
@@ -406,30 +409,35 @@ export default function CreateEvaluatorsPage() {
     }
   }
 
+  function validateCredSend(): boolean {
+    const next: Record<string, string> = {}
+    if (!credCourseId) next.courseId = 'Course is required.'
+    if (!credAcademicYearId) next.academicYearId = 'Academic year is required.'
+    if (!credExamId) next.examId = 'Exam is required.'
+    if (!credRoleId) next.roleId = 'Role is required.'
+    setCredFieldErrors(next)
+    return Object.keys(next).length === 0
+  }
+
   async function submitSendCredentials() {
-    if (!credExamId) {
-      toastError('Please select an exam.')
-      return
-    }
-    if (!credRoleId) {
-      toastError('Please select a role.')
-      return
-    }
+    if (!validateCredSend()) return
+    const examId = credExamId!
+    const roleId = credRoleId!
     setLoading(true)
     try {
       let payload: AnyRow[]
       if (credMode === 'single' && credSingleRow?.examEvaluatorProfileId) {
         payload = [buildSendCredentialsItem(
           Number(credSingleRow.examEvaluatorProfileId),
-          credExamId,
-          credRoleId,
+          examId,
+          roleId,
         )]
       } else {
         payload = rows
           .map((r) => buildSendCredentialsItem(
             Number(r.examEvaluatorProfileId),
-            credExamId,
-            credRoleId,
+            examId,
+            roleId,
           ))
           .filter((p) => Number(p.examEvaluatorProfileId) > 0)
       }
@@ -696,6 +704,7 @@ export default function CreateEvaluatorsPage() {
   const openPreferences = useCallback(
     (row: AnyRow) => {
       setPrefRow(row)
+      setPrefFieldErrors({})
       setPrefOpen(true)
       void loadPreferencesModalData(row)
     },
@@ -720,11 +729,21 @@ export default function CreateEvaluatorsPage() {
     })()
   }, [prefCourseId])
 
+  function validatePrefAdd(): boolean {
+    const next: Record<string, string> = {}
+    if (!prefCourseId) next.courseId = 'Course is required.'
+    if (!prefRegulationId) next.regulationId = 'Regulation is required.'
+    if (prefSubjectIds.length === 0) next.subjectIds = 'Select at least one subject.'
+    setPrefFieldErrors(next)
+    return Object.keys(next).length === 0
+  }
+
   function addPreferenceRow() {
-    if (!prefRow?.examEvaluatorProfileId || !prefCourseId || !prefRegulationId || prefSubjectIds.length === 0) {
-      toastError('Please select course, regulation, and at least one subject.')
+    if (!prefRow?.examEvaluatorProfileId) {
+      toastError('Invalid evaluator profile.')
       return
     }
+    if (!validatePrefAdd()) return
     const courseObj = prefCourses.find((c) => pickNum(c, ['courseId']) === prefCourseId)
     const regulationObj = prefRegulations.find((r) => pickNum(r, ['regulationId']) === prefRegulationId)
     let duplicate = false
@@ -759,6 +778,7 @@ export default function CreateEvaluatorsPage() {
     }
     setPrefAll(next)
     setPrefSubjectIds([])
+    setPrefFieldErrors({})
   }
 
   function deletePrefRow(row: AnyRow) {
@@ -789,8 +809,9 @@ export default function CreateEvaluatorsPage() {
       toastError('Invalid evaluator profile.')
       return
     }
-    if (prefAll.length === 0) {
-      toastError('No preferences to save.')
+    if (prefTableRows.length === 0) {
+      if (!validatePrefAdd()) return
+      setPrefFieldErrors({ subjectIds: 'Add at least one preference before saving.' })
       return
     }
     setLoading(true)
@@ -1046,55 +1067,87 @@ export default function CreateEvaluatorsPage() {
       </Dialog>
 
       <Dialog open={prefOpen} onOpenChange={setPrefOpen}>
-        <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden sm:max-w-4xl">
-          <div className="bg-card px-4 py-3">
-            <div className="flex items-center gap-2 text-[15px] font-semibold text-[hsl(var(--primary))]">
-              <Settings className="h-5 w-5 shrink-0 text-[hsl(var(--primary))]" aria-hidden />
-              <span>Add Preferences — {evaluatorName}</span>
-            </div>
-            <div className="mt-2 h-px w-full bg-amber-400/80" />
-          </div>
-          <div className="p-4 space-y-4">
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="min-w-[160px] flex-1">
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Add Preferences — {evaluatorName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+              <div className="md:col-span-3 space-y-1">
                 <Label className="text-[12px]">
                   Course <span className="text-red-600">*</span>
                 </Label>
                 <Select
                   value={prefCourseId ? String(prefCourseId) : null}
-                  onChange={(v) => { setPrefCourseId(v ? Number(v) : null); setPrefRegulationId(null); setPrefSubjectIds([]) }}
+                  onChange={(v) => {
+                    setPrefCourseId(v ? Number(v) : null)
+                    setPrefRegulationId(null)
+                    setPrefSubjectIds([])
+                    if (prefFieldErrors.courseId) {
+                      setPrefFieldErrors((prev) => {
+                        const next = { ...prev }
+                        delete next.courseId
+                        return next
+                      })
+                    }
+                  }}
                   options={prefCourses.map((c) => ({ value: String(pickNum(c, ['courseId'])), label: pickText(c, ['courseCode']) } as SelectOption))}
                   placeholder="Course"
                   disabled={prefLoading}
+                  error={prefFieldErrors.courseId}
                 />
               </div>
-              <div className="min-w-[160px] flex-1">
+              <div className="md:col-span-3 space-y-1">
                 <Label className="text-[12px]">
                   Regulation <span className="text-red-600">*</span>
                 </Label>
                 <Select
                   value={prefRegulationId ? String(prefRegulationId) : null}
-                  onChange={(v) => setPrefRegulationId(v ? Number(v) : null)}
+                  onChange={(v) => {
+                    setPrefRegulationId(v ? Number(v) : null)
+                    if (prefFieldErrors.regulationId) {
+                      setPrefFieldErrors((prev) => {
+                        const next = { ...prev }
+                        delete next.regulationId
+                        return next
+                      })
+                    }
+                  }}
                   options={prefRegulations.map((r) => ({ value: String(pickNum(r, ['regulationId'])), label: pickText(r, ['regulationName', 'regulationCode']) } as SelectOption))}
                   placeholder="Regulation"
                   disabled={!prefCourseId}
+                  error={prefFieldErrors.regulationId}
                 />
               </div>
-              <div className="min-w-[220px] flex-[2]">
-                <Label className="text-[12px]">Subjects</Label>
+              <div className="md:col-span-4 space-y-1">
+                <Label className="text-[12px]">
+                  Subjects <span className="text-red-600">*</span>
+                </Label>
                 <MultiSelect
                   value={prefSubjectIds}
-                  onChange={setPrefSubjectIds}
+                  onChange={(ids) => {
+                    setPrefSubjectIds(ids)
+                    if (prefFieldErrors.subjectIds) {
+                      setPrefFieldErrors((prev) => {
+                        const next = { ...prev }
+                        delete next.subjectIds
+                        return next
+                      })
+                    }
+                  }}
                   options={subjectOptions}
                   placeholder="Subjects"
                   searchable
                   showSelectAll
                   disabled={!prefCourseId}
+                  error={prefFieldErrors.subjectIds}
                 />
               </div>
-              <Button type="button" className="h-9" onClick={addPreferenceRow} disabled={loading || prefLoading}>
-                Add
-              </Button>
+              <div className="md:col-span-2 flex items-end self-stretch pb-0.5">
+                <Button type="button" className="h-9 w-full md:w-auto" onClick={addPreferenceRow} disabled={loading || prefLoading}>
+                  Add
+                </Button>
+              </div>
             </div>
 
             {prefTableRows.length > 0 && (
@@ -1130,9 +1183,9 @@ export default function CreateEvaluatorsPage() {
               </div>
             )}
           </div>
-          <DialogFooter className="border-t border-border px-4 py-3 sm:justify-end gap-2">
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPrefOpen(false)} disabled={loading}>
-              Close
+              Cancel
             </Button>
             <Button onClick={() => void savePreferences()} disabled={loading || prefLoading}>
               Save
@@ -1147,55 +1200,99 @@ export default function CreateEvaluatorsPage() {
             <DialogTitle>Send Credentials</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              <div className="md:col-span-3">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+              <div className="md:col-span-3 space-y-1">
                 <Label className="text-[12px]">
                   Course <span className="text-red-600">*</span>
                 </Label>
                 <Select
                   value={credCourseId ? String(credCourseId) : null}
-                  onChange={(v) => { setCredCourseId(v ? Number(v) : null); setCredAcademicYearId(null); setCredExamId(null) }}
+                  onChange={(v) => {
+                    setCredCourseId(v ? Number(v) : null)
+                    setCredAcademicYearId(null)
+                    setCredExamId(null)
+                    if (credFieldErrors.courseId) {
+                      setCredFieldErrors((prev) => {
+                        const next = { ...prev }
+                        delete next.courseId
+                        return next
+                      })
+                    }
+                  }}
                   options={credCourses.map((c) => ({ value: String(pickNum(c, ['fk_course_id'])), label: pickText(c, ['course_code', 'courseCode']) } as SelectOption))}
                   placeholder="Course"
+                  error={credFieldErrors.courseId}
                 />
               </div>
-              <div className="md:col-span-3">
+              <div className="md:col-span-3 space-y-1">
                 <Label className="text-[12px]">
                   Academic Year <span className="text-red-600">*</span>
                 </Label>
                 <Select
                   value={credAcademicYearId ? String(credAcademicYearId) : null}
-                  onChange={(v) => { setCredAcademicYearId(v ? Number(v) : null); setCredExamId(null) }}
+                  onChange={(v) => {
+                    setCredAcademicYearId(v ? Number(v) : null)
+                    setCredExamId(null)
+                    if (credFieldErrors.academicYearId) {
+                      setCredFieldErrors((prev) => {
+                        const next = { ...prev }
+                        delete next.academicYearId
+                        return next
+                      })
+                    }
+                  }}
                   options={credAcademicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id'])), label: pickText(a, ['academic_year']) } as SelectOption))}
                   placeholder="Academic Year"
+                  disabled={!credCourseId}
+                  error={credFieldErrors.academicYearId}
                 />
               </div>
-              <div className="md:col-span-6">
+              <div className="md:col-span-6 space-y-1">
                 <Label className="text-[12px]">
                   Exam <span className="text-red-600">*</span>
                 </Label>
                 <Select
                   value={credExamId ? String(credExamId) : null}
-                  onChange={(v) => setCredExamId(v ? Number(v) : null)}
+                  onChange={(v) => {
+                    setCredExamId(v ? Number(v) : null)
+                    if (credFieldErrors.examId) {
+                      setCredFieldErrors((prev) => {
+                        const next = { ...prev }
+                        delete next.examId
+                        return next
+                      })
+                    }
+                  }}
                   options={credExams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id'])), label: `${pickText(e, ['exam_name'])} (${formatYmd(e.from_date ?? e.fromDate)} – ${formatYmd(e.to_date ?? e.toDate)})` } as SelectOption))}
                   placeholder="Exam"
                   searchable
                   wrapOptionLabels
                   disabled={!credCourseId || !credAcademicYearId}
+                  error={credFieldErrors.examId}
                 />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              <div className="md:col-span-6">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+              <div className="md:col-span-6 space-y-1">
                 <Label className="text-[12px]">
                   Select Role <span className="text-red-600">*</span>
                 </Label>
                 <Select
                   value={credRoleId ? String(credRoleId) : null}
-                  onChange={(v) => setCredRoleId(v ? Number(v) : null)}
+                  onChange={(v) => {
+                    setCredRoleId(v ? Number(v) : null)
+                    if (credFieldErrors.roleId) {
+                      setCredFieldErrors((prev) => {
+                        const next = { ...prev }
+                        delete next.roleId
+                        return next
+                      })
+                    }
+                  }}
                   options={credRoleOptions}
                   placeholder="Select Role"
                   wrapOptionLabels
+                  error={credFieldErrors.roleId}
                 />
               </div>
             </div>

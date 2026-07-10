@@ -38,6 +38,24 @@ export interface MultiSelectProps {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Radix Dialog scroll-lock can swallow wheel events on portaled popovers — scroll the list manually. */
+function scrollListOnWheel(
+  e: React.WheelEvent,
+  list: HTMLDivElement | null,
+) {
+  if (!list) return
+
+  e.stopPropagation()
+
+  const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight)
+  const next = Math.min(maxScroll, Math.max(0, list.scrollTop + e.deltaY))
+
+  if (next !== list.scrollTop) {
+    list.scrollTop = next
+    e.preventDefault()
+  }
+}
+
 function useDebounce(fn: (v: string) => void, delay: number) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   return useCallback(
@@ -76,6 +94,7 @@ export function MultiSelect({
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   // Debounced server-side search callback
   const debouncedOnSearch = useDebounce(onSearch ?? (() => undefined), 300)
@@ -253,6 +272,7 @@ export function MultiSelect({
           align="start"
           sideOffset={4}
           className="w-[var(--radix-popover-trigger-width)] min-w-[180px] p-0"
+          onWheel={(e) => scrollListOnWheel(e, listRef.current)}
           onInteractOutside={(e) => {
             if (searchInputRef.current?.contains(e.target as Node)) {
               e.preventDefault()
@@ -306,7 +326,12 @@ export function MultiSelect({
           )}
 
           {/* Options list */}
-          <div role="listbox" aria-multiselectable="true" className="max-h-60 overflow-y-auto py-1">
+          <div
+            ref={listRef}
+            role="listbox"
+            aria-multiselectable="true"
+            className="max-h-60 overflow-y-auto overscroll-contain py-1 touch-pan-y"
+          >
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
