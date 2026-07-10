@@ -1413,6 +1413,7 @@ export async function getMultiEvaluatorAssignBundle(params: {
 }
 
 export async function assignMultipleUpdateEvaluationAssignment(params: {
+  /** pk_examevaluator_profiledet_id — Angular Formdata.examEvaluatorProfileId */
   profileId: number
   omrSerialNosCsv: string
   examId: number

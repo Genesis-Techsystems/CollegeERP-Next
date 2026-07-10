@@ -350,6 +350,8 @@ export const QUESTION_PAPER_API = {
   GENERATE_SECRET_CODE: 'generateSecretCode',
   /** POST: validate secret code */
   VALIDATE_SECRET_CODE: 'validateSecretCode',
+  /** GET: downloadQPAndAnswerSheet?id={questionPaperId} — returns questionPaperBase64 */
+  DOWNLOAD_QP_AND_ANSWER_SHEET: 'downloadQPAndAnswerSheet',
 } as const
 
 // ─── Student Management ──────────────────────────────────────────────────────

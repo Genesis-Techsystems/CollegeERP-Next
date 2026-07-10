@@ -2007,6 +2007,16 @@ textarea:focus-visible,
     display: none !important;
   }
 
+  /* AppShell main uses animate-fade-up (opacity:0 at start). If window.print()
+     fires before the animation finishes, the PDF is blank. Force visible. */
+  .animate-fade-up,
+  .animate-fade-in,
+  [class*="animate-fade"] {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
   /* Page-break helper for stickers / multi-section prints. */
   .page-break {
     page-break-before: always;

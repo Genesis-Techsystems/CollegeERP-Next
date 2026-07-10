@@ -403,9 +403,6 @@ export default function GradeSetupPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">
-        Grade Setup
-      </h2>
       {notice && (
         <NoticeAlert
           type={notice.type}
