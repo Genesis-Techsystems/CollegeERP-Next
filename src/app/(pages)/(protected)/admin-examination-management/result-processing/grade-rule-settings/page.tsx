@@ -14,11 +14,11 @@ import { StatusBadge } from '@/common/components/data-display'
 import type { ColDef } from 'ag-grid-community'
 import { Pencil } from 'lucide-react'
 import {
-  createExamGrade,
+  createGradeRuleSetting,
   getExamMasterCollegeFilters,
-  listExamGrades,
+  listGradeRuleSettings,
   listRegulations,
-  updateExamGrade,
+  updateGradeRuleSetting,
 } from '@/services'
 import { toastError, toastSuccess } from '@/lib/toast'
 
@@ -150,23 +150,19 @@ export default function GradeRuleSettingsPage() {
   )
 
   const getList = useCallback(async () => {
-    if (!courseId || !regulationId) return
+    if (!collegeId || !courseId || !regulationId) return
     setLoadingList(true)
     try {
-      const data = await listExamGrades({
-        courseId,
-        regulationId,
-        isForDisabled: false,
-      })
+      const data = await listGradeRuleSettings({ collegeId, courseId, regulationId })
       setRows(Array.isArray(data) ? data : [])
     } finally {
       setLoadingList(false)
     }
-  }, [courseId, regulationId])
+  }, [collegeId, courseId, regulationId])
 
   useEffect(() => {
-    if (courseId && regulationId) void getList()
-  }, [courseId, regulationId, getList])
+    if (collegeId && courseId && regulationId) void getList()
+  }, [collegeId, courseId, regulationId, getList])
 
   const filteredRows = useMemo(() => {
     if (!q.trim()) return rows
@@ -230,12 +226,12 @@ export default function GradeRuleSettingsPage() {
         moderationGraceMarks: numOrNull(form.moderationGraceMarks),
       }
 
-      const id = editing?.examGradesId ?? editing?.examGradeId ?? editing?.id
+      const id = editing?.examrpsettingId ?? editing?.id
       if (id != null) {
-        await updateExamGrade(Number(id), payload)
+        await updateGradeRuleSetting(Number(id), payload)
         toastSuccess('Grade rule updated')
       } else {
-        await createExamGrade(payload)
+        await createGradeRuleSetting(payload)
         toastSuccess('Grade rule added')
       }
       setModalOpen(false)
