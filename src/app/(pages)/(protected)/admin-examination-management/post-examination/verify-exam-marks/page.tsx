@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PageContainer, PageHeader } from '@/components/layout'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -331,8 +331,30 @@ export default function VerifyExamMarksPage() {
     return `<h1>${escapeHtml(MODE_LABEL[mode])}</h1>${sub ? `<p>${escapeHtml(sub)}</p>` : ''}`
   }
 
+  // Angular differentiates the verify-marks modes purely by which columns are shown
+  // over the SAME ext/int result set (displayedColumns vs EvalautiondisplayedColumns):
+  //  - External: the external-marks columns (hides the per-evaluation detail columns)
+  //  - External Evaluation: the per-evaluation columns (hides the plain external-marks column)
+  //  - All / Internal: every column
+  // Implemented by semantic pattern; if a result has no recognisable ext/eval columns the
+  // filter is a no-op (all columns shown), so it can never hide the wrong data.
+  const isEvalCol = (k: string) => /evaluation/i.test(k)
+  const isExtMarksCol = (k: string) => /ext.*mark/i.test(k) || /external.*mark/i.test(k)
+  const visibleKeys = useCallback(
+    (keys: string[]): string[] => {
+      if (mode === 'external') {
+        return keys.some(isEvalCol) ? keys.filter((k) => !isEvalCol(k)) : keys
+      }
+      if (mode === 'evaluation') {
+        return keys.some(isExtMarksCol) ? keys.filter((k) => !isExtMarksCol(k)) : keys
+      }
+      return keys // internal, all
+    },
+    [mode],
+  )
+
   function reportKeys(): string[] {
-    return rows.length ? Object.keys(rows[0]) : []
+    return rows.length ? visibleKeys(Object.keys(rows[0])) : []
   }
 
   /** Angular exportAsExcel('internal'|'external'|'evaluation'|'all'). */
@@ -349,7 +371,7 @@ export default function VerifyExamMarksPage() {
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(() => {
     if (!rows.length) return []
-    const keys = Object.keys(rows[0])
+    const keys = visibleKeys(Object.keys(rows[0]))
     const ordered = [
       ...keys.filter((k) => ['id', 'college', 'Course_Code', 'Academic_Year', 'Course_Group', 'Course_Year', 'Subject'].includes(k)),
       ...keys.filter((k) => !['id', 'college', 'Course_Code', 'Academic_Year', 'Course_Group', 'Course_Year', 'Subject'].includes(k)),
@@ -359,7 +381,7 @@ export default function VerifyExamMarksPage() {
       headerName: toTitle(key),
       minWidth: key.length > 15 ? 190 : 130,
     }))
-  }, [rows])
+  }, [rows, visibleKeys])
 
   return (
     <PageContainer className="space-y-4">
