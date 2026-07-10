@@ -25,7 +25,7 @@ import {
   updateExamQuestionPaper,
   uploadQuestionPaperFiles,
 } from '@/services/evaluation-process'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
 import { toDateOnlyISO } from '@/common/generic-functions'
 
@@ -817,7 +817,7 @@ export default function ExamQuestionPaperMarksPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Exam Question Paper" subtitle="Manage question paper marks setup" />
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">Exam Question Paper</h2>
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
           <h2 className="app-card-title">Exam Question Paper</h2>
@@ -887,7 +887,10 @@ export default function ExamQuestionPaperMarksPage() {
               <Select
                 value={subjectId ? String(subjectId) : null}
                 onChange={(v) => setSubjectId(v ? Number(v) : 0)}
-                options={subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id', 'subjectId'])), label: pickText(s, ['subjectCode', 'subject_code', 'subjectName', 'subject_name']) }))}
+                options={subjects.map((s) => ({
+                  value: String(pickNum(s, ['fk_subject_id', 'subjectId'])),
+                  label: pickText(s, ['subjectName', 'subject_name']) || pickText(s, ['subjectCode', 'subject_code']),
+                }))}
                 placeholder="Subject"
               />
             </div>
@@ -909,6 +912,8 @@ export default function ExamQuestionPaperMarksPage() {
               columnDefs={cols}
               pagination
               loading={loading}
+              title=""
+              subtitle=""
               toolbar={{
                 search: true,
                 searchPlaceholder: 'Search…',
@@ -957,38 +962,38 @@ export default function ExamQuestionPaperMarksPage() {
       >
         <DialogContent className="max-w-5xl max-h-[85vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle className="text-[18px] text-[hsl(var(--primary))]">
+            <DialogTitle>
               {editingRow ? 'Edit Question Paper' : 'Create Question Paper'}
             </DialogTitle>
           </DialogHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 text-[13px]">
             <div className="md:col-span-3 space-y-1">
-              <Label>Course</Label>
-              <Input value={pickText(selectedCourse, ['course_code', 'courseCode', 'course_name', 'courseName']) || '-'} disabled className="h-9 text-[12px]" />
+              <Label className="text-[12px]">Course</Label>
+              <Input value={pickText(selectedCourse, ['course_code', 'courseCode', 'course_name', 'courseName']) || '-'} disabled className="h-9 text-[12px]" placeholder="Course" />
             </div>
             <div className="md:col-span-3 space-y-1">
-              <Label>Academic Year</Label>
-              <Input value={pickText(selectedAcademicYear, ['academic_year', 'academicYear']) || '-'} disabled className="h-9 text-[12px]" />
+              <Label className="text-[12px]">Academic Year</Label>
+              <Input value={pickText(selectedAcademicYear, ['academic_year', 'academicYear']) || '-'} disabled className="h-9 text-[12px]" placeholder="Academic Year" />
             </div>
             <div className="md:col-span-6 space-y-1">
-              <Label>Exam</Label>
-              <Input value={pickText(selectedExam, ['exam_name', 'examName']) || '-'} disabled className="h-9 text-[12px]" />
+              <Label className="text-[12px]">Exam</Label>
+              <Input value={pickText(selectedExam, ['exam_name', 'examName']) || '-'} disabled className="h-9 text-[12px]" placeholder="Exam" />
             </div>
             <div className="md:col-span-2 space-y-1">
-              <Label>Regulation Id</Label>
-              <Input value={pickText(regulations.find((r) => pickNum(r, ['regulationId', 'fk_regulation_id']) === Number(regulationId)), ['regulationCode', 'regulation_code']) || '-'} disabled className="h-9 text-[12px]" />
+              <Label className="text-[12px]">Regulation Id</Label>
+              <Input value={pickText(regulations.find((r) => pickNum(r, ['regulationId', 'fk_regulation_id']) === Number(regulationId)), ['regulationCode', 'regulation_code']) || '-'} disabled className="h-9 text-[12px]" placeholder="Regulation Id" />
             </div>
             <div className="md:col-span-3 space-y-1">
-              <Label>Course Years</Label>
-              <Input value={pickText(selectedCourseYear, ['course_year_name', 'courseYearName', 'course_year_code', 'courseYearCode']) || '-'} disabled className="h-9 text-[12px]" />
+              <Label className="text-[12px]">Course Years</Label>
+              <Input value={pickText(selectedCourseYear, ['course_year_name', 'courseYearName', 'course_year_code', 'courseYearCode']) || '-'} disabled className="h-9 text-[12px]" placeholder="Course Years" />
             </div>
             <div className="md:col-span-4 space-y-1">
-              <Label>Subject</Label>
-              <Input value={pickText(selectedSubject, ['subject_code', 'subjectCode', 'subject_name', 'subjectName']) || '-'} disabled className="h-9 text-[12px]" />
+              <Label className="text-[12px]">Subject</Label>
+              <Input value={pickText(selectedSubject, ['subject_name', 'subjectName']) || pickText(selectedSubject, ['subject_code', 'subjectCode']) || '-'} disabled className="h-9 text-[12px]" placeholder="Subject" />
             </div>
             <div className="md:col-span-3 space-y-1">
-              <Label>Template</Label>
+              <Label className="text-[12px]">Template</Label>
               <div className="flex items-center gap-2">
                 <div className="flex-1 min-w-0">
                   <Select
@@ -1045,55 +1050,65 @@ export default function ExamQuestionPaperMarksPage() {
             <div className="md:col-span-12 border-t pt-3 mt-1" />
 
             <div className="md:col-span-6 space-y-1">
-              <Label>Question Paper Title *</Label>
+              <Label className="text-[12px]">
+                Question Paper Title <span className="text-red-600">*</span>
+              </Label>
               <Input
                 className="h-9 text-[12px]"
                 value={form.questionPaperTitle}
                 onChange={(e) => setForm((s) => ({ ...s, questionPaperTitle: e.target.value }))}
+                placeholder="Question Paper Title"
               />
             </div>
             <div className="md:col-span-3 space-y-1">
-              <Label>Question Paper Code *</Label>
+              <Label className="text-[12px]">
+                Question Paper Code <span className="text-red-600">*</span>
+              </Label>
               <Input
                 className="h-9 text-[12px]"
                 value={form.questionPaperCode}
                 onChange={(e) => setForm((s) => ({ ...s, questionPaperCode: e.target.value }))}
+                placeholder="Question Paper Code"
               />
             </div>
             <div className="md:col-span-3 space-y-1">
-              <Label>Set Number</Label>
+              <Label className="text-[12px]">Set Number</Label>
               <Input
                 className="h-9 text-[12px]"
                 value={form.setNumber}
                 onChange={(e) => setForm((s) => ({ ...s, setNumber: e.target.value }))}
+                placeholder="Set Number"
               />
             </div>
             <div className="md:col-span-4 space-y-1">
-              <Label>Total Questions</Label>
+              <Label className="text-[12px]">Total Questions</Label>
               <Input
                 className="h-9 text-[12px]"
                 value={form.totalQuestions}
                 onChange={(e) => setForm((s) => ({ ...s, totalQuestions: e.target.value }))}
+                placeholder="Total Questions"
               />
             </div>
             <div className="md:col-span-4 space-y-1">
-              <Label>Total Marks</Label>
+              <Label className="text-[12px]">Total Marks</Label>
               <Input
                 className="h-9 text-[12px]"
                 value={form.totalMarks}
                 onChange={(e) => setForm((s) => ({ ...s, totalMarks: e.target.value }))}
+                placeholder="Total Marks"
               />
             </div>
             <div className="md:col-span-4 space-y-1">
-              <Label>Pass Marks</Label>
+              <Label className="text-[12px]">Pass Marks</Label>
               <Input
                 className="h-9 text-[12px]"
                 value={form.passMarks}
                 onChange={(e) => setForm((s) => ({ ...s, passMarks: e.target.value }))}
+                placeholder="Pass Marks"
               />
             </div>
             <div className="md:col-span-4 space-y-1">
-              <Label>Prepared Employee</Label>
+              <Label className="text-[12px]">Prepared Employee</Label>
               <Select
                 value={
                   form.preparedByEmpId
@@ -1110,16 +1125,17 @@ export default function ExamQuestionPaperMarksPage() {
               />
             </div>
             <div className="md:col-span-4 space-y-1">
-              <Label>Prepared Date</Label>
+              <Label className="text-[12px]">Prepared Date</Label>
               <Input
                 type="date"
-                className="h-9 text-[12px]"
+                className="h-9 text-[12px] org-modal-date-input pr-10"
                 value={form.preparedDate}
                 onChange={(e) => setForm((s) => ({ ...s, preparedDate: e.target.value }))}
+                placeholder="Prepared Date"
               />
             </div>
             <div className="md:col-span-4 space-y-1">
-              <Label>Question Paper Status</Label>
+              <Label className="text-[12px]">Question Paper Status</Label>
               <Select
                 value={form.questionPaperStatus ?? null}
                 onChange={(v) => setForm((s) => ({ ...s, questionPaperStatus: v ?? '' }))}
@@ -1128,14 +1144,16 @@ export default function ExamQuestionPaperMarksPage() {
                   { value: 'In Review', label: 'In Review' },
                   { value: 'Approved', label: 'Approved' },
                 ]}
+                placeholder="Question Paper Status"
               />
             </div>
             <div className="md:col-span-12 space-y-1">
-              <Label>Status Comments</Label>
+              <Label className="text-[12px]">Status Comments</Label>
               <textarea
                 className="min-h-[90px] w-full rounded-md border border-input bg-background px-3 py-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-ring"
                 value={form.statusComments}
                 onChange={(e) => setForm((s) => ({ ...s, statusComments: e.target.value }))}
+                placeholder="Status Comments"
               />
             </div>
             <div className="md:col-span-4 flex items-center gap-2">
@@ -1145,22 +1163,25 @@ export default function ExamQuestionPaperMarksPage() {
                   setForm((s) => ({ ...s, isActive: v === true, reason: v === true ? 'active' : s.reason }))
                 }
               />
-              <Label>Active</Label>
+              <Label className="text-[12px]">Active</Label>
             </div>
             {!form.isActive && (
               <div className="md:col-span-8 space-y-1">
-                <Label>Reason</Label>
+                <Label className="text-[12px]">Reason</Label>
                 <Input
                   className="h-9 text-[12px]"
                   value={form.reason}
                   onChange={(e) => setForm((s) => ({ ...s, reason: e.target.value }))}
+                  placeholder="Reason"
                 />
               </div>
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenAddModal(false)}>Close</Button>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setOpenAddModal(false)} disabled={loading}>
+              Cancel
+            </Button>
             <Button onClick={() => void saveQuestionPaper()} disabled={loading}>Save</Button>
           </DialogFooter>
         </DialogContent>

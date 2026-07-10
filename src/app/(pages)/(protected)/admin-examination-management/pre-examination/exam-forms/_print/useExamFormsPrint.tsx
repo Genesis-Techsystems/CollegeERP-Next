@@ -1,366 +1,659 @@
-'use client'
+"use client";
 
 /**
- * Exam Forms — three print views, faithful to Angular:
- *  - Print Form-A : print-form-a (FORM - A: appearing/absent/malpractice halltickets + totals)
- *  - Print D Forms: print-dforms (SUBJECT WISE D-FORM: hallticket grid + totals)
- *  - Print Forms  : print-exam-form (EXAM FORM: per-student answer-book-serial sheet)
+ * Exam Forms — three iframe-isolated print views (Angular parity):
+ *  - Print Form-A  → print-form-a (FORM - A)
+ *  - Print D Forms → print-dforms (SUBJECT WISE D-FORM)
+ *  - Print Forms   → print-exam-form (EXAM FORM)
  *
- * All three render from the already-loaded OMR students (exam_OMR_students), the
- * same `subjectModerationStudents` Angular passes to the print routes.
+ * Uses a hidden iframe (like lab-batch / OMR prints) so AppShell animations
+ * and @media print chrome rules never produce blank PDF pages.
  */
 
-import { type ReactNode } from 'react'
-import { Button } from '@/components/ui/button'
-import { Printer } from 'lucide-react'
-import { usePrintMode } from '@/lib/print'
+import { type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { Printer } from "lucide-react";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 
-type AnyRow = Record<string, any>
-type ExamFormsPrintMode = 'form-a' | 'd-form' | 'form'
+type AnyRow = Record<string, any>;
+
+export type ExamFormsPrintMeta = {
+  courseYear: string;
+  examName: string;
+  logoUrl?: string;
+  groupName?: string;
+};
 
 const g = (r: AnyRow, keys: string[]): string => {
   for (const k of keys) {
-    const v = r?.[k]
-    if (v != null && String(v).trim() !== '') return String(v)
+    const v = r?.[k];
+    if (v != null && String(v).trim() !== "") return String(v);
   }
-  return ''
+  return "";
+};
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+function fmtDate(v: unknown, style: "dd/MM/yyyy" | "MMM d, y"): string {
+  const s = v ? String(v).slice(0, 10) : "";
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return String(v ?? "");
+  if (style === "dd/MM/yyyy") {
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  }
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
-function fmtDate(v: unknown, style: 'dd/MM/yyyy' | 'MMM d, y'): string {
-  const s = v ? String(v).slice(0, 10) : ''
-  if (!s) return ''
-  const d = new Date(s)
-  if (Number.isNaN(d.getTime())) return String(v ?? '')
-  if (style === 'dd/MM/yyyy') {
-    const dd = String(d.getDate()).padStart(2, '0')
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    return `${dd}/${mm}/${d.getFullYear()}`
+const HT = (r: AnyRow) => g(r, ["hallticket_number", "hallticketNumber"]);
+const NAME = (r: AnyRow) =>
+  g(r, ["student_name", "studentName", "StudentName"]);
+const SERIAL = (r: AnyRow) => g(r, ["omr_serial_no", "omrSerialNo"]);
+const presentVal = (r: AnyRow) => r?.is_present ?? r?.isPresent ?? null;
+const isUfm = (r: AnyRow) => r?.isUfm ?? r?.is_ufm === true;
+
+/** Angular print-form-a / print-dforms / print-exam-form SCSS */
+const PRINT_CSS = `
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #000;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  .layout {
+    margin: 0 auto;
+    width: 990px;
+    max-width: 100%;
+    font-family: Arial, sans-serif;
+    color: #000;
+  }
+  #table1 { border: none !important; width: 100%; border-collapse: collapse; }
+  #table1 tr { border: none !important; }
+  #table1 td {
+    border: none !important;
+    width: 249px;
+    font-family: arial, sans-serif;
+    font-size: 14px;
+    padding: 6px;
+    font-weight: bold;
+  }
+  #table2 {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    margin: auto;
+    padding: 10px 0;
+    font-family: arial, sans-serif;
+    border: none;
+  }
+  #table2 .ht-cell {
+    border: none !important;
+    vertical-align: middle;
+    text-align: center;
+    box-sizing: border-box;
+    padding: 2px 0;
+    font-family: arial, sans-serif;
+  }
+  #table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 2%;
+  }
+  #table .table-th {
+    padding: 5px 16px;
+    border: 1px solid #000;
+    font-size: 15px;
+    text-align: left;
+    font-weight: bold;
+  }
+  hr {
+    clear: both;
+    display: block;
+    width: 100%;
+    height: 1px;
+    background: #000;
+    border: none;
+    margin: 0;
+  }
+  .collegeName {
+    text-align: center;
+    font-size: 23px;
+    margin-top: 1%;
+    margin-bottom: -15px;
+    font-weight: 550;
+  }
+  .collegeName-2 {
+    text-align: center;
+    font-size: 23px;
+    margin-top: 1%;
+    font-weight: 550;
+  }
+  .title {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: -5px;
+  }
+  .title2 {
+    text-align: right;
+    font-size: 15px;
+    font-weight: 650;
+    margin-bottom: 3px;
+  }
+  .text {
+    font-family: arial, sans-serif;
+    font-size: 14px;
+    padding: 8px;
+    font-weight: bold;
+    margin: 0;
+  }
+  .portraitLogo { height: 80%; width: 80%; }
+  .college-banner { width: 100%; height: auto; display: block; }
+  .college-banner-2 {
+    width: 100%;
+    height: 90px;
+    display: block;
+    object-fit: contain;
+  }
+  .custom-table {
+    width: 100%;
+    font-size: 14px;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+    border: 1px solid #000;
+  }
+  .custom-table th,
+  .custom-table td {
+    border: 1px solid #000;
+    padding: 8px;
+    text-align: center;
+  }
+  .custom-table th { font-weight: bold; }
+  .table-container {
+    margin: 20px auto;
+    width: 90%;
+    font-family: Arial, sans-serif;
+  }
+  .footer-info td {
+    border: none !important;
+    font-size: 14px;
+    padding: 4px 0;
+  }
+  .header-row { display: flex; align-items: center; }
+  .header-logo { width: 15%; flex-shrink: 0; }
+  .header-title { width: 85%; text-align: center; }
+  .sig-row { display: flex; margin-top: 8%; gap: 16px; }
+  .sig-col { flex: 1; }
+  @media print {
+    html, body { background: #fff !important; }
+    tr { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+  }
+  @page { margin: 1cm; }
+`;
+
+function printHtmlInIframe(html: string): void {
+  const frame = document.createElement("iframe");
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.cssText =
+    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+  document.body.appendChild(frame);
+
+  const fdoc = frame.contentDocument;
+  const win = frame.contentWindow;
+  if (!fdoc || !win) {
+    frame.remove();
+    return;
+  }
+
+  fdoc.open();
+  fdoc.write(html);
+  fdoc.close();
+
+  const cleanup = () => frame.remove();
+  win.addEventListener("afterprint", cleanup);
+
+  const imgs = Array.from(fdoc.images);
+  const waitForImages = imgs.length
+    ? Promise.all(
+        imgs.map(
+          (img) =>
+            new Promise<void>((resolve) => {
+              if (img.complete) {
+                resolve();
+                return;
+              }
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+            }),
+        ),
+      )
+    : Promise.resolve();
+
+  void waitForImages.then(() => {
+    setTimeout(() => {
+      win.focus();
+      win.print();
+      setTimeout(cleanup, 1500);
+    }, 100);
+  });
 }
 
-const HT = (r: AnyRow) => g(r, ['hallticket_number', 'hallticketNumber'])
-const NAME = (r: AnyRow) => g(r, ['student_name', 'studentName', 'StudentName'])
-const SERIAL = (r: AnyRow) => g(r, ['omr_serial_no', 'omrSerialNo'])
-const presentVal = (r: AnyRow) => r?.is_present ?? r?.isPresent ?? null
-const isUfm = (r: AnyRow) => r?.isUfm ?? r?.is_ufm ?? false
+function wrapDocument(title: string, body: string): string {
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${PRINT_CSS}</style></head><body><div class="layout">${body}</div></body></html>`;
+}
 
-const TD = { border: '1px solid #000', padding: '4px 6px' } as const
-const THL = { border: '1px solid #000', padding: '4px 6px', textAlign: 'left' as const }
+function resolveOrgCode(head: AnyRow): string {
+  const fromRow = g(head, ["university_code", "universityCode"]);
+  if (fromRow) return fromRow.toUpperCase();
+  if (typeof window !== "undefined") {
+    const stored = window.localStorage.getItem("orgCode");
+    if (stored) return stored.toUpperCase();
+  }
+  return "";
+}
+
+function hallticketGridHtml(
+  rows: AnyRow[],
+  colWidth: string,
+  fontSize: string,
+): string {
+  if (!rows.length) return "";
+  const cells = rows
+    .map(
+      (d) =>
+        `<div class="ht-cell" style="width:${colWidth};font-size:${fontSize};">${escapeHtml(HT(d))}</div>`,
+    )
+    .join("");
+  return `<div id="table2">${cells}</div>`;
+}
+
+const ORG_BANNER_PATH: Record<string, string> = {
+  MVSR: "/assets/images/avatars/MVSR_BANNER.png",
+  MECS: "/assets/images/avatars/MECS_BANNER.png",
+};
+
+/** Absolute URL for iframe print documents (static paths + MinIO logos). */
+function absUrl(src: string): string {
+  if (!src) return "";
+  if (/^(https?:\/\/|data:)/i.test(src)) return src;
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}${src.startsWith("/") ? src : `/${src}`}`;
+  }
+  return src.startsWith("/") ? src : `/${src}`;
+}
+
+function bannerImgHtml(
+  orgCode: string,
+  logoSrc: string,
+  cssClass: string,
+): string {
+  const logo = absUrl(logoSrc || DEFAULT_COLLEGE_LOGO);
+  const staticPath = ORG_BANNER_PATH[orgCode];
+  const primary = staticPath ? absUrl(staticPath) : logo;
+  const fb = logo.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  return `<img src="${escapeHtml(primary)}" alt="" class="${cssClass}"
+    onerror="if(this.dataset.fbk)return;this.dataset.fbk='1';this.src='${fb}';" />`;
+}
+
+function formAHeaderHtml(
+  orgCode: string,
+  logoSrc: string,
+  examName: string,
+  examDate: unknown,
+): string {
+  const e = escapeHtml;
+  const dateStr = e(fmtDate(examDate, "dd/MM/yyyy"));
+  const nameStr = e(examName);
+  const logo = absUrl(logoSrc || DEFAULT_COLLEGE_LOGO);
+
+  if (orgCode === "MVSR") {
+    return `
+      ${bannerImgHtml(orgCode, logoSrc, "college-banner-2")}
+      <p class="collegeName">FORM - A</p>
+      <p class="title">${nameStr}</p>
+      <p class="title2">Exam Date : ${dateStr}</p>`;
+  }
+  if (orgCode === "MECS") {
+    return `
+      ${bannerImgHtml(orgCode, logoSrc, "college-banner")}
+      <p class="collegeName">FORM - A</p>
+      <p class="title">${nameStr}</p>
+      <p class="title2">Exam Date : ${dateStr}</p>`;
+  }
+  if (orgCode === "SUK") {
+    const fb = logo.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    return `
+      <img src="${e(logo)}" alt="" style="width:100%;max-height:60px;object-fit:contain"
+        onerror="if(this.dataset.fbk)return;this.dataset.fbk='1';this.src='${fb}';" />
+      <p class="collegeName">FORM - A</p>
+      <p class="title">${nameStr}</p>
+      <p class="title2">Exam Date : ${dateStr}</p>`;
+  }
+  const fb = logo.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  return `
+    <div class="header-row">
+      <div class="header-logo">
+        <img src="${e(logo)}" alt="" class="portraitLogo"
+          onerror="if(this.dataset.fbk)return;this.dataset.fbk='1';this.src='${fb}';" />
+      </div>
+      <div class="header-title" style="margin-top:5%;">
+        <p class="collegeName-2">FORM - A</p>
+      </div>
+    </div>`;
+}
+
+function formASignaturesHtml(orgCode: string): string {
+  const isMvsrMecs = orgCode === "MVSR" || orgCode === "MECS";
+  const left = isMvsrMecs
+    ? "Sign of Controller of Examinations"
+    : "Signature of Chief Superintendent (CS) :";
+  const right = isMvsrMecs
+    ? "Signature of Chief Superintendent (CS) :"
+    : "Signature of Dy.Chief Superintendent (DCS) :";
+  return `
+    <div class="sig-row">
+      <div class="sig-col">
+        <table id="table1"><tr><td>${left}</td></tr><tr><td>Name :</td></tr></table>
+      </div>
+      <div class="sig-col">
+        <table id="table1"><tr><td>${right}</td></tr><tr><td>Name :</td></tr></table>
+      </div>
+    </div>`;
+}
+
+function buildFormADocument(
+  students: AnyRow[],
+  meta: ExamFormsPrintMeta,
+): string {
+  const head = students[0] ?? {};
+  const orgCode = resolveOrgCode(head);
+  const logoSrc = meta.logoUrl || DEFAULT_COLLEGE_LOGO;
+  const collegeName = g(head, ["college_name", "collegeName"]);
+  const groupCode = g(head, ["group_code", "groupCode"]);
+  const subjectName = g(head, ["subject_name", "subjectName"]);
+  const subjectCode = g(head, ["subject_code", "subjectCode"]);
+  const examName = g(head, ["exam_name", "examName"]) || meta.examName;
+  const examDate = head.exam_date ?? head.examDate;
+  const courseYear = meta.courseYear;
+
+  const appearing = students.filter((s) => presentVal(s) === null);
+  const presentStudents = students.filter((s) => presentVal(s) === true);
+  const absentStudents = students.filter((s) => presentVal(s) === false);
+  const malpractice = students.filter((s) => isUfm(s));
+
+  const absentSpans = absentStudents
+    .map(
+      (d) =>
+        `<span style="padding-left:10px;font-weight:400;">${escapeHtml(HT(d))}</span>`,
+    )
+    .join("");
+  const malSpans = malpractice
+    .map(
+      (d) =>
+        `<span style="padding-left:10px;font-weight:400;">${escapeHtml(HT(d))}</span>`,
+    )
+    .join("");
+
+  const e = escapeHtml;
+  const body = `
+    ${formAHeaderHtml(orgCode, logoSrc, examName, examDate)}
+    <table id="table">
+      <tr><th class="table-th">College</th><th class="table-th">${e(collegeName)}</th></tr>
+      <tr><th class="table-th">Course Group</th><th class="table-th">${e(groupCode)}</th></tr>
+      <tr><th class="table-th">Semester</th><th class="table-th">${e(courseYear)}</th></tr>
+      <tr><th class="table-th">Subject title with Code</th>
+        <th class="table-th">${e(subjectName)}&nbsp;(${e(subjectCode)})</th></tr>
+    </table>
+    ${hallticketGridHtml(appearing, "16.6%", "14px")}
+    ${hallticketGridHtml(presentStudents, "16.6%", "14px")}
+    <hr />
+    <p class="text">HallTicket No of Absentees :${absentSpans}</p>
+    <p class="text" style="margin-top:1.5%;margin-bottom:1.5%;">HallTicket No of Malpractice :${malSpans}</p>
+    <table id="table">
+      <tr><th class="table-th">Total number of students appearance</th>
+        <th class="table-th">${students.length}</th></tr>
+      <tr><th class="table-th">Total number of students present</th>
+        <th class="table-th">${presentStudents.length > 0 ? presentStudents.length : ""}</th></tr>
+      <tr><th class="table-th">Total number of students absent</th>
+        <th class="table-th">${absentStudents.length > 0 ? absentStudents.length : ""}</th></tr>
+      <tr><th class="table-th">Malpractice Case</th>
+        <th class="table-th">${malpractice.length > 0 ? malpractice.length : ""}</th></tr>
+      <tr><th class="table-th">Total number of answer scripts dispatched</th>
+        <th class="table-th"></th></tr>
+    </table>
+    ${formASignaturesHtml(orgCode)}`;
+
+  return wrapDocument(`FORM - A — ${collegeName || examName}`, body);
+}
+
+function buildDFormDocument(
+  students: AnyRow[],
+  meta: ExamFormsPrintMeta,
+): string {
+  const head = students[0] ?? {};
+  const orgCode = resolveOrgCode(head);
+  const logoSrc = meta.logoUrl || DEFAULT_COLLEGE_LOGO;
+  const collegeName = g(head, ["college_name", "collegeName"]);
+  const groupCode = g(head, ["group_code", "groupCode"]);
+  const groupName =
+    meta.groupName || g(head, ["group_name", "groupName"]) || groupCode;
+  const subjectName = g(head, ["subject_name", "subjectName"]);
+  const subjectCode = g(head, ["subject_code", "subjectCode"]);
+  const examDate = head.exam_date ?? head.examDate;
+  const sessinTime = g(head, ["sessin_time", "sessinTime"]);
+  const sessionName = g(head, ["exam_session_name", "examSessionName"]);
+  const e = escapeHtml;
+
+  let orgHeader = "";
+  if (orgCode === "AMS") {
+    orgHeader = `
+      <div style="text-align:center;">
+        <h2 style="font-size:20px;margin-bottom:-17px;"><b>ANDHRA MAHILA SABHA ARTS &amp; SCIENCE COLLEGE FOR WOMEN</b></h2>
+        <h2 style="font-size:20px;margin-bottom:-17px;"><b>(AUTONOMOUS)</b></h2>
+        <h3 style="margin-bottom:15px;"><b>O.U CAMPUS. HYDERABAD</b></h3>
+      </div>`;
+  } else if (orgCode === "SUK") {
+    orgHeader = `
+      <img src="${e(logoSrc)}" alt="" style="width:100%;max-height:60px;object-fit:contain"
+        onerror="this.onerror=null;this.src='${DEFAULT_COLLEGE_LOGO}';" />
+      <div style="text-align:center;">
+        <h2 style="font-size:20px;margin-bottom:-10px;"><b>${e(collegeName)}</b></h2>
+      </div>`;
+  }
+
+  const body = `
+    ${orgHeader}
+    <table id="table1"><tr>
+      <td>Course: &nbsp;${e(groupName)}</td>
+      <td style="text-align:center;">SUBJECT WISE D-FORM</td>
+      <td></td>
+    </tr></table>
+    <hr />
+    <table id="table1"><tr>
+      <td>Exam Date : &nbsp;${e(fmtDate(examDate, "MMM d, y"))}</td>
+      <td>Exam Time :&nbsp;${e(sessinTime)}</td>
+      <td>Exam Session :&nbsp;${e(sessionName)}&nbsp;</td>
+    </tr></table>
+    <hr />
+    <table id="table1"><tr>
+      <td>Subject Name: &nbsp;${e(subjectName)}-${e(subjectCode)}</td>
+    </tr></table>
+    <hr />
+    ${hallticketGridHtml(students, "25%", "17px")}
+    <hr />
+    <table id="table1"><tr>
+      <td>Total : ${students.length}</td>
+      <td>No.of Additions :</td>
+      <td>No. of Present :</td>
+      <td>No. of Absent :</td>
+    </tr></table>`;
+
+  return wrapDocument(`SUBJECT WISE D-FORM — ${subjectName}`, body);
+}
+
+function buildExamFormDocument(
+  students: AnyRow[],
+  meta: ExamFormsPrintMeta,
+): string {
+  const head = students[0] ?? {};
+  const orgCode = resolveOrgCode(head);
+  const logoSrc = meta.logoUrl || DEFAULT_COLLEGE_LOGO;
+  const collegeName = g(head, ["college_name", "collegeName"]);
+  const groupCode = g(head, ["group_code", "groupCode"]);
+  const subjectName = g(head, ["subject_name", "subjectName"]);
+  const subjectCode = g(head, ["subject_code", "subjectCode"]);
+  const examDate = head.exam_date ?? head.examDate;
+  const courseYear = meta.courseYear;
+  const e = escapeHtml;
+
+  const headerHtml =
+    orgCode !== "SUK"
+      ? `
+    <div class="header-row" style="justify-content:center;">
+      <div class="header-logo">
+        <img src="${e(absUrl(logoSrc))}" alt="" class="portraitLogo"
+          onerror="if(this.dataset.fbk)return;this.dataset.fbk='1';this.src='${absUrl(DEFAULT_COLLEGE_LOGO).replace(/\\/g, "\\\\").replace(/'/g, "\\'")}';" />
+      </div>
+      <div class="header-title">
+        <p class="collegeName" style="margin-top:2%;">${e(collegeName)}</p>
+        <p class="collegeName" style="padding-top:10px;">EXAM FORM</p>
+      </div>
+    </div>`
+      : "";
+
+  const studentRows = students
+    .map(
+      (d, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${e(HT(d))}</td>
+        <td>${e(NAME(d))}</td>
+        <td>${e(SERIAL(d))}</td>
+        <td></td>
+        <td>&nbsp;<input type="radio" name="status-${i}" />&nbsp;Absent</td>
+        <td>&nbsp;<input type="radio" name="status-${i}" />&nbsp;Malpractice</td>
+      </tr>`,
+    )
+    .join("");
+
+  const body = `
+    ${headerHtml}
+    <div class="table-container">
+      <table class="custom-table">
+        <tr>
+          <th>COURSE:</th><td>${e(groupCode)}</td>
+          <th>SEMESTER:</th><td>${e(courseYear)}</td>
+        </tr>
+        <tr>
+          <th>SUBJECT:</th><td>${e(subjectName)}&nbsp;(${e(subjectCode)})</td>
+          <th>PAPER CODE:</th><td></td>
+        </tr>
+        <tr>
+          <th>EXAM DATE &amp; TIME:</th><td>${e(fmtDate(examDate, "dd/MM/yyyy"))}</td>
+          <th>SCHEME:</th><td></td>
+        </tr>
+      </table>
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>S.No</th>
+            <th>Hall Ticket Number</th>
+            <th>Student Name</th>
+            <th>Answer Book Serial Number</th>
+            <th>Signature</th>
+            <th colspan="2">Record Attendence for Absent and Malpractice Only</th>
+          </tr>
+        </thead>
+        <tbody>${studentRows}</tbody>
+      </table>
+      <p style="font-size:14px;margin:8px 0;">
+        Please darken the circle Absent or Malpractice again Hall ticket number, if any.
+      </p>
+      <div class="footer-info">
+        <table id="table">
+          <tr>
+            <td>Total no. of students in this sheet: </td>
+            <td>Total no. of Malpractice cases in this sheet:</td>
+          </tr>
+          <tr>
+            <td>Total no. of Absent students in this sheet:</td>
+            <td>Total no. of Malpractice cases in this sheet:</td>
+          </tr>
+        </table>
+      </div>
+      <div class="footer-info">
+        <table id="table" style="margin-top:10px;">
+          <tr>
+            <td>Signature of Invigilator</td>
+            <td style="text-align:end;">Signature of Exam Superintendent with seal</td>
+          </tr>
+        </table>
+      </div>
+    </div>`;
+
+  return wrapDocument(`EXAM FORM — ${collegeName}`, body);
+}
 
 export function useExamFormsPrint(
   students: AnyRow[],
-  meta: { courseYear: string; examName: string; logoUrl?: string },
-): { printMode: ExamFormsPrintMode | null; printButtons: ReactNode; printView: ReactNode } {
-  const { mode: printMode, triggerPrint } = usePrintMode<ExamFormsPrintMode>()
-
-  const head = students[0] ?? {}
-  const collegeName = g(head, ['college_name', 'collegeName'])
-  const groupCode = g(head, ['group_code', 'groupCode'])
-  const subjectName = g(head, ['subject_name', 'subjectName'])
-  const subjectCode = g(head, ['subject_code', 'subjectCode'])
-  const examName = g(head, ['exam_name', 'examName']) || meta.examName
-  const examDate = head.exam_date ?? head.examDate
-  const sessinTime = g(head, ['sessin_time', 'sessinTime'])
-  const sessionName = g(head, ['exam_session_name', 'examSessionName'])
-  const courseYear = meta.courseYear
+  meta: ExamFormsPrintMeta,
+): { printButtons: ReactNode } {
+  const printFormA = () => {
+    if (!students.length) return;
+    printHtmlInIframe(buildFormADocument(students, meta));
+  };
+  const printDForm = () => {
+    if (!students.length) return;
+    printHtmlInIframe(buildDFormDocument(students, meta));
+  };
+  const printForm = () => {
+    if (!students.length) return;
+    printHtmlInIframe(buildExamFormDocument(students, meta));
+  };
 
   const printButtons = (
-    <div className="flex flex-wrap gap-2">
-      <Button type="button" className="h-8 text-[12px]" disabled={students.length === 0} onClick={() => triggerPrint('form-a')}>
+    <div className="flex flex-wrap justify-end gap-2">
+      <Button
+        type="button"
+        className="h-8 text-[12px]"
+        disabled={students.length === 0}
+        onClick={printFormA}
+      >
         <Printer className="mr-1.5 h-3.5 w-3.5" /> Print Form-A
       </Button>
-      <Button type="button" className="h-8 text-[12px]" disabled={students.length === 0} onClick={() => triggerPrint('d-form')}>
+      <Button
+        type="button"
+        className="h-8 text-[12px]"
+        disabled={students.length === 0}
+        onClick={printDForm}
+      >
         <Printer className="mr-1.5 h-3.5 w-3.5" /> Print D Forms
       </Button>
-      <Button type="button" className="h-8 text-[12px]" disabled={students.length === 0} onClick={() => triggerPrint('form')}>
+      <Button
+        type="button"
+        className="h-8 text-[12px]"
+        disabled={students.length === 0}
+        onClick={printForm}
+      >
         <Printer className="mr-1.5 h-3.5 w-3.5" /> Print Forms
       </Button>
     </div>
-  )
+  );
 
-  // Angular print forms: <img [src]="MINIO + Logo"> where Logo is the SELECTED
-  // college's logo. The page passes that resolved URL via meta.logoUrl.
-  const logoSrc = meta.logoUrl || '/assets/images/avatars/default_logo.png'
-  function Banner() {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={logoSrc}
-        alt=""
-        style={{ maxHeight: 70, margin: '0 auto 6px', display: 'block' }}
-        onError={(e) => {
-          const img = e.currentTarget as HTMLImageElement
-          if (!img.src.endsWith('default_logo.png')) img.src = '/assets/images/avatars/default_logo.png'
-          else img.style.display = 'none'
-        }}
-      />
-    )
-  }
-
-  let printView: ReactNode = null
-
-  // ── FORM - A ────────────────────────────────────────────────────────────────
-  if (printMode === 'form-a') {
-    const appearing = students.filter((s) => presentVal(s) == null)
-    const presentStudents = students.filter((s) => presentVal(s) === true)
-    const absentStudents = students.filter((s) => presentVal(s) === false)
-    const malpractice = students.filter((s) => isUfm(s) === true)
-    const htGrid = (rows: AnyRow[], key: string) => (
-      <div style={{ display: 'flex', flexWrap: 'wrap', width: '100%' }}>
-        {rows.map((d, i) => (
-          <div
-            key={`${key}-${i}`}
-            style={{ width: '16.666%', textAlign: 'center', padding: '2px 0', fontSize: '13px', boxSizing: 'border-box' }}
-          >
-            {HT(d)}
-          </div>
-        ))}
-      </div>
-    )
-    printView = (
-      <div className="text-black" style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px' }}>
-        <Banner />
-        <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '16px', margin: 0 }}>FORM - A</p>
-        <p style={{ textAlign: 'center', fontSize: '14px', margin: '4px 0 0 0' }}>{examName}</p>
-        <p style={{ textAlign: 'center', fontSize: '12px', margin: '2px 0 8px 0' }}>Exam Date : {fmtDate(examDate, 'dd/MM/yyyy')}</p>
-
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '8px' }}>
-          <tbody>
-            <tr>
-              <th style={THL}>College</th>
-              <th style={THL}>{collegeName}</th>
-            </tr>
-            <tr>
-              <th style={THL}>Course Group</th>
-              <th style={THL}>{groupCode}</th>
-            </tr>
-            <tr>
-              <th style={THL}>Semester</th>
-              <th style={THL}>{courseYear}</th>
-            </tr>
-            <tr>
-              <th style={THL}>Subject title with Code</th>
-              <th style={THL}>
-                {subjectName}&nbsp;({subjectCode})
-              </th>
-            </tr>
-          </tbody>
-        </table>
-
-        {appearing.length > 0 && htGrid(appearing, 'app')}
-        {presentStudents.length > 0 && htGrid(presentStudents, 'pre')}
-
-        <hr style={{ margin: '10px 0' }} />
-        <p style={{ fontSize: '14px', margin: '4px 0' }}>
-          <b>HallTicket No of Absentees : </b>
-          {absentStudents.map((d, i) => (
-            <span key={`abs-${i}`} style={{ paddingLeft: '10px', fontWeight: 400 }}>
-              {HT(d)}
-            </span>
-          ))}
-        </p>
-        <p style={{ fontSize: '14px', margin: '4px 0' }}>
-          <b>HallTicket No of Malpractice : </b>
-          {malpractice.map((d, i) => (
-            <span key={`mal-${i}`} style={{ paddingLeft: '10px', fontWeight: 400 }}>
-              {HT(d)}
-            </span>
-          ))}
-        </p>
-
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginTop: '8px' }}>
-          <tbody>
-            <tr>
-              <th style={THL}>Total number of students appearance</th>
-              <th style={THL}>{students.length}</th>
-            </tr>
-            <tr>
-              <th style={THL}>Total number of students present</th>
-              <th style={THL}>{presentStudents.length > 0 ? presentStudents.length : ''}</th>
-            </tr>
-            <tr>
-              <th style={THL}>Total number of students absent</th>
-              <th style={THL}>{absentStudents.length > 0 ? absentStudents.length : ''}</th>
-            </tr>
-            <tr>
-              <th style={THL}>Malpractice Case</th>
-              <th style={THL}>{malpractice.length > 0 ? malpractice.length : ''}</th>
-            </tr>
-            <tr>
-              <th style={THL}>Total number of answer scripts dispatched</th>
-              <th style={THL}></th>
-            </tr>
-          </tbody>
-        </table>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '48px', fontSize: '12px' }}>
-          <div>Signature of Chief Superintendent (CS) :</div>
-          <div>Signature of Dy.Chief Superintendent (DCS) :</div>
-        </div>
-      </div>
-    )
-  }
-
-  // ── SUBJECT WISE D-FORM ───────────────────────────────────────────────────────
-  else if (printMode === 'd-form') {
-    printView = (
-      <div className="text-black" style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px' }}>
-        <Banner />
-        <h2 style={{ textAlign: 'center', fontSize: '20px', margin: '0 0 8px 0' }}>
-          <b>{collegeName}</b>
-        </h2>
-        <table style={{ width: '100%', fontSize: '13px', marginBottom: '6px' }}>
-          <tbody>
-            <tr>
-              <td>Course: &nbsp;{groupCode}</td>
-              <td style={{ textAlign: 'center', fontWeight: 'bold' }}>SUBJECT WISE D-FORM</td>
-              <td></td>
-            </tr>
-          </tbody>
-        </table>
-        <hr />
-        <table style={{ width: '100%', fontSize: '13px', margin: '6px 0' }}>
-          <tbody>
-            <tr>
-              <td>Exam Date : &nbsp;{fmtDate(examDate, 'MMM d, y')}</td>
-              <td>Exam Time : &nbsp;{sessinTime}</td>
-              <td>Exam Session : &nbsp;{sessionName}</td>
-            </tr>
-          </tbody>
-        </table>
-        <hr />
-        <table style={{ width: '100%', fontSize: '13px', margin: '6px 0' }}>
-          <tbody>
-            <tr>
-              <td>
-                Subject Name: &nbsp;{subjectName}-{subjectCode}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <hr />
-        <div style={{ display: 'flex', flexWrap: 'wrap', width: '100%' }}>
-          {students.map((d, i) => (
-            <div key={`d-${i}`} style={{ width: '25%', padding: '3px 0', fontSize: '13px', boxSizing: 'border-box' }}>
-              {HT(d)}
-            </div>
-          ))}
-        </div>
-        <hr />
-        <table style={{ width: '100%', fontSize: '13px', margin: '6px 0' }}>
-          <tbody>
-            <tr>
-              <td>Total : {students.length}</td>
-              <td>No.of Additions :</td>
-              <td>No. of Present :</td>
-              <td>No. of Absent :</td>
-            </tr>
-          </tbody>
-        </table>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '48px', fontSize: '12px' }}>
-          <div>Signature of Invigilator</div>
-          <div>Signature of Exam Superintendent with seal</div>
-        </div>
-      </div>
-    )
-  }
-
-  // ── EXAM FORM ─────────────────────────────────────────────────────────────────
-  else if (printMode === 'form') {
-    printView = (
-      <div className="text-black" style={{ fontFamily: 'Times New Roman, Times, serif', padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-          <Banner />
-        </div>
-        <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '16px', margin: 0 }}>{collegeName}</p>
-        <p style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '15px', margin: '4px 0 10px 0' }}>EXAM FORM</p>
-
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '8px' }}>
-          <tbody>
-            <tr>
-              <th style={THL}>COURSE:</th>
-              <td style={TD}>{groupCode}</td>
-              <th style={THL}>SEMESTER:</th>
-              <td style={TD}>{courseYear}</td>
-            </tr>
-            <tr>
-              <th style={THL}>SUBJECT:</th>
-              <td style={TD}>
-                {subjectName}&nbsp;({subjectCode})
-              </td>
-              <th style={THL}>PAPER CODE:</th>
-              <td style={TD}></td>
-            </tr>
-            <tr>
-              <th style={THL}>EXAM DATE &amp; TIME:</th>
-              <td style={TD}>{fmtDate(examDate, 'dd/MM/yyyy')}</td>
-              <th style={THL}>SCHEME:</th>
-              <td style={TD}></td>
-            </tr>
-          </tbody>
-        </table>
-
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-          <thead>
-            <tr>
-              <th style={THL}>S.No</th>
-              <th style={THL}>Hall Ticket Number</th>
-              <th style={THL}>Student Name</th>
-              <th style={THL}>Answer Book Serial Number</th>
-              <th style={THL}>Signature</th>
-              <th style={THL} colSpan={2}>
-                Record Attendence for Absent and Malpractice Only
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.map((d, i) => (
-              <tr key={`f-${i}`}>
-                <td style={TD}>{i + 1}</td>
-                <td style={TD}>{HT(d)}</td>
-                <td style={TD}>{NAME(d)}</td>
-                <td style={TD}>{SERIAL(d)}</td>
-                <td style={TD}></td>
-                <td style={TD}>
-                  &nbsp;<input type="radio" name={`status-${i}`} />
-                  &nbsp;Absent
-                </td>
-                <td style={TD}>
-                  &nbsp;<input type="radio" name={`status-${i}`} />
-                  &nbsp;Malpractice
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <p style={{ fontSize: '12px', margin: '8px 0' }}>
-          Please darken the circle Absent or Malpractice again Hall ticket number, if any.
-        </p>
-        <table style={{ width: '100%', fontSize: '12px' }}>
-          <tbody>
-            <tr>
-              <td>Total no. of students in this sheet: {students.length}</td>
-              <td>Total no. of Malpractice cases in this sheet:</td>
-            </tr>
-            <tr>
-              <td>Total no. of Absent students in this sheet:</td>
-              <td>Total no. of Malpractice cases in this sheet:</td>
-            </tr>
-          </tbody>
-        </table>
-        <table style={{ width: '100%', fontSize: '12px', marginTop: '10px' }}>
-          <tbody>
-            <tr>
-              <td>Signature of Invigilator</td>
-              <td style={{ textAlign: 'end' }}>Signature of Exam Superintendent with seal</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    )
-  }
-
-  return { printMode, printButtons, printView }
+  return { printButtons };
 }

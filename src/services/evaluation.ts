@@ -11,7 +11,6 @@ import { crud, domainUpdate, putDetails, uploadFile } from '@/services/crud'
 import { EXAM_EVAL_API } from '@/config/constants/api'
 import { parseApiError } from '@/lib/errors'
 import { txt } from '@/common/utils/data-helpers'
-import { getUnivExamFiltersByType } from '@/services/pre-examination'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -913,8 +912,31 @@ export function isEvalLocked(statusCode: number): boolean {
 type ProcRows = Record<string, unknown>[]
 
 export async function getRegSupBaseFilters(employeeId: number): Promise<ProcRows> {
-  const rows = await getUnivExamFiltersByType(employeeId, 'REGSUP').catch(() => [])
-  return Array.isArray(rows) ? rows.filter((r) => txt(r.flag) === 'univ_exam_filters' || !r.flag) : []
+  // Angular re-evaluation-multi-assign / multi-evaluator-assign getFiltersData():
+  // pick the result group whose first row has flag === 'univ_exam_filters'.
+  const data = await crud
+    .getAllRecords<{ result: ProcRows[] }>('s_get_exam_filters_bycode', {
+      in_flag: 'univ_exam_filters',
+      in_flag_type: 'REGSUP',
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: 0,
+      in_academic_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_sub_flag_type: '',
+      in_param1: 0,
+      in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: employeeId || 0,
+    })
+    .catch(() => ({ result: [] }))
+
+  return (data?.result ?? []).find((g) => txt(g?.[0]?.flag) === 'univ_exam_filters') ?? []
 }
 
 export async function getRegSupRestFilters(params: {
@@ -1413,6 +1435,7 @@ export async function getMultiEvaluatorAssignBundle(params: {
 }
 
 export async function assignMultipleUpdateEvaluationAssignment(params: {
+  /** pk_examevaluator_profiledet_id — Angular Formdata.examEvaluatorProfileId */
   profileId: number
   omrSerialNosCsv: string
   examId: number
@@ -1433,6 +1456,22 @@ export async function assignMultipleUpdateEvaluationAssignment(params: {
   })
 }
 
+async function getExamEvaluationByCodesOrEmpty(
+  params: Record<string, string | number>,
+): Promise<Record<string, unknown>[][]> {
+  try {
+    const data = await crud.getAllRecords<{ result: Record<string, unknown>[][] }>(
+      's_get_examevaluation_bycodes',
+      params,
+    )
+    return data?.result ?? []
+  } catch (error: unknown) {
+    const msg = String((error as { message?: string })?.message ?? '')
+    if (msg.toLowerCase().includes('no records')) return []
+    throw error
+  }
+}
+
 export async function getReevaluationMultiAssignBundle(params: {
   organizationId: number
   examId: number
@@ -1448,17 +1487,6 @@ export async function getReevaluationMultiAssignBundle(params: {
   evaluatorOmrRows: Record<string, unknown>[]
   students: Record<string, unknown>[]
 }> {
-  const pickSetByFlag = (
-    sets: Record<string, unknown>[][],
-    flag: string,
-    fallbackIndex: number,
-  ): Record<string, unknown>[] => {
-    const byFlag =
-      sets.find((rows) => Array.isArray(rows) && rows.length > 0 && txt(rows[0]?.flag) === flag) ?? []
-    if (byFlag.length > 0) return byFlag
-    return Array.isArray(sets[fallbackIndex]) ? sets[fallbackIndex] : []
-  }
-
   const common = {
     in_orgid: params.organizationId || 1,
     in_fdate: '1990-01-01',
@@ -1479,58 +1507,26 @@ export async function getReevaluationMultiAssignBundle(params: {
     in_academic_year_id: params.academicYearId,
     in_loginuser_empid: params.employeeId,
   }
-  const [evalData, stdData] = await Promise.all([
-    crud
-      .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
-        in_flag: 'list_evaluatorassignment_list_reevaluation',
-        ...common,
-        in_evaluator_role_id: 64,
-      })
-      .catch(() => ({ result: [] })),
-    crud
-      .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
-        in_flag: 'list_evaluationstudent_list_revision',
-        ...common,
-        in_evaluator_role_id: 0,
-      })
-      .catch(() => ({ result: [] })),
-  ])
-  const evalSets = evalData?.result ?? []
-  const stdSets = stdData?.result ?? []
 
-  let evaluators = pickSetByFlag(evalSets, 'list_evaluatorassignment_list_reevaluation', 0)
-  let summary = pickSetByFlag(evalSets, 'list_evaluationstudent_summary_revision', 1)
-  if (summary.length === 0) summary = pickSetByFlag(stdSets, 'list_evaluationstudent_summary_revision', 1)
-  let evaluatorOmrRows = pickSetByFlag(evalSets, 'list_evaluatorassignment_omr_list_reevaluation', 2)
-  let students = pickSetByFlag(stdSets, 'list_evaluationstudent_list_revision', 0)
+  // Angular getstudentList() then getEvaluationList() — same proc params, sequential order.
+  const stdSets = await getExamEvaluationByCodesOrEmpty({
+    in_flag: 'list_evaluationstudent_list_revision',
+    ...common,
+    in_evaluator_role_id: 0,
+  })
+  const evalSets = await getExamEvaluationByCodesOrEmpty({
+    in_flag: 'list_evaluatorassignment_list_reevaluation',
+    ...common,
+    in_evaluator_role_id: 64,
+  })
 
-  // Some deployments return normal flags even on re-evaluation screen; fallback to those.
-  if (evaluators.length === 0 && students.length === 0) {
-    const [evalFallback, stdFallback] = await Promise.all([
-      crud
-        .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
-          in_flag: 'list_evaluatorassignment_list',
-          ...common,
-          in_evaluator_role_id: 64,
-        })
-        .catch(() => ({ result: [] })),
-      crud
-        .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
-          in_flag: 'list_evaluationstudent_list',
-          ...common,
-          in_evaluator_role_id: 0,
-        })
-        .catch(() => ({ result: [] })),
-    ])
-    const eSets = evalFallback?.result ?? []
-    const sSets = stdFallback?.result ?? []
-    evaluators = pickSetByFlag(eSets, 'list_evaluatorassignment_list', 0)
-    if (summary.length === 0) summary = pickSetByFlag(sSets, 'list_evaluationstudent_summary', 1)
-    evaluatorOmrRows = pickSetByFlag(eSets, 'list_evaluatorassignment_omr_list', 2)
-    students = pickSetByFlag(sSets, 'list_evaluationstudent_list', 0)
+  // Angular: student call → result[0]; evaluator call → result[0]/[1]/[2].
+  return {
+    evaluators: Array.isArray(evalSets[0]) ? evalSets[0] : [],
+    summary: Array.isArray(evalSets[1]) ? evalSets[1] : [],
+    evaluatorOmrRows: Array.isArray(evalSets[2]) ? evalSets[2] : [],
+    students: Array.isArray(stdSets[0]) ? stdSets[0] : [],
   }
-
-  return { evaluators, summary, evaluatorOmrRows, students }
 }
 
 export async function assignMultipleUpdateEvaluationAssignmentRevision(params: {

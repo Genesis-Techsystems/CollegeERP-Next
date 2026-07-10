@@ -23,8 +23,8 @@ import type { University } from '@/types/university'
 const schema = z.object({
   universityId: z.number().min(1, 'University is required'),
   courseId: z.number().min(1, 'Course is required'),
-  groupName: z.string().min(1, 'Subject group name is required'),
-  groupCode: z.string().min(1, 'Subject group code is required'),
+  groupName: z.string().min(1, 'Course group name is required'),
+  groupCode: z.string().min(1, 'Course group code is required'),
   shortName: z.string().min(1, 'Short name is required'),
   enrollPrefix: z.string().min(1, 'Enroll prefix is required'),
   startingNo: z.string().min(1, 'Starting no is required'),
@@ -82,7 +82,7 @@ export default function CourseGroupModal({
       onSaved()
       onClose()
     } catch (e: unknown) {
-      setSubmitError(e instanceof Error ? e.message : 'Failed to save subject group')
+      setSubmitError(e instanceof Error ? e.message : 'Failed to save course group')
     }
   }
 
@@ -91,7 +91,7 @@ export default function CourseGroupModal({
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pr-8">
           <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
-            {isEditing ? 'Edit Subject Group' : 'Add Subject Group'}
+            {isEditing ? 'Edit Course Group' : 'Add Course Group'}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
@@ -104,8 +104,8 @@ export default function CourseGroupModal({
               options={courses.map((c) => ({ value: String(c.courseId), label: `${c.courseCode} - ${c.courseName}` }))} placeholder="Select course" searchable error={errors.courseId?.message} />
           )} />
           <div className="grid grid-cols-2 gap-2">
-            <div><Label htmlFor="cgn">Subject Group Name *</Label><Input id="cgn" {...register('groupName')} />{errors.groupName && <p className="text-xs text-red-500">{errors.groupName.message}</p>}</div>
-            <div><Label htmlFor="cgc">Subject Group Code *</Label><Input id="cgc" {...register('groupCode')} />{errors.groupCode && <p className="text-xs text-red-500">{errors.groupCode.message}</p>}</div>
+            <div><Label htmlFor="cgn">Course Group Name *</Label><Input id="cgn" {...register('groupName')} />{errors.groupName && <p className="text-xs text-red-500">{errors.groupName.message}</p>}</div>
+            <div><Label htmlFor="cgc">Course Group Code *</Label><Input id="cgc" {...register('groupCode')} />{errors.groupCode && <p className="text-xs text-red-500">{errors.groupCode.message}</p>}</div>
             <div><Label htmlFor="cgsn">Short Name *</Label><Input id="cgsn" {...register('shortName')} />{errors.shortName && <p className="text-xs text-red-500">{errors.shortName.message}</p>}</div>
             <div><Label htmlFor="cgep">Enroll Prefix *</Label><Input id="cgep" {...register('enrollPrefix')} />{errors.enrollPrefix && <p className="text-xs text-red-500">{errors.enrollPrefix.message}</p>}</div>
             <div><Label htmlFor="cgsno">Starting No *</Label><Input id="cgsno" {...register('startingNo')} />{errors.startingNo && <p className="text-xs text-red-500">{errors.startingNo.message}</p>}</div>

@@ -12,6 +12,7 @@ export async function listCourseTypes(): Promise<CourseType[]> {
 export async function listActiveCourseTypesByUniversity(universityId: number): Promise<CourseType[]> {
   if (!universityId) return []
   const queries = [
+    buildQuery({ 'Universities.universityId': universityId, isActive: true }),
     buildQuery({ 'University.universityId': universityId, isActive: true }),
     buildQuery({ 'university.universityId': universityId, isActive: true }),
     buildQuery({ universityId, isActive: true }),
@@ -19,7 +20,8 @@ export async function listActiveCourseTypesByUniversity(universityId: number): P
   ]
   for (const query of queries) {
     try {
-      return await domainList<CourseType>(ENTITIES.COURSE_TYPE.name, query)
+      const rows = await domainList<CourseType>(ENTITIES.COURSE_TYPE.name, query)
+      if (rows.length > 0) return rows
     } catch {
       // Try next query shape for backend compatibility.
     }

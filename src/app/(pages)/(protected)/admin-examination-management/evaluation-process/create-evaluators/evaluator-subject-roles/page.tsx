@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { BookOpen, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -21,7 +21,8 @@ import {
   setupExamCommittees,
   updateEvaluatorProfile,
 } from '@/services/evaluation-process'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
+import { GlobalFilterBar } from '@/common/components/forms'
 
 type AnyRow = Record<string, any>
 
@@ -79,6 +80,13 @@ function roleLabel(roleId: number) {
     116: 'Chief Evaluator',
   }
   return m[roleId] ?? `Role ${roleId}`
+}
+
+function tableCell(value: unknown): string {
+  if (value == null) return '-'
+  if (typeof value === 'boolean') return String(value)
+  const text = String(value).trim()
+  return text === '' ? '-' : text
 }
 
 export default function EvaluatorSubjectRolesPage() {
@@ -574,15 +582,10 @@ export default function EvaluatorSubjectRolesPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Evaluator Subject Roles" subtitle="Manage evaluator subject role assignments" />
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center gap-2">
-          <BookOpen className="h-4 w-4 text-[hsl(var(--primary))]" />
-          <h2 className="app-card-title">
-            {dialogTitle} — {evaluatorName}
-          </h2>
-        </div>
-        <div className="p-4 space-y-4 text-[13px]">
+      <h2 className="text-lg font-semibold tracking-tight text-foreground">Evaluator Subject Roles</h2>
+
+      <GlobalFilterBar title={`${dialogTitle} — ${evaluatorName}`} defaultOpen>
+        <div className="space-y-4 text-[13px]">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <div className="md:col-span-2">
               <Label className="text-[12px] text-muted-foreground">Course</Label>
@@ -627,7 +630,7 @@ export default function EvaluatorSubjectRolesPage() {
                 value={subjectId ? String(subjectId) : null}
                 onChange={(v) => setSubjectId(v ? Number(v) : null)}
                 options={subjectsAll.map((s) => ({ value: String(pickNum(s, ['fk_subject_id'])), label: `${pickText(s, ['subject_name'])} (${pickText(s, ['subject_code'])})` } as SelectOption))}
-                placeholder="Subject"
+                placeholder="Subjects"
                 searchable
               />
             </div>
@@ -637,7 +640,7 @@ export default function EvaluatorSubjectRolesPage() {
                 value={roleId ? String(roleId) : null}
                 onChange={(v) => { setRoleId(v ? Number(v) : null); resetDownstream('role') }}
                 options={roleRows.map((r) => ({ value: String(pickNum(r, ['pk_role_id'])), label: pickText(r, ['role_name']) } as SelectOption))}
-                placeholder="Role"
+                placeholder="Select Role"
               />
             </div>
             <div className="md:col-span-2 flex items-center gap-2 pt-6">
@@ -684,7 +687,7 @@ export default function EvaluatorSubjectRolesPage() {
                     value: String(pickNum(b, ['eaxmLabBatchId', 'examLabBatchesId', 'exam_lab_batches_id', 'pk_eaxm_lab_batch_id'])),
                     label: pickText(b, ['batchName', 'examLabBatchName', 'batch_name', 'exam_lab_batch_name']),
                   } as SelectOption))}
-                  placeholder="Lab batch"
+                  placeholder="Exam Lab Batch"
                 />
               </div>
               {!isReEvaluation && (
@@ -693,6 +696,7 @@ export default function EvaluatorSubjectRolesPage() {
                   <Input
                     type="number"
                     className="h-8 text-[12px]"
+                    placeholder="Max evaluations"
                     value={maxNoOfEvaluationsAssign}
                     onChange={(e) => setMaxNoOfEvaluationsAssign(e.target.value)}
                   />
@@ -704,6 +708,7 @@ export default function EvaluatorSubjectRolesPage() {
                   <Input
                     type="number"
                     className="h-8 text-[12px]"
+                    placeholder="Max re-evaluations"
                     value={maxNoOfReevaluationsAssign}
                     onChange={(e) => setMaxNoOfReevaluationsAssign(e.target.value)}
                   />
@@ -720,6 +725,7 @@ export default function EvaluatorSubjectRolesPage() {
                   <Input
                     type="number"
                     className="h-8 text-[12px]"
+                    placeholder="Max evaluations"
                     value={maxNoOfEvaluationsAssign}
                     onChange={(e) => setMaxNoOfEvaluationsAssign(e.target.value)}
                   />
@@ -731,6 +737,7 @@ export default function EvaluatorSubjectRolesPage() {
                   <Input
                     type="number"
                     className="h-8 text-[12px]"
+                    placeholder="Max re-evaluations"
                     value={maxNoOfReevaluationsAssign}
                     onChange={(e) => setMaxNoOfReevaluationsAssign(e.target.value)}
                   />
@@ -739,7 +746,7 @@ export default function EvaluatorSubjectRolesPage() {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex justify-end gap-2">
             <Button type="button" className="h-8 text-[12px]" onClick={addToTable} disabled={loading}>
               Add
             </Button>
@@ -748,7 +755,7 @@ export default function EvaluatorSubjectRolesPage() {
             </Button>
           </div>
         </div>
-      </div>
+      </GlobalFilterBar>
 
       {tableRows.length > 0 && (
         <div className="app-card overflow-hidden">
@@ -772,27 +779,27 @@ export default function EvaluatorSubjectRolesPage() {
                   <th className="p-2 font-medium">Re-eval</th>
                   <th className="p-2 font-medium">Max eval</th>
                   <th className="p-2 font-medium">Max re-eval</th>
-                  <th className="p-2 font-medium w-16"> </th>
+                  <th className="p-2 font-medium w-16">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {tableRows.map((row, index) => (
                   <tr key={`row-${index}-${row.subjectId}`} className="border-b border-slate-100">
-                    <td className="p-2">{row.examName}</td>
-                    <td className="p-2">{row.roleName ?? roleLabel(Number(row.evaluatorRoleId))}</td>
-                    <td className="p-2">{row.regulationCode}</td>
-                    <td className="p-2">{row.subjectCode}</td>
+                    <td className="p-2">{tableCell(row.examName)}</td>
+                    <td className="p-2">{tableCell(row.roleName ?? roleLabel(Number(row.evaluatorRoleId)))}</td>
+                    <td className="p-2">{tableCell(row.regulationCode)}</td>
+                    <td className="p-2">{tableCell(row.subjectCode)}</td>
                     {showWideTable && (
                       <>
-                        <td className="p-2">{row.collegeCode}</td>
-                        <td className="p-2">{row.courseGroupCode}</td>
-                        <td className="p-2">{row.courseYearCode}</td>
-                        <td className="p-2">{row.examLabBatchName}</td>
+                        <td className="p-2">{tableCell(row.collegeCode)}</td>
+                        <td className="p-2">{tableCell(row.courseGroupCode)}</td>
+                        <td className="p-2">{tableCell(row.courseYearCode)}</td>
+                        <td className="p-2">{tableCell(row.examLabBatchName)}</td>
                       </>
                     )}
-                    <td className="p-2">{String(row.isReEvaluation)}</td>
-                    <td className="p-2">{row.maxNoOfEvaluationsAssign ?? ''}</td>
-                    <td className="p-2">{row.maxNoOfReevaluationsAssign ?? ''}</td>
+                    <td className="p-2">{tableCell(row.isReEvaluation)}</td>
+                    <td className="p-2">{tableCell(row.maxNoOfEvaluationsAssign)}</td>
+                    <td className="p-2">{tableCell(row.maxNoOfReevaluationsAssign)}</td>
                     <td className="p-2">
                       <button
                         type="button"
