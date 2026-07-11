@@ -6,14 +6,15 @@ import { PageContainer } from '@/components/layout'
 import { Select, type SelectOption } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { getSecuredValue } from '@/common/generic-functions'
 import { toastError } from '@/lib/toast'
 import {
-  getExamCenterByCodeRows,
+  getExamCenterFilterGroups,
   listAllActiveExamScanBundles,
   listAllActiveUnivEcProfiles,
+  pickExamScanBundleId,
   type AnyRow,
 } from '@/services/exam-papers-delivery'
-import { getUnivExamFiltersRegSup } from '@/services/pre-examination'
 
 type Row = AnyRow
 
@@ -46,7 +47,7 @@ function pickAcademicYearKey(row: Row): string {
 }
 
 function pickExamGroupKey(row: Row): string {
-  return String(row.fk_exam_group_id ?? row.examGroupId ?? row.exam_group_id ?? row.fk_exam_id ?? row.examId ?? '').trim()
+  return String(row.fk_univ_exam_group_id ?? row.fk_exam_group_id ?? row.examGroupId ?? row.exam_group_id ?? '').trim()
 }
 
 function pickCourseKey(row: Row): string {
@@ -65,11 +66,16 @@ function pickSubjectKey(row: Row): string {
   return String(row.fk_subject_id ?? row.subjectId ?? row.subject_id ?? '').trim()
 }
 
+const BUNDLE_DETAILS_STORAGE_KEY = 'examScanBundleDetails'
+
 export default function ExamScanBundleDetailsPage() {
+  const [navBundle] = useState<Row | null>(() => {
+    const saved = getSecuredValue<Row[]>(BUNDLE_DETAILS_STORAGE_KEY)
+    return Array.isArray(saved) && saved[0] ? saved[0] : null
+  })
   const [captureMode, setCaptureMode] = useState<'manual' | 'auto'>('manual')
   const [filtersOpen, setFiltersOpen] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [employeeId, setEmployeeId] = useState(0)
 
   const [topRows, setTopRows] = useState<Row[]>([])
   const [scanFilterRows, setScanFilterRows] = useState<Row[]>([])
@@ -128,67 +134,88 @@ export default function ExamScanBundleDetailsPage() {
   const bundleOptions: SelectOption[] = useMemo(
     () =>
       bundles.map((b) => ({
-        value: String(num(b.examScanBundleId ?? b.scanBundleId)),
+        value: String(pickExamScanBundleId(b)),
         label: txt(b.bundleNumber ?? b.scanBundleNumber),
       })),
     [bundles],
   )
 
   useEffect(() => {
-    setEmployeeId(Number(globalThis?.localStorage?.getItem('employeeId') ?? 0))
-  }, [])
-
-  useEffect(() => {
     async function init() {
-      if (!employeeId) return
       setLoading(true)
       try {
-        const top = await getUnivExamFiltersRegSup(employeeId).catch(() => [])
-        setTopRows(Array.isArray(top) ? top : [])
+        const groups = await getExamCenterFilterGroups({ flag: 'eg_filters' })
+        const flat: Row[] = []
+        for (const g of groups) {
+          if (g.length > 0 && txt(g[0].flag) === 'eg_ay_filter') flat.push(...g)
+        }
+        setTopRows(flat)
         const profiles = await listAllActiveUnivEcProfiles().catch(() => [])
         setScanProfiles(Array.isArray(profiles) ? profiles : [])
         const bundleRows = await listAllActiveExamScanBundles().catch(() => [])
         setBundles(Array.isArray(bundleRows) ? bundleRows : [])
+      } catch (e) {
+        toastError(e, 'Failed to load filters')
+        setTopRows([])
       } finally {
         setLoading(false)
       }
     }
     void init()
-  }, [employeeId])
+  }, [])
 
   useEffect(() => {
     if (!academicYears.length || form.academicYearId) return
-    setForm((f) => ({ ...f, academicYearId: pickAcademicYearKey(academicYears[0]) }))
+    const saved = navBundle
+    setForm((f) => ({
+      ...f,
+      academicYearId: saved?.academicYearId != null ? String(saved.academicYearId) : pickAcademicYearKey(academicYears[0]),
+    }))
   }, [academicYears, form.academicYearId])
 
   useEffect(() => {
     if (!examGroups.length || form.examGroupId) return
-    setForm((f) => ({ ...f, examGroupId: pickExamGroupKey(examGroups[0]) }))
+    const saved = navBundle
+    setForm((f) => ({
+      ...f,
+      examGroupId: saved?.examGroupId != null ? String(saved.examGroupId) : pickExamGroupKey(examGroups[0]),
+    }))
   }, [examGroups, form.examGroupId])
 
   useEffect(() => {
     async function loadScanFilters() {
       if (!form.academicYearId || !form.examGroupId) return
-      const rows = await getExamCenterByCodeRows({
-        flag: 'eg_scan_filter' as 'eg_filters',
-        flagType: 'REGSUP',
-        univExamcenterId: 0,
-        examGroupId: Number(form.examGroupId),
-        collegeId: 0,
-        courseId: 0,
-        courseGroupId: 0,
-        courseYearId: 0,
-        academicYearId: Number(form.academicYearId),
-        examId: 0,
-        regulationId: 0,
-        subjectId: 0,
-        universityId: 0,
-      }).catch(() => [])
-      setScanFilterRows(Array.isArray(rows) ? rows : [])
-      setForm((f) => ({ ...f, courseId: '', courseYearId: '', regulationId: '', subjectId: '', examScanBundleId: '' }))
+      try {
+        const groups = await getExamCenterFilterGroups({
+          flag: 'eg_scan_filter',
+          examGroupId: Number(form.examGroupId),
+          academicYearId: Number(form.academicYearId),
+        })
+        const rows = groups[0] ?? []
+        setScanFilterRows(rows)
+        const saved = navBundle
+        if (saved?.courseId != null) {
+          setForm((f) => ({
+            ...f,
+            courseId: String(saved.courseId),
+            courseYearId: saved.courseYearId != null ? String(saved.courseYearId) : '',
+            regulationId: saved.regulationId != null ? String(saved.regulationId) : '',
+            subjectId: saved.subjectId != null ? String(saved.subjectId) : '',
+            examScanBundleId:
+              saved.univExamScanbundleId != null
+                ? String(saved.univExamScanbundleId)
+                : String(pickExamScanBundleId(saved)),
+          }))
+        } else {
+          setForm((f) => ({ ...f, courseId: '', courseYearId: '', regulationId: '', subjectId: '', examScanBundleId: '' }))
+        }
+      } catch (e) {
+        toastError(e, 'Failed to load course filters')
+        setScanFilterRows([])
+      }
     }
     void loadScanFilters()
-  }, [form.academicYearId, form.examGroupId])
+  }, [form.academicYearId, form.examGroupId, navBundle])
 
   useEffect(() => {
     if (!courses.length) return

@@ -314,6 +314,14 @@ export async function listAllActiveUnivEcProfiles(): Promise<AnyRow[]> {
   return domainList<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_SCAN_PROFILES, buildQuery({ isActive: true }))
 }
 
+/** All exam scan profiles (active + inactive) — table shows every record; status updates on edit only. */
+export async function listAllUnivEcProfiles(): Promise<AnyRow[]> {
+  return domainList<AnyRow>(
+    UNIV_EXAM_CENTER_API.EXAM_SCAN_PROFILES,
+    buildQuery({}, { field: 'createdDt', direction: 'DESC' }),
+  )
+}
+
 // ─── University Exam Center Profiles (UnivEcProfiles entity) ─────────────────
 
 export async function listUnivEcProfilesByCenterAndRole(
@@ -426,7 +434,7 @@ export async function getExamCenterBundleByCode(args: {
  * `getUnivExamGroupCenterGroups`, so the caller can pick the right group.
  */
 export async function getExamCenterFilterGroups(args: {
-  flag: 'eg_filters' | 'eg_ec_filters' | 'eg_ec_qc_filters'
+  flag: 'eg_filters' | 'eg_ec_filters' | 'eg_ec_qc_filters' | 'eg_scan_filter'
   flagType?: string
   univExamcenterId?: number
   examGroupId?: number
@@ -529,6 +537,33 @@ export async function listExamBundlesByCode(args: {
 }
 
 /**
+ * Barcode rows for exam-seatno-barcodes (Angular `getDetails()` →
+ * `getAllRecords/s_get_barcode_details`).
+ */
+export async function listExamSeatnoBarcodeDetails(args: {
+  examGroupId: number
+  examCenterId: number
+  examDate: string
+  subjectId: number
+  ecStdSeatNo?: number
+}): Promise<AnyRow[]> {
+  const params = {
+    exam_group_id: args.examGroupId ?? 0,
+    in_center_id: args.examCenterId ?? 0,
+    in_exam_date: args.examDate ?? '',
+    in_subject_id: args.subjectId ?? 0,
+    in_ec_seat_no: args.ecStdSeatNo ?? 0,
+  }
+  try {
+    const data = await getAllRecords<{ result?: unknown }>(UNIV_EXAM_CENTER_API.BARCODE_DETAILS, params)
+    return flattenExamCenterDetailsFirstGroup(data)
+  } catch (error: unknown) {
+    if (isNoRecordsProcError(error)) return []
+    throw error
+  }
+}
+
+/**
  * Scan-bundle list for the exam-scan-bundles-print page. Mirrors Angular
  * `getScanBundles()` (flag `get_exam_scan_bundle`) on `s_get_exam_center_details`.
  */
@@ -568,37 +603,37 @@ export async function listExamScanBundlesByCode(args: {
   }
 }
 
-/** Exam scan profiles for an exam group (Angular `getScanProfiles` — flag `exam_scan_profile_details`). */
+/** Exam scan profiles for an exam group (Angular `getScanProfiles` / exam-modal — `s_get_exam_center_details`, flag `exam_scan_profile_details`). */
 export async function listExamScanProfilesByGroup(examGroupId: number): Promise<AnyRow[]> {
-  const data = await getAllRecords<{ result?: unknown }>(UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS, {
-    in_flag: 'exam_scan_profile_details',
-    in_flag_type: 'REGSUP',
-    in_university_id: 0,
-    in_univ_examcenter_id: 0,
-    in_exam_group_id: examGroupId ?? 0,
-    in_course_id: 0,
-    in_academic_year_id: 0,
-    in_exam_id: 0,
-    in_college_id: 0,
-    in_course_group_id: 0,
-    in_course_year_id: 0,
-    in_regulation_id: 0,
-    in_subject_id: 0,
-    in_questionpaper_code: '',
-    in_exam_date: '1900-01-01',
-  })
-  const raw = data?.result
-  if (!Array.isArray(raw)) return []
-  const first = raw[0]
-  if (Array.isArray(first)) return first.filter((r): r is AnyRow => !!r && typeof r === 'object')
-  if (first && typeof first === 'object') return [first as AnyRow]
-  return []
+  if (!examGroupId) return []
+  try {
+    const data = await getAllRecords<{ result?: unknown }>(UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTER_DETAILS, {
+      in_flag: 'exam_scan_profile_details',
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_exam_group_id: examGroupId,
+      in_course_id: 0,
+      in_academic_year_id: 0,
+      in_exam_id: 0,
+      in_college_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_questionpaper_code: 0,
+      in_exam_date: '1900-01-01',
+    })
+    return flattenExamCenterDetailsFirstGroup(data)
+  } catch (error: unknown) {
+    if (isNoRecordsProcError(error)) return []
+    throw error
+  }
 }
 
 /**
- * Scan-bundle OMR sticker rows (Angular `getPrintStickersData` — flag
- * `scan_bundle_omr_details`, param `in_scan_bundle_id`). Pass scanBundleId=0
- * for a bulk print across the current filter selection.
+ * Scan-bundle OMR rows (Angular `getPrintStickersData` / scan-bundle-details-new
+ * `getexamScanDetails` — flag `scan_bundle_omr_details` on
+ * `s_get_exam_center_scan_bycode`). Pass scanBundleId=0 for bulk print.
  */
 export async function getExamScanBundleStickers(args: {
   univExamcenterId: number
@@ -607,31 +642,32 @@ export async function getExamScanBundleStickers(args: {
   examDate: string
   questionPaperCode: string
   scanBundleId: number
+  bundleNumber?: number
 }): Promise<AnyRow[]> {
-  const data = await getAllRecords<{ result?: unknown }>(UNIV_EXAM_CENTER_API.EXAM_CENTER_BUNDLE_BY_CODE, {
-    in_flag: 'scan_bundle_omr_details',
-    in_univ_examcenter_id: args.univExamcenterId ?? 0,
-    in_exam_group_id: args.examGroupId ?? 0,
-    in_college_id: 0,
-    in_course_id: 0,
-    in_course_group_id: 0,
-    in_course_year_id: 0,
-    in_academic_year_id: args.academicYearId ?? 0,
-    in_subject_id: 0,
-    in_regulation_id: 0,
-    in_bundle_number: 0,
-    in_scan_bundle_id: args.scanBundleId ?? 0,
-    in_start_ec_seatno: 0,
-    in_end_ec_seatno: 0,
-    in_exam_date: args.examDate,
-    in_questionpaper_code: args.questionPaperCode,
-  })
-  const raw = data?.result
-  if (!Array.isArray(raw)) return []
-  const first = raw[0]
-  if (Array.isArray(first)) return first.filter((r): r is AnyRow => !!r && typeof r === 'object')
-  if (first && typeof first === 'object') return [first as AnyRow]
-  return []
+  try {
+    const data = await getAllRecords<{ result?: unknown }>(UNIV_EXAM_CENTER_API.EXAM_CENTER_SCAN_BY_CODE, {
+      in_flag: 'scan_bundle_omr_details',
+      in_univ_examcenter_id: args.univExamcenterId ?? 0,
+      in_exam_group_id: args.examGroupId ?? 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_academic_year_id: args.academicYearId ?? 0,
+      in_subject_id: 0,
+      in_regulation_id: 0,
+      in_bundle_number: args.bundleNumber ?? 0,
+      in_scan_bundle_id: args.scanBundleId ?? 0,
+      in_start_ec_seatno: 0,
+      in_end_ec_seatno: 0,
+      in_exam_date: args.examDate,
+      in_questionpaper_code: args.questionPaperCode,
+    })
+    return flattenScanByCodeFirstGroup(data)
+  } catch (error: unknown) {
+    if (isNoRecordsProcError(error)) return []
+    throw error
+  }
 }
 
 /**
@@ -675,11 +711,131 @@ export async function updateUnivEcProfile(univEcProfileId: number, payload: Reco
 }
 
 export function pickExamScanBundleId(row: AnyRow): number {
-  return num(row.examScanBundleId ?? row.exam_scan_bundle_id ?? row.unvExamBundleId)
+  return num(
+    row.univExamScanbundleId ??
+      row.univ_exam_scanbundle_id ??
+      row.examScanBundleId ??
+      row.exam_scan_bundle_id ??
+      row.pk_univ_exam_scan_bundle_id ??
+      row.unvExamBundleId,
+  )
 }
 
 export async function listAllActiveExamScanBundles(): Promise<AnyRow[]> {
   return domainList<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_SCAN_BUNDLES, buildQuery({ isActive: true }))
+}
+
+/** Angular scan-bundles `getScanBundles()` — list by exam group / course year / regulation / subject. */
+export async function listExamScanBundlesBySubjectFilters(args: {
+  examGroupId: number
+  courseYearId: number
+  regulationId: number
+  subjectId: number
+}): Promise<AnyRow[]> {
+  const { examGroupId, courseYearId, regulationId, subjectId } = args
+  if (!examGroupId || !courseYearId || !regulationId || !subjectId) return []
+  const queries = [
+    buildQuery({
+      'univExamGroup.univExamGroupId': examGroupId,
+      'courseYear.courseYearId': courseYearId,
+      'regulation.regulationId': regulationId,
+      'subject.subjectId': subjectId,
+      isActive: true,
+    }),
+    buildQuery({
+      examGroupId,
+      courseYearId,
+      regulationId,
+      subjectId,
+      isActive: true,
+    }),
+  ]
+  for (const q of queries) {
+    try {
+      return await domainList<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_SCAN_BUNDLES, q)
+    } catch {
+      /* try next query shape */
+    }
+  }
+  return []
+}
+
+function flattenScanByCodeFirstGroup(data: { result?: unknown } | undefined): AnyRow[] {
+  const raw = data?.result
+  if (!Array.isArray(raw)) return []
+  const first = raw[0]
+  if (Array.isArray(first)) return first.filter((r): r is AnyRow => !!r && typeof r === 'object')
+  if (first && typeof first === 'object') return [first as AnyRow]
+  return []
+}
+
+/** Angular scan-bundles `getPrintStickersData()` — flag `scan_bundle_omr_details` on `s_get_exam_center_scan_bycode`. */
+export async function getScanBundleOmrDetailsBySubject(args: {
+  examGroupId: number
+  academicYearId: number
+  courseId: number
+  courseYearId: number
+  subjectId: number
+  regulationId: number
+  scanBundleId: number
+}): Promise<AnyRow[]> {
+  try {
+    const data = await getAllRecords<{ result?: unknown }>(UNIV_EXAM_CENTER_API.EXAM_CENTER_SCAN_BY_CODE, {
+      in_flag: 'scan_bundle_omr_details',
+      in_univ_examcenter_id: 0,
+      in_exam_group_id: args.examGroupId ?? 0,
+      in_college_id: 0,
+      in_course_id: args.courseId ?? 0,
+      in_course_group_id: 0,
+      in_course_year_id: args.courseYearId ?? 0,
+      in_academic_year_id: args.academicYearId ?? 0,
+      in_subject_id: args.subjectId ?? 0,
+      in_regulation_id: args.regulationId ?? 0,
+      in_bundle_number: 0,
+      in_scan_bundle_id: args.scanBundleId ?? 0,
+      in_start_ec_seatno: 0,
+      in_end_ec_seatno: 0,
+      in_exam_date: '1900-01-01',
+      in_questionpaper_code: '',
+    })
+    return flattenScanByCodeFirstGroup(data)
+  } catch (error: unknown) {
+    if (isNoRecordsProcError(error)) return []
+    throw error
+  }
+}
+
+/** Angular scan-bundles `populate()` — flag `pop_scan_bundle_omr_details`. */
+export async function populateScanBundleOmrDetails(args: {
+  examGroupId: number
+  academicYearId: number
+  courseId: number
+  courseYearId: number
+  subjectId: number
+  regulationId: number
+  scanBundleId: number
+}): Promise<void> {
+  try {
+    await getAllRecords(UNIV_EXAM_CENTER_API.POP_EXAM_CENTER_SCAN_DETAILS, {
+      in_flag: 'pop_scan_bundle_omr_details',
+      in_univ_examcenter_id: 0,
+      in_exam_group_id: args.examGroupId ?? 0,
+      in_college_id: 0,
+      in_course_id: args.courseId ?? 0,
+      in_course_group_id: 0,
+      in_course_year_id: args.courseYearId ?? 0,
+      in_academic_year_id: args.academicYearId ?? 0,
+      in_subject_id: args.subjectId ?? 0,
+      in_regulation_id: args.regulationId ?? 0,
+      in_bundle_number: 0,
+      in_scan_bundle_id: args.scanBundleId ?? 0,
+      in_start_ec_seatno: 0,
+      in_end_ec_seatno: 0,
+    })
+  } catch (error: unknown) {
+    if (isNoRecordsProcError(error)) return
+    throw error
+  }
 }
 
 export async function createExamScanBundle(payload: Record<string, unknown>): Promise<AnyRow> {
@@ -1058,6 +1214,8 @@ export async function getExamCenterByCodeRows(args: {
     in_regulation_id: args.regulationId ?? 0,
     in_subject_id: args.subjectId ?? 0,
     in_university_id: args.universityId ?? 0,
+    in_exam_date: '1900-01-01',
+    in_questionpaper_code: '',
   })
   const raw = data?.result
   if (!Array.isArray(raw)) return []

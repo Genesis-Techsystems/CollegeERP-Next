@@ -1431,7 +1431,23 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     if (labelLower.includes('scan bundle detail')) {
       return '/admin-examination-management/exam-papers-delivery-process/scan-bundle-details'
     }
-    if (labelLower.includes('scan bundles') || labelLower.includes('exam scan bundle')) {
+    // Exam Scan Bundle New / Print — must run before the generic scan-bundles rule
+    // (otherwise "Exam Scan Bundle New" also matches `exam scan bundle`).
+    if (
+      labelLower.includes('exam scan bundle new') ||
+      labelLower.includes('exam scan bundles print') ||
+      labelLower.includes('scan bundles print') ||
+      hrefLower.includes('exam-scan-bundles-print') ||
+      hrefLower.includes('exam-scan-bundle-print')
+    ) {
+      return '/admin-examination-management/exam-papers-delivery-process/exam-scan-bundles-print'
+    }
+    if (
+      (labelLower.includes('scan bundles') || labelLower.includes('exam scan bundles') || labelLower.includes('exam scan bundle')) &&
+      !labelLower.includes('print') &&
+      !labelLower.includes('new') &&
+      !labelLower.includes('detail')
+    ) {
       return '/admin-examination-management/exam-papers-delivery-process/scan-bundles'
     }
     if (labelLower.includes('student re-admission') || labelLower.includes('student readmission')) {

@@ -1206,6 +1206,12 @@ export const UNIV_EXAM_CENTER_API = {
   ADD_ANSWER_PAPER_BAGS: 'addListUnivExamAnswerPaperBags',
   /** GET: `getAllRecords/s_get_exam_center_bundle_bycode` — bundle OMR / stickers / attendance (Angular getExamCenterBundleByCodeUrl) */
   EXAM_CENTER_BUNDLE_BY_CODE: 's_get_exam_center_bundle_bycode',
+  /** GET: `getAllRecords/s_get_exam_center_scan_bycode` — scan-bundle OMR stickers (Angular getExamCenterScanByCodeUrl) */
+  EXAM_CENTER_SCAN_BY_CODE: 's_get_exam_center_scan_bycode',
+  /** GET: `getAllRecords/s_pop_exam_center_scan_details` — populate scan-bundle OMR rows (Angular getPopExamCenterScanDetailsUrl) */
+  POP_EXAM_CENTER_SCAN_DETAILS: 's_pop_exam_center_scan_details',
+  /** GET: `getAllRecords/s_get_barcode_details` — exam seatno barcode list (Angular getBarcodeDetailsUrl) */
+  BARCODE_DETAILS: 's_get_barcode_details',
 } as const
 
 // ─── University Committees ───────────────────────────────────────────────────

@@ -85,14 +85,6 @@ export default function ScanBundleDetailsPage() {
 	const [editForm, setEditForm] = useState({ isActive: true, reason: '' })
 	const [savingEdit, setSavingEdit] = useState(false)
 
-	const dataDetails = useMemo(
-		() =>
-			[params.examGroupCode, params.examCenterCode, params.examDate, params.questionPaperCode, params.scanBundleName]
-				.filter(Boolean)
-				.join(' / '),
-		[params],
-	)
-
 	const loadScanned = useCallback(async () => {
 		if (!params.scanBundleId) return
 		setBusy(true)
@@ -104,6 +96,7 @@ export default function ScanBundleDetailsPage() {
 				examDate: params.examDate,
 				questionPaperCode: params.questionPaperCode,
 				scanBundleId: params.scanBundleId,
+				bundleNumber: params.bundleNumber,
 			})
 			setScanned(Array.isArray(rows) ? rows : [])
 		} catch (e) {
@@ -244,7 +237,7 @@ export default function ScanBundleDetailsPage() {
 
 	return (
 		<PageContainer className="space-y-4">
-			<PageHeader title="Exam Scan Bundle Details" subtitle={dataDetails || 'Scan and assign answer papers'} />
+			<PageHeader title="Exam Scan Bundle Details" />
 
 			<div className="flex justify-end">
 				<Button type="button" variant="outline" className="h-8 px-6" onClick={goBack}>
@@ -317,9 +310,7 @@ export default function ScanBundleDetailsPage() {
 			{/* Already-scanned answer papers */}
 			<div className="app-card overflow-hidden">
 				<div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted/40">
-					<h3 className="text-[13px] font-semibold">
-						Exam Scan Bundle Details {dataDetails && `— ${dataDetails}`}
-					</h3>
+					<h3 className="text-[13px] font-semibold">Exam Scan Bundle Details</h3>
 					<div className="relative">
 						<Search className="absolute left-2 top-1.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden />
 						<Input className="h-7 pl-7 text-[12px] w-56" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
