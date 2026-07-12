@@ -10,27 +10,26 @@ import {
   fetchStudentDetail,
   fetchStudentProfileFeeLedgerSummary,
 } from "@/services";
+import { useSessionContext } from "@/context/SessionContext";
 import { StudentProfileHeader } from "./StudentProfileHeader";
 import { StudentProfileTabs } from "./StudentProfileTabs";
 
 type AnyRow = Record<string, any>;
 
-function readStorage(key: string): string {
-  if (typeof window === "undefined") return "";
-  return window.localStorage.getItem(key) ?? "";
-}
-
 export default function StudentsProfilePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useSessionContext();
 
   const queryStudentId = Number(searchParams.get("studentId") ?? 0);
   const check = Number(searchParams.get("check") ?? 1);
-  const userTypeCode = readStorage("userTypeCode");
+  // Portal identity must come from the authenticated session — userTypeCode/studentId
+  // are never synced to localStorage, so the old readStorage path made isStudentPortal
+  // permanently false and any student/parent view resolve to studentId 0.
   const isStudentPortal =
-    userTypeCode === "STUDENT" || userTypeCode === "PARENT";
+    user?.userTypeCode === "STUDENT" || user?.userTypeCode === "PARENT";
   const studentId = isStudentPortal
-    ? Number(readStorage("studentId") || 0)
+    ? Number(user?.studentId ?? 0)
     : queryStudentId;
 
   const [student, setStudent] = useState<AnyRow | null>(null);

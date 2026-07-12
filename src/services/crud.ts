@@ -489,6 +489,28 @@ class CrudService {
   }
 
   /**
+   * POST JSON to a non-domain API endpoint, returning the FULL response envelope
+   * without throwing on `success: false`. Use this when the caller must inspect a
+   * soft-failure payload (e.g. promotion's conflicting academic-batches list, which
+   * the backend returns with success:false + data). `postDetails` throws on
+   * success:false and discards that data, which is wrong for those flows.
+   */
+  async postDetailsEnvelope<T = unknown>(path: string, data: unknown): Promise<ApiResponse<T>> {
+    const res = await fetch(`${this.base}/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      throw parseApiError(res, body)
+    }
+
+    return (await res.json()) as ApiResponse<T>
+  }
+
+  /**
    * PUT JSON to a non-domain API endpoint.
    * Use this for custom PUT paths that are NOT the standard domain/update/{Entity} pattern.
    *
@@ -618,6 +640,9 @@ export const fetchDetailsById = <T>(path: string, id: string | number): Promise<
 
 export const postDetails = <T = void>(path: string, data: unknown): Promise<T> =>
   crud.postDetails<T>(path, data)
+
+export const postDetailsEnvelope = <T = unknown>(path: string, data: unknown): Promise<ApiResponse<T>> =>
+  crud.postDetailsEnvelope<T>(path, data)
 
 export const putDetails = <T = void>(
   path: string,

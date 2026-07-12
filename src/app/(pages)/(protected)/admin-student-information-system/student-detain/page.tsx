@@ -12,11 +12,18 @@ import {
   listStudentsForPromotionPreview,
   listStudentSectionsByProc,
   normalizeStudentRow,
+  resolveDetainRecommendedGeneralDetailId,
   searchStudentsByKeyword,
   submitStudentDetain,
 } from "@/services";
 import { StudentSearchSelect } from "@/common/components/student-search";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/common/components/feedback";
+
+/** Date-only ISO (YYYY-MM-DD) for detain from/to dates. */
+function toIsoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
 
 type AnyRow = Record<string, any>;
 
@@ -115,6 +122,7 @@ export default function StudentDetainPage() {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [loadingRows, setLoadingRows] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const [filtersData, setFiltersData] = useState<AnyRow[]>([]);
   const [academicYearData, setAcademicYearData] = useState<AnyRow[]>([]);
@@ -448,43 +456,31 @@ export default function StudentDetainPage() {
     );
     if (selected.length === 0) return;
 
-    const payloadRows = selected.map((row, i) => {
-      const sid = studentId(row, i + 1);
-      return {
-        ...row,
-        studentId: sid,
-        reason: (reasonById[sid] ?? "").trim(),
-        studentStatusCode: "DETAINRECOMMENDED",
-        isPresent: true,
-        isActive: true,
-      };
-    });
-
-    const payloadVariants: Array<
-      Record<string, unknown> | Record<string, unknown>[]
-    > = [
-      { students: payloadRows },
-      { studentList: payloadRows },
-      { detainsList: payloadRows },
-      { detainList: payloadRows },
-      { details: payloadRows },
-      payloadRows,
-    ];
-
     setSubmitting(true);
     try {
-      let success = false;
-      let lastError: unknown = null;
-      for (const payload of payloadVariants) {
-        try {
-          await submitStudentDetain(payload);
-          success = true;
-          break;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-      if (!success) throw lastError ?? new Error("Submit failed");
+      // Detain must write the numeric STUDENTSTATUS/DETAINRECOMMENDED generalDetailId
+      // as `studentStatusId` (Angular detain-modal parity) — not the string code, and
+      // not the student's stale current status carried by ...row.
+      const detainStatusId = await resolveDetainRecommendedGeneralDetailId();
+      const nowIso = toIsoDate(new Date());
+      const payloadRows = selected.map((row, i) => {
+        const sid = studentId(row, i + 1);
+        return {
+          ...row,
+          studentId: sid,
+          reason: (reasonById[sid] ?? "").trim(),
+          studentStatusId: detainStatusId,
+          isPresent: true,
+          isActive: true,
+          fromDate: nowIso,
+          toDate: nowIso,
+        };
+      });
+
+      // Angular posts exactly one shape: the raw array. Sending it directly (instead of
+      // trying wrapper variants and treating any non-throw as success) means a genuine
+      // backend failure surfaces instead of a false "submitted successfully".
+      await submitStudentDetain(payloadRows);
 
       toastSuccess("Student detain submitted successfully");
       if (mode === "student") {
@@ -844,7 +840,7 @@ export default function StudentDetainPage() {
         <div className="flex justify-end">
           <button
             type="button"
-            onClick={() => void onSubmitDetain()}
+            onClick={() => setConfirmOpen(true)}
             disabled={!canSubmit}
             className="inline-flex items-center rounded bg-[hsl(var(--primary))] px-3 py-1.5 text-[12px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -852,6 +848,19 @@ export default function StudentDetainPage() {
           </button>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Detain students?"
+        description={`Recommend detention for ${selectedRows.length} selected student(s)? This updates their status and cannot be undone from this screen.`}
+        confirmLabel="Detain"
+        confirmVariant="destructive"
+        isLoading={submitting}
+        onConfirm={async () => {
+          await onSubmitDetain();
+          setConfirmOpen(false);
+        }}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </PageContainer>
   );
 }

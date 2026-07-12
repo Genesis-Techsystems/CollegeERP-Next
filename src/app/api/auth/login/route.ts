@@ -95,10 +95,14 @@ export async function POST(request: NextRequest) {
       employeeId: userDto.employeeId,
       studentId: userDto.studentId,
       organizationId: userDto.organizationId,
+      organizationCode: userDto.organizationCode,
       universityId: userDto.universityId,
       universityCode: userDto.universityCode,
       isAdmin: userRole === 'ADMIN' || userRole === 'SUPERADMIN',
       isPrincipal: roleName.toUpperCase().includes('PRINCIPAL'),
+      isHod:
+        roleName.toUpperCase().includes('HOD') ||
+        roleName.toUpperCase().includes('HEAD OF'),
       isManagement:
         userTypeCode.toUpperCase().includes('MGNT') ||
         roleName.toUpperCase().includes('MANAGEMENT'),

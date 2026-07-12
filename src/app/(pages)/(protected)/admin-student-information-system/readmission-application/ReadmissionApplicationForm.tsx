@@ -292,12 +292,23 @@ export function ReadmissionApplicationForm() {
       return
     }
 
-    const selectedCy = courseYears.find((x) => num(x, ['courseYearId']) === courseYearId)
-    const currentCy = courseYears.find(
-      (x) =>
-        txt(x, ['courseYearName', 'course_year_name']) ===
-        txt(student, ['courseYearName', 'course_year_name']),
+    const selectedCy = courseYears.find(
+      (x) => num(x, ['courseYearId', 'fk_course_year_id']) === courseYearId,
     )
+    // Resolve the student's current course year by id first (the reliable field the
+    // form already relies on); fall back to name matching only if the id is absent.
+    // The old name-only match silently no-op'd when studentdetail omitted courseYearName,
+    // letting an invalid downgrade through with no warning.
+    const studentCyId = num(student, ['courseYearId', 'fk_course_year_id'])
+    const currentCy =
+      (studentCyId > 0
+        ? courseYears.find((x) => num(x, ['courseYearId', 'fk_course_year_id']) === studentCyId)
+        : undefined) ??
+      courseYears.find(
+        (x) =>
+          txt(x, ['courseYearName', 'course_year_name']) ===
+          txt(student, ['courseYearName', 'course_year_name']),
+      )
     if (selectedCy && currentCy) {
       const selNo = Number(selectedCy.yearNo ?? selectedCy.year_no ?? 0)
       const curNo = Number(currentCy.yearNo ?? currentCy.year_no ?? 0)

@@ -80,6 +80,8 @@ export interface SessionUser {
   collegeLogo?: string
   /** Organization ID -- used for college-wise filter queries */
   organizationId?: number
+  /** Organization code from the login DTO -- used for upload storage paths (orgCode) */
+  organizationCode?: string
   universityId?: number
   universityCode?: string
   academicYearId: number
@@ -90,6 +92,7 @@ export interface SessionUser {
   // Derived server-side — never trust client-provided values:
   isAdmin: boolean            // userRole === 'ADMIN' || userRole === 'SUPERADMIN'
   isPrincipal: boolean        // roleName includes 'PRINCIPAL'
+  isHod: boolean              // roleName includes 'HOD' or 'HEAD OF'
   isManagement: boolean       // userTypeCode includes 'MGNT' or roleName includes 'MANAGEMENT'
   defaultDashboardPath: string // computed from userRole/userTypeCode on the server
 }

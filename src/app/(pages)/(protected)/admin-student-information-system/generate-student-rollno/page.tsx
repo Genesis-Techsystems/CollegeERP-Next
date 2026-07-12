@@ -140,6 +140,8 @@ export default function GenerateStudentRollnoPage() {
 
   const [students, setStudents] = useState<AnyRow[]>([]);
   const [tableFilter, setTableFilter] = useState("");
+  const [rollPrefix, setRollPrefix] = useState("");
+  const [rollStart, setRollStart] = useState("");
 
   const loadFilters = useCallback(async () => {
     const employeeId = Number(user?.employeeId ?? 0);
@@ -380,6 +382,24 @@ export default function GenerateStudentRollnoPage() {
     );
   }
 
+  // Angular parity: auto-generate roll numbers for the whole loaded cohort from a
+  // prefix + starting number, assigned in load order. Mutates local state only; the
+  // existing saveRollNumbers path writes the full array.
+  function generateRollNumbers() {
+    if (!students.length) {
+      toastError(new Error("Empty"), "Load students first.");
+      return;
+    }
+    const start = Number(rollStart);
+    if (!rollStart.trim() || !Number.isFinite(start)) {
+      toastError(new Error("Invalid"), "Enter a valid starting number.");
+      return;
+    }
+    setStudents((prev) =>
+      prev.map((row, i) => ({ ...row, rollNumber: `${rollPrefix}${start + i}` })),
+    );
+  }
+
   async function saveRollNumbers() {
     if (!students.length) {
       toastError(new Error("Empty"), "Load students first.");
@@ -577,12 +597,35 @@ export default function GenerateStudentRollnoPage() {
 
             <div className="rounded-lg border bg-card shadow-sm print:border-0 print:shadow-none">
               <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-end sm:justify-between print:hidden">
-                <Input
-                  placeholder="Search"
-                  value={tableFilter}
-                  onChange={(e) => setTableFilter(e.target.value)}
-                  className="max-w-xs"
-                />
+                <div className="flex flex-wrap items-end gap-2">
+                  <Input
+                    placeholder="Search"
+                    value={tableFilter}
+                    onChange={(e) => setTableFilter(e.target.value)}
+                    className="max-w-[12rem]"
+                  />
+                  <Input
+                    placeholder="Prefix"
+                    value={rollPrefix}
+                    onChange={(e) => setRollPrefix(e.target.value)}
+                    className="h-9 w-28"
+                  />
+                  <Input
+                    placeholder="Starting number"
+                    inputMode="numeric"
+                    value={rollStart}
+                    onChange={(e) => setRollStart(e.target.value)}
+                    className="h-9 w-36"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={generateRollNumbers}
+                  >
+                    Generate roll numbers
+                  </Button>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
