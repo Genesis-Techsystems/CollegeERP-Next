@@ -3,7 +3,7 @@ import { buildQuery, domainCreate, domainList, domainUpdate, getAllRecords, post
 import { listCourseYearsByCourse } from '@/services/admin/college-courses-groups'
 import { fetchStudentDetail, listGeneralDetailsByCode } from '@/services/student-information'
 import { unwrapFeeLedgerRows } from '@/services/student-fee'
-import { getStudentProfileContext } from '@/services/student-profile'
+import { getStudentProfileContext, fetchStudentProfileFeeLedgerSummary } from '@/services/student-profile'
 
 type AnyRow = Record<string, unknown>
 
@@ -34,6 +34,7 @@ export type PrincipalStudentProfileExamSemester = {
 
 export type PrincipalStudentProfileData = {
   student: AnyRow
+  feeLedger: AnyRow | null
   educationDetails: AnyRow[]
   examSemesters: PrincipalStudentProfileExamSemester[]
   projects: AnyRow[]
@@ -133,9 +134,10 @@ export async function loadPrincipalStudentProfile(
   const student = await fetchStudentDetail(studentId)
   if (!student) return null
 
-  const [activityRows, examRows] = await Promise.all([
+  const [activityRows, examRows, feeLedger] = await Promise.all([
     listStudentProfileActivities(studentId),
     loadPrincipalStudentProfileExamination(student as AnyRow),
+    fetchStudentProfileFeeLedgerSummary(studentId).catch(() => null),
   ])
 
   const { projects, activities, extraActivities } = splitStudentProfileActivities(activityRows)
@@ -144,6 +146,7 @@ export async function loadPrincipalStudentProfile(
 
   return {
     student: student as AnyRow,
+    feeLedger: (feeLedger as AnyRow | null) ?? null,
     educationDetails,
     examSemesters: groupPrincipalExamResults(examRows),
     projects,
