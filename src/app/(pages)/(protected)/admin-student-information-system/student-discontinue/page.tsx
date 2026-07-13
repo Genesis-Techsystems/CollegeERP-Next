@@ -692,11 +692,6 @@ export default function StudentDiscontinuePage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader
-        title="Student Discontinue"
-        subtitle="Student Information System"
-      />
-
       <Tabs
         value={mainTab}
         onValueChange={(v) => {
@@ -716,7 +711,7 @@ export default function StudentDiscontinuePage() {
             </TabsList>
           </div>
 
-          <TabsContent value="discontinue" className="m-0 p-4 space-y-4">
+          <TabsContent value="discontinue" className="m-0 p-4 mt-4 space-y-4">
             <Tabs
               value={searchMode}
               onValueChange={(v) => {

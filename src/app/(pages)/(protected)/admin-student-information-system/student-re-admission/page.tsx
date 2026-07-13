@@ -211,11 +211,6 @@ export default function StudentReadmissionPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader
-        title="Student Re-Admission"
-        subtitle="Student Information System"
-      />
-
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
           <h2 className="app-card-title">Student Detained List</h2>

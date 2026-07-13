@@ -1020,11 +1020,6 @@ export default function StudentPromotionPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader
-        title="Student Promotion"
-        subtitle="Student Information System"
-      />
-
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="app-card overflow-hidden" data-no-page-name>
           <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2.5">

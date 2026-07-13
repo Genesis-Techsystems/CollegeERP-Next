@@ -329,11 +329,6 @@ export default function StudentSubjectsPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader
-        title="Student Subjects"
-        description="Search a student and view assigned subjects."
-      />
-
       <div className="app-card overflow-hidden">
         <div className="flex items-center justify-between border-b border-border bg-muted/40 px-3 py-2.5">
           <h2 className="app-card-title">Student Subjects</h2>

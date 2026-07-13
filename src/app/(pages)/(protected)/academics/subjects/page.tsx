@@ -262,6 +262,8 @@ export default function SubjectsMasterPage() {
       {Boolean(courseId) && (
         <div className="app-card mt-3 p-0 overflow-hidden">
           <DataTable
+            title=""
+            subtitle=""
             rowData={rows}
             columnDefs={columnDefs}
             loading={loading}

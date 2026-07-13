@@ -527,6 +527,8 @@ export default function CourseGroupYearRegulationSubjectPage() {
 
       <div className="app-card overflow-hidden p-0">
         <DataTable
+          title=""
+          subtitle=""
           rowData={rows}
           columnDefs={columnDefs}
           loading={loading}

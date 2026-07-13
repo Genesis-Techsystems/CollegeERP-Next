@@ -371,7 +371,7 @@ export default function AssignQuestionPaperTemplatePage() {
     <PageContainer className="space-y-4">
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Assign Template</h2>
+          <h2 className="app-card-title">Assign Question Paper Template</h2>
           <Button
             type="button"
             variant="outline"

@@ -452,11 +452,6 @@ export default function GenerateStudentRollnoPage() {
 
   return (
     <PageContainer>
-      <PageHeader
-        title="Assign student roll number"
-        description="Load students by college and class, assign or edit roll numbers and hallticket numbers, then save."
-      />
-
       <div className="space-y-4 print:space-y-2">
         <div className="app-card overflow-hidden print:hidden">
           <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2.5">

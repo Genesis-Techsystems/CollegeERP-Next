@@ -445,11 +445,6 @@ export default function StudentPassoutPage() {
 
   return (
     <PageContainer>
-      <PageHeader
-        title="Student passout"
-        description="Mark students as passed out for the selected course year and effective date."
-      />
-
       <div className="space-y-4">
         <div className="app-card overflow-hidden">
           <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2.5">

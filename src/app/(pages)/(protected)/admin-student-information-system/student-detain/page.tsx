@@ -533,11 +533,6 @@ export default function StudentDetainPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader
-        title="Students Detain"
-        subtitle="Student Information System"
-      />
-
       <div className="px-1">
         <Tabs
           value={mode}

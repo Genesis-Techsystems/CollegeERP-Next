@@ -1027,17 +1027,40 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return `${postExamBase}/internal-exam-attendance-marking`
     }
+    // Exam Center Subject Attendance (Exam Papers Delivery) — must run BEFORE
+    // Exam Attendance-wise Subject Barcode; DB hrefs sometimes reuse
+    // `/attendance-management/exam-attendance` for both.
+    if (
+      hrefLower.includes('exam-center-subject-attendance') ||
+      labelLower.includes('examcenter subject attendance') ||
+      labelLower.includes('exam center subject attendance') ||
+      (labelLower.includes('exam center') &&
+        labelLower.includes('subject') &&
+        labelLower.includes('attendance') &&
+        !labelLower.includes('barcode'))
+    ) {
+      return '/admin-examination-management/exam-papers-delivery-process/exam-center-subject-attendance'
+    }
+
     // Exam Attendance-wise Subject Barcode — DB href is
     // `/attendance-management/exam-attendance` (placeholder). Pin by page id +
     // href so it always reaches the real pre-examination page. Must run BEFORE
     // the generic "exam subject barcode" rule (that one routes to the plain
     // barcode page on a loose `subject barcode` match).
+    // Skip when label is Exam Center Subject Attendance (handled above).
     if (
-      item.id === 'page_100080999' ||
-      hrefLower.includes('attendance-management/exam-attendance') ||
-      labelLower.includes('exam attendance-wis') ||
-      labelLower.includes('exam attendancewis') ||
-      (labelLower.includes('attendance') && labelLower.includes('subject') && labelLower.includes('barcode'))
+      !(
+        labelLower.includes('exam center') &&
+        labelLower.includes('attendance') &&
+        !labelLower.includes('barcode')
+      ) &&
+      (item.id === 'page_100080999' ||
+        hrefLower.includes('attendance-management/exam-attendance') ||
+        labelLower.includes('exam attendance-wis') ||
+        labelLower.includes('exam attendancewis') ||
+        (labelLower.includes('attendance') &&
+          labelLower.includes('subject') &&
+          labelLower.includes('barcode')))
     ) {
       return `${preExamBase}/exam-attendancewise-subject-barcode`
     }
@@ -1363,6 +1386,16 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     }
     if (labelLower.includes('exam center barcode')) {
       return '/admin-examination-management/exam-papers-delivery-process/exam-center-barcodes'
+    }
+    if (
+      labelLower.includes('examcenter subject attendance') ||
+      labelLower.includes('exam center subject attendance') ||
+      (labelLower.includes('exam center') &&
+        labelLower.includes('subject') &&
+        labelLower.includes('attendance') &&
+        !labelLower.includes('barcode'))
+    ) {
+      return '/admin-examination-management/exam-papers-delivery-process/exam-center-subject-attendance'
     }
     if (labelLower.includes('moderation rule setup')) {
       return '/admin-examination-management/result-processing/moderation-rule-setup'

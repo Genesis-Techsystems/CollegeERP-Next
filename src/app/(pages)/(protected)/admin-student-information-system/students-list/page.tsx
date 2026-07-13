@@ -696,11 +696,6 @@ export default function StudentDetailsPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader
-        title="Student Details"
-        subtitle="Student Information System"
-      />
-
       <div className="px-1">
         <Tabs
           value={mode}
