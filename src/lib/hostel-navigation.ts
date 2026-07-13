@@ -12,6 +12,18 @@ export function mapHostelNavRoute(href?: string, label?: string): string | null 
     return null
   }
 
+  // Examination "Exam Center Rooms" / univ exam center rooms — never hostel.
+  if (
+    labelLower.includes('exam center') ||
+    labelLower.includes('exam-center') ||
+    hrefLower.includes('exam-papers-delivery') ||
+    hrefLower.includes('univ-exam-center') ||
+    hrefLower.includes('exam-center-room') ||
+    hrefLower.includes('/examination/')
+  ) {
+    return null
+  }
+
   // Admin institutional room-type slugs — never hostel.
   if (
     hrefLower.includes('rooms-type') ||

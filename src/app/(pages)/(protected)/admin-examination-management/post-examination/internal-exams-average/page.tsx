@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ColGroupDef } from 'ag-grid-community'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { GraduationCap } from 'lucide-react'
+import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { MultiSelect, Select as CommonSelect } from '@/common/components/select'
 import { DataTable, TableCard } from '@/common/components/table'
+import { FilterCard } from '@/common/components/feedback'
 import {
   getInternalExamAverageMarks,
   getRegulationById,
@@ -416,19 +418,15 @@ export default function InternalExamsAveragePage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Internal Exam Average" subtitle="Post examination" />
+      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Internal Exams Average</h1>
 
-      <div className="app-card p-3">
-        <div className="border-b border-border pb-3">
-          <h2 className="app-card-title">Internal Exam Average</h2>
-        </div>
-
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>College</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => void onSelectCollege(Number(v || 0))} options={collegeOptions} placeholder="College" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={yearOptions} placeholder="Exam Year" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => void onSelectCourse(Number(v || 0))} options={courseOptions} placeholder="Course" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Group</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => void onSelectGroup(Number(v || 0))} options={groupOptions} placeholder="Course Group" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Year</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => void onSelectCourseYear(Number(v || 0))} options={courseYearOptions} placeholder="Course Year" /></div>
+      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Internal Exams Average</span>}>
+        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-12 items-end">
+          <div className="space-y-1 md:col-span-2"><Label>College</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => void onSelectCollege(Number(v || 0))} options={collegeOptions} placeholder="College" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={yearOptions} placeholder="Exam Year" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => void onSelectCourse(Number(v || 0))} options={courseOptions} placeholder="Course" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Group</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => void onSelectGroup(Number(v || 0))} options={groupOptions} placeholder="Course Group" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Year</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => void onSelectCourseYear(Number(v || 0))} options={courseYearOptions} placeholder="Course Year" searchable /></div>
           <div className="space-y-1 md:col-span-7">
             <Label>Exam</Label>
             <MultiSelect
@@ -441,39 +439,56 @@ export default function InternalExamsAveragePage() {
               className="text-[12px]"
             />
           </div>
-          {selectedExamIds.length > 0 && <div className="space-y-1 md:col-span-2"><Label>Marks Calculation Type</Label><CommonSelect value={markCalTypeId ? String(markCalTypeId) : null} onChange={(v) => setMarkCalTypeId(v ? Number(v) : null)} options={markTypeOptions} placeholder="Marks Calculation Type" /></div>}
+          {selectedExamIds.length > 0 && <div className="space-y-1 md:col-span-2"><Label>Marks Calculation Type</Label><CommonSelect value={markCalTypeId ? String(markCalTypeId) : null} onChange={(v) => setMarkCalTypeId(v ? Number(v) : null)} options={markTypeOptions} placeholder="Marks Calculation Type" searchable /></div>}
           {selectedExamIds.length > 0 && !!examIntMarkTypeId && <div className="md:col-span-1"><Button className="h-8 text-[12px] w-full" onClick={() => void getList()} disabled={loading}>{loading ? 'Loading...' : 'Get List'}</Button></div>}
         </div>
-      </div>
+      </FilterCard>
 
       {!examIntMarkTypeId && flag && <p className="text-[13px] font-semibold text-red-600 px-1">Note: Exam internal marks type is not updated in regulation master.</p>}
       {!!examIntMarkTypeId && flag && <p className="text-[13px] font-semibold text-red-600 px-1">Note: For Regulation {regulationCode || '-'} the Exam internal marks type is {internalType || '-'}.</p>}
 
       {midExamMarks.length > 0 && (
         <>
-          <div className="app-card p-3 border-t-[7px] border-t-slate-100">
-            <div className="text-[14px] font-semibold">{selectedData} <span className="text-muted-foreground font-normal">({tempV})</span></div>
+          <div className="px-1 text-[14px] text-slate-700">◉ List Of Marks</div>
+
+          <div className="app-card overflow-hidden border border-[#c3d9ff]">
+            <div className="flex items-start gap-4 p-3">
+              <div className="flex h-20 w-24 items-center justify-center bg-[#c3d9ff] text-slate-700">
+                <GraduationCap className="h-10 w-10" />
+              </div>
+              <div className="space-y-1 text-[13px]">
+                <p className="font-semibold text-slate-800">{selectedData || '-'}</p>
+                <p className="text-muted-foreground">{tempV || '-'}</p>
+                <p className="text-slate-700">
+                  Regulation: <span className="font-medium">{regulationCode || '-'}</span> / Marks Type:{' '}
+                  <span className="font-medium">{internalType || '-'}</span>
+                </p>
+              </div>
+            </div>
           </div>
+
           <TableCard withHeaderBorder={false}>
-            <DataTable<AnyRow>
-              rowData={midExamMarks}
-              columnDefs={columnDefs}
-              loading={loading}
-              getRowId={(p) => String(p.data?.rollNumber ?? '')}
-              pagination
-              paginationPageSize={50}
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search…',
-                pdfDocumentTitle: 'Internal Exam Average',
-                lockColumnIds: ['siNo', 'student'],
-              }}
-              toolbarTrailing={
-                <Button className="h-[30px] px-3 text-[12px]" onClick={() => void onSave()} disabled={saving}>
+            <div className="space-y-3">
+              <DataTable<AnyRow>
+                rowData={midExamMarks}
+                columnDefs={columnDefs}
+                loading={loading}
+                getRowId={(p) => String(p.data?.rollNumber ?? '')}
+                pagination
+                paginationPageSize={50}
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Internal Exam Average',
+                  lockColumnIds: ['siNo', 'student'],
+                }}
+              />
+              <div className="flex items-center justify-end gap-2">
+                <Button className="h-8 text-[12px]" onClick={() => void onSave()} disabled={saving}>
                   {saving ? 'Saving...' : 'Save'}
                 </Button>
-              }
-            />
+              </div>
+            </div>
           </TableCard>
         </>
       )}

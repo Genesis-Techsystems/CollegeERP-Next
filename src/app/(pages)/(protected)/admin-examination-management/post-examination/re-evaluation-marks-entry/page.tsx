@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { BookMarked, ChevronDown } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { DataTable, TableCard } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { FilterCard } from '@/common/components/feedback'
 import {
   getExamRevisionMarksBundle,
   getReevaluationMarksFilters,
@@ -382,13 +383,13 @@ export default function ReEvaluationMarksEntryPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Exam revised marks" subtitle="Post examination · Re-evaluation marks entry" />
+      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Exam Revised Marks</h1>
 
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
+      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Exam Revised Marks</span>}>
         <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
-            <h2 className="app-card-title">Exam revised marks</h2>
+            <h2 className="text-[14px] font-semibold">Re-Evaluation Filters</h2>
           </div>
           <Button
             type="button"
@@ -519,7 +520,7 @@ export default function ReEvaluationMarksEntryPage() {
             </div>
           </div>
         )}
-      </div>
+      </FilterCard>
 
       {studentRows.length > 0 && (
         <TableCard withHeaderBorder={false}>

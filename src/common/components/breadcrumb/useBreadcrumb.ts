@@ -21,6 +21,18 @@ function segmentToLabel(segment: string): string {
     .join(' ')
 }
 
+function adminSubmoduleLabel(pathname: string): string {
+  const normalized = pathname.toLowerCase()
+  const academicSettingsPrefixes = [
+    '/admin/courses',
+    '/admin/course-groups',
+    '/admin/course-years',
+    '/admin/group-sections',
+  ]
+  const isAcademicSettings = academicSettingsPrefixes.some((prefix) => normalized.startsWith(prefix))
+  return isAcademicSettings ? 'Academic Settings' : 'Master Settings'
+}
+
 /**
  * Builds breadcrumb items from the current Next.js pathname.
  *
@@ -80,12 +92,11 @@ export function useBreadcrumb(customItems?: BreadcrumbItem[]): BreadcrumbItem[] 
         href: isLast ? undefined : currentPath,
       })
 
-      // Admin module: insert submodule label so breadcrumb matches Angular's
-      // "Admin → Master Settings → <Page>" hierarchy even when the sidebar/nav
-      // metadata isn't available client-side.
+      // Admin module: insert a submodule label for fallback breadcrumbs when
+      // sidebar/nav metadata is unavailable client-side.
       const isAdminRoot = segment === 'admin' && index === 0
       if (isAdminRoot && segments.length >= 2) {
-        items.push({ label: 'Master Settings' })
+        items.push({ label: adminSubmoduleLabel(pathname) })
       }
     })
   }

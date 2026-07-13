@@ -1,17 +1,9 @@
 "use client";
 
-/**
- * Exam Scan Bundles Print (New).
- *
- * React port of Angular `exam-scan-bundles-print`. GlobalFilterBar (same as
- * exam-bundle-print). Lists scan bundles, assign scan operator, bundle details,
- * bulk English stickers, per-row Gujarati stickers.
- */
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { Printer } from "lucide-react";
+import { Pencil, Plus, Printer } from "lucide-react";
 import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/common/components/table";
 import {
@@ -20,48 +12,59 @@ import {
   GlobalFilterField,
 } from "@/common/components/forms";
 import { Select, type SelectOption } from "@/common/components/select";
+import { FormModal } from "@/common/components/feedback";
+import { StatusBadge } from "@/common/components/data-display";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { getSecuredValue, setSecuredValue } from "@/common/generic-functions";
 import { rowIndexGetter } from "@/lib/utils";
 import { toast } from "sonner";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { ExamBundlePrintStickersView } from "../exam-bundle-print/ExamBundlePrintStickersView";
 import {
+  createExamScanBundle,
   getExamCenterFilterGroups,
-  getExamScanBundleStickers,
-  listExamScanBundlesByCode,
+  getScanBundleOmrDetailsBySubject,
+  listExamScanBundlesBySubjectFilters,
   listExamScanProfilesByGroup,
+  pickExamScanBundleId,
+  populateScanBundleOmrDetails,
   updateExamScanBundle,
   type AnyRow,
 } from "@/services/exam-papers-delivery";
 
 type Row = AnyRow;
 
-const ALL = "0";
-
 const FILTERS_STORAGE_KEY = "examScanBundlesFiltersData";
 const BUNDLE_DETAILS_STORAGE_KEY = "examScanBundleDetails";
-
-const SCAN_DETAILS_ROUTE =
-  "/admin-examination-management/exam-papers-delivery-process/exam-scan-bundles-print/scan-bundle-details";
 
 interface SavedFilterRow {
   academicYearId?: string | number;
   examGroupId?: string | number;
-  examCenterId?: string | number;
-  examDate?: string | number;
-  questionPaperCode?: string | number;
+  courseId?: string | number;
+  courseYearId?: string | number;
+  regulationId?: string | number;
+  subjectId?: string | number;
 }
+
+interface FormState {
+  academicYearId: string;
+  examGroupId: string;
+  courseId: string;
+  courseYearId: string;
+  regulationId: string;
+  subjectId: string;
+}
+
+const EMPTY_FORM: FormState = {
+  academicYearId: "",
+  examGroupId: "",
+  courseId: "",
+  courseYearId: "",
+  regulationId: "",
+  subjectId: "",
+};
 
 function loadSavedFilters(): SavedFilterRow | null {
   const saved = getSecuredValue<SavedFilterRow[]>(FILTERS_STORAGE_KEY);
@@ -69,19 +72,16 @@ function loadSavedFilters(): SavedFilterRow | null {
   return null;
 }
 
-function saveFiltersToSession(form: FormState): void {
-  setSecuredValue(FILTERS_STORAGE_KEY, [form]);
-}
-
-const num = (v: unknown): number => {
+function num(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
-};
-const txt = (v: unknown): string => {
+}
+
+function txt(v: unknown): string {
   if (typeof v === "string") return v;
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   return "";
-};
+}
 
 function dedupeBy<T>(rows: T[], keyFn: (r: T) => number | string): T[] {
   const seen = new Set<number | string>();
@@ -95,72 +95,60 @@ function dedupeBy<T>(rows: T[], keyFn: (r: T) => number | string): T[] {
   return out;
 }
 
-interface FormState {
-  academicYearId: string;
-  examGroupId: string;
-  examCenterId: string;
-  examDate: string;
-  questionPaperCode: string;
+function statusRenderer(p: ICellRendererParams<Row>) {
+  return <StatusBadge status={Boolean(p.data?.isActive)} />;
 }
 
-const EMPTY_FORM: FormState = {
-  academicYearId: "",
-  examGroupId: "",
-  examCenterId: "",
-  examDate: "",
-  questionPaperCode: "",
-};
+function pickName(row: Row): string {
+  return txt(
+    row.scanProfileName ?? row.profileName ?? row.name ?? row.scan_profile_name,
+  );
+}
 
-type PrintMode = "stickers" | "stickers-gu";
+function pickCourseId(row: Row): number {
+  return num(row.fk_course_id ?? row.courseId ?? row.course_id);
+}
 
 function pickScanProfileDetailId(row: Row): number {
   return num(
     row.pk_exam_scan_profile_detail_id ??
       row.scannerProfileDetailId ??
       row.scanner_profile_detail_id ??
-      row.fk_scanner_profiledet_id ??
       row.pk_exam_scan_profile_id,
   );
 }
 
-function scanProfileDedupeKey(row: Row): number | string {
-  const detailId = pickScanProfileDetailId(row);
-  if (detailId > 0) return detailId;
-  const profileId = num(row.pk_exam_scan_profile_id ?? row.examScanProfileId);
-  if (profileId > 0) return profileId;
-  const name = txt(row.scan_profile_name ?? row.scanProfileName);
-  return name || JSON.stringify(row);
-}
-
-export default function ExamScanBundlesPrintPage() {
+export default function ScanBundlesPage() {
   const router = useRouter();
+  const pendingSaved = useRef<SavedFilterRow | null>(loadSavedFilters());
+
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [egFilterRows, setEgFilterRows] = useState<Row[]>([]);
-  const [ecGroupRows, setEcGroupRows] = useState<Row[]>([]);
-  const [questionPaperRows, setQuestionPaperRows] = useState<Row[]>([]);
-  const [bundles, setBundles] = useState<Row[]>([]);
+  const [scanFilterRows, setScanFilterRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
+  const [scanProfiles, setScanProfiles] = useState<Row[]>([]);
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const [stickerRows, setStickerRows] = useState<Row[]>([]);
-  const [stickerView, setStickerView] = useState<PrintMode | null>(null);
-  const pendingSaved = useRef<SavedFilterRow | null>(loadSavedFilters());
-  const autoFetchPending = useRef(false);
+  const [stickerView, setStickerView] = useState<"stickers" | null>(null);
 
-  const [editOpen, setEditOpen] = useState(false);
-  const [editRow, setEditRow] = useState<Row | null>(null);
-  const [scanProfiles, setScanProfiles] = useState<Row[]>([]);
-  const [editForm, setEditForm] = useState({
-    scannerProfileDetailId: "",
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [formModal, setFormModal] = useState({
+    bundleNumber: "",
     totalAnswerBooks: "",
+    examScanProfileId: "",
+    startSeatNo: "",
+    endSeatNo: "",
     isActive: true,
     reason: "",
   });
-  const [savingEdit, setSavingEdit] = useState(false);
 
   const clearListState = useCallback(() => {
-    setBundles([]);
+    setRows([]);
     setHasFetched(false);
   }, []);
 
@@ -169,11 +157,13 @@ export default function ExamScanBundlesPrintPage() {
     try {
       const groups = await getExamCenterFilterGroups({ flag: "eg_filters" });
       const flat: Row[] = [];
-      for (const g of groups)
+      for (const g of groups) {
         if (g.length > 0 && txt(g[0].flag) === "eg_ay_filter") flat.push(...g);
+      }
       setEgFilterRows(flat);
     } catch (e) {
       toastError(e, "Failed to load filters");
+      setEgFilterRows([]);
     } finally {
       setLoadingFilters(false);
     }
@@ -221,118 +211,139 @@ export default function ExamScanBundlesPrintPage() {
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
+    async function loadScanFilterRows() {
       if (!form.academicYearId || !form.examGroupId) {
-        setEcGroupRows([]);
+        setScanFilterRows([]);
         return;
       }
       try {
         const groups = await getExamCenterFilterGroups({
-          flag: "eg_ec_filters",
-          academicYearId: Number(form.academicYearId),
+          flag: "eg_scan_filter",
           examGroupId: Number(form.examGroupId),
+          academicYearId: Number(form.academicYearId),
         });
         if (cancelled) return;
-        const flat: Row[] = [];
-        for (const g of groups) flat.push(...g);
-        setEcGroupRows(flat);
+        const nextRows = groups[0] ?? [];
+        setScanFilterRows(nextRows);
+        const saved = pendingSaved.current;
+        if (saved?.courseId != null) {
+          setForm((f) => ({
+            ...f,
+            courseId: String(saved.courseId),
+            courseYearId:
+              saved.courseYearId != null ? String(saved.courseYearId) : "",
+            regulationId:
+              saved.regulationId != null ? String(saved.regulationId) : "",
+            subjectId: saved.subjectId != null ? String(saved.subjectId) : "",
+          }));
+          if (saved.subjectId != null) pendingSaved.current = null;
+        } else {
+          setForm((f) => ({
+            ...f,
+            courseId: "",
+            courseYearId: "",
+            regulationId: "",
+            subjectId: "",
+          }));
+        }
       } catch (e) {
-        if (!cancelled) toastError(e, "Failed to load exam centers");
+        if (!cancelled) toastError(e, "Failed to load course filters");
+        setScanFilterRows([]);
       }
     }
-    void load();
+    void loadScanFilterRows();
     return () => {
       cancelled = true;
     };
   }, [form.academicYearId, form.examGroupId]);
 
-  const examCenters = useMemo(
-    () => dedupeBy(ecGroupRows, (r) => num(r.fk_univ_ec_id)),
-    [ecGroupRows],
+  const courses = useMemo(
+    () => dedupeBy(scanFilterRows, (r) => pickCourseId(r)),
+    [scanFilterRows],
+  );
+  const courseYears = useMemo(
+    () =>
+      dedupeBy(
+        scanFilterRows.filter((r) => pickCourseId(r) === Number(form.courseId)),
+        (r) => num(r.fk_course_year_id ?? r.courseYearId),
+      ),
+    [scanFilterRows, form.courseId],
+  );
+  const regulations = useMemo(
+    () =>
+      dedupeBy(
+        scanFilterRows.filter(
+          (r) =>
+            pickCourseId(r) === Number(form.courseId) &&
+            num(r.fk_course_year_id ?? r.courseYearId) ===
+              Number(form.courseYearId),
+        ),
+        (r) => num(r.fk_regulation_id ?? r.regulationId ?? r.regulationCatId),
+      ),
+    [scanFilterRows, form.courseId, form.courseYearId],
+  );
+  const subjects = useMemo(
+    () =>
+      dedupeBy(
+        scanFilterRows.filter(
+          (r) =>
+            pickCourseId(r) === Number(form.courseId) &&
+            num(r.fk_course_year_id ?? r.courseYearId) ===
+              Number(form.courseYearId) &&
+            num(r.fk_regulation_id ?? r.regulationId ?? r.regulationCatId) ===
+              Number(form.regulationId),
+        ),
+        (r) => num(r.fk_subject_id ?? r.subjectId),
+      ),
+    [scanFilterRows, form.courseId, form.courseYearId, form.regulationId],
   );
 
   useEffect(() => {
-    if (!examCenters.length || !form.examGroupId || form.examCenterId !== "")
-      return;
-    const saved = pendingSaved.current;
-    const id = saved?.examCenterId != null ? String(saved.examCenterId) : ALL;
-    setForm((f) => ({ ...f, examCenterId: id }));
-  }, [examCenters, form.examGroupId, form.examCenterId]);
-
-  const examDates = useMemo(() => {
-    const source =
-      Number(form.examCenterId) === 0
-        ? ecGroupRows
-        : ecGroupRows.filter(
-            (r) => num(r.fk_univ_ec_id) === Number(form.examCenterId),
-          );
-    return dedupeBy(source, (r) => txt(r.exam_date));
-  }, [ecGroupRows, form.examCenterId]);
+    if (!courses.length || form.courseId) return;
+    setForm((f) => ({ ...f, courseId: String(pickCourseId(courses[0])) }));
+  }, [courses, form.courseId]);
 
   useEffect(() => {
-    if (form.examCenterId === "" || form.examDate !== "") return;
-    const saved = pendingSaved.current;
-    const id = saved?.examDate != null ? String(saved.examDate) : ALL;
-    setForm((f) => ({ ...f, examDate: id }));
-  }, [form.examCenterId, form.examDate]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      if (
-        !form.academicYearId ||
-        !form.examGroupId ||
-        form.examCenterId === "" ||
-        form.examDate === ""
-      ) {
-        setQuestionPaperRows([]);
-        return;
-      }
-      try {
-        const groups = await getExamCenterFilterGroups({
-          flag: "eg_ec_qc_filters",
-          academicYearId: Number(form.academicYearId),
-          examGroupId: Number(form.examGroupId),
-          univExamcenterId: Number(form.examCenterId) || 0,
-          examDate: form.examDate === ALL ? "1900-01-01" : form.examDate,
-        });
-        if (cancelled) return;
-        setQuestionPaperRows(groups[0] ?? []);
-      } catch (e) {
-        if (!cancelled) toastError(e, "Failed to load question papers");
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [form.academicYearId, form.examGroupId, form.examCenterId, form.examDate]);
-
-  useEffect(() => {
-    if (
-      form.examCenterId === "" ||
-      form.examDate === "" ||
-      form.questionPaperCode !== ""
-    )
-      return;
-    const saved = pendingSaved.current;
+    if (!courseYears.length || form.courseYearId) return;
     setForm((f) => ({
       ...f,
-      questionPaperCode:
-        saved?.questionPaperCode != null
-          ? String(saved.questionPaperCode)
-          : ALL,
+      courseYearId: String(
+        num(courseYears[0].fk_course_year_id ?? courseYears[0].courseYearId),
+      ),
     }));
-    if (saved) {
-      autoFetchPending.current = true;
-      pendingSaved.current = null;
-    }
-  }, [
-    form.examCenterId,
-    form.examDate,
-    form.questionPaperCode,
-    questionPaperRows,
-  ]);
+  }, [courseYears, form.courseYearId]);
+
+  useEffect(() => {
+    if (!regulations.length || form.regulationId) return;
+    setForm((f) => ({
+      ...f,
+      regulationId: String(
+        num(
+          regulations[0].fk_regulation_id ??
+            regulations[0].regulationId ??
+            regulations[0].regulationCatId,
+        ),
+      ),
+    }));
+  }, [regulations, form.regulationId]);
+
+  useEffect(() => {
+    if (!subjects.length || form.subjectId) return;
+    setForm((f) => ({
+      ...f,
+      subjectId: String(
+        num(subjects[0].fk_subject_id ?? subjects[0].subjectId),
+      ),
+    }));
+  }, [subjects, form.subjectId]);
+
+  useEffect(() => {
+    const saved = pendingSaved.current;
+    if (!saved?.subjectId || !form.subjectId || hasFetched) return;
+    pendingSaved.current = null;
+    void onGetList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.subjectId]);
 
   const academicYearOptions: SelectOption[] = useMemo(
     () =>
@@ -350,199 +361,223 @@ export default function ExamScanBundlesPrintPage() {
       })),
     [examGroups],
   );
-  const examCenterOptions: SelectOption[] = useMemo(
-    () => [
-      { value: ALL, label: "All" },
-      ...examCenters.map((r) => ({
-        value: String(num(r.fk_univ_ec_id)),
-        label: `${txt(r.ec_code)} - ${txt(r.ec_name)}`,
+  const courseOptions: SelectOption[] = useMemo(
+    () =>
+      courses.map((r) => ({
+        value: String(pickCourseId(r)),
+        label: txt(r.course_code ?? r.courseCode),
       })),
-    ],
-    [examCenters],
+    [courses],
   );
-  const examDateOptions: SelectOption[] = useMemo(
-    () => [
-      { value: ALL, label: "All" },
-      ...examDates.map((r) => ({
-        value: txt(r.exam_date),
-        label: txt(r.exam_date),
+  const courseYearOptions: SelectOption[] = useMemo(
+    () =>
+      courseYears.map((r) => ({
+        value: String(num(r.fk_course_year_id ?? r.courseYearId)),
+        label: txt(r.course_year_code ?? r.courseYearCode),
       })),
-    ],
-    [examDates],
+    [courseYears],
   );
-  const questionPaperOptions: SelectOption[] = useMemo(
-    () => [
-      { value: ALL, label: "All" },
-      ...questionPaperRows.map((r) => {
-        const c = txt(r.questionpaper_code ?? r.questionPaperCode);
-        return {
-          value: c,
-          label: txt(r.Questionpaper_name ?? r.questionpaper_name) || c,
-        };
-      }),
-    ],
-    [questionPaperRows],
+  const regulationOptions: SelectOption[] = useMemo(
+    () =>
+      regulations.map((r) => ({
+        value: String(
+          num(r.fk_regulation_id ?? r.regulationId ?? r.regulationCatId),
+        ),
+        label: txt(r.regulation_code ?? r.regulationCode ?? r.regulation_name),
+      })),
+    [regulations],
+  );
+  const subjectOptions: SelectOption[] = useMemo(
+    () =>
+      subjects.map((r) => ({
+        value: String(num(r.fk_subject_id ?? r.subjectId)),
+        label: `${txt(r.subject_name ?? r.subjectName)} (${txt(r.subject_code ?? r.subjectCode)})`,
+      })),
+    [subjects],
   );
 
-  const header = useMemo(() => {
-    const eg = examGroups.find(
-      (x) => num(x.fk_univ_exam_group_id) === Number(form.examGroupId),
-    );
-    const ec = examCenters.find(
-      (x) => num(x.fk_univ_ec_id) === Number(form.examCenterId),
-    );
-    return {
-      examGroupCode: txt(eg?.exam_group_code),
-      examCenterCode: txt(ec?.ec_name),
-      examDate: form.examDate,
-      questionPaperCode: form.questionPaperCode,
-    };
-  }, [examGroups, examCenters, form]);
+  const scanProfileOptions: SelectOption[] = useMemo(
+    () =>
+      scanProfiles.map((p) => ({
+        value: String(pickScanProfileDetailId(p)),
+        label:
+          txt(p.scan_profile_name ?? p.scanProfileName) ||
+          String(pickScanProfileDetailId(p)),
+      })),
+    [scanProfiles],
+  );
 
   const tableSummaryText = useMemo(() => {
-    const centerLabel =
-      form.examCenterId === ALL
-        ? "All"
-        : examCenterOptions.find((o) => o.value === form.examCenterId)?.label ||
-          header.examCenterCode ||
-          "All";
-    const dateLabel = form.examDate === ALL ? "All" : header.examDate;
-    const qp = questionPaperOptions.find(
-      (o) => o.value === form.questionPaperCode,
-    )?.label;
+    const eg = examGroups.find(
+      (e) => num(e.fk_univ_exam_group_id) === Number(form.examGroupId),
+    );
+    const cy = courseYears.find(
+      (r) =>
+        num(r.fk_course_year_id ?? r.courseYearId) ===
+        Number(form.courseYearId),
+    );
+    const reg = regulations.find(
+      (r) =>
+        num(r.fk_regulation_id ?? r.regulationId ?? r.regulationCatId) ===
+        Number(form.regulationId),
+    );
+    const sub = subjects.find(
+      (r) => num(r.fk_subject_id ?? r.subjectId) === Number(form.subjectId),
+    );
+    const examGroupCode = txt(eg?.exam_group_code ?? eg?.examGroupCode) || "-";
+    const courseYearCode =
+      txt(cy?.course_year_code ?? cy?.courseYearCode) || "-";
+    const regulationCode =
+      txt(reg?.regulation_code ?? reg?.regulationCode) || "-";
     const subjectLabel =
-      form.questionPaperCode === ALL ? "All" : qp || header.questionPaperCode;
-    return `${header.examGroupCode || "-"} / ${centerLabel} / ${dateLabel} / ${subjectLabel}`;
-  }, [
-    header,
-    form.examCenterId,
-    form.examDate,
-    form.questionPaperCode,
-    examCenterOptions,
-    questionPaperOptions,
-  ]);
+      sub != null
+        ? `${txt(sub.subject_name ?? sub.subjectName)} (${txt(sub.subject_code ?? sub.subjectCode)})`
+        : "-";
+    return `${examGroupCode} / ${courseYearCode} / ${regulationCode} / ${subjectLabel}`;
+  }, [examGroups, courseYears, regulations, subjects, form]);
+
+  const examGroupCode = useMemo(
+    () => tableSummaryText.split(" / ")[0] ?? "-",
+    [tableSummaryText],
+  );
+
+  const saveFiltersToSession = useCallback(() => {
+    setSecuredValue(FILTERS_STORAGE_KEY, [{ ...form }]);
+  }, [form]);
+
+  const filterArgs = useCallback(
+    () => ({
+      examGroupId: Number(form.examGroupId || 0),
+      academicYearId: Number(form.academicYearId || 0),
+      courseId: Number(form.courseId || 0),
+      courseYearId: Number(form.courseYearId || 0),
+      subjectId: Number(form.subjectId || 0),
+      regulationId: Number(form.regulationId || 0),
+    }),
+    [form],
+  );
 
   function onAcademicYearChange(v: string | null) {
     clearListState();
     pendingSaved.current = null;
-    autoFetchPending.current = false;
     setForm({
       academicYearId: v ?? "",
       examGroupId: "",
-      examCenterId: "",
-      examDate: "",
-      questionPaperCode: "",
+      courseId: "",
+      courseYearId: "",
+      regulationId: "",
+      subjectId: "",
     });
   }
 
   function onExamGroupChange(v: string | null) {
     clearListState();
     pendingSaved.current = null;
-    autoFetchPending.current = false;
     setForm((f) => ({
       ...f,
       examGroupId: v ?? "",
-      examCenterId: "",
-      examDate: "",
-      questionPaperCode: "",
+      courseId: "",
+      courseYearId: "",
+      regulationId: "",
+      subjectId: "",
     }));
   }
 
-  function onExamCenterChange(v: string | null) {
+  function onCourseChange(v: string | null) {
     clearListState();
     pendingSaved.current = null;
-    autoFetchPending.current = false;
     setForm((f) => ({
       ...f,
-      examCenterId: v ?? "",
-      examDate: "",
-      questionPaperCode: "",
+      courseId: v ?? "",
+      courseYearId: "",
+      regulationId: "",
+      subjectId: "",
     }));
   }
 
-  function onExamDateChange(v: string | null) {
+  function onCourseYearChange(v: string | null) {
     clearListState();
     pendingSaved.current = null;
-    autoFetchPending.current = false;
-    setForm((f) => ({ ...f, examDate: v ?? "", questionPaperCode: "" }));
+    setForm((f) => ({
+      ...f,
+      courseYearId: v ?? "",
+      regulationId: "",
+      subjectId: "",
+    }));
   }
 
-  function onQuestionPaperChange(v: string | null) {
+  function onRegulationChange(v: string | null) {
     clearListState();
     pendingSaved.current = null;
-    autoFetchPending.current = false;
-    setForm((f) => ({ ...f, questionPaperCode: v ?? "" }));
+    setForm((f) => ({ ...f, regulationId: v ?? "", subjectId: "" }));
   }
 
-  const onGetList = useCallback(async () => {
+  function onSubjectChange(v: string | null) {
+    clearListState();
+    pendingSaved.current = null;
+    setForm((f) => ({ ...f, subjectId: v ?? "" }));
+  }
+
+  async function loadScanProfilesForGroup() {
+    if (!form.examGroupId) return;
+    const list = await listExamScanProfilesByGroup(
+      Number(form.examGroupId),
+    ).catch(() => []);
+    setScanProfiles(Array.isArray(list) ? list : []);
+  }
+
+  async function onGetList() {
+    const args = filterArgs();
     if (
-      !form.academicYearId ||
-      !form.examGroupId ||
-      form.examCenterId === "" ||
-      form.examDate === "" ||
-      form.questionPaperCode === ""
+      !args.examGroupId ||
+      !args.courseYearId ||
+      !args.regulationId ||
+      !args.subjectId
     ) {
       toast.info("Please Select Required Filters");
       return;
     }
     setHasFetched(true);
     setLoadingList(true);
+    saveFiltersToSession();
     try {
-      const rows = await listExamScanBundlesByCode({
-        univExamcenterId: Number(form.examCenterId),
-        examGroupId: Number(form.examGroupId),
-        academicYearId: Number(form.academicYearId),
-        examDate: form.examDate,
-        questionPaperCode: form.questionPaperCode,
-      });
-      setBundles(rows);
-      if (rows.length === 0) toast.info("No Record(s) found.");
+      const list = await listExamScanBundlesBySubjectFilters(args);
+      setRows(Array.isArray(list) ? list : []);
+      if (!list.length) toast.info("No Record(s) found.");
     } catch (e) {
       toastError(e, "Failed to load scan bundles");
-      setBundles([]);
+      setRows([]);
     } finally {
       setLoadingList(false);
     }
-  }, [form]);
+  }
 
-  // Angular selectedQuestionPaper: auto-get list when restoring saved filters.
-  useEffect(() => {
-    if (!autoFetchPending.current) return;
-    if (
-      !form.academicYearId ||
-      !form.examGroupId ||
-      form.examCenterId === "" ||
-      form.examDate === "" ||
-      form.questionPaperCode === ""
-    ) {
-      return;
-    }
-    autoFetchPending.current = false;
-    void onGetList();
-  }, [form, onGetList]);
-
-  async function loadAndPrintStickers(
-    scanBundleId: number,
-    mode: PrintMode = "stickers",
-  ) {
+  async function onPopulate(scanBundleId: number) {
     setLoadingList(true);
     try {
-      let rows = await getExamScanBundleStickers({
-        univExamcenterId: Number(form.examCenterId),
-        examGroupId: Number(form.examGroupId),
-        academicYearId: Number(form.academicYearId),
-        examDate: form.examDate,
-        questionPaperCode: form.questionPaperCode,
+      await populateScanBundleOmrDetails({ ...filterArgs(), scanBundleId });
+      toastSuccess("Populate completed.");
+    } catch (e) {
+      toastError(e, "Populate failed");
+    } finally {
+      setLoadingList(false);
+    }
+  }
+
+  async function onPrintStickers(scanBundleId: number) {
+    setLoadingList(true);
+    try {
+      const stickerData = await getScanBundleOmrDetailsBySubject({
+        ...filterArgs(),
         scanBundleId,
       });
-      if (Array.isArray(rows[0])) rows = rows[0] as unknown as Row[];
-      if (!rows.length) {
+      if (!stickerData.length) {
         toast.info("No stickers found for this bundle.");
         return;
       }
-      saveFiltersToSession(form);
-      setStickerRows(rows);
-      setStickerView(mode);
+      saveFiltersToSession();
+      setStickerRows(stickerData);
+      setStickerView("stickers");
     } catch (e) {
       toastError(e, "Failed to load stickers");
     } finally {
@@ -550,157 +585,190 @@ export default function ExamScanBundlesPrintPage() {
     }
   }
 
-  async function openEdit(row: Row) {
-    setEditRow(row);
-    setEditForm({
-      scannerProfileDetailId: String(pickScanProfileDetailId(row)),
-      totalAnswerBooks: txt(row.total_answer_books ?? row.totalAnswerBooks),
-      isActive: row.isActive == null ? true : row.isActive === true,
-      reason: txt(row.reason),
-    });
-    setEditOpen(true);
-    try {
-      const profiles = await listExamScanProfilesByGroup(
-        Number(form.examGroupId),
-      );
-      setScanProfiles(dedupeBy(profiles, scanProfileDedupeKey));
-    } catch (e) {
-      setScanProfiles([]);
-      toastError(e, "Failed to load scanner profiles");
-    }
+  function openBundleDetails(row: Row) {
+    saveFiltersToSession();
+    setSecuredValue(BUNDLE_DETAILS_STORAGE_KEY, [
+      {
+        ...row,
+        academicYearId: form.academicYearId,
+        examGroupId: form.examGroupId,
+        courseId: form.courseId,
+        courseYearId: form.courseYearId,
+        regulationId: form.regulationId,
+        subjectId: form.subjectId,
+        univExamScanbundleId: pickExamScanBundleId(row),
+      },
+    ]);
+    router.push(
+      "/admin-examination-management/exam-papers-delivery-process/scan-bundle-details",
+    );
   }
 
-  const scanProfileOptions: SelectOption[] = useMemo(
-    () =>
-      scanProfiles.map((r) => ({
-        value: String(pickScanProfileDetailId(r)),
-        label:
-          txt(r.scan_profile_name ?? r.scanProfileName) ||
-          String(pickScanProfileDetailId(r)),
-      })),
-    [scanProfiles],
-  );
+  async function openCreate() {
+    await loadScanProfilesForGroup();
+    setEditing(null);
+    setFormModal({
+      bundleNumber: "",
+      totalAnswerBooks: "",
+      examScanProfileId: "",
+      startSeatNo: "",
+      endSeatNo: "",
+      isActive: true,
+      reason: "",
+    });
+    setModalOpen(true);
+  }
 
-  async function saveEdit() {
-    if (!editRow) return;
-    const id = num(
-      editRow.pk_univ_exam_scan_bundle_id ?? editRow.univExamScanbundleId,
+  async function onEdit(row: Row) {
+    await loadScanProfilesForGroup();
+    setEditing(row);
+    setFormModal({
+      bundleNumber: txt(row.bundleNumber),
+      totalAnswerBooks: txt(row.totalAnswerBooks),
+      examScanProfileId: String(
+        num(
+          row.scannerProfileDetailId ??
+            row.scanner_profile_detail_id ??
+            row.examScanProfileId,
+        ),
+      ),
+      startSeatNo: txt(
+        row.startEcSeatNo ?? row.startSeatNo ?? row.startSerialNo,
+      ),
+      endSeatNo: txt(row.endEcSeatNo ?? row.endSeatNo ?? row.endSerialNo),
+      isActive: row.isActive !== false,
+      reason: txt(row.reason),
+    });
+    setModalOpen(true);
+  }
+
+  async function onSave(e: { preventDefault: () => void }) {
+    e.preventDefault();
+    if (!formModal.bundleNumber.trim())
+      return toastError("Bundle Number is required.");
+    if (!formModal.examScanProfileId)
+      return toastError("Exam Scan Profile is required.");
+
+    const selectedSubject = subjects.find(
+      (s) => num(s.fk_subject_id ?? s.subjectId) === Number(form.subjectId),
     );
-    if (!id) {
-      toastError("Missing scan bundle id.");
-      return;
-    }
-    setSavingEdit(true);
+    const employee = Number(
+      globalThis?.localStorage?.getItem("employeeId") ?? 0,
+    );
+    const now = new Date().toISOString();
+    const payload: Record<string, unknown> = {
+      univExamGroupId: Number(form.examGroupId || 0),
+      examGroupId: Number(form.examGroupId || 0),
+      courseId: Number(form.courseId || 0),
+      academicYearId: Number(form.academicYearId || 0),
+      courseYearId: Number(form.courseYearId || 0),
+      regulationId: Number(form.regulationId || 0),
+      subjectId: Number(form.subjectId || 0),
+      examId: num(selectedSubject?.fk_exam_id ?? selectedSubject?.examId),
+      examTimetableDetId: num(
+        selectedSubject?.fk_exam_timetable_det_id ??
+          selectedSubject?.examTimetableDetId,
+      ),
+      bundleNumber: formModal.bundleNumber.trim(),
+      totalAnswerBooks: Number(formModal.totalAnswerBooks || 0),
+      scannerProfileDetailId: Number(formModal.examScanProfileId),
+      startEcSeatNo: formModal.startSeatNo.trim(),
+      endEcSeatNo: formModal.endSeatNo.trim(),
+      isActive: formModal.isActive,
+      reason: formModal.isActive ? "" : formModal.reason.trim(),
+      createdDt: now,
+      updatedDt: now,
+      createdUser: employee || null,
+      updatedUser: employee || null,
+    };
+
+    setSaving(true);
     try {
-      await updateExamScanBundle(id, {
-        univExamScanbundleId: id,
-        univExamGroupId: Number(form.examGroupId),
-        questionPaperCode: form.questionPaperCode,
-        scannerProfileDetailId: editForm.scannerProfileDetailId
-          ? Number(editForm.scannerProfileDetailId)
-          : null,
-        totalAnswerBooks:
-          editForm.totalAnswerBooks === ""
-            ? num(editRow.total_answer_books)
-            : Number(editForm.totalAnswerBooks),
-        isActive: editForm.isActive,
-        reason: editForm.reason || null,
-      });
-      toastSuccess("Scan bundle updated.");
-      setEditOpen(false);
+      const id = pickExamScanBundleId(editing ?? {});
+      if (id > 0) {
+        await updateExamScanBundle(id, {
+          ...payload,
+          univExamScanbundleId: id,
+        });
+        toastSuccess("Scan bundle updated.");
+      } else {
+        await createExamScanBundle(payload);
+        toastSuccess("Scan bundle created.");
+      }
+      setModalOpen(false);
       await onGetList();
-    } catch (e) {
-      toastError(e, "Failed to update scan bundle");
+    } catch (err) {
+      toastError(err, "Save failed");
     } finally {
       setSavingEdit(false);
     }
   }
 
-  function openBundleDetails(row: Row) {
-    const detailRow = {
-      ...row,
-      academicYearId: form.academicYearId,
-      examGroupId: form.examGroupId,
-      examCenterId: form.examCenterId,
-      examDate: form.examDate,
-      questionPaperCode: form.questionPaperCode,
-      examGroupCode: header.examGroupCode,
-      examCenterCode: header.examCenterCode,
-      pk_univ_exam_scan_bundle_id: num(row.pk_univ_exam_scan_bundle_id),
-      bundle_number: num(row.bundle_number),
-      fk_scanner_profiledet_id: num(
-        row.fk_scanner_profiledet_id ?? row.scannerProfileDetailId,
-      ),
-    };
-    setSecuredValue(BUNDLE_DETAILS_STORAGE_KEY, [detailRow]);
-    saveFiltersToSession(form);
-
-    const qp = new URLSearchParams({
-      academicYearId: form.academicYearId,
-      examGroupId: form.examGroupId,
-      examCenterId: form.examCenterId,
-      examDate: form.examDate,
-      questionPaperCode: form.questionPaperCode,
-      examGroupCode: header.examGroupCode,
-      examCenterCode: header.examCenterCode,
-      scanBundleId: String(num(row.pk_univ_exam_scan_bundle_id)),
-      scanBundleName: txt(row.scan_bundle_name),
-      bundleNumber: String(num(row.bundle_number)),
-      scannerProfileDetailId: String(
-        num(row.fk_scanner_profiledet_id ?? row.scannerProfileDetailId),
-      ),
-    });
-    router.push(`${SCAN_DETAILS_ROUTE}?${qp.toString()}`);
-  }
-
-  const printActionsRef = useRef<(scanBundleId: number) => void>(() => {});
-  printActionsRef.current = (scanBundleId) => {
-    void loadAndPrintStickers(scanBundleId, "stickers-gu");
-  };
+  useEffect(() => {
+    if (!modalOpen || formModal.examScanProfileId || !scanProfileOptions.length)
+      return;
+    setFormModal((f) => ({
+      ...f,
+      examScanProfileId: scanProfileOptions[0]?.value ?? "",
+    }));
+  }, [modalOpen, scanProfileOptions, formModal.examScanProfileId]);
 
   const columnDefs = useMemo<ColDef<Row>[]>(
     () => [
-      { headerName: "SL No.", valueGetter: rowIndexGetter, width: 80, flex: 0 },
+      { headerName: "SI.No", valueGetter: rowIndexGetter, width: 70, flex: 0 },
       {
-        headerName: "Bundle Name",
-        minWidth: 150,
-        valueGetter: (p) =>
-          txt(p.data?.scan_bundle_name ?? p.data?.exam_bundle_name),
+        headerName: "Bundle Number",
+        minWidth: 130,
+        valueGetter: (p) => txt(p.data?.bundleNumber) || "-",
       },
       {
-        headerName: "Scanner Profile",
-        minWidth: 150,
-        valueGetter: (p) =>
-          txt(p.data?.scan_profile_name ?? p.data?.scannerProfileDetailId),
+        headerName: "Scan Profile Name",
+        minWidth: 160,
+        valueGetter: (p) => pickName(p.data ?? {}) || "-",
       },
       {
         headerName: "Total Answer Books",
-        minWidth: 150,
-        valueGetter: (p) => txt(p.data?.total_answer_books),
+        minWidth: 140,
+        valueGetter: (p) => txt(p.data?.totalAnswerBooks) || "-",
       },
       {
         headerName: "Start Seat No",
         minWidth: 120,
-        valueGetter: (p) => txt(p.data?.start_ec_seatno),
+        valueGetter: (p) =>
+          txt(
+            p.data?.startEcSeatNo ??
+              p.data?.startSeatNo ??
+              p.data?.startSerialNo,
+          ) || "-",
       },
       {
         headerName: "End Seat No",
         minWidth: 120,
-        valueGetter: (p) => txt(p.data?.end_ec_seatno),
+        valueGetter: (p) =>
+          txt(
+            p.data?.endEcSeatNo ?? p.data?.endSeatNo ?? p.data?.endSerialNo,
+          ) || "-",
+      },
+      {
+        field: "isActive",
+        headerName: "Status",
+        minWidth: 90,
+        cellRenderer: statusRenderer,
       },
       {
         headerName: "Actions",
-        minWidth: 300,
+        minWidth: 280,
         flex: 0,
         cellRenderer: (p: ICellRendererParams<Row>) => {
-          if (!p.data) return null;
-          const id = num(p.data.pk_univ_exam_scan_bundle_id);
+          const row = p.data;
+          if (!row) return null;
+          const id = pickExamScanBundleId(row);
           return (
             <div className="flex items-center gap-2 text-[12px]">
               <button
                 type="button"
                 className="text-[hsl(var(--primary))] hover:underline"
-                onClick={() => openBundleDetails(p.data as Row)}
+                onClick={() => openBundleDetails(row)}
               >
                 Bundle Details
               </button>
@@ -708,20 +776,31 @@ export default function ExamScanBundlesPrintPage() {
               <button
                 type="button"
                 className="text-[hsl(var(--primary))] hover:underline"
-                onClick={() => void openEdit(p.data as Row)}
+                onClick={() => void onPopulate(id)}
               >
-                Assign Scan Operator
+                Populate
               </button>
               <span className="text-muted-foreground">|</span>
               <Button
                 type="button"
-                size="sm"
                 variant="ghost"
+                size="icon"
                 className="h-7 w-7 p-0"
-                title="Print Stickers New Format"
-                onClick={() => printActionsRef.current(id)}
+                title="Print Stickers"
+                onClick={() => void onPrintStickers(id)}
               >
                 <Printer className="h-3.5 w-3.5" />
+              </Button>
+              <span className="text-muted-foreground">|</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 p-0"
+                title="Edit"
+                onClick={() => void onEdit(row)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
               </Button>
             </div>
           );
@@ -729,47 +808,29 @@ export default function ExamScanBundlesPrintPage() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [form, header],
+    [form, tableSummaryText],
   );
 
-  if (stickerView === "stickers" || stickerView === "stickers-gu") {
+  if (stickerView === "stickers") {
     return (
       <ExamBundlePrintStickersView
         stickerRows={stickerRows}
-        examGroupCode={header.examGroupCode}
-        variant={stickerView}
-        onBack={() => {
-          const saved = loadSavedFilters();
-          if (saved) {
-            pendingSaved.current = saved;
-            autoFetchPending.current = true;
-            setForm({
-              academicYearId:
-                saved.academicYearId != null
-                  ? String(saved.academicYearId)
-                  : "",
-              examGroupId:
-                saved.examGroupId != null ? String(saved.examGroupId) : "",
-              examCenterId:
-                saved.examCenterId != null ? String(saved.examCenterId) : "",
-              examDate: saved.examDate != null ? String(saved.examDate) : "",
-              questionPaperCode:
-                saved.questionPaperCode != null
-                  ? String(saved.questionPaperCode)
-                  : "",
-            });
-          }
-          setStickerView(null);
-        }}
+        examGroupCode={examGroupCode}
+        variant="stickers"
+        onBack={() => setStickerView(null)}
       />
     );
   }
 
   return (
     <PageContainer className="space-y-4">
-      <GlobalFilterBar title="Exam Scan Bundles" defaultOpen={false}>
+      <h2 className="px-1 text-lg font-semibold tracking-tight text-foreground">
+        Exam Scan Bundles
+      </h2>
+
+      <GlobalFilterBar title="Scan Bundles" defaultOpen={false}>
         <GlobalFilterBarRow>
-          <GlobalFilterField label="Academic Year">
+          <GlobalFilterField label="Academic Year *">
             <Select
               options={academicYearOptions}
               value={form.academicYearId}
@@ -778,7 +839,7 @@ export default function ExamScanBundlesPrintPage() {
               disabled={loadingFilters}
             />
           </GlobalFilterField>
-          <GlobalFilterField label="Exam Group">
+          <GlobalFilterField label="Exam Group *">
             <Select
               options={examGroupOptions}
               value={form.examGroupId}
@@ -786,30 +847,39 @@ export default function ExamScanBundlesPrintPage() {
               placeholder="Exam Group"
             />
           </GlobalFilterField>
-          <GlobalFilterField label="Exam Center">
+          <GlobalFilterField label="Course *">
             <Select
-              options={examCenterOptions}
-              value={form.examCenterId}
-              onChange={onExamCenterChange}
-              placeholder="Exam Center"
+              options={courseOptions}
+              value={form.courseId}
+              onChange={onCourseChange}
+              placeholder="Course"
               searchable
             />
           </GlobalFilterField>
-          <GlobalFilterField label="Exam Date">
+          <GlobalFilterField label="Course Years *">
             <Select
-              options={examDateOptions}
-              value={form.examDate}
-              onChange={onExamDateChange}
-              placeholder="Exam Date"
-              searchable
+              options={courseYearOptions}
+              value={form.courseYearId}
+              onChange={onCourseYearChange}
+              placeholder="Course Years"
             />
           </GlobalFilterField>
-          <GlobalFilterField label="Subject">
+          <GlobalFilterField label="Regulation *">
             <Select
-              options={questionPaperOptions}
-              value={form.questionPaperCode}
-              onChange={onQuestionPaperChange}
-              placeholder="Subject"
+              options={regulationOptions}
+              value={form.regulationId}
+              onChange={onRegulationChange}
+              placeholder="Regulation"
+            />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Subjects">
+            <Select
+              options={subjectOptions}
+              value={form.subjectId}
+              onChange={onSubjectChange}
+              placeholder="Subjects"
               searchable
             />
           </GlobalFilterField>
@@ -818,6 +888,7 @@ export default function ExamScanBundlesPrintPage() {
             className="global-filter-field--action global-filter-field--shrink"
           >
             <Button
+              type="button"
               size="sm"
               onClick={() => void onGetList()}
               disabled={loadingList}
@@ -833,17 +904,19 @@ export default function ExamScanBundlesPrintPage() {
         <div className="app-card overflow-hidden">
           <div className="px-3 pb-3 pt-2">
             <div className="overflow-hidden rounded-lg border border-border bg-card">
-              <p
-                className="truncate px-5 pb-0 pt-4 text-[12px] font-medium text-[hsl(var(--primary))]"
-                title={tableSummaryText}
-              >
-                {tableSummaryText}
-              </p>
               <DataTable
                 rowData={bundles}
                 columnDefs={columnDefs}
                 loading={loadingList}
                 pagination
+                title={
+                  <p
+                    className="truncate text-[12px] font-medium text-[hsl(var(--primary))]"
+                    title={`Scan Bundles - ${tableSummaryText}`}
+                  >
+                    Scan Bundles - {tableSummaryText}
+                  </p>
+                }
                 toolbar={{
                   search: true,
                   searchPlaceholder: "Search…",
@@ -851,16 +924,36 @@ export default function ExamScanBundlesPrintPage() {
                 }}
                 toolbarLeading={<span className="hidden" aria-hidden />}
                 toolbarTrailing={
-                  bundles.length > 0 ? (
+                  <div className="flex flex-nowrap items-center gap-2">
                     <Button
                       type="button"
-                      className="h-[30px] px-3 text-[12px]"
-                      onClick={() => void loadAndPrintStickers(0, "stickers")}
+                      size="sm"
+                      className="h-[30px] shrink-0 gap-1.5 px-3 text-[12px]"
+                      onClick={() => void onPopulate(0)}
                       disabled={loadingList}
                     >
+                      Bulk Populate
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-[30px] shrink-0 gap-1.5 px-3 text-[12px]"
+                      onClick={() => void onPrintStickers(0)}
+                      disabled={loadingList}
+                    >
+                      <Printer className="h-3.5 w-3.5" />
                       Bulk Print Stickers
                     </Button>
-                  ) : null
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-[30px] shrink-0 gap-1.5 px-3 text-[12px]"
+                      onClick={() => void openCreate()}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Scan Bundles
+                    </Button>
+                  </div>
                 }
               />
             </div>
@@ -868,83 +961,91 @@ export default function ExamScanBundlesPrintPage() {
         </div>
       )}
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Assign Scan Operator</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 text-[13px]">
-            <div className="text-muted-foreground">
-              {tableSummaryText}
-              {editRow?.scan_bundle_name
-                ? ` / ${txt(editRow.scan_bundle_name)}`
-                : ""}
-            </div>
-            <div className="space-y-1">
-              <Label>Scanner Profile</Label>
-              <Select
-                options={scanProfileOptions}
-                value={editForm.scannerProfileDetailId}
-                onChange={(v) =>
-                  setEditForm((s) => ({
-                    ...s,
-                    scannerProfileDetailId: v ?? "",
-                  }))
-                }
-                searchable
-                placeholder="Select Scanner Profile"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Total Answer Books</Label>
-              <Input
-                type="number"
-                className="h-8 text-[12px]"
-                value={editForm.totalAnswerBooks}
-                onChange={(e) =>
-                  setEditForm((s) => ({
-                    ...s,
-                    totalAnswerBooks: e.target.value,
-                  }))
-                }
-              />
-            </div>
-            <label className="flex items-center gap-2">
-              <Checkbox
-                checked={editForm.isActive}
-                onCheckedChange={(v) =>
-                  setEditForm((s) => ({ ...s, isActive: v === true }))
-                }
-              />
-              Active
-            </label>
-            {!editForm.isActive && (
-              <div className="space-y-1">
-                <Label>Reason</Label>
-                <Input
-                  className="h-8 text-[12px]"
-                  value={editForm.reason}
-                  onChange={(e) =>
-                    setEditForm((s) => ({ ...s, reason: e.target.value }))
-                  }
-                />
-              </div>
-            )}
+      <FormModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={`${editing ? "Edit" : "Add"} Scan Bundles - /${tableSummaryText}`}
+        onSubmit={onSave}
+        isSubmitting={saving}
+        size="xl"
+        showHeaderDivider
+        showCloseButton={false}
+        cancelLabel="Close"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-1">
+            <Label>Bundle Number *</Label>
+            <Input
+              value={formModal.bundleNumber}
+              onChange={(e) =>
+                setFormModal((f) => ({ ...f, bundleNumber: e.target.value }))
+              }
+            />
           </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setEditOpen(false)}
-              disabled={savingEdit}
-            >
-              Cancel
-            </Button>
-            <Button onClick={() => void saveEdit()} disabled={savingEdit}>
-              {savingEdit ? "Saving…" : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-1">
+            <Label>Total Answer Books</Label>
+            <Input
+              value={formModal.totalAnswerBooks}
+              onChange={(e) =>
+                setFormModal((f) => ({
+                  ...f,
+                  totalAnswerBooks: e.target.value,
+                }))
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Exam Scan Profile</Label>
+            <Select
+              options={scanProfileOptions}
+              value={formModal.examScanProfileId}
+              onChange={(v) =>
+                setFormModal((f) => ({ ...f, examScanProfileId: v ?? "" }))
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Start Seat No</Label>
+            <Input
+              value={formModal.startSeatNo}
+              onChange={(e) =>
+                setFormModal((f) => ({ ...f, startSeatNo: e.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>End Seat No</Label>
+            <Input
+              value={formModal.endSeatNo}
+              onChange={(e) =>
+                setFormModal((f) => ({ ...f, endSeatNo: e.target.value }))
+              }
+            />
+          </div>
+          <div className="flex items-center gap-2 text-sm font-medium mt-6">
+            <input
+              id="scanBundleActive"
+              type="checkbox"
+              checked={formModal.isActive}
+              onChange={(e) =>
+                setFormModal((f) => ({ ...f, isActive: e.target.checked }))
+              }
+            />
+            <Label htmlFor="scanBundleActive">Active</Label>
+          </div>
+          {!formModal.isActive && (
+            <div className="space-y-1 md:col-span-2">
+              <Label>Reason</Label>
+              <Input
+                value={formModal.reason}
+                onChange={(e) =>
+                  setFormModal((f) => ({ ...f, reason: e.target.value }))
+                }
+              />
+            </div>
+          )}
+        </div>
+      </FormModal>
     </PageContainer>
   );
 }

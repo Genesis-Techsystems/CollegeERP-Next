@@ -121,6 +121,7 @@ export default function ScanBundleDetailsPage() {
         examDate: params.examDate,
         questionPaperCode: params.questionPaperCode,
         scanBundleId: params.scanBundleId,
+        bundleNumber: params.bundleNumber,
       });
       setScanned(Array.isArray(rows) ? rows : []);
     } catch (e) {

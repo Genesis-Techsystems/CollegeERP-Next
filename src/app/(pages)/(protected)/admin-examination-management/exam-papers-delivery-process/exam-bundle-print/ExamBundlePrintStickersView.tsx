@@ -13,7 +13,7 @@ const txt = (v: unknown): string => {
 function groupByBundleId(rows: StickerRow[]): StickerRow[][] {
 	const grouped = new Map<string, StickerRow[]>()
 	for (const r of rows) {
-		const key = String(r.fk_univ_exam_bundle_id ?? '0')
+		const key = String(r.fk_univ_exam_scan_bundle_id ?? r.fk_univ_exam_bundle_id ?? '0')
 		if (!grouped.has(key)) grouped.set(key, [])
 		grouped.get(key)!.push(r)
 	}
@@ -108,7 +108,7 @@ function StickerHeader({
 		>
 			<div style={{ fontSize: '10px', fontWeight: 'bold' }}>{examGroupCode}</div>
 			<div>
-				{txt(head.ec_code)}&nbsp;|&nbsp;{txt(head.bundle_number)}
+				{txt(head.ec_code)}&nbsp;|&nbsp;{txt(head.bundle_number ?? head.bundleNumber)}
 			</div>
 			<div>{txt(head.exam_date)}</div>
 			<div>

@@ -1,33 +1,31 @@
 'use client'
 
 /**
- * Exam Scan Bundles Print.
+ * Exam Scan Bundles Print (New).
  *
- * Faithful React port of Angular
- * `exam-papers-delivery-process/exam-scan-bundles-print`. Same cascade as
- * exam-bundle-print (Academic Year → Exam Group → Exam Center → Exam Date →
- * Subject), a scan-bundle list (get_exam_scan_bundle), an edit dialog
- * (scanner profile / answer books / active), per-bundle + bulk OMR stickers
- * (scan_bundle_omr_details), and a Bundle Details link to the scan-bundle
- * details page.
+ * React port of Angular `exam-scan-bundles-print`. GlobalFilterBar (same as
+ * exam-bundle-print). Lists scan bundles, assign scan operator, bundle details,
+ * bulk English stickers, per-row Gujarati stickers.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { ChevronDown, Filter, Layers, Printer } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { Printer } from 'lucide-react'
+import { PageContainer } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select, type SelectOption } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { getSecuredValue, setSecuredValue } from '@/common/generic-functions'
 import { rowIndexGetter } from '@/lib/utils'
 import { toast } from 'sonner'
 import { toastError, toastSuccess } from '@/lib/toast'
-import { usePrintMode } from '@/lib/print'
+import { ExamBundlePrintStickersView } from '../exam-bundle-print/ExamBundlePrintStickersView'
 import {
 	getExamCenterFilterGroups,
 	getExamScanBundleStickers,
@@ -39,8 +37,31 @@ import {
 
 type Row = AnyRow
 
+const ALL = '0'
+
+const FILTERS_STORAGE_KEY = 'examScanBundlesFiltersData'
+const BUNDLE_DETAILS_STORAGE_KEY = 'examScanBundleDetails'
+
 const SCAN_DETAILS_ROUTE =
 	'/admin-examination-management/exam-papers-delivery-process/exam-scan-bundles-print/scan-bundle-details'
+
+interface SavedFilterRow {
+	academicYearId?: string | number
+	examGroupId?: string | number
+	examCenterId?: string | number
+	examDate?: string | number
+	questionPaperCode?: string | number
+}
+
+function loadSavedFilters(): SavedFilterRow | null {
+	const saved = getSecuredValue<SavedFilterRow[]>(FILTERS_STORAGE_KEY)
+	if (Array.isArray(saved) && saved[0]) return saved[0]
+	return null
+}
+
+function saveFiltersToSession(form: FormState): void {
+	setSecuredValue(FILTERS_STORAGE_KEY, [form])
+}
 
 const num = (v: unknown): number => {
 	const n = Number(v)
@@ -80,14 +101,29 @@ const EMPTY_FORM: FormState = {
 	questionPaperCode: '',
 }
 
-// 'stickers' = English variant (exam-scan-bundle-print-stickers),
-// 'stickers-gu' = Gujarati variant (exam-scan-bundles-print-stickets-gu) —
-// identical data/structure, wider sticker-row margin.
 type PrintMode = 'stickers' | 'stickers-gu'
+
+function pickScanProfileDetailId(row: Row): number {
+	return num(
+		row.pk_exam_scan_profile_detail_id ??
+			row.scannerProfileDetailId ??
+			row.scanner_profile_detail_id ??
+			row.fk_scanner_profiledet_id ??
+			row.pk_exam_scan_profile_id,
+	)
+}
+
+function scanProfileDedupeKey(row: Row): number | string {
+	const detailId = pickScanProfileDetailId(row)
+	if (detailId > 0) return detailId
+	const profileId = num(row.pk_exam_scan_profile_id ?? row.examScanProfileId)
+	if (profileId > 0) return profileId
+	const name = txt(row.scan_profile_name ?? row.scanProfileName)
+	return name || JSON.stringify(row)
+}
 
 export default function ExamScanBundlesPrintPage() {
 	const router = useRouter()
-	const [filtersOpen, setFiltersOpen] = useState(true)
 	const [form, setForm] = useState<FormState>(EMPTY_FORM)
 	const [egFilterRows, setEgFilterRows] = useState<Row[]>([])
 	const [ecGroupRows, setEcGroupRows] = useState<Row[]>([])
@@ -95,19 +131,24 @@ export default function ExamScanBundlesPrintPage() {
 	const [bundles, setBundles] = useState<Row[]>([])
 	const [loadingFilters, setLoadingFilters] = useState(false)
 	const [loadingList, setLoadingList] = useState(false)
-	const [flag, setFlag] = useState(false)
+	const [hasFetched, setHasFetched] = useState(false)
 
 	const [stickerRows, setStickerRows] = useState<Row[]>([])
-	const { mode: printMode, triggerPrint } = usePrintMode<PrintMode>()
+	const [stickerView, setStickerView] = useState<PrintMode | null>(null)
+	const pendingSaved = useRef<SavedFilterRow | null>(loadSavedFilters())
+	const autoFetchPending = useRef(false)
 
-	// Edit dialog
 	const [editOpen, setEditOpen] = useState(false)
 	const [editRow, setEditRow] = useState<Row | null>(null)
 	const [scanProfiles, setScanProfiles] = useState<Row[]>([])
 	const [editForm, setEditForm] = useState({ scannerProfileDetailId: '', totalAnswerBooks: '', isActive: true, reason: '' })
 	const [savingEdit, setSavingEdit] = useState(false)
 
-	// ── eg_filters → academic years + exam groups ──
+	const clearListState = useCallback(() => {
+		setBundles([])
+		setHasFetched(false)
+	}, [])
+
 	const loadAcademicYearAndGroups = useCallback(async () => {
 		setLoadingFilters(true)
 		try {
@@ -127,9 +168,13 @@ export default function ExamScanBundlesPrintPage() {
 	}, [loadAcademicYearAndGroups])
 
 	const academicYears = useMemo(() => dedupeBy(egFilterRows, (r) => num(r.fk_academic_year_id)), [egFilterRows])
+
 	useEffect(() => {
 		if (!academicYears.length || form.academicYearId) return
-		setForm((f) => ({ ...f, academicYearId: String(num(academicYears[0].fk_academic_year_id)) }))
+		const saved = pendingSaved.current
+		const id =
+			saved?.academicYearId != null ? String(saved.academicYearId) : String(num(academicYears[0].fk_academic_year_id))
+		setForm((f) => ({ ...f, academicYearId: id }))
 	}, [academicYears, form.academicYearId])
 
 	const examGroups = useMemo(
@@ -140,12 +185,15 @@ export default function ExamScanBundlesPrintPage() {
 			),
 		[egFilterRows, form.academicYearId],
 	)
-	useEffect(() => {
-		if (!examGroups.length || !form.academicYearId) return
-		setForm((f) => ({ ...f, examGroupId: String(num(examGroups[0].fk_univ_exam_group_id)) }))
-	}, [examGroups, form.academicYearId])
 
-	// ── eg_ec_filters → exam centers + dates ──
+	useEffect(() => {
+		if (!examGroups.length || !form.academicYearId || form.examGroupId) return
+		const saved = pendingSaved.current
+		const id =
+			saved?.examGroupId != null ? String(saved.examGroupId) : String(num(examGroups[0].fk_univ_exam_group_id))
+		setForm((f) => ({ ...f, examGroupId: id }))
+	}, [examGroups, form.academicYearId, form.examGroupId])
+
 	useEffect(() => {
 		let cancelled = false
 		async function load() {
@@ -174,29 +222,33 @@ export default function ExamScanBundlesPrintPage() {
 	}, [form.academicYearId, form.examGroupId])
 
 	const examCenters = useMemo(() => dedupeBy(ecGroupRows, (r) => num(r.fk_univ_ec_id)), [ecGroupRows])
-	useEffect(() => {
-		if (!examCenters.length || !form.examGroupId) return
-		setForm((f) => ({ ...f, examCenterId: String(num(examCenters[0].fk_univ_ec_id)) }))
-	}, [examCenters, form.examGroupId])
 
-	const examDates = useMemo(
-		() =>
-			dedupeBy(
-				ecGroupRows.filter((r) => num(r.fk_univ_ec_id) === Number(form.examCenterId)),
-				(r) => txt(r.exam_date),
-			),
-		[ecGroupRows, form.examCenterId],
-	)
 	useEffect(() => {
-		if (!examDates.length || !form.examCenterId) return
-		setForm((f) => ({ ...f, examDate: txt(examDates[0].exam_date) }))
-	}, [examDates, form.examCenterId])
+		if (!examCenters.length || !form.examGroupId || form.examCenterId !== '') return
+		const saved = pendingSaved.current
+		const id = saved?.examCenterId != null ? String(saved.examCenterId) : ALL
+		setForm((f) => ({ ...f, examCenterId: id }))
+	}, [examCenters, form.examGroupId, form.examCenterId])
 
-	// ── eg_ec_qc_filters → question papers ──
+	const examDates = useMemo(() => {
+		const source =
+			Number(form.examCenterId) === 0
+				? ecGroupRows
+				: ecGroupRows.filter((r) => num(r.fk_univ_ec_id) === Number(form.examCenterId))
+		return dedupeBy(source, (r) => txt(r.exam_date))
+	}, [ecGroupRows, form.examCenterId])
+
+	useEffect(() => {
+		if (form.examCenterId === '' || form.examDate !== '') return
+		const saved = pendingSaved.current
+		const id = saved?.examDate != null ? String(saved.examDate) : ALL
+		setForm((f) => ({ ...f, examDate: id }))
+	}, [form.examCenterId, form.examDate])
+
 	useEffect(() => {
 		let cancelled = false
 		async function load() {
-			if (!form.academicYearId || !form.examGroupId || !form.examCenterId || !form.examDate) {
+			if (!form.academicYearId || !form.examGroupId || form.examCenterId === '' || form.examDate === '') {
 				setQuestionPaperRows([])
 				return
 			}
@@ -205,8 +257,8 @@ export default function ExamScanBundlesPrintPage() {
 					flag: 'eg_ec_qc_filters',
 					academicYearId: Number(form.academicYearId),
 					examGroupId: Number(form.examGroupId),
-					univExamcenterId: Number(form.examCenterId),
-					examDate: form.examDate,
+					univExamcenterId: Number(form.examCenterId) || 0,
+					examDate: form.examDate === ALL ? '1900-01-01' : form.examDate,
 				})
 				if (cancelled) return
 				setQuestionPaperRows(groups[0] ?? [])
@@ -221,12 +273,17 @@ export default function ExamScanBundlesPrintPage() {
 	}, [form.academicYearId, form.examGroupId, form.examCenterId, form.examDate])
 
 	useEffect(() => {
-		if (!questionPaperRows.length || !form.examDate) return
+		if (form.examCenterId === '' || form.examDate === '' || form.questionPaperCode !== '') return
+		const saved = pendingSaved.current
 		setForm((f) => ({
 			...f,
-			questionPaperCode: txt(questionPaperRows[0].questionpaper_code ?? questionPaperRows[0].questionPaperCode),
+			questionPaperCode: saved?.questionPaperCode != null ? String(saved.questionPaperCode) : ALL,
 		}))
-	}, [questionPaperRows, form.examDate])
+		if (saved) {
+			autoFetchPending.current = true
+			pendingSaved.current = null
+		}
+	}, [form.examCenterId, form.examDate, form.questionPaperCode, questionPaperRows])
 
 	const academicYearOptions: SelectOption[] = useMemo(
 		() => academicYears.map((r) => ({ value: String(num(r.fk_academic_year_id)), label: txt(r.academic_year) })),
@@ -237,19 +294,27 @@ export default function ExamScanBundlesPrintPage() {
 		[examGroups],
 	)
 	const examCenterOptions: SelectOption[] = useMemo(
-		() => examCenters.map((r) => ({ value: String(num(r.fk_univ_ec_id)), label: `${txt(r.ec_code)} - ${txt(r.ec_name)}` })),
+		() => [
+			{ value: ALL, label: 'All' },
+			...examCenters.map((r) => ({
+				value: String(num(r.fk_univ_ec_id)),
+				label: `${txt(r.ec_code)} - ${txt(r.ec_name)}`,
+			})),
+		],
 		[examCenters],
 	)
 	const examDateOptions: SelectOption[] = useMemo(
-		() => examDates.map((r) => ({ value: txt(r.exam_date), label: txt(r.exam_date) })),
+		() => [{ value: ALL, label: 'All' }, ...examDates.map((r) => ({ value: txt(r.exam_date), label: txt(r.exam_date) }))],
 		[examDates],
 	)
 	const questionPaperOptions: SelectOption[] = useMemo(
-		() =>
-			questionPaperRows.map((r) => {
+		() => [
+			{ value: ALL, label: 'All' },
+			...questionPaperRows.map((r) => {
 				const c = txt(r.questionpaper_code ?? r.questionPaperCode)
 				return { value: c, label: txt(r.Questionpaper_name ?? r.questionpaper_name) || c }
 			}),
+		],
 		[questionPaperRows],
 	)
 
@@ -264,12 +329,81 @@ export default function ExamScanBundlesPrintPage() {
 		}
 	}, [examGroups, examCenters, form])
 
-	async function onGetList() {
-		if (!form.academicYearId || !form.examGroupId || !form.examCenterId || !form.examDate || !form.questionPaperCode) {
+	const tableSummaryText = useMemo(() => {
+		const centerLabel =
+			form.examCenterId === ALL
+				? 'All'
+				: examCenterOptions.find((o) => o.value === form.examCenterId)?.label || header.examCenterCode || 'All'
+		const dateLabel = form.examDate === ALL ? 'All' : header.examDate
+		const qp = questionPaperOptions.find((o) => o.value === form.questionPaperCode)?.label
+		const subjectLabel = form.questionPaperCode === ALL ? 'All' : qp || header.questionPaperCode
+		return `${header.examGroupCode || '-'} / ${centerLabel} / ${dateLabel} / ${subjectLabel}`
+	}, [header, form.examCenterId, form.examDate, form.questionPaperCode, examCenterOptions, questionPaperOptions])
+
+	function onAcademicYearChange(v: string | null) {
+		clearListState()
+		pendingSaved.current = null
+		autoFetchPending.current = false
+		setForm({
+			academicYearId: v ?? '',
+			examGroupId: '',
+			examCenterId: '',
+			examDate: '',
+			questionPaperCode: '',
+		})
+	}
+
+	function onExamGroupChange(v: string | null) {
+		clearListState()
+		pendingSaved.current = null
+		autoFetchPending.current = false
+		setForm((f) => ({
+			...f,
+			examGroupId: v ?? '',
+			examCenterId: '',
+			examDate: '',
+			questionPaperCode: '',
+		}))
+	}
+
+	function onExamCenterChange(v: string | null) {
+		clearListState()
+		pendingSaved.current = null
+		autoFetchPending.current = false
+		setForm((f) => ({
+			...f,
+			examCenterId: v ?? '',
+			examDate: '',
+			questionPaperCode: '',
+		}))
+	}
+
+	function onExamDateChange(v: string | null) {
+		clearListState()
+		pendingSaved.current = null
+		autoFetchPending.current = false
+		setForm((f) => ({ ...f, examDate: v ?? '', questionPaperCode: '' }))
+	}
+
+	function onQuestionPaperChange(v: string | null) {
+		clearListState()
+		pendingSaved.current = null
+		autoFetchPending.current = false
+		setForm((f) => ({ ...f, questionPaperCode: v ?? '' }))
+	}
+
+	const onGetList = useCallback(async () => {
+		if (
+			!form.academicYearId ||
+			!form.examGroupId ||
+			form.examCenterId === '' ||
+			form.examDate === '' ||
+			form.questionPaperCode === ''
+		) {
 			toast.info('Please Select Required Filters')
 			return
 		}
-		setFlag(true)
+		setHasFetched(true)
 		setLoadingList(true)
 		try {
 			const rows = await listExamScanBundlesByCode({
@@ -280,16 +414,31 @@ export default function ExamScanBundlesPrintPage() {
 				questionPaperCode: form.questionPaperCode,
 			})
 			setBundles(rows)
+			if (rows.length === 0) toast.info('No Record(s) found.')
 		} catch (e) {
 			toastError(e, 'Failed to load scan bundles')
 			setBundles([])
 		} finally {
 			setLoadingList(false)
 		}
-	}
+	}, [form])
 
-	// mode 'stickers' = English layout, 'stickers-gu' = Gujarati layout (Angular
-	// getPrintStickersData vs getPrintStickersDataNew — same proc, different sheet).
+	// Angular selectedQuestionPaper: auto-get list when restoring saved filters.
+	useEffect(() => {
+		if (!autoFetchPending.current) return
+		if (
+			!form.academicYearId ||
+			!form.examGroupId ||
+			form.examCenterId === '' ||
+			form.examDate === '' ||
+			form.questionPaperCode === ''
+		) {
+			return
+		}
+		autoFetchPending.current = false
+		void onGetList()
+	}, [form, onGetList])
+
 	async function loadAndPrintStickers(scanBundleId: number, mode: PrintMode = 'stickers') {
 		setLoadingList(true)
 		try {
@@ -306,8 +455,9 @@ export default function ExamScanBundlesPrintPage() {
 				toast.info('No stickers found for this bundle.')
 				return
 			}
+			saveFiltersToSession(form)
 			setStickerRows(rows)
-			triggerPrint(mode)
+			setStickerView(mode)
 		} catch (e) {
 			toastError(e, 'Failed to load stickers')
 		} finally {
@@ -315,25 +465,29 @@ export default function ExamScanBundlesPrintPage() {
 		}
 	}
 
-	// ── Edit dialog (Angular editDialog → ExamModalComponent → updateDetails) ──
 	async function openEdit(row: Row) {
 		setEditRow(row)
 		setEditForm({
-			scannerProfileDetailId: txt(row.scannerProfileDetailId ?? row.scanner_profile_detail_id),
+			scannerProfileDetailId: String(pickScanProfileDetailId(row)),
 			totalAnswerBooks: txt(row.total_answer_books ?? row.totalAnswerBooks),
 			isActive: row.isActive == null ? true : row.isActive === true,
 			reason: txt(row.reason),
 		})
 		setEditOpen(true)
-		const profiles = await listExamScanProfilesByGroup(Number(form.examGroupId)).catch(() => [])
-		setScanProfiles(dedupeBy(profiles, (r) => num(r.pk_exam_scan_profile_id)))
+		try {
+			const profiles = await listExamScanProfilesByGroup(Number(form.examGroupId))
+			setScanProfiles(dedupeBy(profiles, scanProfileDedupeKey))
+		} catch (e) {
+			setScanProfiles([])
+			toastError(e, 'Failed to load scanner profiles')
+		}
 	}
 
 	const scanProfileOptions: SelectOption[] = useMemo(
 		() =>
 			scanProfiles.map((r) => ({
-				value: String(num(r.pk_exam_scan_profile_id ?? r.scannerProfileDetailId)),
-				label: txt(r.scan_profile_name ?? r.scanProfileName) || String(num(r.pk_exam_scan_profile_id)),
+				value: String(pickScanProfileDetailId(r)),
+				label: txt(r.scan_profile_name ?? r.scanProfileName) || String(pickScanProfileDetailId(r)),
 			})),
 		[scanProfiles],
 	)
@@ -368,7 +522,22 @@ export default function ExamScanBundlesPrintPage() {
 	}
 
 	function openBundleDetails(row: Row) {
-		// Angular assignStudents → scan-bundle-details-new (carries the filter context).
+		const detailRow = {
+			...row,
+			academicYearId: form.academicYearId,
+			examGroupId: form.examGroupId,
+			examCenterId: form.examCenterId,
+			examDate: form.examDate,
+			questionPaperCode: form.questionPaperCode,
+			examGroupCode: header.examGroupCode,
+			examCenterCode: header.examCenterCode,
+			pk_univ_exam_scan_bundle_id: num(row.pk_univ_exam_scan_bundle_id),
+			bundle_number: num(row.bundle_number),
+			fk_scanner_profiledet_id: num(row.fk_scanner_profiledet_id ?? row.scannerProfileDetailId),
+		}
+		setSecuredValue(BUNDLE_DETAILS_STORAGE_KEY, [detailRow])
+		saveFiltersToSession(form)
+
 		const qp = new URLSearchParams({
 			academicYearId: form.academicYearId,
 			examGroupId: form.examGroupId,
@@ -385,6 +554,11 @@ export default function ExamScanBundlesPrintPage() {
 		router.push(`${SCAN_DETAILS_ROUTE}?${qp.toString()}`)
 	}
 
+	const printActionsRef = useRef<(scanBundleId: number) => void>(() => {})
+	printActionsRef.current = (scanBundleId) => {
+		void loadAndPrintStickers(scanBundleId, 'stickers-gu')
+	}
+
 	const columnDefs = useMemo<ColDef<Row>[]>(
 		() => [
 			{ headerName: 'SL No.', valueGetter: rowIndexGetter, width: 80, flex: 0 },
@@ -395,7 +569,7 @@ export default function ExamScanBundlesPrintPage() {
 			{ headerName: 'End Seat No', minWidth: 120, valueGetter: (p) => txt(p.data?.end_ec_seatno) },
 			{
 				headerName: 'Actions',
-				minWidth: 280,
+				minWidth: 300,
 				flex: 0,
 				cellRenderer: (p: ICellRendererParams<Row>) => {
 					if (!p.data) return null
@@ -407,16 +581,19 @@ export default function ExamScanBundlesPrintPage() {
 							</button>
 							<span className="text-muted-foreground">|</span>
 							<button type="button" className="text-[hsl(var(--primary))] hover:underline" onClick={() => void openEdit(p.data as Row)}>
-								Edit
+								Assign Scan Operator
 							</button>
 							<span className="text-muted-foreground">|</span>
-							<button type="button" className="text-[hsl(var(--primary))] hover:underline" onClick={() => void loadAndPrintStickers(id)}>
-								Stickers
-							</button>
-							<span className="text-muted-foreground">|</span>
-							<button type="button" className="text-[hsl(var(--primary))] hover:underline" onClick={() => void loadAndPrintStickers(id, 'stickers-gu')}>
-								Stickers New
-							</button>
+							<Button
+								type="button"
+								size="sm"
+								variant="ghost"
+								className="h-7 w-7 p-0"
+								title="Print Stickers New Format"
+								onClick={() => printActionsRef.current(id)}
+							>
+								<Printer className="h-3.5 w-3.5" />
+							</Button>
 						</div>
 					)
 				},
@@ -426,160 +603,141 @@ export default function ExamScanBundlesPrintPage() {
 		[form, header],
 	)
 
-	// ── Sticker print layout (Angular exam-scan-bundle-print-stickers / -gu) ──
-	if (printMode === 'stickers' || printMode === 'stickers-gu') {
-		const grouped = new Map<string, Row[]>()
-		for (const r of stickerRows) {
-			const key = String(r.fk_univ_exam_scan_bundle_id ?? r.fk_univ_exam_bundle_id ?? '0')
-			if (!grouped.has(key)) grouped.set(key, [])
-			grouped.get(key)!.push(r)
-		}
-		const groups = Array.from(grouped.values())
-		// English row margin 0 4px; Gujarati 0 35px. Block row so cells wrap.
-		const isGu = printMode === 'stickers-gu'
-		const rowStyle = { display: 'block', margin: isGu ? '0 35px' : '0 4px' } as const
-		const cellStyle = {
-			border: '1px solid #000',
-			padding: '4px',
-			verticalAlign: 'top' as const,
-			display: 'inline-block' as const,
-		}
+	if (stickerView === 'stickers' || stickerView === 'stickers-gu') {
 		return (
-			<div className="text-black" style={{ fontFamily: 'Arial, sans-serif', padding: '8px' }}>
-				{groups.map((rows, gi) => {
-					const head = rows[0] ?? {}
-					return (
-						<div key={gi} style={{ pageBreakAfter: gi < groups.length - 1 ? 'always' : 'auto', marginBottom: '16px' }}>
-							<table style={{ width: '100%', borderCollapse: 'collapse' }}>
-								<thead>
-									<tr>
-										<td style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>
-											<span style={{ fontWeight: 'bold', fontSize: '14px' }}>{header.examGroupCode}</span>
-											<br />
-											<span>{txt(head.ec_code)}&nbsp;|&nbsp;{txt(head.bundle_number ?? head.scan_bundle_name)}</span>
-											<br />
-											<span>{txt(head.exam_date)}</span>
-											<br />
-											<span>{txt(head.subject_name)}-{txt(head.subject_code)}</span>
-										</td>
-									</tr>
-								</thead>
-								<tbody>
-									<tr style={rowStyle}>
-										{rows.map((data, i) => (
-											<td key={i} style={cellStyle}>
-												<span style={{ display: 'flex', justifyContent: 'center', marginBottom: '-3px', fontSize: '12px' }}>
-													<span>
-														<b>{txt(data.ec_seatno)}</b>({txt(data.hallticket_number)})
-													</span>
-												</span>
-												{data.omr_barcode ? (
-													// eslint-disable-next-line @next/next/no-img-element
-													<img src={`data:image/jpg;base64,${txt(data.omr_barcode)}`} alt="" style={{ height: 30, width: 180 }} />
-												) : null}
-												<span style={{ display: 'flex', justifyContent: 'center', fontSize: '6.5px', marginTop: '1px' }}>
-													{txt(data.exam_date)}({txt(data.subject_code)})
-												</span>
-											</td>
-										))}
-									</tr>
-								</tbody>
-							</table>
-						</div>
-					)
-				})}
-			</div>
+			<ExamBundlePrintStickersView
+				stickerRows={stickerRows}
+				examGroupCode={header.examGroupCode}
+				variant={stickerView}
+				onBack={() => {
+					const saved = loadSavedFilters()
+					if (saved) {
+						pendingSaved.current = saved
+						autoFetchPending.current = true
+						setForm({
+							academicYearId: saved.academicYearId != null ? String(saved.academicYearId) : '',
+							examGroupId: saved.examGroupId != null ? String(saved.examGroupId) : '',
+							examCenterId: saved.examCenterId != null ? String(saved.examCenterId) : '',
+							examDate: saved.examDate != null ? String(saved.examDate) : '',
+							questionPaperCode: saved.questionPaperCode != null ? String(saved.questionPaperCode) : '',
+						})
+					}
+					setStickerView(null)
+				}}
+			/>
 		)
 	}
 
 	return (
 		<PageContainer className="space-y-4">
-			<PageHeader
-				title="Exam Scan Bundles Print"
-				subtitle="Exam papers delivery · Scan bundles · Print barcode stickers"
-			/>
+			<h2 className="px-1 text-lg font-semibold tracking-tight text-foreground">Exam Scan Bundles Print</h2>
 
-			<div className="app-card p-3 border-t-[3px] border-t-amber-300">
-				<div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-					<div className="flex items-center gap-2">
-						<Layers className="h-4 w-4 text-blue-700" aria-hidden />
-						<h2 className="app-card-title">Scan Bundles</h2>
-					</div>
-					<button
-						type="button"
-						className="flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground"
-						onClick={() => setFiltersOpen((v) => !v)}
-						aria-expanded={filtersOpen}
-					>
-						<span>Filter</span>
-						<Filter className="h-4 w-4" aria-hidden />
-						<ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-					</button>
-				</div>
-				{(
-					<div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-						<div className="space-y-1 md:col-span-2">
-							<label className="text-[12px] text-muted-foreground">Academic Year *</label>
-							<Select options={academicYearOptions} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} disabled={loadingFilters} />
-						</div>
-						<div className="space-y-1 md:col-span-2">
-							<label className="text-[12px] text-muted-foreground">Exam Group *</label>
-							<Select options={examGroupOptions} value={form.examGroupId} onChange={(v) => setForm((f) => ({ ...f, examGroupId: v ?? '' }))} />
-						</div>
-						<div className="space-y-1 md:col-span-3">
-							<label className="text-[12px] text-muted-foreground">Exam Center *</label>
-							<Select options={examCenterOptions} value={form.examCenterId} onChange={(v) => setForm((f) => ({ ...f, examCenterId: v ?? '' }))} searchable />
-						</div>
-						<div className="space-y-1 md:col-span-2">
-							<label className="text-[12px] text-muted-foreground">Exam Date *</label>
-							<Select options={examDateOptions} value={form.examDate} onChange={(v) => setForm((f) => ({ ...f, examDate: v ?? '' }))} searchable />
-						</div>
-						<div className="space-y-1 md:col-span-2">
-							<label className="text-[12px] text-muted-foreground">Subject (QP) *</label>
-							<Select options={questionPaperOptions} value={form.questionPaperCode} onChange={(v) => setForm((f) => ({ ...f, questionPaperCode: v ?? '' }))} />
-						</div>
-						<div className="md:col-span-1">
-							<Button type="button" onClick={() => void onGetList()} disabled={loadingList}>
-								Get List
-							</Button>
-						</div>
-					</div>
-				)}
-			</div>
-
-			{flag && (
-				<div className="app-card overflow-hidden">
-					<div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted/40">
-						<h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">
-							Scan Bundles — {header.examGroupCode} / {header.examCenterCode} / {header.examDate} / {header.questionPaperCode}
-						</h3>
-						{bundles.length > 0 && (
-							<Button size="sm" variant="outline" className="h-8 gap-1.5 text-[11px]" onClick={() => void loadAndPrintStickers(0)}>
-								<Printer className="h-3.5 w-3.5" /> Bulk Print Stickers
-							</Button>
-						)}
-					</div>
-					<div className="p-2">
-						<DataTable
-							rowData={bundles}
-							columnDefs={columnDefs}
-							loading={loadingList}
-							pagination
-							toolbar={{ search: true, searchPlaceholder: 'Search…', pdfDocumentTitle: 'Exam Scan Bundles' }}
+			<GlobalFilterBar title="Scan Bundles" defaultOpen={false}>
+				<GlobalFilterBarRow>
+					<GlobalFilterField label="Academic Year">
+						<Select
+							options={academicYearOptions}
+							value={form.academicYearId}
+							onChange={onAcademicYearChange}
+							placeholder="Academic Year"
+							disabled={loadingFilters}
 						/>
+					</GlobalFilterField>
+					<GlobalFilterField label="Exam Group">
+						<Select
+							options={examGroupOptions}
+							value={form.examGroupId}
+							onChange={onExamGroupChange}
+							placeholder="Exam Group"
+						/>
+					</GlobalFilterField>
+					<GlobalFilterField label="Exam Center">
+						<Select
+							options={examCenterOptions}
+							value={form.examCenterId}
+							onChange={onExamCenterChange}
+							placeholder="Exam Center"
+							searchable
+						/>
+					</GlobalFilterField>
+					<GlobalFilterField label="Exam Date">
+						<Select
+							options={examDateOptions}
+							value={form.examDate}
+							onChange={onExamDateChange}
+							placeholder="Exam Date"
+							searchable
+						/>
+					</GlobalFilterField>
+					<GlobalFilterField label="Subject">
+						<Select
+							options={questionPaperOptions}
+							value={form.questionPaperCode}
+							onChange={onQuestionPaperChange}
+							placeholder="Subject"
+							searchable
+						/>
+					</GlobalFilterField>
+					<GlobalFilterField label=" " className="global-filter-field--action global-filter-field--shrink">
+						<Button
+							size="sm"
+							onClick={() => void onGetList()}
+							disabled={loadingList}
+							className="h-8 shrink-0 px-3 text-[12px]"
+						>
+							Get List
+						</Button>
+					</GlobalFilterField>
+				</GlobalFilterBarRow>
+			</GlobalFilterBar>
+
+			{hasFetched && (
+				<div className="app-card overflow-hidden">
+					<div className="px-3 pb-3 pt-2">
+						<div className="overflow-hidden rounded-lg border border-border bg-card">
+							<p
+								className="truncate px-5 pb-0 pt-4 text-[12px] font-medium text-[hsl(var(--primary))]"
+								title={tableSummaryText}
+							>
+								{tableSummaryText}
+							</p>
+							<DataTable
+								rowData={bundles}
+								columnDefs={columnDefs}
+								loading={loadingList}
+								pagination
+								toolbar={{
+									search: true,
+									searchPlaceholder: 'Search…',
+									pdfDocumentTitle: 'Exam Scan Bundles',
+								}}
+								toolbarLeading={<span className="hidden" aria-hidden />}
+								toolbarTrailing={
+									bundles.length > 0 ? (
+										<Button
+											type="button"
+											className="h-[30px] px-3 text-[12px]"
+											onClick={() => void loadAndPrintStickers(0, 'stickers')}
+											disabled={loadingList}
+										>
+											Bulk Print Stickers
+										</Button>
+									) : null
+								}
+							/>
+						</div>
 					</div>
 				</div>
 			)}
 
-			{/* Edit Scan Bundle dialog */}
 			<Dialog open={editOpen} onOpenChange={setEditOpen}>
 				<DialogContent className="max-w-lg">
 					<DialogHeader>
-						<DialogTitle>Edit Scan Bundle</DialogTitle>
+						<DialogTitle>Assign Scan Operator</DialogTitle>
 					</DialogHeader>
 					<div className="space-y-3 text-[13px]">
 						<div className="text-muted-foreground">
-							{header.examGroupCode} / {header.examCenterCode} / {header.examDate} / {header.questionPaperCode}
+							{tableSummaryText}
 							{editRow?.scan_bundle_name ? ` / ${txt(editRow.scan_bundle_name)}` : ''}
 						</div>
 						<div className="space-y-1">

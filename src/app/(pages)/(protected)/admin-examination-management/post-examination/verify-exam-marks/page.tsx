@@ -1,12 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select } from '@/common/components/select'
 import { DataTable } from '@/common/components/table'
+import { FilterCard } from '@/common/components/feedback'
 import type { ColDef } from 'ag-grid-community'
 import { toastError } from '@/lib/toast'
 import {
@@ -385,9 +386,10 @@ export default function VerifyExamMarksPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Verify Exam Marks" subtitle="Post Examination" />
+      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Verify Exam Marks</h1>
 
-      <div className="app-card p-3 space-y-3">
+      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Verify Exam Marks</span>}>
+        <div className="space-y-3">
         <RadioGroup
           value={mode}
           onValueChange={(value) => {
@@ -459,7 +461,8 @@ export default function VerifyExamMarksPage() {
             </Button>
           </div>
         </div>
-      </div>
+        </div>
+      </FilterCard>
 
       {rows.length > 0 && (
         <div className="app-card overflow-hidden">

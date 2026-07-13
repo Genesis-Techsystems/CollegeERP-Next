@@ -557,20 +557,19 @@ export default function ExamBundlePrintPage() {
 								columnDefs={columnDefs}
 								loading={loadingList}
 								pagination
-								subtitle=""
+								title={
+									<p
+										className="truncate text-[12px] font-medium text-[hsl(var(--primary))]"
+										title={tableSummaryText}
+									>
+										{tableSummaryText}
+									</p>
+								}
 								toolbar={{
 									search: true,
 									searchPlaceholder: 'Search…',
 									pdfDocumentTitle: 'Exam Bundles',
 								}}
-								toolbarLeading={
-									<span
-										className="max-w-[min(100%,40rem)] truncate text-[12px] font-medium text-[hsl(var(--primary))]"
-										title={tableSummaryText}
-									>
-										{tableSummaryText}
-									</span>
-								}
 								toolbarTrailing={
 									bundles.length > 0 ? (
 										<Button

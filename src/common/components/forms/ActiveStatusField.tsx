@@ -26,6 +26,7 @@ interface ActiveStatusFieldProps {
   onActiveChange: (v: boolean | 'indeterminate') => void
   onReasonChange: (v: string) => void
   reasonError?: string
+  reasonRequired?: boolean
 }
 
 export function ActiveStatusField({
@@ -34,6 +35,7 @@ export function ActiveStatusField({
   onActiveChange,
   onReasonChange,
   reasonError,
+  reasonRequired,
 }: ActiveStatusFieldProps) {
   return (
     <div className="grid grid-cols-2 gap-4 items-start">
@@ -44,7 +46,7 @@ export function ActiveStatusField({
         </Label>
       </div>
       {!isActive && (
-        <FormField label="Reason" error={reasonError}>
+        <FormField label="Reason" required={reasonRequired} error={reasonError}>
           <Input
             value={reason}
             onChange={(e) => onReasonChange(e.target.value)}
