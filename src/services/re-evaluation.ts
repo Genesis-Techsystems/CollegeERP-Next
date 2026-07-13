@@ -88,35 +88,56 @@ export async function getExamRevisionStdDetailsBundle(params: {
   }
 }
 
+/** Angular `studentFeeRevaluationUrl` → `s_get_student_fee_revaluation`. */
+function studentFeeRevaluationProc(): string {
+  return procNameFromExamRevalPath(EXAM_REVAL_API.GET_STUDENT_FEE_REVALUATION)
+}
+
+/** Angular callRevisionHistory: keep first row per `fk_exam_fee_receipt_id`. */
+export function dedupeRevisionHistoryRows(rows: AnyRow[]): AnyRow[] {
+  if (!Array.isArray(rows) || rows.length === 0) return []
+  const seen = new Set<number>()
+  const out: AnyRow[] = []
+  for (const row of rows) {
+    const id = numFrom(row, ['fk_exam_fee_receipt_id'])
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    out.push(row)
+  }
+  return out
+}
+
+async function fetchStudentRevisionRequestRows(params: {
+  examId: number
+  studentId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>(studentFeeRevaluationProc(), {
+    in_flag: 'student_revision_request',
+    in_exam_id: params.examId,
+    in_student_id: params.studentId,
+    in_subject_id: 0,
+  })
+  const first = data?.result?.[0]
+  return Array.isArray(first) ? first : []
+}
+
 /**
  * Angular `studentFeeRevaluationUrl` + `in_flag=student_revision_request`.
- * Tries the same proc as revised details first, then a small set of legacy proc name fallbacks.
  */
 export async function getStudentRevisionRequestHistory(params: {
   examId: number
   studentId: number
 }): Promise<AnyRow[]> {
-  const baseParams = {
-    in_flag: 'student_revision_request',
-    in_exam_id: params.examId,
-    in_student_id: params.studentId,
-    in_subject_id: 0,
-  }
-  const primary = procNameFromExamRevalPath(EXAM_REVAL_API.GET_STUDENT_REVISED_DETAILS)
-  const fallbacks = [primary, 's_get_student_fee_revaluation', 's_get_exam_student_fee_revaluation']
-  const tried = new Set<string>()
-  for (const proc of fallbacks) {
-    if (tried.has(proc)) continue
-    tried.add(proc)
-    try {
-      const data = await getAllRecords<{ result: AnyRow[][] }>(proc, baseParams)
-      const first = data?.result?.[0]
-      if (Array.isArray(first)) return first
-    } catch {
-      // try next proc name
-    }
-  }
-  return []
+  const rows = await fetchStudentRevisionRequestRows(params)
+  return dedupeRevisionHistoryRows(rows)
+}
+
+/** Full revision-request rows (Angular `revisionPaymentDetails`) for view-details modal. */
+export async function getStudentRevisionPaymentDetails(params: {
+  examId: number
+  studentId: number
+}): Promise<AnyRow[]> {
+  return fetchStudentRevisionRequestRows(params)
 }
 
 /**
@@ -126,27 +147,14 @@ export async function listStudentPhotocopyEvaluationDetails(params: {
   examId: number
   studentId: number
 }): Promise<AnyRow[]> {
-  const baseParams = {
+  const data = await getAllRecords<{ result: AnyRow[][] }>(studentFeeRevaluationProc(), {
     in_flag: 'student_evaluation_details',
     in_exam_id: params.examId,
     in_student_id: params.studentId,
     in_subject_id: 0,
-  }
-  const primary = procNameFromExamRevalPath(EXAM_REVAL_API.GET_STUDENT_REVISED_DETAILS)
-  const fallbacks = [primary, 's_get_student_fee_revaluation', 's_get_exam_student_fee_revaluation']
-  const tried = new Set<string>()
-  for (const proc of fallbacks) {
-    if (tried.has(proc)) continue
-    tried.add(proc)
-    try {
-      const data = await getAllRecords<{ result: AnyRow[][] }>(proc, baseParams)
-      const first = data?.result?.[0]
-      if (Array.isArray(first)) return first
-    } catch {
-      // try next proc name
-    }
-  }
-  return []
+  })
+  const first = data?.result?.[0]
+  return Array.isArray(first) ? first : []
 }
 
 /** Angular: college timetable filter bundle for revised marks screens. */

@@ -313,6 +313,8 @@ export const REVAL_FEE_API = {
 export const EXAM_REVAL_API = {
   /** GET: exam student revised details */
   GET_STUDENT_REVISED_DETAILS: 'getAllRecords/s_get_exam_student_revised_details',
+  /** GET: student fee revaluation history / photocopy (Angular studentFeeRevaluationUrl) */
+  GET_STUDENT_FEE_REVALUATION: 'getAllRecords/s_get_student_fee_revaluation',
   /** POST: add exam additional fee receipt */
   ADD_ADDITIONAL_FEE_RECEIPT: 'addExamAdditionalFeeReceipt',
   /** PUT: update exam student details for revaluation marks */
