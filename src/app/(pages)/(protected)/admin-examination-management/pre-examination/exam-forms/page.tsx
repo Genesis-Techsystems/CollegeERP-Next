@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/common/components/select";
 import {
   getExamOmrStudents,
@@ -11,7 +9,8 @@ import {
   getUnivExamRestNoTtBundle,
   getUnivExamSubjectUc,
 } from "@/services/pre-examination";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
+import { GlobalFilterBarRow, GlobalFilterField } from "@/common/components/forms";
 import { useExamFormsPrint } from "./_print/useExamFormsPrint";
 import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 
@@ -62,7 +61,6 @@ export default function ExamFormsPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [employeeId, setEmployeeId] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
   const [restRows, setRestRows] = useState<AnyRow[]>([]);
   const [regRows, setRegRows] = useState<AnyRow[]>([]);
@@ -372,198 +370,160 @@ export default function ExamFormsPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Forms</h2>
-          <Button
-            type="button"
-            variant="outline"
-            style={{ marginRight: "0px" }}
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+    <FilteredPage
+      title="Exam Forms"
+      filters={(
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Course">
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : null)}
+              options={courses.map((c) => ({
+                value: String(pickNum(c, ["fk_course_id", "courseId"])),
+                label:
+                  pickText(c, [
+                    "course_code",
+                    "courseCode",
+                    "course_name",
+                    "courseName",
+                  ]) || "-",
+              }))}
+              placeholder="Course"
             />
-          </Button>
-        </div>
-
-        {
-          <div className="p-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course</Label>
-                <Select
-                  value={courseId ? String(courseId) : null}
-                  onChange={(v) => setCourseId(v ? Number(v) : null)}
-                  options={courses.map((c) => ({
-                    value: String(pickNum(c, ["fk_course_id", "courseId"])),
-                    label:
-                      pickText(c, [
-                        "course_code",
-                        "courseCode",
-                        "course_name",
-                        "courseName",
-                      ]) || "-",
-                  }))}
-                  placeholder="Course"
-                />
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <Label>Exam Year</Label>
-                <Select
-                  value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-                  options={academicYears.map((a) => ({
-                    value: String(
-                      pickNum(a, ["fk_academic_year_id", "academicYearId"]),
-                    ),
-                    label:
-                      pickText(a, ["academic_year", "academicYear"]) || "-",
-                  }))}
-                  placeholder="Exam Year"
-                />
-              </div>
-
-              <div className="md:col-span-4 space-y-1">
-                <Label>Exam Master</Label>
-                <Select
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => {
-                    const eid = v ? Number(v) : null;
-                    setExamId(eid);
-                    if (eid)
-                      void onExamChange(
-                        eid,
-                        courseId ?? undefined,
-                        academicYearId ?? undefined,
-                      );
-                  }}
-                  options={exams.map((e) => ({
-                    value: String(pickNum(e, ["fk_exam_id", "examId"])),
-                    label: pickText(e, ["exam_name", "examName"]) || "-",
-                  }))}
-                  placeholder="Exam Master"
-                />
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <Label>College</Label>
-                <Select
-                  value={collegeId ? String(collegeId) : null}
-                  onChange={(v) => setCollegeId(v ? Number(v) : null)}
-                  options={colleges.map((c) => ({
-                    value: String(pickNum(c, ["fk_college_id", "collegeId"])),
-                    label:
-                      pickText(c, [
-                        "college_code",
-                        "collegeCode",
-                        "college_name",
-                        "collegeName",
-                      ]) || "-",
-                  }))}
-                  placeholder="College"
-                />
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course Group</Label>
-                <Select
-                  value={courseGroupId ? String(courseGroupId) : null}
-                  onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
-                  options={groups.map((g) => ({
-                    value: String(
-                      pickNum(g, ["fk_course_group_id", "courseGroupId"]),
-                    ),
-                    label: pickText(g, ["group_code", "groupCode"]) || "-",
-                  }))}
-                  placeholder="Course Group"
-                />
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course Years</Label>
-                <Select
-                  value={courseYearId ? String(courseYearId) : null}
-                  onChange={(v) => setCourseYearId(v ? Number(v) : null)}
-                  options={years.map((y) => ({
-                    value: String(
-                      pickNum(y, ["fk_course_year_id", "courseYearId"]),
-                    ),
-                    label:
-                      pickText(y, [
-                        "course_year_code",
-                        "courseYearCode",
-                        "course_year_name",
-                        "courseYearName",
-                      ]) || "-",
-                  }))}
-                  placeholder="Course Year"
-                />
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <Label>Regulation</Label>
-                <Select
-                  value={regulationId ? String(regulationId) : null}
-                  onChange={(v) => {
-                    const id = v ? Number(v) : null;
-                    setRegulationId(id);
-                    setSelectedBackendRegulationId(id ?? 0);
-                    setSubjectId(null);
-                  }}
-                  options={regulations.map((r) => ({
-                    value: String(pickNum(r, REG_ID_KEYS)),
-                    label:
-                      pickText(r, [
-                        "regulation_code",
-                        "regulationCode",
-                        "regulation_name",
-                        "regulationName",
-                      ]) || "-",
-                  }))}
-                  placeholder="Regulation"
-                />
-              </div>
-
-              <div className="md:col-span-3 space-y-1">
-                <Label>Subject</Label>
-                <Select
-                  value={subjectId ? String(subjectId) : null}
-                  onChange={(v) => setSubjectId(v ? Number(v) : null)}
-                  options={subjects.map((s) => ({
-                    value: String(pickNum(s, SUBJECT_ID_KEYS)),
-                    label:
-                      (pickText(s, ["subject_name", "subjectName"]) || "-") +
-                      " (" +
-                      (pickText(s, ["subject_code", "subjectCode"]) || "-") +
-                      ")",
-                  }))}
-                  placeholder="Subject"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <Button
-                  type="button"
-                  onClick={getList}
-                  disabled={loading}
-                  className="h-8 px-3 text-[12px] w-full"
-                >
-                  Get List
-                </Button>
-              </div>
-            </div>
-          </div>
-        }
-      </div>
-
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Year">
+            <Select
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+              options={academicYears.map((a) => ({
+                value: String(
+                  pickNum(a, ["fk_academic_year_id", "academicYearId"]),
+                ),
+                label:
+                  pickText(a, ["academic_year", "academicYear"]) || "-",
+              }))}
+              placeholder="Exam Year"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Master">
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => {
+                const eid = v ? Number(v) : null;
+                setExamId(eid);
+                if (eid)
+                  void onExamChange(
+                    eid,
+                    courseId ?? undefined,
+                    academicYearId ?? undefined,
+                  );
+              }}
+              options={exams.map((e) => ({
+                value: String(pickNum(e, ["fk_exam_id", "examId"])),
+                label: pickText(e, ["exam_name", "examName"]) || "-",
+              }))}
+              placeholder="Exam Master"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="College">
+            <Select
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => setCollegeId(v ? Number(v) : null)}
+              options={colleges.map((c) => ({
+                value: String(pickNum(c, ["fk_college_id", "collegeId"])),
+                label:
+                  pickText(c, [
+                    "college_code",
+                    "collegeCode",
+                    "college_name",
+                    "collegeName",
+                  ]) || "-",
+              }))}
+              placeholder="College"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course Group">
+            <Select
+              value={courseGroupId ? String(courseGroupId) : null}
+              onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+              options={groups.map((g) => ({
+                value: String(
+                  pickNum(g, ["fk_course_group_id", "courseGroupId"]),
+                ),
+                label: pickText(g, ["group_code", "groupCode"]) || "-",
+              }))}
+              placeholder="Course Group"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course Years">
+            <Select
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+              options={years.map((y) => ({
+                value: String(
+                  pickNum(y, ["fk_course_year_id", "courseYearId"]),
+                ),
+                label:
+                  pickText(y, [
+                    "course_year_code",
+                    "courseYearCode",
+                    "course_year_name",
+                    "courseYearName",
+                  ]) || "-",
+              }))}
+              placeholder="Course Year"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Regulation">
+            <Select
+              value={regulationId ? String(regulationId) : null}
+              onChange={(v) => {
+                const id = v ? Number(v) : null;
+                setRegulationId(id);
+                setSelectedBackendRegulationId(id ?? 0);
+                setSubjectId(null);
+              }}
+              options={regulations.map((r) => ({
+                value: String(pickNum(r, REG_ID_KEYS)),
+                label:
+                  pickText(r, [
+                    "regulation_code",
+                    "regulationCode",
+                    "regulation_name",
+                    "regulationName",
+                  ]) || "-",
+              }))}
+              placeholder="Regulation"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Subject">
+            <Select
+              value={subjectId ? String(subjectId) : null}
+              onChange={(v) => setSubjectId(v ? Number(v) : null)}
+              options={subjects.map((s) => ({
+                value: String(pickNum(s, SUBJECT_ID_KEYS)),
+                label:
+                  (pickText(s, ["subject_name", "subjectName"]) || "-") +
+                  " (" +
+                  (pickText(s, ["subject_code", "subjectCode"]) || "-") +
+                  ")",
+              }))}
+              placeholder="Subject"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+            <Button
+              type="button"
+              onClick={getList}
+              disabled={loading}
+              className="h-[30px] px-3 text-[12px] shrink-0"
+            >
+              Get List
+            </Button>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      )}
+    >
       {selectedData && (
         <div className="app-card px-4 py-3">
           <strong className="text-[14px] text-[hsl(var(--primary))]">
@@ -575,6 +535,6 @@ export default function ExamFormsPage() {
       {students.length > 0 && (
         <div className="app-card p-3">{printButtons}</div>
       )}
-    </PageContainer>
+    </FilteredPage>
   );
 }

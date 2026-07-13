@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Filter, X } from "lucide-react";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { X } from "lucide-react";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select as SearchableSelect } from "@/common/components/select";
 import type { SelectOption } from "@/common/components/select";
 import { SearchInput } from "@/common/components/search";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import {
   DataTableFooter,
   type DataTablePageSize,
@@ -32,7 +33,6 @@ function evaluatorById(rows: AnyRow[], id: number): AnyRow | undefined {
 
 export default function AssignReEvaluatorPage() {
   const [loading, setLoading] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
   const [isReevaluation, setIsReevaluation] = useState(false);
 
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
@@ -506,155 +506,121 @@ export default function AssignReEvaluatorPage() {
     pagedUnmappedRows.length > 0 &&
     pagedUnmappedRows.every((r) => selectedKeys.includes(buildRowKey(r)));
 
-  return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Assign Re-Evaluator</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" /> Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
-            />
+  const masterColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      { headerName: "S.No", valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70, flex: 0 },
+      { headerName: "Course", minWidth: 100, valueGetter: (p) => txt(p.data?.course_code) },
+      { headerName: "Exam", minWidth: 110, valueGetter: (p) => txt(p.data?.exam_month_yr) },
+      { headerName: "Course Year", minWidth: 110, valueGetter: (p) => txt(p.data?.course_year_code) },
+      {
+        headerName: "Subject",
+        minWidth: 180,
+        flex: 1,
+        valueGetter: (p) => `${txt(p.data?.subject_code)} - ${txt(p.data?.subject_name)}`,
+      },
+      { headerName: "Total Papers", minWidth: 110, valueGetter: (p) => num(p.data?.total_papers) },
+      { headerName: "Mapped Papers", minWidth: 120, valueGetter: (p) => num(p.data?.mapped_papers) },
+      {
+        headerName: "Actions",
+        minWidth: 120,
+        flex: 0,
+        cellRenderer: (p: ICellRendererParams<AnyRow>) => (
+          <Button type="button" size="sm" onClick={() => p.data && void getDetails(p.data)}>
+            Get Details
           </Button>
-        </div>
-        {filterOpen && (
-          <div className="p-3 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course</Label>
-                <SearchableSelect
-                  value={courseId ? String(courseId) : null}
-                  onChange={(v) => setCourseId(num(v) || null)}
-                  options={courseOptions}
-                  placeholder="Course"
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Academic Year</Label>
-                <SearchableSelect
-                  value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => setAcademicYearId(num(v) || null)}
-                  options={academicYearOptions}
-                  placeholder="Academic Year"
-                />
-              </div>
-              <div className="md:col-span-4 space-y-1">
-                <Label>Exam</Label>
-                <SearchableSelect
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => setExamId(num(v) || null)}
-                  options={examOptions}
-                  placeholder="Search exam…"
-                  searchable
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course Year</Label>
-                <SearchableSelect
-                  value={courseYearId ? String(courseYearId) : null}
-                  onChange={(v) => setCourseYearId(num(v) || null)}
-                  options={courseYearOptions}
-                  placeholder="Course Year"
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Regulation</Label>
-                <SearchableSelect
-                  value={regulationId ? String(regulationId) : null}
-                  onChange={(v) => setRegulationId(num(v) || null)}
-                  options={regulationOptions}
-                  placeholder="Regulation"
-                />
-              </div>
-              <div className="md:col-span-4 space-y-1">
-                <Label>Subject</Label>
-                <SearchableSelect
-                  value={subjectId ? String(subjectId) : null}
-                  onChange={(v) => setSubjectId(num(v) || null)}
-                  options={subjectOptions}
-                  placeholder="Search subjects…"
-                  searchable
-                />
-              </div>
-              <div className="md:col-span-3">
-                <label className="inline-flex items-center gap-2 text-[12px]">
-                  <input
-                    type="checkbox"
-                    checked={isReevaluation}
-                    onChange={(e) => {
-                      setIsReevaluation(e.target.checked);
-                      resetResult();
-                    }}
-                  />
-                  <span>Is Re-Evaluation</span>
-                </label>
-              </div>
-              <div className="md:col-span-2 flex justify-end">
-                <Button type="button" onClick={getList} disabled={loading}>
-                  Get List
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        ),
+      },
+    ],
+    [],
+  );
 
-      {subjectMasterRows.length > 0 && (
-        <div className="app-card p-3">
-          <div className="overflow-auto rounded border">
-            <table className="w-full text-[12px]">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="px-2 py-1 text-left">S.No</th>
-                  <th className="px-2 py-1 text-left">Course</th>
-                  <th className="px-2 py-1 text-left">Exam</th>
-                  <th className="px-2 py-1 text-left">Course Year</th>
-                  <th className="px-2 py-1 text-left">Subject</th>
-                  <th className="px-2 py-1 text-left">Total Papers</th>
-                  <th className="px-2 py-1 text-left">Mapped Papers</th>
-                  <th className="px-2 py-1 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {subjectMasterRows.map((row, i) => (
-                  <tr
-                    key={`master-${i}-${num(row.fk_subject_id)}`}
-                    className="border-t"
-                  >
-                    <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">{txt(row.course_code)}</td>
-                    <td className="px-2 py-1">{txt(row.exam_month_yr)}</td>
-                    <td className="px-2 py-1">{txt(row.course_year_code)}</td>
-                    <td className="px-2 py-1">
-                      {txt(row.subject_code)} - {txt(row.subject_name)}
-                    </td>
-                    <td className="px-2 py-1">{num(row.total_papers)}</td>
-                    <td className="px-2 py-1">{num(row.mapped_papers)}</td>
-                    <td className="px-2 py-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => void getDetails(row)}
-                      >
-                        Get Details
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+  return (
+    <FilteredListPage
+      title="Assign Re-Evaluator"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="md:col-span-2 space-y-1">
+            <Label>Course</Label>
+            <SearchableSelect
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(num(v) || null)}
+              options={courseOptions}
+              placeholder="Course"
+            />
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label>Academic Year</Label>
+            <SearchableSelect
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(num(v) || null)}
+              options={academicYearOptions}
+              placeholder="Academic Year"
+            />
+          </div>
+          <div className="md:col-span-4 space-y-1">
+            <Label>Exam</Label>
+            <SearchableSelect
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(num(v) || null)}
+              options={examOptions}
+              placeholder="Search exam…"
+              searchable
+            />
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label>Course Year</Label>
+            <SearchableSelect
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => setCourseYearId(num(v) || null)}
+              options={courseYearOptions}
+              placeholder="Course Year"
+            />
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label>Regulation</Label>
+            <SearchableSelect
+              value={regulationId ? String(regulationId) : null}
+              onChange={(v) => setRegulationId(num(v) || null)}
+              options={regulationOptions}
+              placeholder="Regulation"
+            />
+          </div>
+          <div className="md:col-span-4 space-y-1">
+            <Label>Subject</Label>
+            <SearchableSelect
+              value={subjectId ? String(subjectId) : null}
+              onChange={(v) => setSubjectId(num(v) || null)}
+              options={subjectOptions}
+              placeholder="Search subjects…"
+              searchable
+            />
+          </div>
+          <div className="md:col-span-3">
+            <label className="inline-flex items-center gap-2 text-[12px]">
+              <input
+                type="checkbox"
+                checked={isReevaluation}
+                onChange={(e) => {
+                  setIsReevaluation(e.target.checked);
+                  resetResult();
+                }}
+              />
+              <span>Is Re-Evaluation</span>
+            </label>
+          </div>
+          <div className="md:col-span-2 flex justify-end">
+            <Button type="button" onClick={getList} disabled={loading}>
+              Get List
+            </Button>
           </div>
         </div>
       )}
-
+      rowData={subjectMasterRows}
+      columnDefs={masterColumnDefs}
+      loading={loading}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: "Search subjects…" }}
+    >
       {unmappedRows.length > 0 && (
         <div className="app-card p-3 space-y-3">
           <div className="flex items-end justify-between gap-3">
@@ -866,6 +832,6 @@ export default function AssignReEvaluatorPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredListPage>
   );
 }

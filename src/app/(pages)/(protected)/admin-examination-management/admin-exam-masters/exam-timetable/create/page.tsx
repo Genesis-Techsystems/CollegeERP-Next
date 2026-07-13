@@ -1,15 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select'
+import { Select } from '@/common/components/select'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { distinct } from '@/lib/utils'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Trash2 } from 'lucide-react'
@@ -27,7 +21,7 @@ import {
 } from '@/services/examination'
 import { getRegulations } from '@/services/exam-master'
 import { useSessionContext } from '@/context/SessionContext'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
 import { toastError, toastSuccess, toastInfo } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
@@ -635,58 +629,41 @@ export default function CreateExamTimetablePage() {
 	}, [paramCourseName, courses, selectedCourseId, paramAcademicYear, academicYears, selectedAcademicYearId, searchParams, courseYears, selectedCourseYearId, paramExamName, examMasters, selectedExamId])
 
 	return (
-		<PageContainer className="space-y-4">
-			<div className="flex items-center justify-between gap-2">
-				<h2 className="text-lg font-semibold tracking-tight text-foreground">Create Exam Timetable</h2>
-				<Button
-					type="button"
-					variant="outline"
-					className="h-8 text-[12px]"
-					onClick={goBack}
-					disabled={saving}
-				>
-					<ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
-					Back
-				</Button>
-			</div>
-			{/* Header card */}
-			<div className="app-card overflow-hidden">
-				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-					<h2 className="app-card-title">Create Exam Timetable</h2>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						className="h-6 px-2.5 text-[12px]"
-						onClick={openExistingTimetable}
-						disabled={!selectedExamId || !selectedCourseYearId || !selectedCourseId}
-					>
-						Show Existing Timetable
-					</Button>
-				</div>
-
-				<div className="px-3 py-3">
-					<div className="mb-3 rounded-md border bg-muted/40/50 px-3 py-2 text-[13px] font-medium text-[hsl(var(--primary))]">
-						{summaryLine || '—'}
+		<FilteredPage
+			title="Create Exam Timetable"
+			filters={
+				<>
+					<div className="mb-3 flex items-center justify-between gap-2">
+						<div className="rounded-md border bg-muted/40/50 px-3 py-2 text-[13px] font-medium text-[hsl(var(--primary))] flex-1">
+							{summaryLine || '—'}
+						</div>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							className="h-8 shrink-0 text-[12px]"
+							onClick={openExistingTimetable}
+							disabled={!selectedExamId || !selectedCourseYearId || !selectedCourseId}
+						>
+							Show Existing Timetable
+						</Button>
 					</div>
-					<div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-						<div className="space-y-1 md:col-span-3">
-							<Label>Exam Date *</Label>
+					<GlobalFilterBarRow columns={2}>
+						<GlobalFilterField label="Exam Date">
 							<input
 								type="date"
 								autoFocus
-								className="h-8 text-[12px] w-full rounded-md border border-border bg-card px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+								className="h-9 w-full rounded-md border border-border bg-card px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
 								value={slotDraft.date}
 								min={examFromDate || undefined}
 								max={examToDate || undefined}
 								onChange={(e) => setSlotDraft((s) => ({ ...s, date: e.target.value }))}
 							/>
-						</div>
-						<div className="space-y-1 md:col-span-3">
-							<Label>Exam Session *</Label>
+						</GlobalFilterField>
+						<GlobalFilterField label="Exam Session">
 							<Select
-								value={selectedExamSessionId != null ? String(selectedExamSessionId) : undefined}
-								onValueChange={(v) => {
+								value={selectedExamSessionId != null ? String(selectedExamSessionId) : null}
+								onChange={(v) => {
 									const sid = Number(v)
 									setSelectedExamSessionId(sid)
 									const s = examSessions.find((e) => e.id === sid)
@@ -696,73 +673,56 @@ export default function CreateExamTimetablePage() {
 										endTime: s?.sessionEndTime ?? '',
 									}))
 								}}
+								options={filteredExamSessions.map((s) => ({
+									value: String(s.id),
+									label: `${s.name}${s.sessionStartTime && s.sessionEndTime ? ` (${s.sessionStartTime} - ${s.sessionEndTime})` : ''}`,
+								}))}
+								placeholder={
+									examSessions.length === 0
+										? 'Loading…'
+										: filteredExamSessions.length === 0
+											? 'No sessions for this university'
+											: 'Select Session'
+								}
 								disabled={filteredExamSessions.length === 0}
-							>
-								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder={
-										examSessions.length === 0
-											? 'Loading…'
-											: filteredExamSessions.length === 0
-												? 'No sessions for this university'
-												: 'Select Session'
-									} />
-								</SelectTrigger>
-								<SelectContent>
-									{filteredExamSessions.map((s) => (
-										<SelectItem key={s.id} value={String(s.id)}>
-											{s.name}
-											{s.sessionStartTime && s.sessionEndTime ? ` (${s.sessionStartTime} - ${s.sessionEndTime})` : ''}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1 md:col-span-3">
-							<Label>Regulation *</Label>
+								searchable
+							/>
+						</GlobalFilterField>
+						<GlobalFilterField label="Regulation">
 							<Select
-								value={selectedRegulationId != null ? String(selectedRegulationId) : undefined}
-								onValueChange={(v) => setSelectedRegulationId(Number(v))}
+								value={selectedRegulationId != null ? String(selectedRegulationId) : null}
+								onChange={(v) => setSelectedRegulationId(Number(v))}
+								options={regulations.map((r) => ({
+									value: String(r.id),
+									label: String(r.name || r.code),
+								}))}
+								placeholder={
+									regulations.length === 0
+										? (selectedCourseId ? 'No regulations for this course' : 'Loading…')
+										: 'Select Regulation'
+								}
 								disabled={regulations.length === 0}
-							>
-								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder={
-										regulations.length === 0
-											? (selectedCourseId ? 'No regulations for this course' : 'Loading…')
-											: 'Select Regulation'
-									} />
-								</SelectTrigger>
-								<SelectContent>
-									{regulations.map((r) => (
-										<SelectItem key={r.id} value={String(r.id)}>
-											{r.name || r.code}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1 md:col-span-3">
-							<Label>Subject *</Label>
+								searchable
+							/>
+						</GlobalFilterField>
+						<GlobalFilterField label="Subject">
 							<Select
-								value={selectedSubjectCode ?? undefined}
-								onValueChange={(v) => setSelectedSubjectCode(v)}
+								value={selectedSubjectCode}
+								onChange={(v) => setSelectedSubjectCode(v)}
+								options={subjects.map((s) => ({
+									value: s.code,
+									label: `${s.code}${s.name ? ` — ${s.name}` : ''}`,
+								}))}
+								placeholder={subjects.length === 0 ? 'No subjects' : 'Select Subject'}
 								disabled={!selectedCourseId || !selectedAcademicYearId || !selectedExamId || !selectedCourseYearId}
-							>
-								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder={subjects.length === 0 ? 'No subjects' : 'Select Subject'} />
-								</SelectTrigger>
-								<SelectContent>
-									{subjects.map((s) => (
-										<SelectItem key={s.code} value={s.code}>
-											{s.code} {s.name ? `— ${s.name}` : ''}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-					</div>
-				</div>
-
-				{/* 3/2/7 Course Group + Selected + Table */}
+								searchable
+							/>
+						</GlobalFilterField>
+					</GlobalFilterBarRow>
+				</>
+			}
+			body={
+				<>
 				{!!slotDraft.date && selectedExamSessionId != null && selectedRegulationId != null && !!selectedSubjectCode && (
 				<div className="grid grid-cols-12 gap-3 items-start">
 					<div className="col-span-3 rounded-md border overflow-hidden">
@@ -866,7 +826,17 @@ export default function CreateExamTimetablePage() {
 				</div>
 				)}
 
-				<div className="flex items-center justify-end gap-2 pt-3 pr-2 pb-1">
+				<div className="flex items-center justify-end gap-2 pt-3">
+					<Button
+						type="button"
+						variant="outline"
+						className="h-8 text-[12px]"
+						onClick={goBack}
+						disabled={saving}
+					>
+						<ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+						Back
+					</Button>
 					{stagedRows.length > 0 && (
 						<Button
 							type="button"
@@ -878,14 +848,15 @@ export default function CreateExamTimetablePage() {
 						</Button>
 					)}
 				</div>
-			</div>
-
+				</>
+			}
+		>
 			<ExistingExamTimetableModal
 				open={existingOpen}
 				onClose={() => setExistingOpen(false)}
 				rows={existingRows}
 			/>
-		</PageContainer>
+		</FilteredPage>
 	)
 }
 

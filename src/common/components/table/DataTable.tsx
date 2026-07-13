@@ -22,7 +22,7 @@ import {
   type RowDataUpdatedEvent,
   type GridReadyEvent,
 } from "ag-grid-community";
-import { Download } from "lucide-react";
+import { ChevronDown, Download, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PRINTCONFIG } from "@/common/print-config";
 import { cn } from "@/lib/utils";
@@ -120,12 +120,24 @@ function adoptLegacyTableShell(root: HTMLElement): () => void {
 }
 
 export interface DataTableProps<T> {
-  /** Optional title above the toolbar (string or custom node) */
-  title?: ReactNode;
+  /** Optional title above the toolbar */
+  title?: string;
   /** Optional subtitle; defaults to filter hint when column filters are on */
   subtitle?: string;
   /** Wrap in a bordered card. Default **true**. */
   bordered?: boolean;
+  /**
+   * Optional filter fields rendered inside the same card, between title and toolbar
+   * (Grade Setup / Room Details pattern).
+   */
+  filters?: ReactNode;
+  /** Collapse the filters section. Default true when `filters` is set. */
+  filtersCollapsible?: boolean;
+  /** Uncontrolled default open when collapsible. Default true. */
+  filtersDefaultOpen?: boolean;
+  /** Controlled open state when collapsible. */
+  filtersOpen?: boolean;
+  onFiltersOpenChange?: (open: boolean) => void;
   rowData: T[];
   columnDefs: ColDef<T>[];
   loading?: boolean;
@@ -345,6 +357,11 @@ export function DataTable<T>({
   title,
   subtitle,
   bordered = true,
+  filters,
+  filtersCollapsible = true,
+  filtersDefaultOpen = true,
+  filtersOpen: filtersOpenProp,
+  onFiltersOpenChange,
   rowData,
   columnDefs,
   loading = false,
@@ -389,6 +406,18 @@ export function DataTable<T>({
   }, [title, toolbarLeading, rowData.length, loading]);
 
   const resolvedTitle = title ?? inferredTitle;
+
+  const [filtersInternalOpen, setFiltersInternalOpen] = useState(filtersDefaultOpen);
+  const filtersOpen = filters
+    ? filtersCollapsible
+      ? (filtersOpenProp ?? filtersInternalOpen)
+      : true
+    : false;
+
+  function setFiltersOpen(next: boolean) {
+    onFiltersOpenChange?.(next);
+    if (filtersOpenProp === undefined) setFiltersInternalOpen(next);
+  }
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showInactive, setShowInactive] = useState(false);
@@ -577,28 +606,89 @@ export function DataTable<T>({
           : "app-data-table flex flex-col"
       }
     >
-      {(resolvedTitle || resolvedSubtitle) && (
-        <div className="app-data-table-heading px-5 pb-1 pt-5">
-          {resolvedTitle ? (
-            typeof resolvedTitle === "string" ||
-            typeof resolvedTitle === "number" ? (
-              <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                {resolvedTitle}
-              </h2>
-            ) : (
-              resolvedTitle
-            )
-          ) : null}
-          {resolvedSubtitle ? (
-            <p className="mt-1 text-[13px] text-muted-foreground">
-              {resolvedSubtitle}
-            </p>
-          ) : null}
+      {(resolvedTitle || resolvedSubtitle || filters) && (
+        <div
+          className={cn(
+            "app-data-table-heading px-5",
+            filtersOpen ? "pt-5 pb-0" : "pt-5 pb-3",
+          )}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              {resolvedTitle ? (
+                filters && filtersCollapsible ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-2 text-left"
+                    onClick={() => setFiltersOpen(!filtersOpen)}
+                    aria-expanded={filtersOpen}
+                    aria-label="Toggle filters"
+                  >
+                    <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                      {resolvedTitle}
+                    </h2>
+                    <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
+                      <Filter className="h-3.5 w-3.5" aria-hidden />
+                      <ChevronDown
+                        className={cn(
+                          "h-3.5 w-3.5 transition-transform duration-300",
+                          filtersOpen && "rotate-180",
+                        )}
+                        aria-hidden
+                      />
+                    </span>
+                  </button>
+                ) : (
+                  <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                    {resolvedTitle}
+                  </h2>
+                )
+              ) : null}
+              {resolvedSubtitle ? (
+                <p className="mt-1 text-[13px] text-muted-foreground">
+                  {resolvedSubtitle}
+                </p>
+              ) : null}
+            </div>
+            {filters && filtersCollapsible && !resolvedTitle ? (
+              <button
+                type="button"
+                className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground"
+                onClick={() => setFiltersOpen(!filtersOpen)}
+                aria-expanded={filtersOpen}
+                aria-label="Toggle filters"
+              >
+                <Filter className="h-3.5 w-3.5" aria-hidden />
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 transition-transform duration-300",
+                    filtersOpen && "rotate-180",
+                  )}
+                  aria-hidden
+                />
+              </button>
+            ) : null}
+          </div>
         </div>
       )}
 
+      {filters ? (
+        <div
+          className={cn(
+            "grid transition-[grid-template-rows] duration-300 ease-in-out",
+            filtersOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="global-filter-bar__inner px-5 pb-1 [&_.global-filter-bar__inner]:!pt-0">
+              {filters}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {(showMainToolbar || (!showMainToolbar && exportCsv)) && (
-        <div className="app-data-table-toolbar-wrap bg-card px-5 pb-3 pt-4">
+        <div className="app-data-table-toolbar-wrap bg-card px-5 pb-3 pt-2">
           {showMainToolbar ? (
             <DataTableToolbar
               leading={toolbarLeading}

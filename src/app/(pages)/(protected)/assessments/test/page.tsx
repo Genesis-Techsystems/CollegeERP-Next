@@ -3,10 +3,8 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { ListIcon, PlusIcon, SettingsIcon, FilePenLineIcon, UploadCloudIcon, ClipboardList } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { SearchInput } from '@/common/components/search'
-import { DataTable } from '@/common/components/table'
+import { ListIcon, PlusIcon, SettingsIcon, FilePenLineIcon, UploadCloudIcon } from 'lucide-react'
+import { ListPage } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
@@ -152,37 +150,28 @@ export default function TestPage() {
   ], [router, setDrawerTest])
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="border-b border-amber-300 px-4 py-2.5">
-          <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-teal-600">
-            <ClipboardList className="h-4 w-4 text-teal-600" />
-            Test List
-          </h2>
-        </div>
-        <DataTable
-          rowData={filteredData}
-          columnDefs={columns}
-          loading={loading}
-          pagination
-          toolbar={{ columnPicker: true, exportPdf: true }}
-          toolbarLeading={(
-            <SearchInput
-              className="w-full max-w-sm"
-              placeholder="Search tests…"
-              value={searchValue}
-              onChange={setSearchValue}
-            />
-          )}
-          toolbarTrailing={(
-            <Button size="sm" onClick={() => { setEditingTest(null); setModalOpen(true) }}>
-              <PlusIcon className="mr-1 h-4 w-4" />
-              Create Test
-            </Button>
-          )}
+    <ListPage
+      title="Test List"
+      rowData={filteredData}
+      columnDefs={columns}
+      loading={loading}
+      pagination
+      toolbar={{ columnPicker: true, exportPdf: true }}
+      toolbarLeading={(
+        <SearchInput
+          className="w-full max-w-sm"
+          placeholder="Search tests…"
+          value={searchValue}
+          onChange={setSearchValue}
         />
-      </div>
-
+      )}
+      toolbarTrailing={(
+        <Button size="sm" onClick={() => { setEditingTest(null); setModalOpen(true) }}>
+          <PlusIcon className="mr-1 h-4 w-4" />
+          Create Test
+        </Button>
+      )}
+    >
       <TestModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingTest(null) }}
@@ -200,7 +189,7 @@ export default function TestPage() {
           router.push(`/assessments/question-bank/add-question?assessmentId=${test.assessmentId}&assessmentQuestionId=${aqId}&permission=Edit&page=/assessments/test`)
         }}
       />
-    </PageContainer>
+    </ListPage>
   )
 }
 

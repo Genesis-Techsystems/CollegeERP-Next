@@ -3,18 +3,16 @@
 import { useMemo, useState } from 'react'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
 import { EmptyState } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
 import { getErrorMessage } from '@/lib/errors'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
 import { listHostelRoomCharges } from '@/services'
 import type { HostelRoomCharge } from '@/types/hostel'
-import { HostelPageTitle } from '../_components/HostelPageTitle'
 import { RoomChargeModal } from './RoomChargeModal'
 
 const COL_DEFS = {
@@ -73,53 +71,48 @@ export default function RoomChargesPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <HostelPageTitle title="Room Charges" />
-
-      <TableCard withHeaderBorder={false}>
-        {isError ? (
+    <ListPage
+      title="Room Charges"
+      rowData={isError ? [] : rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      height="auto"
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search room charges…',
+        exportPdf: true,
+        pdfDocumentTitle: 'Room Charges',
+      }}
+      toolbarTrailing={
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
+          }}
+        >
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          Add Room Charge
+        </Button>
+      }
+      emptyState={
+        isError ? (
           <EmptyState
             title="Could not load room charges"
             description={getErrorMessage(error)}
             action={{ label: 'Retry', onClick: () => void refetch() }}
           />
-        ) : (
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={isLoading}
-            pagination
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search room charges…',
-              exportPdf: true,
-              pdfDocumentTitle: 'Room Charges',
-            }}
-            toolbarTrailing={
-              <Button
-                type="button"
-                size="sm"
-                className="h-[30px] px-3 text-[12px]"
-                onClick={() => {
-                  setEditing(null)
-                  setModalOpen(true)
-                }}
-              >
-                <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-                Add Room Charge
-              </Button>
-            }
-            height="auto"
-          />
-        )}
-      </TableCard>
-
+        ) : undefined
+      }
+    >
       <RoomChargeModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         row={editing}
         onSaved={() => void invalidate()}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

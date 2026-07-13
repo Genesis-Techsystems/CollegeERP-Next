@@ -2,12 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/common/components/select'
-import { ChevronDown, Filter } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   finalizeOneQuestionPaper,
@@ -16,7 +15,6 @@ import {
   getFinalizeSubjectUc,
   listFinalizableQuestionPapers,
 } from '@/services/evaluation-process'
-import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
@@ -54,7 +52,6 @@ function questionPaperStatusRenderer(p: { value?: string }) {
 }
 
 export default function ExamFinalQuestionPaperPage() {
-  const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
   const [rows, setRows] = useState<AnyRow[]>([])
@@ -270,131 +267,107 @@ export default function ExamFinalQuestionPaperPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Finalize Exam Question Paper" subtitle="Finalize question papers for examination" />
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Finalize Exam Question Paper</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-        {(
-          <div className="p-3 space-y-2 text-[13px]">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-3">
-                <Label className="text-[12px] text-muted-foreground">Course</Label>
-                <Select
-                  value={courseId ? String(courseId) : null}
-                  onChange={(v) => setCourseId(v ? Number(v) : 0)}
-                  options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode']) }))}
-                  placeholder="Course"
-                />
-              </div>
-              <div className="md:col-span-3">
-                <Label className="text-[12px] text-muted-foreground">Academic Year</Label>
-                <Select
-                  value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
-                  options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) }))}
-                  placeholder="Academic Year"
-                />
-              </div>
-              <div className="md:col-span-6">
-                <Label className="text-[12px] text-muted-foreground">Exam</Label>
-                <Select
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => setExamId(v ? Number(v) : 0)}
-                  options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) }))}
-                  placeholder="Exam"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">Regulation Id</Label>
-                <Select
-                  value={regulationId ? String(regulationId) : null}
-                  onChange={(v) => setRegulationId(v ? Number(v) : 0)}
-                  options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id', 'regulationId'])), label: pickText(r, ['regulation_code', 'regulationCode']) }))}
-                  placeholder="Regulation"
-                />
-              </div>
-              <div className="md:col-span-3">
-                <Label className="text-[12px] text-muted-foreground">Course Years *</Label>
-                <Select
-                  value={courseYearValue ?? null}
-                  onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
-                  options={[
-                    { value: '0', label: 'All' },
-                    ...courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) })),
-                  ]}
-                  placeholder="Course Year"
-                />
-              </div>
-              <div className="md:col-span-5">
-                <Label className="text-[12px] text-muted-foreground">Subject</Label>
-                <Select
-                  value={subjectId ? String(subjectId) : null}
-                  onChange={(v) => setSubjectId(v ? Number(v) : 0)}
-                  options={subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id', 'subjectId'])), label: pickText(s, ['subject_code', 'subjectCode', 'subject_name', 'subjectName']) }))}
-                  placeholder="Subject"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>
-                  Get List
-                </Button>
-              </div>
-            </div>
+    <FilteredListPage
+      title="Finalize Exam Question Paper"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end text-[13px]">
+          <div className="md:col-span-3">
+            <Label className="text-[12px] text-muted-foreground">Course</Label>
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : 0)}
+              options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode']) }))}
+              placeholder="Course"
+            />
           </div>
-        )}
-      </div>
-
-      {hasFetched && (
-        <div className="app-card overflow-hidden p-4">
-          <DataTable
-            rowData={rows}
-            columnDefs={cols}
-            pagination
-            loading={loading}
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search…',
-              pdfDocumentTitle: 'Finalize exam question paper',
-            }}
-            toolbarTrailing={
-              isFinalized ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled
-                  className="h-[30px] px-3 text-[12px] bg-slate-500 hover:bg-slate-500 text-white"
-                >
-                  Finalized
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-[30px] px-3 text-[12px]"
-                  onClick={() => void onFinalize()}
-                  disabled={loading || rows.length === 0}
-                >
-                  Finalize
-                </Button>
-              )
-            }
-          />
+          <div className="md:col-span-3">
+            <Label className="text-[12px] text-muted-foreground">Academic Year</Label>
+            <Select
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
+              options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) }))}
+              placeholder="Academic Year"
+            />
+          </div>
+          <div className="md:col-span-6">
+            <Label className="text-[12px] text-muted-foreground">Exam</Label>
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(v ? Number(v) : 0)}
+              options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) }))}
+              placeholder="Exam"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-[12px] text-muted-foreground">Regulation Id</Label>
+            <Select
+              value={regulationId ? String(regulationId) : null}
+              onChange={(v) => setRegulationId(v ? Number(v) : 0)}
+              options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id', 'regulationId'])), label: pickText(r, ['regulation_code', 'regulationCode']) }))}
+              placeholder="Regulation"
+            />
+          </div>
+          <div className="md:col-span-3">
+            <Label className="text-[12px] text-muted-foreground">Course Years *</Label>
+            <Select
+              value={courseYearValue ?? null}
+              onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
+              options={[
+                { value: '0', label: 'All' },
+                ...courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) })),
+              ]}
+              placeholder="Course Year"
+            />
+          </div>
+          <div className="md:col-span-5">
+            <Label className="text-[12px] text-muted-foreground">Subject</Label>
+            <Select
+              value={subjectId ? String(subjectId) : null}
+              onChange={(v) => setSubjectId(v ? Number(v) : 0)}
+              options={subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id', 'subjectId'])), label: pickText(s, ['subject_code', 'subjectCode', 'subject_name', 'subjectName']) }))}
+              placeholder="Subject"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>
+              Get List
+            </Button>
+          </div>
         </div>
       )}
-    </PageContainer>
+      rowData={hasFetched ? rows : []}
+      columnDefs={cols}
+      pagination
+      loading={loading}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Finalize exam question paper',
+      }}
+      toolbarTrailing={
+        hasFetched ? (
+          isFinalized ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled
+              className="h-[30px] px-3 text-[12px] bg-slate-500 hover:bg-slate-500 text-white"
+            >
+              Finalized
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={() => void onFinalize()}
+              disabled={loading || rows.length === 0}
+            >
+              Finalize
+            </Button>
+          )
+        ) : undefined
+      }
+    />
   )
 }

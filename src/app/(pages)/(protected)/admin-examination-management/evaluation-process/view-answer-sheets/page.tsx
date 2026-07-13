@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Filter } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select } from '@/common/components/select'
 import { runEvaluationProc } from '@/services/evaluation-process-admin'
 import { getUnivExamFiltersByType } from '@/services/pre-examination'
 import { dedupeBy, num, txt } from '@/common/utils/data-helpers'
@@ -39,7 +38,6 @@ async function callCollegeExamDetails(params: Record<string, string | number>) {
 
 export default function ViewAnswerSheetsPage() {
   const [loading, setLoading] = useState(false)
-  const [filterOpen, setFilterOpen] = useState(true)
   const [showList, setShowList] = useState(false)
 
   const [searchSummary, setSearchSummary] = useState('')
@@ -98,6 +96,14 @@ export default function ViewAnswerSheetsPage() {
         (r) => num(r.fk_exam_session_id),
       ),
     [baseRows, examDate],
+  )
+  const courseOptions = useMemo(() => courses.map((c) => ({ value: String(num(c.fk_course_id)), label: txt(c.course_code) })), [courses])
+  const academicYearOptions = useMemo(() => academicYears.map((a) => ({ value: String(num(a.fk_academic_year_id)), label: txt(a.academic_year) })), [academicYears])
+  const examOptions = useMemo(() => exams.map((e) => ({ value: String(num(e.fk_exam_id)), label: `${txt(e.exam_name)} ${txt(e.exam_date)}` })), [exams])
+  const examDateOptions = useMemo(() => examDates.map((d) => ({ value: d, label: formatDate(d) })), [examDates])
+  const sessionOptions = useMemo(
+    () => sessions.map((s) => ({ value: String(num(s.fk_exam_session_id)), label: `${txt(s.exam_session_name)}${txt(s.session_time) ? ` (${txt(s.session_time)})` : ''}` })),
+    [sessions],
   )
 
   const filteredSummary = useMemo(() => {
@@ -227,74 +233,41 @@ export default function ViewAnswerSheetsPage() {
   const uploaded = filteredSummary.reduce((acc, r) => acc + num(r.no_oof_answerpaper_uploaded), 0)
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="View Answer Sheets" subtitle="Evaluation process view uploaded answer sheets" />
-
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">View Answer Sheet</h2>
-          <Button type="button" variant="outline" size="sm" className="h-6 px-2.5 text-[12px]" onClick={() => setFilterOpen((v) => !v)}>
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-          </Button>
-        </div>
-
-        {(
-          <div className="p-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course</Label>
-                <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(num(v) || null)}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger>
-                  <SelectContent>{courses.map((c) => <SelectItem key={String(num(c.fk_course_id))} value={String(num(c.fk_course_id))}>{txt(c.course_code)}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Academic Year</Label>
-                <Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(num(v) || null)}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger>
-                  <SelectContent>{academicYears.map((a) => <SelectItem key={String(num(a.fk_academic_year_id))} value={String(num(a.fk_academic_year_id))}>{txt(a.academic_year)}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-3 space-y-1">
-                <Label>Exam</Label>
-                <Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(num(v) || null)}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger>
-                  <SelectContent>{exams.map((e) => <SelectItem key={String(num(e.fk_exam_id))} value={String(num(e.fk_exam_id))}>{txt(e.exam_name)} {txt(e.exam_date)}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Exam Date</Label>
-                <Select value={examDate || undefined} onValueChange={setExamDate}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Date" /></SelectTrigger>
-                  <SelectContent>{examDates.map((d) => <SelectItem key={d} value={d}>{formatDate(d)}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Exam Session</Label>
-                <Select
-                  value={examSessionId ? String(examSessionId) : undefined}
-                  onValueChange={(v) => {
-                    const id = num(v)
-                    setExamSessionId(id || null)
-                    const row = sessions.find((s) => num(s.fk_exam_session_id) === id)
-                    setExamTimetableId(num(row?.fk_exam_timetable_id) || null)
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Session" /></SelectTrigger>
-                  <SelectContent>{sessions.map((s) => <SelectItem key={String(num(s.fk_exam_session_id))} value={String(num(s.fk_exam_session_id))}>{txt(s.exam_session_name)} {txt(s.session_time) ? `(${txt(s.session_time)})` : ''}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-1">
-                <Button type="button" className="h-8 px-3 text-[12px]" onClick={getList} disabled={loading || !examTimetableId}>
-                  Get List
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
+    <FilteredPage
+      title="View Answer Sheets"
+      filters={(
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Course">
+            <Select value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(num(v) || null)} options={courseOptions} placeholder="Course" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Academic Year">
+            <Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(num(v) || null)} options={academicYearOptions} placeholder="Academic Year" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam">
+            <Select value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Exam" searchable />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Date">
+            <Select value={examDate || null} onChange={(v) => setExamDate(v ?? '')} options={examDateOptions} placeholder="Exam Date" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Session">
+            <Select
+              value={examSessionId ? String(examSessionId) : null}
+              onChange={(v) => {
+                const id = num(v)
+                setExamSessionId(id || null)
+                const row = sessions.find((s) => num(s.fk_exam_session_id) === id)
+                setExamTimetableId(num(row?.fk_exam_timetable_id) || null)
+              }}
+              options={sessionOptions}
+              placeholder="Exam Session"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+            <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={getList} disabled={loading || !examTimetableId}>Get List</Button>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      )}
+    >
       {showList && (
         <>
           <div className="app-card p-3 space-y-2">
@@ -334,7 +307,7 @@ export default function ViewAnswerSheetsPage() {
           </div>
         </>
       )}
-    </PageContainer>
+    </FilteredPage>
   )
 }
 

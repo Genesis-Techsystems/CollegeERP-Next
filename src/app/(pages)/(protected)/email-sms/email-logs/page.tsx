@@ -1,15 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Filter, List } from 'lucide-react'
 import type { ColDef, ICellRendererParams, ValueGetterParams } from 'ag-grid-community'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select } from '@/common/components/select'
-import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { useCrudList } from '@/hooks/useCrudList'
 import { toastError } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
@@ -99,7 +96,6 @@ function statusRenderer(p: ICellRendererParams<AnySmsRow>) {
 }
 
 export default function EmailLogsPage() {
-  const [filtersOpen, setFiltersOpen] = useState(true)
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [principalLock, setPrincipalLock] = useState(false)
   const [fromDay, setFromDay] = useState<Date | null>(() => startOfMonth(new Date()))
@@ -107,7 +103,7 @@ export default function EmailLogsPage() {
 
   const [rows, setRows] = useState<AnySmsRow[]>([])
   const [loading, setLoading] = useState(false)
-  /** Second card (grid) only after user runs Get logs with valid filters. */
+  /** Grid only after user runs Get logs with valid filters. */
   const [resultsVisible, setResultsVisible] = useState(false)
 
   const { data: colleges, isLoading: collegesLoading } = useCrudList<College>({
@@ -177,78 +173,47 @@ export default function EmailLogsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card border-t-[3px] border-t-amber-300 p-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
-          <h1 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
-            <List className="h-4 w-4 shrink-0" aria-hidden />
-            Email logs
-          </h1>
-          <button
-            type="button"
-            className="inline-flex shrink-0 items-center gap-1 text-sm text-foreground hover:text-foreground/80"
-            onClick={() => setFiltersOpen((prev) => !prev)}
-            aria-expanded={filtersOpen}
-            aria-controls="email-logs-filters"
-          >
-            Filter
-            <Filter className="h-4 w-4" aria-hidden />
-          </button>
-        </div>
-        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <CollapsibleContent id="email-logs-filters">
-            <div className="grid grid-cols-1 gap-3 p-4 pt-3 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
-              <Select
-                label="College *"
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => setCollegeId(v ? Number(v) : null)}
-                options={collegeOptions}
-                searchable
-                disabled={principalLock}
-                isLoading={collegesLoading}
-                className="lg:col-span-3"
-              />
-              <DatePicker label="From *" value={fromDay} onChange={setFromDay} className="lg:col-span-3" clearable={false} />
-              <DatePicker label="To *" value={toDay} onChange={setToDay} className="lg:col-span-3" clearable={false} />
-              <div className="flex items-end lg:col-span-3">
-                <Button type="button" className="w-full sm:w-auto" onClick={() => void loadLogs()} disabled={loading || !collegeId}>
-                  {loading ? 'Loading…' : 'Get logs'}
-                </Button>
-              </div>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
-
-      {resultsVisible ? (
-        <div className="app-card overflow-hidden p-0">
-          <div className="border-b px-4 py-2.5">
-            <h2 className="text-sm font-semibold text-foreground">Sent email history</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Column labels map common field names from your API response. Adjust filters and use Get logs again to
-              refresh.
-            </p>
-          </div>
-          <div className="px-3 pb-3 pt-2">
-            <DataTable<AnySmsRow>
-              rowData={rows}
-              columnDefs={columnDefs}
-              loading={loading}
-              pagination
-              paginationPageSize={20}
-              height="auto"
-              getRowId={(p) => {
-                const d = p.data
-                if (!d) return 'row-0'
-                const id = Number(d.emailLogId ?? d.email_log_id ?? d.id ?? 0)
-                if (id > 0) return String(id)
-                return `${pickStr(d, ['createdDt', 'sentDate', 'sent_date'])}-${pickStr(d, ['subject', 'mailSubject'])}-${pickStr(d, ['toEmail', 'email'])}`
-              }}
-              toolbar={{ search: true, searchPlaceholder: 'Search logs…', pdfDocumentTitle: 'Email logs' }}
-            />
+    <FilteredListPage
+      title="Email logs"
+      filters={(
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
+          <Select
+            label="College *"
+            value={collegeId ? String(collegeId) : null}
+            onChange={(v) => setCollegeId(v ? Number(v) : null)}
+            options={collegeOptions}
+            searchable
+            disabled={principalLock}
+            isLoading={collegesLoading}
+            className="lg:col-span-3"
+          />
+          <DatePicker label="From *" value={fromDay} onChange={setFromDay} className="lg:col-span-3" clearable={false} />
+          <DatePicker label="To *" value={toDay} onChange={setToDay} className="lg:col-span-3" clearable={false} />
+          <div className="flex items-end lg:col-span-3">
+            <Button type="button" className="w-full sm:w-auto" onClick={() => void loadLogs()} disabled={loading || !collegeId}>
+              {loading ? 'Loading…' : 'Get logs'}
+            </Button>
           </div>
         </div>
-      ) : null}
-    </PageContainer>
+      )}
+      rowData={resultsVisible ? rows : []}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      paginationPageSize={20}
+      height="auto"
+      getRowId={(p) => {
+        const d = p.data
+        if (!d) return 'row-0'
+        const id = Number(d.emailLogId ?? d.email_log_id ?? d.id ?? 0)
+        if (id > 0) return String(id)
+        return `${pickStr(d, ['createdDt', 'sentDate', 'sent_date'])}-${pickStr(d, ['subject', 'mailSubject'])}-${pickStr(d, ['toEmail', 'email'])}`
+      }}
+      toolbar={{
+        search: resultsVisible,
+        searchPlaceholder: 'Search logs…',
+        pdfDocumentTitle: 'Email logs',
+      }}
+    />
   )
 }

@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import {
-	Select,
+	Select as ShadcnSelect,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
+import { Select } from '@/common/components/select'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { distinct } from '@/lib/utils'
 import {
 	getUnivExamFiltersAll,
@@ -26,8 +28,8 @@ import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronDown, Filter, LayoutGrid, ShieldAlert } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
+import { LayoutGrid, ShieldAlert, GraduationCap, Calendar, ScrollText } from 'lucide-react'
+import { FilteredPage } from '@/components/layout'
 import CheckConflictsModal from './CheckConflictsModal'
 
 function pickAyId(row: any): number {
@@ -46,7 +48,6 @@ export default function ExamTimetablePage() {
 	const [academicYears, setAcademicYears] = useState<any[]>([])
 	const [courseYears, setCourseYears] = useState<any[]>([])
 	const [examMasters, setExamMasters] = useState<any[]>([])
-	const [filterOpen, setFilterOpen] = useState(true)
 
 	const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
 	const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<number | null>(null)
@@ -810,108 +811,68 @@ export default function ExamTimetablePage() {
 	}
 
 	return (
-		<PageContainer className="space-y-4">
-			<h2 className="text-lg font-semibold tracking-tight text-foreground">
-				Exam University Timetable
-			</h2>
-			<div className="global-filter-bar app-card overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
-				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-					<h2 className="app-card-title">Exam University Timetable</h2>
-					<button
-						type="button"
-						className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-						onClick={() => setFilterOpen((v) => !v)}
-						aria-label="Toggle filters"
-						aria-expanded={filterOpen}
-					>
-						<Filter className="h-3.5 w-3.5" aria-hidden />
-						<ChevronDown className={`h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} aria-hidden />
-					</button>
-				</div>
-				{filterOpen ? (
-				<div className="px-3 py-3">
-					<div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
-						<div className="space-y-1">
-							<Label>Course *</Label>
-							<Select
-								value={selectedCourseId != null ? String(selectedCourseId) : undefined}
-								onValueChange={(v) => handleCourseChange(Number(v), filtersData)}
-								disabled={loadingFilters}
-							>
-								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder={loadingFilters ? 'Loading…' : 'Select Course'} />
-								</SelectTrigger>
-								<SelectContent>
-									{courses.map((c) => (
-										<SelectItem key={c.fk_course_id} value={String(c.fk_course_id)}>
-											{c.course_code ?? c.course_name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1">
-							<Label>Exam Year *</Label>
-							<Select
-								value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : undefined}
-								onValueChange={(v) => setSelectedAcademicYearId(Number(v))}
-								disabled={academicYears.length === 0}
-							>
-								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder="Select Exam Year" />
-								</SelectTrigger>
-								<SelectContent>
-									{academicYears.map((a) => (
-										<SelectItem key={a.fk_academic_year_id} value={String(a.fk_academic_year_id)}>
-											{a.academic_year}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1">
-							<Label>Exam Master *</Label>
-							<Select
-								value={selectedExamId != null ? String(selectedExamId) : undefined}
-								onValueChange={(v) => { setSelectedExamId(Number(v)); setDates([]) }}
-								disabled={examMasters.length === 0}
-							>
-								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder="Select Exam Master" />
-								</SelectTrigger>
-								<SelectContent>
-									{examMasters.map((e) => (
-										<SelectItem key={e.examId ?? e.id} value={String(e.examId ?? e.id)}>
-											{e.examName ?? '—'}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1">
-							<Label>Course Year *</Label>
-							<Select
-								value={selectedCourseYearId != null ? String(selectedCourseYearId) : undefined}
-								onValueChange={(v) => setSelectedCourseYearId(Number(v))}
-								disabled={effectiveCourseYears.length === 0}
-							>
-								<SelectTrigger className="h-8 text-[12px]">
-									<SelectValue placeholder="Select Course Year" />
-								</SelectTrigger>
-								<SelectContent>
-									{effectiveCourseYears.map((y) => (
-										<SelectItem key={y.courseYearId} value={String(y.courseYearId)}>
-											{y.courseYearName}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-					</div>
-				</div>
-				) : null}
-			</div>
-
+		<FilteredPage
+			title="Exam University Timetable"
+			filters={
+				<GlobalFilterBarRow columns={2}>
+					<GlobalFilterField label="Course" icon={GraduationCap}>
+						<Select
+							value={selectedCourseId != null ? String(selectedCourseId) : null}
+							onChange={(v) => handleCourseChange(Number(v), filtersData)}
+							options={courses.map((c) => ({
+								value: String(c.fk_course_id),
+								label: String(c.course_code ?? c.course_name ?? ''),
+							}))}
+							placeholder={loadingFilters ? 'Loading…' : 'Select Course'}
+							disabled={loadingFilters}
+							searchable
+						/>
+					</GlobalFilterField>
+					<GlobalFilterField label="Exam Year" icon={Calendar}>
+						<Select
+							value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
+							onChange={(v) => setSelectedAcademicYearId(Number(v))}
+							options={academicYears.map((a) => ({
+								value: String(a.fk_academic_year_id),
+								label: String(a.academic_year ?? ''),
+							}))}
+							placeholder="Select Exam Year"
+							disabled={academicYears.length === 0}
+							searchable
+						/>
+					</GlobalFilterField>
+					<GlobalFilterField label="Exam Master" icon={ScrollText}>
+						<Select
+							value={selectedExamId != null ? String(selectedExamId) : null}
+							onChange={(v) => {
+								setSelectedExamId(Number(v))
+								setDates([])
+							}}
+							options={examMasters.map((e) => ({
+								value: String(e.examId ?? e.id),
+								label: String(e.examName ?? '—'),
+							}))}
+							placeholder="Select Exam Master"
+							disabled={examMasters.length === 0}
+							searchable
+						/>
+					</GlobalFilterField>
+					<GlobalFilterField label="Course Year" icon={GraduationCap}>
+						<Select
+							value={selectedCourseYearId != null ? String(selectedCourseYearId) : null}
+							onChange={(v) => setSelectedCourseYearId(Number(v))}
+							options={effectiveCourseYears.map((y) => ({
+								value: String(y.courseYearId),
+								label: String(y.courseYearName),
+							}))}
+							placeholder="Select Course Year"
+							disabled={effectiveCourseYears.length === 0}
+							searchable
+						/>
+					</GlobalFilterField>
+				</GlobalFilterBarRow>
+			}
+		>
 			{selectedCourseYearId != null && titleLine && (
 				<div className="app-card">
 					<div className="px-4 py-3 border-b border-border bg-card">
@@ -954,11 +915,9 @@ export default function ExamTimetablePage() {
 					)}
 
 					<div className="overflow-auto">
-						{/* border-separate keeps sticky left/top reliable; collapse breaks pin layering */}
 						<table className="w-full border-separate border-spacing-0 border-t border-border">
 							<thead>
 								<tr>
-									{/* Opaque corner — same light header look, dates slide behind like body cells */}
 									<th
 										className="sticky left-0 top-0 z-30 w-48 min-w-[12rem] border-b border-r border-primary/20 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-primary"
 										style={{
@@ -1094,7 +1053,7 @@ export default function ExamTimetablePage() {
 							</div>
 							<div className="space-y-1">
 								<Label>Exam Session *</Label>
-								<Select value={editForm.session} onValueChange={(v) => setEditForm((s) => ({ ...s, session: v as 'M' | 'A' }))}>
+								<ShadcnSelect value={editForm.session} onValueChange={(v) => setEditForm((s) => ({ ...s, session: v as 'M' | 'A' }))}>
 									<SelectTrigger className="h-9 text-[12px]">
 										<SelectValue placeholder="Select session" />
 									</SelectTrigger>
@@ -1102,11 +1061,11 @@ export default function ExamTimetablePage() {
 										<SelectItem value="M">Morning</SelectItem>
 										<SelectItem value="A">Afternoon</SelectItem>
 									</SelectContent>
-								</Select>
+								</ShadcnSelect>
 							</div>
 							<div className="space-y-1">
 								<Label>Exam Type *</Label>
-								<Select
+								<ShadcnSelect
 									value={editForm.examType}
 									onValueChange={(v) =>
 										setEditForm((s) => ({ ...s, examType: v as 'regular' | 'supplementary' }))
@@ -1119,7 +1078,7 @@ export default function ExamTimetablePage() {
 										<SelectItem value="regular">Regular</SelectItem>
 										<SelectItem value="supplementary">Supplementary</SelectItem>
 									</SelectContent>
-								</Select>
+								</ShadcnSelect>
 							</div>
 							<DialogFooter className="gap-2 sm:gap-0">
 								<Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
@@ -1143,7 +1102,7 @@ export default function ExamTimetablePage() {
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 							<div className="space-y-1">
 								<Label>Branch</Label>
-								<Select
+								<ShadcnSelect
 									value={
 										modal.branchId === '' || modal.branchId === undefined ? undefined : String(modal.branchId)
 									}
@@ -1163,11 +1122,11 @@ export default function ExamTimetablePage() {
 											)
 										})}
 									</SelectContent>
-								</Select>
+								</ShadcnSelect>
 							</div>
 							<div className="space-y-1">
 								<Label>Date</Label>
-								<Select
+								<ShadcnSelect
 									value={modal.date ? modal.date : undefined}
 									onValueChange={(v) => setModal((s) => ({ ...s, date: v }))}
 								>
@@ -1190,11 +1149,11 @@ export default function ExamTimetablePage() {
 											)
 										})}
 									</SelectContent>
-								</Select>
+								</ShadcnSelect>
 							</div>
 							<div className="space-y-1">
 								<Label>Session</Label>
-								<Select value={modal.session} onValueChange={(v) => setModal((s) => ({ ...s, session: v as 'M' | 'A' }))}>
+								<ShadcnSelect value={modal.session} onValueChange={(v) => setModal((s) => ({ ...s, session: v as 'M' | 'A' }))}>
 									<SelectTrigger className="h-8 text-[12px]">
 										<SelectValue placeholder="Select Session" />
 									</SelectTrigger>
@@ -1202,7 +1161,7 @@ export default function ExamTimetablePage() {
 										<SelectItem value="M">Morning</SelectItem>
 										<SelectItem value="A">Afternoon</SelectItem>
 									</SelectContent>
-								</Select>
+								</ShadcnSelect>
 							</div>
 							<div className="space-y-1">
 								<Label>Subject/Paper Code</Label>
@@ -1236,7 +1195,7 @@ export default function ExamTimetablePage() {
 					</form>
 				</DialogContent>
 			</Dialog>
-		</PageContainer>
+		</FilteredPage>
 	)
 }
 

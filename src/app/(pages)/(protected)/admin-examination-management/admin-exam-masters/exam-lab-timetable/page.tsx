@@ -3,21 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { Button } from '@/components/ui/button'
-import { PageContainer } from '@/components/layout'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { FilteredPage } from '@/components/layout'
+import { Select } from '@/common/components/select'
 import {
   getExamLabTimetableFilters,
   getExamLabTimetableGrid,
   getExamLabTimetableRestFilters,
 } from '@/services/exam-lab-timetable'
 import { useRouter } from 'next/navigation'
-import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Building2, Calendar, GraduationCap, ScrollText } from 'lucide-react'
 import { useSessionContext } from '@/context/SessionContext'
 
@@ -182,45 +176,78 @@ export default function ExamLabTimetablePage() {
   }, [gridRows, courseGroups, dateColumns])
 
   return (
-    <PageContainer className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">Exam Lab Timetable</h2>
-      <GlobalFilterBar>
-        <GlobalFilterBarRow columns={3}>
-          <GlobalFilterField label="Course" icon={GraduationCap}>
-            <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loading}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Course" /></SelectTrigger>
-              <SelectContent>{courses.map((c) => <SelectItem key={c.fk_course_id} value={String(c.fk_course_id)}>{c.course_code}</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam Year" icon={Calendar}>
-            <Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Exam Year" /></SelectTrigger>
-              <SelectContent>{years.map((y) => <SelectItem key={y.fk_academic_year_id} value={String(y.fk_academic_year_id)}>{y.academic_year}</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam Master" icon={ScrollText}>
-            <Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Exam Master" /></SelectTrigger>
-              <SelectContent>{exams.map((e) => <SelectItem key={e.fk_exam_id} value={String(e.fk_exam_id)}>{e.exam_name}</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-        </GlobalFilterBarRow>
-        <GlobalFilterBarRow columns={2}>
-          <GlobalFilterField label="College" icon={Building2}>
-            <Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="College" /></SelectTrigger>
-              <SelectContent>{colleges.map((c) => <SelectItem key={c.fk_college_id} value={String(c.fk_college_id)}>{c.college_code}</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-          <GlobalFilterField label="Course Year" icon={GraduationCap}>
-            <Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Course Year" /></SelectTrigger>
-              <SelectContent>{courseYears.map((y) => <SelectItem key={y.fk_course_year_id} value={String(y.fk_course_year_id)}>{y.course_year_code}</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-        </GlobalFilterBarRow>
-      </GlobalFilterBar>
-
+    <FilteredPage
+      title="Exam Lab Timetable"
+      filters={
+        <>
+          <GlobalFilterBarRow columns={3}>
+            <GlobalFilterField label="Course" icon={GraduationCap}>
+              <Select
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => setCourseId(Number(v))}
+                options={courses.map((c) => ({
+                  value: String(c.fk_course_id),
+                  label: String(c.course_code ?? ''),
+                }))}
+                placeholder="Course"
+                disabled={loading}
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Year" icon={Calendar}>
+              <Select
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => setAcademicYearId(Number(v))}
+                options={years.map((y) => ({
+                  value: String(y.fk_academic_year_id),
+                  label: String(y.academic_year ?? ''),
+                }))}
+                placeholder="Exam Year"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Master" icon={ScrollText}>
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => setExamId(Number(v))}
+                options={exams.map((e) => ({
+                  value: String(e.fk_exam_id),
+                  label: String(e.exam_name ?? ''),
+                }))}
+                placeholder="Exam Master"
+                searchable
+              />
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+          <GlobalFilterBarRow columns={2}>
+            <GlobalFilterField label="College" icon={Building2}>
+              <Select
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => setCollegeId(Number(v))}
+                options={colleges.map((c) => ({
+                  value: String(c.fk_college_id),
+                  label: String(c.college_code ?? ''),
+                }))}
+                placeholder="College"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Year" icon={GraduationCap}>
+              <Select
+                value={courseYearId ? String(courseYearId) : null}
+                onChange={(v) => setCourseYearId(Number(v))}
+                options={courseYears.map((y) => ({
+                  value: String(y.fk_course_year_id),
+                  label: String(y.course_year_code ?? ''),
+                }))}
+                placeholder="Course Year"
+                searchable
+              />
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+        </>
+      }
+    >
       {courseYearId && (
         <>
           <div className="app-card p-4">
@@ -301,7 +328,7 @@ export default function ExamLabTimetablePage() {
           </div>
         </>
       )}
-    </PageContainer>
+    </FilteredPage>
   )
 }
 

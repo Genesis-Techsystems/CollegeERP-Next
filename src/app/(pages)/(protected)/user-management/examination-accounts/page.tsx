@@ -2,14 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { BookOpen, PencilIcon, PlusIcon, X } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
+import { PencilIcon, PlusIcon, X } from 'lucide-react'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
 import { FormModal } from '@/common/components/feedback'
 import { FormField } from '@/common/components/forms'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -88,9 +86,7 @@ function makeActionsRenderer(
 }
 
 export default function ExaminationAccountsPage() {
-  const [searchValue, setSearchValue] = useState('')
   const [collegeId, setCollegeId] = useState<number | null>(null)
-  const [filterOpen, setFilterOpen] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -155,16 +151,6 @@ export default function ExaminationAccountsPage() {
     if (!rolesOpen) return
     setRoleRows(existingUserRoles.map((r) => ({ ...r, isActive: r.isActive !== false })))
   }, [existingUserRoles, rolesOpen])
-
-  const filteredRows = useMemo(() => {
-    const q = searchValue.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((row) =>
-      `${row.userName ?? ''} ${row.firstName ?? ''} ${row.lastName ?? ''} ${row.mobileNumber ?? ''} ${row.collegeCode ?? ''} ${row.organizationCode ?? ''}`
-        .toLowerCase()
-        .includes(q),
-    )
-  }, [rows, searchValue])
 
   function resetForm() {
     setForm({
@@ -375,62 +361,43 @@ export default function ExaminationAccountsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between">
-          <h2 className="app-card-title inline-flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Examination Accounts
-          </h2>
-          <button type="button" className="text-sm text-foreground" onClick={() => setFilterOpen((v) => !v)}>
-            Filter
-          </button>
-        </div>
-        {filterOpen ? (
-          <div className="p-3 max-w-sm">
-            <Select
-              label="College"
-              value={collegeId ? String(collegeId) : null}
-              onChange={(v) => setCollegeId(v ? Number(v) : null)}
-              options={colleges.map((c) => ({
-                value: String(c.collegeId),
-                label: `${c.orgCode ?? ''}${c.orgCode ? ' - ' : ''}${c.collegeCode}`,
-              }))}
-              searchable
-              clearable
-              isLoading={collegesLoading}
-              placeholder="Select college"
-            />
-          </div>
-        ) : null}
-      </div>
-
-      {collegeId ? (
-        <div className="app-card overflow-hidden">
-          <DataTable
-            rowData={filteredRows}
-            columnDefs={columnDefs}
-            loading={isLoading}
-            pagination
-            toolbar={{ columnPicker: true, exportPdf: true }}
-            toolbarLeading={(
-              <SearchInput
-                className="w-full max-w-sm"
-                placeholder="Search"
-                value={searchValue}
-                onChange={setSearchValue}
-              />
-            )}
-            toolbarTrailing={(
-              <Button size="sm" onClick={openAddModal}>
-                <PlusIcon className="h-4 w-4 mr-1" />
-                Add User
-              </Button>
-            )}
+    <FilteredListPage
+      title="Examination Accounts"
+      filters={(
+        <div className="max-w-sm">
+          <Select
+            label="College"
+            value={collegeId ? String(collegeId) : null}
+            onChange={(v) => setCollegeId(v ? Number(v) : null)}
+            options={colleges.map((c) => ({
+              value: String(c.collegeId),
+              label: `${c.orgCode ?? ''}${c.orgCode ? ' - ' : ''}${c.collegeCode}`,
+            }))}
+            searchable
+            clearable
+            isLoading={collegesLoading}
+            placeholder="Select college"
           />
         </div>
-      ) : null}
-
+      )}
+      rowData={collegeId ? rows : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        columnPicker: true,
+        exportPdf: true,
+        pdfDocumentTitle: 'Examination Accounts',
+      }}
+      toolbarTrailing={collegeId ? (
+        <Button size="sm" onClick={openAddModal}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add User
+        </Button>
+      ) : undefined}
+    >
       <FormModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
@@ -615,6 +582,6 @@ export default function ExaminationAccountsPage() {
           </div>
         </div>
       </FormModal>
-    </PageContainer>
+    </FilteredListPage>
   )
 }

@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select } from '@/common/components/select'
 import { RoomAllotmentTable, type RoomAllotmentRow } from '../../../_components/RoomAllotmentTable'
 import {
@@ -348,117 +348,110 @@ export default function AddRoomSeatingPlanPage() {
 	}, [examTimetableOptions, examTimetableId])
 
 	return (
-		<PageContainer className="space-y-4">
-			<h2 className="text-lg font-semibold tracking-tight text-foreground">Add Room Seating Plan</h2>
-
-			<div className="rounded-md border border-border bg-card px-4 py-3">
-				<div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-2 gap-y-2 text-[13px]">
-					<span className="font-medium text-foreground">Course</span>
-					<span className="min-w-0 text-[hsl(var(--primary))]">
-						:{' '}
-						{params.courseCode
-							? `/ ${params.academicYear || '—'} / ${params.courseCode}`
-							: '—'}
-					</span>
-					<span className="font-medium text-foreground">Exam</span>
-					<span className="min-w-0 text-[hsl(var(--primary))]">
-						:{' '}
-						{params.examName ||
-							(exam
-								? `${exam.examName} (${toDateStr(exam.fromDate)} - ${toDateStr(exam.toDate)})`
-								: '—')}
-					</span>
-					<span className="font-medium text-foreground">Exam Type</span>
-					<span className="min-w-0 text-[hsl(var(--primary))]">: {examTypeLabel}</span>
-				</div>
-			</div>
-
-			<div className="rounded-md border border-border bg-card p-4">
-				<div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-					<div>
-						<Label className="text-[12px]">Exam Date</Label>
-						<Input
-							type="date"
-							value={examDate}
-							min={minDate || undefined}
-							max={maxDate || undefined}
-							onChange={(e) => setExamDate(e.target.value)}
-						/>
+		<FilteredPage
+			title="Add Room Seating Plan"
+			filters={
+				<>
+					<div className="mb-3 grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-2 gap-y-2 text-[13px]">
+						<span className="font-medium text-foreground">Course</span>
+						<span className="min-w-0 text-[hsl(var(--primary))]">
+							:{' '}
+							{params.courseCode
+								? `/ ${params.academicYear || '—'} / ${params.courseCode}`
+								: '—'}
+						</span>
+						<span className="font-medium text-foreground">Exam</span>
+						<span className="min-w-0 text-[hsl(var(--primary))]">
+							:{' '}
+							{params.examName ||
+								(exam
+									? `${exam.examName} (${toDateStr(exam.fromDate)} - ${toDateStr(exam.toDate)})`
+									: '—')}
+						</span>
+						<span className="font-medium text-foreground">Exam Type</span>
+						<span className="min-w-0 text-[hsl(var(--primary))]">: {examTypeLabel}</span>
 					</div>
-					<div className="md:col-span-2">
-						<Label className="text-[12px]">Exam Timetable</Label>
-						<Select
-							value={String(examTimetableId || '')}
-							onChange={(v) => setExamTimetableId(Number(v) || 0)}
-							options={examTimetableOptions}
-							placeholder="Select Exam Timetable"
-						/>
-					</div>
-					<div>
-						<Label className="text-[12px]">Building</Label>
-						<Select
-							value={String(buildingId || '')}
-							onChange={(v) => {
-								setBuildingId(Number(v) || 0)
-								setBlockId(0)
-								setFloorId(0)
-							}}
-							options={buildings.map((b: AnyRow) => ({
-								value: String(b.buildingId ?? b.id),
-								label: String(
-									b.campusName && b.buildingCode
-										? `${b.campusName} - ${b.buildingCode}`
-										: (b.buildingName ?? b.name ?? b.buildingCode ?? ''),
-								),
-							}))}
-							placeholder="Select Building"
-							clearable
-						/>
-					</div>
-					<div>
-						<Label className="text-[12px]">Block</Label>
-						<Select
-							value={String(blockId || '')}
-							onChange={(v) => {
-								setBlockId(Number(v) || 0)
-								setFloorId(0)
-							}}
-							options={blocks.map((b: AnyRow) => ({
-								value: String(b.blockId ?? b.id),
-								label: String(b.blockCode ?? b.blockName ?? b.name ?? ''),
-							}))}
-							placeholder="Select Block"
-							clearable
-						/>
-					</div>
-					<div>
-						<Label className="text-[12px]">Floor</Label>
-						<Select
-							value={String(floorId || '')}
-							onChange={(v) => setFloorId(Number(v) || 0)}
-							options={floors.map((f: AnyRow) => ({
-								value: String(f.floorId ?? f.id),
-								label: String(
-									f.floorName && f.floorNo != null
-										? `${f.floorName} - ${f.floorNo}`
-										: (f.floorName ?? f.name ?? f.floorCode ?? ''),
-								),
-							}))}
-							placeholder="Select Floor"
-							clearable
-						/>
-					</div>
-				</div>
-				{roomsLoading && (
-					<p className="mt-3 text-[12px] text-muted-foreground">Loading rooms…</p>
-				)}
-				{!roomsLoading && examTimetableId > 0 && vacancyRooms.length === 0 && (
-					<p className="mt-3 text-[12px] text-muted-foreground">
-						No rooms found for the selected building, block, and floor.
-					</p>
-				)}
-			</div>
-
+					<GlobalFilterBarRow columns={2}>
+						<GlobalFilterField label="Exam Date">
+							<Input
+								type="date"
+								value={examDate}
+								min={minDate || undefined}
+								max={maxDate || undefined}
+								onChange={(e) => setExamDate(e.target.value)}
+							/>
+						</GlobalFilterField>
+						<GlobalFilterField label="Exam Timetable">
+							<Select
+								value={String(examTimetableId || '')}
+								onChange={(v) => setExamTimetableId(Number(v) || 0)}
+								options={examTimetableOptions}
+								placeholder="Select Exam Timetable"
+							/>
+						</GlobalFilterField>
+						<GlobalFilterField label="Building">
+							<Select
+								value={String(buildingId || '')}
+								onChange={(v) => {
+									setBuildingId(Number(v) || 0)
+									setBlockId(0)
+									setFloorId(0)
+								}}
+								options={buildings.map((b: AnyRow) => ({
+									value: String(b.buildingId ?? b.id),
+									label: String(
+										b.campusName && b.buildingCode
+											? `${b.campusName} - ${b.buildingCode}`
+											: (b.buildingName ?? b.name ?? b.buildingCode ?? ''),
+									),
+								}))}
+								placeholder="Select Building"
+								clearable
+							/>
+						</GlobalFilterField>
+						<GlobalFilterField label="Block">
+							<Select
+								value={String(blockId || '')}
+								onChange={(v) => {
+									setBlockId(Number(v) || 0)
+									setFloorId(0)
+								}}
+								options={blocks.map((b: AnyRow) => ({
+									value: String(b.blockId ?? b.id),
+									label: String(b.blockCode ?? b.blockName ?? b.name ?? ''),
+								}))}
+								placeholder="Select Block"
+								clearable
+							/>
+						</GlobalFilterField>
+						<GlobalFilterField label="Floor">
+							<Select
+								value={String(floorId || '')}
+								onChange={(v) => setFloorId(Number(v) || 0)}
+								options={floors.map((f: AnyRow) => ({
+									value: String(f.floorId ?? f.id),
+									label: String(
+										f.floorName && f.floorNo != null
+											? `${f.floorName} - ${f.floorNo}`
+											: (f.floorName ?? f.name ?? f.floorCode ?? ''),
+									),
+								}))}
+								placeholder="Select Floor"
+								clearable
+							/>
+						</GlobalFilterField>
+					</GlobalFilterBarRow>
+					{roomsLoading && (
+						<p className="mt-1 text-[12px] text-muted-foreground">Loading rooms…</p>
+					)}
+					{!roomsLoading && examTimetableId > 0 && vacancyRooms.length === 0 && (
+						<p className="mt-1 text-[12px] text-muted-foreground">
+							No rooms found for the selected building, block, and floor.
+						</p>
+					)}
+				</>
+			}
+		>
 			<RoomAllotmentTable
 				rows={vacancyRooms}
 				selectAll={selectAll}
@@ -479,6 +472,6 @@ export default function AddRoomSeatingPlanPage() {
 					{busy ? 'Saving…' : 'Save'}
 				</Button>
 			</div>
-		</PageContainer>
+		</FilteredPage>
 	)
 }

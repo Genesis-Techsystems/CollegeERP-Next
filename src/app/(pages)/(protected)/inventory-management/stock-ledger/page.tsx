@@ -3,9 +3,8 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon, PlusIcon } from 'lucide-react'
-import { DataTable, TableCard } from '@/common/components/table'
+import { ListPage } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -87,38 +86,30 @@ export default function StockLedgerPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <div className="app-card overflow-hidden px-4 py-3">
-        <h2 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">Stock Ledger</h2>
-      </div>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={isLoading}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search stock ledger…',
-            pdfDocumentTitle: 'Stock Ledger',
+    <ListPage
+      title="Stock Ledger"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search stock ledger…',
+        pdfDocumentTitle: 'Stock Ledger',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditData(null)
+            setModalOpen(true)
           }}
-          toolbarTrailing={(
-            <Button
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={() => {
-                setEditData(null)
-                setModalOpen(true)
-              }}
-            >
-              <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-              Add Stock Ledger
-            </Button>
-          )}
-        />
-      </TableCard>
-
+        >
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Stock Ledger
+        </Button>
+      )}
+    >
       <StockLedgerModal
         open={modalOpen}
         onClose={() => {
@@ -128,6 +119,6 @@ export default function StockLedgerPage() {
         editData={editData}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

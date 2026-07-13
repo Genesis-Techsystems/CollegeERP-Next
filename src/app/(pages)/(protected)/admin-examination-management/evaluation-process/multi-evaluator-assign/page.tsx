@@ -4,16 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import {
   CheckCircle2,
-  ChevronDown,
-  Filter,
   ListChecks,
   UserCheck,
 } from "lucide-react";
 import { SearchInput } from "@/common/components/search";
-import { DataTable } from "@/common/components/table";
 import { Select as SearchableSelect } from "@/common/components/select";
 import type { SelectOption } from "@/common/components/select";
-import { PageContainer } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -62,7 +59,6 @@ function StatCard({
 
 export default function MultiEvaluatorAssignPage() {
   const [loading, setLoading] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
   const [omrSearch, setOmrSearch] = useState("");
   const [detailSearch, setDetailSearch] = useState("");
   const [detailOpen, setDetailOpen] = useState(false);
@@ -553,128 +549,93 @@ export default function MultiEvaluatorAssignPage() {
   ];
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Assign Multi Evaluator</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+    <FilteredListPage
+      title="Assign Multi Evaluator"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="md:col-span-2 space-y-1">
+            <Label className="text-[12px] text-muted-foreground">Course</Label>
+            <SearchableSelect
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(num(v) || null)}
+              options={courseOptions}
+              placeholder="Course"
             />
-          </Button>
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label className="text-[12px] text-muted-foreground">Academic Year</Label>
+            <SearchableSelect
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(num(v) || null)}
+              options={academicYearOptions}
+              placeholder="Academic Year"
+            />
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label className="text-[12px] text-muted-foreground">Exam</Label>
+            <SearchableSelect
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(num(v) || null)}
+              options={examOptions}
+              placeholder="Search exam…"
+              searchable
+            />
+          </div>
+          <div className="md:col-span-1 space-y-1">
+            <Label className="text-[12px] text-muted-foreground">Course Year</Label>
+            <SearchableSelect
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => setCourseYearId(num(v) || null)}
+              options={courseYearOptions}
+              placeholder="Course Year"
+            />
+          </div>
+          <div className="md:col-span-1 space-y-1">
+            <Label className="text-[12px] text-muted-foreground">Regulation</Label>
+            <SearchableSelect
+              value={regulationId ? String(regulationId) : null}
+              onChange={(v) => setRegulationId(num(v) || null)}
+              options={regulationOptions}
+              placeholder="Regulation"
+            />
+          </div>
+          <div className="md:col-span-3 space-y-1">
+            <Label className="text-[12px] text-muted-foreground">Subject</Label>
+            <SearchableSelect
+              value={subjectId ? String(subjectId) : null}
+              onChange={(v) => setSubjectId(num(v) || null)}
+              options={subjectOptions}
+              placeholder="Search subjects…"
+              searchable
+            />
+          </div>
+          <div className="md:col-span-1">
+            <Button
+              type="button"
+              className="h-8 w-full text-[12px]"
+              onClick={() => void getList()}
+              disabled={loading || !subjectId}
+            >
+              Get List
+            </Button>
+          </div>
         </div>
-        {filterOpen && (
-          <div className="p-3 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1">
-                <Label className="text-[12px] text-muted-foreground">
-                  Course
-                </Label>
-                <SearchableSelect
-                  value={courseId ? String(courseId) : null}
-                  onChange={(v) => setCourseId(num(v) || null)}
-                  options={courseOptions}
-                  placeholder="Course"
+      )}
+      notice={
+        hasList ? (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {stats.map((s) => (
+                <StatCard
+                  key={s.label}
+                  label={s.label}
+                  value={s.value}
+                  accent={s.accent}
                 />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label className="text-[12px] text-muted-foreground">
-                  Academic Year
-                </Label>
-                <SearchableSelect
-                  value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => setAcademicYearId(num(v) || null)}
-                  options={academicYearOptions}
-                  placeholder="Academic Year"
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label className="text-[12px] text-muted-foreground">
-                  Exam
-                </Label>
-                <SearchableSelect
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => setExamId(num(v) || null)}
-                  options={examOptions}
-                  placeholder="Search exam…"
-                  searchable
-                />
-              </div>
-              <div className="md:col-span-1 space-y-1">
-                <Label className="text-[12px] text-muted-foreground">
-                  Course Year
-                </Label>
-                <SearchableSelect
-                  value={courseYearId ? String(courseYearId) : null}
-                  onChange={(v) => setCourseYearId(num(v) || null)}
-                  options={courseYearOptions}
-                  placeholder="Course Year"
-                />
-              </div>
-              <div className="md:col-span-1 space-y-1">
-                <Label className="text-[12px] text-muted-foreground">
-                  Regulation
-                </Label>
-                <SearchableSelect
-                  value={regulationId ? String(regulationId) : null}
-                  onChange={(v) => setRegulationId(num(v) || null)}
-                  options={regulationOptions}
-                  placeholder="Regulation"
-                />
-              </div>
-              <div className="md:col-span-3 space-y-1">
-                <Label className="text-[12px] text-muted-foreground">
-                  Subject
-                </Label>
-                <SearchableSelect
-                  value={subjectId ? String(subjectId) : null}
-                  onChange={(v) => setSubjectId(num(v) || null)}
-                  options={subjectOptions}
-                  placeholder="Search subjects…"
-                  searchable
-                />
-              </div>
-              <div className="md:col-span-1">
-                <Button
-                  type="button"
-                  className="h-8 w-full text-[12px]"
-                  onClick={() => void getList()}
-                  disabled={loading || !subjectId}
-                >
-                  Get List
-                </Button>
-              </div>
+              ))}
             </div>
-          </div>
-        )}
-      </div>
 
-      {hasList && (
-        <>
-          {/* Summary stat cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-            {stats.map((s) => (
-              <StatCard
-                key={s.label}
-                label={s.label}
-                value={s.value}
-                accent={s.accent}
-              />
-            ))}
-          </div>
-
-          {/* Assignment workspace */}
-          <div className="app-card overflow-hidden">
+            <div className="app-card overflow-hidden">
             <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center gap-2">
               <h2 className="app-card-title flex items-center gap-2">
                 <ListChecks className="h-4 w-4 text-[hsl(var(--primary))]" />{" "}
@@ -914,33 +875,21 @@ export default function MultiEvaluatorAssignPage() {
               </div>
             )}
           </div>
-
-          {/* Evaluator summary table */}
-          <div className="app-card overflow-hidden">
-            <div className="px-4 py-3 border-b border-border bg-muted/40">
-              <h2 className="app-card-title">Evaluator Summary</h2>
-            </div>
-            <div className="p-3">
-              <DataTable
-                title=""
-                subtitle=""
-                toolbarLeading={<span />}
-                rowData={evaluatorRows}
-                columnDefs={columns}
-                pagination
-                loading={loading}
-                onCellClicked={handleTableCellClick}
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: "Search evaluator…",
-                  pdfDocumentTitle: "Multi Evaluator Assign",
-                }}
-              />
-            </div>
-          </div>
-        </>
-      )}
-
+          </>
+        ) : null
+      }
+      toolbarLeading={<span />}
+      rowData={hasList ? evaluatorRows : []}
+      columnDefs={columns}
+      pagination
+      loading={loading}
+      onCellClicked={handleTableCellClick}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search evaluator…",
+        pdfDocumentTitle: "Multi Evaluator Assign",
+      }}
+    >
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -995,6 +944,6 @@ export default function MultiEvaluatorAssignPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredListPage>
   );
 }

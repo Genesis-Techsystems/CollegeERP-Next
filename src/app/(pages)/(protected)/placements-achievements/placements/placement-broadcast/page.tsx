@@ -3,12 +3,10 @@
 import { useState, useMemo } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
 import { formatDate } from '@/common/generic-functions'
@@ -131,60 +129,45 @@ export default function PlacementBroadcastPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-4">
-        <h2 className="app-card-title mb-3">Broadcast Messages</h2>
+    <FilteredListPage
+      title="Broadcast Messages"
+      filters={(
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 max-w-2xl">
-          <div className="space-y-0.5">
-            <Label className="text-xs">Year *</Label>
-            <Select
-              value={yearName}
-              onChange={handleYearChange}
-              options={buildYearOptions()}
-              placeholder="Select year"
-              clearable
-            />
-          </div>
-          <div className="space-y-0.5">
-            <Label className="text-xs">Post Type *</Label>
-            <Select
-              value={posttypeCatdetId}
-              onChange={setPosttypeCatdetId}
-              options={postTypeOptions}
-              placeholder="Select post type"
-              disabled={!yearName}
-              isLoading={postTypesLoading}
-              clearable
-            />
-          </div>
-        </div>
-      </div>
-
-      {filtersReady && (
-        <div className="app-card overflow-hidden">
-          <div className="px-3 pb-3 pt-2">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <DataTable
-                rowData={data}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search…',
-                  pdfDocumentTitle: 'Broadcast Messages',
-                }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>
-                    + Placement Broadcast
-                  </Button>
-                }
-              />
-            </div>
-          </div>
+          <Select
+            label="Year *"
+            value={yearName}
+            onChange={handleYearChange}
+            options={buildYearOptions()}
+            placeholder="Select year"
+            clearable
+          />
+          <Select
+            label="Post Type *"
+            value={posttypeCatdetId}
+            onChange={setPosttypeCatdetId}
+            options={postTypeOptions}
+            placeholder="Select post type"
+            disabled={!yearName}
+            isLoading={postTypesLoading}
+            clearable
+          />
         </div>
       )}
-
+      rowData={filtersReady ? data : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Broadcast Messages',
+      }}
+      toolbarTrailing={(
+        <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>
+          + Placement Broadcast
+        </Button>
+      )}
+    >
       <PlacementBroadcastModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -192,6 +175,6 @@ export default function PlacementBroadcastPage() {
         filterContext={{ yearName: yearName ?? '', posttypeCatdetId: posttypeCatdetId ?? '' }}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

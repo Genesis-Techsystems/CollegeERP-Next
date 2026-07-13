@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, Filter, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,7 +17,8 @@ import {
   listStudents,
   saveRegisteredExamSubjects,
 } from "@/services/pre-examination";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
+import { GlobalFilterBarRow } from "@/common/components/forms";
 import { listCourseYears } from "@/services/examination";
 import { toastError, toastSuccess } from "@/lib/toast";
 
@@ -119,7 +120,6 @@ const STATUS_CLASS: Record<string, string> = {
  */
 export default function ExamRegisterSubjectsPage() {
   const [loading, setLoading] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
   const [students, setStudents] = useState<AnyRow[]>([]);
   const [studentSearchLoading, setStudentSearchLoading] = useState(false);
   const [selectedStudentRow, setSelectedStudentRow] = useState<AnyRow | null>(
@@ -541,61 +541,40 @@ export default function ExamRegisterSubjectsPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Register Subjects Update</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+    <FilteredPage
+      title="Exam Register Subjects Update"
+      filters={(
+        <GlobalFilterBarRow>
+          <div className="md:col-span-5 space-y-1">
+            <StudentSearchSelect
+              label="Student"
+              value={studentId}
+              students={students}
+              selectedStudent={selectedStudent}
+              isLoading={studentSearchLoading}
+              onSearch={(term) => void onSearchStudents(term)}
+              onChange={(id, row) => void onStudentSelect(id, row)}
             />
-          </Button>
-        </div>
-        {filterOpen && (
-          <div className="p-3 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
-              <div className="md:col-span-5 space-y-1">
-                <StudentSearchSelect
-                  label="Student"
-                  value={studentId}
-                  students={students}
-                  selectedStudent={selectedStudent}
-                  isLoading={studentSearchLoading}
-                  onSearch={(term) => void onSearchStudents(term)}
-                  onChange={(id, row) => void onStudentSelect(id, row)}
-                />
-              </div>
-              <div className="md:col-span-7 space-y-1">
-                <Label>Exam *</Label>
-                <Select
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => {
-                    if (v) void onExamSelect(Number(v));
-                  }}
-                  options={examsList.map((e) => ({
-                    value: String(num(e.examId ?? e.fk_exam_id)),
-                    label: examOptionLabel(e),
-                  }))}
-                  placeholder="Select Exam"
-                  searchable
-                  disabled={!selectedStudent}
-                />
-              </div>
-            </div>
           </div>
-        )}
-      </div>
-
+          <div className="md:col-span-7 space-y-1">
+            <Label>Exam *</Label>
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => {
+                if (v) void onExamSelect(Number(v));
+              }}
+              options={examsList.map((e) => ({
+                value: String(num(e.examId ?? e.fk_exam_id)),
+                label: examOptionLabel(e),
+              }))}
+              placeholder="Select Exam"
+              searchable
+              disabled={!selectedStudent}
+            />
+          </div>
+        </GlobalFilterBarRow>
+      )}
+    >
       {!!selectedStudent && examSelected && (
         <>
           <div className="rounded border-2 border-[#c3d9ff] p-3">
@@ -879,6 +858,6 @@ export default function ExamRegisterSubjectsPage() {
           )}
         </>
       )}
-    </PageContainer>
+    </FilteredPage>
   );
 }

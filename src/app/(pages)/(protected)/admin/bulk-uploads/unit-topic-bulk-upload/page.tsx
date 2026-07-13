@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { FileSpreadsheet, UploadIcon, X } from 'lucide-react'
 import { FileDropzone } from '@/common/components/forms'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { uploadUnitTopicsFile } from '@/services'
@@ -40,9 +40,7 @@ export default function UnitTopicBulkUploadPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Unit Topic Bulk Upload" subtitle="Admin / Bulk Uploads" />
-
+    <FilteredPage title="Unit Topic Bulk Upload" filtersCollapsible={false} filters={<span className="sr-only">Upload</span>}>
       <div className="app-card overflow-hidden">
         <div className="px-4 py-2 border-b border-border bg-muted/40">
           <h2 className="app-card-title">Unit Topic Bulk Upload</h2>
@@ -93,6 +91,6 @@ export default function UnitTopicBulkUploadPage() {
           </div>
         </div>
       </div>
-    </PageContainer>
+    </FilteredPage>
   )
 }

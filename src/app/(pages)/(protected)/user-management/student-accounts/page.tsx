@@ -4,13 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ColDef, ICellRendererParams, ValueGetterParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { BookOpen, Eye, EyeOff, Loader2, PencilIcon, PlusIcon, ShieldCheck, User, X } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
+import { Eye, EyeOff, Loader2, PencilIcon, PlusIcon, ShieldCheck, User, X } from 'lucide-react'
 import { StatusBadge } from '@/common/components/data-display'
 import { FormModal } from '@/common/components/feedback'
 import { FormField } from '@/common/components/forms'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -202,7 +200,6 @@ export default function StudentAccountsPage() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
-  const [searchValue, setSearchValue] = useState('')
   const [addOpen, setAddOpen] = useState(false)
   const [addCollegeId, setAddCollegeId] = useState<string | null>(null)
   const [addStudentId, setAddStudentId] = useState<string | null>(null)
@@ -403,16 +400,6 @@ export default function StudentAccountsPage() {
     if (!rolesOpen) return
     setRoleRows(existingUserRoles.map((r) => ({ ...r, isActive: r.isActive !== false })))
   }, [existingUserRoles, rolesOpen])
-
-  const filteredRows = useMemo(() => {
-    const q = searchValue.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((row) => (
-      `${row.userName ?? ''} ${row.firstName ?? ''} ${row.lastName ?? ''} ${row.mobileNumber ?? ''} ${row.collegeCode ?? ''}`
-        .toLowerCase()
-        .includes(q)
-    ))
-  }, [rows, searchValue])
 
   const addPreview = useMemo(() => {
     if (!previewMerged) return null
@@ -621,52 +608,38 @@ export default function StudentAccountsPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between">
-          <h2 className="app-card-title inline-flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Student Accounts
-          </h2>
-        </div>
-      </div>
-
-      <div className="app-card overflow-hidden">
-        <DataTable
-          rowData={filteredRows}
-          columnDefs={columnDefs}
-          loading={isLoading}
-          getRowId={(p) => String(p.data?.userId ?? '')}
-          serverSide
-          totalCount={totalCount}
-          currentPage={page}
-          onPageChange={handlePageChange}
-          pagination={false}
-          paginationPageSize={DEFAULT_PAGE_SIZE}
-          toolbar={{ columnPicker: true, exportPdf: true }}
-          toolbarLeading={(
-            <SearchInput
-              className="w-full max-w-sm"
-              placeholder="Search this page…"
-              value={searchValue}
-              onChange={setSearchValue}
-            />
-          )}
-          toolbarTrailing={(
-            <Button size="sm" type="button" onClick={openAddStudentModal}>
-              <PlusIcon className="h-4 w-4 mr-1" />
-              Add Student
-            </Button>
-          )}
-        />
-      </div>
-
+    <ListPage
+      title="Student Accounts"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      getRowId={(p) => String(p.data?.userId ?? '')}
+      serverSide
+      totalCount={totalCount}
+      currentPage={page}
+      onPageChange={handlePageChange}
+      pagination={false}
+      paginationPageSize={DEFAULT_PAGE_SIZE}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search this page…',
+        columnPicker: true,
+        exportPdf: true,
+        pdfDocumentTitle: 'Student Accounts',
+      }}
+      toolbarTrailing={(
+        <Button size="sm" type="button" onClick={openAddStudentModal}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Student
+        </Button>
+      )}
+    >
       <Dialog open={addOpen} onOpenChange={(v) => { if (!v) setAddOpen(false) }}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pr-8 border-b border-amber-200/80 pb-2">
             <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))] inline-flex items-center gap-2">
               <span className="inline-flex h-7 w-7 items-center justify-center rounded border border-border bg-muted/40 text-slate-600">
-                <BookOpen className="h-3.5 w-3.5" />
+                <User className="h-3.5 w-3.5" />
               </span>
               <span>Student Account</span>
             </DialogTitle>
@@ -981,6 +954,6 @@ export default function StudentAccountsPage() {
           </div>
         </div>
       </FormModal>
-    </PageContainer>
+    </ListPage>
   )
 }

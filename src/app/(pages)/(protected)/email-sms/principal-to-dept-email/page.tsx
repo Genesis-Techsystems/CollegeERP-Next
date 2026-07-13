@@ -1,14 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Filter, Mail, Send } from 'lucide-react'
+import { Send } from 'lucide-react'
 import { Select, MultiSelect } from '@/common/components/select'
 import { FormField } from '@/common/components/forms'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
 import type { College } from '@/types/college'
@@ -36,7 +35,6 @@ export default function PrincipalToDeptEmailPage() {
   const [body, setBody] = useState('')
   const [isEmailAlert, setIsEmailAlert] = useState(true)
   const [sending, setSending] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(true)
 
   useEffect(() => {
     listActiveCollegesForDepartments()
@@ -127,55 +125,34 @@ export default function PrincipalToDeptEmailPage() {
   const hasDepartments = departmentIds.length > 0
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
-          <h1 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
-            <Mail className="h-4 w-4 shrink-0" />
-            Send email to departments
-          </h1>
-          <button
-            type="button"
-            className="inline-flex shrink-0 items-center gap-1 text-sm text-foreground hover:text-foreground/80"
-            onClick={() => setFiltersOpen((prev) => !prev)}
-            aria-expanded={filtersOpen}
-            aria-controls="principal-to-dept-filters"
-          >
-            Filter
-            <Filter className="h-4 w-4" aria-hidden />
-          </button>
+    <FilteredPage
+      title="Send email to departments"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <Select
+            label="College *"
+            value={collegeId ? String(collegeId) : null}
+            onChange={(v) => {
+              setCollegeId(v ? Number(v) : null)
+              setDepartmentIds([])
+            }}
+            options={colleges.map((c) => ({ value: String(c.collegeId), label: c.collegeCode }))}
+            searchable
+            className="md:col-span-4"
+          />
+          <MultiSelect
+            label="Departments *"
+            value={departmentIds}
+            onChange={setDepartmentIds}
+            options={departmentOptions}
+            searchable
+            placeholder="Select departments"
+            disabled={!collegeId || departmentOptions.length === 0}
+            className="md:col-span-8"
+          />
         </div>
-        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <CollapsibleContent id="principal-to-dept-filters">
-            <div className="p-4 pt-3">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                <Select
-                  label="College *"
-                  value={collegeId ? String(collegeId) : null}
-                  onChange={(v) => {
-                    setCollegeId(v ? Number(v) : null)
-                    setDepartmentIds([])
-                  }}
-                  options={colleges.map((c) => ({ value: String(c.collegeId), label: c.collegeCode }))}
-                  searchable
-                  className="md:col-span-4"
-                />
-                <MultiSelect
-                  label="Departments *"
-                  value={departmentIds}
-                  onChange={setDepartmentIds}
-                  options={departmentOptions}
-                  searchable
-                  placeholder="Select departments"
-                  disabled={!collegeId || departmentOptions.length === 0}
-                  className="md:col-span-8"
-                />
-              </div>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
-
+      )}
+    >
       {hasDepartments && (
         <div className="app-card p-0 overflow-hidden">
           <div className="px-4 py-2.5 border-b">
@@ -222,6 +199,6 @@ export default function PrincipalToDeptEmailPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredPage>
   )
 }

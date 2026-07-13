@@ -15,13 +15,11 @@ import {
 import { distinct } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/common/components/select'
-import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table'
 import ExamMasterModal from './ExamMasterModal'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 
 export default function ExamMasterPage() {
   const router = useRouter()
@@ -39,7 +37,6 @@ export default function ExamMasterPage() {
   const [colleges, setColleges] = useState<CollegeWiseFilterRow[]>([])
   const [selectedCollegeId, setSelectedCollegeId] = useState<number | null>(null)
   const [examsList, setExamsList] = useState<ExamMaster[]>([])
-  const [tableVisible, setTableVisible] = useState(false)
   const [loadingFilters, setLoadingFilters] = useState(true)
   const [loadingExams, setLoadingExams] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
@@ -90,7 +87,6 @@ export default function ExamMasterPage() {
     setAcademicYears([])
     setColleges([])
     setExamsList([])
-    setTableVisible(false)
 
     const filtered = filtersRef.filter((r) => r.fk_university_id === universityId)
     const distinctCourses = distinct(filtered, (r) => r.fk_course_id)
@@ -116,7 +112,6 @@ export default function ExamMasterPage() {
     setAcademicYears([])
     setColleges([])
     setExamsList([])
-    setTableVisible(false)
 
     const filtered = academicRef.filter((r) => r.fk_university_id === universityId)
     const distinctAY = distinct(filtered, (r) => r.fk_academic_year_id ?? 0)
@@ -148,7 +143,6 @@ export default function ExamMasterPage() {
     setSelectedAcademicYearId(academicYearId)
     setColleges([])
     setExamsList([])
-    setTableVisible(false)
 
     const effectiveMode = modeOverride ?? mode
     if (effectiveMode === 1) {
@@ -193,14 +187,12 @@ export default function ExamMasterPage() {
   function handleCollegeChange(collegeId: number) {
     setSelectedCollegeId(collegeId)
     setExamsList([])
-    setTableVisible(false)
   }
 
   async function handleGetList() {
     if (!selectedUniversityId || !selectedCourseId || !selectedAcademicYearId) return
     if (mode === 2 && !selectedCollegeId) return
 
-    setTableVisible(true)
     if (mode === 1) {
       await fetchExamsByUniversity(selectedUniversityId, selectedCourseId, selectedAcademicYearId)
     } else {
@@ -217,7 +209,6 @@ export default function ExamMasterPage() {
     setAcademicYears([])
     setColleges([])
     setExamsList([])
-    setTableVisible(false)
 
     if (selectedUniversityId) {
       setTimeout(() => {
@@ -415,13 +406,10 @@ export default function ExamMasterPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">
-        Create Exam Notification
-      </h2>
-      <GlobalFilterBar
-        title="Create Exam Notification"
-        leading={(
+    <FilteredListPage
+      title="Create Exam Notification"
+      filters={(
+        <div className="space-y-3">
           <RadioGroup
             value={String(mode)}
             onValueChange={(v) => handleModeChange(Number(v) as 1 | 2)}
@@ -436,116 +424,98 @@ export default function ExamMasterPage() {
               <span>Is For College</span>
             </label>
           </RadioGroup>
-        )}
-      >
-        <GlobalFilterBarRow>
-        <GlobalFilterField label="University" icon={Building2}>
-          <Select
-            value={selectedUniversityId != null ? String(selectedUniversityId) : null}
-            onChange={(v) => v && handleUniversityChange(Number(v))}
-            options={universities.map((u) => ({
-              value: String(u.fk_university_id),
-              label: u.university_name ?? '',
-            }))}
-            placeholder="All universities"
-            disabled={loadingFilters}
-            isLoading={loadingFilters}
-          />
-        </GlobalFilterField>
-
-        <GlobalFilterField label="Course" icon={GraduationCap}>
-          <Select
-            value={selectedCourseId != null ? String(selectedCourseId) : null}
-            onChange={(v) => v && handleCourseChange(Number(v))}
-            options={courses.map((c) => ({
-              value: String(c.fk_course_id),
-              label: c.course_name ?? '',
-            }))}
-            placeholder="All courses"
-            disabled={courses.length === 0}
-          />
-        </GlobalFilterField>
-
-        <GlobalFilterField label="Academic Year" icon={Calendar}>
-          <Select
-            value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
-            onChange={(v) => v && handleAcademicYearChange(Number(v))}
-            options={academicYears.map((ay) => ({
-              value: String(ay.fk_academic_year_id),
-              label: ay.academic_year ?? '',
-            }))}
-            placeholder="All academic years"
-            disabled={academicYears.length === 0}
-          />
-        </GlobalFilterField>
-
-        {mode === 2 && (
-          <GlobalFilterField label="College" icon={Building2}>
-            <Select
-              value={selectedCollegeId != null ? String(selectedCollegeId) : null}
-              onChange={(v) => v && handleCollegeChange(Number(v))}
-              options={colleges.map((c) => ({
-                value: String(c.fk_college_id),
-                label: c.college_name ?? '',
-              }))}
-              placeholder="All colleges"
-              disabled={colleges.length === 0}
-            />
-          </GlobalFilterField>
-        )}
-
-        <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
-          <Button
-            onClick={handleGetList}
-            disabled={
-              loadingFilters ||
-              loadingExams ||
-              !selectedUniversityId ||
-              !selectedCourseId ||
-              !selectedAcademicYearId ||
-              (mode === 2 && !selectedCollegeId)
-            }
-            className="h-[30px] px-3 text-[12px] shrink-0"
-          >
-            Get List
-          </Button>
-        </GlobalFilterField>
-        </GlobalFilterBarRow>
-      </GlobalFilterBar>
-
-      {tableVisible && (
-        <>
-          <TableCard withHeaderBorder={false}>
-            {/* Angular renders the table card even with zero rows — the grid
-                shows its headers + no-rows overlay and the toolbar keeps the
-                search box and Add Exam button visible. */}
-            {(
-              <DataTable
-                title=""
-                subtitle=""
-                toolbarLeading={<span />}
-                rowData={examsList}
-                columnDefs={columnDefs}
-                loading={loadingExams}
-                onCellClicked={onCellClicked}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search exams…',
-                  pdfDocumentTitle: 'Create Exam Notification',
-                }}
-                toolbarTrailing={(
-                  <Button size="sm" className="h-[30px] px-3 text-[12px]" onClick={() => { setEditingExam(null); setModalOpen(true) }}>
-                    <PlusIcon className="mr-1 h-3.5 w-3.5" />
-                    Add Exam
-                  </Button>
-                )}
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="University" icon={Building2}>
+              <Select
+                value={selectedUniversityId != null ? String(selectedUniversityId) : null}
+                onChange={(v) => v && handleUniversityChange(Number(v))}
+                options={universities.map((u) => ({
+                  value: String(u.fk_university_id),
+                  label: u.university_name ?? '',
+                }))}
+                placeholder="All universities"
+                disabled={loadingFilters}
+                isLoading={loadingFilters}
               />
-            )}
-          </TableCard>
-        </>
-      )}
+            </GlobalFilterField>
 
+            <GlobalFilterField label="Course" icon={GraduationCap}>
+              <Select
+                value={selectedCourseId != null ? String(selectedCourseId) : null}
+                onChange={(v) => v && handleCourseChange(Number(v))}
+                options={courses.map((c) => ({
+                  value: String(c.fk_course_id),
+                  label: c.course_name ?? '',
+                }))}
+                placeholder="All courses"
+                disabled={courses.length === 0}
+              />
+            </GlobalFilterField>
+
+            <GlobalFilterField label="Academic Year" icon={Calendar}>
+              <Select
+                value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
+                onChange={(v) => v && handleAcademicYearChange(Number(v))}
+                options={academicYears.map((ay) => ({
+                  value: String(ay.fk_academic_year_id),
+                  label: ay.academic_year ?? '',
+                }))}
+                placeholder="All academic years"
+                disabled={academicYears.length === 0}
+              />
+            </GlobalFilterField>
+
+            {mode === 2 && (
+              <GlobalFilterField label="College" icon={Building2}>
+                <Select
+                  value={selectedCollegeId != null ? String(selectedCollegeId) : null}
+                  onChange={(v) => v && handleCollegeChange(Number(v))}
+                  options={colleges.map((c) => ({
+                    value: String(c.fk_college_id),
+                    label: c.college_name ?? '',
+                  }))}
+                  placeholder="All colleges"
+                  disabled={colleges.length === 0}
+                />
+              </GlobalFilterField>
+            )}
+
+            <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+              <Button
+                onClick={handleGetList}
+                disabled={
+                  loadingFilters ||
+                  loadingExams ||
+                  !selectedUniversityId ||
+                  !selectedCourseId ||
+                  !selectedAcademicYearId ||
+                  (mode === 2 && !selectedCollegeId)
+                }
+                className="h-[30px] px-3 text-[12px] shrink-0"
+              >
+                Get List
+              </Button>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+        </div>
+      )}
+      rowData={examsList}
+      columnDefs={columnDefs}
+      loading={loadingExams}
+      onCellClicked={onCellClicked}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search exams…',
+        pdfDocumentTitle: 'Create Exam Notification',
+      }}
+      toolbarTrailing={(
+        <Button size="sm" className="h-[30px] px-3 text-[12px]" onClick={() => { setEditingExam(null); setModalOpen(true) }}>
+          <PlusIcon className="mr-1 h-3.5 w-3.5" />
+          Add Exam
+        </Button>
+      )}
+    >
       <ExamMasterModal
         open={modalOpen}
         onClose={() => {
@@ -564,7 +534,7 @@ export default function ExamMasterPage() {
           else if (selectedCollegeId) fetchExamsByCollege()
         }}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }
 

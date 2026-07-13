@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -110,92 +109,85 @@ export default function ScheduleCommitteeMeetingPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-4">
-        <h2 className="app-card-title mb-3">Schedule Committee Meeting</h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="space-y-0.5">
-            <Label className="text-xs">Committee *</Label>
-            <Select
-              value={filters.committeeId}
-              onChange={filters.setCommitteeId}
-              options={filters.committeeOptions}
-              placeholder="Select committee"
-              searchable
-              clearable
-              isLoading={filters.isLoading}
-            />
-          </div>
-          <div className="space-y-0.5">
-            <Label className="text-xs">Exam *</Label>
-            <Select
-              value={filters.examId}
-              onChange={filters.setExamId}
-              options={filters.examOptions}
-              placeholder="Select exam"
-              searchable
-              clearable
-              disabled={!filters.committeeId}
-            />
-          </div>
-          <div className="space-y-0.5">
-            <Label className="text-xs">Subject *</Label>
-            <Select
-              value={filters.subjectCode}
-              onChange={filters.setSubjectCode}
-              options={filters.subjectOptions}
-              placeholder="Select subject"
-              searchable
-              clearable
-              disabled={!filters.examId}
-            />
-          </div>
-        </div>
-        <div className="mt-3 flex justify-end">
-          <Button
-            size="sm"
-            disabled={!filters.filtersReady}
-            onClick={handleGetList}
-          >
-            Get List
-          </Button>
-        </div>
-      </div>
-
-      {showTable && filters.filtersReady && (
-        <div className="app-card overflow-hidden">
-          {filters.tableHeading && (
-            <p className="px-3 pt-3 text-sm font-medium text-foreground">{filters.tableHeading}</p>
-          )}
-          <div className="px-3 pb-3 pt-2">
-            <div className="overflow-hidden rounded-lg border border-border bg-card">
-              <DataTable
-                rowData={data}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search meetings…',
-                  pdfDocumentTitle: 'Scheduled Committee Meetings',
-                }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => setModalOpen(true)}>
-                    + Add Meeting
-                  </Button>
-                }
+    <FilteredListPage
+      title="Schedule Committee Meeting"
+      subtitle={showTable && filters.filtersReady ? filters.tableHeading : undefined}
+      filters={(
+        <>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="space-y-0.5">
+              <Label className="text-xs">Committee *</Label>
+              <Select
+                value={filters.committeeId}
+                onChange={filters.setCommitteeId}
+                options={filters.committeeOptions}
+                placeholder="Select committee"
+                searchable
+                clearable
+                isLoading={filters.isLoading}
+              />
+            </div>
+            <div className="space-y-0.5">
+              <Label className="text-xs">Exam *</Label>
+              <Select
+                value={filters.examId}
+                onChange={filters.setExamId}
+                options={filters.examOptions}
+                placeholder="Select exam"
+                searchable
+                clearable
+                disabled={!filters.committeeId}
+              />
+            </div>
+            <div className="space-y-0.5">
+              <Label className="text-xs">Subject *</Label>
+              <Select
+                value={filters.subjectCode}
+                onChange={filters.setSubjectCode}
+                options={filters.subjectOptions}
+                placeholder="Select subject"
+                searchable
+                clearable
+                disabled={!filters.examId}
               />
             </div>
           </div>
-        </div>
+          <div className="mt-3 flex justify-end">
+            <Button
+              size="sm"
+              disabled={!filters.filtersReady}
+              onClick={handleGetList}
+            >
+              Get List
+            </Button>
+          </div>
+        </>
       )}
-
+      rowData={showTable && filters.filtersReady ? data : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search meetings…',
+        pdfDocumentTitle: 'Scheduled Committee Meetings',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          disabled={!showTable || !filters.filtersReady}
+          onClick={() => setModalOpen(true)}
+        >
+          + Add Meeting
+        </Button>
+      )}
+    >
       <AddMeetingModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         filterContext={meetingContext}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

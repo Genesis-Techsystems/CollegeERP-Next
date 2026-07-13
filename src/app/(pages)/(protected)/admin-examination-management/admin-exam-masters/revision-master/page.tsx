@@ -5,7 +5,6 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select as CommonSelect, type SelectOption } from '@/common/components/select'
-import { DataTable, TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
 import {
@@ -24,8 +23,8 @@ import {
 	updateRevisionMaster,
 } from '@/services/revision-master'
 import { Building2, GraduationCap, PencilIcon, PlusIcon } from 'lucide-react'
-import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
-import { PageContainer } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { FilteredListPage } from '@/components/layout'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 
 type RevisionRow = Record<string, unknown> & {
@@ -316,9 +315,9 @@ export default function RevisionMasterPage() {
 	}
 
 	return (
-		<PageContainer className="space-y-4">
-			<h2 className="text-lg font-semibold tracking-tight text-foreground">Exam Revision Master</h2>
-			<GlobalFilterBar title="Exam Revision Master">
+		<FilteredListPage
+			title="Exam Revision Master"
+			filters={(
 				<GlobalFilterBarRow>
 					<GlobalFilterField label="College" icon={Building2}>
 						<CommonSelect
@@ -338,42 +337,32 @@ export default function RevisionMasterPage() {
 						/>
 					</GlobalFilterField>
 				</GlobalFilterBarRow>
-			</GlobalFilterBar>
-
-			{courseId != null && (
-				<TableCard withHeaderBorder={false}>
-					<DataTable<RevisionRow>
-						title=""
-						subtitle=""
-						toolbarLeading={<span />}
-						rowData={gridRows}
-						columnDefs={columnDefs}
-						loading={loadingRows}
-						pagination
-						getRowId={(p) =>
-							String(
-								p.data.revisionMasterId ??
-									`row-${String(p.data.examRevisionTypeId)}-${String(p.data.fromDate)}-${String(p.data.toDate)}`,
-							)
-						}
-						toolbar={{
-							search: true,
-							searchPlaceholder: 'Search revision masters…',
-							columnPicker: true,
-							exportPdf: true,
-							pdfDocumentTitle: 'Exam Revision Master',
-							lockColumnIds: ['siNo', 'actions'],
-						}}
-						toolbarTrailing={(
-							<Button type="button" size="sm" className="h-[30px] px-3 text-[12px]" onClick={openAdd}>
-								<PlusIcon className="mr-1 h-3.5 w-3.5" />
-								Add Revision Master
-							</Button>
-						)}
-					/>
-				</TableCard>
 			)}
-
+			rowData={courseId != null ? gridRows : []}
+			columnDefs={columnDefs}
+			loading={loadingRows}
+			pagination
+			getRowId={(p) =>
+				String(
+					p.data.revisionMasterId ??
+						`row-${String(p.data.examRevisionTypeId)}-${String(p.data.fromDate)}-${String(p.data.toDate)}`,
+				)
+			}
+			toolbar={{
+				search: true,
+				searchPlaceholder: 'Search revision masters…',
+				columnPicker: true,
+				exportPdf: true,
+				pdfDocumentTitle: 'Exam Revision Master',
+				lockColumnIds: ['siNo', 'actions'],
+			}}
+			toolbarTrailing={(
+				<Button type="button" size="sm" className="h-[30px] px-3 text-[12px]" onClick={openAdd} disabled={!courseId}>
+					<PlusIcon className="mr-1 h-3.5 w-3.5" />
+					Add Revision Master
+				</Button>
+			)}
+		>
 			<Dialog
 				open={open}
 				onOpenChange={(v) => {
@@ -483,6 +472,6 @@ export default function RevisionMasterPage() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-		</PageContainer>
+		</FilteredListPage>
 	)
 }

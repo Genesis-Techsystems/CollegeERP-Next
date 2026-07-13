@@ -3,8 +3,7 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon, PlusIcon, Settings2 } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -68,40 +67,30 @@ export default function GeneralMasterSettingsPage() {
   ], [])
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">General Master Settings</h2>
+    <ListPage
+      title="General Master Settings"
+      rowData={data}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search general masters…', pdfDocumentTitle: 'General Master Settings' }}
+      toolbarTrailing={(
+        <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add General Master
+        </Button>
+      )}
+      emptyState={
+        <div className="app-card flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <Settings2 className="h-10 w-10 mb-3 opacity-40" />
+          <p className="text-sm">No general masters found</p>
+          <Button size="sm" className="mt-4" onClick={() => { setRow(null); setOpen(true) }}>
+            <PlusIcon className="h-4 w-4 mr-1" />
+            Add General Master
+          </Button>
         </div>
-        <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!isLoading && data.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Settings2 className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No general masters found</p>
-                <Button size="sm" className="mt-4" onClick={() => { setRow(null); setOpen(true) }}>
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Add General Master
-                </Button>
-              </div>
-            ) : (
-              <DataTable
-                rowData={data}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search general masters…', pdfDocumentTitle: 'General Master Settings' }}
-                toolbarTrailing={(
-                  <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add General Master
-                  </Button>
-                )}
-              />
-            )}
-          </div>
-        </div>
-      </div>
+      }
+    >
       <GeneralMasterModal open={open} onClose={() => { setOpen(false); setRow(null) }} row={row} onSaved={invalidate} />
       <GeneralMasterDetailsModal
         open={detailsOpen}
@@ -109,7 +98,7 @@ export default function GeneralMasterSettingsPage() {
         row={detailsRow}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }
 

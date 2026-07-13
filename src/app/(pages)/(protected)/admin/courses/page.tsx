@@ -2,9 +2,8 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon, PlusIcon } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -34,27 +33,20 @@ export default function CoursesPage() {
   const { data, isLoading, invalidate } = useCrudList({ queryKey: QK.courses.list(), queryFn: listCourses })
   const colDefs = useMemo<ColDef<Course>[]>(() => [COLS.siNo, COLS.univ, COLS.code, COLS.name, COLS.short, COLS.duration, COLS.inTake, COLS.type, { ...COLS.isActive, cellRenderer: statusRenderer }, { ...COLS.actions, cellRenderer: actionRenderer(setRow, setOpen) }], [])
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Courses</h2>
-        </div>
-        <div className="px-3 pb-3 pt-2">
-          <DataTable
-            rowData={data}
-            columnDefs={colDefs}
-            loading={isLoading}
-            pagination
-            toolbarTrailing={
-              <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
-                <PlusIcon className="h-4 w-4 mr-1" />
-                Add Course
-              </Button>
-            }
-            toolbar={{ search: true, searchPlaceholder: 'Search courses…', pdfDocumentTitle: 'Courses' }}
-          />
-        </div>
-      </div>
+    <ListPage
+      title="Courses"
+      rowData={data}
+      columnDefs={colDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search courses…', pdfDocumentTitle: 'Courses' }}
+      toolbarTrailing={
+        <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Course
+        </Button>
+      }
+    >
       <CourseModal
         key={getCrudModalKey(row, open, 'courseId')}
         open={open}
@@ -62,6 +54,6 @@ export default function CoursesPage() {
         row={row}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

@@ -2,8 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -385,81 +384,66 @@ export default function StudentTrainingRegistrationPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <PageContainer className="space-y-4">
-      {/* Search card */}
-      <div className="app-card p-4 space-y-4">
-        <h2 className="app-card-title">Student Training Registration</h2>
-
-        {/* Radio toggle */}
-        <div className="flex gap-6">
-          <label className="flex items-center gap-2 cursor-pointer text-sm">
-            <input
-              type="radio"
-              name="trainingRegMode"
-              checked={mode === 'student'}
-              onChange={() => switchMode('student')}
-              className="accent-primary"
-            />
-            Search For Student
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer text-sm">
-            <input
-              type="radio"
-              name="trainingRegMode"
-              checked={mode === 'employee'}
-              onChange={() => switchMode('employee')}
-              className="accent-primary"
-            />
-            Search For Employee
-          </label>
-        </div>
-
-        {/* Searchable select */}
-        <div className="max-w-sm">
-          <Select
-            label={mode === 'student' ? 'Student' : 'Employee'}
-            value={selectedId ? String(selectedId) : null}
-            onChange={(v) => void handleSelect(v)}
-            options={searchOptions}
-            placeholder={`Search ${mode === 'student' ? 'student' : 'employee'} (min 5 chars)…`}
-            searchable
-            onSearch={(term) => void handleSearch(term)}
-            isLoading={loadingSearch}
-            className={SELECT_CLASS}
-          />
-        </div>
-
-        {/* Profile card */}
-        {selectedRow && mode === 'student' && <StudentProfileCard row={selectedRow} />}
-        {selectedRow && mode === 'employee' && <EmployeeProfileCard row={selectedRow} />}
-      </div>
-
-      {/* Trainings grid */}
-      {selectedId && (
-        <div className="app-card overflow-hidden">
-          <div className="px-3 pb-3 pt-2">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <DataTable
-                rowData={tableRows}
-                columnDefs={columnDefs}
-                loading={loadingData}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search trainings…',
-                  pdfDocumentTitle: 'Training Registration',
-                }}
+    <FilteredListPage
+      title="Student Training Registration"
+      filters={(
+        <div className="space-y-4">
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="radio"
+                name="trainingRegMode"
+                checked={mode === 'student'}
+                onChange={() => switchMode('student')}
+                className="accent-primary"
               />
-            </div>
+              Search For Student
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="radio"
+                name="trainingRegMode"
+                checked={mode === 'employee'}
+                onChange={() => switchMode('employee')}
+                className="accent-primary"
+              />
+              Search For Employee
+            </label>
           </div>
+
+          <div className="max-w-sm">
+            <Select
+              label={mode === 'student' ? 'Student' : 'Employee'}
+              value={selectedId ? String(selectedId) : null}
+              onChange={(v) => void handleSelect(v)}
+              options={searchOptions}
+              placeholder={`Search ${mode === 'student' ? 'student' : 'employee'} (min 5 chars)…`}
+              searchable
+              onSearch={(term) => void handleSearch(term)}
+              isLoading={loadingSearch}
+              className={SELECT_CLASS}
+            />
+          </div>
+
+          {selectedRow && mode === 'student' && <StudentProfileCard row={selectedRow} />}
+          {selectedRow && mode === 'employee' && <EmployeeProfileCard row={selectedRow} />}
         </div>
       )}
-
+      rowData={selectedId ? tableRows : []}
+      columnDefs={columnDefs}
+      loading={loadingData}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search trainings…',
+        pdfDocumentTitle: 'Training Registration',
+      }}
+    >
       <ConfirmModal
         training={confirmTraining}
         onClose={() => setConfirmTraining(null)}
         onConfirm={() => handleRegister(confirmTraining!)}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

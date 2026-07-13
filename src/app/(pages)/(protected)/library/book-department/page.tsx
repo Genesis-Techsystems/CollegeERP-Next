@@ -3,9 +3,8 @@
 import { useMemo, useState } from 'react'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -71,40 +70,30 @@ export default function BookDepartmentPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <div className="app-card overflow-hidden px-4 py-3">
-        <h1 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-          Book Department
-        </h1>
-      </div>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={loading}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search book departments…',
-            pdfDocumentTitle: 'Book Departments',
+    <ListPage
+      title="Book Department"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search book departments…',
+        pdfDocumentTitle: 'Book Departments',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
           }}
-          toolbarTrailing={(
-            <Button
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={() => {
-                setEditing(null)
-                setModalOpen(true)
-              }}
-            >
-              <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-              Add Book Department
-            </Button>
-          )}
-        />
-      </TableCard>
-
+        >
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Book Department
+        </Button>
+      )}
+    >
       <BookDepartmentModal
         open={modalOpen}
         onClose={() => {
@@ -114,6 +103,6 @@ export default function BookDepartmentPage() {
         row={editing}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

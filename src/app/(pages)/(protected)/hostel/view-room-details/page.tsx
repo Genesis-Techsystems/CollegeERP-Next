@@ -3,11 +3,10 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
+import { FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
 import { listHostelRoomsByHostel } from '@/services'
@@ -46,8 +45,9 @@ export default function ViewRoomDetailsPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <FilterCard title="View Room details">
+    <FilteredListPage
+      title="View Room details"
+      filters={(
         <Select
           label="Hostel"
           className={FILTER_CARD_SELECT_CLASS}
@@ -57,11 +57,12 @@ export default function ViewRoomDetailsPage() {
           searchable
           isLoading={loadingHostels}
         />
-      </FilterCard>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable rowData={rows} columnDefs={columnDefs} loading={isLoading} height="auto" />
-      </TableCard>
-    </PageContainer>
+      )}
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      height="auto"
+      toolbar={{ search: true, searchPlaceholder: 'Search rooms…', pdfDocumentTitle: 'View Room details' }}
+    />
   )
 }

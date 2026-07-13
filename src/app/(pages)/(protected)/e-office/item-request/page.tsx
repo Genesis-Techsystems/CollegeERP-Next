@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation'
 import { EyeIcon, PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useSessionContext } from '@/context/SessionContext'
 import { useLoginEmployeeId } from '@/hooks/useLoginEmployeeId'
@@ -95,40 +94,33 @@ export default function ItemRequestPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <div className="app-card overflow-hidden px-4 py-3">
-        <h2 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">Internal Requisitions</h2>
-      </div>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={isLoading || sessionLoading}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search indents…',
-            pdfDocumentTitle: 'Internal Requisitions',
-          }}
-          toolbarTrailing={(
-            <Button
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={() => router.push('/e-office/item-request/add')}
-            >
-              <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-              New Internal Indent
-            </Button>
-          )}
-        />
-      </TableCard>
-
+    <ListPage
+      title="Internal Requisitions"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading || sessionLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search indents…',
+        pdfDocumentTitle: 'Internal Requisitions',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          onClick={() => router.push('/e-office/item-request/add')}
+        >
+          <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+          New Internal Indent
+        </Button>
+      )}
+    >
       <ViewItemRequestDialog
         open={Boolean(viewRow)}
         onClose={() => setViewRow(null)}
         row={viewRow}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

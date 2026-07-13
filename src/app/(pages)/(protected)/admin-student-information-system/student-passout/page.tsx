@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Filter } from "lucide-react";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { DatePicker } from "@/common/components/date-picker";
 import { ConfirmDialog } from "@/common/components/feedback";
@@ -97,7 +96,6 @@ export default function StudentPassoutPage() {
 
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [loadingStudents, setLoadingStudents] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
 
   const [collegeId, setCollegeId] = useState<number | null>(null);
   const [academicYearId, setAcademicYearId] = useState<number | null>(null);
@@ -444,102 +442,82 @@ export default function StudentPassoutPage() {
   }));
 
   return (
-    <PageContainer>
-      <div className="space-y-4">
-        <div className="app-card overflow-hidden">
-          <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
-            <h2 className="app-card-title">Student Passout</h2>
-            <Button
-              type="button"
-              variant="outline"
-              style={{ marginRight: "0px" }}
-              size="sm"
-              className="h-6 px-2.5 text-[12px]"
-              onClick={() => setFilterOpen((v) => !v)}
-              aria-expanded={filterOpen}
-            >
-              <Filter className="mr-1.5 h-3.5 w-3.5" />
-              <ChevronDown
-                className={`h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
-              />
-            </Button>
+    <FilteredPage
+      title="Student Passout"
+      filters={
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className={selectClass()}>
+            <Select
+              label="College"
+              placeholder="College"
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => {
+                const id = parseSelectNumber(v);
+                setCollegeId(id);
+                setCourseYearId(null);
+              }}
+              options={collegeOpts}
+              disabled={loadingFilters || !collegeOpts.length}
+              searchable
+            />
           </div>
-          {filterOpen && (
-            <div className="p-3">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                <div className={selectClass()}>
-                  <Select
-                    label="College"
-                    placeholder="College"
-                    value={collegeId ? String(collegeId) : null}
-                    onChange={(v) => {
-                      const id = parseSelectNumber(v);
-                      setCollegeId(id);
-                      setCourseYearId(null);
-                    }}
-                    options={collegeOpts}
-                    disabled={loadingFilters || !collegeOpts.length}
-                    searchable
-                  />
-                </div>
-                <div className={selectClass()}>
-                  <Select
-                    label="Academic year"
-                    placeholder="Academic year"
-                    value={academicYearId ? String(academicYearId) : null}
-                    onChange={(v) => {
-                      setAcademicYearId(parseSelectNumber(v));
-                      setCourseYearId(null);
-                    }}
-                    options={ayOpts}
-                    disabled={loadingFilters || !ayOpts.length}
-                    searchable
-                  />
-                </div>
-                <div className={selectClass()}>
-                  <Select
-                    label="Course"
-                    placeholder="Course"
-                    value={courseId ? String(courseId) : null}
-                    onChange={(v) => {
-                      setCourseId(parseSelectNumber(v));
-                      setCourseYearId(null);
-                    }}
-                    options={courseOpts}
-                    disabled={loadingFilters || !courseOpts.length}
-                    searchable
-                  />
-                </div>
-                <div className={selectClass()}>
-                  <Select
-                    label="Course group"
-                    placeholder="Course group"
-                    value={courseGroupId ? String(courseGroupId) : null}
-                    onChange={(v) => {
-                      setCourseGroupId(parseSelectNumber(v));
-                      setCourseYearId(null);
-                    }}
-                    options={groupOpts}
-                    disabled={loadingFilters || !groupOpts.length}
-                    searchable
-                  />
-                </div>
-                <div className={selectClass()}>
-                  <Select
-                    label="Course year"
-                    placeholder="Course year"
-                    value={courseYearId ? String(courseYearId) : null}
-                    onChange={(v) => setCourseYearId(parseSelectNumber(v))}
-                    options={yearOpts}
-                    disabled={loadingFilters || !yearOpts.length}
-                    searchable
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+          <div className={selectClass()}>
+            <Select
+              label="Academic year"
+              placeholder="Academic year"
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => {
+                setAcademicYearId(parseSelectNumber(v));
+                setCourseYearId(null);
+              }}
+              options={ayOpts}
+              disabled={loadingFilters || !ayOpts.length}
+              searchable
+            />
+          </div>
+          <div className={selectClass()}>
+            <Select
+              label="Course"
+              placeholder="Course"
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => {
+                setCourseId(parseSelectNumber(v));
+                setCourseYearId(null);
+              }}
+              options={courseOpts}
+              disabled={loadingFilters || !courseOpts.length}
+              searchable
+            />
+          </div>
+          <div className={selectClass()}>
+            <Select
+              label="Course group"
+              placeholder="Course group"
+              value={courseGroupId ? String(courseGroupId) : null}
+              onChange={(v) => {
+                setCourseGroupId(parseSelectNumber(v));
+                setCourseYearId(null);
+              }}
+              options={groupOpts}
+              disabled={loadingFilters || !groupOpts.length}
+              searchable
+            />
+          </div>
+          <div className={selectClass()}>
+            <Select
+              label="Course year"
+              placeholder="Course year"
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => setCourseYearId(parseSelectNumber(v))}
+              options={yearOpts}
+              disabled={loadingFilters || !yearOpts.length}
+              searchable
+            />
+          </div>
         </div>
-
+      }
+    >
+      <div className="space-y-4">
         {students.length > 0 && (
           <div className="rounded-lg border bg-card shadow-sm">
             <div className="border-b px-4 py-3">
@@ -694,6 +672,6 @@ export default function StudentPassoutPage() {
           onCancel={() => setConfirmOpen(false)}
         />
       </div>
-    </PageContainer>
+    </FilteredPage>
   );
 }

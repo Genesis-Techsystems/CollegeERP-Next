@@ -4,10 +4,8 @@ import { useCallback, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { UserCircle2 } from 'lucide-react'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,7 +24,6 @@ import {
   searchStudentsForTc,
 } from '@/services'
 import type { StudentFeeStructureRow, StudentFeeSearchRow } from '@/types/fees-collection'
-import { TcPageTitle } from '../_components/TcPageTitle'
 import { ConfirmTcDialog } from '../_components/ConfirmTcDialog'
 import { useTcCollegeCascade } from '../_lib/use-tc-college-cascade'
 import {
@@ -193,14 +190,12 @@ export default function TransferCertificatePage() {
   }
 
   return (
-    <PageContainer className="space-y-5">
-      <TcPageTitle title="Transfer Certificate" />
-
-      <FilterCard title="Search student">
+    <FilteredListPage
+      title="Transfer Certificate"
+      filters={(
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Select
             label="College"
-            className={FILTER_CARD_SELECT_CLASS}
             value={collegeId}
             onChange={(v) => {
               setCollegeId(v)
@@ -215,7 +210,6 @@ export default function TransferCertificatePage() {
           />
           <Select
             label="Student"
-            className={FILTER_CARD_SELECT_CLASS}
             value={studentId}
             onChange={(v) => {
               setStudentId(v)
@@ -231,144 +225,138 @@ export default function TransferCertificatePage() {
             disabled={!collegeNum}
           />
         </div>
-      </FilterCard>
-
+      )}
+      rowData={studentNum > 0 ? feeRows : []}
+      columnDefs={feeColumnDefs}
+      loading={feeLoading}
+      height="auto"
+      toolbar={{ search: true, searchPlaceholder: 'Search fee structures…' }}
+    >
       {studentNum > 0 && (
-        <>
-          <TableCard headerLeft={<span className="text-sm font-semibold">Fee structures</span>} withHeaderBorder={false}>
-            <DataTable
-              columnDefs={feeColumnDefs}
-              rowData={feeRows}
-              loading={feeLoading}
-              height="auto"
-            />
-          </TableCard>
-
-          <div className="app-card space-y-4 p-4">
-            <h2 className="text-sm font-semibold text-[hsl(var(--card-title))]">TC details</h2>
-            <div className="rounded-md border border-[#bdd1ef] bg-[#f9fbff] p-3">
-              <div className="flex items-center gap-3">
-                <UserCircle2 className="h-16 w-16 text-muted-foreground" />
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-[hsl(var(--card-title))]">
-                    {selectedStudent?.firstName ?? 'Student'}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedStudent?.hallticketNumber ?? selectedStudent?.rollNumber ?? '—'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedStudent?.collegeCode ?? '—'} / {selectedStudent?.academicYear ?? '—'} /{' '}
-                    {selectedStudent?.courseCode ?? '—'} / {selectedStudent?.courseYearName ?? '—'} /{' '}
-                    {selectedStudent?.section ?? '—'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{selectedStudent?.mobile ?? '—'}</p>
-                </div>
+        <div className="app-card space-y-4 p-4">
+          <h2 className="text-sm font-semibold text-[hsl(var(--card-title))]">TC details</h2>
+          <div className="rounded-md border border-[#bdd1ef] bg-[#f9fbff] p-3">
+            <div className="flex items-center gap-3">
+              <UserCircle2 className="h-16 w-16 text-muted-foreground" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-[hsl(var(--card-title))]">
+                  {selectedStudent?.firstName ?? 'Student'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedStudent?.hallticketNumber ?? selectedStudent?.rollNumber ?? '—'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedStudent?.collegeCode ?? '—'} / {selectedStudent?.academicYear ?? '—'} /{' '}
+                  {selectedStudent?.courseCode ?? '—'} / {selectedStudent?.courseYearName ?? '—'} /{' '}
+                  {selectedStudent?.section ?? '—'}
+                </p>
+                <p className="text-xs text-muted-foreground">{selectedStudent?.mobile ?? '—'}</p>
               </div>
             </div>
+          </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-1.5">
-                <Label>Transfer date</Label>
-                <Input
-                  type="date"
-                  value={transferDate}
-                  onChange={(e) => setTransferDate(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Status</Label>
-                <Select
-                  value={tcStatus}
-                  onChange={(v) => setTcStatus(v ?? 'IN COLLEGE')}
-                  options={TC_STATUS_OPTIONS}
-                  placeholder="Select status"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Qualified for promotion</Label>
-                <Select
-                  value={qualified}
-                  onChange={(v) => setQualified(v ?? '')}
-                  options={[...TC_QUALIFIED_OPTIONS]}
-                  placeholder="Select"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>General progress</Label>
-                <Select
-                  value={generalProgress}
-                  onChange={(v) => setGeneralProgress(v ?? '')}
-                  options={[...TC_GENERAL_PROGRESS_OPTIONS]}
-                  placeholder="Select"
-                />
-              </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1.5">
+              <Label>Transfer date</Label>
+              <Input
+                type="date"
+                value={transferDate}
+                onChange={(e) => setTransferDate(e.target.value)}
+              />
             </div>
-            <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
-              <div className="space-y-1.5">
-                <Label>Reason for leaving</Label>
-                <Input value={reason} onChange={(e) => setReason(e.target.value)} />
-              </div>
-              <div className="flex items-end">
-                <Button
-                  type="button"
-                  className="w-full"
-                  disabled={!canApply}
-                  onClick={() => setConfirmOpen(true)}
-                >
-                  Generate
-                </Button>
-              </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select
+                value={tcStatus}
+                onChange={(v) => setTcStatus(v ?? 'IN COLLEGE')}
+                options={TC_STATUS_OPTIONS}
+                placeholder="Select status"
+              />
             </div>
+            <div className="space-y-1.5">
+              <Label>Qualified for promotion</Label>
+              <Select
+                value={qualified}
+                onChange={(v) => setQualified(v ?? '')}
+                options={[...TC_QUALIFIED_OPTIONS]}
+                placeholder="Select"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>General progress</Label>
+              <Select
+                value={generalProgress}
+                onChange={(v) => setGeneralProgress(v ?? '')}
+                options={[...TC_GENERAL_PROGRESS_OPTIONS]}
+                placeholder="Select"
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
+            <div className="space-y-1.5">
+              <Label>Reason for leaving</Label>
+              <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                className="w-full"
+                disabled={!canApply}
+                onClick={() => setConfirmOpen(true)}
+              >
+                Generate
+              </Button>
+            </div>
+          </div>
 
-            {issue && (
-              <p className="text-sm text-muted-foreground">
-                Application status:{' '}
-                <span className="font-medium">{issue.applicationStatusName ?? issue.applicationStatusCode}</span>
-              </p>
-            )}
+          {issue && (
+            <p className="text-sm text-muted-foreground">
+              Application status:{' '}
+              <span className="font-medium">{issue.applicationStatusName ?? issue.applicationStatusCode}</span>
+            </p>
+          )}
 
-            {workflows.length > 0 && (
-              <div className="overflow-hidden rounded-md border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/40">
-                      <th className="px-3 py-2 text-left">Stage</th>
-                      <th className="px-3 py-2 text-left">Status</th>
+          {workflows.length > 0 && (
+            <div className="overflow-hidden rounded-md border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="px-3 py-2 text-left">Stage</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {workflows.map((w, i) => (
+                    <tr key={w.feeCertificateWorkflowId ?? i} className="border-b">
+                      <td className="px-3 py-2">{w.workflowStageName ?? '—'}</td>
+                      <td className="px-3 py-2">{w.approvalStatusName ?? w.approvalStatusCode ?? '—'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {workflows.map((w, i) => (
-                      <tr key={w.feeCertificateWorkflowId ?? i} className="border-b">
-                        <td className="px-3 py-2">{w.workflowStageName ?? '—'}</td>
-                        <td className="px-3 py-2">{w.approvalStatusName ?? w.approvalStatusCode ?? '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              {issue?.applicationStatusCode === 'TCISSUED' && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    window.open(
-                      `/tc-no-due-approval/certificate-requests/printTc?studentId=${studentNum}&collegeId=${collegeNum}`,
-                      '_blank',
-                    )
-                  }}
-                >
-                  Print TC
-                </Button>
-              )}
+                  ))}
+                </tbody>
+              </table>
             </div>
-            {!tcCertId && collegeNum > 0 && (
-              <p className="text-sm text-amber-700">TC is not configured in College Certificates for this college.</p>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {issue?.applicationStatusCode === 'TCISSUED' && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  window.open(
+                    `/tc-no-due-approval/certificate-requests/printTc?studentId=${studentNum}&collegeId=${collegeNum}`,
+                    '_blank',
+                  )
+                }}
+              >
+                Print TC
+              </Button>
             )}
           </div>
-        </>
+          {!tcCertId && collegeNum > 0 && (
+            <p className="text-sm text-amber-700">TC is not configured in College Certificates for this college.</p>
+          )}
+        </div>
       )}
 
       <ConfirmTcDialog
@@ -379,6 +367,6 @@ export default function TransferCertificatePage() {
         onConfirm={() => void handleApply()}
         loading={applying}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

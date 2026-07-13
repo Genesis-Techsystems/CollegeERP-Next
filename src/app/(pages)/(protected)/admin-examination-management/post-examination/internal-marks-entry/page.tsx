@@ -3,14 +3,11 @@
 import { useMemo, useState, useEffect } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { GraduationCap } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select as CommonSelect } from '@/common/components/select'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   getInternalMarksEntryFilters,
   getInternalMarksEntryRestFilters,
@@ -18,32 +15,11 @@ import {
   getInternalMarksEntrySubjects,
   saveInternalMarksEntry,
 } from '@/services/post-examination'
-import { listExamMarksSetup, listGroupYearRegulationSubjects } from '@/services'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { usePrintMode } from '@/lib/print'
 
 type AnyRow = Record<string, any>
 type MarkRow = Record<string, any>
-
-interface MarksConfig {
-  marks1Enabled: boolean
-  marks2Enabled: boolean
-  marks3Enabled: boolean
-  marks1Max: number
-  marks2Max: number
-  marks3Max: number
-  totalMax: number
-}
-
-const DEFAULT_MARKS_CONFIG: MarksConfig = {
-  marks1Enabled: false,
-  marks2Enabled: false,
-  marks3Enabled: false,
-  marks1Max: 0,
-  marks2Max: 0,
-  marks3Max: 0,
-  totalMax: 0,
-}
 
 function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
   const seen = new Set<string>()
@@ -55,16 +31,6 @@ function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
     out.push(row)
   }
   return out
-}
-
-function pickNumber(row: AnyRow | null | undefined, keys: string[]): number {
-  for (const key of keys) {
-    const value = row?.[key]
-    if (value == null || value === '') continue
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
 }
 
 function MarkInputRenderer(params: ICellRendererParams<MarkRow> & { field: string; maxMarks?: number; onChange: (row: MarkRow, field: string, value: number) => void; disabled?: boolean }) {
@@ -97,9 +63,6 @@ export default function InternalMarksEntryPage() {
   const [allFilters, setAllFilters] = useState<AnyRow[]>([])
   const [restFilters, setRestFilters] = useState<AnyRow[]>([])
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
-  const [examMarksSetupRows, setExamMarksSetupRows] = useState<AnyRow[]>([])
-  const [groupYrRegRows, setGroupYrRegRows] = useState<AnyRow[]>([])
-  const [marksConfig, setMarksConfig] = useState<MarksConfig>(DEFAULT_MARKS_CONFIG)
   const [rows, setRows] = useState<MarkRow[]>([])
 
   const [courseId, setCourseId] = useState<number | null>(null)
@@ -200,97 +163,6 @@ export default function InternalMarksEntryPage() {
     () => academicYears.find((x) => Number(x.fk_academic_year_id) === Number(academicYearId)),
     [academicYears, academicYearId],
   )
-  const selectedExamRow = useMemo(
-    () => exams.find((x) => Number(x.fk_exam_id) === Number(examId)),
-    [exams, examId],
-  )
-  const selectedSubjectRow = useMemo(
-    () => subjects.find((x) => Number(x.fk_subject_id) === Number(subjectId)),
-    [subjects, subjectId],
-  )
-  const isResultProcessingStarted = Number(selectedExamRow?.is_resultprocess_started ?? 0) === 1
-  const courseOptions = useMemo(
-    () =>
-      courses.map((x) => ({
-        value: String(x.fk_course_id),
-        label: String(x.course_code ?? '-'),
-      })),
-    [courses],
-  )
-  const academicYearOptions = useMemo(
-    () =>
-      academicYears.map((x) => ({
-        value: String(x.fk_academic_year_id),
-        label: String(x.academic_year ?? '-'),
-      })),
-    [academicYears],
-  )
-  const examOptions = useMemo(
-    () =>
-      exams.map((x) => ({
-        value: String(x.fk_exam_id),
-        label: String(x.exam_name ?? '-'),
-      })),
-    [exams],
-  )
-  const collegeOptions = useMemo(
-    () =>
-      colleges.map((x) => ({
-        value: String(x.fk_college_id),
-        label: String(x.college_code ?? '-'),
-      })),
-    [colleges],
-  )
-  const courseGroupOptions = useMemo(
-    () =>
-      courseGroups.map((x) => ({
-        value: String(x.fk_course_group_id),
-        label: String(x.group_code ?? '-'),
-      })),
-    [courseGroups],
-  )
-  const courseYearOptions = useMemo(
-    () =>
-      courseYears.map((x) => ({
-        value: String(x.fk_course_year_id),
-        label: String(x.course_year_code ?? '-'),
-      })),
-    [courseYears],
-  )
-  const regulationOptions = useMemo(
-    () =>
-      regulations.map((x) => ({
-        value: String(x.fk_regulation_id),
-        label: String(x.regulation_code ?? '-'),
-      })),
-    [regulations],
-  )
-  const subjectTypeOptions = useMemo(
-    () =>
-      subjectTypes.map((x) => ({
-        value: String(x.fk_subjecttype_catdet_id),
-        label: String(x.subject_type ?? '-'),
-      })),
-    [subjectTypes],
-  )
-  const subjectOptions = useMemo(
-    () =>
-      subjects.map((x) => ({
-        value: String(x.fk_subject_id),
-        label: `${String(x.subject_name ?? '-') } (${String(x.subject_code ?? '-')})`,
-      })),
-    [subjects],
-  )
-  const labBatchOptions = useMemo(
-    () => [
-      { value: '0', label: 'All' },
-      ...labBatches.map((x) => ({
-        value: String(x.fk_exam_labbatch_id),
-        label: String(x.labbatch_name ?? '-'),
-      })),
-    ],
-    [labBatches],
-  )
 
   useEffect(() => {
     async function loadFilters() {
@@ -359,77 +231,6 @@ export default function InternalMarksEntryPage() {
   }, [courseId, academicYearId, examId, collegeId, courseGroupId, courseYearId, regulationId, employeeId])
 
   useEffect(() => {
-    async function loadMarksSetup() {
-      setExamMarksSetupRows([])
-      setGroupYrRegRows([])
-      setMarksConfig(DEFAULT_MARKS_CONFIG)
-      if (!courseId || !courseGroupId || !courseYearId || !regulationId) return
-
-      const [setupRows, groupRows] = await Promise.all([
-        listExamMarksSetup(courseId, regulationId, true).catch(() => []),
-        listGroupYearRegulationSubjects(courseGroupId, courseYearId, regulationId).catch(() => []),
-      ])
-      setExamMarksSetupRows(Array.isArray(setupRows) ? setupRows : [])
-      setGroupYrRegRows(Array.isArray(groupRows) ? groupRows : [])
-    }
-    void loadMarksSetup()
-  }, [courseId, courseGroupId, courseYearId, regulationId])
-
-  useEffect(() => {
-    if (!selectedSubjectRow) {
-      setMarksConfig(DEFAULT_MARKS_CONFIG)
-      return
-    }
-
-    const subId = Number(selectedSubjectRow.fk_subject_id ?? 0)
-    const subTypeId = Number(selectedSubjectRow.fk_subjecttype_catdet_id ?? subjectTypeId ?? 0)
-    const subCategoryId = Number(
-      selectedSubjectRow.fk_subjectcategory_catdet_id ??
-        selectedSubjectRow.subjectCategoryCatDetId ??
-        0,
-    )
-
-    const examMark = groupYrRegRows.find((row) => {
-      const rowSubId = Number(row.subjectId ?? row.fk_subject_id ?? row.subject_id ?? 0)
-      return rowSubId === subId
-    })
-
-    const examSetup = examMarksSetupRows.find((row) => {
-      const rowTypeId = Number(
-        row.subjectTypeCatDetId ??
-          row.subjecttypeCatdetId ??
-          row.fk_subjecttype_catdet_id ??
-          row.subjectTypeId ??
-          0,
-      )
-      const rowCategoryId = Number(
-        row.subjectCategoryCatDetId ??
-          row.subjectcategoryCatdetId ??
-          row.fk_subjectcategory_catdet_id ??
-          0,
-      )
-      return rowTypeId === subTypeId || (subCategoryId > 0 && rowCategoryId === subCategoryId)
-    })
-
-    const marks1Max = pickNumber(examMark, ['marks1']) || pickNumber(examSetup, ['marks1'])
-    const marks2Max = pickNumber(examMark, ['marks2']) || pickNumber(examSetup, ['marks2'])
-    const marks3Max = pickNumber(examMark, ['marks3']) || pickNumber(examSetup, ['marks3'])
-    const totalMax =
-      pickNumber(examMark, ['internalmarks', 'internalMarks']) ||
-      pickNumber(examSetup, ['internalMarks', 'internalmarks'])
-
-    setMarksConfig({
-      marks1Enabled: marks1Max > 0,
-      marks2Enabled: marks2Max > 0,
-      marks3Enabled: marks3Max > 0,
-      marks1Max,
-      marks2Max,
-      marks3Max,
-      totalMax,
-    })
-  }, [selectedSubjectRow, subjectTypeId, examMarksSetupRows, groupYrRegRows])
-
-  useEffect(() => {
     if (subjectTypes[0]?.fk_subjecttype_catdet_id) setSubjectTypeId(Number(subjectTypes[0].fk_subjecttype_catdet_id))
   }, [subjectTypes])
   useEffect(() => {
@@ -445,28 +246,10 @@ export default function InternalMarksEntryPage() {
     const targetHallTicket = String(row.hallticketNumber ?? row.hallticket_number ?? '')
     let parsed = Number(value)
     if (!Number.isFinite(parsed) || parsed < 0) parsed = 0
-    const fieldMax =
-      field === 'internal_exam_marks'
-        ? marksConfig.marks1Max
-        : field === 'internal_assignment_marks'
-          ? marksConfig.marks2Max
-          : field === 'internal_quiz_marks'
-            ? marksConfig.marks3Max
-            : marksConfig.totalMax
-
-    if (fieldMax > 0 && parsed > fieldMax) {
-      const fieldName =
-        field === 'internal_exam_marks'
-          ? 'Exam'
-          : field === 'internal_assignment_marks'
-            ? 'Assignment'
-            : field === 'internal_quiz_marks'
-              ? 'Quiz'
-              : 'Total Internal'
-      toastError(`${fieldName} marks should not be greater than ${fieldMax}.`)
-      return
+    if (maxMarks > 0 && parsed > maxMarks) {
+      parsed = maxMarks
+      toastError(`Entered marks should not exceed ${maxMarks}.`)
     }
-
     setRows((prev) =>
       prev.map((r) => {
         const sid = Number(r.studentId ?? r.fk_student_id ?? 0)
@@ -481,14 +264,7 @@ export default function InternalMarksEntryPage() {
             Number(next.internal_exam_marks ?? 0) +
             Number(next.internal_assignment_marks ?? 0) +
             Number(next.internal_quiz_marks ?? 0)
-          if (marksConfig.totalMax > 0 && total > marksConfig.totalMax) {
-            toastError(`Total internal marks should not be greater than ${marksConfig.totalMax}.`)
-            return r
-          }
           next.internal_total_marks = total
-        } else if (marksConfig.totalMax > 0 && parsed > marksConfig.totalMax) {
-          toastError(`Total internal marks should not be greater than ${marksConfig.totalMax}.`)
-          return r
         }
         return next
       }),
@@ -511,21 +287,12 @@ export default function InternalMarksEntryPage() {
         labBatchId,
         examDate,
       }).catch(() => [])
-      const byStudent = new Map<string, AnyRow>()
-      for (const item of Array.isArray(data) ? data : []) {
-        const key =
-          String(item.hallticketNumber ?? item.hallticket_number ?? '').trim() ||
-          String(item.studentId ?? item.fk_student_id ?? Math.random())
-        byStudent.set(key, item)
-      }
-      const uniqueRows = Array.from(byStudent.values())
-      const normalized = uniqueRows.map((r) => ({
+      const normalized = (Array.isArray(data) ? data : []).map((r) => ({
         ...r,
         internal_exam_marks: Number(r.internal_exam_marks ?? 0),
         internal_assignment_marks: Number(r.internal_assignment_marks ?? 0),
         internal_quiz_marks: Number(r.internal_quiz_marks ?? 0),
         internal_total_marks: Number(r.internal_total_marks ?? 0),
-        isAttSatisfied: r.isAttSatisfied ?? true,
       }))
       setRows(normalized)
     } finally {
@@ -582,7 +349,7 @@ export default function InternalMarksEntryPage() {
       if (isPresent === false) return 'Absent'
       return 'Not Marked'
     }
-    const columns: ColDef<MarkRow>[] = [
+    return [
       { headerName: 'SI No', width: 70, flex: 0, valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1 },
       { field: 'hallticketNumber', headerName: 'Hallticket Number', minWidth: 170 },
       { field: 'firstName', headerName: 'Student', minWidth: 180 },
@@ -591,73 +358,32 @@ export default function InternalMarksEntryPage() {
         minWidth: 130,
         valueGetter: (p: any) => attendanceValue(p.data?.isPresent),
       },
-    ]
-
-    if (marksConfig.marks1Enabled) {
-      columns.push({
+      {
         headerName: 'Exam',
         minWidth: 110,
         cellRenderer: MarkInputRenderer,
-        cellRendererParams: {
-          field: 'internal_exam_marks',
-          maxMarks: marksConfig.marks1Max,
-          onChange: updateMarks,
-          disabled: isResultProcessingStarted,
-        },
-      })
-    }
-
-    if (marksConfig.marks2Enabled) {
-      columns.push({
+        cellRendererParams: { field: 'internal_exam_marks', maxMarks, onChange: updateMarks, disabled: false },
+      },
+      {
         headerName: 'Assignment',
         minWidth: 120,
         cellRenderer: MarkInputRenderer,
-        cellRendererParams: {
-          field: 'internal_assignment_marks',
-          maxMarks: marksConfig.marks2Max,
-          onChange: updateMarks,
-          disabled: isResultProcessingStarted,
-        },
-      })
-    }
-
-    if (marksConfig.marks3Enabled) {
-      columns.push({
+        cellRendererParams: { field: 'internal_assignment_marks', maxMarks, onChange: updateMarks, disabled: false },
+      },
+      {
         headerName: 'Quiz',
         minWidth: 110,
         cellRenderer: MarkInputRenderer,
-        cellRendererParams: {
-          field: 'internal_quiz_marks',
-          maxMarks: marksConfig.marks3Max,
-          onChange: updateMarks,
-          disabled: isResultProcessingStarted,
-        },
-      })
-    }
-
-    const hasSplitMarks = marksConfig.marks1Enabled || marksConfig.marks2Enabled || marksConfig.marks3Enabled
-    if (hasSplitMarks) {
-      columns.push({
+        cellRendererParams: { field: 'internal_quiz_marks', maxMarks, onChange: updateMarks, disabled: false },
+      },
+      {
         headerName: 'Total Internal',
         minWidth: 130,
+        // Read-only -- updateMarks keeps internal_total_marks = sum of the three.
         valueGetter: (p: any) => Number(p.data?.internal_total_marks ?? 0),
-      })
-    } else {
-      columns.push({
-        headerName: 'Total Internal',
-        minWidth: 130,
-        cellRenderer: MarkInputRenderer,
-        cellRendererParams: {
-          field: 'internal_total_marks',
-          maxMarks: marksConfig.totalMax || maxMarks,
-          onChange: updateMarks,
-          disabled: isResultProcessingStarted,
-        },
-      })
-    }
-
-    return columns
-  }, [maxMarks, marksConfig, isResultProcessingStarted])
+      },
+    ]
+  }, [maxMarks])
 
   // ── Print layout ─────────────────────────────────────────────────────────
   // Mirrors Angular's #printsection: banner placeholder, MARKS SHEET title,
@@ -806,96 +532,84 @@ export default function InternalMarksEntryPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Internal Exam Marks Entry</h1>
-
-      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Internal Exam Marks Entry</span>}>
-        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-12 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course *</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Academic Year" searchable /></div>
-          <div className="space-y-1 md:col-span-8"><Label>Exam *</Label><CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>College *</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="College" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroupOptions} placeholder="Course Group" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><CommonSelect value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><CommonSelect value={subjectTypeId ? String(subjectTypeId) : null} onChange={(v) => setSubjectTypeId(v ? Number(v) : null)} options={subjectTypeOptions} placeholder="Subject Type" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Subject</Label><CommonSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectOptions} placeholder="Subject" searchable /></div>
+    <FilteredListPage
+      title="Internal Marks Entry"
+      notice={hasFetched && checkUploadType === 1 ? (
+        <div className="app-card overflow-hidden border border-[#c3d9ff]">
+          <div className="flex items-start gap-4 p-3">
+            <div className="flex h-20 w-24 items-center justify-center bg-[#c3d9ff] text-slate-700">
+              <GraduationCap className="h-10 w-10" />
+            </div>
+            <div className="space-y-1 text-[13px]">
+              <p className="text-slate-700">
+                {selectedExam?.exam_name ?? '-'}{' '}
+                <span className="text-muted-foreground">
+                  ({String(selectedExam?.from_date ?? '').slice(0, 10)} - {String(selectedExam?.to_date ?? '').slice(0, 10)})
+                </span>{' '}
+                {examDate ? <span className="text-blue-700">({examDate})</span> : null}
+              </p>
+              <p className="text-muted-foreground">
+                / {selectedCollege?.college_code ?? '-'} / {selectedCourse?.course_code ?? '-'} / {selectedGroup?.group_code ?? '-'} /{' '}
+                {selectedYear?.course_year_code ?? '-'} / <span className="text-blue-700">({selectedAcademicYear?.academic_year ?? '-'})</span>
+              </p>
+              <p className="font-semibold text-slate-800">
+                {selectedSubject?.subject_name ?? '-'} ({selectedRegulation?.regulation_code ?? '-'}) -{' '}
+                <span className="text-blue-700">{selectedSubject?.subject_type ?? '-'}</span>{' '}
+                <span>({selectedExam?.is_internal_exam ? 'Internal' : 'Regular'})</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      filters={(
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-12 items-end">
+          <div className="space-y-1 md:col-span-2"><Label>Course *</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((x) => <SelectItem key={x.fk_course_id} value={String(x.fk_course_id)}>{x.course_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((x) => <SelectItem key={x.fk_academic_year_id} value={String(x.fk_academic_year_id)}>{x.academic_year}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-8"><Label>Exam *</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((x) => <SelectItem key={x.fk_exam_id} value={String(x.fk_exam_id)}>{x.exam_name}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>College *</Label><Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger><SelectContent>{colleges.map((x) => <SelectItem key={x.fk_college_id} value={String(x.fk_college_id)}>{x.college_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Group" /></SelectTrigger><SelectContent>{courseGroups.map((x) => <SelectItem key={x.fk_course_group_id} value={String(x.fk_course_group_id)}>{x.group_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((x) => <SelectItem key={x.fk_course_year_id} value={String(x.fk_course_year_id)}>{x.course_year_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((x) => <SelectItem key={x.fk_regulation_id} value={String(x.fk_regulation_id)}>{x.regulation_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><Select value={subjectTypeId ? String(subjectTypeId) : undefined} onValueChange={(v) => setSubjectTypeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject Type" /></SelectTrigger><SelectContent>{subjectTypes.map((x) => <SelectItem key={x.fk_subjecttype_catdet_id} value={String(x.fk_subjecttype_catdet_id)}>{x.subject_type}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.map((x) => <SelectItem key={x.fk_subject_id} value={String(x.fk_subject_id)}>{x.subject_name} ({x.subject_code})</SelectItem>)}</SelectContent></Select></div>
           {labBatches.length > 0 && (
-            <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><CommonSelect value={String(labBatchId)} onChange={(v) => setLabBatchId(Number(v || 0))} options={labBatchOptions} placeholder="All" searchable /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><Select value={String(labBatchId)} onValueChange={(v) => setLabBatchId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent><SelectItem value="0">All</SelectItem>{labBatches.map((x) => <SelectItem key={x.fk_exam_labbatch_id} value={String(x.fk_exam_labbatch_id)}>{x.labbatch_name}</SelectItem>)}</SelectContent></Select></div>
           )}
           <div className="space-y-1 md:col-span-2"><Label>Employee</Label><Input className="h-8 text-[12px]" value={employeeDisplay} readOnly /></div>
           <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
           <div className="md:col-span-2"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loading}>{loading ? 'Loading...' : 'Get List'}</Button></div>
         </div>
-      </FilterCard>
-
-      {hasFetched && (
-        <div className="space-y-3">
-          <div className="px-1 text-[14px] text-slate-700">◉ List Of Marks</div>
-
-          {checkUploadType === 1 && (
-            <div className="app-card overflow-hidden border border-[#c3d9ff]">
-              <div className="flex items-start gap-4 p-3">
-                <div className="flex h-20 w-24 items-center justify-center bg-[#c3d9ff] text-slate-700">
-                  <GraduationCap className="h-10 w-10" />
-                </div>
-                <div className="space-y-1 text-[13px]">
-                  <p className="text-slate-700">
-                    {selectedExam?.exam_name ?? '-'}{' '}
-                    <span className="text-muted-foreground">
-                      ({String(selectedExam?.from_date ?? '').slice(0, 10)} - {String(selectedExam?.to_date ?? '').slice(0, 10)})
-                    </span>{' '}
-                    {examDate ? <span className="text-blue-700">({examDate})</span> : null}
-                  </p>
-                  <p className="text-muted-foreground">
-                    / {selectedCollege?.college_code ?? '-'} / {selectedCourse?.course_code ?? '-'} / {selectedGroup?.group_code ?? '-'} /{' '}
-                    {selectedYear?.course_year_code ?? '-'} / <span className="text-blue-700">({selectedAcademicYear?.academic_year ?? '-'})</span>
-                  </p>
-                  <p className="font-semibold text-slate-800">
-                    {selectedSubject?.subject_name ?? '-'} ({selectedRegulation?.regulation_code ?? '-'}) -{' '}
-                    <span className="text-blue-700">{selectedSubject?.subject_type ?? '-'}</span>{' '}
-                    <span>({selectedExam?.is_internal_exam ? 'Internal' : 'Regular'})</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <TableCard withHeaderBorder={false}>
-            <div className="space-y-3">
-              <DataTable
-                rowData={rows}
-                columnDefs={columnDefs}
-                loading={loading}
-                getRowId={(p) => String(p.data.studentId ?? p.data.fk_student_id ?? p.data.hallticketNumber ?? p.data.hallticket_number ?? '')}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search…',
-                  pdfDocumentTitle: 'Internal Marks Entry',
-                }}
-                toolbarLeading={
-                  <div className="text-[12px] text-slate-600 whitespace-nowrap shrink-0">
-                    Max Marks : <span className="font-semibold">{maxMarks || '-'}</span>
-                  </div>
-                }
-              />
-              <div className="flex items-center justify-end gap-2">
-                <Button className="h-8 text-[12px]" onClick={onSaveMarks} disabled={saving || rows.length === 0 || isResultProcessingStarted}>{saving ? 'Saving...' : 'Save Marks'}</Button>
-                <Button
-                  className="h-8 text-[12px]"
-                  variant="outline"
-                  onClick={() => triggerPrint('marks-sheet')}
-                  disabled={rows.length === 0}
-                >
-                  Print
-                </Button>
-              </div>
-            </div>
-          </TableCard>
+      )}
+      rowData={hasFetched ? rows : []}
+      columnDefs={columnDefs}
+      loading={loading}
+      getRowId={(p) => String(p.data.studentId ?? p.data.fk_student_id ?? p.data.hallticketNumber ?? p.data.hallticket_number ?? '')}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Internal Marks Entry',
+      }}
+      toolbarLeading={(
+        <div className="text-[12px] text-slate-600 whitespace-nowrap shrink-0">
+          Max Marks : <span className="font-semibold">{maxMarks || '-'}</span>
         </div>
       )}
-    </PageContainer>
+    >
+      {hasFetched && (
+        <div className="flex items-center justify-end gap-2">
+          <Button className="h-8 text-[12px]" onClick={onSaveMarks} disabled={saving || rows.length === 0}>{saving ? 'Saving...' : 'Save Marks'}</Button>
+          <Button
+            className="h-8 text-[12px]"
+            variant="outline"
+            onClick={() => triggerPrint('marks-sheet')}
+            disabled={rows.length === 0}
+          >
+            Print
+          </Button>
+        </div>
+      )}
+    </FilteredListPage>
   )
 }
 

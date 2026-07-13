@@ -3,8 +3,8 @@
 import { useState, useMemo } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { ListPage } from '@/components/layout'
+
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -50,11 +50,7 @@ export default function AchievementCategoriesPage() {
   ], [])
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <DataTable
+    <ListPage
               title="Achievement Categories"
               rowData={data}
               columnDefs={columnDefs}
@@ -64,11 +60,8 @@ export default function AchievementCategoriesPage() {
               toolbarTrailing={
                 <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>+ Add Category</Button>
               }
-            />
-          </div>
-        </div>
-      </div>
+            >
       <AchievementCategoryModal open={modalOpen} onClose={() => setModalOpen(false)} editData={editData} onSaved={invalidate} />
-    </PageContainer>
+    </ListPage>
   )
 }

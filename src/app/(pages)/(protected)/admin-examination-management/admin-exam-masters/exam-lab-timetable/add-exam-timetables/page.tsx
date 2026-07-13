@@ -2,22 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Select } from '@/common/components/select'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Input } from '@/components/ui/input'
 import {
   getExamLabTimetableGrid,
   getLabCreateFilters,
   saveExamLabTimetableBatches,
 } from '@/services/exam-lab-timetable'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { toDateStr, toDateOnlyISO } from '@/common/generic-functions'
 import { useSessionContext } from '@/context/SessionContext'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -260,67 +254,69 @@ export default function AddExamLabTimetablesPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">Create College Timetable</h2>
-        <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={goBack}>
-          Back
-        </Button>
-      </div>
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Create College Timetable</h2>
-        </div>
-        <div className="p-3 space-y-3">
-        {details[0] && (
-          <div className="rounded-md border bg-muted/40/50 px-3 py-2 text-[12px]">
-            <span className="font-medium">
-              {details[0]?.college_code ?? ''} / {details[0]?.course_code ?? ''} / {pageParams.courseYearName}
-            </span>{' '}
-            - ({details[0]?.exam_name ?? ''}{' '}
-            {details[0]?.from_date ? `(${toDateStr(details[0]?.from_date)} - ${toDateStr(details[0]?.to_date)})` : ''})
-            <span className="text-blue-700 ml-1">
-              {details[0]?.is_internal_exam ? '[Internal] ' : ''}
-              {details[0]?.is_regular_exam ? '[Regular] ' : ''}
-              {details[0]?.is_supply_exam ? '[Supple]' : ''}
-            </span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
-          <div className="space-y-1">
-            <Label>Exam Date</Label>
-            <Input type="date" className="h-8 text-[12px]" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label>Exam Session</Label>
-            <Select value={examSessionId ? String(examSessionId) : undefined} onValueChange={(v) => setExamSessionId(Number(v))}>
-              <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Session" /></SelectTrigger>
-              <SelectContent>{sessions.map((s, i) => <SelectItem key={`s-${s.examSessionId ?? i}`} value={String(s.examSessionId)}>{s.examSessionName}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Regulation</Label>
-            <Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}>
-              <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger>
-              <SelectContent>{regulations.map((r, i) => <SelectItem key={`r-${r.regulationId ?? i}`} value={String(r.regulationId)}>{r.regulationName}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Subject</Label>
-            <Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}>
-              <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger>
-              <SelectContent>
-                {subjects.map((s, i) => (
-                  <SelectItem key={`sub-${s.subjectId ?? i}`} value={String(s.subjectId)}>
-                    {s.subjectCode} - {s.subjectName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
+    <FilteredPage
+      title="Create College Timetable"
+      filters={
+        <>
+          {details[0] && (
+            <div className="mb-3 rounded-md border bg-muted/40/50 px-3 py-2 text-[12px]">
+              <span className="font-medium">
+                {details[0]?.college_code ?? ''} / {details[0]?.course_code ?? ''} / {pageParams.courseYearName}
+              </span>{' '}
+              - ({details[0]?.exam_name ?? ''}{' '}
+              {details[0]?.from_date ? `(${toDateStr(details[0]?.from_date)} - ${toDateStr(details[0]?.to_date)})` : ''})
+              <span className="text-blue-700 ml-1">
+                {details[0]?.is_internal_exam ? '[Internal] ' : ''}
+                {details[0]?.is_regular_exam ? '[Regular] ' : ''}
+                {details[0]?.is_supply_exam ? '[Supple]' : ''}
+              </span>
+            </div>
+          )}
+          <GlobalFilterBarRow columns={2}>
+            <GlobalFilterField label="Exam Date">
+              <Input type="date" className="h-9 text-[13px]" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Session">
+              <Select
+                value={examSessionId ? String(examSessionId) : null}
+                onChange={(v) => setExamSessionId(Number(v))}
+                options={sessions.map((s, i) => ({
+                  value: String(s.examSessionId ?? i),
+                  label: String(s.examSessionName ?? ''),
+                }))}
+                placeholder="Exam Session"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Regulation">
+              <Select
+                value={regulationId ? String(regulationId) : null}
+                onChange={(v) => setRegulationId(Number(v))}
+                options={regulations.map((r, i) => ({
+                  value: String(r.regulationId ?? i),
+                  label: String(r.regulationName ?? ''),
+                }))}
+                placeholder="Regulation"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Subject">
+              <Select
+                value={subjectId ? String(subjectId) : null}
+                onChange={(v) => setSubjectId(Number(v))}
+                options={subjects.map((s, i) => ({
+                  value: String(s.subjectId ?? i),
+                  label: `${s.subjectCode} - ${s.subjectName}`,
+                }))}
+                placeholder="Subject"
+                searchable
+              />
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+        </>
+      }
+      body={
+        <>
         {(courseGroupYears.length > 0 || staged.length > 0) && (
           <div className="grid grid-cols-12 gap-2 items-start">
             <div className="col-span-3 rounded-md border">
@@ -379,12 +375,15 @@ export default function AddExamLabTimetablesPage() {
           </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="mt-3 flex justify-end gap-2">
+          <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={goBack}>
+            Back
+          </Button>
           <Button className="h-8 text-[12px]" onClick={save} disabled={staged.length === 0}>Save</Button>
         </div>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {existingRows.length > 0 && (
         <div className="app-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-muted/40">
@@ -435,7 +434,7 @@ export default function AddExamLabTimetablesPage() {
         </div>
       )}
 
-    </PageContainer>
+    </FilteredPage>
   )
 }
 

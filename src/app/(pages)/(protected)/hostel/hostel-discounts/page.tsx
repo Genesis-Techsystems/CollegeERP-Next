@@ -2,17 +2,15 @@
 
 import { useMemo } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
 import { EmptyState } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
 import { getErrorMessage } from '@/lib/errors'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
 import { listHostelDiscounts } from '@/services'
 import type { HostelDiscount } from '@/types/hostel'
-import { HostelPageTitle } from '../_components/HostelPageTitle'
 
 const COL_DEFS = {
   siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<HostelDiscount>,
@@ -48,27 +46,23 @@ export default function HostelDiscountsPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <HostelPageTitle title="Hostel Discounts" />
-
-      <TableCard withHeaderBorder={false}>
-        {isError ? (
+    <ListPage
+      title="Hostel Discounts"
+      rowData={isError ? [] : rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      height="auto"
+      toolbar={{ search: true, pdfDocumentTitle: 'Hostel Discounts' }}
+      emptyState={
+        isError ? (
           <EmptyState
             title="Could not load discounts"
             description={getErrorMessage(error)}
             action={{ label: 'Retry', onClick: () => void refetch() }}
           />
-        ) : (
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={isLoading}
-            pagination
-            toolbar={{ search: true }}
-            height="auto"
-          />
-        )}
-      </TableCard>
-    </PageContainer>
+        ) : undefined
+      }
+    />
   )
 }

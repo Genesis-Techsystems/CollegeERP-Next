@@ -4,8 +4,7 @@ import { useState, useMemo, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -113,10 +112,9 @@ function TrainingDetailsContent() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      {/* Filter bar */}
-      <div className="app-card p-4">
-        <h2 className="app-card-title mb-3">Training Details</h2>
+    <FilteredListPage
+      title="Training Details"
+      filters={(
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-0.5">
             <Label className="text-xs">College *</Label>
@@ -162,41 +160,30 @@ function TrainingDetailsContent() {
             </Select>
           </div>
         </div>
-      </div>
-
-      {/* Results */}
-      {filtersReady && (
-        <div className="app-card overflow-hidden">
-          <div className="px-3 pb-3 pt-2">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <DataTable
-                rowData={details}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search details…',
-                  pdfDocumentTitle: 'Training Details',
-                }}
-                toolbarTrailing={
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      router.push(
-                        `/trainings/training-detail?a=New+Training+Detail&paTraningId=${traningId}&trainingTitle=${encodeURIComponent(selectedTraining?.trainingTitle ?? '')}&collegeId=${collegeId}&yearName=${encodeURIComponent(yearName)}`,
-                      )
-                    }
-                  >
-                    + Add Training Detail
-                  </Button>
-                }
-              />
-            </div>
-          </div>
-        </div>
       )}
-    </PageContainer>
+      rowData={filtersReady ? details : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search details…',
+        pdfDocumentTitle: 'Training Details',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          disabled={!filtersReady}
+          onClick={() =>
+            router.push(
+              `/trainings/training-detail?a=New+Training+Detail&paTraningId=${traningId}&trainingTitle=${encodeURIComponent(selectedTraining?.trainingTitle ?? '')}&collegeId=${collegeId}&yearName=${encodeURIComponent(yearName)}`,
+            )
+          }
+        >
+          + Add Training Detail
+        </Button>
+      )}
+    />
   )
 }
 

@@ -5,17 +5,15 @@ import { useSearchParams } from 'next/navigation'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
+import { FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
 import { listHostelRoomsByHostel } from '@/services'
 import type { HostelRoom } from '@/types/hostel'
-import { HostelPageTitle } from '../_components/HostelPageTitle'
 import { useHostelSelect } from '../_lib/use-hostel-select'
 import { RoomModal } from './RoomModal'
 
@@ -86,10 +84,9 @@ export default function RoomsPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <HostelPageTitle title="Rooms" />
-
-      <FilterCard title="Select hostel">
+    <FilteredListPage
+      title="Rooms"
+      filters={(
         <Select
           label="Hostel"
           className={FILTER_CARD_SELECT_CLASS}
@@ -100,39 +97,34 @@ export default function RoomsPage() {
           searchable
           isLoading={loadingHostels}
         />
-      </FilterCard>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={isLoading}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search rooms…',
-            exportPdf: true,
-            pdfDocumentTitle: 'Rooms',
+      )}
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      height="auto"
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search rooms…',
+        exportPdf: true,
+        pdfDocumentTitle: 'Rooms',
+      }}
+      toolbarTrailing={
+        <Button
+          type="button"
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          disabled={!hostelNum}
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
           }}
-          toolbarTrailing={
-            <Button
-              type="button"
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              disabled={!hostelNum}
-              onClick={() => {
-                setEditing(null)
-                setModalOpen(true)
-              }}
-            >
-              <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-              Add Room
-            </Button>
-          }
-          height="auto"
-        />
-      </TableCard>
-
+        >
+          <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
+          Add Room
+        </Button>
+      }
+    >
       {hostelNum > 0 && (
         <RoomModal
           open={modalOpen}
@@ -142,6 +134,6 @@ export default function RoomsPage() {
           onSaved={() => void refetch()}
         />
       )}
-    </PageContainer>
+    </FilteredListPage>
   )
 }

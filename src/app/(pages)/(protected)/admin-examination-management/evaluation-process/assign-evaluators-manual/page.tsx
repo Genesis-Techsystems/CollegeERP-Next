@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Filter } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { SearchInput } from '@/common/components/search'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select } from '@/common/components/select'
 import {
   getEvaluatorAssignmentBundle,
   getRegSupBaseFilters,
@@ -23,7 +22,6 @@ type AnyRow = Record<string, any>
 
 export default function AssignEvaluatorsManualPage() {
   const [loading, setLoading] = useState(false)
-  const [filterOpen, setFilterOpen] = useState(true)
   const [showPanel, setShowPanel] = useState(false)
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
@@ -69,6 +67,15 @@ export default function AssignEvaluatorsManualPage() {
     [restRows, courseYearId],
   )
   const subjects = useMemo(() => dedupeBy(subjectRows, (r) => num(r.fk_subject_id)), [subjectRows])
+  const courseOptions = useMemo(() => courses.map((r) => ({ value: String(num(r.fk_course_id)), label: txt(r.course_code) })), [courses])
+  const academicYearOptions = useMemo(() => academicYears.map((r) => ({ value: String(num(r.fk_academic_year_id)), label: txt(r.academic_year) })), [academicYears])
+  const examOptions = useMemo(() => exams.map((r) => ({ value: String(num(r.fk_exam_id)), label: txt(r.exam_name) })), [exams])
+  const courseYearOptions = useMemo(() => courseYears.map((r) => ({ value: String(num(r.fk_course_year_id)), label: txt(r.course_year_code) })), [courseYears])
+  const regulationOptions = useMemo(() => regulations.map((r) => ({ value: String(num(r.fk_regulation_id)), label: txt(r.regulation_code) })), [regulations])
+  const subjectOptions = useMemo(
+    () => subjects.map((r) => ({ value: String(num(r.fk_subject_id)), label: `${txt(r.subject_name)} - ${txt(r.subject_code)} (${txt(r.regulation_code)})` })),
+    [subjects],
+  )
 
   const filteredEvaluators = useMemo(() => {
     const q = searchEvaluator.trim().toLowerCase()
@@ -239,37 +246,41 @@ export default function AssignEvaluatorsManualPage() {
   }, [detailRows, detailSearch])
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Manual Assign Evaluator" subtitle="Assign answer papers manually to evaluators" />
-
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Manual Assign Evaluator</h2>
-          <Button type="button" variant="outline" size="sm" className="h-6 px-2.5 text-[12px]" onClick={() => setFilterOpen((v) => !v)}>
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-          </Button>
-        </div>
-        {(
-          <div className="p-3 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((r) => <SelectItem key={String(num(r.fk_course_id))} value={String(num(r.fk_course_id))}>{txt(r.course_code)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-2 space-y-1"><Label>Academic Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((r) => <SelectItem key={String(num(r.fk_academic_year_id))} value={String(num(r.fk_academic_year_id))}>{txt(r.academic_year)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Exam</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((r) => <SelectItem key={String(num(r.fk_exam_id))} value={String(num(r.fk_exam_id))}>{txt(r.exam_name)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-2 space-y-1"><Label>Course Year</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((r) => <SelectItem key={String(num(r.fk_course_year_id))} value={String(num(r.fk_course_year_id))}>{txt(r.course_year_code)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-2 space-y-1"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((r) => <SelectItem key={String(num(r.fk_regulation_id))} value={String(num(r.fk_regulation_id))}>{txt(r.regulation_code)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.map((r) => <SelectItem key={String(num(r.fk_subject_id))} value={String(num(r.fk_subject_id))}>{txt(r.subject_name)} - {txt(r.subject_code)} ({txt(r.regulation_code)})</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-2 flex justify-end"><Button type="button" onClick={getEvaluationList} disabled={loading} className="h-8 px-3 text-[12px]">Get List</Button></div>
-            </div>
-            {showPanel && (
-              <p className="text-[12px] font-semibold">
-                Total Students: <span className="text-red-600">{totalStudents}</span> | No.Of AnswerPapers Uploaded: <span className="text-red-600">{uploadedCount}</span> | UnAssigned: <span className="text-red-600">{unAssigned}</span> | Assigned: <span className="text-red-600">{assigned}</span> | No of Evaluators: <span className="text-red-600">{evaluatorRows.length}</span>
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
+    <FilteredPage
+      title="Manual Assign Evaluator"
+      filters={(
+        <>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Course">
+              <Select value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(num(v) || null)} options={courseOptions} placeholder="Course" />
+            </GlobalFilterField>
+            <GlobalFilterField label="Academic Year">
+              <Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(num(v) || null)} options={academicYearOptions} placeholder="Academic Year" />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam">
+              <Select value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Exam" searchable />
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Year">
+              <Select value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(num(v) || null)} options={courseYearOptions} placeholder="Course Year" />
+            </GlobalFilterField>
+            <GlobalFilterField label="Regulation">
+              <Select value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(num(v) || null)} options={regulationOptions} placeholder="Regulation" />
+            </GlobalFilterField>
+            <GlobalFilterField label="Subject">
+              <Select value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(num(v) || null)} options={subjectOptions} placeholder="Subject" searchable />
+            </GlobalFilterField>
+            <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+              <Button type="button" onClick={getEvaluationList} disabled={loading} className="h-[30px] px-3 text-[12px]">Get List</Button>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+          {showPanel && (
+            <p className="px-5 pb-1 text-[12px] font-semibold">
+              Total Students: <span className="text-red-600">{totalStudents}</span> | No.Of AnswerPapers Uploaded: <span className="text-red-600">{uploadedCount}</span> | UnAssigned: <span className="text-red-600">{unAssigned}</span> | Assigned: <span className="text-red-600">{assigned}</span> | No of Evaluators: <span className="text-red-600">{evaluatorRows.length}</span>
+            </p>
+          )}
+        </>
+      )}
+    >
       {showPanel && (
         <div className="app-card p-3 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
@@ -436,7 +447,7 @@ export default function AssignEvaluatorsManualPage() {
           </div>,
           document.body,
         )}
-    </PageContainer>
+    </FilteredPage>
   )
 }
 

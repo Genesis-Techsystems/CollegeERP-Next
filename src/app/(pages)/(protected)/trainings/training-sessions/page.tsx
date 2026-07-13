@@ -3,8 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -127,10 +126,9 @@ function TrainingSessionsContent() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      {/* Filter bar */}
-      <div className="app-card p-4">
-        <h2 className="app-card-title mb-3">Training Sessions</h2>
+    <FilteredListPage
+      title="Training Sessions"
+      filters={(
         <div className="grid grid-cols-4 gap-3">
           <div className="space-y-0.5">
             <Label className="text-xs">College *</Label>
@@ -201,37 +199,26 @@ function TrainingSessionsContent() {
             </Select>
           </div>
         </div>
-      </div>
-
-      {/* Results */}
-      {filtersReady && (
-        <div className="app-card overflow-hidden">
-          <div className="px-3 pb-3 pt-2">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <DataTable
-                rowData={sessions}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search sessions…',
-                  pdfDocumentTitle: 'Training Sessions',
-                }}
-                toolbarTrailing={
-                  <Button
-                    size="sm"
-                    onClick={() => { setEditData(null); setModalOpen(true) }}
-                  >
-                    + Add Session
-                  </Button>
-                }
-              />
-            </div>
-          </div>
-        </div>
       )}
-
+      rowData={filtersReady ? sessions : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search sessions…',
+        pdfDocumentTitle: 'Training Sessions',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          disabled={!filtersReady}
+          onClick={() => { setEditData(null); setModalOpen(true) }}
+        >
+          + Add Session
+        </Button>
+      )}
+    >
       <AddTrainingSessionModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -240,7 +227,7 @@ function TrainingSessionsContent() {
         collegeId={Number(collegeId)}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }
 

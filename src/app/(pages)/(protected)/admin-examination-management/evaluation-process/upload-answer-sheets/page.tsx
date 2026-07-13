@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Filter } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select } from '@/common/components/select'
 import { runEvaluationProc, uploadExamOmr } from '@/services/evaluation-process-admin'
 import { getUnivExamFiltersByType } from '@/services/pre-examination'
 import { dedupeBy, num } from '@/common/utils/data-helpers'
@@ -43,7 +42,6 @@ function extractUploadedPath(res: unknown): string {
 export default function UploadAnswerSheetsPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [loading, setLoading] = useState(false)
-  const [filterOpen, setFilterOpen] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
@@ -106,6 +104,12 @@ export default function UploadAnswerSheetsPage() {
       ),
     [subjectRows, examDate, regulationId],
   )
+  const courseOptions = useMemo(() => courses.map((r) => ({ value: String(num(r.fk_course_id)), label: String(r.course_code ?? '') })), [courses])
+  const academicYearOptions = useMemo(() => academicYears.map((r) => ({ value: String(num(r.fk_academic_year_id)), label: String(r.academic_year ?? '') })), [academicYears])
+  const examOptions = useMemo(() => exams.map((r) => ({ value: String(num(r.fk_exam_id)), label: String(r.exam_name ?? '') })), [exams])
+  const examDateOptions = useMemo(() => examDates.map((d) => ({ value: d, label: d })), [examDates])
+  const regulationOptions = useMemo(() => regulations.map((r) => ({ value: String(num(r.fk_regulation_id)), label: String(r.regulation_code ?? '') })), [regulations])
+  const subjectOptions = useMemo(() => subjects.map((r) => ({ value: String(num(r.fk_subject_id)), label: `(${r.subject_code}) ${r.subject_name}` })), [subjects])
 
   useEffect(() => {
     async function loadFilters() {
@@ -268,187 +272,111 @@ export default function UploadAnswerSheetsPage() {
     : ''
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Upload Answer Sheets" subtitle="Evaluation process - upload OMR answer sheets" />
-
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Upload Answer Sheets</h2>
-          <Button type="button" variant="outline" size="sm" className="h-6 px-2.5 text-[12px]" onClick={() => setFilterOpen((v) => !v)}>
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-          </Button>
-        </div>
-
-        {(
-          <div className="p-3 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course *</Label>
-                <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(num(v) || null)}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger>
-                  <SelectContent>{courses.map((r) => <SelectItem key={String(num(r.fk_course_id))} value={String(num(r.fk_course_id))}>{r.course_code}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Academic Year *</Label>
-                <Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(num(v) || null)}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger>
-                  <SelectContent>{academicYears.map((r) => <SelectItem key={String(num(r.fk_academic_year_id))} value={String(num(r.fk_academic_year_id))}>{r.academic_year}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-4 space-y-1">
-                <Label>Exam *</Label>
-                <Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(num(v) || null)}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger>
-                  <SelectContent>{exams.map((r) => <SelectItem key={String(num(r.fk_exam_id))} value={String(num(r.fk_exam_id))}>{r.exam_name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Exam Date *</Label>
-                <Select value={examDate || undefined} onValueChange={setExamDate}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Date" /></SelectTrigger>
-                  <SelectContent>{examDates.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Regulation</Label>
-                <Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(num(v) || null)}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger>
-                  <SelectContent>{regulations.map((r) => <SelectItem key={String(num(r.fk_regulation_id))} value={String(num(r.fk_regulation_id))}>{r.regulation_code}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-4 space-y-1">
-                <Label>Subject</Label>
-                <Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(num(v) || null)}>
-                  <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger>
-                  <SelectContent>
-                    {subjects.map((r) => (
-                      <SelectItem key={String(num(r.fk_subject_id))} value={String(num(r.fk_subject_id))}>
-                        ({r.subject_code}) {r.subject_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+    <FilteredPage
+      title="Upload Answer Sheets"
+      filters={(
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Course">
+            <Select value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(num(v) || null)} options={courseOptions} placeholder="Course" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Academic Year">
+            <Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(num(v) || null)} options={academicYearOptions} placeholder="Academic Year" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam">
+            <Select value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Exam" searchable />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Date">
+            <Select value={examDate || null} onChange={(v) => setExamDate(v ?? '')} options={examDateOptions} placeholder="Exam Date" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Regulation">
+            <Select value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(num(v) || null)} options={regulationOptions} placeholder="Regulation" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Subject">
+            <Select value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(num(v) || null)} options={subjectOptions} placeholder="Subject" searchable />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      )}
+      body={num(subjectId) > 0 ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+            <div className="md:col-span-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                webkitdirectory=""
+                multiple
+                onChange={(e) => onFilesSelected(e.target.files)}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full rounded-md bg-sky-500 hover:bg-sky-600 transition-colors text-white py-6 px-4 flex flex-col items-center justify-center gap-2"
+              >
+                <div className="h-14 w-14 rounded-full bg-card text-sky-500 flex items-center justify-center text-lg font-bold">UP</div>
+                <div className="font-semibold text-[13px]">Upload Answer Papers</div>
+                {selectedFilesCount > 0 && <div className="text-[11px] opacity-90">{selectedFilesCount} files selected</div>}
+              </button>
+              <div className="mt-2 flex gap-2">
+                <Button type="button" className="h-8 text-[12px] w-full" disabled={uploading || selectedFilesCount === 0} onClick={handleUpload}>
+                  {uploading ? 'Uploading...' : 'Upload'}
+                </Button>
               </div>
             </div>
-
-            {num(subjectId) > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-2">
-                <div className="md:col-span-3">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    webkitdirectory=""
-                    multiple
-                    onChange={(e) => onFilesSelected(e.target.files)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full rounded-md bg-sky-500 hover:bg-sky-600 transition-colors text-white py-6 px-4 flex flex-col items-center justify-center gap-2"
-                  >
-                    <div className="h-14 w-14 rounded-full bg-card text-sky-500 flex items-center justify-center text-lg font-bold">
-                      UP
-                    </div>
-                    <div className="font-semibold text-[13px]">Upload Answer Papers</div>
-                    {selectedFilesCount > 0 && <div className="text-[11px] opacity-90">{selectedFilesCount} files selected</div>}
-                  </button>
-                  <div className="mt-2 flex gap-2">
-                    <Button type="button" className="h-8 text-[12px] w-full" disabled={uploading || selectedFilesCount === 0} onClick={handleUpload}>
-                      {uploading ? 'Uploading...' : 'Upload'}
-                    </Button>
-                  </div>
+            <div className="md:col-span-9 border-2 border-cyan-400 rounded-sm p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Button type="button" className="h-8 px-3 text-[12px]" onClick={checkUploadStatus} disabled={loading || !academicYearId || !examId || !subjectId || !examDate}>
+                  Check Upload Status
+                </Button>
+                {subjectLabel && <span className="text-[12px] font-medium">({subjectLabel} / {examDate})</span>}
+              </div>
+              <div className="text-[14px] font-semibold leading-7">
+                <div>
+                  Total Number of Students : <span className="text-red-600">{num(summary?.total_students)}</span> | Student Attendance Marked : <span className="text-red-600">{num(summary?.attendance_marked)}</span> | Not Marked : <span className="text-red-600">{num(summary?.attendance_not_marked)}</span>
                 </div>
-
-                <div className="md:col-span-9 border-2 border-cyan-400 rounded-sm p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Button
-                      type="button"
-                      className="h-8 px-3 text-[12px]"
-                      onClick={checkUploadStatus}
-                      disabled={loading || !academicYearId || !examId || !subjectId || !examDate}
-                    >
-                      Check Upload Status
-                    </Button>
-                    {subjectLabel && <span className="text-[12px] font-medium">({subjectLabel} / {examDate})</span>}
-                  </div>
-                  <div className="text-[14px] font-semibold leading-7">
-                    <div>
-                      Total Number of Students : <span className="text-red-600">{num(summary?.total_students)}</span> | Student Attendance Marked :{' '}
-                      <span className="text-red-600">{num(summary?.attendance_marked)}</span> | Not Marked :{' '}
-                      <span className="text-red-600">{num(summary?.attendance_not_marked)}</span>
-                    </div>
-                    <div>
-                      Student Attendance - Present : <span className="text-red-600">{num(summary?.presented_Students)}</span> | Absent :{' '}
-                      <span className="text-red-600">{absent}</span> | Number of Answer Sheets - Uploaded :{' '}
-                      <span className="text-red-600">{num(summary?.no_oof_answerpaper_uploaded)}</span> | Not Uploaded :{' '}
-                      <span className="text-red-600">{notUploaded}</span>
-                    </div>
-                  </div>
+                <div>
+                  Student Attendance - Present : <span className="text-red-600">{num(summary?.presented_Students)}</span> | Absent : <span className="text-red-600">{absent}</span> | Number of Answer Sheets - Uploaded : <span className="text-red-600">{num(summary?.no_oof_answerpaper_uploaded)}</span> | Not Uploaded : <span className="text-red-600">{notUploaded}</span>
                 </div>
               </div>
-            )}
-
-            {uploadedFiles.length > 0 && (
-              <div className="pt-2">
-                <div className="max-h-[320px] overflow-auto rounded border border-border">
-                  <table className="w-full text-[12px]">
-                    <thead className="sticky top-0 bg-muted/40">
-                      <tr className="border-b border-border text-left">
-                        <th className="px-2 py-2 w-12">SI.No</th>
-                        <th className="px-2 py-2">Filename</th>
-                        <th className="px-2 py-2">Folder</th>
-                        <th className="px-2 py-2 w-32">Status</th>
-                        <th className="px-2 py-2 w-16 text-center">View</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {uploadedFiles.map((u, i) => (
-                        <tr key={`uf-${i}-${u.fileName}`} className="border-b border-slate-100">
-                          <td className="px-2 py-1.5">{i + 1}</td>
-                          <td className="px-2 py-1.5">{u.fileName}</td>
-                          <td className="px-2 py-1.5">{u.folder}</td>
-                          <td className="px-2 py-1.5">
-                            <span
-                              className={
-                                u.status === 'Success'
-                                  ? 'text-emerald-700 font-medium'
-                                  : u.status === 'File not found'
-                                    ? 'text-red-600'
-                                    : u.status === 'Progress'
-                                      ? 'text-amber-600'
-                                      : 'text-slate-600'
-                              }
-                            >
-                              {u.status}
-                            </span>
-                          </td>
-                          <td className="px-2 py-1.5 text-center">
-                            {u.view ? (
-                              <button
-                                type="button"
-                                className="text-blue-700 hover:underline"
-                                onClick={() => globalThis?.open?.(u.view, '_blank', 'width=700,height=600')}
-                              >
-                                View
-                              </button>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
-        )}
-      </div>
-    </PageContainer>
+          {uploadedFiles.length > 0 && (
+            <div className="max-h-[320px] overflow-auto rounded border border-border">
+              <table className="w-full text-[12px]">
+                <thead className="sticky top-0 bg-muted/40">
+                  <tr className="border-b border-border text-left">
+                    <th className="px-2 py-2 w-12">SI.No</th>
+                    <th className="px-2 py-2">Filename</th>
+                    <th className="px-2 py-2">Folder</th>
+                    <th className="px-2 py-2 w-32">Status</th>
+                    <th className="px-2 py-2 w-16 text-center">View</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {uploadedFiles.map((u, i) => (
+                    <tr key={`uf-${i}-${u.fileName}`} className="border-b border-slate-100">
+                      <td className="px-2 py-1.5">{i + 1}</td>
+                      <td className="px-2 py-1.5">{u.fileName}</td>
+                      <td className="px-2 py-1.5">{u.folder}</td>
+                      <td className="px-2 py-1.5">
+                        <span className={u.status === 'Success' ? 'text-emerald-700 font-medium' : u.status === 'File not found' ? 'text-red-600' : u.status === 'Progress' ? 'text-amber-600' : 'text-slate-600'}>{u.status}</span>
+                      </td>
+                      <td className="px-2 py-1.5 text-center">
+                        {u.view ? (
+                          <button type="button" className="text-blue-700 hover:underline" onClick={() => globalThis?.open?.(u.view, '_blank', 'width=700,height=600')}>View</button>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : null}
+    />
   )
 }
 

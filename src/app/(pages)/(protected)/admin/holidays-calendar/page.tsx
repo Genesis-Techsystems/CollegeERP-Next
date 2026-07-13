@@ -2,11 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { ChevronDown, ChevronUp } from 'lucide-react'
 import { APP_CONFIG } from '@/config/constants/app'
-import { DataTable } from '@/common/components/table'
 import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import {
   listAcademicYearsByUniversityForHolidayCalendar,
   listActiveCollegesForHolidayCalendar,
@@ -54,7 +52,6 @@ const COLS: ColDef<HolidayCalendar>[] = [
 export default function HolidaysCalendarPage() {
   const [collegeId, setCollegeId] = useState<number | undefined>(undefined)
   const [academicYearId, setAcademicYearId] = useState<number | undefined>(undefined)
-  const [filtersOpen, setFiltersOpen] = useState(true)
   const showTable = Boolean(collegeId && academicYearId)
 
   const collegesQuery = useQuery({
@@ -98,65 +95,41 @@ export default function HolidaysCalendarPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <button
-          type="button"
-          className="w-full px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between text-left"
-          onClick={() => setFiltersOpen((prev) => !prev)}
-        >
-          <h2 className="app-card-title">Holidays Calendar Filters</h2>
-          {filtersOpen ? <ChevronUp className="h-4 w-4 text-slate-600" /> : <ChevronDown className="h-4 w-4 text-slate-600" />}
-        </button>
-
-        {filtersOpen && (
-          <div className="px-3 pb-3 pt-2">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <Select
-                label="College"
-                value={collegeId ? String(collegeId) : null}
-                onChange={(value) => {
-                  const next = value ? Number(value) : undefined
-                  setCollegeId(next)
-                  setAcademicYearId(undefined)
-                }}
-                options={collegeOptions}
-                placeholder="Select college"
-                searchable
-              />
-              <Select
-                label="Academic Year"
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(value) => setAcademicYearId(value ? Number(value) : undefined)}
-                options={academicYearOptions}
-                placeholder="Select academic year"
-                searchable
-                disabled={!collegeId}
-              />
-              <div className="flex items-end">
-                <Button variant="outline" onClick={() => { setCollegeId(undefined); setAcademicYearId(undefined) }}>Reset</Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {showTable && (
-        <div className="app-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-border bg-muted/40">
-            <h2 className="app-card-title">Holidays Calendar</h2>
-          </div>
-          <div className="px-3 pb-3 pt-2">
-            <DataTable
-              rowData={holidaysQuery.data ?? []}
-              columnDefs={COLS}
-              loading={holidaysQuery.isLoading}
-              pagination
-              toolbar={{ search: true, searchPlaceholder: 'Search holidays…', pdfDocumentTitle: 'Holidays Calendar' }}
-            />
+    <FilteredListPage
+      title="Holidays Calendar"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <Select
+            label="College"
+            value={collegeId ? String(collegeId) : null}
+            onChange={(value) => {
+              const next = value ? Number(value) : undefined
+              setCollegeId(next)
+              setAcademicYearId(undefined)
+            }}
+            options={collegeOptions}
+            placeholder="Select college"
+            searchable
+          />
+          <Select
+            label="Academic Year"
+            value={academicYearId ? String(academicYearId) : null}
+            onChange={(value) => setAcademicYearId(value ? Number(value) : undefined)}
+            options={academicYearOptions}
+            placeholder="Select academic year"
+            searchable
+            disabled={!collegeId}
+          />
+          <div className="flex items-end">
+            <Button variant="outline" onClick={() => { setCollegeId(undefined); setAcademicYearId(undefined) }}>Reset</Button>
           </div>
         </div>
       )}
-    </PageContainer>
+      rowData={showTable ? (holidaysQuery.data ?? []) : []}
+      columnDefs={COLS}
+      loading={holidaysQuery.isLoading}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search holidays…', pdfDocumentTitle: 'Holidays Calendar' }}
+    />
   )
 }

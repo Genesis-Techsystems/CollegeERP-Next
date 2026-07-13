@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { Filter, MessageSquare, Send } from 'lucide-react'
+import { Send } from 'lucide-react'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -42,7 +42,6 @@ function toYmd(d: Date | null): string {
 
 export default function SendSmsToStaffAttendancePage() {
   const [mode, setMode] = useState<'1' | '2'>('1')
-  const [filterOpen, setFilterOpen] = useState(true)
   const [colleges, setColleges] = useState<College[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [collegeId, setCollegeId] = useState<number | null>(null)
@@ -212,72 +211,58 @@ export default function SendSmsToStaffAttendancePage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <RadioGroup
-        value={mode}
-        onValueChange={(v) => setMode(v as '1' | '2')}
-        className="flex flex-row flex-wrap gap-4"
-      >
-        <div className="flex items-center gap-2">
-          <RadioGroupItem value="1" id="mode-all" />
-          <Label htmlFor="mode-all" className="cursor-pointer font-normal text-sm">
-            All employees
-          </Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <RadioGroupItem value="2" id="mode-dept" />
-          <Label htmlFor="mode-dept" className="cursor-pointer font-normal text-sm">
-            Search by department
-          </Label>
-        </div>
-      </RadioGroup>
-
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-2.5 border-b flex items-center justify-between gap-4">
-          <h1 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Send SMS to Staff (attendance)
-          </h1>
-          <button
-            type="button"
-            className="text-sm text-foreground inline-flex items-center gap-1"
-            onClick={() => setFilterOpen((v) => !v)}
-          >
-            Filter
-            <Filter className="h-4 w-4" />
-          </button>
-        </div>
-        {filterOpen ? (
-          <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            {mode === '1' ? (
-              <Select
-                label="College *"
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => setCollegeId(v ? Number(v) : null)}
-                options={collegeOptions}
-                searchable
-                className="md:col-span-3"
-              />
-            ) : (
-              <Select
-                label="Department *"
-                value={departmentId ? String(departmentId) : null}
-                onChange={(v) => setDepartmentId(v ? Number(v) : null)}
-                options={departmentOptions}
-                searchable
-                className="md:col-span-4"
-              />
-            )}
-            <DatePicker label="Date *" value={day} onChange={setDay} className="md:col-span-2" clearable={false} />
-            <div className="md:col-span-3">
-              <Button type="button" onClick={() => void loadStaff()} disabled={loading}>
-                {loading ? 'Loading…' : 'Get Staff'}
-              </Button>
-            </div>
+    <FilteredPage
+      title="Send SMS to Staff (attendance)"
+      notice={(
+        <RadioGroup
+          value={mode}
+          onValueChange={(v) => setMode(v as '1' | '2')}
+          className="flex flex-row flex-wrap gap-4"
+        >
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="1" id="mode-all" />
+            <Label htmlFor="mode-all" className="cursor-pointer font-normal text-sm">
+              All employees
+            </Label>
           </div>
-        ) : null}
-      </div>
-
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="2" id="mode-dept" />
+            <Label htmlFor="mode-dept" className="cursor-pointer font-normal text-sm">
+              Search by department
+            </Label>
+          </div>
+        </RadioGroup>
+      )}
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          {mode === '1' ? (
+            <Select
+              label="College *"
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => setCollegeId(v ? Number(v) : null)}
+              options={collegeOptions}
+              searchable
+              className="md:col-span-3"
+            />
+          ) : (
+            <Select
+              label="Department *"
+              value={departmentId ? String(departmentId) : null}
+              onChange={(v) => setDepartmentId(v ? Number(v) : null)}
+              options={departmentOptions}
+              searchable
+              className="md:col-span-4"
+            />
+          )}
+          <DatePicker label="Date *" value={day} onChange={setDay} className="md:col-span-2" clearable={false} />
+          <div className="md:col-span-3">
+            <Button type="button" onClick={() => void loadStaff()} disabled={loading}>
+              {loading ? 'Loading…' : 'Get Staff'}
+            </Button>
+          </div>
+        </div>
+      )}
+    >
       {staff.length > 0 ? (
         <div className="app-card p-4 space-y-4">
           <SearchInput
@@ -335,6 +320,6 @@ export default function SendSmsToStaffAttendancePage() {
           </div>
         </div>
       ) : null}
-    </PageContainer>
+    </FilteredPage>
   )
 }

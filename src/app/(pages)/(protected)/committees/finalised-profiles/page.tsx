@@ -3,8 +3,7 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { ConfirmDialog } from '@/common/components/feedback'
 import { Button } from '@/components/ui/button'
@@ -195,9 +194,9 @@ export default function FinalisedProfilesPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-4">
-        <h2 className="app-card-title mb-3">Finalised Profiles</h2>
+    <FilteredListPage
+      title="Finalised Profiles"
+      filters={(
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-0.5">
             <Label className="text-xs">Committee *</Label>
@@ -258,28 +257,17 @@ export default function FinalisedProfilesPage() {
             </Button>
           </div>
         </div>
-      </div>
-
-      {showTable && filters.filtersReady && (
-        <div className="app-card overflow-hidden">
-          <div className="px-3 pb-3 pt-2">
-            <div className="overflow-hidden rounded-lg border border-border bg-card">
-              <DataTable
-                rowData={filteredRows}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search profiles…',
-                  pdfDocumentTitle: 'Finalised Profiles',
-                }}
-              />
-            </div>
-          </div>
-        </div>
       )}
-
+      rowData={showTable && filters.filtersReady ? filteredRows : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search profiles…',
+        pdfDocumentTitle: 'Finalised Profiles',
+      }}
+    >
       <ConfirmDialog
         open={Boolean(confirmRow)}
         title="Release offer letter?"
@@ -294,6 +282,6 @@ export default function FinalisedProfilesPage() {
         onConfirm={() => void handleReleaseOffer()}
         onCancel={() => setConfirmRow(null)}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

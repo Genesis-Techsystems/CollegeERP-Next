@@ -1,13 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { PageContainer } from '@/components/layout'
+import { useEffect, useMemo, useState } from 'react'
+import { FilteredListPage } from '@/components/layout'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select } from '@/common/components/select'
-import { DataTable } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
 import type { ColDef } from 'ag-grid-community'
 import { toastError } from '@/lib/toast'
 import {
@@ -332,30 +330,8 @@ export default function VerifyExamMarksPage() {
     return `<h1>${escapeHtml(MODE_LABEL[mode])}</h1>${sub ? `<p>${escapeHtml(sub)}</p>` : ''}`
   }
 
-  // Angular differentiates the verify-marks modes purely by which columns are shown
-  // over the SAME ext/int result set (displayedColumns vs EvalautiondisplayedColumns):
-  //  - External: the external-marks columns (hides the per-evaluation detail columns)
-  //  - External Evaluation: the per-evaluation columns (hides the plain external-marks column)
-  //  - All / Internal: every column
-  // Implemented by semantic pattern; if a result has no recognisable ext/eval columns the
-  // filter is a no-op (all columns shown), so it can never hide the wrong data.
-  const isEvalCol = (k: string) => /evaluation/i.test(k)
-  const isExtMarksCol = (k: string) => /ext.*mark/i.test(k) || /external.*mark/i.test(k)
-  const visibleKeys = useCallback(
-    (keys: string[]): string[] => {
-      if (mode === 'external') {
-        return keys.some(isEvalCol) ? keys.filter((k) => !isEvalCol(k)) : keys
-      }
-      if (mode === 'evaluation') {
-        return keys.some(isExtMarksCol) ? keys.filter((k) => !isExtMarksCol(k)) : keys
-      }
-      return keys // internal, all
-    },
-    [mode],
-  )
-
   function reportKeys(): string[] {
-    return rows.length ? visibleKeys(Object.keys(rows[0])) : []
+    return rows.length ? Object.keys(rows[0]) : []
   }
 
   /** Angular exportAsExcel('internal'|'external'|'evaluation'|'all'). */
@@ -372,7 +348,7 @@ export default function VerifyExamMarksPage() {
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(() => {
     if (!rows.length) return []
-    const keys = visibleKeys(Object.keys(rows[0]))
+    const keys = Object.keys(rows[0])
     const ordered = [
       ...keys.filter((k) => ['id', 'college', 'Course_Code', 'Academic_Year', 'Course_Group', 'Course_Year', 'Subject'].includes(k)),
       ...keys.filter((k) => !['id', 'college', 'Course_Code', 'Academic_Year', 'Course_Group', 'Course_Year', 'Subject'].includes(k)),
@@ -382,125 +358,112 @@ export default function VerifyExamMarksPage() {
       headerName: toTitle(key),
       minWidth: key.length > 15 ? 190 : 130,
     }))
-  }, [rows, visibleKeys])
+  }, [rows])
 
   return (
-    <PageContainer className="space-y-4">
-      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Verify Exam Marks</h1>
-
-      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Verify Exam Marks</span>}>
+    <FilteredListPage
+      title="Verify Exam Marks"
+      filters={(
         <div className="space-y-3">
-        <RadioGroup
-          value={mode}
-          onValueChange={(value) => {
-            setMode(value as VerifyExamMarksMode)
-            setRows([])
-          }}
-          className="flex flex-wrap items-center gap-6"
-        >
-          <label className="flex items-center gap-2 text-[12px]">
-            <RadioGroupItem value="internal" id="mode-internal" />
-            Internal Marks Status
-          </label>
-          <label className="flex items-center gap-2 text-[12px]">
-            <RadioGroupItem value="external" id="mode-external" />
-            External Marks Status
-          </label>
-          <label className="flex items-center gap-2 text-[12px]">
-            <RadioGroupItem value="evaluation" id="mode-evaluation" />
-            External Evaluation Status
-          </label>
-          <label className="flex items-center gap-2 text-[12px]">
-            <RadioGroupItem value="all" id="mode-all" />
-            All
-          </label>
-        </RadioGroup>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2">
-            <Label>College</Label>
-            <Select
-              value={collegeId ? String(collegeId) : null}
-              onChange={(v) => setCollegeId(v ? Number(v) : null)}
-              options={collegeOptions}
-              placeholder="College"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-4">
-            <Label>Exam</Label>
-            <Select
-              value={examId ? String(examId) : null}
-              onChange={(v) => setExamId(v ? Number(v) : null)}
-              options={examOptions}
-              placeholder="Exam"
-              searchable
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Group</Label>
-            <Select
-              value={String(courseGroupId ?? 0)}
-              onChange={(v) => setCourseGroupId(v ? Number(v) : 0)}
-              options={courseGroupOptions}
-              placeholder="Course Group"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-3">
-            <Label>Subject</Label>
-            <Select
-              value={String(subjectId ?? 0)}
-              onChange={(v) => setSubjectId(v ? Number(v) : 0)}
-              options={subjectOptions}
-              placeholder="Subject"
-              searchable
-            />
-          </div>
-          <div className="md:col-span-1 flex gap-2">
-            <Button className="h-8 text-[12px] flex-1" onClick={() => void onGetList()} disabled={loading}>
-              Get List
-            </Button>
-          </div>
-        </div>
-        </div>
-      </FilterCard>
-
-      {rows.length > 0 && (
-        <div className="app-card overflow-hidden">
-          <div className="border-b border-border px-3 py-2.5">
-            <h2 className="app-card-title">{MODE_LABEL[mode]}</h2>
-            <p className="text-[12px] text-muted-foreground">Verify exam marks report</p>
-          </div>
-          <div className="p-1.5">
-            <DataTable
-              rowData={rows}
-              columnDefs={columnDefs}
-              loading={loading}
-              pagination
-              exportCsv
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search…',
-                // Angular has no PDF export here — Export Excel + Print Report instead
-                exportPdf: false,
-              }}
-              toolbarTrailing={
-                <>
-                  <Button type="button" variant="outline" size="sm" className="h-[30px] px-3 text-[12px]" onClick={handleExportExcel}>
-                    Export Excel
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" className="h-[30px] px-3 text-[12px]" onClick={handlePrintReport}>
-                    Print Report
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" className="h-[30px] px-3 text-[12px]" onClick={resetFilters}>
-                    Reset
-                  </Button>
-                </>
-              }
-            />
+          <RadioGroup
+            value={mode}
+            onValueChange={(value) => {
+              setMode(value as VerifyExamMarksMode)
+              setRows([])
+            }}
+            className="flex flex-wrap items-center gap-6"
+          >
+            <label className="flex items-center gap-2 text-[12px]">
+              <RadioGroupItem value="internal" id="mode-internal" />
+              Internal Marks Status
+            </label>
+            <label className="flex items-center gap-2 text-[12px]">
+              <RadioGroupItem value="external" id="mode-external" />
+              External Marks Status
+            </label>
+            <label className="flex items-center gap-2 text-[12px]">
+              <RadioGroupItem value="evaluation" id="mode-evaluation" />
+              External Evaluation Status
+            </label>
+            <label className="flex items-center gap-2 text-[12px]">
+              <RadioGroupItem value="all" id="mode-all" />
+              All
+            </label>
+          </RadioGroup>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+            <div className="space-y-1 md:col-span-2">
+              <Label>College</Label>
+              <Select
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                options={collegeOptions}
+                placeholder="College"
+              />
+            </div>
+            <div className="space-y-1 md:col-span-4">
+              <Label>Exam</Label>
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => setExamId(v ? Number(v) : null)}
+                options={examOptions}
+                placeholder="Exam"
+                searchable
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Course Group</Label>
+              <Select
+                value={String(courseGroupId ?? 0)}
+                onChange={(v) => setCourseGroupId(v ? Number(v) : 0)}
+                options={courseGroupOptions}
+                placeholder="Course Group"
+              />
+            </div>
+            <div className="space-y-1 md:col-span-3">
+              <Label>Subject</Label>
+              <Select
+                value={String(subjectId ?? 0)}
+                onChange={(v) => setSubjectId(v ? Number(v) : 0)}
+                options={subjectOptions}
+                placeholder="Subject"
+                searchable
+              />
+            </div>
+            <div className="md:col-span-1 flex gap-2">
+              <Button className="h-8 text-[12px] flex-1" onClick={() => void onGetList()} disabled={loading}>
+                Get List
+              </Button>
+            </div>
           </div>
         </div>
       )}
-    </PageContainer>
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      exportCsv
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        exportPdf: false,
+      }}
+      toolbarLeading={rows.length > 0 ? (
+        <span className="text-[12px] text-muted-foreground whitespace-nowrap">{MODE_LABEL[mode]}</span>
+      ) : undefined}
+      toolbarTrailing={(
+        <>
+          <Button type="button" variant="outline" size="sm" className="h-[30px] px-3 text-[12px]" onClick={handleExportExcel}>
+            Export Excel
+          </Button>
+          <Button type="button" variant="outline" size="sm" className="h-[30px] px-3 text-[12px]" onClick={handlePrintReport}>
+            Print Report
+          </Button>
+          <Button type="button" variant="outline" size="sm" className="h-[30px] px-3 text-[12px]" onClick={resetFilters}>
+            Reset
+          </Button>
+        </>
+      )}
+    />
   )
 }
 

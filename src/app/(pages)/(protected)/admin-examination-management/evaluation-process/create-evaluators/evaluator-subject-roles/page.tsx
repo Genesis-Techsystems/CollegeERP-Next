@@ -21,8 +21,8 @@ import {
   setupExamCommittees,
   updateEvaluatorProfile,
 } from '@/services/evaluation-process'
-import { PageContainer } from '@/components/layout'
-import { GlobalFilterBar } from '@/common/components/forms'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 
 type AnyRow = Record<string, any>
 
@@ -581,73 +581,36 @@ export default function EvaluatorSubjectRolesPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">Evaluator Subject Roles</h2>
-
-      <GlobalFilterBar title={`${dialogTitle} — ${evaluatorName}`} defaultOpen>
+    <FilteredPage
+      title={`${dialogTitle} — ${evaluatorName}`}
+      filters={(
         <div className="space-y-4 text-[13px]">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="md:col-span-2">
-              <Label className="text-[12px] text-muted-foreground">Course</Label>
-              <Select
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => { setCourseId(v ? Number(v) : null); resetDownstream('course') }}
-                options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id'])), label: pickText(c, ['course_code', 'courseCode']) } as SelectOption))}
-                placeholder="Course"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label className="text-[12px] text-muted-foreground">Academic Year *</Label>
-              <Select
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => { setAcademicYearId(v ? Number(v) : null); resetDownstream('year') }}
-                options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id'])), label: pickText(a, ['academic_year']) } as SelectOption))}
-                placeholder="Academic Year"
-              />
-            </div>
-            <div className="md:col-span-4">
-              <Label className="text-[12px] text-muted-foreground">Exam</Label>
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => { setExamId(v ? Number(v) : null); resetDownstream('exam') }}
-                options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id'])), label: `${pickText(e, ['exam_name'])} (${formatYmd(e.from_date ?? e.fromDate)} – ${formatYmd(e.to_date ?? e.toDate)})` } as SelectOption))}
-                placeholder="Exam"
-                searchable
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label className="text-[12px] text-muted-foreground">Regulation</Label>
-              <Select
-                value={regulationId ? String(regulationId) : null}
-                onChange={(v) => { setRegulationId(v ? Number(v) : null); resetDownstream('regulation') }}
-                options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id'])), label: pickText(r, ['regulation_code', 'regulationCode']) } as SelectOption))}
-                placeholder="Regulation"
-              />
-            </div>
-            <div className="md:col-span-4">
-              <Label className="text-[12px] text-muted-foreground">Subjects</Label>
-              <Select
-                value={subjectId ? String(subjectId) : null}
-                onChange={(v) => setSubjectId(v ? Number(v) : null)}
-                options={subjectsAll.map((s) => ({ value: String(pickNum(s, ['fk_subject_id'])), label: `${pickText(s, ['subject_name'])} (${pickText(s, ['subject_code'])})` } as SelectOption))}
-                placeholder="Subjects"
-                searchable
-              />
-            </div>
-            <div className="md:col-span-3">
-              <Label className="text-[12px] text-muted-foreground">Select Role</Label>
-              <Select
-                value={roleId ? String(roleId) : null}
-                onChange={(v) => { setRoleId(v ? Number(v) : null); resetDownstream('role') }}
-                options={roleRows.map((r) => ({ value: String(pickNum(r, ['pk_role_id'])), label: pickText(r, ['role_name']) } as SelectOption))}
-                placeholder="Select Role"
-              />
-            </div>
-            <div className="md:col-span-2 flex items-center gap-2 pt-6">
-              <Checkbox checked={isReEvaluation} onCheckedChange={(v) => setIsReEvaluation(v === true)} />
-              <span className="text-[12px]">Is Re-Evaluation</span>
-            </div>
-          </div>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Course">
+              <Select value={courseId ? String(courseId) : null} onChange={(v) => { setCourseId(v ? Number(v) : null); resetDownstream('course') }} options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id'])), label: pickText(c, ['course_code', 'courseCode']) } as SelectOption))} placeholder="Course" />
+            </GlobalFilterField>
+            <GlobalFilterField label="Academic Year">
+              <Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => { setAcademicYearId(v ? Number(v) : null); resetDownstream('year') }} options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id'])), label: pickText(a, ['academic_year']) } as SelectOption))} placeholder="Academic Year" />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam">
+              <Select value={examId ? String(examId) : null} onChange={(v) => { setExamId(v ? Number(v) : null); resetDownstream('exam') }} options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id'])), label: `${pickText(e, ['exam_name'])} (${formatYmd(e.from_date ?? e.fromDate)} – ${formatYmd(e.to_date ?? e.toDate)})` } as SelectOption))} placeholder="Exam" searchable />
+            </GlobalFilterField>
+            <GlobalFilterField label="Regulation">
+              <Select value={regulationId ? String(regulationId) : null} onChange={(v) => { setRegulationId(v ? Number(v) : null); resetDownstream('regulation') }} options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id'])), label: pickText(r, ['regulation_code', 'regulationCode']) } as SelectOption))} placeholder="Regulation" />
+            </GlobalFilterField>
+            <GlobalFilterField label="Subject">
+              <Select value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectsAll.map((s) => ({ value: String(pickNum(s, ['fk_subject_id'])), label: `${pickText(s, ['subject_name'])} (${pickText(s, ['subject_code'])})` } as SelectOption))} placeholder="Subjects" searchable />
+            </GlobalFilterField>
+            <GlobalFilterField label="Role">
+              <Select value={roleId ? String(roleId) : null} onChange={(v) => { setRoleId(v ? Number(v) : null); resetDownstream('role') }} options={roleRows.map((r) => ({ value: String(pickNum(r, ['pk_role_id'])), label: pickText(r, ['role_name']) } as SelectOption))} placeholder="Select Role" />
+            </GlobalFilterField>
+            <GlobalFilterField label="Re-Evaluation">
+              <label className="inline-flex items-center gap-2 text-[12px] h-[30px]">
+                <Checkbox checked={isReEvaluation} onCheckedChange={(v) => setIsReEvaluation(v === true)} />
+                <span>Is Re-Evaluation</span>
+              </label>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
 
           {displayFilters && (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end border-t border-slate-100 pt-3">
@@ -746,16 +709,13 @@ export default function EvaluatorSubjectRolesPage() {
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" className="h-8 text-[12px]" onClick={addToTable} disabled={loading}>
-              Add
-            </Button>
-            <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => router.push('/admin-examination-management/evaluation-process/create-evaluators')}>
-              Back
-            </Button>
+          <div className="flex justify-end gap-2 px-5 pb-3">
+            <Button type="button" className="h-8 text-[12px]" onClick={addToTable} disabled={loading}>Add</Button>
+            <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => router.push('/admin-examination-management/evaluation-process/create-evaluators')}>Back</Button>
           </div>
         </div>
-      </GlobalFilterBar>
+      )}
+    >
 
       {tableRows.length > 0 && (
         <div className="app-card overflow-hidden">
@@ -822,6 +782,6 @@ export default function EvaluatorSubjectRolesPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredPage>
   )
 }

@@ -5,10 +5,7 @@ import { useRouter } from 'next/navigation'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
-import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
@@ -149,8 +146,9 @@ export default function EnquiryListPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <FilterCard title="Enquiry List">
+    <FilteredListPage
+      title="Enquiry List"
+      filters={(
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Select
             label="Organization"
@@ -181,39 +179,34 @@ export default function EnquiryListPage() {
             searchable
           />
         </div>
-      </FilterCard>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={isLoading || filtersLoading}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search enquiries…',
-            pdfDocumentTitle: 'Enquiry List',
+      )}
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading || filtersLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search enquiries…',
+        pdfDocumentTitle: 'Enquiry List',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          disabled={!listReady}
+          onClick={() => {
+            const params = new URLSearchParams({
+              organizationId: organizationId!,
+              collegeId: collegeId!,
+              courseId: courseId!,
+            })
+            router.push(`/admission/enquiries/add-enquiry-form?${params}`)
           }}
-          toolbarTrailing={(
-            <Button
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              disabled={!listReady}
-              onClick={() => {
-                const params = new URLSearchParams({
-                  organizationId: organizationId!,
-                  collegeId: collegeId!,
-                  courseId: courseId!,
-                })
-                router.push(`/admission/enquiries/add-enquiry-form?${params}`)
-              }}
-            >
-              <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-              Add Enquiry
-            </Button>
-          )}
-        />
-      </TableCard>
-    </PageContainer>
+        >
+          <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+          Add Enquiry
+        </Button>
+      )}
+    />
   )
 }

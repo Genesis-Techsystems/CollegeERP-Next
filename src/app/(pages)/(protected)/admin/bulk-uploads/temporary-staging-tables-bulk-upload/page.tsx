@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { FileSpreadsheet, Upload, X } from 'lucide-react'
 import { FileDropzone } from '@/common/components/forms'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -45,9 +45,7 @@ export default function TemporaryStagingTablesBulkUploadPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Temporary Staging Tables Bulk Upload" subtitle="Admin / Bulk Uploads" />
-
+    <FilteredPage title="Temporary Staging Tables Bulk Upload" filtersCollapsible={false} filters={<span className="sr-only">Upload</span>}>
       <div className="app-card overflow-hidden">
         <div className="px-4 py-2 border-b border-border bg-muted/40">
           <h2 className="app-card-title">
@@ -115,6 +113,6 @@ export default function TemporaryStagingTablesBulkUploadPage() {
           </div>
         </div>
       </div>
-    </PageContainer>
+    </FilteredPage>
   )
 }

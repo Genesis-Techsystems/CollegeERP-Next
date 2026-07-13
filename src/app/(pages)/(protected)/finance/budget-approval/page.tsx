@@ -3,8 +3,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ICellRendererParams } from 'ag-grid-community'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable, TableCard } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { QK } from '@/lib/query-keys'
@@ -84,38 +83,35 @@ export default function BudgetApprovalPage() {
   const columnDefs = useMemo(() => budgetReportColumnDefs(proposedRenderer), [proposedRenderer])
 
   return (
-    <PageContainer>
-      <h2 className="app-card-title">Budget Approval</h2>
-      <PageHeader
-        title="Budget Approval"
-        action={
-          loadKey ? (
-            <Button
-              size="sm"
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending || rows.length === 0}
-            >
-              {saveMutation.isPending ? 'Saving…' : 'Save approvals'}
-            </Button>
-          ) : null
-        }
-      />
-      <FinanceBudgetFilters
-        cascade={cascade}
-        loadLabel="Load for approval"
-        loading={isFetching}
-        onLoad={() => {
-          if (!cascade.filtersValid) return
-          setDraft({})
-          setLoadKey(JSON.stringify(cascade.toBudgetParams()))
-        }}
-      />
-      {error ? <p className="text-sm text-destructive">{getErrorMessage(error)}</p> : null}
-      {loadKey ? (
-        <TableCard withHeaderBorder={false}>
-          <DataTable rowData={rows} columnDefs={columnDefs} />
-        </TableCard>
-      ) : null}
-    </PageContainer>
+    <FilteredListPage
+      title="Budget Approval"
+      notice={error ? <p className="text-sm text-destructive">{getErrorMessage(error)}</p> : undefined}
+      filters={(
+        <FinanceBudgetFilters
+          bare
+          cascade={cascade}
+          loadLabel="Load for approval"
+          loading={isFetching}
+          onLoad={() => {
+            if (!cascade.filtersValid) return
+            setDraft({})
+            setLoadKey(JSON.stringify(cascade.toBudgetParams()))
+          }}
+        />
+      )}
+      rowData={loadKey ? rows : []}
+      columnDefs={columnDefs}
+      loading={isFetching}
+      toolbar={{ search: true, searchPlaceholder: 'Search budget…' }}
+      toolbarTrailing={loadKey ? (
+        <Button
+          size="sm"
+          onClick={() => saveMutation.mutate()}
+          disabled={saveMutation.isPending || rows.length === 0}
+        >
+          {saveMutation.isPending ? 'Saving…' : 'Save approvals'}
+        </Button>
+      ) : undefined}
+    />
   )
 }

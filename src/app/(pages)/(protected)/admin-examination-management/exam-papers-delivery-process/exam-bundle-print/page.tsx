@@ -16,9 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Printer } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
-import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { FilteredListPage } from '@/components/layout'
 import { Select, type SelectOption } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { getSecuredValue, setSecuredValue } from '@/common/generic-functions'
@@ -485,110 +483,68 @@ export default function ExamBundlePrintPage() {
 		)
 	}
 
-	return (
-		<PageContainer className="space-y-4">
-			<h2 className="px-1 text-lg font-semibold tracking-tight text-foreground">Exam Bundle Print</h2>
-
-			<GlobalFilterBar title="Exam Bundles" defaultOpen={false}>
-				<GlobalFilterBarRow>
-					<GlobalFilterField label="Academic Year">
-						<Select
-							options={academicYearOptions}
-							value={form.academicYearId}
-							onChange={onAcademicYearChange}
-							placeholder="Academic Year"
-							disabled={loadingFilters}
-						/>
-					</GlobalFilterField>
-					<GlobalFilterField label="Exam Group">
-						<Select
-							options={examGroupOptions}
-							value={form.examGroupId}
-							onChange={onExamGroupChange}
-							placeholder="Exam Group"
-						/>
-					</GlobalFilterField>
-					<GlobalFilterField label="Exam Center">
-						<Select
-							options={examCenterOptions}
-							value={form.examCenterId}
-							onChange={onExamCenterChange}
-							placeholder="Exam Center"
-							searchable
-						/>
-					</GlobalFilterField>
-					<GlobalFilterField label="Exam Date">
-						<Select
-							options={examDateOptions}
-							value={form.examDate}
-							onChange={onExamDateChange}
-							placeholder="Exam Date"
-							searchable
-						/>
-					</GlobalFilterField>
-					<GlobalFilterField label="Subject">
-						<Select
-							options={questionPaperOptions}
-							value={form.questionPaperCode}
-							onChange={onQuestionPaperChange}
-							placeholder="Subject"
-							searchable
-						/>
-					</GlobalFilterField>
-					<GlobalFilterField label=" " className="global-filter-field--action global-filter-field--shrink">
-						<Button
-							size="sm"
-							onClick={() => void onGetList()}
-							disabled={loadingList}
-							className="h-8 shrink-0 px-3 text-[12px]"
-						>
-							Get List
-						</Button>
-					</GlobalFilterField>
-				</GlobalFilterBarRow>
-			</GlobalFilterBar>
-
-			{hasFetched && (
-				<div className="app-card overflow-hidden">
-					<div className="px-3 pb-3 pt-2">
-						<div className="overflow-hidden rounded-lg border border-border bg-card">
-							<DataTable
-								rowData={bundles}
-								columnDefs={columnDefs}
-								loading={loadingList}
-								pagination
-								title={
-									<p
-										className="truncate text-[12px] font-medium text-[hsl(var(--primary))]"
-										title={tableSummaryText}
-									>
-										{tableSummaryText}
-									</p>
-								}
-								toolbar={{
-									search: true,
-									searchPlaceholder: 'Search…',
-									pdfDocumentTitle: 'Exam Bundles',
-								}}
-								toolbarTrailing={
-									bundles.length > 0 ? (
-										<Button
-											type="button"
-											size="sm"
-											variant="outline"
-											className="app-data-table-toolbar-btn h-9 gap-1.5 px-3 text-[12px]"
-											onClick={() => void loadAndPrintStickers(0, 'stickers-gu')}
-										>
-											<Printer className="h-3.5 w-3.5" />
-											Bulk Print Stickers
-										</Button>
-									) : null
-								}
-							/>
-						</div>
-					</div>
-				</div>
-			)}
-		</PageContainer>
-	)
+  return (
+    <FilteredListPage
+      title="Exam Bundle Print"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-[12px] text-muted-foreground">Academic Year</label>
+            <Select options={academicYearOptions} value={form.academicYearId} onChange={onAcademicYearChange} placeholder="Academic Year" disabled={loadingFilters} />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-[12px] text-muted-foreground">Exam Group</label>
+            <Select options={examGroupOptions} value={form.examGroupId} onChange={onExamGroupChange} placeholder="Exam Group" />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-[12px] text-muted-foreground">Exam Center</label>
+            <Select options={examCenterOptions} value={form.examCenterId} onChange={onExamCenterChange} placeholder="Exam Center" searchable />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-[12px] text-muted-foreground">Exam Date</label>
+            <Select options={examDateOptions} value={form.examDate} onChange={onExamDateChange} placeholder="Exam Date" searchable />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-[12px] text-muted-foreground">Subject</label>
+            <Select options={questionPaperOptions} value={form.questionPaperCode} onChange={onQuestionPaperChange} placeholder="Subject" searchable />
+          </div>
+          <div className="md:col-span-2">
+            <Button size="sm" onClick={() => void onGetList()} disabled={loadingList} className="h-8 shrink-0 px-3 text-[12px] w-full">
+              Get List
+            </Button>
+          </div>
+        </div>
+      )}
+      rowData={hasFetched ? bundles : []}
+      columnDefs={columnDefs}
+      loading={loadingList}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Exam Bundles',
+      }}
+      toolbarLeading={
+        hasFetched ? (
+          <span className="max-w-[min(100%,40rem)] truncate text-[12px] font-medium text-[hsl(var(--primary))]" title={tableSummaryText}>
+            {tableSummaryText}
+          </span>
+        ) : null
+      }
+      toolbarTrailing={
+        hasFetched && bundles.length > 0 ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="app-data-table-toolbar-btn h-9 gap-1.5 px-3 text-[12px]"
+            onClick={() => void loadAndPrintStickers(0, 'stickers-gu')}
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Bulk Print Stickers
+          </Button>
+        ) : null
+      }
+    />
+  )
 }

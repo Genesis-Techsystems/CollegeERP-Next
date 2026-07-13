@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { ChevronDown, Filter } from "lucide-react";
-import { PageContainer } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -15,7 +14,6 @@ import {
 } from "@/components/ui/select";
 import { Select as SearchableSelect } from "@/common/components/select";
 import type { SelectOption } from "@/common/components/select";
-import { DataTable } from "@/common/components/table";
 import {
   getEvaluatedMarksReport,
   getRegSupBaseFilters,
@@ -95,7 +93,6 @@ function finalMarksRenderer(p: ICellRendererParams<MarksTableRow>) {
 
 export default function EvaluatedMarksReportPage() {
   const [loading, setLoading] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
   const [isReevaluation, setIsReevaluation] = useState(false);
   const [rows, setRows] = useState<AnyRow[]>([]);
 
@@ -342,188 +339,145 @@ export default function EvaluatedMarksReportPage() {
     [],
   );
 
-  const selectedCourse = courses.find(
-    (r) => num(r.fk_course_id) === num(courseId),
-  );
-  const selectedCourseYear = courseYears.find(
-    (r) => num(r.fk_course_year_id) === num(courseYearId),
-  );
-  const selectedSubject = subjects.find(
-    (r) => num(r.fk_subject_id) === num(subjectId),
-  );
-  const selectedExam = exams.find((r) => num(r.fk_exam_id) === num(examId));
-
-  const contextLabel = `${txt(selectedCourse?.course_code)} / ${txt(selectedCourseYear?.course_year_code)} / ${txt(selectedSubject?.subject_code)} / ${txt(selectedExam?.exam_name)}`;
-
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Evaluated Marks Report</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
-            />
-          </Button>
-        </div>
-        {filterOpen && (
-          <div className="p-3 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course</Label>
-                <Select
-                  value={courseId ? String(courseId) : undefined}
-                  onValueChange={(v) => setCourseId(num(v) || null)}
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Course" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {courses.map((r) => (
-                      <SelectItem
-                        key={String(num(r.fk_course_id))}
-                        value={String(num(r.fk_course_id))}
-                      >
-                        {txt(r.course_code)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Academic Year</Label>
-                <Select
-                  value={academicYearId ? String(academicYearId) : undefined}
-                  onValueChange={(v) => setAcademicYearId(num(v) || null)}
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Academic Year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {academicYears.map((r) => (
-                      <SelectItem
-                        key={String(num(r.fk_academic_year_id))}
-                        value={String(num(r.fk_academic_year_id))}
-                      >
-                        {txt(r.academic_year)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-4 space-y-1">
-                <Label>Exam</Label>
-                <SearchableSelect
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => setExamId(num(v) || null)}
-                  options={examOptions}
-                  placeholder="Search exam…"
-                  searchable
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course Year</Label>
-                <Select
-                  value={courseYearId ? String(courseYearId) : undefined}
-                  onValueChange={(v) => setCourseYearId(num(v) || null)}
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Course Year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {courseYears.map((r) => (
-                      <SelectItem
-                        key={String(num(r.fk_course_year_id))}
-                        value={String(num(r.fk_course_year_id))}
-                      >
-                        {txt(r.course_year_code)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Regulation</Label>
-                <Select
-                  value={regulationId ? String(regulationId) : undefined}
-                  onValueChange={(v) => setRegulationId(num(v) || null)}
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Regulation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {regulations.map((r) => (
-                      <SelectItem
-                        key={String(num(r.fk_regulation_id))}
-                        value={String(num(r.fk_regulation_id))}
-                      >
-                        {txt(r.regulation_code)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-5 space-y-1">
-                <Label>Subject</Label>
-                <SearchableSelect
-                  value={subjectId ? String(subjectId) : null}
-                  onChange={(v) => setSubjectId(num(v) || null)}
-                  options={subjectOptions}
-                  placeholder="Search subjects…"
-                  searchable
-                />
-              </div>
-              <div className="md:col-span-3">
-                <label className="inline-flex items-center gap-2 text-[12px]">
-                  <input
-                    type="checkbox"
-                    checked={isReevaluation}
-                    onChange={(e) => setIsReevaluation(e.target.checked)}
-                  />
-                  <span>Is Re-Evaluation</span>
-                </label>
-              </div>
-              <div className="md:col-span-2 flex justify-end">
-                <Button
-                  type="button"
-                  onClick={() => void getList()}
-                  disabled={loading}
-                >
-                  Get List
-                </Button>
-              </div>
-            </div>
+    <FilteredListPage
+      title="Evaluated Marks Report"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="md:col-span-2 space-y-1">
+            <Label>Course</Label>
+            <Select
+              value={courseId ? String(courseId) : undefined}
+              onValueChange={(v) => setCourseId(num(v) || null)}
+            >
+              <SelectTrigger className="h-8 text-[12px]">
+                <SelectValue placeholder="Course" />
+              </SelectTrigger>
+              <SelectContent>
+                {courses.map((r) => (
+                  <SelectItem
+                    key={String(num(r.fk_course_id))}
+                    value={String(num(r.fk_course_id))}
+                  >
+                    {txt(r.course_code)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        )}
-      </div>
-
-      {tableRows.length > 0 && (
-        <div className="app-card overflow-hidden">
-          <DataTable
-            title=""
-            subtitle=""
-            rowData={tableRows}
-            columnDefs={columnDefs}
-            pagination
-            loading={loading}
-            toolbar={{
-              search: true,
-              searchPlaceholder: "Search OMR serial…",
-              pdfDocumentTitle: "Evaluated Marks Report",
-            }}
-          />
+          <div className="md:col-span-2 space-y-1">
+            <Label>Academic Year</Label>
+            <Select
+              value={academicYearId ? String(academicYearId) : undefined}
+              onValueChange={(v) => setAcademicYearId(num(v) || null)}
+            >
+              <SelectTrigger className="h-8 text-[12px]">
+                <SelectValue placeholder="Academic Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {academicYears.map((r) => (
+                  <SelectItem
+                    key={String(num(r.fk_academic_year_id))}
+                    value={String(num(r.fk_academic_year_id))}
+                  >
+                    {txt(r.academic_year)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-4 space-y-1">
+            <Label>Exam</Label>
+            <SearchableSelect
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(num(v) || null)}
+              options={examOptions}
+              placeholder="Search exam…"
+              searchable
+            />
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label>Course Year</Label>
+            <Select
+              value={courseYearId ? String(courseYearId) : undefined}
+              onValueChange={(v) => setCourseYearId(num(v) || null)}
+            >
+              <SelectTrigger className="h-8 text-[12px]">
+                <SelectValue placeholder="Course Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {courseYears.map((r) => (
+                  <SelectItem
+                    key={String(num(r.fk_course_year_id))}
+                    value={String(num(r.fk_course_year_id))}
+                  >
+                    {txt(r.course_year_code)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label>Regulation</Label>
+            <Select
+              value={regulationId ? String(regulationId) : undefined}
+              onValueChange={(v) => setRegulationId(num(v) || null)}
+            >
+              <SelectTrigger className="h-8 text-[12px]">
+                <SelectValue placeholder="Regulation" />
+              </SelectTrigger>
+              <SelectContent>
+                {regulations.map((r) => (
+                  <SelectItem
+                    key={String(num(r.fk_regulation_id))}
+                    value={String(num(r.fk_regulation_id))}
+                  >
+                    {txt(r.regulation_code)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-5 space-y-1">
+            <Label>Subject</Label>
+            <SearchableSelect
+              value={subjectId ? String(subjectId) : null}
+              onChange={(v) => setSubjectId(num(v) || null)}
+              options={subjectOptions}
+              placeholder="Search subjects…"
+              searchable
+            />
+          </div>
+          <div className="md:col-span-3">
+            <label className="inline-flex items-center gap-2 text-[12px]">
+              <input
+                type="checkbox"
+                checked={isReevaluation}
+                onChange={(e) => setIsReevaluation(e.target.checked)}
+              />
+              <span>Is Re-Evaluation</span>
+            </label>
+          </div>
+          <div className="md:col-span-2 flex justify-end">
+            <Button
+              type="button"
+              onClick={() => void getList()}
+              disabled={loading}
+            >
+              Get List
+            </Button>
+          </div>
         </div>
       )}
-    </PageContainer>
+      rowData={tableRows}
+      columnDefs={columnDefs}
+      pagination
+      loading={loading}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search OMR serial…",
+        pdfDocumentTitle: "Evaluated Marks Report",
+      }}
+    />
   );
 }

@@ -5,14 +5,8 @@ import { useRouter } from 'next/navigation'
 import { MINIO_URL } from '@/config/constants/api'
 import { useSessionContext } from '@/context/SessionContext'
 import type { ColDef } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select } from '@/common/components/select'
-import { ChevronDown, Eye, Filter } from 'lucide-react'
+import { Eye } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   createExamQuestionPaper,
@@ -25,8 +19,14 @@ import {
   updateExamQuestionPaper,
   uploadQuestionPaperFiles,
 } from '@/services/evaluation-process'
-import { PageContainer } from '@/components/layout'
+import { clearProcGetCache } from '@/services/crud'
+import { FilteredListPage } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toDateOnlyISO } from '@/common/generic-functions'
 
 type AnyRow = Record<string, any>
@@ -58,7 +58,6 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
 
 export default function ExamQuestionPaperMarksPage() {
   const router = useRouter()
-  const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
   const [openAddModal, setOpenAddModal] = useState(false)
@@ -89,6 +88,11 @@ export default function ExamQuestionPaperMarksPage() {
   const employeeId = Number(
     user?.employeeId ?? globalThis?.localStorage?.getItem('employeeId') ?? 0,
   )
+  const organizationId = Number(
+    user?.organizationId ?? globalThis?.localStorage?.getItem('organizationId') ?? 1,
+  ) || 1
+  /** Angular generalDetailId for Question Paper Status "Prepared". */
+  const PREPARED_STATUS_CAT_DET_ID = 621
   const empNumber =
     String(globalThis?.localStorage?.getItem('empNumber') ?? '') ||
     String(user?.userName ?? '')
@@ -145,6 +149,19 @@ export default function ExamQuestionPaperMarksPage() {
     isActive: true,
     reason: 'active',
   })
+  const [formErrors, setFormErrors] = useState<Partial<Record<
+    'questionPaperTitle' | 'questionPaperCode' | 'setNumber' | 'totalQuestions' | 'totalMarks' | 'passMarks' | 'statusComments',
+    string
+  >>>({})
+
+  function clearFormError(key: keyof typeof formErrors) {
+    setFormErrors((prev) => {
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
 
   function resetForm() {
     setForm({
@@ -161,38 +178,60 @@ export default function ExamQuestionPaperMarksPage() {
       isActive: true,
       reason: 'active',
     })
+    setFormErrors({})
   }
 
   async function saveQuestionPaper() {
-    if (!form.questionPaperTitle || !form.questionPaperCode) {
-      toastError('Question Paper Title and Code are required.')
-      return
-    }
+    // Angular required (visible *): Title, Code, Set Number, Total Questions,
+    // Total Marks, Pass Marks, Status Comments — show under each field.
+    const nextErrors: typeof formErrors = {}
+    if (!form.questionPaperTitle?.trim()) nextErrors.questionPaperTitle = 'Question Paper Title is required.'
+    if (!form.questionPaperCode?.trim()) nextErrors.questionPaperCode = 'Question Paper Code is required.'
+    if (!form.setNumber?.trim()) nextErrors.setNumber = 'Set Number is required.'
+    if (!String(form.totalQuestions ?? '').trim()) nextErrors.totalQuestions = 'Total Questions is required.'
+    if (!String(form.totalMarks ?? '').trim()) nextErrors.totalMarks = 'Total Marks is required.'
+    if (!String(form.passMarks ?? '').trim()) nextErrors.passMarks = 'Pass Marks is required.'
+    if (!form.statusComments?.trim()) nextErrors.statusComments = 'Status Comments is required.'
+    setFormErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
+
     if (!examId || !courseYearId || !subjectId) {
       toastError('Please select Exam, Course Year and Subject before saving.')
       return
     }
     setLoading(true)
     try {
+      // Match Angular add-questionpaper-modal submit() payload for
+      // domain/create/ExamQuestionPapers.
+      const preparedDateIso = (() => {
+        const raw = form.preparedDate || toDateOnlyISO(new Date())
+        if (raw.includes('T')) return raw
+        const [y, m, d] = raw.split('-').map(Number)
+        if (!y || !m || !d) return new Date().toISOString()
+        const now = new Date()
+        return new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds()).toISOString()
+      })()
+      const statusCatDetId = PREPARED_STATUS_CAT_DET_ID
       const payload = {
-        questionPaperTitle: form.questionPaperTitle,
-        questionPaperCode: form.questionPaperCode,
-        setNumber: form.setNumber || null,
-        totalQuestions: Number(form.totalQuestions || 0),
-        totalMarks: Number(form.totalMarks || 0),
-        passMarks: Number(form.passMarks || 0),
-        preparedByEmpId: form.preparedByEmpId || employeeId || null,
-        preparedDate: form.preparedDate || null,
-        questionPaperStatus: form.questionPaperStatus || null,
-        statusComments: form.statusComments || null,
-        isActive: form.isActive,
-        reason: form.isActive ? 'active' : form.reason || null,
+        organizationId: String(organizationId),
+        regulationId: regulationId ?? undefined,
+        subjectId,
         examId,
         courseYearId,
-        subjectId,
-        regulationId: regulationId ?? undefined,
-        academicYearId: academicYearId ?? undefined,
-        courseId: courseId ?? undefined,
+        questionPaperCode: form.questionPaperCode.trim(),
+        questionPaperTitle: form.questionPaperTitle.trim(),
+        setNumber: form.setNumber.trim(),
+        passMarks: String(form.passMarks).trim(),
+        totalMarks: String(form.totalMarks).trim(),
+        totalQuestions: String(form.totalQuestions).trim(),
+        preparedByEmpId: String(form.preparedByEmpId || employeeId || ''),
+        preparedDate: preparedDateIso,
+        questionPaperStatusCatDetId: statusCatDetId,
+        statusComments: form.statusComments.trim(),
+        isApproved: true,
+        approvedByEmpId: '',
+        approvedDate: '',
+        isActive: form.isActive,
         examQuestionPaperTemplateId: templateId || null,
       }
       const editingId = editingRow ? rowQuestionPaperId(editingRow) : 0
@@ -366,49 +405,33 @@ export default function ExamQuestionPaperMarksPage() {
   async function getList() {
     setLoading(true)
     try {
+      // Angular getQuestionpapers — always hit network after mutations.
+      clearProcGetCache('s_get_examevaluation_bycodes')
       const list = await listFinalizableQuestionPapers({
         employeeId,
         examId: examId ?? 0,
-        courseId: courseId ?? undefined,
-        academicYearId: academicYearId ?? undefined,
-        courseYearId: courseYearId ?? undefined,
-        subjectId: subjectId ?? undefined,
-        regulationId: regulationId ?? undefined,
+        courseYearId: courseYearId ?? 0,
+        subjectId: subjectId ?? 0,
+        regulationId: regulationId ?? 0,
+        organizationId,
       }).catch(() => [])
       setRows(Array.isArray(list) ? list : [])
       setHasFetched(true)
-      // Angular's getTemplateDetails() runs after the list call -- fetch
-      // assigned templates here so the modal's Template dropdown is ready
-      // by the time the user clicks "+ Exam Question Paper".
-      if (examId && courseYearId && regulationId && subjectId) {
-        const tmpls = await getAssignQuestionPaperTemplateList({
-          examId,
-          courseYearId,
-          regulationId,
-          subjectId,
-        }).catch(() => [])
-        const tmplList = Array.isArray(tmpls) ? tmpls : []
-        setTemplateRows(tmplList)
-        const firstId = pickNum(tmplList[0] ?? {}, [
-          'fk_exam_questionpaper_template_id',
-          'examQuestionPaperTemplateId',
-          'questionPaperTemplateId',
-        ])
-        if (firstId > 0) setTemplateId(firstId)
-      } else {
-        setTemplateRows([])
-      }
+      // Angular's getTemplateDetails() runs after subject selection / list —
+      // keep templates ready for "+ Exam Question Paper".
+      await loadTemplatesForFilters()
     } finally {
       setLoading(false)
     }
   }
 
   function rowQuestionPaperId(row: AnyRow): number {
+    // Angular UploadPapers uses pk_exam_questionpaper_id — prefer that first.
     return pickNum(row, [
+      'pk_exam_questionpaper_id',
+      'questionPaperId',
       'examQuestionPaperId',
       'exam_questionpaper_id',
-      'questionPaperId',
-      'pk_exam_questionpaper_id',
       'id',
     ])
   }
@@ -475,18 +498,62 @@ export default function ExamQuestionPaperMarksPage() {
     qpId?: number,
     mode: 'questions' | 'template' = 'template',
   ) {
-    if (!tplId) return
     setViewTemplateTitle(title)
     setViewTemplateMode(mode)
     setViewTemplateRows([])
     setViewTemplateOpen(true)
     setViewTemplateLoading(true)
     try {
-      const rows = await getQuestionPaperTemplateViewRows(tplId, qpId).catch(() => [])
+      // Always call s_get_examquestionpaper_details (Angular view-template-modal).
+      // Pass 0/null when no template selected — matches Angular network call.
+      const rows = await getQuestionPaperTemplateViewRows(
+        tplId > 0 ? tplId : null,
+        qpId,
+      ).catch(() => [])
       setViewTemplateRows(Array.isArray(rows) ? rows : [])
     } finally {
       setViewTemplateLoading(false)
     }
+  }
+
+  async function loadTemplatesForFilters(opts?: { notifyIfMissing?: boolean }): Promise<AnyRow[]> {
+    if (!examId || !courseYearId || !regulationId || !subjectId) {
+      setTemplateRows([])
+      setTemplateId(0)
+      return []
+    }
+    const tmpls = await getAssignQuestionPaperTemplateList({
+      examId,
+      courseYearId,
+      regulationId,
+      subjectId,
+    }).catch(() => [])
+    const tmplList = (Array.isArray(tmpls) ? tmpls : []).filter((t) => {
+      const id = pickNum(t, [
+        'fk_exam_questionpaper_template_id',
+        'examQuestionPaperTemplateId',
+        'questionPaperTemplateId',
+      ])
+      const title = pickText(t, [
+        'template_title',
+        'templateTitle',
+        'template_name',
+        'templateName',
+      ])
+      return id > 0 || !!title
+    })
+    setTemplateRows(tmplList)
+    const firstId = pickNum(tmplList[0] ?? {}, [
+      'fk_exam_questionpaper_template_id',
+      'examQuestionPaperTemplateId',
+      'questionPaperTemplateId',
+    ])
+    if (firstId > 0) setTemplateId(firstId)
+    else setTemplateId(0)
+    if (opts?.notifyIfMissing && (tmplList.length === 0 || firstId <= 0)) {
+      toastError('Template not assigned for the selected subject')
+    }
+    return tmplList
   }
   function printQP(row: AnyRow) {
     // Angular Print QP navigates to /view-template (the print-friendly
@@ -581,18 +648,35 @@ export default function ExamQuestionPaperMarksPage() {
     }
     setUploading(true)
     try {
-      const { message } = await uploadQuestionPaperFiles({
+      const result = await uploadQuestionPaperFiles({
         examQuestionPaperId: id,
         questionPapers: uploadQpFiles,
         modelAnswerPapers: uploadAsFiles,
       })
-      toastSuccess(message || 'Files uploaded.')
+      // Server sometimes returns success:false + "No Records(s) found." even when
+      // the upload worked — never surface that as an error toast (Angular refresh path).
+      const msg = (result.message || '').trim()
+      const isNoRecordsMsg = /no records?/i.test(msg)
+      if (result.success || isNoRecordsMsg) {
+        toastSuccess(isNoRecordsMsg ? 'Files uploaded.' : msg || 'Files uploaded.')
+      } else {
+        toastError(msg || 'Upload did not complete.')
+      }
       setUploadRow(null)
       setUploadQpFiles([])
       setUploadAsFiles([])
+      // Angular UploadPapers success path → getQuestionpapers()
       await getList()
     } catch (error: any) {
-      toastError(error?.message ?? 'Failed to upload files.')
+      const msg = String(error?.message ?? 'Failed to upload files.')
+      if (!/no records?/i.test(msg)) {
+        toastError(msg)
+      }
+      try {
+        await getList()
+      } catch {
+        /* ignore */
+      }
     } finally {
       setUploading(false)
     }
@@ -816,138 +900,101 @@ export default function ExamQuestionPaperMarksPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">Exam Question Paper</h2>
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Question Paper</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-        {(
-          <div className="p-3 space-y-2 text-[13px]">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-            <div className="md:col-span-3">
-              <label className="text-[12px] text-muted-foreground">Course</label>
-              <Select
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => setCourseId(v ? Number(v) : 0)}
-                options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode', 'course_name', 'courseName']) }))}
-                placeholder="Course"
-              />
-            </div>
-            <div className="md:col-span-3">
-              <label className="text-[12px] text-muted-foreground">Academic Year</label>
-              <Select
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
-                options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) }))}
-                placeholder="Academic Year"
-              />
-            </div>
-            <div className="md:col-span-6">
-              <label className="text-[12px] text-muted-foreground">Exam</label>
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => setExamId(v ? Number(v) : 0)}
-                options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) }))}
-                placeholder="Exam"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="text-[12px] text-muted-foreground">Regulation Id</label>
-              <Select
-                value={regulationId ? String(regulationId) : null}
-                onChange={(v) => setRegulationId(v ? Number(v) : 0)}
-                options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id', 'regulationId'])), label: pickText(r, ['regulationCode', 'regulation_code']) || `R${pickNum(r, ['regulationId', 'fk_regulation_id'])}` }))}
-                placeholder="Regulation"
-              />
-            </div>
-            <div className="md:col-span-3">
-              <label className="text-[12px] text-muted-foreground">Course Years *</label>
-              <Select
-                value={courseYearId ? String(courseYearId) : null}
-                onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
-                options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_name', 'courseYearName', 'course_year_code', 'courseYearCode']) }))}
-                placeholder="Course Year"
-              />
-            </div>
-            <div className="md:col-span-5">
-              <label className="text-[12px] text-muted-foreground">Subject</label>
-              <Select
-                value={subjectId ? String(subjectId) : null}
-                onChange={(v) => setSubjectId(v ? Number(v) : 0)}
-                options={subjects.map((s) => ({
-                  value: String(pickNum(s, ['fk_subject_id', 'subjectId'])),
-                  label: pickText(s, ['subjectName', 'subject_name']) || pickText(s, ['subjectCode', 'subject_code']),
-                }))}
-                placeholder="Subject"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>
-                Get List
-              </Button>
-            </div>
-          </div>
-          </div>
-        )}
-      </div>
-
-      {hasFetched && (
-        <div className="app-card overflow-hidden">
-          <div className="p-4">
-            <DataTable
-              rowData={rows}
-              columnDefs={cols}
-              pagination
-              loading={loading}
-              title=""
-              subtitle=""
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search…',
-                pdfDocumentTitle: 'Exam Question Paper',
-              }}
-              toolbarTrailing={(
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-[30px] px-3 text-[12px]"
-                  onClick={() => {
-                    setEditingRow(null)
-                    resetForm()
-                    // Re-anchor templateId / preparedByEmpId on open so a
-                    // template loaded during Get List + the current login
-                    // user appear pre-selected (Angular parity).
-                    const firstTemplateId = pickNum(templateRows[0] ?? {}, [
-                      'fk_exam_questionpaper_template_id',
-                      'examQuestionPaperTemplateId',
-                      'questionPaperTemplateId',
-                    ])
-                    if (firstTemplateId > 0) setTemplateId(firstTemplateId)
-                    setForm((s) => ({ ...s, preparedByEmpId: employeeId }))
-                    setOpenAddModal(true)
-                  }}
-                >
-                  + Exam Question Paper
-                </Button>
-              )}
+    <FilteredListPage
+      title="Exam Question Paper"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="md:col-span-3">
+            <label className="text-[12px] text-muted-foreground">Course</label>
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : 0)}
+              options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode', 'course_name', 'courseName']) }))}
+              placeholder="Course"
             />
+          </div>
+          <div className="md:col-span-3">
+            <label className="text-[12px] text-muted-foreground">Academic Year</label>
+            <Select
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
+              options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) }))}
+              placeholder="Academic Year"
+            />
+          </div>
+          <div className="md:col-span-6">
+            <label className="text-[12px] text-muted-foreground">Exam</label>
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(v ? Number(v) : 0)}
+              options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) }))}
+              placeholder="Exam"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="text-[12px] text-muted-foreground">Regulation Id</label>
+            <Select
+              value={regulationId ? String(regulationId) : null}
+              onChange={(v) => setRegulationId(v ? Number(v) : 0)}
+              options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id', 'regulationId'])), label: pickText(r, ['regulationCode', 'regulation_code']) || `R${pickNum(r, ['regulationId', 'fk_regulation_id'])}` }))}
+              placeholder="Regulation"
+            />
+          </div>
+          <div className="md:col-span-3">
+            <label className="text-[12px] text-muted-foreground">Course Years *</label>
+            <Select
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
+              options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_name', 'courseYearName', 'course_year_code', 'courseYearCode']) }))}
+              placeholder="Course Year"
+            />
+          </div>
+          <div className="md:col-span-5">
+            <label className="text-[12px] text-muted-foreground">Subject</label>
+            <Select
+              value={subjectId ? String(subjectId) : null}
+              onChange={(v) => setSubjectId(v ? Number(v) : 0)}
+              options={subjects.map((s) => ({
+                value: String(pickNum(s, ['fk_subject_id', 'subjectId'])),
+                label: pickText(s, ['subjectName', 'subject_name']) || pickText(s, ['subjectCode', 'subject_code']),
+              }))}
+              placeholder="Subject"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>
+              Get List
+            </Button>
           </div>
         </div>
       )}
-
+      rowData={hasFetched ? rows : []}
+      columnDefs={cols}
+      pagination
+      loading={loading}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Exam Question Paper',
+      }}
+      toolbarTrailing={(
+        <Button
+          type="button"
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          onClick={() => {
+            setEditingRow(null)
+            resetForm()
+            setForm((s) => ({ ...s, preparedByEmpId: employeeId }))
+            setOpenAddModal(true)
+            // Angular getTemplateDetails() when opening create with subject selected
+            void loadTemplatesForFilters({ notifyIfMissing: true })
+          }}
+        >
+          + Exam Question Paper
+        </Button>
+      )}
+    >
       <Dialog
         open={openAddModal}
         onOpenChange={(v) => {
@@ -999,24 +1046,40 @@ export default function ExamQuestionPaperMarksPage() {
                   <Select
                     value={templateId ? String(templateId) : null}
                     onChange={(v) => setTemplateId(Number(v) || 0)}
-                    options={templateRows.map((t) => ({
-                      value: String(
-                        pickNum(t, [
+                    options={templateRows
+                      .map((t) => {
+                        const id = pickNum(t, [
                           'fk_exam_questionpaper_template_id',
                           'examQuestionPaperTemplateId',
                           'questionPaperTemplateId',
-                        ]),
-                      ),
-                      label:
-                        pickText(t, [
-                          'template_title',
-                          'templateTitle',
-                          'template_name',
-                          'templateName',
-                        ]) || '-',
-                    }))}
-                    placeholder={templateRows.length === 0 ? 'No template assigned' : 'Template'}
-                    disabled={templateRows.length === 0}
+                        ])
+                        const label =
+                          pickText(t, [
+                            'template_title',
+                            'templateTitle',
+                            'template_name',
+                            'templateName',
+                          ]) || (id > 0 ? `Template #${id}` : '')
+                        return id > 0 && label
+                          ? { value: String(id), label }
+                          : null
+                      })
+                      .filter((o): o is { value: string; label: string } => o != null)}
+                    placeholder={
+                      templateRows.length === 0
+                        ? 'No template assigned'
+                        : 'Template'
+                    }
+                    disabled={
+                      templateRows.filter(
+                        (t) =>
+                          pickNum(t, [
+                            'fk_exam_questionpaper_template_id',
+                            'examQuestionPaperTemplateId',
+                            'questionPaperTemplateId',
+                          ]) > 0,
+                      ).length === 0
+                    }
                   />
                 </div>
                 <Button
@@ -1026,9 +1089,7 @@ export default function ExamQuestionPaperMarksPage() {
                   className="h-9 w-9 p-0"
                   aria-label="View Template"
                   title="View Template"
-                  disabled={!templateId}
                   onClick={() => {
-                    if (!templateId) return
                     const selected = templateRows.find(
                       (t) =>
                         pickNum(t, [
@@ -1038,8 +1099,14 @@ export default function ExamQuestionPaperMarksPage() {
                         ]) === Number(templateId),
                     )
                     const title =
-                      pickText(selected ?? {}, ['template_title', 'templateTitle']) || ''
-                    void openViewTemplateModal(templateId, title)
+                      pickText(selected ?? {}, [
+                        'template_title',
+                        'templateTitle',
+                        'template_name',
+                        'templateName',
+                      ]) || ''
+                    // Always call list_exam_questionpaper_details (Angular eye icon)
+                    void openViewTemplateModal(templateId || 0, title)
                   }}
                 >
                   <Eye className="h-4 w-4" />
@@ -1056,9 +1123,15 @@ export default function ExamQuestionPaperMarksPage() {
               <Input
                 className="h-9 text-[12px]"
                 value={form.questionPaperTitle}
-                onChange={(e) => setForm((s) => ({ ...s, questionPaperTitle: e.target.value }))}
+                onChange={(e) => {
+                  setForm((s) => ({ ...s, questionPaperTitle: e.target.value }))
+                  clearFormError('questionPaperTitle')
+                }}
                 placeholder="Question Paper Title"
               />
+              {formErrors.questionPaperTitle ? (
+                <p className="text-[11px] text-destructive">{formErrors.questionPaperTitle}</p>
+              ) : null}
             </div>
             <div className="md:col-span-3 space-y-1">
               <Label className="text-[12px]">
@@ -1067,45 +1140,83 @@ export default function ExamQuestionPaperMarksPage() {
               <Input
                 className="h-9 text-[12px]"
                 value={form.questionPaperCode}
-                onChange={(e) => setForm((s) => ({ ...s, questionPaperCode: e.target.value }))}
+                onChange={(e) => {
+                  setForm((s) => ({ ...s, questionPaperCode: e.target.value }))
+                  clearFormError('questionPaperCode')
+                }}
                 placeholder="Question Paper Code"
               />
+              {formErrors.questionPaperCode ? (
+                <p className="text-[11px] text-destructive">{formErrors.questionPaperCode}</p>
+              ) : null}
             </div>
             <div className="md:col-span-3 space-y-1">
-              <Label className="text-[12px]">Set Number</Label>
+              <Label className="text-[12px]">
+                Set Number <span className="text-red-600">*</span>
+              </Label>
               <Input
                 className="h-9 text-[12px]"
                 value={form.setNumber}
-                onChange={(e) => setForm((s) => ({ ...s, setNumber: e.target.value }))}
+                onChange={(e) => {
+                  setForm((s) => ({ ...s, setNumber: e.target.value }))
+                  clearFormError('setNumber')
+                }}
                 placeholder="Set Number"
               />
+              {formErrors.setNumber ? (
+                <p className="text-[11px] text-destructive">{formErrors.setNumber}</p>
+              ) : null}
             </div>
             <div className="md:col-span-4 space-y-1">
-              <Label className="text-[12px]">Total Questions</Label>
+              <Label className="text-[12px]">
+                Total Questions <span className="text-red-600">*</span>
+              </Label>
               <Input
                 className="h-9 text-[12px]"
                 value={form.totalQuestions}
-                onChange={(e) => setForm((s) => ({ ...s, totalQuestions: e.target.value }))}
+                onChange={(e) => {
+                  setForm((s) => ({ ...s, totalQuestions: e.target.value }))
+                  clearFormError('totalQuestions')
+                }}
                 placeholder="Total Questions"
               />
+              {formErrors.totalQuestions ? (
+                <p className="text-[11px] text-destructive">{formErrors.totalQuestions}</p>
+              ) : null}
             </div>
             <div className="md:col-span-4 space-y-1">
-              <Label className="text-[12px]">Total Marks</Label>
+              <Label className="text-[12px]">
+                Total Marks <span className="text-red-600">*</span>
+              </Label>
               <Input
                 className="h-9 text-[12px]"
                 value={form.totalMarks}
-                onChange={(e) => setForm((s) => ({ ...s, totalMarks: e.target.value }))}
+                onChange={(e) => {
+                  setForm((s) => ({ ...s, totalMarks: e.target.value }))
+                  clearFormError('totalMarks')
+                }}
                 placeholder="Total Marks"
               />
+              {formErrors.totalMarks ? (
+                <p className="text-[11px] text-destructive">{formErrors.totalMarks}</p>
+              ) : null}
             </div>
             <div className="md:col-span-4 space-y-1">
-              <Label className="text-[12px]">Pass Marks</Label>
+              <Label className="text-[12px]">
+                Pass Marks <span className="text-red-600">*</span>
+              </Label>
               <Input
                 className="h-9 text-[12px]"
                 value={form.passMarks}
-                onChange={(e) => setForm((s) => ({ ...s, passMarks: e.target.value }))}
+                onChange={(e) => {
+                  setForm((s) => ({ ...s, passMarks: e.target.value }))
+                  clearFormError('passMarks')
+                }}
                 placeholder="Pass Marks"
               />
+              {formErrors.passMarks ? (
+                <p className="text-[11px] text-destructive">{formErrors.passMarks}</p>
+              ) : null}
             </div>
             <div className="md:col-span-4 space-y-1">
               <Label className="text-[12px]">Prepared Employee</Label>
@@ -1148,13 +1259,21 @@ export default function ExamQuestionPaperMarksPage() {
               />
             </div>
             <div className="md:col-span-12 space-y-1">
-              <Label className="text-[12px]">Status Comments</Label>
+              <Label className="text-[12px]">
+                Status Comments <span className="text-red-600">*</span>
+              </Label>
               <textarea
                 className="min-h-[90px] w-full rounded-md border border-input bg-background px-3 py-2 text-[12px] focus:outline-none focus:ring-2 focus:ring-ring"
                 value={form.statusComments}
-                onChange={(e) => setForm((s) => ({ ...s, statusComments: e.target.value }))}
+                onChange={(e) => {
+                  setForm((s) => ({ ...s, statusComments: e.target.value }))
+                  clearFormError('statusComments')
+                }}
                 placeholder="Status Comments"
               />
+              {formErrors.statusComments ? (
+                <p className="text-[11px] text-destructive">{formErrors.statusComments}</p>
+              ) : null}
             </div>
             <div className="md:col-span-4 flex items-center gap-2">
               <Checkbox
@@ -1340,6 +1459,6 @@ export default function ExamQuestionPaperMarksPage() {
         </DialogContent>
       </Dialog>
 
-    </PageContainer>
+    </FilteredListPage>
   )
 }

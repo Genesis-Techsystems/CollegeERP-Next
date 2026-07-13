@@ -4,9 +4,8 @@ import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
+import { ListPage } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -73,34 +72,26 @@ export default function PurchaseReturnsPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <div className="app-card overflow-hidden px-4 py-3">
-        <h2 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">Purchase Returns</h2>
-      </div>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={isLoading}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search purchase returns…',
-            pdfDocumentTitle: 'Purchase Returns',
-          }}
-          toolbarTrailing={(
-            <Button
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={() => router.push('/inventory-management/purchase-returns/add')}
-            >
-              <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-              Add Purchase Return
-            </Button>
-          )}
-        />
-      </TableCard>
-    </PageContainer>
+    <ListPage
+      title="Purchase Returns"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search purchase returns…',
+        pdfDocumentTitle: 'Purchase Returns',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          onClick={() => router.push('/inventory-management/purchase-returns/add')}
+        >
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Purchase Return
+        </Button>
+      )}
+    />
   )
 }

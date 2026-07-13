@@ -4,10 +4,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { ClipboardList, PencilIcon } from 'lucide-react'
-import { DataTable, TableCard } from '@/common/components/table'
+import { PencilIcon } from 'lucide-react'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { rowIndexGetter } from '@/lib/utils'
 import { getLibraryBookById, listBookDetailsByBookId } from '@/services'
@@ -113,61 +112,48 @@ export default function BookDetailsPage() {
     router.push(q ? `/library/books?${q}` : '/library/books')
   }
 
+  const filters = (
+    <div className="space-y-4">
+      <div className="grid gap-3 rounded-md border bg-muted/20 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <p className="text-[13px] sm:col-span-2 lg:col-span-4">
+          <span className="font-medium text-foreground">Book :</span>{' '}
+          <span className="text-muted-foreground">{displayTitle}</span>
+        </p>
+        <p className="text-[13px]">
+          <span className="font-medium text-foreground">Total Copies :</span>{' '}
+          <span className="text-muted-foreground">{displayTotal}</span>
+        </p>
+        <p className="text-[13px]">
+          <span className="font-medium text-foreground">Available Copies :</span>{' '}
+          <span className="text-muted-foreground">{displayAvailable}</span>
+        </p>
+        <p className="text-[13px]">
+          <span className="font-medium text-foreground">Issued Copies :</span>{' '}
+          <span className="text-muted-foreground">{displayIssued || '—'}</span>
+        </p>
+      </div>
+      <div className="flex justify-end">
+        <Button type="button" variant="outline" size="sm" className="h-9 px-4" onClick={goBack}>
+          Back
+        </Button>
+      </div>
+    </div>
+  )
+
   return (
-    <PageContainer className="space-y-5">
-      <div className="app-card overflow-hidden px-4 py-3">
-        <h1 className="inline-flex items-center gap-2 text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-          <ClipboardList className="h-4 w-4 shrink-0" aria-hidden />
-          Book Details
-        </h1>
-      </div>
-
-      <div className="app-card space-y-4 p-4">
-        <div className="grid gap-3 rounded-md border bg-muted/20 p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <p className="text-[13px] sm:col-span-2 lg:col-span-4">
-            <span className="font-medium text-foreground">Book :</span>{' '}
-            <span className="text-muted-foreground">{displayTitle}</span>
-          </p>
-          <p className="text-[13px]">
-            <span className="font-medium text-foreground">Total Copies :</span>{' '}
-            <span className="text-muted-foreground">{displayTotal}</span>
-          </p>
-          <p className="text-[13px]">
-            <span className="font-medium text-foreground">Available Copies :</span>{' '}
-            <span className="text-muted-foreground">{displayAvailable}</span>
-          </p>
-          <p className="text-[13px]">
-            <span className="font-medium text-foreground">Issued Copies :</span>{' '}
-            <span className="text-muted-foreground">{displayIssued || '—'}</span>
-          </p>
-        </div>
-
-        <TableCard withHeaderBorder={false}>
-          <DataTable
-            rowData={copies}
-            columnDefs={columnDefs}
-            loading={isLoading}
-            pagination
-            paginationPageSize={10}
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search',
-              pdfDocumentTitle: 'Book Details',
-            }}
-          />
-          {!isLoading && copies.length === 0 ? (
-            <p className="border-t px-4 py-6 text-center text-sm text-muted-foreground">
-              No book copies found for this title.
-            </p>
-          ) : null}
-        </TableCard>
-
-        <div className="flex justify-end">
-          <Button type="button" variant="outline" size="sm" className="h-9 px-4" onClick={goBack}>
-            Back
-          </Button>
-        </div>
-      </div>
-    </PageContainer>
+    <FilteredListPage
+      title="Book Details"
+      filters={filters}
+      rowData={copies}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      paginationPageSize={10}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search',
+        pdfDocumentTitle: 'Book Details',
+      }}
+    />
   )
 }

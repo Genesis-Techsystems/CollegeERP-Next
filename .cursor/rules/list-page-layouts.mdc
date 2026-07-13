@@ -1,0 +1,68 @@
+---
+description: Use ListPage / FilteredListPage for list UIs — filters live inside the table card
+globs: src/app/**/page.tsx
+alwaysApply: false
+---
+
+# List page layouts
+
+Use layout shells from `@/components/layout`. UI only — do not change API/business logic.
+
+## Which component
+
+| Pattern | Component | Example |
+|---|---|---|
+| Title + search/toolbar + table (no filters) | `ListPage` | Organizations, Campus |
+| Title + **filters inside same card** + toolbar + table | `FilteredListPage` | Grade Setup, Room Details |
+| Title + **filters inside same card** + custom body (no AG Grid) | `FilteredPage` | Exam Max Marks, Internal Exam Registration Multi |
+
+```tsx
+import { ListPage, FilteredListPage, FilteredPage } from '@/components/layout'
+```
+
+## FilteredListPage — filters inside the table card
+
+One card: title (+ filter toggle) → filters → search toolbar → grid → pagination.
+
+```tsx
+<FilteredListPage
+  title="Room Details"
+  filters={
+    <CollegeFilterPanel shell="bare" …>
+      <Button>Get List</Button>
+    </CollegeFilterPanel>
+  }
+  rowData={rows}
+  columnDefs={columnDefs}
+  pagination
+  toolbar={{ searchPlaceholder: 'Search…' }}
+  toolbarTrailing={<Button>Add</Button>}
+>
+  {/* modals */}
+</FilteredListPage>
+```
+
+- Do **not** put filters in a separate card above `DataTable`.
+- Prefer `CollegeFilterPanel shell="bare"` (or custom filter JSX) so the shell/DataTable owns the card.
+- `DataTable` also accepts `filters` directly if you need the slot without the page wrapper.
+
+## ListPage — header + table only
+
+```tsx
+<ListPage
+  title="Organizations"
+  rowData={rows}
+  columnDefs={columnDefs}
+  pagination
+  toolbar={{ searchPlaceholder: 'Search…' }}
+  toolbarTrailing={<Button>New</Button>}
+/>
+```
+
+## Wrong
+
+```tsx
+// ❌ Separate filter card + separate table card
+<div className="app-card">{/* filters */}</div>
+<DataTable title="…" />
+```

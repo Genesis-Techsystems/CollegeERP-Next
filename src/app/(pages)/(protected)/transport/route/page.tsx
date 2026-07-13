@@ -4,18 +4,16 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { MapPinIcon, PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
 import { EmptyState } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
 import { getErrorMessage } from '@/lib/errors'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
 import { listRoutes } from '@/services'
 import type { TransportRoute } from '@/types/transport'
-import { TransportPageTitle } from '../_components/TransportPageTitle'
 import { RouteModal } from './RouteModal'
 
 const COL_DEFS = {
@@ -91,44 +89,39 @@ export default function RoutePage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <TransportPageTitle title="Add Route" />
-
-      <TableCard withHeaderBorder={false}>
-        {isError ? (
+    <ListPage
+      title="Route"
+      rowData={isError ? [] : rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search routes…',
+        pdfDocumentTitle: 'Routes',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
+          }}
+        >
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Route
+        </Button>
+      )}
+      emptyState={
+        isError ? (
           <EmptyState
             title="Could not load routes"
             description={getErrorMessage(error)}
             action={{ label: 'Retry', onClick: () => void refetch() }}
           />
-        ) : (
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={isLoading}
-            pagination
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search routes…',
-              pdfDocumentTitle: 'Routes',
-            }}
-            toolbarTrailing={(
-              <Button
-                size="sm"
-                className="h-[30px] px-3 text-[12px]"
-                onClick={() => {
-                  setEditing(null)
-                  setModalOpen(true)
-                }}
-              >
-                <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-                Add Route
-              </Button>
-            )}
-          />
-        )}
-      </TableCard>
-
+        ) : undefined
+      }
+    >
       <RouteModal
         open={modalOpen}
         onClose={() => {
@@ -138,6 +131,6 @@ export default function RoutePage() {
         row={editing}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

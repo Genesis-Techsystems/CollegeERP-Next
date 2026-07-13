@@ -9,8 +9,8 @@ import {
   type MutableRefObject,
 } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Filter, LayoutList, Loader2 } from "lucide-react";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { LayoutList, Loader2 } from "lucide-react";
+import { FilteredPage } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
@@ -140,7 +140,6 @@ export default function StudentDetailsPage() {
   const employeeId = Number(user?.employeeId ?? 0);
   const organizationId = Number(user?.organizationId ?? 0);
 
-  const [filterOpen, setFilterOpen] = useState(true);
   const [mode, setMode] = useState<"student" | "section">("student");
 
   const [studentOptions, setStudentOptions] = useState<AnyRow[]>([]);
@@ -695,66 +694,46 @@ export default function StudentDetailsPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="px-1">
-        <Tabs
-          value={mode}
-          onValueChange={(v) =>
-            resetForMode(v === "section" ? "section" : "student")
-          }
-        >
-          <TabsList className="h-auto rounded-none border-b border-border bg-transparent p-0 text-muted-foreground">
-            <TabsTrigger
-              className="rounded-none border-b-2 border-transparent px-3 py-1.5 text-xs data-[state=active]:border-[#2f8fd4] data-[state=active]:bg-[#eaf4ff] data-[state=active]:text-[#1f4f7a] data-[state=active]:shadow-none"
-              value="student"
-            >
-              Search By Student
-            </TabsTrigger>
-            <TabsTrigger
-              className="rounded-none border-b-2 border-transparent px-3 py-1.5 text-xs data-[state=active]:border-[#2f8fd4] data-[state=active]:bg-[#eaf4ff] data-[state=active]:text-[#1f4f7a] data-[state=active]:shadow-none"
-              value="section"
-            >
-              Search By Section
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">
-            {mode === "section" ? "Student Details" : "Students Search"}
-          </h2>
-          <Button
-            type="button"
-            style={{ marginRight: "0px" }}
-            size="sm"
-            className="inline-flex items-center h-6 px-2.5 text-[12px] text-muted-foreground"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
+    <FilteredPage
+      title={mode === "section" ? "Student Details" : "Students Search"}
+      notice={
+        <div className="px-1">
+          <Tabs
+            value={mode}
+            onValueChange={(v) =>
+              resetForMode(v === "section" ? "section" : "student")
+            }
           >
-            <Filter className="mr-1.5 h-4 w-4" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-4 w-4 transition-transform ${filterOpen ? "rotate-180" : ""}`}
-            />
-          </Button>
+            <TabsList className="h-auto rounded-none border-b border-border bg-transparent p-0 text-muted-foreground">
+              <TabsTrigger
+                className="rounded-none border-b-2 border-transparent px-3 py-1.5 text-xs data-[state=active]:border-[#2f8fd4] data-[state=active]:bg-[#eaf4ff] data-[state=active]:text-[#1f4f7a] data-[state=active]:shadow-none"
+                value="student"
+              >
+                Search By Student
+              </TabsTrigger>
+              <TabsTrigger
+                className="rounded-none border-b-2 border-transparent px-3 py-1.5 text-xs data-[state=active]:border-[#2f8fd4] data-[state=active]:bg-[#eaf4ff] data-[state=active]:text-[#1f4f7a] data-[state=active]:shadow-none"
+                value="section"
+              >
+                Search By Section
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
-
-        {filterOpen && (
-          <div className="p-3 space-y-3">
-            {mode === "student" ? (
-              <StudentSearchSelect
-                value={selectedStudentId}
-                students={studentOptions}
-                selectedStudent={rows[0] ?? null}
-                isLoading={studentSearchLoading}
-                onSearch={(term) => void onSearchStudents(term)}
-                onChange={onStudentSelect}
-              />
-            ) : (
-              <div className="space-y-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+      }
+      filters={
+        mode === "student" ? (
+          <StudentSearchSelect
+            value={selectedStudentId}
+            students={studentOptions}
+            selectedStudent={rows[0] ?? null}
+            isLoading={studentSearchLoading}
+            onSearch={(term) => void onSearchStudents(term)}
+            onChange={onStudentSelect}
+          />
+        ) : (
+          <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
                   <div className={selectClass()}>
                     <Select
                       label="University"
@@ -883,16 +862,14 @@ export default function StudentDetailsPage() {
                   </div>
                 </div>
                 {loadingStudents && (
-                  <p className="text-xs text-muted-foreground">
-                    Loading students…
-                  </p>
-                )}
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Loading students…
+              </p>
             )}
           </div>
-        )}
-      </div>
-
+        )
+      }
+    >
       <StudentsListTable
         mode={mode}
         rows={rows}
@@ -976,6 +953,6 @@ export default function StudentDetailsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredPage>
   );
 }

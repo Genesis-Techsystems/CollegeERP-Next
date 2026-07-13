@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select } from '@/common/components/select'
 import {
 	listExamMastersByCourseAndAy,
@@ -198,116 +198,114 @@ export default function CopyExistingSeatingPage() {
 	if (targetExam?.isSupplyExam) targetTag.push('Supple')
 
 	return (
-		<PageContainer className="space-y-4">
-			<PageHeader title="Copy Existing Seating" subtitle="Reuse an earlier session's room layout" />
-
-			<div className="rounded-md border border-border bg-card p-4 space-y-2 text-[13px]">
-				<div>
-					<span className="font-semibold">Course :</span>{' '}
-					{params.courseCode ? `${params.courseCode} / ${params.academicYear}` : '—'}
-				</div>
-				<div>
-					<span className="font-semibold">Target Exam :</span>{' '}
-					{targetExam
-						? `${targetExam.examName} (${toDateStr(targetExam.fromDate)} - ${toDateStr(
-								targetExam.toDate,
-						  )})${targetTag.length ? ` (${targetTag.join(', ')})` : ''}`
-						: params.examName || '—'}
-				</div>
-			</div>
-
-			<div className="rounded-md border border-border bg-card p-4">
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-					<div className="md:col-span-2">
-						<Label className="text-[12px]">Source Exam</Label>
-						<Select
-							value={String(sourceExamId || '')}
-							onChange={(v) => void handleSelectSourceExam(String(v))}
-							options={examOptions}
-							placeholder="Select Source Exam"
-							searchable
-						/>
-					</div>
-					{sourceExamId ? (
+		<FilteredPage
+			title="Copy Existing Seating"
+			filters={
+				<>
+					<div className="mb-3 space-y-2 text-[13px]">
 						<div>
-							<Label className="text-[12px]">Source Exam Date</Label>
-							<Input
-								type="date"
-								value={sourceExamDate}
-								min={minDate || undefined}
-								max={maxDate || undefined}
-								onChange={(e) => setSourceExamDate(e.target.value)}
-							/>
+							<span className="font-semibold">Course :</span>{' '}
+							{params.courseCode ? `${params.courseCode} / ${params.academicYear}` : '—'}
 						</div>
-					) : null}
-					{sourceExamId ? (
-						<div className="md:col-span-3">
-							<Label className="text-[12px]">Source Exam Timetable</Label>
+						<div>
+							<span className="font-semibold">Target Exam :</span>{' '}
+							{targetExam
+								? `${targetExam.examName} (${toDateStr(targetExam.fromDate)} - ${toDateStr(
+										targetExam.toDate,
+								  )})${targetTag.length ? ` (${targetTag.join(', ')})` : ''}`
+								: params.examName || '—'}
+						</div>
+					</div>
+					<GlobalFilterBarRow columns={2}>
+						<GlobalFilterField label="Source Exam" className="md:col-span-2">
 							<Select
-								value={String(sourceTimetableId || '')}
-								onChange={(v) => void handleSelectSourceTimetable(String(v))}
-								options={sourceTimetableOptions}
-								placeholder="Select Source Exam Timetable"
+								value={String(sourceExamId || '')}
+								onChange={(v) => void handleSelectSourceExam(String(v))}
+								options={examOptions}
+								placeholder="Select Source Exam"
+								searchable
 							/>
-						</div>
-					) : null}
-				</div>
-			</div>
-
-			{existingRooms.length > 0 && (
-				<div className="rounded-md border border-border bg-card p-4">
-					<h2 className="text-[14px] font-semibold text-blue-700 mb-2">Existing Seating</h2>
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<table className="w-full text-[12px] border-collapse">
-							<thead>
-								<tr className="border-b">
-									<th className="px-2 py-1 text-left">Room</th>
-									<th className="px-2 py-1 text-left">Strength</th>
-								</tr>
-							</thead>
-							<tbody>
-								{existingRooms.map((r, i) => (
-									<tr key={`${r.pk_room_id ?? i}`} className="border-b">
-										<td className="px-2 py-1">{r.room ?? r.room_name ?? '—'}</td>
-										<td className="px-2 py-1">{r.room_strength ?? r.capacity ?? '—'}</td>
+						</GlobalFilterField>
+						{sourceExamId ? (
+							<GlobalFilterField label="Source Exam Date">
+								<Input
+									type="date"
+									value={sourceExamDate}
+									min={minDate || undefined}
+									max={maxDate || undefined}
+									onChange={(e) => setSourceExamDate(e.target.value)}
+								/>
+							</GlobalFilterField>
+						) : null}
+						{sourceExamId ? (
+							<GlobalFilterField label="Source Exam Timetable" className="md:col-span-2">
+								<Select
+									value={String(sourceTimetableId || '')}
+									onChange={(v) => void handleSelectSourceTimetable(String(v))}
+									options={sourceTimetableOptions}
+									placeholder="Select Source Exam Timetable"
+								/>
+							</GlobalFilterField>
+						) : null}
+					</GlobalFilterBarRow>
+				</>
+			}
+			body={
+				existingRooms.length > 0 ? (
+					<div>
+						<h2 className="text-[14px] font-semibold text-blue-700 mb-2">Existing Seating</h2>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<table className="w-full text-[12px] border-collapse">
+								<thead>
+									<tr className="border-b">
+										<th className="px-2 py-1 text-left">Room</th>
+										<th className="px-2 py-1 text-left">Strength</th>
 									</tr>
-								))}
-							</tbody>
-						</table>
-						<table className="w-full text-[12px] border-collapse">
-							<thead>
-								<tr className="border-b">
-									<th className="px-2 py-1 text-left">
-										<input
-											type="checkbox"
-											checked={selectAll}
-											onChange={(e) => handleCheckAll(e.target.checked)}
-										/>
-									</th>
-									<th className="px-2 py-1 text-left">Current Exam Sessions</th>
-								</tr>
-							</thead>
-							<tbody>
-								{targetTimetables.map((t, i) => (
-									<tr key={`${t.examTimetableId ?? i}`} className="border-b">
-										<td className="px-2 py-1">
+								</thead>
+								<tbody>
+									{existingRooms.map((r, i) => (
+										<tr key={`${r.pk_room_id ?? i}`} className="border-b">
+											<td className="px-2 py-1">{r.room ?? r.room_name ?? '—'}</td>
+											<td className="px-2 py-1">{r.room_strength ?? r.capacity ?? '—'}</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+							<table className="w-full text-[12px] border-collapse">
+								<thead>
+									<tr className="border-b">
+										<th className="px-2 py-1 text-left">
 											<input
 												type="checkbox"
-												checked={Boolean(t.checked)}
-												onChange={(e) => handleSingleCheck(i, e.target.checked)}
+												checked={selectAll}
+												onChange={(e) => handleCheckAll(e.target.checked)}
 											/>
-										</td>
-										<td className="px-2 py-1">
-											{toDateStr(t.examDate)} ({t.examSessionName ?? t.examSession ?? ''})
-										</td>
+										</th>
+										<th className="px-2 py-1 text-left">Current Exam Sessions</th>
 									</tr>
-								))}
-							</tbody>
-						</table>
+								</thead>
+								<tbody>
+									{targetTimetables.map((t, i) => (
+										<tr key={`${t.examTimetableId ?? i}`} className="border-b">
+											<td className="px-2 py-1">
+												<input
+													type="checkbox"
+													checked={Boolean(t.checked)}
+													onChange={(e) => handleSingleCheck(i, e.target.checked)}
+												/>
+											</td>
+											<td className="px-2 py-1">
+												{toDateStr(t.examDate)} ({t.examSessionName ?? t.examSession ?? ''})
+											</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
 					</div>
-				</div>
-			)}
-
+				) : null
+			}
+		>
 			<div className="flex justify-end gap-2">
 				<Button type="button" variant="outline" className="h-8 px-6" onClick={navigateBack}>
 					Back
@@ -316,6 +314,6 @@ export default function CopyExistingSeatingPage() {
 					{busy ? 'Saving…' : 'Save'}
 				</Button>
 			</div>
-		</PageContainer>
+		</FilteredPage>
 	)
 }

@@ -13,10 +13,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { DataTable, TableCard } from "@/common/components/table";
 import { CollegeFilterPanel } from "@/common/components/forms";
 import { StatusBadge } from "@/common/components/data-display";
-import { PageContainer } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { Pencil, Plus } from "lucide-react";
 import {
   createExamGrade,
@@ -402,87 +401,83 @@ export default function GradeSetupPage() {
   );
 
   return (
-    <PageContainer className="space-y-4">
-      {notice && (
-        <NoticeAlert
-          type={notice.type}
-          title={notice.message}
-          showIcon
-          action={
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-7 text-[12px]"
-              onClick={() => setNotice(null)}
-            >
-              Close
-            </Button>
-          }
-        />
-      )}
-      <CollegeFilterPanel
-        title="Grade Setup"
-        collapsible
-        universities={universities}
-        selectedUniversityId={selectedUniversityId}
-        onUniversityChange={handleUniversityChange}
-        courses={courses}
-        selectedCourseId={selectedCourseId}
-        onCourseChange={handleCourseChange}
-        regulations={regulations}
-        selectedRegulationId={selectedRegulationId}
-        onRegulationChange={(id) => {
-          setSelectedRegulationId(id);
-          setRows([]);
-          setHasFetched(false);
-        }}
-        isForDisabled={isForDisabled}
-        onIsForDisabledChange={(checked) => {
-          setIsForDisabled(checked);
-          setRows([]);
-          setHasFetched(false);
-        }}
-        isLoading={loadingFilters}
-      >
-        <Button
-          onClick={handleGetList}
-          disabled={!selectedCourseId || !selectedRegulationId || loadingList}
-          className="h-[30px] px-3 text-[12px] shrink-0"
-        >
-          Get List
-        </Button>
-      </CollegeFilterPanel>
-
-      {hasFetched && (
-        <TableCard withHeaderBorder={false}>
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loadingList}
-            pagination
-            paginationPageSize={10}
-            toolbarLeading={<span />}
-            toolbar={{
-              search: true,
-              searchPlaceholder: "Search grades…",
-              pdfDocumentTitle: "Exam Grades",
-            }}
-            toolbarTrailing={
+    <FilteredListPage
+      title="Grade Setup"
+      notice={
+        notice ? (
+          <NoticeAlert
+            type={notice.type}
+            title={notice.message}
+            showIcon
+            action={
               <Button
+                type="button"
                 size="sm"
-                onClick={openAdd}
-                disabled={!selectedCourseId || !selectedRegulationId}
-                className="h-[30px] px-3 text-[12px]"
+                variant="outline"
+                className="h-7 text-[12px]"
+                onClick={() => setNotice(null)}
               >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Add Exam Grade
+                Close
               </Button>
             }
           />
-        </TableCard>
-      )}
-
+        ) : null
+      }
+      filters={
+        <CollegeFilterPanel
+          shell="bare"
+          universities={universities}
+          selectedUniversityId={selectedUniversityId}
+          onUniversityChange={handleUniversityChange}
+          courses={courses}
+          selectedCourseId={selectedCourseId}
+          onCourseChange={handleCourseChange}
+          regulations={regulations}
+          selectedRegulationId={selectedRegulationId}
+          onRegulationChange={(id) => {
+            setSelectedRegulationId(id);
+            setRows([]);
+            setHasFetched(false);
+          }}
+          isForDisabled={isForDisabled}
+          onIsForDisabledChange={(checked) => {
+            setIsForDisabled(checked);
+            setRows([]);
+            setHasFetched(false);
+          }}
+          isLoading={loadingFilters}
+        >
+          <Button
+            onClick={handleGetList}
+            disabled={!selectedCourseId || !selectedRegulationId || loadingList}
+            className="h-[30px] px-3 text-[12px] shrink-0"
+          >
+            Get List
+          </Button>
+        </CollegeFilterPanel>
+      }
+      rowData={hasFetched ? rows : []}
+      columnDefs={columnDefs}
+      loading={loadingList}
+      pagination
+      paginationPageSize={10}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search grades…",
+        pdfDocumentTitle: "Exam Grades",
+      }}
+      toolbarTrailing={
+        <Button
+          size="sm"
+          onClick={openAdd}
+          disabled={!selectedCourseId || !selectedRegulationId}
+          className="h-[30px] px-3 text-[12px]"
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Add Exam Grade
+        </Button>
+      }
+    >
       <Dialog
         open={modalOpen}
         onOpenChange={(v) => {
@@ -714,6 +709,6 @@ export default function GradeSetupPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredListPage>
   );
 }

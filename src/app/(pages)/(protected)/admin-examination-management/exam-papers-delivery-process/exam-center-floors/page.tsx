@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Layers3, Pencil, Plus } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { Pencil, Plus } from 'lucide-react'
+import { ListPage } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
 import { FormModal } from '@/common/components/feedback'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -183,40 +182,24 @@ export default function ExamCenterFloorsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader
-        title="Floors"
-        subtitle="Examination management · Exam papers delivery · Floors"
-      />
-
-      <div className="app-card overflow-hidden">
-        <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted/40">
-          <div className="flex items-center gap-2">
-            <Layers3 className="h-4 w-4 text-blue-700" aria-hidden />
-            <h2 className="app-card-title">Floors</h2>
-          </div>
-        </div>
-        <div className="p-2">
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loading}
-            pagination
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search…',
-              pdfDocumentTitle: 'Floors',
-            }}
-            toolbarTrailing={
-              <Button size="sm" onClick={onAdd}>
-                <Plus className="h-4 w-4 mr-1" />
-                Add Floor
-              </Button>
-            }
-          />
-        </div>
-      </div>
-
+    <ListPage
+      title="Floors"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Floors',
+      }}
+      toolbarTrailing={(
+        <Button size="sm" onClick={onAdd}>
+          <Plus className="h-4 w-4 mr-1" />
+          Add Floor
+        </Button>
+      )}
+    >
       <FormModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -271,6 +254,6 @@ export default function ExamCenterFloorsPage() {
           </div>
         </div>
       </FormModal>
-    </PageContainer>
+    </ListPage>
   )
 }

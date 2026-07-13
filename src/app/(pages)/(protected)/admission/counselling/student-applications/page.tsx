@@ -4,8 +4,7 @@ import { useMemo, useState } from 'react'
 import { CheckIcon, XIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
@@ -152,59 +151,36 @@ export default function StudentApplicationsPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <div className="app-card overflow-hidden px-4 py-3">
-        <h1 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-          Student Applications
-        </h1>
-      </div>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={pending}
-          columnDefs={pendingCols}
-          loading={isLoading}
-          pagination
-          toolbar={{ search: true, searchPlaceholder: 'Search applications…' }}
-        />
-      </TableCard>
+    <>
+      <ListPage
+        title="Student Applications"
+        rowData={pending}
+        columnDefs={pendingCols}
+        loading={isLoading}
+        pagination
+        toolbar={{ search: true, searchPlaceholder: 'Search applications…' }}
+      />
 
       {approved.length > 0 && (
-        <>
-          <div className="app-card overflow-hidden px-4 py-3">
-            <h2 className="text-[14px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-              Approved Student Applications List
-            </h2>
-          </div>
-          <TableCard withHeaderBorder={false}>
-            <DataTable
-              rowData={approved}
-              columnDefs={approvedCols}
-              loading={isLoading}
-              pagination
-              toolbar={{ search: true, searchPlaceholder: 'Search approved…' }}
-            />
-          </TableCard>
-        </>
+        <ListPage
+          title="Approved Student Applications List"
+          rowData={approved}
+          columnDefs={approvedCols}
+          loading={isLoading}
+          pagination
+          toolbar={{ search: true, searchPlaceholder: 'Search approved…' }}
+        />
       )}
 
       {rejected.length > 0 && (
-        <>
-          <div className="app-card overflow-hidden px-4 py-3">
-            <h2 className="text-[14px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-              Rejected Student Applications List
-            </h2>
-          </div>
-          <TableCard withHeaderBorder={false}>
-            <DataTable
-              rowData={rejected}
-              columnDefs={rejectedCols}
-              loading={isLoading}
-              pagination
-              toolbar={{ search: true, searchPlaceholder: 'Search rejected…' }}
-            />
-          </TableCard>
-        </>
+        <ListPage
+          title="Rejected Student Applications List"
+          rowData={rejected}
+          columnDefs={rejectedCols}
+          loading={isLoading}
+          pagination
+          toolbar={{ search: true, searchPlaceholder: 'Search rejected…' }}
+        />
       )}
 
       <ApproveApplicationModal
@@ -216,6 +192,6 @@ export default function StudentApplicationsPage() {
         row={approveRow}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </>
   )
 }

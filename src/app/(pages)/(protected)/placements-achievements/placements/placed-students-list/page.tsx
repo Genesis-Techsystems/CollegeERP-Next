@@ -3,8 +3,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -72,10 +71,9 @@ export default function PlacedStudentsListPage() {
   ], [])
 
   return (
-    <PageContainer className="space-y-4">
-      {/* Filter */}
-      <div className="app-card p-4">
-        <h2 className="app-card-title mb-3">Placed Students</h2>
+    <FilteredListPage
+      title="Placed Students"
+      filters={(
         <div className="max-w-xs space-y-0.5">
           <Label className="text-xs">Placement *</Label>
           <Select value={placementId} onValueChange={(v) => { setPlacementId(v); loadStudents(v) }}>
@@ -87,30 +85,19 @@ export default function PlacedStudentsListPage() {
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      {placementId && (
-        <div className="app-card overflow-hidden">
-          <div className="px-3 pb-3 pt-2">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <DataTable
-                rowData={students}
-                columnDefs={columnDefs}
-                loading={loading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search placed students…', pdfDocumentTitle: 'Placed Students' }}
-              />
-            </div>
-          </div>
-        </div>
       )}
-
+      rowData={placementId ? students : []}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search placed students…', pdfDocumentTitle: 'Placed Students' }}
+    >
       <PlacementInterviewModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         editData={editData}
         onSaved={() => loadStudents(placementId)}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

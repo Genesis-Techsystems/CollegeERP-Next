@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
 import { SearchInput } from '@/common/components/search'
-import { DataTable } from '@/common/components/table'
-import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select, type SelectOption } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -16,7 +15,7 @@ import {
   getRegSupRestFilters,
   getRegSupSubjectFilters,
 } from '@/services/evaluation'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 
 type AnyRow = Record<string, unknown>
 
@@ -399,75 +398,79 @@ export default function ReEvaluationMultiAssignPage() {
     [],
   )
 
+  const filterFields = (
+    <>
+      <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r1">
+        <GlobalFilterField label="Course">
+          <Select
+            value={courseId ? String(courseId) : null}
+            onChange={(v) => { resetFetchedState(); setCourseId(v ? Number(v) : null) }}
+            options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode']) } as SelectOption))}
+            placeholder="Course"
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Academic Year">
+          <Select
+            value={academicYearId ? String(academicYearId) : null}
+            onChange={(v) => { resetFetchedState(); setAcademicYearId(v ? Number(v) : null) }}
+            options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) } as SelectOption))}
+            placeholder="Academic Year"
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Exam">
+          <Select
+            value={examId ? String(examId) : null}
+            onChange={(v) => { resetFetchedState(); setExamId(v ? Number(v) : null) }}
+            options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) } as SelectOption))}
+            placeholder="Exam"
+            searchable
+          />
+        </GlobalFilterField>
+      </GlobalFilterBarRow>
+      <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r2">
+        <GlobalFilterField label="Course Year">
+          <Select
+            value={courseYearId ? String(courseYearId) : null}
+            onChange={(v) => { resetFetchedState(); setCourseYearId(v ? Number(v) : null) }}
+            options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_code', 'courseYearCode']) } as SelectOption))}
+            placeholder="Course Year"
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Regulation">
+          <Select
+            value={regulationId ? String(regulationId) : null}
+            onChange={(v) => { resetFetchedState(); setRegulationId(v ? Number(v) : null) }}
+            options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id', 'regulationId'])), label: pickText(r, ['regulation_code', 'regulationCode']) } as SelectOption))}
+            placeholder="Regulation"
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Subject">
+          <Select
+            value={subjectId ? String(subjectId) : null}
+            onChange={(v) => { resetFetchedState(); setSubjectId(v ? Number(v) : null) }}
+            options={subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id', 'subjectId'])), label: `${pickText(s, ['subject_name', 'subjectName'])} - ${pickText(s, ['subject_code', 'subjectCode'])}` } as SelectOption))}
+            placeholder="Subject"
+            searchable
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label=" " className="global-filter-field--action">
+          <Button size="sm" onClick={() => void onGetList()} disabled={loading} className="shrink-0 w-full">
+            Get List
+          </Button>
+        </GlobalFilterField>
+      </GlobalFilterBarRow>
+    </>
+  )
+
   return (
-    <PageContainer className="space-y-4">
-      <h2 className="px-1 text-lg font-semibold tracking-tight text-foreground">Re-Evaluation Multi Assign</h2>
-
-      <GlobalFilterBar title="Re-Evaluation Multi Assign" defaultOpen={false}>
-        <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r1">
-          <GlobalFilterField label="Course">
-            <Select
-              value={courseId ? String(courseId) : null}
-              onChange={(v) => { resetFetchedState(); setCourseId(v ? Number(v) : null) }}
-              options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode']) } as SelectOption))}
-              placeholder="Course"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Academic Year">
-            <Select
-              value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => { resetFetchedState(); setAcademicYearId(v ? Number(v) : null) }}
-              options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) } as SelectOption))}
-              placeholder="Academic Year"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam">
-            <Select
-              value={examId ? String(examId) : null}
-              onChange={(v) => { resetFetchedState(); setExamId(v ? Number(v) : null) }}
-              options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) } as SelectOption))}
-              placeholder="Exam"
-              searchable
-            />
-          </GlobalFilterField>
-        </GlobalFilterBarRow>
-        <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r2">
-          <GlobalFilterField label="Course Year">
-            <Select
-              value={courseYearId ? String(courseYearId) : null}
-              onChange={(v) => { resetFetchedState(); setCourseYearId(v ? Number(v) : null) }}
-              options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_code', 'courseYearCode']) } as SelectOption))}
-              placeholder="Course Year"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Regulation">
-            <Select
-              value={regulationId ? String(regulationId) : null}
-              onChange={(v) => { resetFetchedState(); setRegulationId(v ? Number(v) : null) }}
-              options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id', 'regulationId'])), label: pickText(r, ['regulation_code', 'regulationCode']) } as SelectOption))}
-              placeholder="Regulation"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Subject">
-            <Select
-              value={subjectId ? String(subjectId) : null}
-              onChange={(v) => { resetFetchedState(); setSubjectId(v ? Number(v) : null) }}
-              options={subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id', 'subjectId'])), label: `${pickText(s, ['subject_name', 'subjectName'])} - ${pickText(s, ['subject_code', 'subjectCode'])}` } as SelectOption))}
-              placeholder="Subject"
-              searchable
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label=" " className="global-filter-field--action">
-            <Button size="sm" onClick={() => void onGetList()} disabled={loading} className="shrink-0 w-full">
-              Get List
-            </Button>
-          </GlobalFilterField>
-        </GlobalFilterBarRow>
-      </GlobalFilterBar>
-
-      {hasFetched && (
-        <>
-          <div className="app-card p-3 text-[13px]">
+    <FilteredListPage
+      title="Re-Evaluation Multi Assign"
+      filters={filterFields}
+      filtersDefaultOpen={false}
+      notice={
+        hasFetched ? (
+          <>
+            <div className="app-card p-3 text-[13px]">
             <span className="font-semibold">Total Students:</span> {totalStudents} |{' '}
             <span className="font-semibold">Uploaded:</span> {uploaded} |{' '}
             <span className="font-semibold">UnAssigned:</span> {unassigned} |{' '}
@@ -587,30 +590,21 @@ export default function ReEvaluationMultiAssignPage() {
                 {assigning ? 'Assigning…' : 'Assign'}
               </Button>
             </div>
-          </div>
-
-          <div className="app-card overflow-hidden">
-            <div className="px-3 pb-3 pt-2">
-              <div className="rounded-lg border border-border bg-card overflow-hidden">
-                <DataTable
-                  toolbarLeading={<span className="hidden" />}
-                  rowData={evaluatorRows}
-                  columnDefs={cols}
-                  pagination
-                  loading={loading}
-                  subtitle=""
-                  toolbar={{
-                    search: true,
-                    searchPlaceholder: 'Search…',
-                    pdfDocumentTitle: 'Re-Evaluation Multi Assign',
-                  }}
-                />
-              </div>
             </div>
-          </div>
-        </>
-      )}
-
+          </>
+        ) : null
+      }
+      toolbarLeading={<span className="hidden" />}
+      rowData={hasFetched ? evaluatorRows : []}
+      columnDefs={cols}
+      pagination
+      loading={loading}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Re-Evaluation Multi Assign',
+      }}
+    >
       <Dialog open={popupOpen} onOpenChange={setPopupOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
@@ -646,6 +640,6 @@ export default function ReEvaluationMultiAssignPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredListPage>
   )
 }

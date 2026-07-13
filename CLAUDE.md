@@ -37,9 +37,11 @@ import { Select } from '@/common/components/select'
 
 | Directory | Components |
 |---|---|
-| `components/layout/` | `AppShell`, `Topbar` (live search), `Sidebar`, `NavItem`, `PageHeader`, `PageContainer` |
+| `components/layout/` | `AppShell`, `Topbar` (live search), `Sidebar`, `NavItem`, `PageHeader`, `PageContainer`, `ListPage` (header + table), `FilteredListPage` (header + filters + table) |
 
-Import: `import { PageHeader, PageContainer } from '@/components/layout'`
+Import: `import { PageHeader, PageContainer, ListPage, FilteredListPage } from '@/components/layout'`
+
+**List layouts:** Prefer `ListPage` (header + table) or `FilteredListPage` (header + **filters inside the same table card** + table). Do not stack a separate filter card above `DataTable`. Use `CollegeFilterPanel shell="bare"` (or custom filters) as the `filters` slot.
 
 ---
 

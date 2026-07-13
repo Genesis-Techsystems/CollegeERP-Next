@@ -12,9 +12,8 @@ import {
 	SelectValue,
 } from '@/components/ui/select'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { distinct } from '@/lib/utils'
 import { listCourseYears, getExamTimetableDetails } from '@/services/examination'
 import {
@@ -37,7 +36,7 @@ import {
 	listExamTimetablesByExam,
 	listExamRoomAllotments as listExamRoomAllotmentsPre,
 } from '@/services/pre-examination'
-import { CalendarDays, ChevronDown, Filter, Plus, Printer } from 'lucide-react'
+import { CalendarDays, Plus, Printer } from 'lucide-react'
 import { SearchInput } from '@/common/components/search'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toDateStr } from '@/common/generic-functions'
@@ -340,7 +339,6 @@ export default function SeatingPlanSetupPage() {
 	const [selectedExamTimetableId, setSelectedExamTimetableId] = useState<number | null>(null)
 	const [sessionOptions, setSessionOptions] = useState<SessionOption[]>([])
 	const [univExamFilterRows, setUnivExamFilterRows] = useState<any[]>([])
-	const [filterOpen, setFilterOpen] = useState(true)
 
 	// Table data from selected exam session/timetable
 	const [previewRows, setPreviewRows] = useState<AllocationRow[]>([])
@@ -1478,8 +1476,9 @@ export default function SeatingPlanSetupPage() {
 	}
 
 	return (
-		<PageContainer className="space-y-4">
-			{loadingPrintData && (
+		<FilteredListPage
+			title="Exam Room Seating Plan"
+			notice={loadingPrintData ? (
 				<div
 					data-print-hide
 					className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
@@ -1492,28 +1491,9 @@ export default function SeatingPlanSetupPage() {
 						</div>
 					</div>
 				</div>
-			)}
-			<h2 className="text-lg font-semibold tracking-tight text-foreground">
-				Exam Room Seating Plan
-			</h2>
-			<div className="global-filter-bar app-card overflow-hidden rounded-2xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
-				<div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-					<h2 className="app-card-title">Exam Room Seating Plan</h2>
-					<button
-						type="button"
-						className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-						onClick={() => setFilterOpen((v) => !v)}
-						aria-label="Toggle filters"
-						aria-expanded={filterOpen}
-					>
-						<Filter className="h-3.5 w-3.5" aria-hidden />
-						<ChevronDown className={`h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} aria-hidden />
-					</button>
-				</div>
-
-				{filterOpen ? (
-				<div className="px-3 py-3">
-					<div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
+			) : null}
+			filters={(
+				<div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
 						<div className="space-y-1">
 							<Label>Course</Label>
 							<Select value={selectedCourseId != null ? String(selectedCourseId) : undefined} onValueChange={(v) => handleCourseChange(Number(v))} disabled={loadingFilters}>
@@ -1609,70 +1589,17 @@ export default function SeatingPlanSetupPage() {
 								</SelectContent>
 							</Select>
 						</div>
-					</div>
 				</div>
-				) : null}
-			</div>
-
-			{selectedExamTimetableId != null && (
-				<div className="app-card p-3 space-y-3">
-					<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-						<SearchInput className="w-full max-w-sm" placeholder="Search…" value={searchText} onChange={setSearchText} />
-						<div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
-								onClick={handleCopyExistingSeating}
-							>
-								<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
-								Copy Existing Seating
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
-								onClick={handleAddRoomSeatingPlan}
-							>
-								<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
-								Add Room Seating Plan
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
-								onClick={handleAssignSeating}
-							>
-								<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
-								Assign Seating
-							</Button>
-							{/* Angular exam-room-allotment autoAssign(): s_pop_exam_invigilator
-							    with the selected timetable detail id. */}
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
-								disabled={!selectedExamTimetableId}
-								onClick={async () => {
-									if (!selectedExamTimetableId) return
-									try {
-										await popExamInvigilator(selectedExamTimetableId)
-										toast.success('Invigilators auto-assigned')
-									} catch {
-										toast.error('Auto-assign invigilators failed')
-									}
-								}}
-							>
-								<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
-								Auto Assign Invigilators
-							</Button>
-						</div>
-					</div>
-
+			)}
+			filtersCollapsible
+			filtersDefaultOpen
+			rowData={selectedExamTimetableId != null ? filteredRows : []}
+			columnDefs={columnDefs}
+			pagination
+			toolbar={{ search: false, columnFilters: false, exportPdf: false, exportExcel: false, columnPicker: false }}
+			toolbarLeading={selectedExamTimetableId != null ? (
+				<div className="flex w-full flex-col gap-3">
+					<SearchInput className="w-full max-w-sm" placeholder="Search…" value={searchText} onChange={setSearchText} />
 					<div className="rounded-lg border border-border/90 bg-muted/40/70 p-3 print-hide">
 						<p className="mb-2 px-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
 							Print & exports
@@ -1701,10 +1628,6 @@ export default function SeatingPlanSetupPage() {
 										if (selectedCourseId && selectedExamId) {
 											const session = sessionOptions.find((s) => s.id === selectedExamTimetableId)
 											const examDate = session?.examDate ?? filteredRows[0]?.examDate ?? ''
-											// SessionOption stores the real exam-session id under .sessionId (the
-											// helper that builds it pulls from examSessionId / fk_exam_session_id /
-											// sessionId / exam_session_id and assigns to .sessionId). Try every
-											// alias before giving up so the proc gets a real id, not 0.
 											const sessionId =
 												(session as any)?.sessionId ??
 												(session as any)?.examSessionId ??
@@ -1733,10 +1656,6 @@ export default function SeatingPlanSetupPage() {
 												setInvigilatorRows(data)
 												setLoadingPrintData(false)
 											} else if (mode === 'student' || mode === 'groupwise-stickers' || mode === 'attendance') {
-												// All three render per-student rows from the same Angular call:
-												// roomwise_OMR_students -> studentAllotmentDetails. Attendance groups
-												// by (course_group, subject, room, examtype) for the sheet; stickers
-												// group by room (or room+group for the group-wise variant).
 												setLoadingPrintData(true)
 												const data = await listRoomwiseOmrStudents({
 													examId: selectedExamId,
@@ -1757,17 +1676,62 @@ export default function SeatingPlanSetupPage() {
 							))}
 						</div>
 					</div>
-
-					<DataTable
-						rowData={filteredRows}
-						columnDefs={columnDefs}
-						pagination
-						title=""
-						subtitle=""
-						toolbarLeading={<span />}
-					/>
 				</div>
-			)}
+			) : undefined}
+			toolbarTrailing={selectedExamTimetableId != null ? (
+				<div className="flex flex-wrap items-center gap-2">
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
+						onClick={handleCopyExistingSeating}
+					>
+						<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+						Copy Existing Seating
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
+						onClick={handleAddRoomSeatingPlan}
+					>
+						<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+						Add Room Seating Plan
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
+						onClick={handleAssignSeating}
+					>
+						<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+						Assign Seating
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
+						disabled={!selectedExamTimetableId}
+						onClick={async () => {
+							if (!selectedExamTimetableId) return
+							try {
+								await popExamInvigilator(selectedExamTimetableId)
+								toast.success('Invigilators auto-assigned')
+							} catch {
+								toast.error('Auto-assign invigilators failed')
+							}
+						}}
+					>
+						<Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+						Auto Assign Invigilators
+					</Button>
+				</div>
+			) : undefined}
+		>
 			<ConfirmDialog
 				open={assignSeatingOpen}
 				title="Assign Seating Allotment"
@@ -1792,7 +1756,7 @@ export default function SeatingPlanSetupPage() {
 					Press OK to proceed, or Cancel to go back.
 				</p>
 			</ConfirmDialog>
-		</PageContainer>
+		</FilteredListPage>
 	)
 }
 

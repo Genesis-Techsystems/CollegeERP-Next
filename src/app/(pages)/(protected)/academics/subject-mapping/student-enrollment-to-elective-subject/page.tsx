@@ -2,10 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { Filter } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
 import { Select } from '@/common/components/select'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import {
   getDigitalOnlineSyncFilters,
@@ -44,7 +42,6 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
   const [academicData, setAcademicData] = useState<AnyRow[]>([])
   const [sections, setSections] = useState<AnyRow[]>([])
   const [electives, setElectives] = useState<AnyRow[]>([])
-  const [filterOpen, setFilterOpen] = useState(true)
   const [rows, setRows] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(false)
   const [tableEnabled, setTableEnabled] = useState(false)
@@ -179,59 +176,41 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
   }
 
   return (
-    <PageContainer>
-      <PageHeader title="Student Enrollment to Elective Subject" />
-
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center justify-between gap-4">
-          <h2 className="text-sm font-semibold text-primary">Student Enrollment to Elective Subject</h2>
-          <button type="button" className="ml-auto inline-flex items-center gap-1 text-sm text-foreground" onClick={() => setFilterOpen((v) => !v)}>
-            <span>Filter</span>
-            <Filter className="h-4 w-4" />
-          </button>
-        </div>
-
-        {(
-          <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable className="md:col-span-2" />
-            <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable className="md:col-span-2" />
-            <Select label="Course Group *" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) || s(x.group_name) }))} searchable className="md:col-span-2" />
-            <Select label="Course Year *" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable className="md:col-span-2" />
-            <Select label="Academic Year *" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable className="md:col-span-1" />
-            <Select label="Section" value={groupSectionId ? String(groupSectionId) : null} onChange={(v) => setGroupSectionId(v ? Number(v) : null)} options={sections.map((x) => ({ value: String(n(x.pk_group_section_id ?? x.groupSectionId)), label: s(x.section) || s(x.sectionName) }))} searchable className="md:col-span-1" />
-            <Select
-              label="Elective"
-              value={electiveGroupMappingId ? String(electiveGroupMappingId) : null}
-              onChange={(v) => setElectiveGroupMappingId(v ? Number(v) : null)}
-              options={electives.map((x) => ({
-                value: String(n(x.electiveGroupyrMappingId ?? x.pk_elective_groupyr_mapping_id)),
-                label: pick(x, ['electiveGroupName', 'groupName', 'elective_group_name', 'electiveGroupCode']),
-              }))}
-              searchable
-              className="md:col-span-1"
-            />
-            <div className="md:col-span-1">
-              <Button type="button" className="h-9 w-full" disabled={!collegeId || !academicYearId} onClick={() => { void loadEnrollmentRows() }}>
-                Get
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {tableEnabled ? (
-        <div className="app-card mt-4 p-3">
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loading}
-            toolbar={{ search: true, searchPlaceholder: 'Search students' }}
-            pagination
-            paginationPageSize={10}
+    <FilteredListPage
+      title="Student Enrollment to Elective Subject"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable className="md:col-span-2" />
+          <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable className="md:col-span-2" />
+          <Select label="Course Group *" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) || s(x.group_name) }))} searchable className="md:col-span-2" />
+          <Select label="Course Year *" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable className="md:col-span-2" />
+          <Select label="Academic Year *" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable className="md:col-span-1" />
+          <Select label="Section" value={groupSectionId ? String(groupSectionId) : null} onChange={(v) => setGroupSectionId(v ? Number(v) : null)} options={sections.map((x) => ({ value: String(n(x.pk_group_section_id ?? x.groupSectionId)), label: s(x.section) || s(x.sectionName) }))} searchable className="md:col-span-1" />
+          <Select
+            label="Elective"
+            value={electiveGroupMappingId ? String(electiveGroupMappingId) : null}
+            onChange={(v) => setElectiveGroupMappingId(v ? Number(v) : null)}
+            options={electives.map((x) => ({
+              value: String(n(x.electiveGroupyrMappingId ?? x.pk_elective_groupyr_mapping_id)),
+              label: pick(x, ['electiveGroupName', 'groupName', 'elective_group_name', 'electiveGroupCode']),
+            }))}
+            searchable
+            className="md:col-span-1"
           />
+          <div className="md:col-span-1">
+            <Button type="button" className="h-9 w-full" disabled={!collegeId || !academicYearId} onClick={() => { void loadEnrollmentRows() }}>
+              Get
+            </Button>
+          </div>
         </div>
-      ) : null}
-    </PageContainer>
+      )}
+      rowData={tableEnabled ? rows : []}
+      columnDefs={columnDefs}
+      loading={loading}
+      toolbar={{ search: true, searchPlaceholder: 'Search students' }}
+      pagination
+      paginationPageSize={10}
+    />
   )
 }
 

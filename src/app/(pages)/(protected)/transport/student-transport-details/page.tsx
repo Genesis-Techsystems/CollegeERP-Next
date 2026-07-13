@@ -3,10 +3,9 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ColDef } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
 import { EmptyState } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
@@ -14,9 +13,8 @@ import {
   getStudentTransportReport,
   listCollegesByOrganization,
 } from '@/services'
-import { TransportPageTitle } from '../_components/TransportPageTitle'
-import { useTransportOrgCascade } from '../_lib/use-transport-org-cascade'
 import { getErrorMessage } from '@/lib/errors'
+import { useTransportOrgCascade } from '../_lib/use-transport-org-cascade'
 
 type ReportRow = Record<string, unknown>
 
@@ -80,55 +78,68 @@ export default function StudentTransportDetailsPage() {
     )
   }
 
-  return (
-    <PageContainer className="space-y-5">
-      <TransportPageTitle title="Student Transport Details" />
-
-      <div className="app-card grid grid-cols-1 gap-3 p-4 md:grid-cols-4">
-        <Select
-          label="Organization *"
-          value={organizationId ? String(organizationId) : null}
-          onChange={(v) => {
-            const id = v ? Number(v) : undefined
-            setOrganizationId(id)
-            setCollegeId(undefined)
-            setTransportDetailId(undefined)
-            if (id) void loadColleges(id).catch(() => undefined)
-          }}
-          options={organizations}
-          searchable
-          isLoading={loadingOrgs}
-        />
-        <Select
-          label="College *"
-          value={collegeId ? String(collegeId) : null}
-          onChange={(v) => setCollegeId(v ? Number(v) : undefined)}
-          options={colleges}
-          searchable
-          disabled={!organizationId}
-        />
-        <Select
-          label="Transport *"
-          value={transportDetailId ? String(transportDetailId) : null}
-          onChange={(v) => setTransportDetailId(v ? Number(v) : undefined)}
-          options={transportDetails}
-          searchable
-          isLoading={loadingTransport}
-          disabled={!organizationId}
-        />
-        <div className="flex items-end">
-          <Button
-            className="w-full"
-            disabled={!organizationId || !collegeId || !transportDetailId}
-            onClick={() => setApplied(true)}
-          >
-            Search
-          </Button>
-        </div>
+  const filters = (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      <Select
+        label="Organization *"
+        value={organizationId ? String(organizationId) : null}
+        onChange={(v) => {
+          const id = v ? Number(v) : undefined
+          setOrganizationId(id)
+          setCollegeId(undefined)
+          setTransportDetailId(undefined)
+          if (id) void loadColleges(id).catch(() => undefined)
+        }}
+        options={organizations}
+        searchable
+        isLoading={loadingOrgs}
+      />
+      <Select
+        label="College *"
+        value={collegeId ? String(collegeId) : null}
+        onChange={(v) => setCollegeId(v ? Number(v) : undefined)}
+        options={colleges}
+        searchable
+        disabled={!organizationId}
+      />
+      <Select
+        label="Transport *"
+        value={transportDetailId ? String(transportDetailId) : null}
+        onChange={(v) => setTransportDetailId(v ? Number(v) : undefined)}
+        options={transportDetails}
+        searchable
+        isLoading={loadingTransport}
+        disabled={!organizationId}
+      />
+      <div className="flex items-end">
+        <Button
+          className="w-full"
+          disabled={!organizationId || !collegeId || !transportDetailId}
+          onClick={() => setApplied(true)}
+        >
+          Search
+        </Button>
       </div>
+    </div>
+  )
 
-      <TableCard withHeaderBorder={false}>
-        {!applied ? (
+  const showResults = applied && !isError
+
+  return (
+    <FilteredListPage
+      title="Student Transport Details"
+      filters={filters}
+      rowData={showResults ? (rows as ReportRow[]) : []}
+      columnDefs={columnDefs}
+      loading={applied ? isLoading : false}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Student Transport Details',
+      }}
+      notice={
+        !applied ? (
           <EmptyState
             title="Select filters"
             description="Choose organization, college, and transport, then click Search."
@@ -139,20 +150,8 @@ export default function StudentTransportDetailsPage() {
             description={getErrorMessage(error)}
             action={{ label: 'Retry', onClick: () => void refetch() }}
           />
-        ) : (
-          <DataTable
-            rowData={rows as ReportRow[]}
-            columnDefs={columnDefs}
-            loading={isLoading}
-            pagination
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search…',
-              pdfDocumentTitle: 'Student Transport Details',
-            }}
-          />
-        )}
-      </TableCard>
-    </PageContainer>
+        ) : undefined
+      }
+    />
   )
 }

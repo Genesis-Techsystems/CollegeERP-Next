@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { BookMarked, ChevronDown, Filter, Pencil } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { Pencil } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import { SearchInput } from '@/common/components/search'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
@@ -59,7 +58,6 @@ function makeEditRenderer(onEdit: (row: Row) => void) {
 }
 
 export default function ExamCenterSubjectsPage() {
-  const [filtersOpen, setFiltersOpen] = useState(true)
   const [loadingFilters, setLoadingFilters] = useState(false)
   const [loadingList, setLoadingList] = useState(false)
   const [assigning, setAssigning] = useState(false)
@@ -442,38 +440,20 @@ export default function ExamCenterSubjectsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Exam center subjects" subtitle="Exam papers delivery process · Exam center subjects" />
-
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
-            <h2 className="app-card-title">
-              Exam Center Subjects
-            </h2>
-          </div>
-          <button type="button" className="flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground" onClick={() => setFiltersOpen((v) => !v)} aria-expanded={filtersOpen}>
-            <span>Filter</span>
-            <Filter className="h-4 w-4" aria-hidden />
-            <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-          </button>
+    <FilteredListPage
+      title="Exam Center Subjects"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
+          <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courseOptions} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} disabled={loadingFilters} /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={ayOptions} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>
+          <div className="space-y-1 md:col-span-3"><Label>Exam</Label><Select options={examOptions} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v ?? '' }))} /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))} /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Exam Center Colleges</Label><Select options={collegeOptions} value={form.univEcCollegeId} onChange={(v) => setForm((f) => ({ ...f, univEcCollegeId: v ?? '' }))} /></div>
+          <div className="space-y-1 md:col-span-1"><Label>Regulation</Label><Select options={regulationOptions} value={form.regulationId} onChange={(v) => setForm((f) => ({ ...f, regulationId: v ?? '' }))} /></div>
+          <div className="md:col-span-12 flex justify-end"><Button type="button" onClick={() => void onGetList()} disabled={loadingList}>Get List</Button></div>
         </div>
-
-        {(
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
-            <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courseOptions} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} disabled={loadingFilters} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={ayOptions} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>
-            <div className="space-y-1 md:col-span-3"><Label>Exam</Label><Select options={examOptions} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v ?? '' }))} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Exam Center Colleges</Label><Select options={collegeOptions} value={form.univEcCollegeId} onChange={(v) => setForm((f) => ({ ...f, univEcCollegeId: v ?? '' }))} /></div>
-            <div className="space-y-1 md:col-span-1"><Label>Regulation</Label><Select options={regulationOptions} value={form.regulationId} onChange={(v) => setForm((f) => ({ ...f, regulationId: v ?? '' }))} /></div>
-            <div className="md:col-span-12 flex justify-end"><Button type="button" onClick={() => void onGetList()} disabled={loadingList}>Get List</Button></div>
-          </div>
-        )}
-      </div>
-
-      {showSections && (
+      )}
+      notice={showSections ? (
         <>
           <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-border"><h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">Exam Center Colleges - {headerText}</h3></div>
           <div className="app-card p-3">
@@ -516,33 +496,32 @@ export default function ExamCenterSubjectsPage() {
               </div>
             </div>
           </div>
-
-          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-border"><h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">Exam Center Colleges - {headerText}</h3></div>
-          <div className="app-card overflow-hidden">
-            <div className="p-2">
-              <DataTable
-                rowData={existsRows}
-                columnDefs={tableColumnDefs}
-                loading={loadingList}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search…',
-                  pdfDocumentTitle: 'Exam Center Subjects',
-                }}
-              />
-            </div>
-          </div>
         </>
-      )}
-
+      ) : null}
+      rowData={showSections ? existsRows : []}
+      columnDefs={tableColumnDefs}
+      loading={loadingList}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Exam Center Subjects',
+      }}
+      toolbarLeading={
+        showSections ? (
+          <span className="text-[12px] font-medium text-[hsl(var(--primary))] truncate max-w-[min(100%,40rem)]">
+            {headerText}
+          </span>
+        ) : null
+      }
+    >
       <FormModal open={editOpen} onClose={() => setEditOpen(false)} title="Update Subject" onSubmit={onSaveEdit} size="lg">
         <div className="space-y-2">
           <div className="text-sm"><span className="text-muted-foreground">Subject:</span> <span className="text-blue-700">{txt(editRow?.subject_code)} - {txt(editRow?.subject_name)}</span></div>
           <ActiveStatusField isActive={editForm.isActive} reason={editForm.reason} onActiveChange={(v) => setEditForm((f) => ({ ...f, isActive: v === true }))} onReasonChange={(v) => setEditForm((f) => ({ ...f, reason: v }))} />
         </div>
       </FormModal>
-    </PageContainer>
+    </FilteredListPage>
   )
 }
 

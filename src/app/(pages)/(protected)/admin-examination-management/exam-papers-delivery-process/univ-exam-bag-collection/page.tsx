@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Pencil, Plus } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { ListPage } from '@/components/layout'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { ActiveStatusField } from '@/common/components/forms'
@@ -182,29 +181,24 @@ export default function UnivExamBagCollectionPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="p-2">
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loading}
-            pagination
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search…',
-              pdfDocumentTitle: 'Exam Bag Collection',
-            }}
-            toolbarTrailing={
-              <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Add Exam Bag Collection
-              </Button>
-            }
-          />
-        </div>
-      </div>
-
+    <ListPage
+      title="Exam Bag Collection"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Exam Bag Collection',
+      }}
+      toolbarTrailing={
+        <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          Add Exam Bag Collection
+        </Button>
+      }
+    >
       <FormModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -258,7 +252,7 @@ export default function UnivExamBagCollectionPage() {
           onReasonChange={(v) => setFormModal((f) => ({ ...f, reason: v }))}
         />
       </FormModal>
-    </PageContainer>
+    </ListPage>
   )
 }
 

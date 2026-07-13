@@ -2,9 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { ClipboardList, PencilIcon, PlusIcon } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { PencilIcon, PlusIcon } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
 import { Select } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
@@ -126,12 +125,9 @@ export default function AddCommitteeMembersPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <ClipboardList className="h-4 w-4 text-[hsl(var(--primary))]" />
-          <h2 className="app-card-title">Committee Members</h2>
-        </div>
+    <FilteredListPage
+      title="Committee Members"
+      filters={(
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[280px] flex-1 max-w-md space-y-0.5">
             <Label className="text-xs">Committee *</Label>
@@ -152,37 +148,27 @@ export default function AddCommitteeMembersPage() {
             Get List
           </Button>
         </div>
-      </div>
-
-      {appliedCommitteeId > 0 && (
-        <div className="app-card overflow-hidden">
-          <div className="px-3 pb-3 pt-2">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <DataTable
-                rowData={data}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search',
-                  pdfDocumentTitle: 'Committee Members',
-                }}
-                toolbarTrailing={(
-                  <Button
-                    size="sm"
-                    onClick={() => { setEditData(null); setModalOpen(true) }}
-                  >
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Committee Member
-                  </Button>
-                )}
-              />
-            </div>
-          </div>
-        </div>
       )}
-
+      rowData={appliedCommitteeId > 0 ? data : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search',
+        pdfDocumentTitle: 'Committee Members',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          disabled={appliedCommitteeId <= 0}
+          onClick={() => { setEditData(null); setModalOpen(true) }}
+        >
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Committee Member
+        </Button>
+      )}
+    >
       <CommitteeMemberModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditData(null) }}
@@ -190,6 +176,6 @@ export default function AddCommitteeMembersPage() {
         committeeId={appliedCommitteeId}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

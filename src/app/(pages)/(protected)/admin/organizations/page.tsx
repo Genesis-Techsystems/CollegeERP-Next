@@ -3,8 +3,8 @@
 import { useState, useMemo } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PlusIcon, Building2 } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable, TableRowActions } from '@/common/components/table'
+import { ListPage } from '@/components/layout'
+import { TableRowActions } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/common/components/data-display'
 import OrganizationModal from './OrganizationModal'
@@ -80,8 +80,24 @@ export default function OrganizationsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      {!loading && organizations.length === 0 ? (
+    <ListPage
+      title="Organizations"
+      rowData={organizations}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{ searchPlaceholder: 'Search organizations…', pdfDocumentTitle: 'Organizations' }}
+      toolbarTrailing={
+        <Button
+          size="sm"
+          data-table-primary-action
+          onClick={() => { setEditingOrg(null); setModalOpen(true) }}
+        >
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          New Organization
+        </Button>
+      }
+      emptyState={
         <div className="app-card flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Building2 className="mb-3 h-10 w-10 opacity-40" />
           <p className="text-sm">No organizations found</p>
@@ -95,34 +111,14 @@ export default function OrganizationsPage() {
             New Organization
           </Button>
         </div>
-      ) : (
-        <DataTable
-          title="Organizations"
-          bordered
-          rowData={organizations}
-          columnDefs={columnDefs}
-          loading={loading}
-          pagination
-          toolbar={{ searchPlaceholder: 'Search organizations…', pdfDocumentTitle: 'Organizations' }}
-          toolbarTrailing={
-            <Button
-              size="sm"
-              data-table-primary-action
-              onClick={() => { setEditingOrg(null); setModalOpen(true) }}
-            >
-              <PlusIcon className="mr-1.5 h-4 w-4" />
-              New Organization
-            </Button>
-          }
-        />
-      )}
-
+      }
+    >
       <OrganizationModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingOrg(null) }}
         organization={editingOrg}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

@@ -3,19 +3,17 @@
 import { useMemo, useState } from 'react'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams, ValueGetterParams } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
 import { EmptyState } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
 import { formatDate } from '@/common/generic-functions'
 import { getErrorMessage } from '@/lib/errors'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
 import { listVehicleRoutes } from '@/services'
 import type { VehicleRoute } from '@/types/transport'
-import { TransportPageTitle } from '../_components/TransportPageTitle'
 import { VehicleMapModal } from './VehicleMapModal'
 
 function durationGetter(p: ValueGetterParams<VehicleRoute>) {
@@ -92,44 +90,39 @@ export default function VehicleMapPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <TransportPageTitle title="Map Vehicle Route" />
-
-      <TableCard withHeaderBorder={false}>
-        {isError ? (
+    <ListPage
+      title="Map Vehicle Route"
+      rowData={isError ? [] : rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Map Vehicle Route',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
+          }}
+        >
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Vehicle Route
+        </Button>
+      )}
+      emptyState={
+        isError ? (
           <EmptyState
             title="Could not load vehicle routes"
             description={getErrorMessage(error)}
             action={{ label: 'Retry', onClick: () => void refetch() }}
           />
-        ) : (
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={isLoading}
-            pagination
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search…',
-              pdfDocumentTitle: 'Map Vehicle Route',
-            }}
-            toolbarTrailing={(
-              <Button
-                size="sm"
-                className="h-[30px] px-3 text-[12px]"
-                onClick={() => {
-                  setEditing(null)
-                  setModalOpen(true)
-                }}
-              >
-                <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-                Add Vehicle Route
-              </Button>
-            )}
-          />
-        )}
-      </TableCard>
-
+        ) : undefined
+      }
+    >
       <VehicleMapModal
         open={modalOpen}
         onClose={() => {
@@ -139,6 +132,6 @@ export default function VehicleMapPage() {
         row={editing}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

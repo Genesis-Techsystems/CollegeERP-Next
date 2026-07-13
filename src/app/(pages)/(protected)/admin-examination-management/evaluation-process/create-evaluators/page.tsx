@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { toDateOnlyISO } from '@/common/generic-functions'
 import { listActiveColleges } from '@/services/pre-examination'
@@ -909,38 +909,28 @@ export default function CreateEvaluatorsPage() {
   const evaluatorName = pickText(prefRow, ['evaluatorName'])
 
   return (
-    <PageContainer className="space-y-4">
-      {/* <PageHeader title="Create Evaluators" subtitle="Assign evaluators to examinations" /> */}
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Evaluator&apos;s Profile</h2>
-        </div>
-        <div className="p-4 space-y-3">
-          <DataTable
-            rowData={rows}
-            columnDefs={cols}
-            pagination
-            loading={loading}
-            subtitle=""
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search…',
-              pdfDocumentTitle: "Create Evaluators",
-            }}
-            toolbarTrailing={
-              <>
-                <Button type="button" variant="outline" onClick={() => openSendCredentialsModal('bulk')} disabled={loading}>
-                  Send Evaluator Credentials
-                </Button>
-                <Button type="button" onClick={openAdd} disabled={loading}>
-                  Create Evaluator
-                </Button>
-              </>
-            }
-          />
-        </div>
-      </div>
-
+    <ListPage
+      title="Evaluator's Profile"
+      rowData={rows}
+      columnDefs={cols}
+      pagination
+      loading={loading}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Create Evaluators',
+      }}
+      toolbarTrailing={(
+        <>
+          <Button type="button" variant="outline" onClick={() => openSendCredentialsModal('bulk')} disabled={loading}>
+            Send Evaluator Credentials
+          </Button>
+          <Button type="button" onClick={openAdd} disabled={loading}>
+            Create Evaluator
+          </Button>
+        </>
+      )}
+    >
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
@@ -1449,6 +1439,6 @@ export default function CreateEvaluatorsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </ListPage>
   )
 }

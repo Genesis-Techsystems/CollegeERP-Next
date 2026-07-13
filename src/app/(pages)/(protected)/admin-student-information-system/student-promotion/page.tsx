@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Filter } from "lucide-react";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { DatePicker } from "@/common/components/date-picker";
 import { Button } from "@/components/ui/button";
@@ -265,8 +264,6 @@ function mapSectionOptsFrom(rows: AnyRow[]) {
 export default function StudentPromotionPage() {
   const { user } = useSessionContext();
 
-  const [fromFilterOpen, setFromFilterOpen] = useState(true);
-  const [toFilterOpen, setToFilterOpen] = useState(true);
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
   const [allRows, setAllRows] = useState<AnyRow[]>([]);
@@ -1019,30 +1016,14 @@ export default function StudentPromotionPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="app-card overflow-hidden" data-no-page-name>
-          <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
-            <h2 className="app-card-title">Promote From</h2>
-            <Button
-              type="button"
-              variant="outline"
-              style={{ marginRight: "0px" }}
-              size="sm"
-              className="h-6 px-2.5 text-[12px]"
-              onClick={() => setFromFilterOpen((v) => !v)}
-              aria-expanded={fromFilterOpen}
-            >
-              <Filter className="mr-1.5 h-3.5 w-3.5" />
-              Filter
-              <ChevronDown
-                className={`ml-1.5 h-3.5 w-3.5 transition-transform ${fromFilterOpen ? "rotate-180" : ""}`}
-              />
-            </Button>
-          </div>
-          {fromFilterOpen && (
-            <div className="p-3">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+    <FilteredPage
+      title="Student Promotion"
+      filtersCollapsible={false}
+      filters={(
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="space-y-3 rounded border border-border p-3">
+            <h3 className="text-sm font-semibold text-primary">Promote From</h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <Select
                   label="College"
                   required
@@ -1105,32 +1086,11 @@ export default function StudentPromotionPage() {
                   className={selectClass()}
                 />
               </div>
-            </div>
-          )}
-        </div>
-
-        <div className="app-card overflow-hidden" data-no-page-name>
-          <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
-            <h2 className="app-card-title">Promote To</h2>
-            <Button
-              type="button"
-              variant="outline"
-              style={{ marginRight: "0px" }}
-              size="sm"
-              className="ml-auto h-6 px-2.5 text-[12px]"
-              onClick={() => setToFilterOpen((v) => !v)}
-              aria-expanded={toFilterOpen}
-            >
-              <Filter className="mr-1.5 h-3.5 w-3.5" />
-              Filter
-              <ChevronDown
-                className={`ml-1.5 h-3.5 w-3.5 transition-transform ${toFilterOpen ? "rotate-180" : ""}`}
-              />
-            </Button>
           </div>
-          {toFilterOpen && (
-            <div className="space-y-3 p-3">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+
+          <div className="space-y-3 rounded border border-border p-3">
+            <h3 className="text-sm font-semibold text-primary">Promote To</h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <Select
                   label="College"
                   value={toCollegeId ? String(toCollegeId) : null}
@@ -1196,18 +1156,17 @@ export default function StudentPromotionPage() {
                   className={selectClass()}
                 />
               </div>
-              <DatePicker
-                label="Change From"
-                value={changeFrom}
-                onChange={setChangeFrom}
-                placeholder="Pick a date"
-                className="max-w-xs"
-              />
-            </div>
-          )}
+            <DatePicker
+              label="Change From"
+              value={changeFrom}
+              onChange={setChangeFrom}
+              placeholder="Pick a date"
+              className="max-w-xs"
+            />
+          </div>
         </div>
-      </div>
-
+      )}
+    >
       {loadingList && fromSectionId ? (
         <p className="text-xs text-muted-foreground">Loading students…</p>
       ) : null}
@@ -1473,6 +1432,6 @@ export default function StudentPromotionPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredPage>
   );
 }

@@ -3,12 +3,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Pencil } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
 import { Select } from '@/common/components/select'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { PageContainer, PageHeader } from '@/components/layout'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   getDigitalOnlineSyncFilters,
@@ -66,7 +65,6 @@ export default function StaffSubjectUnmappingPage() {
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [employeeId, setEmployeeId] = useState<number | null>(null)
   const [employees, setEmployees] = useState<AnyRow[]>([])
-  const [filterOpen, setFilterOpen] = useState(true)
 
   const [rows, setRows] = useState<AnyRow[]>([])
   const [unmapOpen, setUnmapOpen] = useState(false)
@@ -163,60 +161,41 @@ export default function StaffSubjectUnmappingPage() {
     { headerName: 'Actions', minWidth: 90, maxWidth: 100, flex: 0, cellRenderer: makeActionsRenderer(openUnmap) },
   ], [])
 
-  const selectedEmployee = useMemo(() => employees.find((x) => n(x.employeeId) === employeeId) ?? null, [employees, employeeId])
-  const employeeLabel = useMemo(() => {
-    const fullName = [selectedEmployee?.firstName, selectedEmployee?.middleName, selectedEmployee?.lastName].filter(Boolean).join(' ').trim()
-    const empNo = s(selectedEmployee?.empNumber)
-    return fullName && empNo ? `${fullName} (${empNo})` : fullName || empNo || '-'
-  }, [selectedEmployee])
-
   return (
-    <PageContainer>
-      <PageHeader title="Staff Subject Unmapping" />
-      <div className="app-card p-0 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <div className="text-base font-semibold text-primary">Staff Subject Unmapping</div>
-          <button type="button" className="text-sm text-muted-foreground hover:text-foreground" onClick={() => setFilterOpen((v) => !v)}>
-            Filter
-          </button>
-        </div>
-        {(
-          <div className="p-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Select
-                label="College"
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => setCollegeId(v ? Number(v) : null)}
-                options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))}
-                searchable
-              />
-              <Select
-                label="Employee"
-                value={employeeId ? String(employeeId) : null}
-                onChange={(v) => setEmployeeId(v ? Number(v) : null)}
-                options={employees.map((x) => {
-                  const name = [x.firstName, x.middleName, x.lastName].filter(Boolean).join(' ').trim()
-                  const empNo = s(x.empNumber)
-                  return { value: String(n(x.employeeId)), label: empNo ? `${name} (${empNo})` : name }
-                })}
-                searchable
-                disabled={!collegeId || employeeLoading}
-                isLoading={employeeLoading}
-              />
-            </div>
+    <>
+      <FilteredListPage
+        title="Staff Subject Unmapping"
+        filters={(
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Select
+              label="College"
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => setCollegeId(v ? Number(v) : null)}
+              options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))}
+              searchable
+            />
+            <Select
+              label="Employee"
+              value={employeeId ? String(employeeId) : null}
+              onChange={(v) => setEmployeeId(v ? Number(v) : null)}
+              options={employees.map((x) => {
+                const name = [x.firstName, x.middleName, x.lastName].filter(Boolean).join(' ').trim()
+                const empNo = s(x.empNumber)
+                return { value: String(n(x.employeeId)), label: empNo ? `${name} (${empNo})` : name }
+              })}
+              searchable
+              disabled={!collegeId || employeeLoading}
+              isLoading={employeeLoading}
+            />
           </div>
         )}
-      </div>
-
-      {!!employeeId && (
-        <div className="app-card mt-3 p-0 overflow-hidden">
-          <div className="px-4 py-2 border-b">
-            <h2 className="text-base font-semibold text-primary">Employee Mapped Subjects</h2>
-            <p className="text-xs text-muted-foreground mt-1">{employeeLabel}</p>
-          </div>
-          <DataTable rowData={rows} columnDefs={columnDefs} loading={loading} toolbar={{ search: true, searchPlaceholder: 'Search' }} pagination paginationPageSize={10} />
-        </div>
-      )}
+        rowData={employeeId ? rows : []}
+        columnDefs={columnDefs}
+        loading={loading}
+        toolbar={{ search: true, searchPlaceholder: 'Search' }}
+        pagination
+        paginationPageSize={10}
+      />
 
       <Dialog open={unmapOpen} onOpenChange={setUnmapOpen}>
         <DialogContent className="sm:max-w-3xl overflow-hidden">
@@ -267,7 +246,7 @@ export default function StaffSubjectUnmappingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </>
   )
 }
 

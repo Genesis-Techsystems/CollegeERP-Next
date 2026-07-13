@@ -3,15 +3,13 @@
 import { useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
+import { FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
 import { DatePicker } from '@/common/components/date-picker'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { getVisitorsSummaryReport, toHostelApiDate } from '@/services'
-import { HostelPageTitle } from '../_components/HostelPageTitle'
 import { useHostelSelect } from '../_lib/use-hostel-select'
 
 export default function MonthlyVisitorSummaryReportPage() {
@@ -46,10 +44,9 @@ export default function MonthlyVisitorSummaryReportPage() {
   }, [rows])
 
   return (
-    <PageContainer className="space-y-5">
-      <HostelPageTitle title="Monthly Visitor Summary Report" />
-
-      <FilterCard title="Report filters">
+    <FilteredListPage
+      title="Monthly Visitor Summary Report"
+      filters={(
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Select
             label="Hostel"
@@ -72,16 +69,12 @@ export default function MonthlyVisitorSummaryReportPage() {
             </Button>
           </div>
         </div>
-      </FilterCard>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={isLoading || isFetching}
-          height="auto"
-        />
-      </TableCard>
-    </PageContainer>
+      )}
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading || isFetching}
+      height="auto"
+      toolbar={{ search: true, searchPlaceholder: 'Search report…', pdfDocumentTitle: 'Monthly Visitor Summary Report' }}
+    />
   )
 }

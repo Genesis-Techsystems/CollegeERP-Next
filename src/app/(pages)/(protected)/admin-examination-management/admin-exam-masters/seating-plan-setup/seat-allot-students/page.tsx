@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
 	listExamStdAttDetails,
 	listRoomwiseOmrStudents,
@@ -17,7 +16,8 @@ import {
 } from '@/services/seating-plan'
 import { listCourseGroups, listCourseYears, listGeneralDetailsByMaster } from '@/services/examination'
 import { GM_CODES } from '@/config/constants/ui'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { usePrintMode } from '@/lib/print'
 import { useCollegeLogo } from '@/hooks/useCollegeLogo'
 import { SeatAllotmentModal, type SeatAllotmentResult } from '@/app/(pages)/(protected)/admin-examination-management/_components/SeatAllotmentModal'
@@ -1545,7 +1545,7 @@ export default function SeatAllotStudentsPage() {
 	}
 
 	return (
-		<PageContainer className="space-y-4">
+		<>
 			{loading && (
 				<div
 					data-print-hide
@@ -1560,64 +1560,54 @@ export default function SeatAllotStudentsPage() {
 					</div>
 				</div>
 			)}
-		<h1 className="mb-3 text-[15px] font-semibold tracking-tight text-[hsl(var(--page-title))]">
-			Seat Allot Students
-		</h1>
-			<div className="app-card overflow-hidden">
-				<div className="px-4 py-3 border-b border-border bg-muted/40">
-					<h2 className="app-card-title">Exam Scheduling Forms</h2>
-				</div>
-				<div className="p-3 space-y-2">
-					<div className="rounded-md border border-cyan-200 bg-cyan-50/30 px-3 py-2 text-[12px]">
-						<div className="flex flex-wrap items-center gap-2">
-							<span className="font-semibold text-slate-700 min-w-16">Course</span>
-							<span>:</span>
-							<span className="font-semibold text-blue-700">{courseLine}</span>
+			<FilteredPage
+				title="Seat Allot Students"
+				filters={
+					<>
+						<div className="mb-3 rounded-md border border-cyan-200 bg-cyan-50/30 px-3 py-2 text-[12px]">
+							<div className="flex flex-wrap items-center gap-2">
+								<span className="font-semibold text-slate-700 min-w-16">Course</span>
+								<span>:</span>
+								<span className="font-semibold text-blue-700">{courseLine}</span>
+							</div>
+							<div className="flex flex-wrap items-center gap-2">
+								<span className="font-semibold text-slate-700 min-w-16">Exam</span>
+								<span>:</span>
+								<span className="font-semibold text-blue-700">{details.examName || details.examId || '-'}</span>
+							</div>
+							<div className="flex flex-wrap items-center gap-2">
+								<span className="font-semibold text-slate-700 min-w-16">Exam Type</span>
+								<span>:</span>
+								<span className="font-semibold text-blue-700">{details.examType || details.examSession || '-'}</span>
+							</div>
 						</div>
-						<div className="flex flex-wrap items-center gap-2">
-							<span className="font-semibold text-slate-700 min-w-16">Exam</span>
-							<span>:</span>
-							<span className="font-semibold text-blue-700">{details.examName || details.examId || '-'}</span>
-						</div>
-						<div className="flex flex-wrap items-center gap-2">
-							<span className="font-semibold text-slate-700 min-w-16">Exam Type</span>
-							<span>:</span>
-							<span className="font-semibold text-blue-700">{details.examType || details.examSession || '-'}</span>
-						</div>
-					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end text-[12px]">
-						<div className="md:col-span-2 space-y-1">
-							<Label>Choose a exam date</Label>
-							<Input value={details.examDate || ''} readOnly className="h-8 text-[12px]" />
-						</div>
-						<div className="md:col-span-5 space-y-1">
-							<Label>Exam Timetable</Label>
-							<Input value={`${details.examDate || ''} / ${details.examSession || ''}`} readOnly className="h-8 text-[12px]" />
-						</div>
-						<div className="md:col-span-5" />
-						<div className="md:col-span-4 space-y-1">
-							<Label>Room</Label>
-							<Input value={roomMeta.roomLabel || ''} readOnly className="h-8 text-[12px]" />
-						</div>
-						<div className="md:col-span-2 space-y-1">
-							<Label>Total Rows</Label>
-							<Input value={String(roomMeta.totalRows || 0)} readOnly className="h-8 text-[12px]" />
-						</div>
-						<div className="md:col-span-2 space-y-1">
-							<Label>Total Columns</Label>
-							<Input value={String(roomMeta.totalCols || 0)} readOnly className="h-8 text-[12px]" />
-						</div>
-						<div className="md:col-span-2 space-y-1">
-							<Label>Room Strength</Label>
-							<Input value={String(roomMeta.roomStrength || 0)} readOnly className="h-8 text-[12px]" />
-						</div>
-						<div className="md:col-span-2 space-y-1">
-							<Label>Priority</Label>
-							<Input value={String(roomMeta.priority || 0)} readOnly className="h-8 text-[12px]" />
-						</div>
-					</div>
-
+						<GlobalFilterBarRow columns={2}>
+							<GlobalFilterField label="Exam Date">
+								<Input value={details.examDate || ''} readOnly className="h-9 text-[13px]" />
+							</GlobalFilterField>
+							<GlobalFilterField label="Exam Timetable">
+								<Input value={`${details.examDate || ''} / ${details.examSession || ''}`} readOnly className="h-9 text-[13px]" />
+							</GlobalFilterField>
+							<GlobalFilterField label="Room">
+								<Input value={roomMeta.roomLabel || ''} readOnly className="h-9 text-[13px]" />
+							</GlobalFilterField>
+							<GlobalFilterField label="Total Rows">
+								<Input value={String(roomMeta.totalRows || 0)} readOnly className="h-9 text-[13px]" />
+							</GlobalFilterField>
+							<GlobalFilterField label="Total Columns">
+								<Input value={String(roomMeta.totalCols || 0)} readOnly className="h-9 text-[13px]" />
+							</GlobalFilterField>
+							<GlobalFilterField label="Room Strength">
+								<Input value={String(roomMeta.roomStrength || 0)} readOnly className="h-9 text-[13px]" />
+							</GlobalFilterField>
+							<GlobalFilterField label="Priority">
+								<Input value={String(roomMeta.priority || 0)} readOnly className="h-9 text-[13px]" />
+							</GlobalFilterField>
+						</GlobalFilterBarRow>
+					</>
+				}
+				body={
+					<div className="space-y-2">
 					<div className="flex items-center gap-6 text-[12px] pt-1">
 						<label className="inline-flex items-center gap-2 cursor-pointer">
 							<input
@@ -1932,9 +1922,9 @@ export default function SeatAllotStudentsPage() {
 					<div className="text-[11px] text-muted-foreground px-1">
 						{loading ? 'Loading...' : `Students: ${attendanceRows.length} | Seats: ${seatRows.length}`}
 					</div>
-				</div>
-			</div>
-
+					</div>
+				}
+			>
 			<SeatAllotmentModal
 				open={seatModalOpen}
 				onClose={() => {
@@ -1963,7 +1953,8 @@ export default function SeatAllotStudentsPage() {
 					examId: allotmentContext.examId,
 				}}
 			/>
-		</PageContainer>
+			</FilteredPage>
+		</>
 	)
 }
 

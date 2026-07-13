@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { ChevronDown, Eye, Filter } from "lucide-react";
+import { Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { DataTable } from "@/common/components/table";
 import { Select } from "@/common/components/select";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
   listActiveCourseGroupsByCourse,
@@ -102,7 +101,6 @@ export default function UniversityCurriculumPage() {
 
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [viewContext, setViewContext] = useState<AnyRow | null>(null);
-  const [filterOpen, setFilterOpen] = useState(true);
 
   const uniOptions = useMemo(
     () =>
@@ -321,28 +319,11 @@ export default function UniversityCurriculumPage() {
   );
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-4 py-3">
-          <h2 className="app-card-title">University Curriculum</h2>
-          <Button
-            type="button"
-            size="sm"
-            className="inline-flex h-6 items-center px-2.5 text-[12px] text-muted-foreground"
-            style={{ marginRight: "0px" }}
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-4 w-4" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-4 w-4 transition-transform ${filterOpen ? "rotate-180" : ""}`}
-            />
-          </Button>
-        </div>
-
-        {filterOpen ? (
-          <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-2 lg:grid-cols-4">
+    <>
+      <FilteredListPage
+        title="University Curriculum"
+        filters={(
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             <Select
               label="University"
               value={universityId ? String(universityId) : null}
@@ -379,30 +360,23 @@ export default function UniversityCurriculumPage() {
               disabled={!courseGroupId}
             />
           </div>
-        ) : null}
-      </div>
-
-      {courseYears.length > 0 ? (
-        <div className="app-card overflow-hidden p-0">
-          <DataTable
-            rowData={courseYears}
-            columnDefs={columnDefs}
-            loading={loading}
-            toolbar={{
-              search: true,
-              searchPlaceholder: "Search course years...",
-            }}
-            pagination
-            paginationPageSize={10}
-          />
-        </div>
-      ) : null}
+        )}
+        rowData={courseYears}
+        columnDefs={columnDefs}
+        loading={loading}
+        toolbar={{
+          search: true,
+          searchPlaceholder: "Search course years...",
+        }}
+        pagination
+        paginationPageSize={10}
+      />
 
       <ViewSubjectsModal
         open={viewModalOpen}
         onClose={() => setViewModalOpen(false)}
         context={viewContext}
       />
-    </PageContainer>
+    </>
   );
 }

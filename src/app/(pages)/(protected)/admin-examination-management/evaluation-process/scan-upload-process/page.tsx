@@ -1,20 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Eye, Filter } from "lucide-react";
-import { PageContainer } from "@/components/layout";
+import { Eye } from "lucide-react";
+import { FilteredPage } from "@/components/layout";
+import { GlobalFilterBarRow, GlobalFilterField } from "@/common/components/forms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/common/components/search";
 import { DatePicker } from "@/common/components/date-picker";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select } from "@/common/components/select";
 import {
   runEvaluationProc,
   uploadExamOmr,
@@ -130,7 +124,6 @@ export default function ScanUploadProcessPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [loading, setLoading] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
   const [showResult, setShowResult] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -189,6 +182,22 @@ export default function ScanUploadProcessPage() {
   const selectedSubject = useMemo(
     () => subjects.find((s) => num(s.fk_subject_id) === subjectId) ?? null,
     [subjects, subjectId],
+  );
+  const collegeOptions = useMemo(
+    () => [{ value: "0", label: "All" }, ...colleges.map((c) => ({ value: String(num(c.fk_college_id)), label: text(c.college_code) }))],
+    [colleges],
+  );
+  const monthYearOptions = useMemo(
+    () => monthYears.map((m) => ({ value: text(m.exam_month_yr), label: text(m.exam_month_yr) })),
+    [monthYears],
+  );
+  const examOptions = useMemo(
+    () => [{ value: "0", label: "All" }, ...exams.map((e) => ({ value: String(num(e.fk_exam_id)), label: `${text(e.exam_name)} ${text(e.exam_date)}` }))],
+    [exams],
+  );
+  const subjectOptions = useMemo(
+    () => subjects.map((s) => ({ value: String(num(s.fk_subject_id)), label: `${text(s.subject_name)} (${text(s.subject_code)})` })),
+    [subjects],
   );
 
   const filteredUploadedFiles = useMemo(() => {
@@ -347,180 +356,46 @@ export default function ScanUploadProcessPage() {
   const notUploaded = Math.max(totalStudents - uploadedCount, 0);
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Upload Scanned Answer Papers</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
-            />
-          </Button>
-        </div>
-
-        {filterOpen && (
-          <div className="p-3 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1">
-                <Label>Faculty *</Label>
-                <Select
-                  value={String(collegeId)}
-                  onValueChange={(v) => setCollegeId(num(v))}
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Faculty" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">All</SelectItem>
-                    {colleges.map((c) => (
-                      <SelectItem
-                        key={String(num(c.fk_college_id))}
-                        value={String(num(c.fk_college_id))}
-                      >
-                        {text(c.college_code)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <Label>Exam Month Year</Label>
-                <Select
-                  value={examMonthYear || undefined}
-                  onValueChange={setExamMonthYear}
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Exam Month Year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {monthYears.map((m) => {
-                      const val = text(m.exam_month_yr);
-                      return (
-                        <SelectItem key={val} value={val}>
-                          {val}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="md:col-span-5 space-y-1">
-                <Label>Exam *</Label>
-                <Select
-                  value={String(examId)}
-                  onValueChange={(v) => setExamId(num(v))}
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Exam" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">All</SelectItem>
-                    {exams.map((e) => (
-                      <SelectItem
-                        key={String(num(e.fk_exam_id))}
-                        value={String(num(e.fk_exam_id))}
-                      >
-                        {text(e.exam_name)} {text(e.exam_date)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="md:col-span-3 space-y-1">
-                <Label>Subjects</Label>
-                <Select
-                  value={String(subjectId)}
-                  onValueChange={(v) => setSubjectId(num(v))}
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Subjects" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjects.map((s) => (
-                      <SelectItem
-                        key={String(num(s.fk_subject_id))}
-                        value={String(num(s.fk_subject_id))}
-                      >
-                        {text(s.subject_name)} ({text(s.subject_code)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {subjectId > 0 && (
-                <div className="md:col-span-2">
-                  <DatePicker
-                    label="Exam Date"
-                    required
-                    value={examDate}
-                    onChange={setExamDate}
-                    displayFormat="yyyy-MM-dd"
-                    clearable={false}
-                    placeholder="Select exam date"
-                  />
-                </div>
-              )}
-
+    <FilteredPage
+      title="Upload Scanned Answer Papers"
+      filters={(
+        <>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Faculty">
+              <Select value={String(collegeId)} onChange={(v) => setCollegeId(num(v))} options={collegeOptions} placeholder="Faculty" />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Month Year">
+              <Select value={examMonthYear || null} onChange={(v) => setExamMonthYear(v ?? "")} options={monthYearOptions} placeholder="Exam Month Year" />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam">
+              <Select value={String(examId)} onChange={(v) => setExamId(num(v))} options={examOptions} placeholder="Exam" searchable />
+            </GlobalFilterField>
+            <GlobalFilterField label="Subject">
+              <Select value={String(subjectId)} onChange={(v) => setSubjectId(num(v))} options={subjectOptions} placeholder="Subject" searchable />
+            </GlobalFilterField>
+            {subjectId > 0 && (
+              <GlobalFilterField label="Exam Date">
+                <DatePicker value={examDate} onChange={setExamDate} displayFormat="yyyy-MM-dd" clearable={false} placeholder="Select exam date" />
+              </GlobalFilterField>
+            )}
+            <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+              <Button type="button" className="h-[30px] px-4 text-[12px]" disabled={!subjectId || !examDate || loading} onClick={getList}>Get List</Button>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+          {showResult && (
+            <div className="px-5 pb-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+              <GlobalFilterField label="Folder Path" className="md:col-span-4">
+                <Input value={folderPath} readOnly placeholder="Folder Path" className="h-8 text-[12px]" />
+              </GlobalFilterField>
               <div className="md:col-span-2">
-                <Button
-                  type="button"
-                  className="h-8 px-4 text-[12px]"
-                  disabled={!subjectId || !examDate || loading}
-                  onClick={getList}
-                >
-                  Get List
-                </Button>
+                <input ref={fileInputRef} type="file" className="hidden" webkitdirectory="" multiple onChange={(e) => onPickFiles(e.target.files)} />
+                <Button type="button" className="h-8 px-4 text-[12px] w-full bg-sky-600 hover:bg-sky-700" onClick={() => fileInputRef.current?.click()}>Browse</Button>
               </div>
             </div>
-
-            {showResult && (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end pt-2">
-                <div className="md:col-span-4 space-y-1">
-                  <Label>Folder Path</Label>
-                  <Input
-                    value={folderPath}
-                    readOnly
-                    placeholder="Folder Path"
-                    className="h-8 text-[12px]"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    webkitdirectory=""
-                    multiple
-                    onChange={(e) => onPickFiles(e.target.files)}
-                  />
-                  <Button
-                    type="button"
-                    className="h-8 px-4 text-[12px] w-full bg-sky-600 hover:bg-sky-700"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    Browse
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
+          )}
+        </>
+      )}
+    >
       {showResult && (
         <div className="app-card p-3 space-y-3">
           <div className="px-1 app-card-title">
@@ -649,6 +524,6 @@ export default function ScanUploadProcessPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredPage>
   );
 }

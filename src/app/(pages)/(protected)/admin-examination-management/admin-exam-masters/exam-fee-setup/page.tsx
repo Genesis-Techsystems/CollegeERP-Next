@@ -1,14 +1,12 @@
 'use client'
 
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSessionContext } from '@/context/SessionContext'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
 import { distinct } from '@/lib/utils'
@@ -26,7 +24,7 @@ import {
   updateExamFeeStructure,
 } from '@/services'
 import { Select } from '@/common/components/select'
-import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Building2, Calendar, GraduationCap, ScrollText, Eye, Pencil, Plus } from 'lucide-react'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { format } from 'date-fns'
@@ -456,154 +454,147 @@ export default function ExamFeeSetupPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">Exam Fee Structures</h2>
-      {notice && (
-        <NoticeAlert
-          type={notice.type}
-          title={notice.message}
-          showIcon
-          action={(
-            <Button type="button" size="sm" variant="outline" className="h-7 text-[12px]" onClick={() => setNotice(null)}>
-              Close
-            </Button>
-          )}
-        />
-      )}
-      <GlobalFilterBar
-        leading={(
-          <RadioGroup
-            value={mode}
-            onValueChange={(v) => setMode(v as 'university' | 'college')}
-            className="flex items-center gap-10"
+    <FilteredListPage
+      title="Exam Fee Structures"
+      notice={
+        notice ? (
+          <NoticeAlert
+            type={notice.type}
+            title={notice.message}
+            showIcon
+            action={(
+              <Button type="button" size="sm" variant="outline" className="h-7 text-[12px]" onClick={() => setNotice(null)}>
+                Close
+              </Button>
+            )}
+          />
+        ) : null
+      }
+      filters={(
+          <div className="space-y-3">
+            <RadioGroup
+              value={mode}
+              onValueChange={(v) => setMode(v as 'university' | 'college')}
+              className="flex items-center gap-10"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="university" id="feeModeUniversity" />
+                <Label htmlFor="feeModeUniversity" className="text-[13px] font-medium cursor-pointer">Is For University</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="college" id="feeModeCollege" />
+                <Label htmlFor="feeModeCollege" className="text-[13px] font-medium cursor-pointer">Is For College</Label>
+              </div>
+            </RadioGroup>
+            <GlobalFilterBarRow>
+              <GlobalFilterField label="University" icon={Building2}>
+                <Select
+                  value={selectedUniversityId != null ? String(selectedUniversityId) : null}
+                  onChange={(v) => { if (v) handleUniversityChange(Number(v)) }}
+                  options={universities.map((u) => ({
+                    value: String(u.fk_university_id),
+                    label: String(u.university_code ?? u.university_name ?? '—'),
+                  }))}
+                  disabled={loadingFilters}
+                  placeholder={loadingFilters ? 'Loading…' : 'All universities'}
+                  isLoading={loadingFilters}
+                />
+              </GlobalFilterField>
+              <GlobalFilterField label="Course" icon={GraduationCap}>
+                <Select
+                  value={selectedCourseId != null ? String(selectedCourseId) : null}
+                  onChange={(v) => { if (v) handleCourseChange(Number(v)) }}
+                  options={courses.map((c) => ({
+                    value: String(c.fk_course_id),
+                    label: String(c.course_code ?? c.course_name ?? '—'),
+                  }))}
+                  disabled={courses.length === 0}
+                  placeholder="All courses"
+                />
+              </GlobalFilterField>
+              <GlobalFilterField label="Exam Year" icon={Calendar}>
+                <Select
+                  value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
+                  onChange={(v) => { if (v) handleAcademicYearChange(Number(v)) }}
+                  options={academicYears.map((a) => ({
+                    value: String(a.fk_academic_year_id),
+                    label: String(a.academic_year ?? '—'),
+                  }))}
+                  disabled={academicYears.length === 0}
+                  placeholder="All exam years"
+                />
+              </GlobalFilterField>
+              <GlobalFilterField label="Exam Master" icon={ScrollText}>
+                <Select
+                  value={selectedExamId != null ? String(selectedExamId) : null}
+                  onChange={(v) => {
+                    setSelectedExamId(v != null ? Number(v) : null)
+                    setRows([])
+                    setHasFetched(false)
+                  }}
+                  options={examMasters.map((e) => ({
+                    value: String(e.examId ?? e.id),
+                    label: String(e.examName ?? '—'),
+                  }))}
+                  disabled={examMasters.length === 0}
+                  placeholder="All exam masters"
+                />
+              </GlobalFilterField>
+              <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+                <Button onClick={handleGetList} disabled={!selectedExamId || loadingList} className="h-[30px] px-3 text-[12px] shrink-0">
+                  Get List
+                </Button>
+              </GlobalFilterField>
+            </GlobalFilterBarRow>
+            {hasFetched && titleLine ? (
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-[13px] font-medium text-slate-800">Exam Fee Structure :</span>
+                <span className="text-[13px] text-[hsl(var(--primary))] font-semibold truncate">{titleLine}</span>
+              </div>
+            ) : null}
+          </div>
+        )}
+        rowData={hasFetched ? rows : []}
+        columnDefs={cols}
+        loading={loadingList}
+        pagination
+        toolbar={{
+          search: true,
+          searchPlaceholder: 'Search exam fee structures…',
+          pdfDocumentTitle: 'Exam fee structures',
+        }}
+        toolbarTrailing={(
+          <Button
+            size="sm"
+            className="h-[30px] px-3 text-[12px]"
+            onClick={() => {
+              if (!selectedExamId) return
+              const uni = universities.find((u) => u.fk_university_id === selectedUniversityId)
+              const course = courses.find((c) => c.fk_course_id === selectedCourseId)
+              const ay = academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)
+              const exam = examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)
+              const qp = new URLSearchParams({
+                check: mode === 'college' ? '2' : '1',
+                universityId: String(selectedUniversityId ?? 0),
+                universityCode: String(uni?.university_code ?? ''),
+                courseId: String(selectedCourseId ?? 0),
+                courseName: String(course?.course_code ?? course?.course_name ?? ''),
+                academicYearId: String(selectedAcademicYearId ?? 0),
+                academicYear: String(ay?.academic_year ?? ''),
+                examId: String(selectedExamId ?? 0),
+                examName: String(exam?.examName ?? ''),
+                fromDate: String(exam?.fromDate ?? ''),
+                toDate: String(exam?.toDate ?? ''),
+              })
+              router.push(`/admin-examination-management/admin-exam-masters/exam-fee-setup/create?${qp.toString()}`)
+            }}
+            disabled={!selectedExamId}
           >
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="university" id="feeModeUniversity" />
-              <Label htmlFor="feeModeUniversity" className="text-[13px] font-medium cursor-pointer">Is For University</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="college" id="feeModeCollege" />
-              <Label htmlFor="feeModeCollege" className="text-[13px] font-medium cursor-pointer">Is For College</Label>
-            </div>
-          </RadioGroup>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Add Exam Fee Structure
+          </Button>
         )}
       >
-        <GlobalFilterBarRow>
-          <GlobalFilterField label="University" icon={Building2}>
-            <Select
-              value={selectedUniversityId != null ? String(selectedUniversityId) : null}
-              onChange={(v) => { if (v) handleUniversityChange(Number(v)) }}
-              options={universities.map((u) => ({
-                value: String(u.fk_university_id),
-                label: String(u.university_code ?? u.university_name ?? '—'),
-              }))}
-              disabled={loadingFilters}
-              placeholder={loadingFilters ? 'Loading…' : 'All universities'}
-              isLoading={loadingFilters}
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Course" icon={GraduationCap}>
-            <Select
-              value={selectedCourseId != null ? String(selectedCourseId) : null}
-              onChange={(v) => { if (v) handleCourseChange(Number(v)) }}
-              options={courses.map((c) => ({
-                value: String(c.fk_course_id),
-                label: String(c.course_code ?? c.course_name ?? '—'),
-              }))}
-              disabled={courses.length === 0}
-              placeholder="All courses"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam Year" icon={Calendar}>
-            <Select
-              value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
-              onChange={(v) => { if (v) handleAcademicYearChange(Number(v)) }}
-              options={academicYears.map((a) => ({
-                value: String(a.fk_academic_year_id),
-                label: String(a.academic_year ?? '—'),
-              }))}
-              disabled={academicYears.length === 0}
-              placeholder="All exam years"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam Master" icon={ScrollText}>
-            <Select
-              value={selectedExamId != null ? String(selectedExamId) : null}
-              onChange={(v) => {
-                setSelectedExamId(v != null ? Number(v) : null)
-                setRows([])
-                setHasFetched(false)
-              }}
-              options={examMasters.map((e) => ({
-                value: String(e.examId ?? e.id),
-                label: String(e.examName ?? '—'),
-              }))}
-              disabled={examMasters.length === 0}
-              placeholder="All exam masters"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
-            <Button onClick={handleGetList} disabled={!selectedExamId || loadingList} className="h-[30px] px-3 text-[12px] shrink-0">
-              Get List
-            </Button>
-          </GlobalFilterField>
-        </GlobalFilterBarRow>
-      </GlobalFilterBar>
-
-      {hasFetched && (
-      <>
-      <div className="app-card p-3 flex items-center gap-2">
-        <span className="text-[13px] font-medium text-slate-800">Exam Fee Structure :</span>
-        <span className="text-[13px] text-[hsl(var(--primary))] font-semibold truncate">{titleLine || '—'}</span>
-      </div>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={rows}
-          columnDefs={cols}
-          loading={loadingList}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search exam fee structures…',
-            pdfDocumentTitle: 'Exam fee structures',
-          }}
-          toolbarTrailing={(
-            <Button
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={() => {
-                if (!selectedExamId) return
-                const uni = universities.find((u) => u.fk_university_id === selectedUniversityId)
-                const course = courses.find((c) => c.fk_course_id === selectedCourseId)
-                const ay = academicYears.find((a) => a.fk_academic_year_id === selectedAcademicYearId)
-                const exam = examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)
-                const qp = new URLSearchParams({
-                  check: mode === 'college' ? '2' : '1',
-                  universityId: String(selectedUniversityId ?? 0),
-                  universityCode: String(uni?.university_code ?? ''),
-                  courseId: String(selectedCourseId ?? 0),
-                  courseName: String(course?.course_code ?? course?.course_name ?? ''),
-                  academicYearId: String(selectedAcademicYearId ?? 0),
-                  academicYear: String(ay?.academic_year ?? ''),
-                  examId: String(selectedExamId ?? 0),
-                  examName: String(exam?.examName ?? ''),
-                  fromDate: String(exam?.fromDate ?? ''),
-                  toDate: String(exam?.toDate ?? ''),
-                })
-                router.push(`/admin-examination-management/admin-exam-masters/exam-fee-setup/create?${qp.toString()}`)
-              }}
-              disabled={!selectedExamId}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Add Exam Fee Structure
-            </Button>
-          )}
-        />
-      </TableCard>
-      </>
-      )}
-
       <Dialog open={modalOpen} onOpenChange={(v) => { if (!v) closeModal() }}>
         <DialogContent className="max-w-3xl p-0 overflow-hidden">
           <DialogHeader className="px-7 pt-6 pb-4 border-b bg-gradient-to-r from-slate-50 to-white">
@@ -683,7 +674,7 @@ export default function ExamFeeSetupPage() {
         onClose={() => { setViewOpen(false); setViewing(null) }}
         data={viewing}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }
 

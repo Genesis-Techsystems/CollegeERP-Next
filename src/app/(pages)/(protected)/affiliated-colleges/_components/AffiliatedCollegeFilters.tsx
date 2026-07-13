@@ -39,6 +39,8 @@ type AffiliatedCollegeFiltersProps = {
   readOnly?: boolean
   hideGetDetails?: boolean
   footerExtra?: ReactNode
+  /** Omit FilterCard wrapper (for FilteredListPage filters slot). */
+  bare?: boolean
 }
 
 export function AffiliatedCollegeFilters({
@@ -54,6 +56,7 @@ export function AffiliatedCollegeFilters({
   readOnly,
   hideGetDetails,
   footerExtra,
+  bare,
 }: AffiliatedCollegeFiltersProps) {
   const {
     isLoading,
@@ -80,8 +83,8 @@ export function AffiliatedCollegeFilters({
 
   const allOpt = { value: '0', label: 'All' }
 
-  return (
-    <FilterCard title={title} defaultOpen>
+  const content = (
+    <>
       <div
         className={
           hideGroupYear
@@ -194,6 +197,14 @@ export function AffiliatedCollegeFilters({
           </Button>
         ) : null}
       </div>
+    </>
+  )
+
+  if (bare) return content
+
+  return (
+    <FilterCard title={title} defaultOpen>
+      {content}
     </FilterCard>
   )
 }

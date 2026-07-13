@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { BookMarked } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,14 +48,11 @@ export default function RechargeWalletPage() {
   })
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center gap-2 border-b border-border pb-3">
-          <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
-          <h2 className="app-card-title">Recharge Wallet</h2>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-end gap-3">
+    <FilteredPage
+      title="Recharge Wallet"
+      filtersCollapsible={false}
+      filters={(
+        <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[240px] flex-1">
             <Select
               label="Payment wallet"
@@ -87,13 +83,14 @@ export default function RechargeWalletPage() {
             {rechargeMutation.isPending ? 'Initiating…' : 'Recharge'}
           </Button>
         </div>
-        {rechargeMutation.error ? (
-          <p className="mt-3 text-sm text-destructive">{getErrorMessage(rechargeMutation.error)}</p>
-        ) : null}
-        <p className="mt-3 text-xs text-muted-foreground">
-          Uses PayPhi university payment initiation (`PayPhi/univInitiatePayment`), same as Angular wallet recharge.
-        </p>
-      </div>
-    </PageContainer>
+      )}
+    >
+      {rechargeMutation.error ? (
+        <p className="text-sm text-destructive">{getErrorMessage(rechargeMutation.error)}</p>
+      ) : null}
+      <p className="text-xs text-muted-foreground">
+        Uses PayPhi university payment initiation (`PayPhi/univInitiatePayment`), same as Angular wallet recharge.
+      </p>
+    </FilteredPage>
   )
 }

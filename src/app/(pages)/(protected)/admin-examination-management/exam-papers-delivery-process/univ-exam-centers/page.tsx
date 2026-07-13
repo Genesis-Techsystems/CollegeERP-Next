@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { BookMarked, ChevronDown, Filter, Pencil, Plus } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { Pencil, Plus } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
@@ -108,8 +107,6 @@ export default function UnivExamCentersPage() {
   const [loadingUni, setLoadingUni] = useState(true)
   const [universities, setUniversities] = useState<AnyRow[]>([])
   const [universityId, setUniversityId] = useState<number | null>(null)
-  const [filtersOpen, setFiltersOpen] = useState(true)
-
   const [loadingList, setLoadingList] = useState(false)
   const [rows, setRows] = useState<CenterRow[]>([])
 
@@ -368,82 +365,50 @@ export default function UnivExamCentersPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader
-        title="Exam centers"
-        subtitle="Exam papers delivery process · Exam centers"
-      />
-
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
-            <h2 className="app-card-title truncate">
-              Exam Centers
-            </h2>
+    <FilteredListPage
+      title="Exam Centers"
+      filters={(
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1 w-full sm:w-72">
+            <Label>
+              University <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              options={universityOptions}
+              value={universityId === null ? '' : String(universityId)}
+              onChange={(v) => setUniversityId(v ? Number(v) : null)}
+              placeholder={loadingUni ? 'Loading…' : 'Select university'}
+              disabled={loadingUni || universityOptions.length === 0}
+            />
           </div>
-          <button
-            type="button"
-            className="flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground"
-            onClick={() => setFiltersOpen((v) => !v)}
-            aria-expanded={filtersOpen}
-          >
-            <span>Filter</span>
-            <Filter className="h-4 w-4" aria-hidden />
-            <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-          </button>
+          <Button type="button" onClick={() => void fetchList()} disabled={loadingList || universityId == null}>
+            Get List
+          </Button>
         </div>
-
-        {(
-          <div className="mt-4 flex flex-wrap items-end gap-3">
-            <div className="space-y-1 w-full sm:w-72">
-              <Label>
-                University <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                options={universityOptions}
-                value={universityId === null ? '' : String(universityId)}
-                onChange={(v) => setUniversityId(v ? Number(v) : null)}
-                placeholder={loadingUni ? 'Loading…' : 'Select university'}
-                disabled={loadingUni || universityOptions.length === 0}
-              />
-            </div>
-            <Button type="button" onClick={() => void fetchList()} disabled={loadingList || universityId == null}>
-              Get List
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {universityId != null && (
-        <>
-          <div className="app-card overflow-hidden border-t-[3px] border-t-amber-300">
-            <div className="px-3 py-2 border-b border-border bg-muted/40">
-              <h3 className="app-card-title">Exam Centers - {selectedUniversityCode || '-'}</h3>
-            </div>
-            <div className="p-2">
-              <DataTable
-                rowData={rows}
-                columnDefs={columnDefs}
-                loading={loadingList}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search…',
-                  pdfDocumentTitle: 'Exam Centers',
-                }}
-                toolbarTrailing={
-                  <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    Add Exam Centers
-                  </Button>
-                }
-              />
-            </div>
-          </div>
-        </>
       )}
-
+      rowData={universityId != null ? rows : []}
+      columnDefs={columnDefs}
+      loading={loadingList}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Exam Centers',
+      }}
+      toolbarLeading={
+        universityId != null ? (
+          <span className="text-[12px] font-medium text-[hsl(var(--primary))] truncate max-w-[min(100%,24rem)]">
+            {selectedUniversityCode || '-'}
+          </span>
+        ) : null
+      }
+      toolbarTrailing={
+        <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          Add Exam Centers
+        </Button>
+      }
+    >
       <FormModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -549,7 +514,7 @@ export default function UnivExamCentersPage() {
           onReasonChange={(v) => setForm((f) => ({ ...f, reason: v }))}
         />
       </FormModal>
-    </PageContainer>
+    </FilteredListPage>
   )
 }
 

@@ -4,8 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Eye, PencilIcon } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -99,34 +98,24 @@ export default function ComplaintsListPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Complaints List</h2>
-        </div>
-        <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <DataTable
-              rowData={issues}
-              columnDefs={columnDefs}
-              loading={isLoading}
-              pagination
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search complaints…',
-                pdfDocumentTitle: 'Complaints List',
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
+    <ListPage
+      title="Complaints List"
+      rowData={issues}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search complaints…',
+        pdfDocumentTitle: 'Complaints List',
+      }}
+    >
       <ComplaintOverviewModal
         open={overviewIssue !== null}
         onClose={() => setOverviewIssue(null)}
         issue={overviewIssue}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

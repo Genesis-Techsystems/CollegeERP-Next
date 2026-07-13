@@ -2,15 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
-import { Select as CommonSelect } from '@/common/components/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   getInternalAttendanceFilters,
   getInternalAttendanceRestFilters,
@@ -101,6 +98,8 @@ export default function InternalExamAttendanceMarkingPage() {
   const [subjectId, setSubjectId] = useState<number | null>(null)
   const [labBatchId, setLabBatchId] = useState<number | null>(0)
   const [examDate, setExamDate] = useState('')
+  const [invigilatorEmpId, setInvigilatorEmpId] = useState<number | null>(0)
+  const [roomId, setRoomId] = useState<number | null>(0)
 
   const courses = useMemo(() => dedupeBy(allFilters, 'fk_course_id'), [allFilters])
   const academicYears = useMemo(
@@ -186,51 +185,13 @@ export default function InternalExamAttendanceMarkingPage() {
       ),
     [subjectRows, collegeId, courseGroupId, courseYearId, regulationId, subjectId],
   )
-  const courseOptions = useMemo(
-    () => courses.map((x) => ({ value: String(x.fk_course_id), label: String(x.course_code ?? '-') })),
-    [courses],
+  const invigilators = useMemo(
+    () => dedupeBy(subjectRows.filter((x) => Number(x.fk_attendance_taken_emp_id ?? x.fk_invgilator_emp_id ?? 0) > 0), 'fk_attendance_taken_emp_id'),
+    [subjectRows],
   )
-  const academicYearOptions = useMemo(
-    () => academicYears.map((x) => ({ value: String(x.fk_academic_year_id), label: String(x.academic_year ?? '-') })),
-    [academicYears],
-  )
-  const examOptions = useMemo(
-    () => exams.map((x) => ({ value: String(x.fk_exam_id), label: String(x.exam_name ?? '-') })),
-    [exams],
-  )
-  const collegeOptions = useMemo(
-    () => colleges.map((x) => ({ value: String(x.fk_college_id), label: String(x.college_code ?? '-') })),
-    [colleges],
-  )
-  const courseGroupOptions = useMemo(
-    () => courseGroups.map((x) => ({ value: String(x.fk_course_group_id), label: String(x.group_code ?? '-') })),
-    [courseGroups],
-  )
-  const courseYearOptions = useMemo(
-    () => courseYears.map((x) => ({ value: String(x.fk_course_year_id), label: String(x.course_year_code ?? '-') })),
-    [courseYears],
-  )
-  const regulationOptions = useMemo(
-    () => regulations.map((x) => ({ value: String(x.fk_regulation_id), label: String(x.regulation_code ?? '-') })),
-    [regulations],
-  )
-  const subjectOptions = useMemo(
-    () =>
-      subjects
-        .map((x) => {
-          const sid = numFrom(x, 'fk_subject_id', 'subjectId', 'fk_sub_id')
-          if (!sid) return null
-          return {
-            value: String(sid),
-            label: `${String(x.subject_name ?? x.subjectName ?? '-')} (${String(x.subject_code ?? x.subjectCode ?? '-')})`,
-          }
-        })
-        .filter(Boolean) as Array<{ value: string; label: string }>,
-    [subjects],
-  )
-  const labBatchOptions = useMemo(
-    () => [{ value: '0', label: 'All' }, ...labBatches.map((x) => ({ value: String(x.fk_stdbatch_id), label: String(x.labbatch_name ?? x.lab_batch_name ?? '-') }))],
-    [labBatches],
+  const rooms = useMemo(
+    () => dedupeBy(subjectRows.filter((x) => Number(x.fk_room_id ?? 0) > 0), 'fk_room_id'),
+    [subjectRows],
   )
 
   useEffect(() => {
@@ -421,118 +382,110 @@ export default function InternalExamAttendanceMarkingPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Internal Exam Attendance Marking</h1>
-
-      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Internal Exam Attendance Marking</span>}>
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Exam Year" searchable /></div>
-          <div className="space-y-1 md:col-span-4"><Label>Exam</Label><CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>College</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="College" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Group</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroupOptions} placeholder="Course Group" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Year</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><CommonSelect value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" searchable /></div>
+    <FilteredListPage
+      title="Internal Exam Attendance Marking"
+      notice={hasFetched ? (
+        <div className="app-card overflow-hidden p-3 text-[12px] text-slate-700">
+          <p>{exams.find((e) => Number(e.fk_exam_id) === Number(examId))?.exam_name ?? '-'}</p>
+          <p>{colleges.find((c) => Number(c.fk_college_id) === Number(collegeId))?.college_code ?? '-'} / {courses.find((c) => Number(c.fk_course_id) === Number(courseId))?.course_code ?? '-'}</p>
+          <p>Invigilator: {invigilators.find((x) => Number(x.fk_attendance_taken_emp_id ?? x.fk_invgilator_emp_id ?? 0) === Number(invigilatorEmpId))?.invigilatorName ?? 'All'}</p>
+          <p>Room: {rooms.find((x) => Number(x.fk_room_id ?? 0) === Number(roomId))?.room_name ?? 'All'}</p>
+        </div>
+      ) : null}
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="space-y-1 md:col-span-2"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loadingFilters}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((x) => <SelectItem key={x.fk_course_id} value={String(x.fk_course_id)}>{x.course_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger><SelectContent>{academicYears.map((x) => <SelectItem key={x.fk_academic_year_id} value={String(x.fk_academic_year_id)}>{x.academic_year}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-4"><Label>Exam</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((x) => <SelectItem key={x.fk_exam_id} value={String(x.fk_exam_id)}>{x.exam_name}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>College</Label><Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger><SelectContent>{colleges.map((x) => <SelectItem key={x.fk_college_id} value={String(x.fk_college_id)}>{x.college_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Group</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Group" /></SelectTrigger><SelectContent>{courseGroups.map((x) => <SelectItem key={x.fk_course_group_id} value={String(x.fk_course_group_id)}>{x.group_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Year</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((x) => <SelectItem key={x.fk_course_year_id} value={String(x.fk_course_year_id)}>{x.course_year_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((x) => <SelectItem key={x.fk_regulation_id} value={String(x.fk_regulation_id)}>{x.regulation_code}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-6">
             <Label>Subject</Label>
-            <CommonSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectOptions} placeholder="Subject" searchable />
+            <Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}>
+              <SelectTrigger className="h-8 text-[12px]">
+                <SelectValue placeholder="Subject" />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects.map((x, i) => {
+                  const sid = numFrom(x, 'fk_subject_id', 'subjectId', 'fk_sub_id')
+                  if (!sid) return null
+                  return (
+                    <SelectItem key={`sub-${sid}-${i}`} value={String(sid)}>
+                      {x.subject_name ?? x.subjectName ?? '-'} ({x.subject_code ?? x.subjectCode ?? '-'})
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
           </div>
           {labBatches.length > 0 && (
-            <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><CommonSelect value={String(labBatchId ?? 0)} onChange={(v) => setLabBatchId(Number(v || 0))} options={labBatchOptions} placeholder="Lab Batch" searchable /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><Select value={labBatchId === null ? '0' : String(labBatchId)} onValueChange={(v) => setLabBatchId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Lab Batch" /></SelectTrigger><SelectContent><SelectItem value="0">All</SelectItem>{labBatches.map((x) => <SelectItem key={x.fk_stdbatch_id} value={String(x.fk_stdbatch_id)}>{x.labbatch_name ?? x.lab_batch_name}</SelectItem>)}</SelectContent></Select></div>
           )}
           <div className="space-y-1 md:col-span-2">
             <Label>Exam Date</Label>
-            <Input
-              className="h-8 text-[12px]"
-              type="date"
-              value={examDate}
-              onChange={(e) => setExamDate(e.target.value)}
-            />
+            <Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
           </div>
-          <div className="md:col-span-2"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loadingList}>{loadingList ? 'Loading...' : 'Get List'}</Button></div>
-        </div>
-      </FilterCard>
-
-      {hasFetched && (
-        <div className="space-y-3">
-          <div className="app-card overflow-hidden">
-            <div className="px-4 py-3 border-b border-border bg-muted/40">
-              <h3 className="app-card-title">Mark Exam Attendance</h3>
-            </div>
-            <div className="p-3 text-[12px] text-slate-700">
-              <p>{exams.find((e) => Number(e.fk_exam_id) === Number(examId))?.exam_name ?? '-'}</p>
-              <p>{colleges.find((c) => Number(c.fk_college_id) === Number(collegeId))?.college_code ?? '-'} / {courses.find((c) => Number(c.fk_course_id) === Number(courseId))?.course_code ?? '-'}</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-            <div className="lg:col-span-9 min-w-0">
-              <TableCard withHeaderBorder={false}>
-                <DataTable
-                  rowData={rows}
-                  columnDefs={columnDefs}
-                  loading={loadingList}
-                  pagination
-                  toolbar={{
-                    search: true,
-                    searchPlaceholder: 'Search…',
-                    pdfDocumentTitle: 'Internal Exam Attendance',
-                  }}
-                  toolbarTrailing={
-                    <>
-                      <label className="inline-flex items-center gap-2 text-[12px] shrink-0">
-                        <Checkbox
-                          checked={allMarkedPresent}
-                          onCheckedChange={(v) =>
-                            setRows((prev) => prev.map((r) => ({ ...r, isPresent: Boolean(v) })))
-                          }
-                        />
-                        <span>{allMarkedPresent ? 'Unmark All' : 'Mark All'}</span>
-                      </label>
-                      <Button
-                        className="h-[30px] text-[12px]"
-                        onClick={onSaveAttendance}
-                        disabled={saving || rows.length === 0}
-                      >
-                        {saving ? 'Saving...' : 'Save Attendance'}
-                      </Button>
-                    </>
-                  }
-                />
-              </TableCard>
-            </div>
-
-            <aside className="space-y-3 lg:col-span-3 min-w-0">
-              <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">
-                <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[14px] font-semibold uppercase text-slate-700">
-                  Absentees :{' '}
-                  <span className="rounded-full bg-cyan-300 px-2 py-0.5">{absentees.length}</span>
-                </h3>
-                <div className="max-h-[320px] overflow-auto p-3 text-[12px]">
-                  {absentees.length === 0 ? (
-                    <p className="text-muted-foreground">No absents found.</p>
-                  ) : (
-                    absentees.map((r) => (
-                      <p key={`abs-${r.examStdDetId}`} className="mb-1">
-                        {r.firstName} (<span className="text-blue-700">{r.hallticketNumber}</span>)
-                      </p>
-                    ))
-                  )}
-                </div>
-              </div>
-              <div className="flex justify-center">
-                <Button
-                  className="h-8 px-5 text-[12px]"
-                  onClick={onSaveAttendance}
-                  disabled={saving || rows.length === 0}
-                >
-                  {saving ? 'Saving...' : 'Save Attendance'}
-                </Button>
-              </div>
-            </aside>
-          </div>
+          <div className="space-y-1 md:col-span-4"><Label>Invigilator Employee</Label><Select value={invigilatorEmpId === null ? '0' : String(invigilatorEmpId)} onValueChange={(v) => setInvigilatorEmpId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent><SelectItem value="0">All</SelectItem>{invigilators.map((x, i) => <SelectItem key={`inv-${x.fk_attendance_taken_emp_id ?? x.fk_invgilator_emp_id ?? i}`} value={String(x.fk_attendance_taken_emp_id ?? x.fk_invgilator_emp_id)}>{x.invigilatorName ?? x.employeeName ?? x.empName ?? x.empNumber ?? `Employee ${i + 1}`}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-3"><Label>Room</Label><Select value={roomId === null ? '0' : String(roomId)} onValueChange={(v) => setRoomId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent><SelectItem value="0">All</SelectItem>{rooms.map((x, i) => <SelectItem key={`room-${x.fk_room_id ?? i}`} value={String(x.fk_room_id)}>{x.room_name ?? x.roomCode ?? x.roomNumber ?? `Room ${i + 1}`}</SelectItem>)}</SelectContent></Select></div>
+          <div className="md:col-span-1"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loadingList}>{loadingList ? 'Loading...' : 'Get List'}</Button></div>
         </div>
       )}
-    </PageContainer>
+      rowData={hasFetched ? rows : []}
+      columnDefs={columnDefs}
+      loading={loadingList}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Internal Exam Attendance',
+      }}
+      toolbarTrailing={(
+        <>
+          <label className="inline-flex items-center gap-2 text-[12px] shrink-0">
+            <Checkbox
+              checked={allMarkedPresent}
+              onCheckedChange={(v) =>
+                setRows((prev) => prev.map((r) => ({ ...r, isPresent: Boolean(v) })))
+              }
+            />
+            <span>{allMarkedPresent ? 'Unmark All' : 'Mark All'}</span>
+          </label>
+          <Button
+            className="h-[30px] text-[12px]"
+            onClick={onSaveAttendance}
+            disabled={saving || rows.length === 0}
+          >
+            {saving ? 'Saving...' : 'Save Attendance'}
+          </Button>
+        </>
+      )}
+    >
+      {hasFetched && (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+          <aside className="space-y-3 lg:col-span-3 lg:col-start-10 min-w-0">
+            <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">
+              <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[14px] font-semibold uppercase text-slate-700">
+                Absentees :{' '}
+                <span className="rounded-full bg-cyan-300 px-2 py-0.5">{absentees.length}</span>
+              </h3>
+              <div className="max-h-[320px] overflow-auto p-3 text-[12px]">
+                {absentees.length === 0 ? (
+                  <p className="text-muted-foreground">No absents found.</p>
+                ) : (
+                  absentees.map((r) => (
+                    <p key={`abs-${r.examStdDetId}`} className="mb-1">
+                      {r.firstName} (<span className="text-blue-700">{r.hallticketNumber}</span>)
+                    </p>
+                  ))
+                )}
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
+    </FilteredListPage>
   )
 }
 

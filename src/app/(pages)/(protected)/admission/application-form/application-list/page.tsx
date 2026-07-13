@@ -5,10 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { DownloadIcon, PencilIcon, PlusIcon, PrinterIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
+import { FilteredListPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useSessionContext } from '@/context/SessionContext'
 import { useLoginEmployeeId } from '@/hooks/useLoginEmployeeId'
@@ -147,24 +145,6 @@ export default function ApplicationListPage() {
   /** Table loads only after college, academic year, and course are chosen (empty by default). */
   const listReady = Boolean(collegeId && academicYearId && courseId)
 
-  const filterSummary = useMemo(() => {
-    if (!listReady) return ''
-    const parts = [
-      collegeOptions.find((o) => o.value === collegeId)?.label,
-      academicYearOptions.find((o) => o.value === academicYearId)?.label,
-      courseOptions.find((o) => o.value === courseId)?.label,
-    ].filter(Boolean)
-    return parts.join(' / ')
-  }, [
-    listReady,
-    collegeOptions,
-    collegeId,
-    academicYearOptions,
-    academicYearId,
-    courseOptions,
-    courseId,
-  ])
-
   const { data: rows = [], isLoading } = useQuery({
     queryKey: QK.admission.applicationForms({
       collegeId: Number(collegeId),
@@ -196,8 +176,9 @@ export default function ApplicationListPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <FilterCard title="Application List">
+    <FilteredListPage
+      title="Application List"
+      filters={(
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Select
             label="College"
@@ -231,50 +212,34 @@ export default function ApplicationListPage() {
             placeholder="Select course"
           />
         </div>
-      </FilterCard>
-
-      {listReady && (
-        <>
-          {filterSummary && (
-            <div className="app-card overflow-hidden px-4 py-3">
-              <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-                Application List — {filterSummary}
-              </h2>
-            </div>
-          )}
-
-          <TableCard withHeaderBorder={false}>
-            <DataTable
-              rowData={rows}
-              columnDefs={columnDefs}
-              loading={isLoading || filtersLoading}
-              pagination
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search applications…',
-                pdfDocumentTitle: 'Application List',
-              }}
-              toolbarTrailing={(
-                <Button
-                  size="sm"
-                  className="h-[30px] px-3 text-[12px]"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      collegeId: collegeId!,
-                      academicYearId: academicYearId!,
-                      courseId: courseId!,
-                    })
-                    router.push(`/admission/application-form/add-application-form?${params}`)
-                  }}
-                >
-                  <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-                  New Application
-                </Button>
-              )}
-            />
-          </TableCard>
-        </>
       )}
-    </PageContainer>
+      rowData={listReady ? rows : []}
+      columnDefs={columnDefs}
+      loading={isLoading || filtersLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search applications…',
+        pdfDocumentTitle: 'Application List',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          disabled={!listReady}
+          onClick={() => {
+            const params = new URLSearchParams({
+              collegeId: collegeId!,
+              academicYearId: academicYearId!,
+              courseId: courseId!,
+            })
+            router.push(`/admission/application-form/add-application-form?${params}`)
+          }}
+        >
+          <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+          New Application
+        </Button>
+      )}
+    />
   )
 }

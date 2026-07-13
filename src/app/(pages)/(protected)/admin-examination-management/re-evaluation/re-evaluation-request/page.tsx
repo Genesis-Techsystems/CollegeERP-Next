@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams, type ReadonlyURLSearchParams } from 'next/navigation'
-import { BookMarked, ChevronDown, Eye, UserRound } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { Eye, UserRound } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
@@ -14,7 +13,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Select } from '@/common/components/select'
-import { DataTable, TableCard } from '@/common/components/table'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { MINIO_URL } from '@/config/constants/api'
 import { listStudents } from '@/services/pre-examination'
@@ -262,11 +260,10 @@ export default function ReEvaluationRequestPage() {
   const [revisionTypes, setRevisionTypes] = useState<AnyRow[]>([])
   const [revisionTypeId, setRevisionTypeId] = useState<number | null>(null)
   const [revisionHistory, setRevisionHistory] = useState<AnyRow[]>([])
-  const [filtersOpen, setFiltersOpen] = useState(true)
+  const [revisionHistoryLoading, setRevisionHistoryLoading] = useState(false)
   const [photocopyOpen, setPhotocopyOpen] = useState(false)
   const [photocopyRows, setPhotocopyRows] = useState<AnyRow[]>([])
   const [photocopyLoading, setPhotocopyLoading] = useState(false)
-  const [revisionHistoryLoading, setRevisionHistoryLoading] = useState(false)
 
   useEffect(() => {
     async function loadRevisionTypes() {
@@ -463,163 +460,123 @@ export default function ReEvaluationRequestPage() {
   const showProfile = Boolean(studentId && examId)
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Re-evaluation request" subtitle="Examination management · Re-valuation · Request history" />
-
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-2">
-            <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
-            <h2 className="app-card-title">Re-evaluation request</h2>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-[13px]"
-            onClick={() => setFiltersOpen((prev) => !prev)}
-            aria-expanded={filtersOpen}
-            aria-controls="reval-request-filters"
-          >
-            Filters
-            <ChevronDown
-              className={`ml-1 h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`}
-              aria-hidden
-            />
-          </Button>
-        </div>
-        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <CollapsibleContent id="reval-request-filters">
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              <div className="space-y-1 md:col-span-5">
-                <Label>Student</Label>
-                <Select
-                  value={studentId ? String(studentId) : null}
-                  onChange={(v) => void onSelectStudent(v)}
-                  options={studentOptions}
-                  placeholder="Search by name or hall ticket…"
-                  searchable
-                  onSearch={(t) => void onStudentSearch(t)}
-                  isLoading={studentSearchLoading}
-                  clearable
-                />
-              </div>
-              <div className="space-y-1 md:col-span-5">
-                <Label>Exam</Label>
-                <Select
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => {
-                    const id = v ? Number(v) : null
-                    setExamId(id)
-                    setRevisionTypeId(null)
+    <FilteredListPage
+      title="Re-evaluation request"
+      notice={showProfile && studentRow ? (
+        <div className="rounded-md border border-blue-200 bg-muted/40/80 p-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start">
+            <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-card">
+              {photoSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={photoSrc}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    ;(e.target as HTMLImageElement).style.display = 'none'
                   }}
-                  options={examOptions}
-                  placeholder="Exam"
-                  searchable
-                  disabled={!studentId || exams.length === 0}
                 />
-              </div>
-              <div className="space-y-1 md:col-span-2">
-                <Label>Exam revision type</Label>
-                <Select
-                  value={revisionTypeId ? String(revisionTypeId) : null}
-                  onChange={(v) => setRevisionTypeId(v ? Number(v) : null)}
-                  options={revisionOptions}
-                  placeholder="Optional"
-                  disabled={!examId}
-                  clearable
-                />
-              </div>
+              ) : (
+                <UserRound className="h-12 w-12 text-muted-foreground" aria-hidden />
+              )}
             </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
-
-      {showProfile && studentRow && (
-        <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-          <div className="flex items-center gap-2 border-b border-border pb-3">
-            <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
-            <h2 className="app-card-title">Student</h2>
-          </div>
-          <div className="mt-3 rounded-md border border-blue-200 bg-muted/40/80 p-3">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-card">
-                {photoSrc ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={photoSrc}
-                    alt=""
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      ;(e.target as HTMLImageElement).style.display = 'none'
-                    }}
-                  />
-                ) : (
-                  <UserRound className="h-12 w-12 text-muted-foreground" aria-hidden />
-                )}
+            <div className="min-w-0 flex-1 space-y-1 text-[13px]">
+              <p className="text-[15px] font-semibold text-slate-900">
+                {strFrom(studentRow, ['firstName', 'first_name']) || '-'}
+              </p>
+              <p className="text-muted-foreground">
+                {strFrom(studentRow, ['rollNumber', 'roll_number', 'hallticketNumber', 'hallticket_number']) || '-'}
+              </p>
+              <p className="text-muted-foreground">
+                {[
+                  strFrom(studentRow, ['collegeCode', 'college_code']),
+                  strFrom(studentRow, ['academicYear', 'academic_year']),
+                  strFrom(studentRow, ['courseCode', 'course_code']),
+                  strFrom(studentRow, ['groupCode', 'group_code']),
+                  strFrom(studentRow, ['courseYearName', 'course_year_name', 'courseYearCode']),
+                  strFrom(studentRow, ['section']) ? `Section ${strFrom(studentRow, ['section'])}` : '',
+                ]
+                  .filter(Boolean)
+                  .join(' / ')}
+              </p>
+              <p className="text-muted-foreground">{strFrom(studentRow, ['mobile', 'phone', 'studentMobile']) || '-'}</p>
+            </div>
+            <div className="shrink-0 space-y-1 text-[13px] md:text-right">
+              <div>
+                <span className="text-slate-700">Quota : </span>
+                <span className="text-blue-700 font-medium">
+                  {strFrom(studentRow, ['quotaDisplayName', 'quota_display_name']) || '-'}
+                </span>
               </div>
-              <div className="min-w-0 flex-1 space-y-1 text-[13px]">
-                <p className="text-[15px] font-semibold text-slate-900">
-                  {strFrom(studentRow, ['firstName', 'first_name']) || '-'}
-                </p>
-                <p className="text-muted-foreground">
-                  {strFrom(studentRow, ['rollNumber', 'roll_number', 'hallticketNumber', 'hallticket_number']) || '-'}
-                </p>
-                <p className="text-muted-foreground">
-                  {[
-                    strFrom(studentRow, ['collegeCode', 'college_code']),
-                    strFrom(studentRow, ['academicYear', 'academic_year']),
-                    strFrom(studentRow, ['courseCode', 'course_code']),
-                    strFrom(studentRow, ['groupCode', 'group_code']),
-                    strFrom(studentRow, ['courseYearName', 'course_year_name', 'courseYearCode']),
-                    strFrom(studentRow, ['section']) ? `Section ${strFrom(studentRow, ['section'])}` : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' / ')}
-                </p>
-                <p className="text-muted-foreground">{strFrom(studentRow, ['mobile', 'phone', 'studentMobile']) || '-'}</p>
-              </div>
-              <div className="shrink-0 space-y-1 text-[13px] md:text-right">
-                <div>
-                  <span className="text-slate-700">Quota : </span>
-                  <span className="text-blue-700 font-medium">
-                    {strFrom(studentRow, ['quotaDisplayName', 'quota_display_name']) || '-'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-700">Student status : </span>
-                  <span className={statusTextClass(statusCode || statusName)}>{statusName || statusCode || '-'}</span>
-                </div>
+              <div>
+                <span className="text-slate-700">Student status : </span>
+                <span className={statusTextClass(statusCode || statusName)}>{statusName || statusCode || '-'}</span>
               </div>
             </div>
           </div>
         </div>
+      ) : null}
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div className="space-y-1 md:col-span-5">
+            <Label>Student</Label>
+            <Select
+              value={studentId ? String(studentId) : null}
+              onChange={(v) => void onSelectStudent(v)}
+              options={studentOptions}
+              placeholder="Search by name or hall ticket…"
+              searchable
+              onSearch={(t) => void onStudentSearch(t)}
+              isLoading={studentSearchLoading}
+              clearable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-5">
+            <Label>Exam</Label>
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => {
+                const id = v ? Number(v) : null
+                setExamId(id)
+                setRevisionTypeId(null)
+              }}
+              options={examOptions}
+              placeholder="Exam"
+              searchable
+              disabled={!studentId || exams.length === 0}
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Exam revision type</Label>
+            <Select
+              value={revisionTypeId ? String(revisionTypeId) : null}
+              onChange={(v) => setRevisionTypeId(v ? Number(v) : null)}
+              options={revisionOptions}
+              placeholder="Optional"
+              disabled={!examId}
+              clearable
+            />
+          </div>
+        </div>
       )}
-
-      {showProfile && (
-        <TableCard withHeaderBorder={false}>
-          <DataTable
-            rowData={revisionHistory}
-            columnDefs={historyColumnDefs}
-            loading={revisionHistoryLoading}
-            pagination
-            paginationPageSize={10}
-            getRowId={(p) => revisionRowId(p.data)}
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search request history…',
-              pdfDocumentTitle: 'Re-evaluation request history',
-            }}
-            toolbarLeading={(
-              <span className="text-[12px] text-muted-foreground whitespace-nowrap">
-                Request history
-                {revisionHistory.length > 0 ? ` · ${revisionHistory.length} record${revisionHistory.length === 1 ? '' : 's'}` : null}
-              </span>
-            )}
-          />
-        </TableCard>
-      )}
-
+      rowData={showProfile ? revisionHistory : []}
+      columnDefs={historyColumnDefs}
+      loading={revisionHistoryLoading}
+      pagination
+      paginationPageSize={10}
+      getRowId={(p) => revisionRowId(p.data)}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search request history…',
+        pdfDocumentTitle: 'Re-evaluation request history',
+      }}
+      toolbarLeading={showProfile ? (
+        <span className="text-[12px] text-muted-foreground whitespace-nowrap">
+          Request history
+          {revisionHistory.length > 0 ? ` · ${revisionHistory.length} record${revisionHistory.length === 1 ? '' : 's'}` : null}
+        </span>
+      ) : undefined}
+    >
       <Dialog open={photocopyOpen} onOpenChange={setPhotocopyOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -659,6 +616,6 @@ export default function ReEvaluationRequestPage() {
           )}
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredListPage>
   )
 }

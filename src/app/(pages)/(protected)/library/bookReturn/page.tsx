@@ -3,8 +3,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ColDef } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
 import { Select, type SelectOption } from '@/common/components/select'
+import { FilteredListPage } from '@/components/layout'
 import { Label } from '@/components/ui/label'
 import { useSessionContext } from '@/context/SessionContext'
 import { toastError } from '@/lib/toast'
@@ -16,7 +16,6 @@ import {
 } from '@/services'
 import type { BookReturnSearchRow, LibraryRow } from '@/services'
 import type { LibraryMembership } from '@/types/library'
-import { LibraryScreenShell } from '../_components/LibraryScreenShell'
 
 function memberOptionLabel(m: LibraryMembership): string {
   const code = String(m.membershipNo ?? m.memberCode ?? '').trim()
@@ -243,70 +242,66 @@ export default function BookReturnPage() {
     student?.rollNumber ?? employee?.empNumber ?? selectedMember?.rollNumber ?? '',
   )
 
-  return (
-    <LibraryScreenShell title="Book Return">
-      <div className="app-card space-y-4 p-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label className="text-[13px]">Membership Id or Name</Label>
-            <Select
-              value={selectedMemberId}
-              onChange={handleMemberChange}
-              options={memberOptions}
-              placeholder="Search member…"
-              searchable
-              onSearch={(t) => void onMemberSearch(t)}
-              isLoading={memberSearchLoading}
-              clearable
-              className="w-full"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-[13px]">Book barcode / accession</Label>
-            <Select
-              value={selectedBookKey}
-              onChange={handleBookChange}
-              options={bookOptions}
-              placeholder="Scan or search book…"
-              searchable
-              onSearch={(t) => void onBookSearch(t)}
-              isLoading={bookSearchLoading}
-              clearable
-              className="w-full"
-            />
-          </div>
-        </div>
+  const filters = (
+    <div className="grid gap-4 md:grid-cols-2">
+      <div className="space-y-2">
+        <Label className="text-[13px]">Membership Id or Name</Label>
+        <Select
+          value={selectedMemberId}
+          onChange={handleMemberChange}
+          options={memberOptions}
+          placeholder="Search member…"
+          searchable
+          onSearch={(t) => void onMemberSearch(t)}
+          isLoading={memberSearchLoading}
+          clearable
+          className="w-full"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label className="text-[13px]">Book barcode / accession</Label>
+        <Select
+          value={selectedBookKey}
+          onChange={handleBookChange}
+          options={bookOptions}
+          placeholder="Scan or search book…"
+          searchable
+          onSearch={(t) => void onBookSearch(t)}
+          isLoading={bookSearchLoading}
+          clearable
+          className="w-full"
+        />
+      </div>
+    </div>
+  )
 
-        {selectedMember ? (
-          <div className="space-y-4 rounded-md border bg-muted/10 p-4">
-            <div className="text-[13px]">
+  return (
+    <FilteredListPage
+      title="Book Return"
+      filters={
+        selectedMember ? (
+          <div className="space-y-4">
+            {filters}
+            <div className="rounded-md border bg-muted/10 p-4 text-[13px]">
               <p className="font-medium text-foreground">{displayName || '—'}</p>
               <p className="text-muted-foreground">{displaySub1 || '—'}</p>
             </div>
-
-            <TableCard withHeaderBorder={false}>
-              <DataTable
-                rowData={issuedBooks}
-                columnDefs={columnDefs}
-                loading={loadingIssued}
-                pagination
-                paginationPageSize={10}
-                height="auto"
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search',
-                  pdfDocumentTitle: 'Issued Books',
-                }}
-              />
-              {!loadingIssued && issuedBooks.length === 0 ? (
-                <p className="border-t px-4 py-6 text-center text-sm text-muted-foreground">
-                  No issued books found for this member.
-                </p>
-              ) : null}
-            </TableCard>
           </div>
-        ) : null}
-      </div>
-    </LibraryScreenShell>
+        ) : (
+          filters
+        )
+      }
+      rowData={selectedMember ? issuedBooks : []}
+      columnDefs={columnDefs}
+      loading={selectedMember ? loadingIssued : false}
+      pagination
+      paginationPageSize={10}
+      height="auto"
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search',
+        pdfDocumentTitle: 'Issued Books',
+      }}
+    />
   )
 }

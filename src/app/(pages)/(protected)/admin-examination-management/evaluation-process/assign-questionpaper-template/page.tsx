@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { ChevronDown, Eye, Filter, Pencil } from "lucide-react";
-import { DataTable } from "@/common/components/table";
+import { Eye, Pencil } from "lucide-react";
 import { Select as SearchableSelect } from "@/common/components/select";
 import type { SelectOption } from "@/common/components/select";
-import { PageContainer } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -102,7 +101,6 @@ export default function AssignQuestionPaperTemplatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -368,123 +366,78 @@ export default function AssignQuestionPaperTemplatePage() {
   );
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Assign Question Paper Template</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+    <FilteredListPage
+      title="Assign Template"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="md:col-span-1.5 space-y-1">
+            <Label className="text-[12px] text-muted-foreground">Course</Label>
+            <SearchableSelect
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(num(v) || null)}
+              options={courseOptions}
+              placeholder="Course"
             />
-          </Button>
-        </div>
-        {filterOpen && (
-          <div className="p-3 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-1.5 space-y-1">
-                <Label className="text-[12px] text-muted-foreground">
-                  Course
-                </Label>
-                <SearchableSelect
-                  value={courseId ? String(courseId) : null}
-                  onChange={(v) => setCourseId(num(v) || null)}
-                  options={courseOptions}
-                  placeholder="Course"
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label className="text-[12px] text-muted-foreground">
-                  Exam Year
-                </Label>
-                <SearchableSelect
-                  value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => setAcademicYearId(num(v) || null)}
-                  options={academicYearOptions}
-                  placeholder="Exam Year"
-                />
-              </div>
-              <div className="md:col-span-4 space-y-1">
-                <Label className="text-[12px] text-muted-foreground">
-                  Exam Master
-                </Label>
-                <SearchableSelect
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => setExamId(num(v) || null)}
-                  options={examOptions}
-                  placeholder="Search exam…"
-                  searchable
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label className="text-[12px] text-muted-foreground">
-                  Regulation
-                </Label>
-                <SearchableSelect
-                  value={
-                    regulationId != null ? String(regulationId) : ALL_VALUE
-                  }
-                  onChange={(v) => setRegulationId(num(v))}
-                  options={regulationOptions}
-                  placeholder="Regulation"
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label className="text-[12px] text-muted-foreground">
-                  Course Years
-                </Label>
-                <SearchableSelect
-                  value={
-                    courseYearId != null ? String(courseYearId) : ALL_VALUE
-                  }
-                  onChange={(v) => setCourseYearId(num(v))}
-                  options={courseYearOptions}
-                  placeholder="Course Year"
-                />
-              </div>
-
-              <div className="md:col-span-1 flex justify-end">
-                <Button
-                  type="button"
-                  className="h-8 text-[12px]"
-                  onClick={() => void getList()}
-                  disabled={loading || !examId}
-                >
-                  Get List
-                </Button>
-              </div>
-            </div>
           </div>
-        )}
-      </div>
-
-      {hasFetched && (
-        <div className="app-card overflow-hidden">
-          <DataTable
-            title=""
-            subtitle=""
-            rowData={rows}
-            columnDefs={cols}
-            pagination
-            loading={loading}
-            toolbar={{
-              search: true,
-              searchPlaceholder: "Search subject, group, course year…",
-              pdfDocumentTitle: "Assign Question Paper Template",
-            }}
-          />
+          <div className="md:col-span-2 space-y-1">
+            <Label className="text-[12px] text-muted-foreground">Exam Year</Label>
+            <SearchableSelect
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(num(v) || null)}
+              options={academicYearOptions}
+              placeholder="Exam Year"
+            />
+          </div>
+          <div className="md:col-span-4 space-y-1">
+            <Label className="text-[12px] text-muted-foreground">Exam Master</Label>
+            <SearchableSelect
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(num(v) || null)}
+              options={examOptions}
+              placeholder="Search exam…"
+              searchable
+            />
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label className="text-[12px] text-muted-foreground">Regulation</Label>
+            <SearchableSelect
+              value={regulationId != null ? String(regulationId) : ALL_VALUE}
+              onChange={(v) => setRegulationId(num(v))}
+              options={regulationOptions}
+              placeholder="Regulation"
+            />
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label className="text-[12px] text-muted-foreground">Course Years</Label>
+            <SearchableSelect
+              value={courseYearId != null ? String(courseYearId) : ALL_VALUE}
+              onChange={(v) => setCourseYearId(num(v))}
+              options={courseYearOptions}
+              placeholder="Course Year"
+            />
+          </div>
+          <div className="md:col-span-1 flex justify-end">
+            <Button
+              type="button"
+              className="h-8 text-[12px]"
+              onClick={() => void getList()}
+              disabled={loading || !examId}
+            >
+              Get List
+            </Button>
+          </div>
         </div>
       )}
-
+      rowData={hasFetched ? rows : []}
+      columnDefs={cols}
+      pagination
+      loading={loading}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search subject, group, course year…",
+        pdfDocumentTitle: "Assign Question Paper Template",
+      }}
+    >
       <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-auto">
           <DialogHeader>
@@ -559,6 +512,6 @@ export default function AssignQuestionPaperTemplatePage() {
           </div>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredListPage>
   );
 }

@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Barcode, ChevronDown, Eye, FileText, Filter } from "lucide-react";
+import { Barcode, Eye, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/common/components/select";
-import { DataTable, TableCard } from "@/common/components/table";
 import {
   generateBarcodesForExamStudents,
   getExamOmrStudents,
@@ -13,7 +12,7 @@ import {
   getUnivExamRestNoTtBundle,
   getUnivExamSubjectUc,
 } from "@/services/pre-examination";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { toastError } from "@/lib/toast";
 import { useBarcodeStickerPrint } from "./_print/useBarcodeStickerPrint";
 import type { ColDef } from "ag-grid-community";
@@ -197,7 +196,6 @@ export default function ExamSubjectBarcodeGenerationPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([]);
@@ -806,254 +804,225 @@ export default function ExamSubjectBarcodeGenerationPage() {
   if (printMode) return <>{printView}</>;
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Subject Barcode</h2>
+    <FilteredListPage
+      title="Exam Subject Barcode"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="md:col-span-2 space-y-1">
+            <Label>Course</Label>
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : 0)}
+              options={courses.map((c, i) => ({
+                value: String(
+                  pickNum(c, ["fk_course_id", "courseId", "fk_courseId"]) ||
+                    i,
+                ),
+                label:
+                  pickText(c, [
+                    "course_code",
+                    "courseCode",
+                    "course_name",
+                    "courseName",
+                  ]) || "-",
+              }))}
+              placeholder="Course"
+            />
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label>Exam Year</Label>
+            <Select
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
+              options={academicYears.map((a, i) => ({
+                value: String(
+                  pickNum(a, [
+                    "fk_academic_year_id",
+                    "academicYearId",
+                    "fk_academicYearId",
+                  ]) || i,
+                ),
+                label:
+                  pickText(a, ["academic_year", "academicYear"]) || "-",
+              }))}
+              placeholder="Exam Year"
+            />
+          </div>
+          <div className="md:col-span-4 space-y-1">
+            <Label>Exam Master</Label>
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={async (v) => {
+                const eid = v ? Number(v) : 0;
+                setExamId(eid);
+                if (courseId && academicYearId)
+                  await onExamLoad(courseId, academicYearId, eid);
+              }}
+              options={exams.map((e, i) => ({
+                value: String(
+                  pickNum(e, ["fk_exam_id", "examId", "fk_examId"]) || i,
+                ),
+                label: pickText(e, ["exam_name", "examName"]) || "-",
+              }))}
+              placeholder="Exam Master"
+            />
+          </div>
+
+          <div className="md:col-span-2 space-y-1">
+            <Label>College</Label>
+            <Select
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => setCollegeId(v ? Number(v) : 0)}
+              options={colleges.map((c, i) => ({
+                value: String(
+                  pickNum(c, [
+                    "fk_college_id",
+                    "collegeId",
+                    "fk_collegeId",
+                  ]) || i,
+                ),
+                label:
+                  pickText(c, [
+                    "college_code",
+                    "collegeCode",
+                    "college_name",
+                    "collegeName",
+                  ]) || "-",
+              }))}
+              placeholder="College"
+            />
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label>Course Group</Label>
+            <Select
+              value={courseGroupId ? String(courseGroupId) : null}
+              onChange={(v) => setCourseGroupId(v ? Number(v) : 0)}
+              options={groups.map((g, i) => ({
+                value: String(
+                  pickNum(g, [
+                    "fk_course_group_id",
+                    "courseGroupId",
+                    "fk_course_groupId",
+                  ]) || i,
+                ),
+                label:
+                  pickText(g, [
+                    "group_code",
+                    "groupCode",
+                    "course_group_code",
+                    "courseGroupCode",
+                  ]) || "-",
+              }))}
+              placeholder="Group"
+            />
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label>Course Year</Label>
+            <Select
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
+              options={years.map((y, i) => ({
+                value: String(
+                  pickNum(y, [
+                    "fk_course_year_id",
+                    "courseYearId",
+                    "fk_course_yearId",
+                  ]) || i,
+                ),
+                label:
+                  pickText(y, [
+                    "course_year_code",
+                    "courseYearCode",
+                    "course_year_name",
+                    "courseYearName",
+                  ]) || "-",
+              }))}
+              placeholder="Course Year"
+            />
+          </div>
+          <div className="md:col-span-2 space-y-1">
+            <Label>Regulation</Label>
+            <Select
+              value={regulationId ? String(regulationId) : null}
+              onChange={(v) => {
+                const uiRegId = v ? Number(v) : 0;
+                setRegulationId(uiRegId);
+                setSelectedBackendRegulationId(
+                  regulationBackendIdMap.get(uiRegId) ?? 0,
+                );
+                setSubjectId(null);
+              }}
+              options={regulations.map((r, i) => ({
+                value: String(pickRegValue(r) || i),
+                label:
+                  pickText(r, REG_TEXT_KEYS) ||
+                  `Regulation ${pickRegValue(r)}`,
+              }))}
+              placeholder="Regulation"
+            />
+          </div>
+          <div className="md:col-span-3 space-y-1">
+            <Label>Subject</Label>
+            <Select
+              value={subjectId ? String(subjectId) : null}
+              onChange={(v) => setSubjectId(v ? Number(v) : 0)}
+              options={subjects.map((s, i) => ({
+                value: String(pickNum(s, SUBJECT_ID_KEYS) || i),
+                label:
+                  (pickText(s, ["subject_name", "subjectName"]) || "-") +
+                  " (" +
+                  (pickText(s, ["subject_code", "subjectCode"]) || "-") +
+                  ")",
+              }))}
+              placeholder="Subject"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Button
+              type="button"
+              onClick={getList}
+              disabled={loading || tableLoading}
+              className="h-8 px-3 text-[12px] w-full"
+            >
+              Get List
+            </Button>
+          </div>
+        </div>
+      )}
+      rowData={hasFetched ? rows : []}
+      columnDefs={columnDefs}
+      loading={tableLoading}
+      pagination
+      paginationPageSize={10}
+      getRowId={getRowId}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search students…",
+        pdfDocumentTitle: "Exam Subject Barcode",
+      }}
+      toolbarLeading={(
+        <span
+          className="max-w-[min(100%,28rem)] truncate text-[12px] font-medium text-[hsl(var(--primary))]"
+          title={tableSummaryText}
+        >
+          {tableSummaryText}
+        </span>
+      )}
+      toolbarTrailing={(
+        <div className="flex items-center gap-2">
+          {printButton}
           <Button
             type="button"
-            variant="outline"
             size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
+            onClick={generateBarcode}
+            disabled={tableLoading || rows.length === 0}
+            className="h-[30px] px-3 text-[12px]"
           >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
-            />
+            <Barcode className="mr-1.5 h-3.5 w-3.5" />
+            Generate Barcode
           </Button>
         </div>
-
-        {
-          <div className="p-3 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course</Label>
-                <Select
-                  value={courseId ? String(courseId) : null}
-                  onChange={(v) => setCourseId(v ? Number(v) : 0)}
-                  options={courses.map((c, i) => ({
-                    value: String(
-                      pickNum(c, ["fk_course_id", "courseId", "fk_courseId"]) ||
-                        i,
-                    ),
-                    label:
-                      pickText(c, [
-                        "course_code",
-                        "courseCode",
-                        "course_name",
-                        "courseName",
-                      ]) || "-",
-                  }))}
-                  placeholder="Course"
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Exam Year</Label>
-                <Select
-                  value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
-                  options={academicYears.map((a, i) => ({
-                    value: String(
-                      pickNum(a, [
-                        "fk_academic_year_id",
-                        "academicYearId",
-                        "fk_academicYearId",
-                      ]) || i,
-                    ),
-                    label:
-                      pickText(a, ["academic_year", "academicYear"]) || "-",
-                  }))}
-                  placeholder="Exam Year"
-                />
-              </div>
-              <div className="md:col-span-4 space-y-1">
-                <Label>Exam Master</Label>
-                <Select
-                  value={examId ? String(examId) : null}
-                  onChange={async (v) => {
-                    const eid = v ? Number(v) : 0;
-                    setExamId(eid);
-                    if (courseId && academicYearId)
-                      await onExamLoad(courseId, academicYearId, eid);
-                  }}
-                  options={exams.map((e, i) => ({
-                    value: String(
-                      pickNum(e, ["fk_exam_id", "examId", "fk_examId"]) || i,
-                    ),
-                    label: pickText(e, ["exam_name", "examName"]) || "-",
-                  }))}
-                  placeholder="Exam Master"
-                />
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <Label>College</Label>
-                <Select
-                  value={collegeId ? String(collegeId) : null}
-                  onChange={(v) => setCollegeId(v ? Number(v) : 0)}
-                  options={colleges.map((c, i) => ({
-                    value: String(
-                      pickNum(c, [
-                        "fk_college_id",
-                        "collegeId",
-                        "fk_collegeId",
-                      ]) || i,
-                    ),
-                    label:
-                      pickText(c, [
-                        "college_code",
-                        "collegeCode",
-                        "college_name",
-                        "collegeName",
-                      ]) || "-",
-                  }))}
-                  placeholder="College"
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course Group</Label>
-                <Select
-                  value={courseGroupId ? String(courseGroupId) : null}
-                  onChange={(v) => setCourseGroupId(v ? Number(v) : 0)}
-                  options={groups.map((g, i) => ({
-                    value: String(
-                      pickNum(g, [
-                        "fk_course_group_id",
-                        "courseGroupId",
-                        "fk_course_groupId",
-                      ]) || i,
-                    ),
-                    label:
-                      pickText(g, [
-                        "group_code",
-                        "groupCode",
-                        "course_group_code",
-                        "courseGroupCode",
-                      ]) || "-",
-                  }))}
-                  placeholder="Group"
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course Year</Label>
-                <Select
-                  value={courseYearId ? String(courseYearId) : null}
-                  onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
-                  options={years.map((y, i) => ({
-                    value: String(
-                      pickNum(y, [
-                        "fk_course_year_id",
-                        "courseYearId",
-                        "fk_course_yearId",
-                      ]) || i,
-                    ),
-                    label:
-                      pickText(y, [
-                        "course_year_code",
-                        "courseYearCode",
-                        "course_year_name",
-                        "courseYearName",
-                      ]) || "-",
-                  }))}
-                  placeholder="Course Year"
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Regulation</Label>
-                <Select
-                  value={regulationId ? String(regulationId) : null}
-                  onChange={(v) => {
-                    const uiRegId = v ? Number(v) : 0;
-                    setRegulationId(uiRegId);
-                    setSelectedBackendRegulationId(
-                      regulationBackendIdMap.get(uiRegId) ?? 0,
-                    );
-                    setSubjectId(null);
-                  }}
-                  options={regulations.map((r, i) => ({
-                    value: String(pickRegValue(r) || i),
-                    label:
-                      pickText(r, REG_TEXT_KEYS) ||
-                      `Regulation ${pickRegValue(r)}`,
-                  }))}
-                  placeholder="Regulation"
-                />
-              </div>
-              <div className="md:col-span-3 space-y-1">
-                <Label>Subject</Label>
-                <Select
-                  value={subjectId ? String(subjectId) : null}
-                  onChange={(v) => setSubjectId(v ? Number(v) : 0)}
-                  options={subjects.map((s, i) => ({
-                    value: String(pickNum(s, SUBJECT_ID_KEYS) || i),
-                    label:
-                      (pickText(s, ["subject_name", "subjectName"]) || "-") +
-                      " (" +
-                      (pickText(s, ["subject_code", "subjectCode"]) || "-") +
-                      ")",
-                  }))}
-                  placeholder="Subject"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Button
-                  type="button"
-                  onClick={getList}
-                  disabled={loading || tableLoading}
-                  className="h-8 px-3 text-[12px] w-full"
-                >
-                  Get List
-                </Button>
-              </div>
-            </div>
-          </div>
-        }
-      </div>
-
-      {hasFetched && (
-        <TableCard withHeaderBorder={false}>
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={tableLoading}
-            pagination
-            paginationPageSize={10}
-            getRowId={getRowId}
-            toolbar={{
-              search: true,
-              searchPlaceholder: "Search students…",
-              pdfDocumentTitle: "Exam Subject Barcode",
-            }}
-            toolbarLeading={
-              <span
-                className="max-w-[min(100%,28rem)] truncate text-[12px] font-medium text-[hsl(var(--primary))]"
-                title={tableSummaryText}
-              >
-                {tableSummaryText}
-              </span>
-            }
-            toolbarTrailing={
-              <div className="flex items-center gap-2">
-                {printButton}
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={generateBarcode}
-                  disabled={tableLoading || rows.length === 0}
-                  className="h-[30px] px-3 text-[12px]"
-                >
-                  <Barcode className="mr-1.5 h-3.5 w-3.5" />
-                  Generate Barcode
-                </Button>
-              </div>
-            }
-          />
-        </TableCard>
       )}
-    </PageContainer>
+    />
   );
 }

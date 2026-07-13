@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Filter } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -19,8 +18,8 @@ import {
   getUnivExamSubjectUc,
 } from '@/services/pre-examination'
 import { listUnivExamCentersByUniversity, listUniversitiesForExamGroup } from '@/services/exam-papers-delivery'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable, TableCard } from '@/common/components/table'
+import { ChevronDown, Filter } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import type { ColDef } from 'ag-grid-community'
 
 type AnyRow = Record<string, any>
@@ -148,7 +147,6 @@ const pickBackendRegId = (row: AnyRow | null | undefined) => pickNum(row, REG_ID
 export default function ExamCenterBarcodesPage() {
   const [isMounted, setIsMounted] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [filterOpen, setFilterOpen] = useState(true)
   const [hasFetched, setHasFetched] = useState(false)
   const [rows, setRows] = useState<AnyRow[]>([])
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
@@ -393,56 +391,35 @@ export default function ExamCenterBarcodesPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Exam center barcodes" subtitle="Exam papers delivery process · Generate exam center barcodes" />
-
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Center Barcodes</h2>
-          <Button type="button" variant="outline" size="sm" className="h-6 px-2.5 text-[12px]" onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen}>
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-
-        {(
-          <div className="p-3 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-3 space-y-1"><Label>Academic Year *</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((a, i) => <SelectItem key={`ay-${i}`} value={String(pickNum(a, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']))}>{pickText(a, ['academic_year', 'academicYear']) || '-'}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Exam Group *</Label><Select value={examId ? String(examId) : undefined} onValueChange={async (v) => { const eid = Number(v); setExamId(eid); if (courseId && academicYearId) await onExamLoad(courseId, academicYearId, eid) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Group" /></SelectTrigger><SelectContent>{exams.map((e, i) => <SelectItem key={`e-${i}`} value={String(pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']))}>{pickText(e, ['exam_name', 'examName']) || '-'}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-5 space-y-1"><Label>Exam Center *</Label><Select value={examCenterId ? String(examCenterId) : undefined} onValueChange={(v) => setExamCenterId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Center" /></SelectTrigger><SelectContent>{examCenters.map((c, i) => <SelectItem key={`ec-${i}`} value={String(Number(c.univExamcenterId ?? c.univExamCenterId ?? c.univ_examcenter_id ?? 0))}>{String(c.examcenterCode ?? c.examCenterCode ?? '-')}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-3 space-y-1"><Label>Course Group</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{groups.map((g, i) => <SelectItem key={`g-${i}`} value={String(pickNum(g, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']))}>{pickText(g, ['group_code', 'groupCode']) || '-'}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Course Years *</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{years.map((y, i) => <SelectItem key={`y-${i}`} value={String(pickNum(y, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']))}>{pickText(y, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) || '-'}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-3 space-y-1"><Label>Subjects</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{subjects.map((s, i) => <SelectItem key={`s-${i}`} value={String(pickNum(s, SUBJECT_ID_KEYS))}>{(pickText(s, ['subject_name', 'subjectName']) || '-') + ' (' + (pickText(s, ['subject_code', 'subjectCode']) || '-') + ')'}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-2 flex flex-col justify-end md:items-end">
-                <Button type="button" onClick={getList} disabled={loading} className="h-8 shrink-0 px-2.5 text-[12px] w-full md:w-auto">
-                  Get Students
-                </Button>
-              </div>
-            </div>
+    <FilteredListPage
+      title="Exam Center Barcodes"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="md:col-span-3 space-y-1"><Label>Academic Year *</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((a, i) => <SelectItem key={`ay-${i}`} value={String(pickNum(a, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']))}>{pickText(a, ['academic_year', 'academicYear']) || '-'}</SelectItem>)}</SelectContent></Select></div>
+          <div className="md:col-span-4 space-y-1"><Label>Exam Group *</Label><Select value={examId ? String(examId) : undefined} onValueChange={async (v) => { const eid = Number(v); setExamId(eid); if (courseId && academicYearId) await onExamLoad(courseId, academicYearId, eid) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Group" /></SelectTrigger><SelectContent>{exams.map((e, i) => <SelectItem key={`e-${i}`} value={String(pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']))}>{pickText(e, ['exam_name', 'examName']) || '-'}</SelectItem>)}</SelectContent></Select></div>
+          <div className="md:col-span-5 space-y-1"><Label>Exam Center *</Label><Select value={examCenterId ? String(examCenterId) : undefined} onValueChange={(v) => setExamCenterId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Center" /></SelectTrigger><SelectContent>{examCenters.map((c, i) => <SelectItem key={`ec-${i}`} value={String(Number(c.univExamcenterId ?? c.univExamCenterId ?? c.univ_examcenter_id ?? 0))}>{String(c.examcenterCode ?? c.examCenterCode ?? '-')}</SelectItem>)}</SelectContent></Select></div>
+          <div className="md:col-span-3 space-y-1"><Label>Course Group</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{groups.map((g, i) => <SelectItem key={`g-${i}`} value={String(pickNum(g, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']))}>{pickText(g, ['group_code', 'groupCode']) || '-'}</SelectItem>)}</SelectContent></Select></div>
+          <div className="md:col-span-4 space-y-1"><Label>Course Years *</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{years.map((y, i) => <SelectItem key={`y-${i}`} value={String(pickNum(y, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']))}>{pickText(y, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) || '-'}</SelectItem>)}</SelectContent></Select></div>
+          <div className="md:col-span-3 space-y-1"><Label>Subjects</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{subjects.map((s, i) => <SelectItem key={`s-${i}`} value={String(pickNum(s, SUBJECT_ID_KEYS))}>{(pickText(s, ['subject_name', 'subjectName']) || '-') + ' (' + (pickText(s, ['subject_code', 'subjectCode']) || '-') + ')'}</SelectItem>)}</SelectContent></Select></div>
+          <div className="md:col-span-2 flex flex-col justify-end md:items-end">
+            <Button type="button" onClick={getList} disabled={loading} className="h-8 shrink-0 px-2.5 text-[12px] w-full md:w-auto">
+              Get Students
+            </Button>
           </div>
-        )}
-      </div>
-
-      {hasFetched && (
-        <TableCard withHeaderBorder={false}>
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loading}
-            pagination
-            paginationPageSize={10}
-            getRowId={getRowId}
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search students…',
-              pdfDocumentTitle: 'Exam Center Barcodes',
-            }}
-          />
-        </TableCard>
+        </div>
       )}
-    </PageContainer>
+      rowData={hasFetched ? rows : []}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      paginationPageSize={10}
+      getRowId={getRowId}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search students…',
+        pdfDocumentTitle: 'Exam Center Barcodes',
+      }}
+    />
   )
 }
 

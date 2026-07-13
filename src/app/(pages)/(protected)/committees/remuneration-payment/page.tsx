@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, Filter, RefreshCw } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable, TableCard } from '@/common/components/table'
+import { RefreshCw } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { useSessionContext } from '@/context/SessionContext'
@@ -105,7 +104,6 @@ export default function RemunerationPaymentPage() {
   const { employeeId, isResolving: empResolving } = useLoginEmployeeId(user, sessionLoading)
   const orgId = resolveOrganizationId(user)
 
-  const [filtersOpen, setFiltersOpen] = useState(true)
   const [orgCode, setOrgCode] = useState<string | null>(null)
   const [examMonthYear, setExamMonthYear] = useState<string | null>(null)
   const [examId, setExamId] = useState<number | null>(null)
@@ -251,93 +249,73 @@ export default function RemunerationPaymentPage() {
   const filtersLoading = sessionLoading || empResolving || loadingFilters || loadingRoles
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Remuneration Payment" />
-
-      <div className="app-card overflow-hidden p-0">
-        <div className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
-          <h2 className="text-sm font-semibold text-primary">Filters</h2>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 text-sm text-foreground"
-            onClick={() => setFiltersOpen((v) => !v)}
-          >
-            <span>Filter</span>
-            <Filter className="h-4 w-4" />
-            <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-          </button>
-        </div>
-
-        {filtersOpen ? (
-          <div className="grid grid-cols-1 items-end gap-3 p-4 md:grid-cols-12">
-            <Select
-              label="Org Code"
-              required
-              className="md:col-span-2"
-              value={orgCode}
-              onChange={setOrgCode}
-              options={orgOptions}
-              placeholder="Select org"
-              searchable
-              isLoading={filtersLoading}
-            />
-            <Select
-              label="Exam Month/Year"
-              required
-              className="md:col-span-2"
-              value={examMonthYear}
-              onChange={setExamMonthYear}
-              options={monthYearOptions}
-              placeholder="Select month/year"
-              searchable
-              disabled={!orgCode}
-            />
-            <Select
-              label="Exam"
-              required
-              className="md:col-span-3"
-              value={examId ? String(examId) : null}
-              onChange={(v) => setExamId(v ? Number(v) : null)}
-              options={examOptions}
-              placeholder="Select exam"
-              searchable
-              disabled={!examMonthYear}
-            />
-            <Select
-              label="Role"
-              className="md:col-span-2"
-              value={roleId ? String(roleId) : null}
-              onChange={(v) => setRoleId(v ? Number(v) : null)}
-              options={roleOptions}
-              placeholder="All roles"
-              searchable
-              clearable
-              isLoading={loadingRoles}
-            />
-            <div className="md:col-span-3">
-              <Button
-                type="button"
-                onClick={() => void loadSummary()}
-                disabled={!examId || !examMonthYear || loadingSummary}
-              >
-                <RefreshCw className={`mr-1.5 h-4 w-4 ${loadingSummary ? 'animate-spin' : ''}`} />
-                Load
-              </Button>
-            </div>
+    <FilteredListPage
+      title="Remuneration Payment"
+      filters={(
+        <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-12">
+          <Select
+            label="Org Code"
+            required
+            className="md:col-span-2"
+            value={orgCode}
+            onChange={setOrgCode}
+            options={orgOptions}
+            placeholder="Select org"
+            searchable
+            isLoading={filtersLoading}
+          />
+          <Select
+            label="Exam Month/Year"
+            required
+            className="md:col-span-2"
+            value={examMonthYear}
+            onChange={setExamMonthYear}
+            options={monthYearOptions}
+            placeholder="Select month/year"
+            searchable
+            disabled={!orgCode}
+          />
+          <Select
+            label="Exam"
+            required
+            className="md:col-span-3"
+            value={examId ? String(examId) : null}
+            onChange={(v) => setExamId(v ? Number(v) : null)}
+            options={examOptions}
+            placeholder="Select exam"
+            searchable
+            disabled={!examMonthYear}
+          />
+          <Select
+            label="Role"
+            className="md:col-span-2"
+            value={roleId ? String(roleId) : null}
+            onChange={(v) => setRoleId(v ? Number(v) : null)}
+            options={roleOptions}
+            placeholder="All roles"
+            searchable
+            clearable
+            isLoading={loadingRoles}
+          />
+          <div className="md:col-span-3">
+            <Button
+              type="button"
+              onClick={() => void loadSummary()}
+              disabled={!examId || !examMonthYear || loadingSummary}
+            >
+              <RefreshCw className={`mr-1.5 h-4 w-4 ${loadingSummary ? 'animate-spin' : ''}`} />
+              Load
+            </Button>
           </div>
-        ) : null}
-      </div>
-
-      <TableCard headerLeft={<h3 className="text-sm font-semibold text-primary">Payment Summary</h3>}>
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={loadingSummary}
-          height="480px"
-          getRowId={(p) => rowKey(p.data)}
-        />
-      </TableCard>
-
+        </div>
+      )}
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={loadingSummary}
+      height="480px"
+      getRowId={(p) => rowKey(p.data)}
+      toolbar={false}
+    >
       <PaymentModal
         open={paymentOpen}
         onClose={() => {
@@ -348,6 +326,6 @@ export default function RemunerationPaymentPage() {
         onSave={(payload) => void handleSubmitPayment(payload)}
         isSubmitting={submitting}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

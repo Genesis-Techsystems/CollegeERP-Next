@@ -3,9 +3,8 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { DoorOpen, PencilIcon, PlusIcon } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -111,47 +110,36 @@ export default function RoomsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Rooms</h2>
+    <ListPage
+      title="Rooms"
+      rowData={rooms}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search rooms…', pdfDocumentTitle: 'Rooms' }}
+      toolbarTrailing={
+        <Button size="sm" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Room
+        </Button>
+      }
+      emptyState={
+        <div className="app-card flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <DoorOpen className="h-10 w-10 mb-3 opacity-40" />
+          <p className="text-sm">No rooms found</p>
+          <Button size="sm" className="mt-4" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
+            <PlusIcon className="h-4 w-4 mr-1" />
+            Add Room
+          </Button>
         </div>
-        <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!loading && rooms.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <DoorOpen className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No rooms found</p>
-                <Button size="sm" className="mt-4" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Add Room
-                </Button>
-              </div>
-            ) : (
-              <DataTable
-                rowData={rooms}
-                columnDefs={columnDefs}
-                loading={loading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search rooms…', pdfDocumentTitle: 'Rooms' }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Room
-                  </Button>
-                }
-              />
-            )}
-          </div>
-        </div>
-      </div>
-
+      }
+    >
       <RoomModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingRoom(null) }}
         room={editingRoom}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

@@ -1,20 +1,18 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { BookMarked, ChevronDown, Filter } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select, type SelectOption } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { getSecuredValue } from '@/common/generic-functions'
 import { toastError } from '@/lib/toast'
 import {
-  getExamCenterFilterGroups,
+  getExamCenterByCodeRows,
   listAllActiveExamScanBundles,
   listAllActiveUnivEcProfiles,
-  pickExamScanBundleId,
   type AnyRow,
 } from '@/services/exam-papers-delivery'
+import { getUnivExamFiltersRegSup } from '@/services/pre-examination'
 
 type Row = AnyRow
 
@@ -47,7 +45,7 @@ function pickAcademicYearKey(row: Row): string {
 }
 
 function pickExamGroupKey(row: Row): string {
-  return String(row.fk_univ_exam_group_id ?? row.fk_exam_group_id ?? row.examGroupId ?? row.exam_group_id ?? '').trim()
+  return String(row.fk_exam_group_id ?? row.examGroupId ?? row.exam_group_id ?? row.fk_exam_id ?? row.examId ?? '').trim()
 }
 
 function pickCourseKey(row: Row): string {
@@ -66,16 +64,10 @@ function pickSubjectKey(row: Row): string {
   return String(row.fk_subject_id ?? row.subjectId ?? row.subject_id ?? '').trim()
 }
 
-const BUNDLE_DETAILS_STORAGE_KEY = 'examScanBundleDetails'
-
 export default function ExamScanBundleDetailsPage() {
-  const [navBundle] = useState<Row | null>(() => {
-    const saved = getSecuredValue<Row[]>(BUNDLE_DETAILS_STORAGE_KEY)
-    return Array.isArray(saved) && saved[0] ? saved[0] : null
-  })
   const [captureMode, setCaptureMode] = useState<'manual' | 'auto'>('manual')
-  const [filtersOpen, setFiltersOpen] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [employeeId, setEmployeeId] = useState(0)
 
   const [topRows, setTopRows] = useState<Row[]>([])
   const [scanFilterRows, setScanFilterRows] = useState<Row[]>([])
@@ -134,88 +126,67 @@ export default function ExamScanBundleDetailsPage() {
   const bundleOptions: SelectOption[] = useMemo(
     () =>
       bundles.map((b) => ({
-        value: String(pickExamScanBundleId(b)),
+        value: String(num(b.examScanBundleId ?? b.scanBundleId)),
         label: txt(b.bundleNumber ?? b.scanBundleNumber),
       })),
     [bundles],
   )
 
   useEffect(() => {
+    setEmployeeId(Number(globalThis?.localStorage?.getItem('employeeId') ?? 0))
+  }, [])
+
+  useEffect(() => {
     async function init() {
+      if (!employeeId) return
       setLoading(true)
       try {
-        const groups = await getExamCenterFilterGroups({ flag: 'eg_filters' })
-        const flat: Row[] = []
-        for (const g of groups) {
-          if (g.length > 0 && txt(g[0].flag) === 'eg_ay_filter') flat.push(...g)
-        }
-        setTopRows(flat)
+        const top = await getUnivExamFiltersRegSup(employeeId).catch(() => [])
+        setTopRows(Array.isArray(top) ? top : [])
         const profiles = await listAllActiveUnivEcProfiles().catch(() => [])
         setScanProfiles(Array.isArray(profiles) ? profiles : [])
         const bundleRows = await listAllActiveExamScanBundles().catch(() => [])
         setBundles(Array.isArray(bundleRows) ? bundleRows : [])
-      } catch (e) {
-        toastError(e, 'Failed to load filters')
-        setTopRows([])
       } finally {
         setLoading(false)
       }
     }
     void init()
-  }, [])
+  }, [employeeId])
 
   useEffect(() => {
     if (!academicYears.length || form.academicYearId) return
-    const saved = navBundle
-    setForm((f) => ({
-      ...f,
-      academicYearId: saved?.academicYearId != null ? String(saved.academicYearId) : pickAcademicYearKey(academicYears[0]),
-    }))
+    setForm((f) => ({ ...f, academicYearId: pickAcademicYearKey(academicYears[0]) }))
   }, [academicYears, form.academicYearId])
 
   useEffect(() => {
     if (!examGroups.length || form.examGroupId) return
-    const saved = navBundle
-    setForm((f) => ({
-      ...f,
-      examGroupId: saved?.examGroupId != null ? String(saved.examGroupId) : pickExamGroupKey(examGroups[0]),
-    }))
+    setForm((f) => ({ ...f, examGroupId: pickExamGroupKey(examGroups[0]) }))
   }, [examGroups, form.examGroupId])
 
   useEffect(() => {
     async function loadScanFilters() {
       if (!form.academicYearId || !form.examGroupId) return
-      try {
-        const groups = await getExamCenterFilterGroups({
-          flag: 'eg_scan_filter',
-          examGroupId: Number(form.examGroupId),
-          academicYearId: Number(form.academicYearId),
-        })
-        const rows = groups[0] ?? []
-        setScanFilterRows(rows)
-        const saved = navBundle
-        if (saved?.courseId != null) {
-          setForm((f) => ({
-            ...f,
-            courseId: String(saved.courseId),
-            courseYearId: saved.courseYearId != null ? String(saved.courseYearId) : '',
-            regulationId: saved.regulationId != null ? String(saved.regulationId) : '',
-            subjectId: saved.subjectId != null ? String(saved.subjectId) : '',
-            examScanBundleId:
-              saved.univExamScanbundleId != null
-                ? String(saved.univExamScanbundleId)
-                : String(pickExamScanBundleId(saved)),
-          }))
-        } else {
-          setForm((f) => ({ ...f, courseId: '', courseYearId: '', regulationId: '', subjectId: '', examScanBundleId: '' }))
-        }
-      } catch (e) {
-        toastError(e, 'Failed to load course filters')
-        setScanFilterRows([])
-      }
+      const rows = await getExamCenterByCodeRows({
+        flag: 'eg_scan_filter' as 'eg_filters',
+        flagType: 'REGSUP',
+        univExamcenterId: 0,
+        examGroupId: Number(form.examGroupId),
+        collegeId: 0,
+        courseId: 0,
+        courseGroupId: 0,
+        courseYearId: 0,
+        academicYearId: Number(form.academicYearId),
+        examId: 0,
+        regulationId: 0,
+        subjectId: 0,
+        universityId: 0,
+      }).catch(() => [])
+      setScanFilterRows(Array.isArray(rows) ? rows : [])
+      setForm((f) => ({ ...f, courseId: '', courseYearId: '', regulationId: '', subjectId: '', examScanBundleId: '' }))
     }
     void loadScanFilters()
-  }, [form.academicYearId, form.examGroupId, navBundle])
+  }, [form.academicYearId, form.examGroupId])
 
   useEffect(() => {
     if (!courses.length) return
@@ -246,42 +217,22 @@ export default function ExamScanBundleDetailsPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
-            <h2 className="app-card-title">
-              Exam Scan Bundle Details
-            </h2>
+    <FilteredPage
+      title="Exam Scan Bundle Details"
+      filters={(
+        <>
+          <div className="flex flex-wrap items-center gap-x-10 gap-y-2 text-[12px]">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input type="radio" checked={captureMode === 'manual'} onChange={() => setCaptureMode('manual')} />
+              Manual bundle Capture
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input type="radio" checked={captureMode === 'auto'} onChange={() => setCaptureMode('auto')} />
+              Auto bundle Capture
+            </label>
           </div>
-          <button
-            type="button"
-            className="flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground"
-            onClick={() => setFiltersOpen((v) => !v)}
-            aria-expanded={filtersOpen}
-          >
-            <span>Filter</span>
-            <Filter className="h-4 w-4" aria-hidden />
-            <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-          </button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-10 gap-y-2 pt-3 text-[12px]">
-          <label className="flex cursor-pointer items-center gap-2">
-            <input type="radio" checked={captureMode === 'manual'} onChange={() => setCaptureMode('manual')} />
-            Manual bundle Capture
-          </label>
-          <label className="flex cursor-pointer items-center gap-2">
-            <input type="radio" checked={captureMode === 'auto'} onChange={() => setCaptureMode('auto')} />
-            Auto bundle Capture
-          </label>
-        </div>
-
-        {(
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="space-y-1 md:col-span-3">
-              <Label>Academic Year *</Label>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Academic Year">
               <Select
                 options={academicYears.map((r) => ({
                   value: pickAcademicYearKey(r),
@@ -290,9 +241,8 @@ export default function ExamScanBundleDetailsPage() {
                 value={form.academicYearId}
                 onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))}
               />
-            </div>
-            <div className="space-y-1 md:col-span-4">
-              <Label>Exam Group *</Label>
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Group">
               <Select
                 options={examGroups.map((r) => ({
                   value: pickExamGroupKey(r),
@@ -301,9 +251,8 @@ export default function ExamScanBundleDetailsPage() {
                 value={form.examGroupId}
                 onChange={(v) => setForm((f) => ({ ...f, examGroupId: v ?? '' }))}
               />
-            </div>
-            <div className="space-y-1 md:col-span-3">
-              <Label>Course *</Label>
+            </GlobalFilterField>
+            <GlobalFilterField label="Course">
               <Select
                 options={courses.map((r) => ({
                   value: pickCourseKey(r),
@@ -312,9 +261,8 @@ export default function ExamScanBundleDetailsPage() {
                 value={form.courseId}
                 onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))}
               />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course Years *</Label>
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Years">
               <Select
                 options={courseYears.map((r) => ({
                   value: pickCourseYearKey(r),
@@ -323,9 +271,8 @@ export default function ExamScanBundleDetailsPage() {
                 value={form.courseYearId}
                 onChange={(v) => setForm((f) => ({ ...f, courseYearId: v ?? '' }))}
               />
-            </div>
-            <div className="space-y-1 md:col-span-3">
-              <Label>Regulation *</Label>
+            </GlobalFilterField>
+            <GlobalFilterField label="Regulation">
               <Select
                 options={regulations.map((r) => ({
                   value: pickRegulationKey(r),
@@ -334,9 +281,8 @@ export default function ExamScanBundleDetailsPage() {
                 value={form.regulationId}
                 onChange={(v) => setForm((f) => ({ ...f, regulationId: v ?? '' }))}
               />
-            </div>
-            <div className="space-y-1 md:col-span-5">
-              <Label>Subjects</Label>
+            </GlobalFilterField>
+            <GlobalFilterField label="Subjects">
               <Select
                 options={subjects.map((r) => ({
                   value: pickSubjectKey(r),
@@ -345,22 +291,21 @@ export default function ExamScanBundleDetailsPage() {
                 value={form.subjectId}
                 onChange={(v) => setForm((f) => ({ ...f, subjectId: v ?? '' }))}
               />
-            </div>
-            <div className="space-y-1 md:col-span-4">
-              <Label>Exam Scan Bundle *</Label>
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Scan Bundle">
               <Select
                 options={bundleOptions}
                 value={form.examScanBundleId}
                 onChange={(v) => setForm((f) => ({ ...f, examScanBundleId: v ?? '' }))}
               />
-            </div>
-            <div className="md:col-span-2">
+            </GlobalFilterField>
+            <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
               <Button type="button" onClick={onGetDetails} disabled={loading}>Get Details</Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </PageContainer>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+        </>
+      )}
+    />
   )
 }
 

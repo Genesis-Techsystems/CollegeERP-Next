@@ -1,14 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Filter, Mail, Send } from 'lucide-react'
+import { Send } from 'lucide-react'
 import { Select, MultiSelect } from '@/common/components/select'
 import { FormField } from '@/common/components/forms'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { useSessionContext } from '@/context/SessionContext'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
@@ -75,7 +74,6 @@ export default function PrincipalStaffToAdminEmailPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const { user } = useSessionContext()
 
-  const [filtersOpen, setFiltersOpen] = useState(true)
   const [colleges, setColleges] = useState<College[]>([])
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [principalLock, setPrincipalLock] = useState(false)
@@ -253,74 +251,55 @@ export default function PrincipalStaffToAdminEmailPage() {
   const showCompose = userIds.length > 0 && collegeId && roleId
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card border-t-[3px] border-t-amber-300 p-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
-          <h1 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
-            <Mail className="h-4 w-4 shrink-0" aria-hidden />
-            Principal and staff to admin — email
-          </h1>
-          <button
-            type="button"
-            className="inline-flex shrink-0 items-center gap-1 text-sm text-foreground hover:text-foreground/80"
-            onClick={() => setFiltersOpen((prev) => !prev)}
-            aria-expanded={filtersOpen}
-            aria-controls="principal-staff-admin-filters"
-          >
-            Filter
-            <Filter className="h-4 w-4" aria-hidden />
-          </button>
+    <FilteredPage
+      title="Principal and staff to admin — email"
+      filters={(
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Choose the college, the role used to find admin accounts, and which administrators receive the message.
+          </p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
+            <Select
+              label="College *"
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => {
+                setCollegeId(v ? Number(v) : null)
+                setUserIds([])
+              }}
+              options={colleges.map((c) => ({ value: String(c.collegeId), label: c.collegeCode }))}
+              searchable
+              disabled={principalLock}
+              className="md:col-span-4"
+            />
+            <Select
+              label="Admin role *"
+              value={roleId ? String(roleId) : null}
+              onChange={(v) => {
+                setRoleId(v ? Number(v) : null)
+                setUserIds([])
+              }}
+              options={roleOptions}
+              searchable
+              placeholder={organizationId ? 'Select role' : 'Set organization / college'}
+              disabled={!organizationId || roleOptions.length === 0}
+              isLoading={rolesLoading}
+              className="md:col-span-4"
+            />
+            <MultiSelect
+              label="Admin recipients *"
+              value={userIds}
+              onChange={setUserIds}
+              options={userOptions}
+              searchable
+              placeholder={usersLoading ? 'Loading…' : 'Select administrator(s)'}
+              disabled={!collegeId || !roleId || userOptions.length === 0}
+              isLoading={usersLoading}
+              className="md:col-span-4"
+            />
+          </div>
         </div>
-        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <CollapsibleContent id="principal-staff-admin-filters">
-            <div className="space-y-4 p-4 pt-3">
-              <p className="text-xs text-muted-foreground">
-                Choose the college, the role used to find admin accounts, and which administrators receive the message.
-              </p>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
-                <Select
-                  label="College *"
-                  value={collegeId ? String(collegeId) : null}
-                  onChange={(v) => {
-                    setCollegeId(v ? Number(v) : null)
-                    setUserIds([])
-                  }}
-                  options={colleges.map((c) => ({ value: String(c.collegeId), label: c.collegeCode }))}
-                  searchable
-                  disabled={principalLock}
-                  className="md:col-span-4"
-                />
-                <Select
-                  label="Admin role *"
-                  value={roleId ? String(roleId) : null}
-                  onChange={(v) => {
-                    setRoleId(v ? Number(v) : null)
-                    setUserIds([])
-                  }}
-                  options={roleOptions}
-                  searchable
-                  placeholder={organizationId ? 'Select role' : 'Set organization / college'}
-                  disabled={!organizationId || roleOptions.length === 0}
-                  isLoading={rolesLoading}
-                  className="md:col-span-4"
-                />
-                <MultiSelect
-                  label="Admin recipients *"
-                  value={userIds}
-                  onChange={setUserIds}
-                  options={userOptions}
-                  searchable
-                  placeholder={usersLoading ? 'Loading…' : 'Select administrator(s)'}
-                  disabled={!collegeId || !roleId || userOptions.length === 0}
-                  isLoading={usersLoading}
-                  className="md:col-span-4"
-                />
-              </div>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
-
+      )}
+    >
       {showCompose ? (
         <div className="app-card p-0 overflow-hidden">
           <div className="border-b px-4 py-2.5">
@@ -379,6 +358,6 @@ export default function PrincipalStaffToAdminEmailPage() {
           </div>
         </div>
       ) : null}
-    </PageContainer>
+    </FilteredPage>
   )
 }

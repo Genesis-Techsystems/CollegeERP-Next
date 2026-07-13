@@ -3,17 +3,14 @@
 import { useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
 import { DatePicker } from '@/common/components/date-picker'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { format } from 'date-fns'
 import { getCertificateSummaryReport } from '@/services'
 import type { CertificateSummaryReportRow } from '@/types/tc-no-due'
-import { TcPageTitle } from '../_components/TcPageTitle'
 import { useTcCollegeCascade } from '../_lib/use-tc-college-cascade'
 
 export default function CertificateRequestReportPage() {
@@ -49,14 +46,12 @@ export default function CertificateRequestReportPage() {
   }, [rows])
 
   return (
-    <PageContainer className="space-y-5">
-      <TcPageTitle title="Certificate Request Report" />
-
-      <FilterCard title="Report filters">
+    <FilteredListPage
+      title="Certificate Request Report"
+      filters={(
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Select
             label="College"
-            className={FILTER_CARD_SELECT_CLASS}
             value={collegeId}
             onChange={setCollegeId}
             options={colleges}
@@ -76,16 +71,12 @@ export default function CertificateRequestReportPage() {
             </Button>
           </div>
         </div>
-      </FilterCard>
-
-      <TableCard headerLeft={<span className="text-sm font-semibold">Report</span>} withHeaderBorder={false}>
-        <DataTable
-          columnDefs={columnDefs}
-          rowData={rows}
-          loading={isLoading || isFetching}
-          height="auto"
-        />
-      </TableCard>
-    </PageContainer>
+      )}
+      rowData={runKey > 0 ? rows : []}
+      columnDefs={columnDefs}
+      loading={isLoading || isFetching}
+      height="auto"
+      toolbar={{ search: true, searchPlaceholder: 'Search report…' }}
+    />
   )
 }

@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select } from '@/common/components/select'
 import { getAllRecords } from '@/services/crud'
 import {
@@ -207,17 +207,11 @@ export default function CompleteExamFeeRegistrationPage() {
   const selectedExamId = examId ?? 0
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Complete Exam Fee Registration" subtitle="Result processing and publish workflow" />
-
-      <div className="app-card p-3 space-y-3">
-        <h2 className="app-card-title">
-          Result Processing
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2">
-            <Label>College</Label>
+    <FilteredPage
+      title="Complete Exam Fee Registration"
+      filters={(
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="College">
             <Select
               value={collegeId ? String(collegeId) : null}
               onChange={(v: string | null) => setCollegeId(v ? Number(v) : null)}
@@ -226,30 +220,27 @@ export default function CompleteExamFeeRegistrationPage() {
               searchable
               clearable
             />
-          </div>
+          </GlobalFilterField>
 
-          <div className="space-y-1 md:col-span-2">
-            <Label>Exam Year</Label>
+          <GlobalFilterField label="Exam Year">
             <Select
               value={academicYearId ? String(academicYearId) : null}
               onChange={(v: string | null) => setAcademicYearId(v ? Number(v) : null)}
               options={yearOptions}
               placeholder="Exam Year"
             />
-          </div>
+          </GlobalFilterField>
 
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course</Label>
+          <GlobalFilterField label="Course">
             <Select
               value={courseId ? String(courseId) : null}
               onChange={(v: string | null) => setCourseId(v ? Number(v) : null)}
               options={courseOptions}
               placeholder="Course"
             />
-          </div>
+          </GlobalFilterField>
 
-          <div className="space-y-1 md:col-span-4">
-            <Label>Exam</Label>
+          <GlobalFilterField label="Exam">
             <Select
               value={examId ? String(examId) : null}
               onChange={(v: string | null) => setExamId(v ? Number(v) : null)}
@@ -257,9 +248,10 @@ export default function CompleteExamFeeRegistrationPage() {
               placeholder="Exam"
               searchable
             />
-          </div>
-        </div>
-
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      )}
+      body={(
         <div className="flex gap-2 justify-end">
           <Button
             className="h-8 text-[12px]"
@@ -286,8 +278,8 @@ export default function CompleteExamFeeRegistrationPage() {
             Publish Result Processing
           </Button>
         </div>
-      </div>
-    </PageContainer>
+      )}
+    />
   )
 }
 

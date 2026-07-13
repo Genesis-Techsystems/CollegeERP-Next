@@ -5,18 +5,16 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { PencilIcon } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
 import { EmptyState } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
 import { formatDate } from '@/common/generic-functions'
 import { getErrorMessage } from '@/lib/errors'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
 import { listTransportAllocations } from '@/services'
 import type { TransportAllocation, TransportAllocationFor } from '@/types/transport'
-import { TransportPageTitle } from '../_components/TransportPageTitle'
 import { EditTransportAllocationModal } from './EditTransportAllocationModal'
 
 const COL_DEFS = {
@@ -96,8 +94,18 @@ export default function TransportAllocatedListPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <TransportPageTitle title="Transport Allocated List">
+    <ListPage
+      title="Transport Allocated List"
+      rowData={isError ? [] : rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search allocations…',
+        pdfDocumentTitle: 'Transport Allocations',
+      }}
+      toolbarTrailing={
         <div className="flex gap-2">
           <Button
             size="sm"
@@ -114,30 +122,17 @@ export default function TransportAllocatedListPage() {
             Employees
           </Button>
         </div>
-      </TransportPageTitle>
-
-      <TableCard withHeaderBorder={false}>
-        {isError ? (
+      }
+      emptyState={
+        isError ? (
           <EmptyState
             title="Could not load allocations"
             description={getErrorMessage(error)}
             action={{ label: 'Retry', onClick: () => void refetch() }}
           />
-        ) : (
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={isLoading}
-            pagination
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search allocations…',
-              pdfDocumentTitle: 'Transport Allocations',
-            }}
-          />
-        )}
-      </TableCard>
-
+        ) : undefined
+      }
+    >
       <EditTransportAllocationModal
         open={modalOpen}
         onClose={() => {
@@ -147,6 +142,6 @@ export default function TransportAllocatedListPage() {
         row={editing}
         onSaved={() => void refetch()}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

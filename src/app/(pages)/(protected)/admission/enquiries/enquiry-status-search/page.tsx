@@ -2,8 +2,7 @@
 
 import { useMemo } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
@@ -40,26 +39,17 @@ export default function EnquiryStatusSearchPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <div className="app-card overflow-hidden px-4 py-3">
-        <h1 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-          Enquiry Status Search
-        </h1>
-      </div>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={loading}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search enquiries…',
-            pdfDocumentTitle: 'Enquiry Status Search',
-          }}
-        />
-      </TableCard>
-    </PageContainer>
+    <ListPage
+      title="Enquiry Status Search"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search enquiries…',
+        pdfDocumentTitle: 'Enquiry Status Search',
+      }}
+    />
   )
 }

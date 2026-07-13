@@ -2,12 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
+import { PencilIcon } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, type SelectOption } from '@/common/components/select'
-import { ChevronDown, Filter, PencilIcon } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
 import { cn } from '@/lib/utils'
 import type { ICellRendererParams } from 'ag-grid-community'
@@ -69,7 +68,6 @@ function actionsRenderer() {
 }
 
 export default function ExamQuestionPapersPage() {
-  const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [rows, setRows] = useState<AnyRow[]>([])
 
@@ -281,60 +279,36 @@ export default function ExamQuestionPapersPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Exam Question Papers" subtitle="Manage exam question papers" />
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Question Papers</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
+    <FilteredListPage
+      title="Exam Question Papers"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="md:col-span-2 space-y-1"><Label>College</Label><Select value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((c) => ({ value: String(pickNum(c, ['fk_college_id', 'collegeId'])), label: pickText(c, ['college_code', 'collegeCode']) } as SelectOption))} placeholder="College" /></div>
+          <div className="md:col-span-2 space-y-1"><Label>Exam Year</Label><Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) } as SelectOption))} placeholder="Exam Year" /></div>
+          <div className="md:col-span-2 space-y-1"><Label>Course</Label><Select value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode']) } as SelectOption))} placeholder="Course" /></div>
+          <div className="md:col-span-4 space-y-1"><Label>Exam</Label><Select value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) } as SelectOption))} placeholder="Exam" /></div>
+          <div className="md:col-span-2 space-y-1"><Label>Exam Date</Label><Select value={examDate || null} onChange={(v) => setExamDate(v ?? '')} options={[{ value: '', label: 'All Dates' }, ...examDates.map((d) => ({ value: d, label: d }))]} placeholder="Choose exam date" /></div>
+          <div className="md:col-span-2 space-y-1"><Label>Course Group</Label><Select value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((g) => ({ value: String(pickNum(g, ['fk_course_group_id', 'courseGroupId'])), label: pickText(g, ['group_code', 'groupCode']) } as SelectOption))} placeholder="Course Group" /></div>
+          <div className="md:col-span-2 space-y-1"><Label>Course Year</Label><Select value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_name', 'courseYearName', 'course_year_code', 'courseYearCode']) } as SelectOption))} placeholder="Course Year" /></div>
+          <div className="md:col-span-2 space-y-1"><Label>Subject Type</Label><Select value={subjectTypeId ? String(subjectTypeId) : null} onChange={(v) => setSubjectTypeId(v ? Number(v) : null)} options={[{ value: '', label: 'All' }, ...subjectTypes.map((t) => ({ value: String(pickNum(t, ['fk_subject_type_id', 'subjectTypeId'])), label: pickText(t, ['subject_type', 'subjectType', 'subject_type_name']) || `Type ${pickNum(t, ['fk_subject_type_id', 'subjectTypeId'])}` }))]} placeholder="All" clearable /></div>
+          <div className="md:col-span-3 space-y-1"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={[{ value: '', label: 'All Subjects' }, ...subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id', 'subjectId'])), label: pickText(s, ['subject_code', 'subjectCode', 'subject_name', 'subjectName']) || `Subject ${pickNum(s, ['fk_subject_id', 'subjectId'])}` }))]} placeholder="All Subjects" clearable /></div>
+          <div className="md:col-span-1"><Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>Get List</Button></div>
         </div>
-        {(
-          <div className="p-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1"><Label>College</Label><Select value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((c) => ({ value: String(pickNum(c, ['fk_college_id', 'collegeId'])), label: pickText(c, ['college_code', 'collegeCode']) } as SelectOption))} placeholder="College" /></div>
-              <div className="md:col-span-2 space-y-1"><Label>Exam Year</Label><Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) } as SelectOption))} placeholder="Exam Year" /></div>
-              <div className="md:col-span-2 space-y-1"><Label>Course</Label><Select value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode']) } as SelectOption))} placeholder="Course" /></div>
-              <div className="md:col-span-4 space-y-1"><Label>Exam</Label><Select value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) } as SelectOption))} placeholder="Exam" /></div>
-              <div className="md:col-span-2 space-y-1"><Label>Exam Date</Label><Select value={examDate || null} onChange={(v) => setExamDate(v ?? '')} options={[{ value: '', label: 'All Dates' }, ...examDates.map((d) => ({ value: d, label: d }))]} placeholder="Choose exam date" /></div>
-              <div className="md:col-span-2 space-y-1"><Label>Course Group</Label><Select value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((g) => ({ value: String(pickNum(g, ['fk_course_group_id', 'courseGroupId'])), label: pickText(g, ['group_code', 'groupCode']) } as SelectOption))} placeholder="Course Group" /></div>
-              <div className="md:col-span-2 space-y-1"><Label>Course Year</Label><Select value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_name', 'courseYearName', 'course_year_code', 'courseYearCode']) } as SelectOption))} placeholder="Course Year" /></div>
-              <div className="md:col-span-2 space-y-1"><Label>Subject Type</Label><Select value={subjectTypeId ? String(subjectTypeId) : null} onChange={(v) => setSubjectTypeId(v ? Number(v) : null)} options={[{ value: '', label: 'All' }, ...subjectTypes.map((t) => ({ value: String(pickNum(t, ['fk_subject_type_id', 'subjectTypeId'])), label: pickText(t, ['subject_type', 'subjectType', 'subject_type_name']) || `Type ${pickNum(t, ['fk_subject_type_id', 'subjectTypeId'])}` }))]} placeholder="All" clearable /></div>
-              <div className="md:col-span-3 space-y-1"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={[{ value: '', label: 'All Subjects' }, ...subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id', 'subjectId'])), label: pickText(s, ['subject_code', 'subjectCode', 'subject_name', 'subjectName']) || `Subject ${pickNum(s, ['fk_subject_id', 'subjectId'])}` }))]} placeholder="All Subjects" clearable /></div>
-              <div className="md:col-span-1"><Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>Get List</Button></div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="app-card overflow-hidden p-3">
-        <DataTable
-          rowData={rows}
-          columnDefs={cols}
-          pagination
-          loading={loading}
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search…',
-            pdfDocumentTitle: 'Exam Question Papers',
-          }}
-          toolbarTrailing={(
-            <Button type="button" size="sm" className="h-[30px] px-3 text-[12px]">
-              Exam Question Paper
-            </Button>
-          )}
-        />
-      </div>
-    </PageContainer>
+      )}
+      rowData={rows}
+      columnDefs={cols}
+      pagination
+      loading={loading}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Exam Question Papers',
+      }}
+      toolbarTrailing={(
+        <Button type="button" size="sm" className="h-[30px] px-3 text-[12px]">
+          Exam Question Paper
+        </Button>
+      )}
+    />
   )
 }

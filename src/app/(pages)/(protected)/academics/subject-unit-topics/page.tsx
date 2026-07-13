@@ -2,11 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Filter } from 'lucide-react'
 import type { ColDef } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
 import { Select } from '@/common/components/select'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import {
   enrichGroupYearRegulationRows,
   getDigitalOnlineSyncFilters,
@@ -213,8 +211,6 @@ export default function SubjectUnitTopicsPage() {
   const [sections, setSections] = useState<AnyRow[]>([])
 
   const [rows, setRows] = useState<AnyRow[]>([])
-  const [filterOpen, setFilterOpen] = useState(true)
-
   useEffect(() => {
     const orgId = Number(localStorage.getItem('organizationId') ?? 0)
     const empId = Number(localStorage.getItem('employeeId') ?? 0)
@@ -360,34 +356,27 @@ export default function SubjectUnitTopicsPage() {
   ], [contextLine, regulationId, collegeId, academicYearId, courseGroupId, courseYearId])
 
   return (
-    <PageContainer>
-      <PageHeader title="Subject Unit Topics" />
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center gap-4">
-          <h2 className="text-base font-semibold text-primary">Subject Unit Topics</h2>
-          <button type="button" className="inline-flex items-center gap-1 text-sm text-foreground" onClick={() => setFilterOpen((v) => !v)}>
-            <span>Filter</span>
-            <Filter className="h-4 w-4" />
-          </button>
-        </div>
-        {(
-          <div className="p-3 grid grid-cols-1 md:grid-cols-5 gap-3">
-            <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable />
-            <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable disabled={!collegeId} />
-            <Select label="Regulation *" value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulations.map((x) => ({ value: String(n(x.regulationId)), label: s(x.regulationCode || x.regulationName) }))} searchable disabled={!courseId} />
-            <Select label="Course Group *" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) }))} searchable disabled={!regulationId} />
-            <Select label="Course Year *" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable disabled={!courseGroupId} />
-          </div>
-        )}
-      </div>
-
-      {!!courseYearId && (
-        <div className="app-card mt-3 p-0 overflow-hidden">
-          <div className="px-4 py-2 text-[13px] text-blue-700 font-semibold">{contextLine}</div>
-          <DataTable rowData={rows} columnDefs={columnDefs} loading={loading} toolbar={{ search: true, searchPlaceholder: 'Search unit/topic' }} pagination paginationPageSize={10} />
+    <FilteredListPage
+      title="Subject Unit Topics"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable />
+          <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable disabled={!collegeId} />
+          <Select label="Regulation *" value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulations.map((x) => ({ value: String(n(x.regulationId)), label: s(x.regulationCode || x.regulationName) }))} searchable disabled={!courseId} />
+          <Select label="Course Group *" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) }))} searchable disabled={!regulationId} />
+          <Select label="Course Year *" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable disabled={!courseGroupId} />
         </div>
       )}
-    </PageContainer>
+      notice={courseYearId ? (
+        <div className="px-1 text-[13px] text-blue-700 font-semibold">{contextLine}</div>
+      ) : undefined}
+      rowData={courseYearId ? rows : []}
+      columnDefs={columnDefs}
+      loading={loading}
+      toolbar={{ search: true, searchPlaceholder: 'Search unit/topic' }}
+      pagination
+      paginationPageSize={10}
+    />
   )
 }
 

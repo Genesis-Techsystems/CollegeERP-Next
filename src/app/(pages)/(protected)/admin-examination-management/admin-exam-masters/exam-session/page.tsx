@@ -14,11 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { DataTable, TableCard } from '@/common/components/table'
+import { ListPage } from '@/components/layout'
 import { TimePicker } from '@/common/components'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
 import { useSessionContext } from '@/context/SessionContext'
 import { listExamSessions, createExamSession, updateExamSession, getCollegeFilters, listGeneralDetailsByMaster } from '@/services/examination'
 import { GM_CODES } from '@/config/constants/ui'
@@ -269,33 +268,29 @@ export default function ExamSessionPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          title="Create Exam Session"
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={loading}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search exam sessions…',
-            pdfDocumentTitle: 'Exam Sessions',
-          }}
-          toolbarTrailing={(
-            <Button
-              type="button"
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={openAddModal}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              Add Exam Session
-            </Button>
-          )}
-        />
-      </TableCard>
-
+    <ListPage
+      title="Create Exam Session"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search exam sessions…',
+        pdfDocumentTitle: 'Exam Sessions',
+      }}
+      toolbarTrailing={(
+        <Button
+          type="button"
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          onClick={openAddModal}
+        >
+          <Plus className="h-3.5 w-3.5 mr-1.5" />
+          Add Exam Session
+        </Button>
+      )}
+    >
       <Dialog
         open={open}
         onOpenChange={(v) => {
@@ -442,6 +437,6 @@ export default function ExamSessionPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </ListPage>
   )
 }

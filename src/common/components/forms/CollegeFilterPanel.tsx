@@ -45,6 +45,12 @@ interface CollegeFilterPanelProps {
 
   isLoading?: boolean;
 
+  /**
+   * `default` — own filter card via GlobalFilterBar.
+   * `bare` — fields only (use inside FilteredListPage).
+   */
+  shell?: "default" | "bare";
+
   children?: ReactNode;
 }
 
@@ -62,95 +68,100 @@ export function CollegeFilterPanel({
   isForDisabled,
   onIsForDisabledChange,
   isLoading,
+  shell = "default",
   children,
 }: CollegeFilterPanelProps) {
   const inlineActionWithDisabled =
     onIsForDisabledChange !== undefined && children !== undefined;
 
-  return (
-    <GlobalFilterBar title={title ?? "Filters"}>
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="University" icon={Building2}>
+  const fields = (
+    <GlobalFilterBarRow>
+      <GlobalFilterField label="University" icon={Building2}>
+        <Select
+          value={
+            selectedUniversityId != null ? String(selectedUniversityId) : null
+          }
+          onChange={(v) => v && onUniversityChange(Number(v))}
+          options={universities.map((u) => ({
+            value: String(u.fk_university_id),
+            label: u.university_code ?? u.university_name ?? "",
+          }))}
+          placeholder={isLoading ? "Loading…" : "All universities"}
+          disabled={isLoading}
+          isLoading={isLoading}
+        />
+      </GlobalFilterField>
+
+      <GlobalFilterField label="Course" icon={GraduationCap}>
+        <Select
+          value={selectedCourseId != null ? String(selectedCourseId) : null}
+          onChange={(v) => v && onCourseChange(Number(v))}
+          options={courses.map((c) => ({
+            value: String(c.fk_course_id),
+            label: c.course_code ?? c.course_name ?? "",
+          }))}
+          placeholder="All courses"
+          disabled={courses.length === 0}
+        />
+      </GlobalFilterField>
+
+      {regulations !== undefined && onRegulationChange !== undefined && (
+        <GlobalFilterField label="Regulation" icon={ScrollText}>
           <Select
             value={
-              selectedUniversityId != null ? String(selectedUniversityId) : null
+              selectedRegulationId != null
+                ? String(selectedRegulationId)
+                : null
             }
-            onChange={(v) => v && onUniversityChange(Number(v))}
-            options={universities.map((u) => ({
-              value: String(u.fk_university_id),
-              label: u.university_code ?? u.university_name ?? "",
+            onChange={(v) => v && onRegulationChange(Number(v))}
+            options={regulations.map((r) => ({
+              value: String(r.regulationId),
+              label: r.regulationCode ?? "",
             }))}
-            placeholder={isLoading ? "Loading…" : "All universities"}
-            disabled={isLoading}
-            isLoading={isLoading}
+            placeholder="All regulations"
+            disabled={regulations.length === 0}
           />
         </GlobalFilterField>
+      )}
 
-        <GlobalFilterField label="Course" icon={GraduationCap}>
-          <Select
-            value={selectedCourseId != null ? String(selectedCourseId) : null}
-            onChange={(v) => v && onCourseChange(Number(v))}
-            options={courses.map((c) => ({
-              value: String(c.fk_course_id),
-              label: c.course_code ?? c.course_name ?? "",
-            }))}
-            placeholder="All courses"
-            disabled={courses.length === 0}
-          />
-        </GlobalFilterField>
-
-        {regulations !== undefined && onRegulationChange !== undefined && (
-          <GlobalFilterField label="Regulation" icon={ScrollText}>
-            <Select
-              value={
-                selectedRegulationId != null
-                  ? String(selectedRegulationId)
-                  : null
-              }
-              onChange={(v) => v && onRegulationChange(Number(v))}
-              options={regulations.map((r) => ({
-                value: String(r.regulationId),
-                label: r.regulationCode ?? "",
-              }))}
-              placeholder="All regulations"
-              disabled={regulations.length === 0}
-            />
-          </GlobalFilterField>
-        )}
-
-        {onIsForDisabledChange !== undefined && (
-          <GlobalFilterField
-            label="Options"
-            className="global-filter-field--inline global-filter-field--shrink global-filter-field--options"
-          >
-            <div className="flex flex-nowrap items-center gap-3 min-h-9">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="isForDisabledFilter"
-                  checked={isForDisabled}
-                  onCheckedChange={(v) => onIsForDisabledChange(Boolean(v))}
-                />
-                <Label
-                  htmlFor="isForDisabledFilter"
-                  className="cursor-pointer text-[13px] font-medium text-foreground whitespace-nowrap"
-                >
-                  For Disabled Students
-                </Label>
-              </div>
-              {inlineActionWithDisabled ? children : null}
+      {onIsForDisabledChange !== undefined && (
+        <GlobalFilterField
+          label="Options"
+          className="global-filter-field--inline global-filter-field--shrink global-filter-field--options"
+        >
+          <div className="flex flex-nowrap items-center gap-3 min-h-9">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="isForDisabledFilter"
+                checked={isForDisabled}
+                onCheckedChange={(v) => onIsForDisabledChange(Boolean(v))}
+              />
+              <Label
+                htmlFor="isForDisabledFilter"
+                className="cursor-pointer text-[13px] font-medium text-foreground whitespace-nowrap"
+              >
+                For Disabled Students
+              </Label>
             </div>
-          </GlobalFilterField>
-        )}
+            {inlineActionWithDisabled ? children : null}
+          </div>
+        </GlobalFilterField>
+      )}
 
-        {!inlineActionWithDisabled && children ? (
-          <GlobalFilterField
-            label="Action"
-            className="global-filter-field--shrink global-filter-field--action"
-          >
-            {children}
-          </GlobalFilterField>
-        ) : null}
-      </GlobalFilterBarRow>
-    </GlobalFilterBar>
+      {!inlineActionWithDisabled && children ? (
+        <GlobalFilterField
+          label="Action"
+          className="global-filter-field--shrink global-filter-field--action"
+        >
+          {children}
+        </GlobalFilterField>
+      ) : null}
+    </GlobalFilterBarRow>
   );
+
+  if (shell === "bare") {
+    return fields;
+  }
+
+  return <GlobalFilterBar title={title ?? "Filters"}>{fields}</GlobalFilterBar>;
 }

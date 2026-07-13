@@ -1,18 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DataTable, TableCard } from '@/common/components/table'
 import { Select, MultiSelect } from '@/common/components/select'
-import { SearchInput } from '@/common/components/search'
 import { StatusBadge } from '@/common/components/data-display'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Filter, ChevronDown, Pencil, Plus } from 'lucide-react'
+import { Pencil, Plus } from 'lucide-react'
 import { getErrorMessage } from '@/lib/errors'
 import { GM_CODES } from '@/config/constants/ui'
 import {
@@ -51,7 +49,6 @@ function statusCell(p: ICellRendererParams<Record<string, unknown>>) {
 }
 
 export default function SetupMasterPage() {
-  const [filterOpen, setFilterOpen] = useState(true)
   const [loadingColleges, setLoadingColleges] = useState(true)
   const [loadingCourses, setLoadingCourses] = useState(false)
   const [loadingGrid, setLoadingGrid] = useState(false)
@@ -60,7 +57,6 @@ export default function SetupMasterPage() {
   const [selectedCollegeId, setSelectedCollegeId] = useState<number | null>(null)
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
   const [rows, setRows] = useState<any[]>([])
-  const [q, setQ] = useState('')
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
@@ -141,12 +137,6 @@ export default function SetupMasterPage() {
   useEffect(() => {
     void loadGrid()
   }, [loadGrid])
-
-  const filteredRows = useMemo(() => {
-    if (!q.trim()) return rows
-    const lower = q.toLowerCase()
-    return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(lower))
-  }, [q, rows])
 
   const regulationOptions = useMemo(
     () =>
@@ -336,85 +326,58 @@ export default function SetupMasterPage() {
   const selectedCourse = courses.find((c) => Number(c.courseId ?? c.course_id) === selectedCourseId)
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Exam Setup Master" subtitle="FCAR marks setup master by college and course (Angular parity)" />
-
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Setup Master</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
+    <FilteredListPage
+      title="Exam Setup Master"
+      filters={(
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
+          <Select
+            label="College *"
+            required
+            className="[&_button]:h-8 [&_button]:text-[12px]"
+            value={selectedCollegeId != null ? String(selectedCollegeId) : null}
+            onChange={(v) => {
+              setSelectedCollegeId(v != null ? Number(v) : null)
+              setSelectedCourseId(null)
+              setRows([])
+            }}
+            options={collegeOptions}
+            disabled={loadingColleges}
+            placeholder={loadingColleges ? 'Loading…' : 'Select College'}
+          />
+          <Select
+            label="Course *"
+            required
+            className="[&_button]:h-8 [&_button]:text-[12px]"
+            value={selectedCourseId != null ? String(selectedCourseId) : null}
+            onChange={(v) => setSelectedCourseId(v != null ? Number(v) : null)}
+            options={courseOptions}
+            disabled={!selectedCollegeId || loadingCourses || courses.length === 0}
+            placeholder="Select Course"
+          />
         </div>
-        {(
-          <div className="px-3 py-3 bg-card">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
-              <Select
-                label="College *"
-                required
-                className="[&_button]:h-8 [&_button]:text-[12px]"
-                value={selectedCollegeId != null ? String(selectedCollegeId) : null}
-                onChange={(v) => {
-                  setSelectedCollegeId(v != null ? Number(v) : null)
-                  setSelectedCourseId(null)
-                  setRows([])
-                }}
-                options={collegeOptions}
-                disabled={loadingColleges}
-                placeholder={loadingColleges ? 'Loading…' : 'Select College'}
-              />
-              <Select
-                label="Course *"
-                required
-                className="[&_button]:h-8 [&_button]:text-[12px]"
-                value={selectedCourseId != null ? String(selectedCourseId) : null}
-                onChange={(v) => setSelectedCourseId(v != null ? Number(v) : null)}
-                options={courseOptions}
-                disabled={!selectedCollegeId || loadingCourses || courses.length === 0}
-                placeholder="Select Course"
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {selectedCourseId != null && (
-        <TableCard
-          headerLeft={(
-            <SearchInput
-              value={q}
-              onChange={setQ}
-              placeholder="Search…"
-              className="max-w-sm"
-              disabled={rows.length === 0}
-            />
-          )}
-          headerRight={(
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 text-[12px]"
-              onClick={openModalForAdd}
-              disabled={!selectedCollegeId || !selectedCourseId}
-            >
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add Setup
-            </Button>
-          )}
-        >
-          <DataTable rowData={filteredRows} columnDefs={columnDefs} loading={loadingGrid} pagination />
-        </TableCard>
       )}
-
+      rowData={selectedCourseId != null ? rows : []}
+      columnDefs={columnDefs}
+      loading={loadingGrid}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Exam Setup Master',
+      }}
+      toolbarTrailing={(
+        <Button
+          type="button"
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          onClick={openModalForAdd}
+          disabled={!selectedCollegeId || !selectedCourseId}
+        >
+          <Plus className="mr-1.5 h-4 w-4" />
+          Add Setup
+        </Button>
+      )}
+    >
       <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) closeModal() }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -498,6 +461,6 @@ export default function SetupMasterPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredListPage>
   )
 }

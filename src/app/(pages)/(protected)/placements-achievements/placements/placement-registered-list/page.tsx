@@ -3,12 +3,10 @@
 import { useState, useMemo, useEffect } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { EyeIcon } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
 import { formatDate } from '@/common/generic-functions'
@@ -169,69 +167,52 @@ export default function PlacementRegisteredListPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-4">
-        <h2 className="app-card-title mb-3">Placement Students List</h2>
+    <FilteredListPage
+      title="Placement Students List"
+      filters={(
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="space-y-0.5">
-            <Label className="text-xs">Campus *</Label>
-            <Select
-              value={campusId}
-              onChange={handleCampusChange}
-              options={campusOptions}
-              placeholder="Select campus"
-              searchable
-              clearable
-            />
-          </div>
-          <div className="space-y-0.5">
-            <Label className="text-xs">Placement *</Label>
-            <Select
-              value={placementId}
-              onChange={handlePlacementChange}
-              options={placementOptions}
-              placeholder="Select placement"
-              disabled={!campusId}
-              isLoading={filtersLoading}
-              searchable
-              clearable
-            />
-          </div>
-          <div className="space-y-0.5">
-            <Label className="text-xs">Company *</Label>
-            <Select
-              value={companyId}
-              onChange={handleCompanyChange}
-              options={companyOptions}
-              placeholder="Select company"
-              disabled={!placementId}
-              searchable
-              clearable
-            />
-          </div>
-        </div>
-      </div>
-
-      {filtersReady && (
-        <div className="app-card overflow-hidden">
-          <div className="px-3 pb-3 pt-2">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <DataTable
-                rowData={data}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search students…',
-                  pdfDocumentTitle: 'Placement Students List',
-                }}
-              />
-            </div>
-          </div>
+          <Select
+            label="Campus *"
+            value={campusId}
+            onChange={handleCampusChange}
+            options={campusOptions}
+            placeholder="Select campus"
+            searchable
+            clearable
+          />
+          <Select
+            label="Placement *"
+            value={placementId}
+            onChange={handlePlacementChange}
+            options={placementOptions}
+            placeholder="Select placement"
+            disabled={!campusId}
+            isLoading={filtersLoading}
+            searchable
+            clearable
+          />
+          <Select
+            label="Company *"
+            value={companyId}
+            onChange={handleCompanyChange}
+            options={companyOptions}
+            placeholder="Select company"
+            disabled={!placementId}
+            searchable
+            clearable
+          />
         </div>
       )}
-
+      rowData={filtersReady ? data : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search students…',
+        pdfDocumentTitle: 'Placement Students List',
+      }}
+    >
       <PlacementInterviewModal
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
@@ -245,6 +226,6 @@ export default function PlacementRegisteredListPage() {
         data={viewData}
         placementTitle={selectedPlacement?.plaecmentTitle}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

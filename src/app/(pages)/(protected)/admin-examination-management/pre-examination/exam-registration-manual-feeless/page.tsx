@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/common/components/select";
@@ -27,7 +26,8 @@ import {
   uploadExamRegForms,
 } from "@/services/pre-examination";
 import { MINIO_URL } from "@/config/constants/api";
-import { PageContainer } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
+import { GlobalFilterBarRow } from "@/common/components/forms";
 
 type AnyRow = Record<string, any>;
 
@@ -110,7 +110,6 @@ export default function ExamRegistrationManualFeelessPage() {
     AnyRow[]
   >([]);
   const [saving, setSaving] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
 
   // pay-confirm dialog
   const [payOpen, setPayOpen] = useState(false);
@@ -561,63 +560,42 @@ export default function ExamRegistrationManualFeelessPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Registration Manual Feeless</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+    <FilteredPage
+      title="Exam Registration Manual Feeless"
+      filters={(
+        <GlobalFilterBarRow>
+          <div className="md:col-span-5 space-y-1">
+            <StudentSearchSelect
+              label="Student"
+              value={studentId}
+              students={students}
+              selectedStudent={!isEmptyObject(student) ? student : null}
+              isLoading={studentSearchLoading}
+              onSearch={(term) => void enteredStudent(term)}
+              onChange={(id, row) => void selectedStudent(id, row)}
             />
-          </Button>
-        </div>
-        {filterOpen && (
-          <div className="p-3 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
-              <div className="md:col-span-5 space-y-1">
-                <StudentSearchSelect
-                  label="Student"
-                  value={studentId}
-                  students={students}
-                  selectedStudent={!isEmptyObject(student) ? student : null}
-                  isLoading={studentSearchLoading}
-                  onSearch={(term) => void enteredStudent(term)}
-                  onChange={(id, row) => void selectedStudent(id, row)}
-                />
-              </div>
-              <div className="md:col-span-7 space-y-1">
-                <Select
-                  label="Exam"
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => {
-                    const eid = v ? Number(v) : 0;
-                    examIdRef.current = eid;
-                    setExamId(eid);
-                    if (eid) selectedExternalExam(eid);
-                  }}
-                  options={examsList.map((e) => ({
-                    value: String(n(e, ["examId", "fk_exam_id"])),
-                    label: `${g(e, ["examName", "exam_name"])} (${fmtDate(e.fromDate ?? e.from_date)} - ${fmtDate(e.toDate ?? e.to_date)})${e.isRegularExam ? " (Regular)" : ""}${e.isSupplyExam ? " (Supple)" : ""}`,
-                  }))}
-                  placeholder="Select Exam"
-                  searchable
-                />
-              </div>
-            </div>
           </div>
-        )}
-      </div>
-
+          <div className="md:col-span-7 space-y-1">
+            <Select
+              label="Exam"
+              value={examId ? String(examId) : null}
+              onChange={(v) => {
+                const eid = v ? Number(v) : 0;
+                examIdRef.current = eid;
+                setExamId(eid);
+                if (eid) selectedExternalExam(eid);
+              }}
+              options={examsList.map((e) => ({
+                value: String(n(e, ["examId", "fk_exam_id"])),
+                label: `${g(e, ["examName", "exam_name"])} (${fmtDate(e.fromDate ?? e.from_date)} - ${fmtDate(e.toDate ?? e.to_date)})${e.isRegularExam ? " (Regular)" : ""}${e.isSupplyExam ? " (Supple)" : ""}`,
+              }))}
+              placeholder="Select Exam"
+              searchable
+            />
+          </div>
+        </GlobalFilterBarRow>
+      )}
+    >
       <div className="space-y-3">
           {/* Student banner */}
           {!isEmptyObject(student) && flag && (
@@ -1152,6 +1130,6 @@ export default function ExamRegistrationManualFeelessPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredPage>
   );
 }

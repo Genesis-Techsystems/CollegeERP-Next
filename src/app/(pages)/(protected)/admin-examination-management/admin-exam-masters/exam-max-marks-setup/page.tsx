@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import { ChevronDown, Filter } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Building2, GraduationCap, ScrollText } from "lucide-react";
 import { useSessionContext } from "@/context/SessionContext";
 import { NoticeAlert } from "@/common/components/feedback";
 import { Select } from "@/common/components/select";
+import { GlobalFilterBarRow, GlobalFilterField } from "@/common/components/forms";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,7 @@ import {
   saveExamMarksSetup,
   getMarksSetupFilters,
 } from "@/services";
-import { PageContainer } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
 import { cn } from "@/lib/utils";
 
 /** Common control border used across this page (matches reference light outline). */
@@ -66,18 +67,6 @@ export default function ExamMaxMarksSetupPage() {
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
-  const [filterOpen, setFilterOpen] = useState(true);
-
-  function toggleFilters() {
-    setFilterOpen((open) => !open);
-  }
-
-  function onFilterToggleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      toggleFilters();
-    }
-  }
 
   useEffect(() => {
     async function loadBase() {
@@ -269,38 +258,33 @@ export default function ExamMaxMarksSetupPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">
-        Exam Marks Setup
-      </h2>
-      <div className="app-card overflow-hidden">
-        <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-4 py-3">
-          <h2 className="app-card-title">Exams Master Setup</h2>
-          <div
-            role="button"
-            tabIndex={0}
-            aria-expanded={filterOpen}
-            aria-label={filterOpen ? "Collapse filters" : "Expand filters"}
-            className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-            onClick={toggleFilters}
-            onKeyDown={onFilterToggleKeyDown}
-          >
-            <Filter className="h-3.5 w-3.5" aria-hidden />
-
-            <ChevronDown
-              className={cn(
-                "h-3.5 w-3.5 transition-transform",
-                filterOpen && "rotate-180",
-              )}
-              aria-hidden
-            />
-          </div>
-        </div>
-        {filterOpen ? (
-          <div className="flex flex-nowrap items-end gap-3 overflow-x-auto px-3 py-3">
+    <FilteredPage
+      title="Exam Marks Setup"
+      notice={
+        notice ? (
+          <NoticeAlert
+            type={notice.type}
+            title={notice.message}
+            showIcon
+            action={
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-[12px]"
+                onClick={() => setNotice(null)}
+              >
+                Close
+              </Button>
+            }
+          />
+        ) : null
+      }
+      filters={
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="University" icon={Building2}>
             <Select
-              label="University"
-              className="min-w-[10rem] flex-1 [&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px]"
+              className="[&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px]"
               value={universityId ? String(universityId) : null}
               onChange={(v) => setUniversityId(v ? Number(v) : null)}
               options={universities.map((u, i) => ({
@@ -310,9 +294,10 @@ export default function ExamMaxMarksSetupPage() {
               placeholder="Select university"
               searchable
             />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course" icon={GraduationCap}>
             <Select
-              label="Course"
-              className="min-w-[10rem] flex-1 [&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px]"
+              className="[&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px]"
               value={courseId ? String(courseId) : null}
               onChange={(v) => setCourseId(v ? Number(v) : null)}
               options={courses.map((c, i) => ({
@@ -323,9 +308,10 @@ export default function ExamMaxMarksSetupPage() {
               searchable
               disabled={courses.length === 0}
             />
+          </GlobalFilterField>
+          <GlobalFilterField label="Regulation" icon={ScrollText}>
             <Select
-              label="Regulation"
-              className="min-w-[10rem] flex-1 [&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px]"
+              className="[&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px]"
               value={regulationId ? String(regulationId) : null}
               onChange={(v) => setRegulationId(v ? Number(v) : null)}
               options={regulations.map((r, i) => ({
@@ -336,7 +322,9 @@ export default function ExamMaxMarksSetupPage() {
               searchable
               disabled={regulations.length === 0}
             />
-            <div className="flex shrink-0 items-center gap-2 pb-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Disability">
+            <div className="flex h-9 items-center gap-2">
               <Checkbox
                 id="disabled"
                 className={CHECKBOX_STYLE}
@@ -350,181 +338,164 @@ export default function ExamMaxMarksSetupPage() {
                 Is For Disability
               </Label>
             </div>
+          </GlobalFilterField>
+          <div className="global-filter-field flex items-end">
             <Button
               type="button"
               size="sm"
-              className="mb-0.5 shrink-0"
+              className="h-9 shrink-0"
               onClick={getDetails}
               disabled={!courseId || !regulationId || loading}
             >
               {loading ? "Loading…" : "Get List"}
             </Button>
           </div>
-        ) : null}
-      </div>
-      {notice && (
-        <NoticeAlert
-          type={notice.type}
-          title={notice.message}
-          showIcon
-          action={
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-7 text-[12px]"
-              onClick={() => setNotice(null)}
-            >
-              Close
-            </Button>
-          }
-        />
-      )}
-
-      {rows.length > 0 && (
-        <div className="app-card p-4 shadow-sm">
-          <div className="mb-3">
-            <h3 className="app-card-title">Marks Setup</h3>
-          </div>
-          <div className="mb-3">
+        </GlobalFilterBarRow>
+      }
+      body={
+        rows.length > 0 ? (
+          <div className="space-y-3">
+            <h3 className="text-[13px] font-semibold tracking-tight text-foreground">
+              Marks Setup
+            </h3>
             <SearchInput
               className="w-full max-w-md"
               placeholder="Search by category code or marks setup name…"
               value={q}
               onChange={setQ}
             />
-          </div>
-          <div className="space-y-2">
-            {filteredRows.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border bg-muted/10 px-4 py-10 text-center text-[13px] text-muted-foreground">
-                No data found matching the selected filters.
-              </div>
-            ) : null}
-            {filteredRows.map((r, i) => (
-              <div
-                key={`m-${r.subjectCategoryCatDetId}-${i}`}
-                className="rounded-xl border border-[#dde3ec] overflow-hidden bg-card"
-              >
-                <div className="px-4 py-2 border-b border-[#e8ecf2] bg-[#f8f8f4]">
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-3 py-0.5 text-[12px] font-semibold",
-                      categoryChipClass(
-                        String(r.subjectCategoryCode || r.marksSetupName || ""),
-                      ),
-                    )}
-                  >
-                    {r.subjectCategoryCode || r.marksSetupName}
-                  </span>
+            <div className="space-y-2">
+              {filteredRows.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-muted/10 px-4 py-10 text-center text-[13px] text-muted-foreground">
+                  No data found matching the selected filters.
                 </div>
-                <div className="px-4 py-3 overflow-x-auto">
-                  <div className="min-w-[920px]">
-                    <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_80px] gap-2 text-[11px] font-semibold uppercase tracking-[0.02em] text-[hsl(var(--foreground))]">
-                      <span>Marks Setup Name</span>
-                      <span>Internal</span>
-                      <span>External</span>
-                      <span>Ext. Pass %</span>
-                      <span>Pass %</span>
-                      <span>Final Int. %</span>
-                      <span>Final Ext. %</span>
-                      <span>Active</span>
-                    </div>
-                    <div className="mt-2 grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_80px] gap-2 items-center">
-                      <Input
-                        className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                        value={r.marksSetupName}
-                        onChange={(e) =>
-                          updateRowText(i, "marksSetupName", e.target.value)
-                        }
-                      />
-                      <Input
-                        className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                        type="number"
-                        value={r.internalMarks}
-                        onChange={(e) =>
-                          updateRow(i, "internalMarks", Number(e.target.value))
-                        }
-                      />
-                      <Input
-                        className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                        type="number"
-                        value={r.externalMarks}
-                        onChange={(e) =>
-                          updateRow(i, "externalMarks", Number(e.target.value))
-                        }
-                      />
-                      <Input
-                        className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                        type="number"
-                        value={r.externalPassPercentage}
-                        onChange={(e) =>
-                          updateRow(
-                            i,
-                            "externalPassPercentage",
-                            Number(e.target.value),
-                          )
-                        }
-                      />
-                      <Input
-                        className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                        type="number"
-                        value={r.passPercentage}
-                        onChange={(e) =>
-                          updateRow(i, "passPercentage", Number(e.target.value))
-                        }
-                      />
-                      <Input
-                        className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                        type="number"
-                        value={r.finalIntPercentage}
-                        onChange={(e) =>
-                          updateRow(
-                            i,
-                            "finalIntPercentage",
-                            Number(e.target.value),
-                          )
-                        }
-                      />
-                      <Input
-                        className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                        type="number"
-                        value={r.finalExtPercentage}
-                        onChange={(e) =>
-                          updateRow(
-                            i,
-                            "finalExtPercentage",
-                            Number(e.target.value),
-                          )
-                        }
-                      />
-                      <div className="h-10 flex items-center justify-center">
-                        <Checkbox
-                          id={`active-${i}`}
-                          className={CHECKBOX_STYLE}
-                          checked={!!r.isActive}
-                          onCheckedChange={(v) =>
-                            updateRowBool(i, "isActive", Boolean(v))
+              ) : null}
+              {filteredRows.map((r, i) => (
+                <div
+                  key={`m-${r.subjectCategoryCatDetId}-${i}`}
+                  className="rounded-xl border border-[#dde3ec] overflow-hidden bg-card"
+                >
+                  <div className="px-4 py-2 border-b border-[#e8ecf2] bg-[#f8f8f4]">
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-3 py-0.5 text-[12px] font-semibold",
+                        categoryChipClass(
+                          String(r.subjectCategoryCode || r.marksSetupName || ""),
+                        ),
+                      )}
+                    >
+                      {r.subjectCategoryCode || r.marksSetupName}
+                    </span>
+                  </div>
+                  <div className="px-4 py-3 overflow-x-auto">
+                    <div className="min-w-[920px]">
+                      <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_80px] gap-2 text-[11px] font-semibold uppercase tracking-[0.02em] text-[hsl(var(--foreground))]">
+                        <span>Marks Setup Name</span>
+                        <span>Internal</span>
+                        <span>External</span>
+                        <span>Ext. Pass %</span>
+                        <span>Pass %</span>
+                        <span>Final Int. %</span>
+                        <span>Final Ext. %</span>
+                        <span>Active</span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_80px] gap-2 items-center">
+                        <Input
+                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                          value={r.marksSetupName}
+                          onChange={(e) =>
+                            updateRowText(i, "marksSetupName", e.target.value)
                           }
                         />
+                        <Input
+                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                          type="number"
+                          value={r.internalMarks}
+                          onChange={(e) =>
+                            updateRow(i, "internalMarks", Number(e.target.value))
+                          }
+                        />
+                        <Input
+                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                          type="number"
+                          value={r.externalMarks}
+                          onChange={(e) =>
+                            updateRow(i, "externalMarks", Number(e.target.value))
+                          }
+                        />
+                        <Input
+                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                          type="number"
+                          value={r.externalPassPercentage}
+                          onChange={(e) =>
+                            updateRow(
+                              i,
+                              "externalPassPercentage",
+                              Number(e.target.value),
+                            )
+                          }
+                        />
+                        <Input
+                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                          type="number"
+                          value={r.passPercentage}
+                          onChange={(e) =>
+                            updateRow(i, "passPercentage", Number(e.target.value))
+                          }
+                        />
+                        <Input
+                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                          type="number"
+                          value={r.finalIntPercentage}
+                          onChange={(e) =>
+                            updateRow(
+                              i,
+                              "finalIntPercentage",
+                              Number(e.target.value),
+                            )
+                          }
+                        />
+                        <Input
+                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                          type="number"
+                          value={r.finalExtPercentage}
+                          onChange={(e) =>
+                            updateRow(
+                              i,
+                              "finalExtPercentage",
+                              Number(e.target.value),
+                            )
+                          }
+                        />
+                        <div className="h-10 flex items-center justify-center">
+                          <Checkbox
+                            id={`active-${i}`}
+                            className={CHECKBOX_STYLE}
+                            checked={!!r.isActive}
+                            onCheckedChange={(v) =>
+                              updateRowBool(i, "isActive", Boolean(v))
+                            }
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <Button
+                className={cn("h-8 text-[12px]", FIELD_OUTLINE)}
+                onClick={save}
+                disabled={rows.length === 0}
+              >
+                Save
+              </Button>
+            </div>
           </div>
-          <div className="mt-3 flex justify-end">
-            <Button
-              className={cn("h-8 text-[12px]", FIELD_OUTLINE)}
-              onClick={save}
-              disabled={rows.length === 0}
-            >
-              Save
-            </Button>
-          </div>
-        </div>
-      )}
-    </PageContainer>
+        ) : null
+      }
+    />
   );
 }
 

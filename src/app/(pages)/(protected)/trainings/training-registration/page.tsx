@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { ListPage } from '@/components/layout'
+
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -216,14 +216,8 @@ export default function TrainingRegistrationPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Training Registration</h2>
-        </div>
-        <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <DataTable
+    <ListPage
+      title="Training Registration"
               rowData={rows}
               columnDefs={columnDefs}
               loading={isLoading || isResolving}
@@ -233,16 +227,12 @@ export default function TrainingRegistrationPage() {
                 searchPlaceholder: 'Search trainings…',
                 pdfDocumentTitle: 'Training Registration',
               }}
-            />
-          </div>
-        </div>
-      </div>
-
+            >
       <ConfirmModal
         training={confirmTraining}
         onClose={() => setConfirmTraining(null)}
         onConfirm={() => handleRegister(confirmTraining!)}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

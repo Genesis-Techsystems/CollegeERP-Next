@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Filter } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { SearchInput } from '@/common/components/search'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select } from '@/common/components/select'
 import {
   getEvaluatorAssignmentBundleByFlag,
   getRegSupBaseFilters,
@@ -22,7 +21,6 @@ type AnyRow = Record<string, any>
 
 export default function ReAssignEvaluatorsPage() {
   const [loading, setLoading] = useState(false)
-  const [filterOpen, setFilterOpen] = useState(true)
   const [showPanel, setShowPanel] = useState(false)
   const [isReevaluation, setIsReevaluation] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -76,6 +74,23 @@ export default function ReAssignEvaluatorsPage() {
     [restRows, courseYearId],
   )
   const subjects = useMemo(() => dedupeBy(subjectRows, (r) => num(r.fk_subject_id)), [subjectRows])
+  const courseOptions = useMemo(() => courses.map((r) => ({ value: String(num(r.fk_course_id)), label: txt(r.course_code) })), [courses])
+  const academicYearOptions = useMemo(() => academicYears.map((r) => ({ value: String(num(r.fk_academic_year_id)), label: txt(r.academic_year) })), [academicYears])
+  const examOptions = useMemo(() => exams.map((r) => ({ value: String(num(r.fk_exam_id)), label: txt(r.exam_name) })), [exams])
+  const courseYearOptions = useMemo(() => courseYears.map((r) => ({ value: String(num(r.fk_course_year_id)), label: txt(r.course_year_code) })), [courseYears])
+  const regulationOptions = useMemo(() => regulations.map((r) => ({ value: String(num(r.fk_regulation_id)), label: txt(r.regulation_code) })), [regulations])
+  const subjectOptions = useMemo(
+    () => subjects.map((r) => ({ value: String(num(r.fk_subject_id)), label: `${txt(r.subject_name)} - ${txt(r.subject_code)} (${txt(r.regulation_code)})` })),
+    [subjects],
+  )
+  const sourceEvaluatorOptions = useMemo(
+    () => filteredSourceEvaluators.map((r) => ({ value: String(num(r.pk_exam_evaluator_profile_id)), label: txt(r.evaluator_name) })),
+    [filteredSourceEvaluators],
+  )
+  const targetEvaluatorOptions = useMemo(
+    () => [{ value: '0', label: 'UnAssigned' }, ...filteredTargetEvaluators.map((r) => ({ value: String(num(r.pk_exam_evaluator_profile_id)), label: txt(r.evaluator_name) }))],
+    [filteredTargetEvaluators],
+  )
 
   const filteredSourceEvaluators = useMemo(() => {
     const q = searchSource.trim().toLowerCase()
@@ -283,37 +298,40 @@ export default function ReAssignEvaluatorsPage() {
   const summary = summaryRows[0] ?? {}
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Re-Assign Evaluator" subtitle="Re-assign selected answer papers to another evaluator" />
-
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Re-Assign Evaluator</h2>
-          <Button type="button" variant="outline" size="sm" className="h-6 px-2.5 text-[12px]" onClick={() => setFilterOpen((v) => !v)}>
-            <Filter className="mr-1.5 h-3.5 w-3.5" /> Filter
-          </Button>
-        </div>
-        {(
-          <div className="p-3 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((r) => <SelectItem key={String(num(r.fk_course_id))} value={String(num(r.fk_course_id))}>{txt(r.course_code)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-2 space-y-1"><Label>Academic Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((r) => <SelectItem key={String(num(r.fk_academic_year_id))} value={String(num(r.fk_academic_year_id))}>{txt(r.academic_year)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Exam</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((r) => <SelectItem key={String(num(r.fk_exam_id))} value={String(num(r.fk_exam_id))}>{txt(r.exam_name)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-2 space-y-1"><Label>Course Year</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((r) => <SelectItem key={String(num(r.fk_course_year_id))} value={String(num(r.fk_course_year_id))}>{txt(r.course_year_code)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-2 space-y-1"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((r) => <SelectItem key={String(num(r.fk_regulation_id))} value={String(num(r.fk_regulation_id))}>{txt(r.regulation_code)}</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-4 space-y-1"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(num(v) || null)}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.map((r) => <SelectItem key={String(num(r.fk_subject_id))} value={String(num(r.fk_subject_id))}>{txt(r.subject_name)} - {txt(r.subject_code)} ({txt(r.regulation_code)})</SelectItem>)}</SelectContent></Select></div>
-              <div className="md:col-span-2 space-y-1">
-                <label className="inline-flex items-center gap-2 text-[12px]">
-                  <input type="checkbox" checked={isReevaluation} onChange={(e) => setIsReevaluation(e.target.checked)} />
-                  <span>Is Re-Evaluation</span>
-                </label>
-              </div>
-              <div className="md:col-span-2 flex justify-end"><Button type="button" onClick={getList} disabled={loading}>Get List</Button></div>
-            </div>
-          </div>
-        )}
-      </div>
-
+    <FilteredPage
+      title="Re-Assign Evaluator"
+      filters={(
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Course">
+            <Select value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(num(v) || null)} options={courseOptions} placeholder="Course" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Academic Year">
+            <Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(num(v) || null)} options={academicYearOptions} placeholder="Academic Year" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam">
+            <Select value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Exam" searchable />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course Year">
+            <Select value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(num(v) || null)} options={courseYearOptions} placeholder="Course Year" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Regulation">
+            <Select value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(num(v) || null)} options={regulationOptions} placeholder="Regulation" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Subject">
+            <Select value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(num(v) || null)} options={subjectOptions} placeholder="Subject" searchable />
+          </GlobalFilterField>
+          <GlobalFilterField label="Re-Evaluation">
+            <label className="inline-flex items-center gap-2 text-[12px] h-[30px]">
+              <input type="checkbox" checked={isReevaluation} onChange={(e) => setIsReevaluation(e.target.checked)} />
+              <span>Is Re-Evaluation</span>
+            </label>
+          </GlobalFilterField>
+          <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+            <Button type="button" onClick={getList} disabled={loading} className="h-[30px] px-3 text-[12px]">Get List</Button>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      )}
+    >
       {showPanel && (
         <div className="app-card p-3 space-y-3">
           {errorMsg && <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-700">{errorMsg}</div>}
@@ -324,16 +342,13 @@ export default function ReAssignEvaluatorsPage() {
             <div className="md:col-span-3 rounded border p-2">
               <h3 className="text-[13px] font-semibold text-blue-700 mb-2">Assigned Evaluator Names</h3>
               <SearchInput value={searchSource} onChange={setSearchSource} placeholder="Search names…" className="mb-2 w-full max-w-sm" />
-              <Select value={sourceEvaluatorId ? String(sourceEvaluatorId) : undefined} onValueChange={(v) => onSourceEvaluatorChange(num(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Evaluator Name" /></SelectTrigger>
-                <SelectContent>
-                  {filteredSourceEvaluators.map((r) => (
-                    <SelectItem key={String(num(r.pk_exam_evaluator_profile_id))} value={String(num(r.pk_exam_evaluator_profile_id))}>
-                      {txt(r.evaluator_name)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={sourceEvaluatorId ? String(sourceEvaluatorId) : null}
+                onChange={(v) => onSourceEvaluatorChange(num(v))}
+                options={sourceEvaluatorOptions}
+                placeholder="Evaluator Name"
+                searchable
+              />
             </div>
 
             <div className="md:col-span-4 rounded border p-2">
@@ -375,17 +390,13 @@ export default function ReAssignEvaluatorsPage() {
             <div className="md:col-span-3 rounded border p-2">
               <h3 className="text-[13px] font-semibold text-blue-700 mb-2">Re-Assign Evaluator Names</h3>
               <SearchInput value={searchTarget} onChange={setSearchTarget} placeholder="Search names…" className="mb-2 w-full max-w-sm" />
-              <Select value={String(targetEvaluatorId)} onValueChange={(v) => setTargetEvaluatorId(num(v))}>
-                <SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Evaluator Name" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">UnAssigned</SelectItem>
-                  {filteredTargetEvaluators.map((r) => (
-                    <SelectItem key={String(num(r.pk_exam_evaluator_profile_id))} value={String(num(r.pk_exam_evaluator_profile_id))}>
-                      {txt(r.evaluator_name)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Select
+                value={String(targetEvaluatorId)}
+                onChange={(v) => setTargetEvaluatorId(num(v))}
+                options={targetEvaluatorOptions}
+                placeholder="Evaluator Name"
+                searchable
+              />
             </div>
 
             <div className="md:col-span-2 flex items-end justify-end">
@@ -394,7 +405,7 @@ export default function ReAssignEvaluatorsPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredPage>
   )
 }
 

@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { Filter, History, MessageSquare, Send } from 'lucide-react'
+import { History, Send } from 'lucide-react'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -61,7 +61,6 @@ function historyRecipient(row: AnySmsRow): { mobile: string; msg: string } {
 
 export default function SendSmsToAbsentsPage() {
   const [mode, setMode] = useState<'1' | '2'>('1')
-  const [filterOpen, setFilterOpen] = useState(true)
   const [filtersData, setFiltersData] = useState<AnyRow[]>([])
   const [academicData, setAcademicData] = useState<AnyRow[]>([])
   const [collegeId, setCollegeId] = useState<number | null>(null)
@@ -255,8 +254,9 @@ export default function SendSmsToAbsentsPage() {
   const historyDateLabel = attendanceYmd || '—'
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <FilteredPage
+      title={mode === '1' ? 'Send SMS to Absents' : 'SMS history — absentees'}
+      notice={(
         <RadioGroup
           value={mode}
           onValueChange={(v) => {
@@ -279,58 +279,41 @@ export default function SendSmsToAbsentsPage() {
             </Label>
           </div>
         </RadioGroup>
-      </div>
-
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-2.5 border-b flex items-center justify-between gap-4">
-          <h1 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            {mode === '1' ? 'Send SMS to Absents' : 'SMS history — absentees'}
-          </h1>
-          <button
-            type="button"
-            className="text-sm text-foreground inline-flex items-center gap-1"
-            onClick={() => setFilterOpen((v) => !v)}
-          >
-            Filter
-            <Filter className="h-4 w-4" />
-          </button>
-        </div>
-        {filterOpen ? (
-          <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <Select
-              label="College *"
-              value={collegeId ? String(collegeId) : null}
-              onChange={(v) => setCollegeId(v ? Number(v) : null)}
-              options={collegeOptions}
-              searchable
-              className="md:col-span-2"
-            />
-            <Select
-              label="Academic Year *"
-              value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-              options={academicYearOptions}
-              searchable
-              disabled={!collegeId}
-              className="md:col-span-2"
-            />
-            <DatePicker
-              label="Date *"
-              value={attendanceDay}
-              onChange={setAttendanceDay}
-              className="md:col-span-2"
-              clearable={false}
-            />
-            <div className="md:col-span-3">
-              <Button type="button" onClick={() => void runLookup()} disabled={loading}>
-                {loading ? 'Loading…' : mode === '1' ? 'Get Students' : 'Load SMS history'}
-              </Button>
-            </div>
+      )}
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <Select
+            label="College *"
+            value={collegeId ? String(collegeId) : null}
+            onChange={(v) => setCollegeId(v ? Number(v) : null)}
+            options={collegeOptions}
+            searchable
+            className="md:col-span-2"
+          />
+          <Select
+            label="Academic Year *"
+            value={academicYearId ? String(academicYearId) : null}
+            onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+            options={academicYearOptions}
+            searchable
+            disabled={!collegeId}
+            className="md:col-span-2"
+          />
+          <DatePicker
+            label="Date *"
+            value={attendanceDay}
+            onChange={setAttendanceDay}
+            className="md:col-span-2"
+            clearable={false}
+          />
+          <div className="md:col-span-3">
+            <Button type="button" onClick={() => void runLookup()} disabled={loading}>
+              {loading ? 'Loading…' : mode === '1' ? 'Get Students' : 'Load SMS history'}
+            </Button>
           </div>
-        ) : null}
-      </div>
-
+        </div>
+      )}
+    >
       {mode === '1' && students.length > 0 ? (
         <div className="app-card p-4 space-y-4">
           <SearchInput
@@ -410,6 +393,6 @@ export default function SendSmsToAbsentsPage() {
           </div>
         </div>
       ) : null}
-    </PageContainer>
+    </FilteredPage>
   )
 }

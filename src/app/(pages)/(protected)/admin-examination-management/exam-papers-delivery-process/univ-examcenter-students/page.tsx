@@ -2,9 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { BookMarked, ChevronDown, Filter } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { SearchInput } from '@/common/components/search'
 import { Select, type SelectOption } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
@@ -70,7 +68,6 @@ function pickCollegeId(r: Row): number {
 }
 
 export default function UnivExamcenterStudentsPage() {
-  const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [loadingList, setLoadingList] = useState(false)
   const [assigning, setAssigning] = useState(false)
@@ -372,114 +369,87 @@ export default function UnivExamcenterStudentsPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Exam center students" subtitle="Exam papers delivery process · Exam center students" />
-
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
-            <h2 className="app-card-title">
-              Exam Center Students
-            </h2>
-          </div>
-          <button type="button" className="flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground" onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen}>
-            <span>Filter</span>
-            <Filter className="h-4 w-4" aria-hidden />
-            <ChevronDown className={`h-4 w-4 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </button>
+    <FilteredListPage
+      title="Exam Center Students"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
+          <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courses.map((r) => ({ value: String(pickCourseId(r)), label: txt(r.course_code) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} disabled={loading} /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={academicYears.map((r) => ({ value: String(pickAyId(r)), label: txt(r.academic_year) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>
+          <div className="space-y-1 md:col-span-4"><Label>Exam</Label><Select options={exams.map((r) => ({ value: String(pickExamId(r)), label: txt(r.exam_name) }))} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v ?? '' }))} /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Years</Label><Select options={courseYears.map((r) => ({ value: String(pickCourseYearId(r)), label: txt(r.course_year_code) }))} value={form.courseYearId} onChange={(v) => setForm((f) => ({ ...f, courseYearId: v ?? '' }))} /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><Select options={regulations.map((r) => ({ value: String(pickRegId(r)), label: txt(r.regulation_code) }))} value={form.regulationId} onChange={(v) => setForm((f) => ({ ...f, regulationId: v ?? '' }))} /></div>
+          <div className="space-y-1 md:col-span-4"><Label>Subjects</Label><Select options={subjects.map((r) => ({ value: String(pickSubjectId(r)), label: `${txt(r.subject_name)} (${txt(r.subject_code)})` }))} value={form.subjectId} onChange={(v) => setForm((f) => ({ ...f, subjectId: v ?? '' }))} /></div>
+          <div className="space-y-1 md:col-span-3"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))} /></div>
+          <div className="space-y-1 md:col-span-3"><Label>Exam Center college</Label><Select options={collegeOptions} value={form.collegeId} onChange={(v) => setForm((f) => ({ ...f, collegeId: v ?? '' }))} /></div>
+          <div className="md:col-span-2"><Button type="button" onClick={() => void onGetStudents()} disabled={loadingList} className="w-full">Get Students</Button></div>
         </div>
-
-        {(
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end">
-            <div className="space-y-1 md:col-span-2"><Label>Program</Label><Select options={courses.map((r) => ({ value: String(pickCourseId(r)), label: txt(r.course_code) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} disabled={loading} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Academic Year</Label><Select options={academicYears.map((r) => ({ value: String(pickAyId(r)), label: txt(r.academic_year) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>
-            <div className="space-y-1 md:col-span-4"><Label>Exam</Label><Select options={exams.map((r) => ({ value: String(pickExamId(r)), label: txt(r.exam_name) }))} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v ?? '' }))} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Course Years</Label><Select options={courseYears.map((r) => ({ value: String(pickCourseYearId(r)), label: txt(r.course_year_code) }))} value={form.courseYearId} onChange={(v) => setForm((f) => ({ ...f, courseYearId: v ?? '' }))} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><Select options={regulations.map((r) => ({ value: String(pickRegId(r)), label: txt(r.regulation_code) }))} value={form.regulationId} onChange={(v) => setForm((f) => ({ ...f, regulationId: v ?? '' }))} /></div>
-            <div className="space-y-1 md:col-span-4"><Label>Subjects</Label><Select options={subjects.map((r) => ({ value: String(pickSubjectId(r)), label: `${txt(r.subject_name)} (${txt(r.subject_code)})` }))} value={form.subjectId} onChange={(v) => setForm((f) => ({ ...f, subjectId: v ?? '' }))} /></div>
-            <div className="space-y-1 md:col-span-3"><Label>Exam Center</Label><Select options={centerOptions} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))} /></div>
-            <div className="space-y-1 md:col-span-3"><Label>Exam Center college</Label><Select options={collegeOptions} value={form.collegeId} onChange={(v) => setForm((f) => ({ ...f, collegeId: v ?? '' }))} /></div>
-            <div className="md:col-span-2"><Button type="button" onClick={() => void onGetStudents()} disabled={loadingList} className="w-full">Get Students</Button></div>
-          </div>
-        )}
-      </div>
-
-      {showSections && (
-        <>
-          <div className="app-card p-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-              <div className="md:col-span-5 border rounded-md p-2">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <SearchInput value={searchCandidates} onChange={onSearchOmr} placeholder="Search…" className="w-full max-w-sm" />
-                  <span className="text-[13px] text-blue-700 font-semibold whitespace-nowrap">Selected: {selectedStudents.length}</span>
-                </div>
-                <div className="max-h-[320px] overflow-auto">
-                  <table className="w-full text-[13px]">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-1 w-[70px]">
-                          <label className="flex items-center gap-2">
-                            <Checkbox checked={selectAll} onCheckedChange={(v) => toggleSelectAll(v === true)} />
-                            All
-                          </label>
-                        </th>
-                        <th className="text-left py-1">Serial No</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCandidates.map((c, idx) => (
-                        <tr key={`${num(c.fk_student_id)}-${idx}`} className="border-b">
-                          <td className="py-1">
-                            <Checkbox checked={Boolean(c.checked)} onCheckedChange={(v) => toggleCandidate(idx, v === true)} />
-                          </td>
-                          <td className="py-1">{txt(c.hallticket_number)} ({txt(c.omr_serial_no)})</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="md:col-span-5 border rounded-md p-2">
-                <h4 className="text-[13px] text-blue-700 font-semibold mb-2">Selected Students: {selectedStudents.length}</h4>
-                <div className="max-h-[320px] overflow-auto">
-                  <table className="w-full text-[13px]">
-                    <tbody>
-                      {selectedStudents.map((s, idx) => (
-                        <tr key={`${num(s.fk_student_id)}-s-${idx}`} className="border-b">
-                          <td className="py-1 text-blue-700">{txt(s.hallticket_number)} ({txt(s.omr_serial_no) || '-'})</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="md:col-span-2 flex items-end justify-center">
-                <Button onClick={() => void onAssign()} disabled={assigning || !selectedStudents.length}>Assign</Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="app-card overflow-hidden">
-            <div className="p-2">
-              <DataTable
-                rowData={assignedRows}
-                columnDefs={assignedColumnDefs}
-                loading={loadingList}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search…',
-                  pdfDocumentTitle: 'Examcenter Students — Assigned',
-                }}
-              />
-            </div>
-          </div>
-        </>
       )}
-    </PageContainer>
+      notice={showSections ? (
+        <div className="app-card p-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+            <div className="md:col-span-5 border rounded-md p-2">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <SearchInput value={searchCandidates} onChange={onSearchOmr} placeholder="Search…" className="w-full max-w-sm" />
+                <span className="text-[13px] text-blue-700 font-semibold whitespace-nowrap">Selected: {selectedStudents.length}</span>
+              </div>
+              <div className="max-h-[320px] overflow-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-1 w-[70px]">
+                        <label className="flex items-center gap-2">
+                          <Checkbox checked={selectAll} onCheckedChange={(v) => toggleSelectAll(v === true)} />
+                          All
+                        </label>
+                      </th>
+                      <th className="text-left py-1">Serial No</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCandidates.map((c, idx) => (
+                      <tr key={`${num(c.fk_student_id)}-${idx}`} className="border-b">
+                        <td className="py-1">
+                          <Checkbox checked={Boolean(c.checked)} onCheckedChange={(v) => toggleCandidate(idx, v === true)} />
+                        </td>
+                        <td className="py-1">{txt(c.hallticket_number)} ({txt(c.omr_serial_no)})</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="md:col-span-5 border rounded-md p-2">
+              <h4 className="text-[13px] text-blue-700 font-semibold mb-2">Selected Students: {selectedStudents.length}</h4>
+              <div className="max-h-[320px] overflow-auto">
+                <table className="w-full text-[13px]">
+                  <tbody>
+                    {selectedStudents.map((s, idx) => (
+                      <tr key={`${num(s.fk_student_id)}-s-${idx}`} className="border-b">
+                        <td className="py-1 text-blue-700">{txt(s.hallticket_number)} ({txt(s.omr_serial_no) || '-'})</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="md:col-span-2 flex items-end justify-center">
+              <Button onClick={() => void onAssign()} disabled={assigning || !selectedStudents.length}>Assign</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      rowData={showSections ? assignedRows : []}
+      columnDefs={assignedColumnDefs}
+      loading={loadingList}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Examcenter Students — Assigned',
+      }}
+    />
   )
 }
 

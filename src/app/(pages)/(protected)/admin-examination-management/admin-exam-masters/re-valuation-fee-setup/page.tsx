@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSessionContext } from '@/context/SessionContext'
 import { Button } from '@/components/ui/button'
-import { TableCard, DataTable } from '@/common/components/table'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { StatusBadge } from '@/common/components/data-display'
 import { Select } from '@/common/components/select'
@@ -20,9 +19,9 @@ import {
   listExamFeeStructures,
   resolveExamLoginEmpId,
 } from '@/services'
-import { Pencil, Plus, Filter, ChevronDown } from 'lucide-react'
+import { Pencil, Plus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { format } from 'date-fns'
 
 function statusRenderer(p: ICellRendererParams) {
@@ -85,7 +84,6 @@ export default function RevaluationFeeSetupPage() {
 
   const [loadingFilters, setLoadingFilters] = useState(true)
   const [filtersData, setFiltersData] = useState<any[]>([])
-  const [filterOpen, setFilterOpen] = useState(true)
 
   const [universities, setUniversities] = useState<any[]>([])
   const [courses, setCourses] = useState<any[]>([])
@@ -411,151 +409,126 @@ export default function RevaluationFeeSetupPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">
-        Exam Re-Valuation Fee Setup
-      </h2>
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Re-Valuation Fee Setup</h2>
-          <button
-            type="button"
-            className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-label="Toggle filters"
-            aria-expanded={filterOpen}
-          >
-            <Filter className="h-3.5 w-3.5" aria-hidden />
-            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} aria-hidden />
-          </button>
-        </div>
-        {filterOpen ? (
-          <div className="px-3 py-3 bg-card">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
-              <div className="min-w-0 lg:col-span-2">
-                <Select
-                  label="University"
-                  required
-                  className="[&_button]:h-8 [&_button]:text-[12px]"
-                  value={selectedUniversityId != null ? String(selectedUniversityId) : null}
-                  onChange={(v) => {
-                    if (!v) return
-                    handleUniversityChange(Number(v))
-                  }}
-                  options={universities.map((u) => ({
-                    value: String(u.fk_university_id),
-                    label: String(u.university_code ?? u.university_name ?? '—'),
-                  }))}
-                  disabled={loadingFilters}
-                  placeholder={loadingFilters ? 'Loading…' : 'Select University'}
-                />
-              </div>
-              <div className="min-w-0 lg:col-span-2">
-                <Select
-                  label="Course"
-                  required
-                  className="[&_button]:h-8 [&_button]:text-[12px]"
-                  value={selectedCourseId != null ? String(selectedCourseId) : null}
-                  onChange={(v) => {
-                    if (!v) return
-                    handleCourseChange(Number(v))
-                  }}
-                  options={courses.map((c) => ({
-                    value: String(c.fk_course_id),
-                    label: String(c.course_code ?? c.course_name ?? '—'),
-                  }))}
-                  disabled={courses.length === 0}
-                  placeholder="Select Course"
-                />
-              </div>
-              <div className="min-w-0 lg:col-span-2">
-                <Select
-                  label="Exam Year"
-                  required
-                  className="[&_button]:h-8 [&_button]:text-[12px]"
-                  value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
-                  onChange={(v) => {
-                    if (!v) return
-                    handleAcademicYearChange(Number(v))
-                  }}
-                  options={academicYears.map((a) => ({
-                    value: String(a.fk_academic_year_id),
-                    label: String(a.academic_year ?? '—'),
-                  }))}
-                  disabled={academicYears.length === 0}
-                  placeholder="Select Exam Year"
-                />
-              </div>
-              <div className="min-w-0 lg:col-span-4">
-                <Select
-                  label="Exam Master"
-                  required
-                  searchable
-                  className="[&_button]:h-8 [&_button]:text-[12px]"
-                  value={selectedExamId != null ? String(selectedExamId) : null}
-                  onChange={(v) => handleExamChange(v != null ? Number(v) : null)}
-                  options={examSelectOptions}
-                  disabled={examMasters.length === 0}
-                  placeholder="Select Exam Master"
-                />
-              </div>
-              <div className="min-w-0 lg:col-span-2">
-                <Select
-                  label="College"
-                  clearable
-                  className="[&_button]:h-8 [&_button]:text-[12px]"
-                  value={selectedCollegeId != null ? String(selectedCollegeId) : null}
-                  onChange={(v) => {
-                    setSelectedCollegeId(v != null ? Number(v) : null)
-                    setRows([])
-                  }}
-                  options={colleges.map((c) => ({
-                    value: String(c.fk_college_id),
-                    label: String(c.college_code ?? c.college_name ?? '—'),
-                  }))}
-                  disabled={colleges.length === 0 || loadingColleges}
-                  placeholder={loadingColleges ? 'Loading…' : colleges.length === 0 ? 'No colleges' : 'Select College'}
-                />
-              </div>
+    <FilteredListPage
+      title="Exam Re-Valuation Fee Setup"
+      filters={(
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+            <div className="min-w-0 lg:col-span-2">
+              <Select
+                label="University"
+                required
+                className="[&_button]:h-8 [&_button]:text-[12px]"
+                value={selectedUniversityId != null ? String(selectedUniversityId) : null}
+                onChange={(v) => {
+                  if (!v) return
+                  handleUniversityChange(Number(v))
+                }}
+                options={universities.map((u) => ({
+                  value: String(u.fk_university_id),
+                  label: String(u.university_code ?? u.university_name ?? '—'),
+                }))}
+                disabled={loadingFilters}
+                placeholder={loadingFilters ? 'Loading…' : 'Select University'}
+              />
+            </div>
+            <div className="min-w-0 lg:col-span-2">
+              <Select
+                label="Course"
+                required
+                className="[&_button]:h-8 [&_button]:text-[12px]"
+                value={selectedCourseId != null ? String(selectedCourseId) : null}
+                onChange={(v) => {
+                  if (!v) return
+                  handleCourseChange(Number(v))
+                }}
+                options={courses.map((c) => ({
+                  value: String(c.fk_course_id),
+                  label: String(c.course_code ?? c.course_name ?? '—'),
+                }))}
+                disabled={courses.length === 0}
+                placeholder="Select Course"
+              />
+            </div>
+            <div className="min-w-0 lg:col-span-2">
+              <Select
+                label="Exam Year"
+                required
+                className="[&_button]:h-8 [&_button]:text-[12px]"
+                value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
+                onChange={(v) => {
+                  if (!v) return
+                  handleAcademicYearChange(Number(v))
+                }}
+                options={academicYears.map((a) => ({
+                  value: String(a.fk_academic_year_id),
+                  label: String(a.academic_year ?? '—'),
+                }))}
+                disabled={academicYears.length === 0}
+                placeholder="Select Exam Year"
+              />
+            </div>
+            <div className="min-w-0 lg:col-span-4">
+              <Select
+                label="Exam Master"
+                required
+                searchable
+                className="[&_button]:h-8 [&_button]:text-[12px]"
+                value={selectedExamId != null ? String(selectedExamId) : null}
+                onChange={(v) => handleExamChange(v != null ? Number(v) : null)}
+                options={examSelectOptions}
+                disabled={examMasters.length === 0}
+                placeholder="Select Exam Master"
+              />
+            </div>
+            <div className="min-w-0 lg:col-span-2">
+              <Select
+                label="College"
+                clearable
+                className="[&_button]:h-8 [&_button]:text-[12px]"
+                value={selectedCollegeId != null ? String(selectedCollegeId) : null}
+                onChange={(v) => {
+                  setSelectedCollegeId(v != null ? Number(v) : null)
+                  setRows([])
+                }}
+                options={colleges.map((c) => ({
+                  value: String(c.fk_college_id),
+                  label: String(c.college_code ?? c.college_name ?? '—'),
+                }))}
+                disabled={colleges.length === 0 || loadingColleges}
+                placeholder={loadingColleges ? 'Loading…' : colleges.length === 0 ? 'No colleges' : 'Select College'}
+              />
             </div>
           </div>
-        ) : null}
-      </div>
-
-      {selectedCollegeId != null && (
-        <>
-          <div className="app-card p-3 flex flex-wrap items-center gap-2">
-            <span className="text-[13px] font-medium text-slate-800">Re-Valuation Fee Structure :</span>
-            <span className="text-[13px] text-[hsl(var(--primary))] font-semibold">{titleLine || '—'}</span>
-          </div>
-
-          <TableCard withHeaderBorder={false}>
-            <DataTable
-              rowData={rows}
-              columnDefs={cols}
-              loading={loadingList}
-              pagination
-              paginationPageSize={10}
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search re-valuation fee structures…',
-                pdfDocumentTitle: 'Re-valuation fee structures',
-              }}
-              toolbarTrailing={(
-                <Button
-                  size="sm"
-                  onClick={openAdd}
-                  disabled={!selectedExamId || !selectedCollegeId}
-                  className="h-[30px] px-3 text-[12px]"
-                >
-                  <Plus className="mr-1.5 h-3.5 w-3.5" />
-                  Add Exam Fee Structure
-                </Button>
-              )}
-            />
-          </TableCard>
-        </>
+          {selectedCollegeId != null && titleLine ? (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-[13px] font-medium text-slate-800">Re-Valuation Fee Structure :</span>
+              <span className="text-[13px] text-[hsl(var(--primary))] font-semibold">{titleLine}</span>
+            </div>
+          ) : null}
+        </div>
       )}
-    </PageContainer>
+      rowData={selectedCollegeId != null ? rows : []}
+      columnDefs={cols}
+      loading={loadingList}
+      pagination
+      paginationPageSize={10}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search re-valuation fee structures…',
+        pdfDocumentTitle: 'Re-valuation fee structures',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          onClick={openAdd}
+          disabled={!selectedExamId || !selectedCollegeId}
+          className="h-[30px] px-3 text-[12px]"
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Add Exam Fee Structure
+        </Button>
+      )}
+    />
   )
 }

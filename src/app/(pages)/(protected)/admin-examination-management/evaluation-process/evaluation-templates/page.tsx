@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { LayoutTemplate } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/common/components/select'
@@ -139,14 +138,9 @@ export default function EvaluationTemplatesPage() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader
-        title="Evaluation Templates"
-        subtitle="View evaluation question paper templates by university"
-      />
-
-      {/* Filter panel */}
-      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+    <FilteredListPage
+      title="Evaluation Templates"
+      filters={(
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[240px] flex-1 max-w-sm">
             <Select
@@ -160,7 +154,6 @@ export default function EvaluationTemplatesPage() {
               clearable
             />
           </div>
-
           <Button
             onClick={fetchTemplates}
             disabled={!selectedUniversityId || tableLoading}
@@ -169,41 +162,30 @@ export default function EvaluationTemplatesPage() {
             {tableLoading ? 'Loading…' : 'Get Templates'}
           </Button>
         </div>
-      </div>
-
-      {/* Table section */}
-      {tableVisible && (
-        <div className="rounded-lg border border-border bg-card overflow-hidden shadow-sm">
-          {!tableLoading && templates.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <LayoutTemplate className="h-10 w-10 mb-3 opacity-40" />
-              <p className="text-sm font-medium">No evaluation templates found</p>
-              <p className="text-xs mt-1">
-                No active templates exist for the selected university
-              </p>
-            </div>
-          ) : (
-            <div className="p-4">
-              <DataTable
-                rowData={templates}
-                columnDefs={columnDefs}
-                loading={tableLoading}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search title or description…',
-                  pdfDocumentTitle: 'Evaluation Templates',
-                }}
-                toolbarLeading={
-                  <span className="text-[13px] text-muted-foreground whitespace-nowrap">
-                    {templates.length} template{templates.length !== 1 ? 's' : ''}
-                  </span>
-                }
-              />
-            </div>
-          )}
-        </div>
       )}
-    </PageContainer>
+      rowData={tableVisible ? templates : []}
+      columnDefs={columnDefs}
+      loading={tableLoading}
+      pagination
+      emptyState={tableVisible && !tableLoading && templates.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground rounded-lg border border-border bg-card">
+          <LayoutTemplate className="h-10 w-10 mb-3 opacity-40" />
+          <p className="text-sm font-medium">No evaluation templates found</p>
+          <p className="text-xs mt-1">
+            No active templates exist for the selected university
+          </p>
+        </div>
+      ) : undefined}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search title or description…',
+        pdfDocumentTitle: 'Evaluation Templates',
+      }}
+      toolbarLeading={tableVisible ? (
+        <span className="text-[13px] text-muted-foreground whitespace-nowrap">
+          {templates.length} template{templates.length !== 1 ? 's' : ''}
+        </span>
+      ) : undefined}
+    />
   )
 }

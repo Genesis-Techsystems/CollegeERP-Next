@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Filter, User } from "lucide-react";
+import { User } from "lucide-react";
 import defaultStudent from "@/assets/images/avatars/default_Student.png";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
+import { GlobalFilterBarRow, GlobalFilterField } from "@/common/components/forms";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,7 +65,6 @@ export default function StudentReadmissionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [filterOpen, setFilterOpen] = useState(true);
   const [organizations, setOrganizations] = useState<AnyRow[]>([]);
   const [colleges, setColleges] = useState<AnyRow[]>([]);
   const [students, setStudents] = useState<AnyRow[]>([]);
@@ -210,31 +210,12 @@ export default function StudentReadmissionPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Student Detained List</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
-            />
-          </Button>
-        </div>
-
-        {
-          <div className="p-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+    <FilteredPage
+      title="Student Re-Admission"
+      filters={
+        <GlobalFilterBarRow columns={2}>
+          <GlobalFilterField label="Organization">
             <Select
-              label="Organization"
               value={
                 selectedOrganizationId ? String(selectedOrganizationId) : null
               }
@@ -242,33 +223,34 @@ export default function StudentReadmissionPage() {
               options={mapOrganizationOptions(organizations)}
               placeholder="Select Organization"
               isLoading={loadingOrgs}
-              className="[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
+              className="[&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
             />
+          </GlobalFilterField>
+          <GlobalFilterField label="College">
             <Select
-              label="College"
               value={selectedCollegeId ? String(selectedCollegeId) : null}
               onChange={(v) => setSelectedCollegeId(v ? Number(v) : null)}
               options={mapCollegeOptions(colleges)}
               placeholder="Select College"
               isLoading={loadingColleges}
               disabled={!selectedOrganizationId}
-              className="[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
+              className="[&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
+            />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      }
+      body={
+        <>
+          <div className="max-w-sm">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search"
+              className="h-8 text-xs"
             />
           </div>
-        }
-      </div>
 
-      <div className="app-card p-4 space-y-3">
-        <div className="max-w-sm">
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search"
-            className="h-8 text-xs"
-          />
-        </div>
-
-        <div className="overflow-auto rounded border">
+          <div className="mt-3 overflow-auto rounded border">
           <table className="w-full text-[12px]">
             <thead className="bg-muted/40">
               <tr>
@@ -353,8 +335,9 @@ export default function StudentReadmissionPage() {
               )}
             </tbody>
           </table>
-        </div>
-      </div>
-    </PageContainer>
+          </div>
+        </>
+      }
+    />
   );
 }

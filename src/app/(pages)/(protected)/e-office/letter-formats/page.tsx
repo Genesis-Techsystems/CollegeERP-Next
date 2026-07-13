@@ -4,10 +4,8 @@ import { useMemo, useState } from 'react'
 import { EyeIcon, PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
@@ -143,8 +141,9 @@ export default function LetterFormatsPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <FilterCard title="Letter Format">
+    <FilteredListPage
+      title="Letter Format"
+      filters={(
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Select
             label="Organization"
@@ -181,47 +180,35 @@ export default function LetterFormatsPage() {
             </Button>
           </div>
         </div>
-      </FilterCard>
-
-      {listReady && (
-        <>
-          {(orgLabel || collegeLabel) && (
-            <div className="app-card overflow-hidden px-4 py-3">
-              <h2 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">
-                {orgLabel} / {collegeLabel}
-              </h2>
-            </div>
-          )}
-
-          <TableCard withHeaderBorder={false}>
-            <DataTable
-              rowData={rows}
-              columnDefs={columnDefs}
-              loading={isLoading}
-              pagination
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search letter formats…',
-                pdfDocumentTitle: 'Letter Formats',
-              }}
-              toolbarTrailing={(
-                <Button
-                  size="sm"
-                  className="h-[30px] px-3 text-[12px]"
-                  onClick={() => {
-                    setEditing(null)
-                    setModalOpen(true)
-                  }}
-                >
-                  <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-                  Letter Format
-                </Button>
-              )}
-            />
-          </TableCard>
-        </>
       )}
-
+      notice={listReady && (orgLabel || collegeLabel) ? (
+        <div className="text-[15px] font-semibold text-[hsl(var(--card-title))]">
+          {orgLabel} / {collegeLabel}
+        </div>
+      ) : undefined}
+      rowData={listReady ? rows : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: listReady,
+        searchPlaceholder: 'Search letter formats…',
+        pdfDocumentTitle: 'Letter Formats',
+      }}
+      toolbarTrailing={listReady ? (
+        <Button
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
+          }}
+        >
+          <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+          Letter Format
+        </Button>
+      ) : undefined}
+    >
       <LetterFormatModal
         open={modalOpen}
         onClose={() => {
@@ -242,6 +229,6 @@ export default function LetterFormatsPage() {
         onClose={() => setViewRow(null)}
         row={viewRow}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

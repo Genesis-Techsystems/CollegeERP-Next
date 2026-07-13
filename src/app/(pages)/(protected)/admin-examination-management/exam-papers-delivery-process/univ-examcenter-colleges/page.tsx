@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { BookMarked, ChevronDown, Filter, Pencil } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { Pencil } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import { SearchInput } from '@/common/components/search'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
@@ -64,7 +63,6 @@ export default function UnivExamCenterCollegesPage() {
   const universityId = Number(globalThis?.localStorage?.getItem('universityId') ?? 0)
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
 
-  const [filtersOpen, setFiltersOpen] = useState(true)
   const [loadingFilters, setLoadingFilters] = useState(false)
   const [loadingList, setLoadingList] = useState(false)
   const [assigning, setAssigning] = useState(false)
@@ -299,151 +297,124 @@ export default function UnivExamCenterCollegesPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Exam Center Colleges" subtitle="Exam papers delivery process · Exam center colleges" />
-
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
-            <h2 className="app-card-title">Exam Center Colleges</h2>
+    <FilteredListPage
+      title="Exam Center Colleges"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div className="space-y-1 md:col-span-2">
+            <Label>Academic Year</Label>
+            <Select
+              options={ayOptions}
+              value={academicYearId}
+              onChange={(v) => {
+                setAcademicYearId(v ?? '')
+                setExamGroupId('')
+                setUnivExamcenterId('')
+                setExamCenters([])
+                setShowSections(false)
+              }}
+              disabled={loadingFilters}
+            />
           </div>
-          <button
-            type="button"
-            className="flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground"
-            onClick={() => setFiltersOpen((v) => !v)}
-            aria-expanded={filtersOpen}
-          >
-            <span>Filter</span>
-            <Filter className="h-4 w-4" aria-hidden />
-            <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-          </button>
+          <div className="space-y-1 md:col-span-4">
+            <Label>Exam Group</Label>
+            <Select options={examGroupOptions} value={examGroupId} onChange={onChangeExamGroup} searchable />
+          </div>
+          <div className="space-y-1 md:col-span-4">
+            <Label>Exam Center</Label>
+            <Select
+              options={centerOptions}
+              value={univExamcenterId}
+              onChange={(v) => {
+                setUnivExamcenterId(v ?? '')
+                setShowSections(false)
+              }}
+              searchable
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Button type="button" onClick={() => void onGetList()} disabled={loadingList}>
+              Get List
+            </Button>
+          </div>
         </div>
+      )}
+      notice={showSections ? (
+        <div className="app-card p-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+            <div className="md:col-span-5 border rounded-md p-2">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <SearchInput value={candidateSearch} onChange={setCandidateSearch} placeholder="Search…" className="w-full max-w-sm" />
+                <span className="text-[13px] text-blue-700 font-semibold whitespace-nowrap">Selected: {selectedCount}</span>
+              </div>
+              <div className="max-h-[320px] overflow-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-1 w-[70px]">
+                        <label className="flex items-center gap-2">
+                          <Checkbox checked={selectAll} onCheckedChange={(v) => toggleSelectAll(v === true)} />
+                          All
+                        </label>
+                      </th>
+                      <th className="text-left py-1">Serial No</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCandidates.map((c, idx) => (
+                      <tr key={`${num(c.fk_college_id)}-${idx}`} className="border-b">
+                        <td className="py-1">
+                          <Checkbox checked={Boolean(c.checked)} onCheckedChange={(v) => toggleCandidate(idx, v === true)} />
+                        </td>
+                        <td className="py-1">{txt(c.college_code)}</td>
+                      </tr>
+                    ))}
+                    {filteredCandidates.length === 0 && (
+                      <tr>
+                        <td colSpan={2} className="py-3 text-center text-muted-foreground">No colleges to assign.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-        {(
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="space-y-1 md:col-span-2">
-              <Label>Academic Year</Label>
-              <Select
-                options={ayOptions}
-                value={academicYearId}
-                onChange={(v) => {
-                  setAcademicYearId(v ?? '')
-                  setExamGroupId('')
-                  setUnivExamcenterId('')
-                  setExamCenters([])
-                  setShowSections(false)
-                }}
-                disabled={loadingFilters}
-              />
+            <div className="md:col-span-5 border rounded-md p-2">
+              <h4 className="text-[13px] text-blue-700 font-semibold mb-2">Selected Colleges: {selectedCount}</h4>
+              <div className="max-h-[320px] overflow-auto">
+                <table className="w-full text-[13px]">
+                  <tbody>
+                    {selectedColleges.map((c, idx) => (
+                      <tr key={`${num(c.fk_college_id)}-s-${idx}`} className="border-b">
+                        <td className="py-1 text-blue-700">{txt(c.college_code) || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="space-y-1 md:col-span-4">
-              <Label>Exam Group</Label>
-              <Select options={examGroupOptions} value={examGroupId} onChange={onChangeExamGroup} searchable />
-            </div>
-            <div className="space-y-1 md:col-span-4">
-              <Label>Exam Center</Label>
-              <Select
-                options={centerOptions}
-                value={univExamcenterId}
-                onChange={(v) => {
-                  setUnivExamcenterId(v ?? '')
-                  setShowSections(false)
-                }}
-                searchable
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Button type="button" onClick={() => void onGetList()} disabled={loadingList}>
-                Get List
+
+            <div className="md:col-span-2 flex items-end justify-center">
+              <Button onClick={() => void onAssign()} disabled={assigning || !selectedColleges.length}>
+                Assign
               </Button>
             </div>
           </div>
-        )}
-      </div>
-
-      {showSections && (
-        <>
-          <div className="app-card p-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-              <div className="md:col-span-5 border rounded-md p-2">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <SearchInput value={candidateSearch} onChange={setCandidateSearch} placeholder="Search…" className="w-full max-w-sm" />
-                  <span className="text-[13px] text-blue-700 font-semibold whitespace-nowrap">Selected: {selectedCount}</span>
-                </div>
-                <div className="max-h-[320px] overflow-auto">
-                  <table className="w-full text-[13px]">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-1 w-[70px]">
-                          <label className="flex items-center gap-2">
-                            <Checkbox checked={selectAll} onCheckedChange={(v) => toggleSelectAll(v === true)} />
-                            All
-                          </label>
-                        </th>
-                        <th className="text-left py-1">Serial No</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCandidates.map((c, idx) => (
-                        <tr key={`${num(c.fk_college_id)}-${idx}`} className="border-b">
-                          <td className="py-1">
-                            <Checkbox checked={Boolean(c.checked)} onCheckedChange={(v) => toggleCandidate(idx, v === true)} />
-                          </td>
-                          <td className="py-1">{txt(c.college_code)}</td>
-                        </tr>
-                      ))}
-                      {filteredCandidates.length === 0 && (
-                        <tr>
-                          <td colSpan={2} className="py-3 text-center text-muted-foreground">No colleges to assign.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="md:col-span-5 border rounded-md p-2">
-                <h4 className="text-[13px] text-blue-700 font-semibold mb-2">Selected Colleges: {selectedCount}</h4>
-                <div className="max-h-[320px] overflow-auto">
-                  <table className="w-full text-[13px]">
-                    <tbody>
-                      {selectedColleges.map((c, idx) => (
-                        <tr key={`${num(c.fk_college_id)}-s-${idx}`} className="border-b">
-                          <td className="py-1 text-blue-700">{txt(c.college_code) || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="md:col-span-2 flex items-end justify-center">
-                <Button onClick={() => void onAssign()} disabled={assigning || !selectedColleges.length}>
-                  Assign
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-border">
-            <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">Exam Center Colleges - {headerText}</h3>
-          </div>
-
-          <div className="app-card overflow-hidden">
-            <div className="p-2">
-              <DataTable
-                rowData={assignedRows}
-                columnDefs={assignedColumnDefs}
-                loading={loadingList}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search…', pdfDocumentTitle: 'Exam Center Colleges' }}
-              />
-            </div>
-          </div>
-        </>
-      )}
-
+        </div>
+      ) : null}
+      rowData={showSections ? assignedRows : []}
+      columnDefs={assignedColumnDefs}
+      loading={loadingList}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search…', pdfDocumentTitle: 'Exam Center Colleges' }}
+      toolbarLeading={
+        showSections ? (
+          <span className="text-[12px] font-medium text-[hsl(var(--primary))] truncate max-w-[min(100%,40rem)]">
+            {headerText}
+          </span>
+        ) : null
+      }
+    >
       <FormModal open={editOpen} onClose={() => setEditOpen(false)} title="Edit exam center college" onSubmit={onSaveEdit} size="lg">
         <div className="space-y-2">
           <div className="text-sm text-muted-foreground">College: {txt(editRow?.collegeCode ?? editRow?.college_code)}</div>
@@ -455,6 +426,6 @@ export default function UnivExamCenterCollegesPage() {
           />
         </div>
       </FormModal>
-    </PageContainer>
+    </FilteredListPage>
   )
 }

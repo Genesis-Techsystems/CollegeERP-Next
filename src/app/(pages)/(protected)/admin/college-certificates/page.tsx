@@ -3,9 +3,8 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { FileBadge, PencilIcon, PlusIcon } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -77,42 +76,31 @@ export default function CollegeCertificatesPage() {
   ], [])
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">College Certificates</h2>
+    <ListPage
+      title="College Certificates"
+      rowData={data}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search certificates…', pdfDocumentTitle: 'College Certificates' }}
+      toolbarTrailing={
+        <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Certificate
+        </Button>
+      }
+      emptyState={
+        <div className="app-card flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <FileBadge className="h-10 w-10 mb-3 opacity-40" />
+          <p className="text-sm">No college certificates found</p>
+          <Button size="sm" className="mt-4" onClick={() => { setRow(null); setOpen(true) }}>
+            <PlusIcon className="h-4 w-4 mr-1" />
+            Add Certificate
+          </Button>
         </div>
-        <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!isLoading && data.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <FileBadge className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No college certificates found</p>
-                <Button size="sm" className="mt-4" onClick={() => { setRow(null); setOpen(true) }}>
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Add Certificate
-                </Button>
-              </div>
-            ) : (
-              <DataTable
-                rowData={data}
-                columnDefs={columnDefs}
-                loading={isLoading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search certificates…', pdfDocumentTitle: 'College Certificates' }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Certificate
-                  </Button>
-                }
-              />
-            )}
-          </div>
-        </div>
-      </div>
-
+      }
+    >
       <CollegeCertificateModal open={open} onClose={() => { setOpen(false); setRow(null) }} row={row} onSaved={invalidate} />
-    </PageContainer>
+    </ListPage>
   )
 }

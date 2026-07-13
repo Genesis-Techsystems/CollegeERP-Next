@@ -4,8 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -205,9 +204,9 @@ export default function FinaliseProfilesPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-4">
-        <h2 className="app-card-title mb-3">Finalise Profiles</h2>
+    <FilteredListPage
+      title="Finalise Profiles"
+      filters={(
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-0.5">
             <Label className="text-xs">Committee *</Label>
@@ -256,98 +255,87 @@ export default function FinaliseProfilesPage() {
             </Button>
           </div>
         </div>
-      </div>
-
+      )}
+      rowData={showTable && filters.filtersReady ? rows : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search profiles…',
+        pdfDocumentTitle: 'Finalise Profiles',
+      }}
+    >
       {showTable && filters.filtersReady && (
-        <>
-          <div className="app-card overflow-hidden">
-            <div className="px-3 pb-3 pt-2">
-              <div className="overflow-hidden rounded-lg border border-border bg-card">
-                <DataTable
-                  rowData={rows}
-                  columnDefs={columnDefs}
-                  loading={isLoading}
-                  pagination
-                  toolbar={{
-                    search: true,
-                    searchPlaceholder: 'Search profiles…',
-                    pdfDocumentTitle: 'Finalise Profiles',
-                  }}
-                />
-              </div>
-            </div>
+        <div className="app-card p-4 space-y-4">
+          <h3 className="text-sm font-semibold">Add Evaluator / Moderator / Question Paper Setter</h3>
+          <div className="max-w-md space-y-0.5">
+            <Label className="text-xs">Committee Meeting *</Label>
+            <Select
+              value={meetingId}
+              onChange={setMeetingId}
+              options={meetingOptions}
+              placeholder="Select meeting"
+              searchable
+              clearable
+            />
           </div>
 
-          <div className="app-card p-4 space-y-4">
-            <h3 className="text-sm font-semibold">Add Evaluator / Moderator / Question Paper Setter</h3>
-            <div className="max-w-md space-y-0.5">
-              <Label className="text-xs">Committee Meeting *</Label>
-              <Select
-                value={meetingId}
-                onChange={setMeetingId}
-                options={meetingOptions}
-                placeholder="Select meeting"
-                searchable
-                clearable
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              {ROLE_SECTIONS.map((section) => {
-                const roleId = EVALUATOR_ROLES[section.key]
-                const available = profilesForRole(evaluatorProfiles, roleId, false)
-                const selected = selectedByRole[section.key]
-                return (
-                  <div
-                    key={section.key}
-                    className="rounded-lg border border-border p-3 space-y-2 max-h-64 overflow-y-auto"
-                  >
-                    <p className="text-xs font-medium">{section.label}</p>
-                    {available.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No profiles available.</p>
-                    ) : (
-                      available.map((profile) => {
-                        const id = Number(profile.pk_exam_evaluator_profile_id)
-                        const checkboxId = `${section.key}-${id}`
-                        return (
-                          <div key={checkboxId} className="flex items-center gap-2">
-                            <Checkbox
-                              id={checkboxId}
-                              checked={selected.has(id)}
-                              onCheckedChange={(v) => toggleProfile(section.key, id, v === true)}
-                            />
-                            <label htmlFor={checkboxId} className="text-xs cursor-pointer">
-                              {profile.evaluator_name ?? '—'}
-                            </label>
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setSelectedByRole({
-                    EVALUATOR: new Set(),
-                    MODERATOR: new Set(),
-                    QP_SETTER: new Set(),
-                  })
-                }
-              >
-                Clear Selection
-              </Button>
-              <Button size="sm" disabled={saving} onClick={() => void handleSaveProfiles()}>
-                {saving ? 'Saving…' : 'Save Profiles'}
-              </Button>
-            </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {ROLE_SECTIONS.map((section) => {
+              const roleId = EVALUATOR_ROLES[section.key]
+              const available = profilesForRole(evaluatorProfiles, roleId, false)
+              const selected = selectedByRole[section.key]
+              return (
+                <div
+                  key={section.key}
+                  className="rounded-lg border border-border p-3 space-y-2 max-h-64 overflow-y-auto"
+                >
+                  <p className="text-xs font-medium">{section.label}</p>
+                  {available.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No profiles available.</p>
+                  ) : (
+                    available.map((profile) => {
+                      const id = Number(profile.pk_exam_evaluator_profile_id)
+                      const checkboxId = `${section.key}-${id}`
+                      return (
+                        <div key={checkboxId} className="flex items-center gap-2">
+                          <Checkbox
+                            id={checkboxId}
+                            checked={selected.has(id)}
+                            onCheckedChange={(v) => toggleProfile(section.key, id, v === true)}
+                          />
+                          <label htmlFor={checkboxId} className="text-xs cursor-pointer">
+                            {profile.evaluator_name ?? '—'}
+                          </label>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              )
+            })}
           </div>
-        </>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                setSelectedByRole({
+                  EVALUATOR: new Set(),
+                  MODERATOR: new Set(),
+                  QP_SETTER: new Set(),
+                })
+              }
+            >
+              Clear Selection
+            </Button>
+            <Button size="sm" disabled={saving} onClick={() => void handleSaveProfiles()}>
+              {saving ? 'Saving…' : 'Save Profiles'}
+            </Button>
+          </div>
+        </div>
       )}
 
       <EditFinaliseProfileModal
@@ -357,6 +345,6 @@ export default function FinaliseProfilesPage() {
         univCommitteeId={committeeNum}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

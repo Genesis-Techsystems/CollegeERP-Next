@@ -3,9 +3,9 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ColDef } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
 import { Select, type SelectOption } from '@/common/components/select'
 import { EmptyState } from '@/common/components/feedback'
+import { FilteredListPage } from '@/components/layout'
 import { Label } from '@/components/ui/label'
 import { useSessionContext } from '@/context/SessionContext'
 import { getErrorMessage } from '@/lib/errors'
@@ -16,7 +16,6 @@ import {
   searchLibraryBookDetails,
 } from '@/services'
 import type { LibraryRow } from '@/services'
-import { LibraryScreenShell } from '../_components/LibraryScreenShell'
 import { LIB_COL } from '../_lib/library-columns'
 
 function bookOptionLabel(b: LibraryRow): string {
@@ -123,51 +122,52 @@ export default function BooksSearchPage() {
     if (picked) setSelectedBook(picked)
   }
 
-  return (
-    <LibraryScreenShell title="Books Search">
-      <div className="app-card space-y-4 p-4">
-        <div className="max-w-xl space-y-2">
-          <Label className="text-[13px]">Book Search</Label>
-          <Select
-            value={selectedBookKey}
-            onChange={handleBookChange}
-            options={bookOptions}
-            placeholder="Book title or accession no."
-            searchable
-            onSearch={(t) => void onBookSearch(t)}
-            isLoading={bookSearchLoading}
-            clearable
-            className="w-full"
-          />
-        </div>
+  const filters = (
+    <div className="max-w-xl space-y-2">
+      <Label className="text-[13px]">Book Search</Label>
+      <Select
+        value={selectedBookKey}
+        onChange={handleBookChange}
+        options={bookOptions}
+        placeholder="Book title or accession no."
+        searchable
+        onSearch={(t) => void onBookSearch(t)}
+        isLoading={bookSearchLoading}
+        clearable
+        className="w-full"
+      />
+    </div>
+  )
 
-        {selectedBook && isError ? (
+  const showTable = selectedBook != null && !isError
+
+  return (
+    <FilteredListPage
+      title="Books Search"
+      filters={filters}
+      rowData={showTable ? tableRows : []}
+      columnDefs={columnDefs}
+      loading={showTable ? loadingDetails : false}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Filter results…',
+        pdfDocumentTitle: 'Books Search',
+      }}
+      notice={
+        selectedBook && isError ? (
           <EmptyState
             title="Could not load book details"
             description={getErrorMessage(error)}
             action={{ label: 'Retry', onClick: () => void refetch() }}
           />
-        ) : selectedBook ? (
-          <TableCard withHeaderBorder={false}>
-            <DataTable
-              rowData={tableRows}
-              columnDefs={columnDefs}
-              loading={loadingDetails}
-              pagination
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Filter results…',
-                pdfDocumentTitle: 'Books Search',
-              }}
-            />
-            {!loadingDetails && tableRows.length === 0 ? (
-              <p className="border-t px-4 py-6 text-center text-sm text-muted-foreground">
-                No book details found.
-              </p>
-            ) : null}
-          </TableCard>
-        ) : null}
-      </div>
-    </LibraryScreenShell>
+        ) : !selectedBook ? (
+          <EmptyState
+            title="Search for a book"
+            description="Enter a book title or accession number to view details."
+          />
+        ) : undefined
+      }
+    />
   )
 }

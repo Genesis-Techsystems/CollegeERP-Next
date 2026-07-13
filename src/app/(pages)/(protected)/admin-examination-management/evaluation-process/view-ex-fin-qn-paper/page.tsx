@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { DataTable } from "@/common/components/table";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, type SelectOption } from "@/common/components/select";
-import { ChevronDown, Eye, Filter } from "lucide-react";
+import { Eye } from "lucide-react";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toDateStr, toDateOnlyISO } from "@/common/generic-functions";
 import { useSessionContext } from "@/context/SessionContext";
@@ -25,7 +25,6 @@ import {
   listViewFinalQuestionPapers,
   publishQuestionPaperColleges,
 } from "@/services/evaluation-process";
-import { PageContainer, PageHeader } from "@/components/layout";
 
 type AnyRow = Record<string, any>;
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
@@ -128,7 +127,6 @@ function makeActionsRenderer(
 }
 
 export default function ViewFinalExamQuestionPaperPage() {
-  const [filterOpen, setFilterOpen] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
@@ -417,115 +415,73 @@ export default function ViewFinalExamQuestionPaperPage() {
   );
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Publish Exam Question Paper</h2>
-          <Button
-            type="button"
-            variant="outline"
-            style={{ marginRight: "0px" }}
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+    <FilteredListPage
+      title="Publish Exam Question Paper"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end text-[13px]">
+          <div className="md:col-span-3">
+            <Label className="text-[12px] text-muted-foreground">Course</Label>
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : null)}
+              options={courses.map(
+                (c) =>
+                  ({
+                    value: String(pickNum(c, ["fk_course_id", "courseId"])),
+                    label: pickText(c, ["course_code", "courseCode"]),
+                  }) as SelectOption,
+              )}
+              placeholder="Course"
             />
-          </Button>
-        </div>
-        {filterOpen && (
-          <div className="p-3 space-y-2 text-[13px]">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-3">
-                <Label className="text-[12px] text-muted-foreground">
-                  Course
-                </Label>
-                <Select
-                  value={courseId ? String(courseId) : null}
-                  onChange={(v) => setCourseId(v ? Number(v) : null)}
-                  options={courses.map(
-                    (c) =>
-                      ({
-                        value: String(pickNum(c, ["fk_course_id", "courseId"])),
-                        label: pickText(c, ["course_code", "courseCode"]),
-                      }) as SelectOption,
-                  )}
-                  placeholder="Course"
-                />
-              </div>
-              <div className="md:col-span-3">
-                <Label className="text-[12px] text-muted-foreground">
-                  Academic Year
-                </Label>
-                <Select
-                  value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-                  options={academicYears.map(
-                    (a) =>
-                      ({
-                        value: String(
-                          pickNum(a, ["fk_academic_year_id", "academicYearId"]),
-                        ),
-                        label: pickText(a, ["academic_year", "academicYear"]),
-                      }) as SelectOption,
-                  )}
-                  placeholder="Academic Year"
-                />
-              </div>
-              <div className="md:col-span-5">
-                <Label className="text-[12px] text-muted-foreground">
-                  Exam
-                </Label>
-                <Select
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => setExamId(v ? Number(v) : null)}
-                  options={exams.map(
-                    (e) =>
-                      ({
-                        value: String(pickNum(e, ["fk_exam_id", "examId"])),
-                        label: pickText(e, ["exam_name", "examName"]),
-                      }) as SelectOption,
-                  )}
-                  placeholder="Exam"
-                />
-              </div>
-              <div className="md:col-span-1">
-                <Button
-                  className="h-8 px-3 text-[12px] w-full"
-                  onClick={getList}
-                  disabled={loading}
-                >
-                  Get List
-                </Button>
-              </div>
-            </div>
           </div>
-        )}
-      </div>
-
-      {hasFetched && (
-        <div className="app-card overflow-hidden">
-          <DataTable
-            title=""
-            subtitle=""
-            toolbarLeading={<span />}
-            rowData={rows}
-            columnDefs={cols}
-            pagination
-            loading={loading}
-            toolbar={{
-              search: true,
-              searchPlaceholder: "Search…",
-              pdfDocumentTitle: "Publish exam question paper",
-            }}
-          />
+          <div className="md:col-span-3">
+            <Label className="text-[12px] text-muted-foreground">Academic Year</Label>
+            <Select
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+              options={academicYears.map(
+                (a) =>
+                  ({
+                    value: String(pickNum(a, ["fk_academic_year_id", "academicYearId"])),
+                    label: pickText(a, ["academic_year", "academicYear"]),
+                  }) as SelectOption,
+              )}
+              placeholder="Academic Year"
+            />
+          </div>
+          <div className="md:col-span-5">
+            <Label className="text-[12px] text-muted-foreground">Exam</Label>
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(v ? Number(v) : null)}
+              options={exams.map(
+                (e) =>
+                  ({
+                    value: String(pickNum(e, ["fk_exam_id", "examId"])),
+                    label: pickText(e, ["exam_name", "examName"]),
+                  }) as SelectOption,
+              )}
+              placeholder="Exam"
+            />
+          </div>
+          <div className="md:col-span-1">
+            <Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>
+              Get List
+            </Button>
+          </div>
         </div>
       )}
-
+      toolbarLeading={<span />}
+      rowData={hasFetched ? rows : []}
+      columnDefs={cols}
+      pagination
+      loading={loading}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search…",
+        pdfDocumentTitle: "Publish exam question paper",
+      }}
+    >
       <Dialog open={publishModalOpen} onOpenChange={setPublishModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -675,6 +631,6 @@ export default function ViewFinalExamQuestionPaperPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredListPage>
   );
 }

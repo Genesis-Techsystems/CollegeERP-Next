@@ -4,17 +4,15 @@ import { useMemo, useState } from 'react'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
+import { FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
 import { listHostelVisitorsByHostel } from '@/services'
 import type { HostelVisitor } from '@/types/hostel'
-import { HostelPageTitle } from '../_components/HostelPageTitle'
 import { useHostelSelect } from '../_lib/use-hostel-select'
 import { HostelVisitorModal } from './HostelVisitorModal'
 
@@ -98,10 +96,9 @@ export default function HostelVisitorPage() {
   }
 
   return (
-    <PageContainer className="space-y-5">
-      <HostelPageTitle title="Hostel Visitor" />
-
-      <FilterCard title="Filters">
+    <FilteredListPage
+      title="Hostel Visitor"
+      filters={(
         <Select
           label="Hostel"
           className={FILTER_CARD_SELECT_CLASS}
@@ -111,39 +108,34 @@ export default function HostelVisitorPage() {
           searchable
           isLoading={loadingHostels}
         />
-      </FilterCard>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={hostelNum > 0 ? rows : []}
-          columnDefs={columnDefs}
-          loading={isLoading}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search visitors…',
-            exportPdf: true,
-            pdfDocumentTitle: 'Hostel Visitor',
+      )}
+      rowData={hostelNum > 0 ? rows : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      height="auto"
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search visitors…',
+        exportPdf: true,
+        pdfDocumentTitle: 'Hostel Visitor',
+      }}
+      toolbarTrailing={
+        <Button
+          type="button"
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          disabled={hostelNum <= 0}
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
           }}
-          toolbarTrailing={
-            <Button
-              type="button"
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              disabled={hostelNum <= 0}
-              onClick={() => {
-                setEditing(null)
-                setModalOpen(true)
-              }}
-            >
-              <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-              Hostel Visitor Pass
-            </Button>
-          }
-          height="auto"
-        />
-      </TableCard>
-
+        >
+          <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
+          Hostel Visitor Pass
+        </Button>
+      }
+    >
       {hostelNum > 0 ? (
         <HostelVisitorModal
           open={modalOpen}
@@ -153,6 +145,6 @@ export default function HostelVisitorPage() {
           onSaved={invalidateVisitors}
         />
       ) : null}
-    </PageContainer>
+    </FilteredListPage>
   )
 }

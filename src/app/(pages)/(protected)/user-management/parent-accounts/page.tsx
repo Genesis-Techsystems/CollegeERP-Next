@@ -4,13 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { ColDef, ICellRendererParams, ValueGetterParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BookOpen, PencilIcon, PlusIcon, ShieldCheck, UserPlus, X } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
-import { SearchInput } from '@/common/components/search'
+import { PencilIcon, PlusIcon, ShieldCheck, UserPlus, X } from 'lucide-react'
 import { StatusBadge } from '@/common/components/data-display'
 import { FormModal } from '@/common/components/feedback'
 import { FormField } from '@/common/components/forms'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/common/components/select'
@@ -104,7 +102,6 @@ export default function ParentAccountsPage() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
-  const [searchValue, setSearchValue] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [rolesOpen, setRolesOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -153,16 +150,6 @@ export default function ParentAccountsPage() {
     if (!rolesOpen) return
     setRoleRows(existingUserRoles.map((r) => ({ ...r, isActive: r.isActive !== false })))
   }, [existingUserRoles, rolesOpen])
-
-  const filteredRows = useMemo(() => {
-    const q = searchValue.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((row) => (
-      `${row.userName ?? ''} ${row.firstName ?? ''} ${row.lastName ?? ''} ${row.mobileNumber ?? ''} ${row.collegeCode ?? ''}`
-        .toLowerCase()
-        .includes(q)
-    ))
-  }, [rows, searchValue])
 
   function invalidateList() {
     void queryClient.invalidateQueries({ queryKey: QK.parentAccounts.all })
@@ -302,48 +289,34 @@ export default function ParentAccountsPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between">
-          <h2 className="app-card-title inline-flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Parent Accounts
-          </h2>
-        </div>
-      </div>
-
-      <div className="app-card overflow-hidden">
-        <DataTable
-          rowData={filteredRows}
-          columnDefs={columnDefs}
-          loading={isLoading}
-          getRowId={(p) => String(p.data?.userId ?? '')}
-          serverSide
-          totalCount={totalCount}
-          currentPage={page}
-          onPageChange={handlePageChange}
-          pagination={false}
-          paginationPageSize={DEFAULT_PAGE_SIZE}
-          toolbar={{ columnPicker: true, exportPdf: true }}
-          toolbarLeading={(
-            <SearchInput
-              className="w-full max-w-sm"
-              placeholder="Search this page…"
-              value={searchValue}
-              onChange={setSearchValue}
-            />
-          )}
-          toolbarTrailing={(
-            <Button size="sm" asChild>
-              <Link href="/user-management/parent-accounts/manage">
-                <PlusIcon className="h-4 w-4 mr-1" />
-                Add Parent
-              </Link>
-            </Button>
-          )}
-        />
-      </div>
-
+    <ListPage
+      title="Parent Accounts"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      getRowId={(p) => String(p.data?.userId ?? '')}
+      serverSide
+      totalCount={totalCount}
+      currentPage={page}
+      onPageChange={handlePageChange}
+      pagination={false}
+      paginationPageSize={DEFAULT_PAGE_SIZE}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search this page…',
+        columnPicker: true,
+        exportPdf: true,
+        pdfDocumentTitle: 'Parent Accounts',
+      }}
+      toolbarTrailing={(
+        <Button size="sm" asChild>
+          <Link href="/user-management/parent-accounts/manage">
+            <PlusIcon className="h-4 w-4 mr-1" />
+            Add Parent
+          </Link>
+        </Button>
+      )}
+    >
       <FormModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
@@ -492,6 +465,6 @@ export default function ParentAccountsPage() {
           </div>
         </div>
       </FormModal>
-    </PageContainer>
+    </ListPage>
   )
 }

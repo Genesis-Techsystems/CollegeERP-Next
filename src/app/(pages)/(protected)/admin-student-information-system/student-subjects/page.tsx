@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Filter } from "lucide-react";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { FilteredPage } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/toast";
@@ -225,7 +225,6 @@ function StudentSubjectsResultTable({
 }
 
 export default function StudentSubjectsPage() {
-  const [filterOpen, setFilterOpen] = useState(true);
   const [loadingStudentSearch, setLoadingStudentSearch] = useState(false);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
 
@@ -328,43 +327,21 @@ export default function StudentSubjectsPage() {
     : "";
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="flex items-center justify-between border-b border-border bg-muted/40 px-3 py-2.5">
-          <h2 className="app-card-title">Student Subjects</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            style={{ marginRight: "0px" }}
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
-            />
-          </Button>
-        </div>
-
-        {filterOpen && (
-          <div className="p-3">
-            <StudentSearchSelect
-              label="Student"
-              placeholder="Search student"
-              value={studentId}
-              students={studentOptionsRows}
-              selectedStudent={selectedStudent}
-              isLoading={loadingStudentSearch}
-              onSearch={(term) => void searchStudents(term)}
-              onChange={(id, row) => void onStudentSelect(id, row)}
-            />
-          </div>
-        )}
-      </div>
-
+    <FilteredPage
+      title="Student Subjects"
+      filters={
+        <StudentSearchSelect
+          label="Student"
+          placeholder="Search student"
+          value={studentId}
+          students={studentOptionsRows}
+          selectedStudent={selectedStudent}
+          isLoading={loadingStudentSearch}
+          onSearch={(term) => void searchStudents(term)}
+          onChange={(id, row) => void onStudentSelect(id, row)}
+        />
+      }
+    >
       {selectedStudent ? (
         <div
           className="overflow-hidden rounded border bg-white shadow-sm"
@@ -386,6 +363,6 @@ export default function StudentSubjectsPage() {
           />
         </div>
       ) : null}
-    </PageContainer>
+    </FilteredPage>
   );
 }

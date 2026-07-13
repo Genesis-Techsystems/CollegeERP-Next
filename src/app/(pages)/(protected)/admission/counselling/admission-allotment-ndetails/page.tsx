@@ -4,11 +4,9 @@ import { useMemo, useState } from 'react'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
+import { FilteredListPage, ListPage } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
 import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useSessionContext } from '@/context/SessionContext'
 import { useLoginEmployeeId } from '@/hooks/useLoginEmployeeId'
@@ -199,115 +197,87 @@ export default function AdmissionAllotmentNdetailsPage() {
     [],
   )
 
-  const filterSummary = useMemo(() => {
-    if (!collegeSelected) return ''
-    const uni = universityOptions.find((o) => o.value === universityId)?.label
-    const clg = collegeOptions.find((o) => o.value === collegeId)?.label
-    return [uni, clg].filter(Boolean).join(' / ')
-  }, [collegeSelected, universityOptions, universityId, collegeOptions, collegeId])
-
   return (
-    <PageContainer className="space-y-5">
-      <FilterCard title="Admission Allotment & Details">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Select
-            label="University"
-            value={universityId}
-            onChange={(v) => {
-              setUniversityId(v)
-              setCollegeId(null)
-            }}
-            options={universityOptions}
-            isLoading={filtersLoading}
-            searchable
-            placeholder="Select university"
-          />
-          <Select
-            label="College"
-            value={collegeId}
-            onChange={setCollegeId}
-            options={collegeOptions}
-            searchable
-            placeholder="Select college"
-            disabled={!universityId}
-          />
-        </div>
-      </FilterCard>
-
-      {collegeSelected && (
-        <>
-          {filterSummary && (
-            <div className="app-card overflow-hidden px-4 py-3">
-              <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-                Admission Allotment & Details — {filterSummary}
-              </h2>
-            </div>
-          )}
-
-          <TableCard withHeaderBorder={false}>
-            <DataTable
-              rowData={allotmentRows}
-              columnDefs={columnDefs}
-              loading={listLoading || filtersLoading}
-              pagination
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search allotments…',
-                pdfDocumentTitle: 'Admission Allotment',
+    <>
+      <FilteredListPage
+        title="Admission Allotment & Details"
+        filters={(
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Select
+              label="University"
+              value={universityId}
+              onChange={(v) => {
+                setUniversityId(v)
+                setCollegeId(null)
               }}
-              toolbarTrailing={(
-                <Button
-                  size="sm"
-                  className="h-[30px] px-3 text-[12px]"
-                  onClick={() => {
-                    setEditing(null)
-                    setModalOpen(true)
-                  }}
-                >
-                  <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-                  Admission Allotment
-                </Button>
-              )}
+              options={universityOptions}
+              isLoading={filtersLoading}
+              searchable
+              placeholder="Select university"
             />
-          </TableCard>
+            <Select
+              label="College"
+              value={collegeId}
+              onChange={setCollegeId}
+              options={collegeOptions}
+              searchable
+              placeholder="Select college"
+              disabled={!universityId}
+            />
+          </div>
+        )}
+        rowData={collegeSelected ? allotmentRows : []}
+        columnDefs={columnDefs}
+        loading={listLoading || filtersLoading}
+        pagination
+        toolbar={{
+          search: true,
+          searchPlaceholder: 'Search allotments…',
+          pdfDocumentTitle: 'Admission Allotment',
+        }}
+        toolbarTrailing={(
+          <Button
+            size="sm"
+            className="h-[30px] px-3 text-[12px]"
+            disabled={!collegeSelected}
+            onClick={() => {
+              setEditing(null)
+              setModalOpen(true)
+            }}
+          >
+            <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+            Admission Allotment
+          </Button>
+        )}
+      >
+        {modalContext && (
+          <AdmissionAllotmentModal
+            open={modalOpen}
+            onClose={() => {
+              setModalOpen(false)
+              setEditing(null)
+            }}
+            row={editing}
+            context={modalContext}
+            onSaved={invalidate}
+          />
+        )}
+      </FilteredListPage>
 
-          {consolidateRows.length > 0 && (
-            <>
-              <div className="app-card overflow-hidden px-4 py-3">
-                <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-                  Consolidate Report
-                </h2>
-              </div>
-              <TableCard withHeaderBorder={false}>
-                <DataTable
-                  rowData={consolidateRows}
-                  columnDefs={consolidateCols}
-                  loading={listLoading}
-                  pagination
-                  toolbar={{
-                    search: true,
-                    searchPlaceholder: 'Search consolidate report…',
-                    pdfDocumentTitle: 'Consolidate Report',
-                  }}
-                />
-              </TableCard>
-            </>
-          )}
-        </>
-      )}
-
-      {modalContext && (
-        <AdmissionAllotmentModal
-          open={modalOpen}
-          onClose={() => {
-            setModalOpen(false)
-            setEditing(null)
+      {collegeSelected && consolidateRows.length > 0 && (
+        <ListPage
+          title="Consolidate Report"
+          rowData={consolidateRows}
+          columnDefs={consolidateCols}
+          loading={listLoading}
+          pagination
+          toolbar={{
+            search: true,
+            searchPlaceholder: 'Search consolidate report…',
+            pdfDocumentTitle: 'Consolidate Report',
           }}
-          row={editing}
-          context={modalContext}
-          onSaved={invalidate}
         />
       )}
-    </PageContainer>
+    </>
   )
 }

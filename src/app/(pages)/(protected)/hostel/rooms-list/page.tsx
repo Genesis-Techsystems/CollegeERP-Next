@@ -4,11 +4,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
+import { FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
@@ -131,8 +130,9 @@ export default function HostelRoomAllocationPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <FilterCard title="Hostel room allocation">
+    <FilteredListPage
+      title="Hostel room allocation"
+      filters={(
         <Select
           label="Hostel"
           className={FILTER_CARD_SELECT_CLASS}
@@ -143,23 +143,18 @@ export default function HostelRoomAllocationPage() {
           searchable
           isLoading={loadingHostels}
         />
-      </FilterCard>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={isLoading}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search rooms…',
-            exportPdf: true,
-            pdfDocumentTitle: 'Hostel Room Allocation',
-          }}
-          height="auto"
-        />
-      </TableCard>
-    </PageContainer>
+      )}
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      height="auto"
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search rooms…',
+        exportPdf: true,
+        pdfDocumentTitle: 'Hostel Room Allocation',
+      }}
+    />
   )
 }

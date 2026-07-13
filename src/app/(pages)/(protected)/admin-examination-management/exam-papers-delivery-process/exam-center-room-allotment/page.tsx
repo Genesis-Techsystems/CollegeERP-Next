@@ -29,12 +29,11 @@ import {
 	SelectValue,
 } from '@/components/ui/select'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
 import { SearchInput } from '@/common/components/search'
 import { ConfirmDialog } from '@/common/components/feedback'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { CalendarDays, Filter, Plus, Printer } from 'lucide-react'
+import { CalendarDays, Plus, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import { distinct } from '@/lib/utils'
 import { toDateStr } from '@/common/generic-functions'
@@ -171,7 +170,6 @@ export default function ExamCenterRoomAllotmentPage() {
 	const { mode: printMode, triggerPrint } = usePrintMode<PrintMode>()
 
 	// Filters
-	const [filterOpen, setFilterOpen] = useState(true)
 	const [filterRows, setFilterRows] = useState<AnyRow[]>([])
 	const [courses, setCourses] = useState<AnyRow[]>([])
 	const [academicYears, setAcademicYears] = useState<AnyRow[]>([])
@@ -190,7 +188,6 @@ export default function ExamCenterRoomAllotmentPage() {
 
 	// Results
 	const [previewRows, setPreviewRows] = useState<AllocationRow[]>([])
-	const [searchText, setSearchText] = useState('')
 	const [flag, setFlag] = useState(false)
 
 	// Dialogs / async
@@ -350,12 +347,6 @@ export default function ExamCenterRoomAllotmentPage() {
 		if (!q) return exams
 		return exams.filter((e) => String(e.exam_name ?? '').toLowerCase().includes(q))
 	}, [exams, examSearch])
-
-	const filteredRows = useMemo(() => {
-		const q = searchText.trim().toLowerCase()
-		if (!q) return previewRows
-		return previewRows.filter((r) => `${r.examDate} ${r.session} ${r.roomCode}`.toLowerCase().includes(q))
-	}, [previewRows, searchText])
 
 	const academicYearLabel = useMemo(() => {
 		const row = academicYears.find((a) => num(a.fk_academic_year_id) === num(selectedAcademicYearId))
@@ -886,7 +877,7 @@ export default function ExamCenterRoomAllotmentPage() {
 			return
 		}
 		const session = sessionOptions.find((s) => s.id === selectedExamTimetableId)
-		const examDate = session?.examDate ?? filteredRows[0]?.examDate ?? ''
+		const examDate = session?.examDate ?? previewRows[0]?.examDate ?? ''
 		const sessionId = num(session?.sessionId)
 		const params = { courseId: selectedCourseId, examId: selectedExamId, examDate, sessionId }
 		setLoadingPrintData(true)
@@ -926,138 +917,128 @@ export default function ExamCenterRoomAllotmentPage() {
 	]
 
 	return (
-		<PageContainer className="space-y-4">
-			<PageHeader title="Exam Room Seating Plan" subtitle="Exam Centers › Exam Room Seating Plan" />
-
-			{/* Filters */}
-			<div className="app-card overflow-hidden">
-				<button
-					type="button"
-					className="flex w-full items-center justify-between border-b border-border bg-muted/40 px-4 py-3"
-					onClick={() => setFilterOpen((o) => !o)}
-				>
-					<h2 className="app-card-title">Exam Room Seating Plan</h2>
-					<span className="inline-flex items-center gap-1.5 text-[12px] text-slate-700">Filter <Filter className="h-3.5 w-3.5" /></span>
-				</button>
-				{(
-					<div className="px-3 py-3 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
-						<div className="space-y-1">
-							<Label>Course *</Label>
-							<Select value={selectedCourseId != null ? String(selectedCourseId) : undefined} onValueChange={(v) => handleCourseChange(Number(v))}>
-								<SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Course" /></SelectTrigger>
-								<SelectContent>
-									{courses.map((c) => (
-										<SelectItem key={num(c.fk_course_id)} value={String(num(c.fk_course_id))}>{c.course_code}</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1">
-							<Label>Exam Year *</Label>
-							<Select value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : undefined} onValueChange={(v) => handleAcademicYearChange(Number(v))} disabled={!selectedCourseId}>
-								<SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Year" /></SelectTrigger>
-								<SelectContent>
-									{academicYears.map((a) => (
-										<SelectItem key={num(a.fk_academic_year_id)} value={String(num(a.fk_academic_year_id))}>{a.academic_year}</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1">
-							<Label>Exam Type *</Label>
-							<Select value={selectedExamType} onValueChange={(v) => handleExamTypeChange(v as '0' | '1')} disabled={!selectedAcademicYearId}>
-								<SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Type" /></SelectTrigger>
-								<SelectContent>
-									{examTypeOptions.map((o) => (
-										<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1 lg:col-span-3">
-							<Label>Exam Master *</Label>
-							<Select value={selectedExamId != null ? String(selectedExamId) : undefined} onValueChange={(v) => void handleExamChange(Number(v))} disabled={!selectedAcademicYearId}>
-								<SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Exam Master" /></SelectTrigger>
-								<SelectContent>
-									<div className="px-2 py-1.5">
-										<SearchInput placeholder="Search Exam…" value={examSearch} onChange={setExamSearch} className="w-full" />
-									</div>
-									{filteredExams.length === 0 && <div className="px-2 py-1.5 text-[12px] text-muted-foreground">No exams found</div>}
-									{filteredExams.map((e) => (
-										<SelectItem key={num(e.fk_exam_id)} value={String(num(e.fk_exam_id))}>
-											{e.exam_name} ({formatTableDate(e.from_date)} - {formatTableDate(e.to_date)})
-											{e.is_internal_exam ? ' (Internal)' : ''}{e.is_regular_exam ? ' (Regular)' : ''}{e.is_supply_exam ? ' (Supple)' : ''}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1 lg:col-span-2">
-							<Label>Exam Timetable *</Label>
-							<Select value={selectedExamTimetableId != null ? String(selectedExamTimetableId) : undefined} onValueChange={(v) => handleExamTimetableChange(Number(v))} disabled={!selectedExamId}>
-								<SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Exam Timetable" /></SelectTrigger>
-								<SelectContent>
-									{examTimetables.length === 0 && <div className="px-2 py-1.5 text-[12px] text-muted-foreground">No timetable found</div>}
-									{examTimetables.map((t) => (
-										<SelectItem key={num(t.examTimetableId)} value={String(num(t.examTimetableId))}>
-											<span>{formatTableDate(t.examDate)} </span>
-											<span className="text-blue-700">({t.examSessionName})</span>
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-1 lg:col-span-2">
-							<Label>Exam Center *</Label>
-							<Select value={selectedExamCenterId != null ? String(selectedExamCenterId) : undefined} onValueChange={(v) => void handleExamCenterChange(Number(v))} disabled={!selectedExamTimetableId}>
-								<SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Exam Center" /></SelectTrigger>
-								<SelectContent>
-									{univExamCenters.map((c) => (
-										<SelectItem key={num(c.univExamcenterId)} value={String(num(c.univExamcenterId))}>{c.examcenterCode}</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
+		<FilteredListPage
+			title="Exam Room Seating Plan"
+			filters={(
+				<div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
+					<div className="space-y-1">
+						<Label>Course *</Label>
+						<Select value={selectedCourseId != null ? String(selectedCourseId) : undefined} onValueChange={(v) => handleCourseChange(Number(v))}>
+							<SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Course" /></SelectTrigger>
+							<SelectContent>
+								{courses.map((c) => (
+									<SelectItem key={num(c.fk_course_id)} value={String(num(c.fk_course_id))}>{c.course_code}</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					</div>
-				)}
-			</div>
-
-			{/* Results */}
+					<div className="space-y-1">
+						<Label>Exam Year *</Label>
+						<Select value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : undefined} onValueChange={(v) => handleAcademicYearChange(Number(v))} disabled={!selectedCourseId}>
+							<SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Year" /></SelectTrigger>
+							<SelectContent>
+								{academicYears.map((a) => (
+									<SelectItem key={num(a.fk_academic_year_id)} value={String(num(a.fk_academic_year_id))}>{a.academic_year}</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+					<div className="space-y-1">
+						<Label>Exam Type *</Label>
+						<Select value={selectedExamType} onValueChange={(v) => handleExamTypeChange(v as '0' | '1')} disabled={!selectedAcademicYearId}>
+							<SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Type" /></SelectTrigger>
+							<SelectContent>
+								{examTypeOptions.map((o) => (
+									<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+					<div className="space-y-1 lg:col-span-3">
+						<Label>Exam Master *</Label>
+						<Select value={selectedExamId != null ? String(selectedExamId) : undefined} onValueChange={(v) => void handleExamChange(Number(v))} disabled={!selectedAcademicYearId}>
+							<SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Exam Master" /></SelectTrigger>
+							<SelectContent>
+								<div className="px-2 py-1.5">
+									<SearchInput placeholder="Search Exam…" value={examSearch} onChange={setExamSearch} className="w-full" />
+								</div>
+								{filteredExams.length === 0 && <div className="px-2 py-1.5 text-[12px] text-muted-foreground">No exams found</div>}
+								{filteredExams.map((e) => (
+									<SelectItem key={num(e.fk_exam_id)} value={String(num(e.fk_exam_id))}>
+										{e.exam_name} ({formatTableDate(e.from_date)} - {formatTableDate(e.to_date)})
+										{e.is_internal_exam ? ' (Internal)' : ''}{e.is_regular_exam ? ' (Regular)' : ''}{e.is_supply_exam ? ' (Supple)' : ''}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+					<div className="space-y-1 lg:col-span-2">
+						<Label>Exam Timetable *</Label>
+						<Select value={selectedExamTimetableId != null ? String(selectedExamTimetableId) : undefined} onValueChange={(v) => handleExamTimetableChange(Number(v))} disabled={!selectedExamId}>
+							<SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Exam Timetable" /></SelectTrigger>
+							<SelectContent>
+								{examTimetables.length === 0 && <div className="px-2 py-1.5 text-[12px] text-muted-foreground">No timetable found</div>}
+								{examTimetables.map((t) => (
+									<SelectItem key={num(t.examTimetableId)} value={String(num(t.examTimetableId))}>
+										<span>{formatTableDate(t.examDate)} </span>
+										<span className="text-blue-700">({t.examSessionName})</span>
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+					<div className="space-y-1 lg:col-span-2">
+						<Label>Exam Center *</Label>
+						<Select value={selectedExamCenterId != null ? String(selectedExamCenterId) : undefined} onValueChange={(v) => void handleExamCenterChange(Number(v))} disabled={!selectedExamTimetableId}>
+							<SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Select Exam Center" /></SelectTrigger>
+							<SelectContent>
+								{univExamCenters.map((c) => (
+									<SelectItem key={num(c.univExamcenterId)} value={String(num(c.univExamcenterId))}>{c.examcenterCode}</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+				</div>
+			)}
+			notice={flag ? (
+				<div className="rounded-lg border border-border/90 bg-muted/40/70 p-3 print-hide">
+					<p className="mb-2 px-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Print &amp; exports</p>
+					<div className="flex flex-wrap gap-1.5">
+						{printButtons.map(([label, mode]) => (
+							<Button key={label} type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-[11px]" onClick={() => void onPrint(mode)}>
+								<Printer className="h-3 w-3 shrink-0 text-muted-foreground" /> {label}
+							</Button>
+						))}
+					</div>
+				</div>
+			) : null}
+			rowData={flag ? previewRows : []}
+			columnDefs={columnDefs}
+			pagination
+			toolbar={{
+				search: true,
+				searchPlaceholder: 'Search…',
+				pdfDocumentTitle: 'Exam Room Seating Plan',
+			}}
+			toolbarTrailing={flag ? (
+				<div className="flex flex-wrap items-center gap-2">
+					<Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-[11px]" onClick={handleCopyExistingSeating}>
+						<Plus className="h-3.5 w-3.5 shrink-0" /> Copy Existing Seating
+					</Button>
+					<Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-[11px]" onClick={handleAddRoomSeatingPlan}>
+						<Plus className="h-3.5 w-3.5 shrink-0" /> Add Room Seating Plan
+					</Button>
+					<Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-[11px]" onClick={() => { if (!selectedExamId || !selectedExamTimetableId) { toast.error('Select an exam and exam timetable first.'); return } setAssignSeatingOpen(true) }}>
+						<Plus className="h-3.5 w-3.5 shrink-0" /> Assign Seating
+					</Button>
+				</div>
+			) : null}
+		>
 			{flag && (
-				<div className="app-card p-3 space-y-3">
-					<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-						<SearchInput className="w-full max-w-sm" placeholder="Search…" value={searchText} onChange={setSearchText} />
-						<div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-							<Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-[11px]" onClick={handleCopyExistingSeating}>
-								<Plus className="h-3.5 w-3.5 shrink-0" /> Copy Existing Seating
-							</Button>
-							<Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-[11px]" onClick={handleAddRoomSeatingPlan}>
-								<Plus className="h-3.5 w-3.5 shrink-0" /> Add Room Seating Plan
-							</Button>
-							<Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-[11px]" onClick={() => { if (!selectedExamId || !selectedExamTimetableId) { toast.error('Select an exam and exam timetable first.'); return } setAssignSeatingOpen(true) }}>
-								<Plus className="h-3.5 w-3.5 shrink-0" /> Assign Seating
-							</Button>
-						</div>
-					</div>
-
-					<div className="rounded-lg border border-border/90 bg-muted/40/70 p-3 print-hide">
-						<p className="mb-2 px-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Print &amp; exports</p>
-						<div className="flex flex-wrap gap-1.5">
-							{printButtons.map(([label, mode]) => (
-								<Button key={label} type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-[11px]" onClick={() => void onPrint(mode)}>
-									<Printer className="h-3 w-3 shrink-0 text-muted-foreground" /> {label}
-								</Button>
-							))}
-						</div>
-					</div>
-
-					<DataTable rowData={filteredRows} columnDefs={columnDefs} pagination />
-
-					<div className="flex justify-end">
-						<Button type="button" size="sm" className="h-8 text-[12px]" onClick={handleAutoAssignInvigilators} disabled={autoAssignBusy}>
-							{autoAssignBusy ? 'Assigning…' : 'Auto Assign Invigilators'}
-						</Button>
-					</div>
+				<div className="flex justify-end">
+					<Button type="button" size="sm" className="h-8 text-[12px]" onClick={handleAutoAssignInvigilators} disabled={autoAssignBusy}>
+						{autoAssignBusy ? 'Assigning…' : 'Auto Assign Invigilators'}
+					</Button>
 				</div>
 			)}
 
@@ -1085,6 +1066,6 @@ export default function ExamCenterRoomAllotmentPage() {
 					Press OK to proceed, or Cancel to go back.
 				</p>
 			</ConfirmDialog>
-		</PageContainer>
+		</FilteredListPage>
 	)
 }

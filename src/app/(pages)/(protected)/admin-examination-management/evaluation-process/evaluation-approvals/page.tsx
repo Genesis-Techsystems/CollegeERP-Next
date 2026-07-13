@@ -2,19 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/common/components/select'
-import { ChevronDown, Filter } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   approveEvaluationAssignments,
   getEvaluationApprovalsFilters,
   listEvaluationApprovals,
 } from '@/services/evaluation-process'
-import { PageContainer, PageHeader } from '@/components/layout'
 import { GENERALCONSTANTS } from '@/common/general-constants'
 
 type AnyRow = Record<string, any>
@@ -85,7 +83,6 @@ function makeActionsRenderer(loading: boolean, approveOne: (row: AnyRow) => Prom
 }
 
 export default function EvaluationApprovalsPage() {
-  const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
   const [filters, setFilters] = useState<AnyRow[]>([])
@@ -299,102 +296,74 @@ export default function EvaluationApprovalsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Moderator Approvals" subtitle="Review and approve evaluation assignments" />
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Moderator Approvals</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-        {(
-          <div className="p-3 space-y-2 text-[13px]">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-            <div className="md:col-span-3">
-              <Label className="text-[12px] text-muted-foreground">Course</Label>
-              <Select
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => setCourseId(v ? Number(v) : 0)}
-                options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode', 'course_name', 'courseName']) }))}
-                placeholder="Course"
-              />
-            </div>
-            <div className="md:col-span-5">
-              <Label className="text-[12px] text-muted-foreground">Exam</Label>
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => setExamId(v ? Number(v) : 0)}
-                options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) }))}
-                placeholder="Exam"
-              />
-            </div>
-            <div className="md:col-span-3">
-              <Label className="text-[12px] text-muted-foreground">Evaluators</Label>
-              <Select
-                value={evaluatorProfileId ? String(evaluatorProfileId) : null}
-                onChange={(v) => setEvaluatorProfileId(v ? Number(v) : 0)}
-                options={evaluators.map((e) => ({ value: String(pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])), label: pickText(e, ['evaluator_name', 'evaluatorName']) || `Evaluator ${pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])}` }))}
-                placeholder="Evaluator"
-              />
-            </div>
-            <div className="md:col-span-1">
-              <Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>
-                Get List
-              </Button>
-            </div>
-          </div>
-          </div>
-        )}
-      </div>
-
-      {hasFetched && (
-        <div className="app-card overflow-hidden">
-          <div className="p-4">
-            <DataTable
-              rowData={rows}
-              columnDefs={cols}
-              pagination
-              loading={loading}
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search…',
-                pdfDocumentTitle: 'Evaluation Approvals',
-              }}
-              toolbarTrailing={
-                <>
-                  <label
-                    className={`inline-flex items-center gap-2 text-[12px] shrink-0 ${
-                      allEvaluatedSelected ? 'text-[hsl(var(--primary))]' : ''
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="h-3 w-3 accent-[hsl(var(--primary))]"
-                      checked={allEvaluatedSelected}
-                      disabled={evaluatableRows.length === 0}
-                      onChange={(e) => toggleAll(e.target.checked)}
-                    />
-                    <span>All</span>
-                  </label>
-                  <Button type="button" size="sm" disabled={selectedIds.length === 0 || loading} onClick={() => void approveSelected()}>
-                    Approve
-                  </Button>
-                </>
-              }
+    <FilteredListPage
+      title="Moderator Approvals"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="md:col-span-3">
+            <Label className="text-[12px] text-muted-foreground">Course</Label>
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : 0)}
+              options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode', 'course_name', 'courseName']) }))}
+              placeholder="Course"
             />
+          </div>
+          <div className="md:col-span-5">
+            <Label className="text-[12px] text-muted-foreground">Exam</Label>
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(v ? Number(v) : 0)}
+              options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) }))}
+              placeholder="Exam"
+            />
+          </div>
+          <div className="md:col-span-3">
+            <Label className="text-[12px] text-muted-foreground">Evaluators</Label>
+            <Select
+              value={evaluatorProfileId ? String(evaluatorProfileId) : null}
+              onChange={(v) => setEvaluatorProfileId(v ? Number(v) : 0)}
+              options={evaluators.map((e) => ({ value: String(pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])), label: pickText(e, ['evaluator_name', 'evaluatorName']) || `Evaluator ${pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])}` }))}
+              placeholder="Evaluator"
+            />
+          </div>
+          <div className="md:col-span-1">
+            <Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>
+              Get List
+            </Button>
           </div>
         </div>
       )}
-    </PageContainer>
+      rowData={hasFetched ? rows : []}
+      columnDefs={cols}
+      pagination
+      loading={loading}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Evaluation Approvals',
+      }}
+      toolbarTrailing={(
+        <>
+          <label
+            className={`inline-flex items-center gap-2 text-[12px] shrink-0 ${
+              allEvaluatedSelected ? 'text-[hsl(var(--primary))]' : ''
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="h-3 w-3 accent-[hsl(var(--primary))]"
+              checked={allEvaluatedSelected}
+              disabled={evaluatableRows.length === 0}
+              onChange={(e) => toggleAll(e.target.checked)}
+            />
+            <span>All</span>
+          </label>
+          <Button type="button" size="sm" disabled={selectedIds.length === 0 || loading} onClick={() => void approveSelected()}>
+            Approve
+          </Button>
+        </>
+      )}
+    />
   )
 }

@@ -101,15 +101,8 @@ export async function listExamQuestionPapers(filters?: {
 export async function createExamQuestionPaper(
   payload: Record<string, unknown>,
 ): Promise<AnyRow> {
-  const entities = ["ExamQuestionPaper", "ExamQuestionPapers"];
-  for (const entity of entities) {
-    try {
-      return await domainCreate<AnyRow>(entity, payload);
-    } catch {
-      // try next entity name
-    }
-  }
-  throw new Error("Unable to create exam question paper.");
+  // Angular: domain/create/ExamQuestionPapers (plural). Singular entity 422s.
+  return domainCreate<AnyRow>("ExamQuestionPapers", payload);
 }
 
 export async function updateExamQuestionPaper(
@@ -150,8 +143,9 @@ export async function uploadQuestionPaperFiles(params: {
   examQuestionPaperId: number;
   questionPapers?: File[] | null;
   modelAnswerPapers?: File[] | null;
-}): Promise<{ message: string; data?: AnyRow }> {
+}): Promise<{ success: boolean; message: string; data?: AnyRow }> {
   const formData = new FormData();
+  // Angular UploadPapersComponent: questionPaperId = row.pk_exam_questionpaper_id
   formData.append("questionPaperId", String(params.examQuestionPaperId));
   for (const f of params.questionPapers ?? []) {
     formData.append("questionPaper", f, f.name);
@@ -166,6 +160,7 @@ export async function uploadQuestionPaperFiles(params: {
     {
       method: "POST",
       body: formData,
+      credentials: "include",
     },
   );
   const body = (await res.json().catch(() => null)) as {
@@ -173,12 +168,64 @@ export async function uploadQuestionPaperFiles(params: {
     message?: string;
     data?: AnyRow;
   } | null;
-  if (!res.ok || (body && body.success === false)) {
+  if (!res.ok) {
     throw new Error(body?.message ?? `Upload failed (${res.status}).`);
   }
+  // Angular parent treats any HTTP body as truthy and still calls getQuestionpapers().
+  // Do not throw on success:false — caller refreshes the list either way.
   return {
+    success: body?.success !== false,
     message: body?.message ?? "Uploaded successfully.",
     data: body?.data,
+  };
+}
+
+function unpackAssignmentRows(payload: unknown): AnyRow[] {
+  if (Array.isArray(payload)) return payload as AnyRow[];
+  const obj = (payload ?? {}) as Record<string, unknown>;
+  // Angular: result.data.result[0]
+  if (Array.isArray(obj.result)) {
+    const result = obj.result as unknown[];
+    if (Array.isArray(result[0])) return result[0] as AnyRow[];
+    if (result.length > 0 && typeof result[0] === "object") {
+      return result as AnyRow[];
+    }
+  }
+  const nestedData = (obj.data ?? {}) as Record<string, unknown>;
+  if (Array.isArray(nestedData.result)) {
+    const result = nestedData.result as unknown[];
+    if (Array.isArray(result[0])) return result[0] as AnyRow[];
+    if (result.length > 0 && typeof result[0] === "object") {
+      return result as AnyRow[];
+    }
+  }
+  if (Array.isArray(obj.resultList)) return obj.resultList as AnyRow[];
+  return [];
+}
+
+/** Normalize assignment row keys used by Template dropdown / eye view. */
+function normalizeTemplateAssignmentRow(row: AnyRow): AnyRow {
+  const templateId = Number(
+    row.fk_exam_questionpaper_template_id ??
+      row.examQuestionPaperTemplateId ??
+      row.questionPaperTemplateId ??
+      row.exam_questionpaper_template_id ??
+      row.fk_exam_qp_template_id ??
+      0,
+  );
+  const templateTitle =
+    row.template_title ??
+    row.templateTitle ??
+    row.template_name ??
+    row.templateName ??
+    row.questionpaper_template_title ??
+    "";
+  return {
+    ...row,
+    fk_exam_questionpaper_template_id: templateId || null,
+    examQuestionPaperTemplateId: templateId || null,
+    template_title: templateTitle,
+    templateTitle,
   };
 }
 
@@ -188,17 +235,6 @@ export async function getAssignQuestionPaperTemplateList(params: {
   regulationId: number;
   subjectId?: number;
 }): Promise<AnyRow[]> {
-  const unpackRows = (payload: unknown): AnyRow[] => {
-    if (Array.isArray(payload)) return payload as AnyRow[];
-    const obj = (payload ?? {}) as Record<string, unknown>;
-    const result0 = (obj.result as unknown[] | undefined)?.[0];
-    if (Array.isArray(result0)) return result0 as AnyRow[];
-    const nestedData = (obj.data ?? {}) as Record<string, unknown>;
-    const nestedResult0 = (nestedData.result as unknown[] | undefined)?.[0];
-    if (Array.isArray(nestedResult0)) return nestedResult0 as AnyRow[];
-    return [];
-  };
-
   const payload = {
     in_exam_id: params.examId,
     in_course_year_id: params.courseYearId,
@@ -206,18 +242,9 @@ export async function getAssignQuestionPaperTemplateList(params: {
     in_subject_id: params.subjectId ?? 0,
   };
 
-  // Primary backend proc (confirmed): s_get_question_paper_assignments
-  try {
-    const primary = await getAllRecords<unknown>(
-      "s_get_question_paper_assignments",
-      payload,
-    );
-    const rows = unpackRows(primary);
-    if (rows.length > 0) return rows;
-  } catch {
-    // fall through to legacy endpoint/proc candidates
-  }
-
+  // Angular uses CONSTANTS.getQuestionPaperAssignments via getDetailsByRequest
+  // (REST), not the stored-proc first. Prefer that so we get template_title /
+  // fk_exam_questionpaper_template_id for the Create QP modal dropdown.
   const endpointCandidates = [
     "getQuestionPaperAssignments",
     "getQPAssignments",
@@ -225,11 +252,22 @@ export async function getAssignQuestionPaperTemplateList(params: {
   for (const endpoint of endpointCandidates) {
     try {
       const data = await fetchDetails<unknown>(endpoint, payload);
-      const rows = unpackRows(data);
+      const rows = unpackAssignmentRows(data).map(normalizeTemplateAssignmentRow);
       if (rows.length > 0) return rows;
     } catch {
-      // try next candidate
+      // try next
     }
+  }
+
+  try {
+    const primary = await getAllRecords<unknown>(
+      "s_get_question_paper_assignments",
+      payload,
+    );
+    const rows = unpackAssignmentRows(primary).map(normalizeTemplateAssignmentRow);
+    if (rows.length > 0) return rows;
+  } catch {
+    // fall through
   }
 
   const procCandidates = [
@@ -242,7 +280,7 @@ export async function getAssignQuestionPaperTemplateList(params: {
         in_flag: "getQuestionPaperAssignments",
         ...payload,
       });
-      const rows = unpackRows(data);
+      const rows = unpackAssignmentRows(data).map(normalizeTemplateAssignmentRow);
       if (rows.length > 0) return rows;
     } catch {
       // try next proc
@@ -252,20 +290,20 @@ export async function getAssignQuestionPaperTemplateList(params: {
 }
 
 export async function getQuestionPaperTemplateViewRows(
-  templateId: number,
+  templateId?: number | null,
   examQuestionPaperId?: number,
 ): Promise<AnyRow[]> {
-  if (!templateId) return [];
-  const payload = {
+  // Angular view-template-modal always calls the proc — even when template id
+  // is null (URL shows in_exam_questionpaper_template_id=null).
+  const tplParam: string | number =
+    templateId != null && Number(templateId) > 0 ? Number(templateId) : "null";
+  const payload: Record<string, string | number> = {
     in_flag: "list_exam_questionpaper_details",
     in_orgid: 1,
     in_fdate: "1990-01-01",
     in_tdate: "1990-01-01",
-    in_exam_questionpaper_template_id: templateId,
-    // Angular's "View Questions" path (view-template-questions) passes the
-    // question paper id so the proc returns the actual saved questions for
-    // that paper, not the blank template skeleton. The "View Template"
-    // path (view-template-modal) passes 0.
+    in_exam_questionpaper_template_id: tplParam,
+    // Angular "View Template" path passes 0 for question paper id.
     in_exam_questionpaper_id: examQuestionPaperId ?? 0,
     in_exam_id: 0,
     in_course_year_id: 0,
@@ -282,7 +320,12 @@ export async function getQuestionPaperTemplateViewRows(
     "s_get_examquestionpaper_details",
     payload,
   ).catch(() => ({ result: [] }));
-  return Array.isArray(data?.result?.[0]) ? (data.result?.[0] ?? []) : [];
+  if (Array.isArray(data?.result?.[0])) return data.result?.[0] ?? [];
+  // Some proxies return a flat result list
+  if (Array.isArray((data as AnyRow)?.result) && !Array.isArray((data as AnyRow).result?.[0])) {
+    return ((data as AnyRow).result as AnyRow[]) ?? [];
+  }
+  return [];
 }
 
 /**
@@ -672,12 +715,23 @@ export async function listFinalizableQuestionPapers(params: {
   courseYearId?: number;
   subjectId?: number;
   regulationId?: number;
+  organizationId?: number;
 }): Promise<AnyRow[]> {
+  // Match Angular getQuestionpapers() request on s_get_examevaluation_bycodes
+  // exactly (in_course_id / in_academic_year_id always 0; org + login emp set).
+  const orgId =
+    Number(
+      params.organizationId ??
+        (typeof globalThis !== "undefined"
+          ? globalThis.localStorage?.getItem("organizationId")
+          : 0) ??
+        1,
+    ) || 1;
   const data = await getAllRecords<{ result: AnyRow[][] }>(
     "s_get_examevaluation_bycodes",
     {
       in_flag: "list_questionpaper_list",
-      in_orgid: 0,
+      in_orgid: orgId,
       in_fdate: "1990-01-01",
       in_tdate: "1990-01-01",
       in_evalutor_profileid: 0,
@@ -692,8 +746,8 @@ export async function listFinalizableQuestionPapers(params: {
       in_course_year_id: params.courseYearId ?? 0,
       in_subject_id: params.subjectId ?? 0,
       in_regulation_id: params.regulationId ?? 0,
-      in_course_id: params.courseId ?? 0,
-      in_academic_year_id: params.academicYearId ?? 0,
+      in_course_id: 0,
+      in_academic_year_id: 0,
       in_loginuser_empid: params.employeeId || 0,
     },
   );

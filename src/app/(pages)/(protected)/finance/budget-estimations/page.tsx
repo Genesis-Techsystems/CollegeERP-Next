@@ -3,8 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { PrinterIcon } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable, TableCard } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { getErrorMessage } from '@/lib/errors'
@@ -26,33 +25,36 @@ export default function BudgetEstimationReportPage() {
   const columnDefs = useMemo(() => budgetReportColumnDefs(), [])
 
   return (
-    <PageContainer>
-      <h2 className="app-card-title">Budget Estimation Report</h2>
-      <PageHeader
-        title="Budget Estimation Report"
-        action={
-          loadKey && rows.length > 0 ? (
-            <Button size="sm" variant="outline" onClick={() => globalThis.print()}>
-              <PrinterIcon className="h-4 w-4 mr-1" /> Print
-            </Button>
-          ) : null
-        }
-      />
-      <FinanceBudgetFilters
-        cascade={cascade}
-        loadLabel="Generate report"
-        loading={isFetching}
-        onLoad={() => {
-          if (!cascade.filtersValid) return
-          setLoadKey(JSON.stringify(cascade.toBudgetParams()))
-        }}
-      />
-      {error ? <p className="text-sm text-destructive">{getErrorMessage(error)}</p> : null}
-      {loadKey ? (
-        <TableCard withHeaderBorder={false}>
-          <DataTable rowData={rows} columnDefs={columnDefs} loading={isFetching} />
-        </TableCard>
-      ) : null}
-    </PageContainer>
+    <FilteredListPage
+      title="Budget Estimation Report"
+      notice={error ? <p className="text-sm text-destructive">{getErrorMessage(error)}</p> : null}
+      filters={(
+        <FinanceBudgetFilters
+          cascade={cascade}
+          loadLabel="Generate report"
+          loading={isFetching}
+          bare
+          onLoad={() => {
+            if (!cascade.filtersValid) return
+            setLoadKey(JSON.stringify(cascade.toBudgetParams()))
+          }}
+        />
+      )}
+      rowData={loadKey ? rows : []}
+      columnDefs={columnDefs}
+      loading={isFetching}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search report…',
+        pdfDocumentTitle: 'Budget Estimation Report',
+      }}
+      toolbarTrailing={
+        loadKey && rows.length > 0 ? (
+          <Button size="sm" variant="outline" onClick={() => globalThis.print()}>
+            <PrinterIcon className="h-4 w-4 mr-1" /> Print
+          </Button>
+        ) : null
+      }
+    />
   )
 }

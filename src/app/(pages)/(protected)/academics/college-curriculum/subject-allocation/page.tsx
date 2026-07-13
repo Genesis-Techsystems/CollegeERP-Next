@@ -6,8 +6,7 @@ import { Eye } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DataTable } from "@/common/components/table";
 import { Select } from "@/common/components/select";
-import { FilterCard } from "@/common/components/feedback";
-import { PageContainer } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import {
   Dialog,
   DialogContent,
@@ -457,86 +456,80 @@ export default function SubjectAllocationPage() {
   );
 
   return (
-    <PageContainer className="space-y-4">
-      <FilterCard title="Assign Course Year Subjects">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-          <Select
-            label="University"
-            value={universityId ? String(universityId) : null}
-            onChange={(v) => setUniversityId(v ? Number(v) : null)}
-            options={universities.map((x) => ({
-              value: String(num(x.fk_university_id)),
-              label: text(x.university_code),
-            }))}
-            searchable
-          />
-          <Select
-            label="College"
-            value={collegeId ? String(collegeId) : null}
-            onChange={(v) => setCollegeId(v ? Number(v) : null)}
-            options={colleges.map((x) => ({
-              value: String(num(x.fk_college_id)),
-              label: text(x.college_code),
-            }))}
-            searchable
-            disabled={!universityId}
-          />
-          <Select
-            label="Course"
-            value={courseId ? String(courseId) : null}
-            onChange={(v) => setCourseId(v ? Number(v) : null)}
-            options={courses.map((x) => ({
-              value: String(num(x.fk_course_id)),
-              label: text(x.course_code),
-            }))}
-            searchable
-            disabled={!collegeId}
-          />
-          <Select
-            label="Course Group"
-            value={courseGroupId ? String(courseGroupId) : null}
-            onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
-            options={groups.map((x) => ({
-              value: String(num(x.fk_course_group_id)),
-              label: text(x.group_code),
-            }))}
-            searchable
-            disabled={!courseId}
-          />
-          <Select
-            label="Academic Year"
-            value={academicYearId ? String(academicYearId) : null}
-            onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-            options={academicYears.map((x) => ({
-              value: String(num(x.fk_academic_year_id)),
-              label: text(x.academic_year),
-            }))}
-            searchable
-            disabled={!courseGroupId}
-          />
-        </div>
-      </FilterCard>
-
-      {courseYears.length > 0 && (
-        <>
+    <>
+      <FilteredListPage
+        title="Assign Course Year Subjects"
+        notice={courseYears.length > 0 ? (
           <div className="flex items-center justify-between rounded bg-[#edf0f3] px-2 p-1.5 text-[15px]">
-            <strong className="font-medium text-primary">
-              Assign Course Year Subjects
-            </strong>
+            <strong className="font-medium text-primary">Assign Course Year Subjects</strong>
             <div className="font-medium text-muted-foreground">{summary}</div>
           </div>
-          <div className="app-card p-0 overflow-hidden">
-            <DataTable
-              rowData={courseYears}
-              columnDefs={columnDefs}
-              loading={loading}
-              toolbar={{ search: true, searchPlaceholder: "Search" }}
-              pagination
-              paginationPageSize={10}
+        ) : undefined}
+        filters={(
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+            <Select
+              label="University"
+              value={universityId ? String(universityId) : null}
+              onChange={(v) => setUniversityId(v ? Number(v) : null)}
+              options={universities.map((x) => ({
+                value: String(num(x.fk_university_id)),
+                label: text(x.university_code),
+              }))}
+              searchable
+            />
+            <Select
+              label="College"
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => setCollegeId(v ? Number(v) : null)}
+              options={colleges.map((x) => ({
+                value: String(num(x.fk_college_id)),
+                label: text(x.college_code),
+              }))}
+              searchable
+              disabled={!universityId}
+            />
+            <Select
+              label="Course"
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : null)}
+              options={courses.map((x) => ({
+                value: String(num(x.fk_course_id)),
+                label: text(x.course_code),
+              }))}
+              searchable
+              disabled={!collegeId}
+            />
+            <Select
+              label="Course Group"
+              value={courseGroupId ? String(courseGroupId) : null}
+              onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+              options={groups.map((x) => ({
+                value: String(num(x.fk_course_group_id)),
+                label: text(x.group_code),
+              }))}
+              searchable
+              disabled={!courseId}
+            />
+            <Select
+              label="Academic Year"
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+              options={academicYears.map((x) => ({
+                value: String(num(x.fk_academic_year_id)),
+                label: text(x.academic_year),
+              }))}
+              searchable
+              disabled={!courseGroupId}
             />
           </div>
-        </>
-      )}
+        )}
+        rowData={courseYears}
+        columnDefs={columnDefs}
+        loading={loading}
+        toolbar={{ search: true, searchPlaceholder: "Search" }}
+        pagination
+        paginationPageSize={10}
+      />
 
       <Dialog
         open={viewModal.open}
@@ -557,6 +550,6 @@ export default function SubjectAllocationPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </>
   );
 }

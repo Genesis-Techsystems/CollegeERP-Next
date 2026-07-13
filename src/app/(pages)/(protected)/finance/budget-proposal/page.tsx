@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { PageContainer } from '@/components/layout'
-import { DataTable, TableCard } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -75,18 +74,27 @@ export default function BudgetProposalPage() {
   const columnDefs = useMemo(() => budgetReportColumnDefs(), [])
 
   return (
-    <PageContainer>
-      <h2 className="app-card-title">Budget Proposal</h2>
-      <FinanceBudgetFilters
-        cascade={cascade}
-        showAccountType
-        loadLabel="Load proposal"
-        loading={isFetching}
-        onLoad={() => {
-          if (!cascade.filtersValid || !cascade.accountTypeId) return
-          setLoadKey(JSON.stringify(cascade.toBudgetParams()))
-        }}
-      />
+    <FilteredListPage
+      title="Budget Proposal"
+      notice={error ? <p className="text-sm text-destructive">{getErrorMessage(error)}</p> : undefined}
+      filters={(
+        <FinanceBudgetFilters
+          bare
+          cascade={cascade}
+          showAccountType
+          loadLabel="Load proposal"
+          loading={isFetching}
+          onLoad={() => {
+            if (!cascade.filtersValid || !cascade.accountTypeId) return
+            setLoadKey(JSON.stringify(cascade.toBudgetParams()))
+          }}
+        />
+      )}
+      rowData={loadKey ? rows : []}
+      columnDefs={columnDefs}
+      loading={isFetching}
+      toolbar={{ search: true, searchPlaceholder: 'Search proposal…' }}
+    >
       {loadKey ? (
         <div className="rounded-lg border bg-card p-4 space-y-3">
           <p className="text-sm font-medium">Add allocation line</p>
@@ -120,12 +128,6 @@ export default function BudgetProposalPage() {
           </div>
         </div>
       ) : null}
-      {error ? <p className="text-sm text-destructive">{getErrorMessage(error)}</p> : null}
-      {loadKey ? (
-        <TableCard withHeaderBorder={false}>
-          <DataTable rowData={rows} columnDefs={columnDefs} />
-        </TableCard>
-      ) : null}
-    </PageContainer>
+    </FilteredListPage>
   )
 }

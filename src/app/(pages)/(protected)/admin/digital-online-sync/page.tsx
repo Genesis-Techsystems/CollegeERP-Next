@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Select, type SelectOption } from '@/common/components/select'
-import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
 import { useSessionContext } from '@/context/SessionContext'
 import { toastError, toastInfo, toastSuccess } from '@/lib/toast'
@@ -222,8 +222,9 @@ export default function DigitalOnlineSyncPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <GlobalFilterBar title="Digital Online Sync" collapsible defaultOpen>
+    <FilteredPage
+      title="Digital Online Sync"
+      filters={(
         <GlobalFilterBarRow>
           <GlobalFilterField label="College">
             <Select
@@ -277,7 +278,7 @@ export default function DigitalOnlineSyncPage() {
             </Button>
           </GlobalFilterField>
         </GlobalFilterBarRow>
-      </GlobalFilterBar>
-    </PageContainer>
+      )}
+    />
   )
 }

@@ -6,7 +6,7 @@ import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { DataTable } from '@/common/components/table'
 import { Select } from '@/common/components/select'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -256,55 +256,50 @@ export default function SubjectAllocationSemRegulationPage() {
   ], [rows])
 
   return (
-    <PageContainer>
-      <PageHeader title="Course Year Subject Association" />
-      <div className="app-card p-3 mb-3">
-        <div className="text-[13px] font-semibold text-[hsl(var(--primary))]">
-          Course Year Subject Association ({params.collegeName} / {params.academicYear} / {params.courseName} / {params.groupName} / {params.courseYearName})
-        </div>
-        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-          <p><span className="font-medium">Course :</span> {params.collegeName} / {params.courseName} / {params.groupName}</p>
-          <p><span className="font-medium">Academic Year :</span> {params.academicYear}</p>
-        </div>
-      </div>
-
-      <div className="app-card p-3">
-        <div className="flex items-center justify-between">
-          <button type="button" className="text-sm font-semibold text-[hsl(var(--primary))] hover:underline inline-flex items-center gap-1" onClick={() => setMapPanelOpen((s) => !s)}>
-            + Map Regulation Subject
-          </button>
-          <button type="button" className="text-muted-foreground" onClick={() => setMapPanelOpen((s) => !s)}>
-            {mapPanelOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-        </div>
-        {mapPanelOpen && (
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-            <Select
-              label="Regulation *"
-              value={regulationId ? String(regulationId) : null}
-              onChange={(v) => setRegulationId(v ? Number(v) : null)}
-              options={regulationOptions}
-              placeholder="Select regulation"
-              searchable
-            />
-            <div className="flex items-end">
-              <Button type="button" onClick={() => void openMapModal()} disabled={!regulationId}>
-                Map Regulation Subjects
-              </Button>
+    <>
+      <FilteredListPage
+        title="Course Year Subject Association"
+        notice={(
+          <div className="space-y-2 text-[13px]">
+            <div className="font-semibold text-[hsl(var(--primary))]">
+              Course Year Subject Association ({params.collegeName} / {params.academicYear} / {params.courseName} / {params.groupName} / {params.courseYearName})
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              <p><span className="font-medium">Course :</span> {params.collegeName} / {params.courseName} / {params.groupName}</p>
+              <p><span className="font-medium">Academic Year :</span> {params.academicYear}</p>
             </div>
           </div>
         )}
-      </div>
-
-      <div className="app-card mt-3 p-0 overflow-hidden">
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          toolbar={{ search: true, searchPlaceholder: 'Search subjects...' }}
-          pagination
-          paginationPageSize={10}
-        />
-      </div>
+        filters={(
+          <div className="space-y-3">
+            <button type="button" className="text-sm font-semibold text-[hsl(var(--primary))] hover:underline inline-flex items-center gap-1" onClick={() => setMapPanelOpen((s) => !s)}>
+              + Map Regulation Subject
+            </button>
+            {mapPanelOpen && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                <Select
+                  label="Regulation *"
+                  value={regulationId ? String(regulationId) : null}
+                  onChange={(v) => setRegulationId(v ? Number(v) : null)}
+                  options={regulationOptions}
+                  placeholder="Select regulation"
+                  searchable
+                />
+                <div className="flex items-end">
+                  <Button type="button" onClick={() => void openMapModal()} disabled={!regulationId}>
+                    Map Regulation Subjects
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        rowData={rows}
+        columnDefs={columnDefs}
+        toolbar={{ search: true, searchPlaceholder: 'Search subjects...' }}
+        pagination
+        paginationPageSize={10}
+      />
 
       <div className="flex justify-end gap-2 mt-3">
         <Button type="button" variant="outline" onClick={() => router.push('/academics/college-curriculum/subject-allocation')}>Back</Button>
@@ -350,7 +345,7 @@ export default function SubjectAllocationSemRegulationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </>
   )
 }
 

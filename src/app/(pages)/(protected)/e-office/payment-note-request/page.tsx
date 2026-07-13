@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { EyeIcon, PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { PageContainer } from '@/components/layout'
+
+import { ListPage } from '@/components/layout'
+import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
@@ -112,50 +113,38 @@ export default function PaymentNoteRequestPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <div className="app-card overflow-hidden px-4 py-3">
-        <h2 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">Purchase Order</h2>
-      </div>
-
-      <TableCard withHeaderBorder={false}>
+    <ListPage
+      title="Purchase Order"
+      rowData={pending}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search purchase orders…',
+        pdfDocumentTitle: 'Payment Note Requests',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          onClick={() => router.push('/e-office/payment-note-request/add-payment-note-request')}
+        >
+          <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+          New Purchase Order
+        </Button>
+      )}
+    >
+      {completed.length > 0 && (
         <DataTable
-          rowData={pending}
-          columnDefs={columnDefs}
+          title="Completed Purchase Orders"
+          bordered
+          rowData={completed}
+          columnDefs={completedColumnDefs}
           loading={isLoading}
           pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search purchase orders…',
-            pdfDocumentTitle: 'Payment Note Requests',
-          }}
-          toolbarTrailing={(
-            <Button
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={() => router.push('/e-office/payment-note-request/add-payment-note-request')}
-            >
-              <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-              New Purchase Order
-            </Button>
-          )}
+          toolbar={{ search: true, searchPlaceholder: 'Search completed…' }}
         />
-      </TableCard>
-
-      {completed.length > 0 && (
-        <>
-          <div className="app-card overflow-hidden px-4 py-3">
-            <h2 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">Completed Purchase Orders</h2>
-          </div>
-          <TableCard withHeaderBorder={false}>
-            <DataTable
-              rowData={completed}
-              columnDefs={completedColumnDefs}
-              loading={isLoading}
-              pagination
-              toolbar={{ search: true, searchPlaceholder: 'Search completed…' }}
-            />
-          </TableCard>
-        </>
       )}
 
       <ViewPaymentNoteDialog
@@ -170,6 +159,6 @@ export default function PaymentNoteRequestPage() {
         row={completeRow}
         onCompleted={() => void qc.invalidateQueries({ queryKey: QK.eOffice.purchaseOrders() })}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

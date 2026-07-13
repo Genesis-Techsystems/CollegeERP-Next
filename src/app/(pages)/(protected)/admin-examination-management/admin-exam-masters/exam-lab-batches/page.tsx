@@ -19,9 +19,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import {
   getUnivExamFilters,
   getUnivExamRestNoTimetable,
@@ -32,7 +31,7 @@ import {
   updateExamLabBatch,
 } from '@/services/exam-lab-batches'
 import { Checkbox } from '@/components/ui/checkbox'
-import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Building2, BookOpen, Calendar, GraduationCap, PencilIcon, Plus, ScrollText } from 'lucide-react'
 
 type Row = Record<string, any>
@@ -343,100 +342,91 @@ export default function ExamLabBatchesPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">Exam Lab Batches</h2>
-
-      <GlobalFilterBar title="Exam Lab Batches">
-        <GlobalFilterBarRow columns={3}>
-          <GlobalFilterField label="Course" icon={GraduationCap}>
-            <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loading}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Course" /></SelectTrigger>
-              <SelectContent>{courses.map((c) => <SelectItem key={c.fk_course_id} value={String(c.fk_course_id)}>{c.course_code}</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam Year" icon={Calendar}>
-            <Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Exam Year" /></SelectTrigger>
-              <SelectContent>{academicYears.map((a) => <SelectItem key={a.fk_academic_year_id} value={String(a.fk_academic_year_id)}>{a.academic_year}</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam Master" icon={ScrollText}>
-            <Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Exam Master" /></SelectTrigger>
-              <SelectContent>{exams.map((e) => <SelectItem key={e.fk_exam_id} value={String(e.fk_exam_id)}>{e.exam_name}</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-        </GlobalFilterBarRow>
-        <GlobalFilterBarRow columns={3}>
-          <GlobalFilterField label="College" icon={Building2}>
-            <Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="College" /></SelectTrigger>
-              <SelectContent>{colleges.map((c) => <SelectItem key={c.fk_college_id} value={String(c.fk_college_id)}>{c.college_code}</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-          <GlobalFilterField label="Course Group" icon={BookOpen}>
-            <Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Course Group" /></SelectTrigger>
-              <SelectContent>{courseGroups.map((g) => <SelectItem key={g.fk_course_group_id} value={String(g.fk_course_group_id)}>{g.group_code}</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-          <GlobalFilterField label="Course Year" icon={GraduationCap}>
-            <Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Course Year" /></SelectTrigger>
-              <SelectContent>{courseYears.map((y) => <SelectItem key={y.fk_course_year_id} value={String(y.fk_course_year_id)}>{y.course_year_code}</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-        </GlobalFilterBarRow>
-        <GlobalFilterBarRow columns={3}>
-          <GlobalFilterField label="Regulation" icon={ScrollText}>
-            <Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Regulation" /></SelectTrigger>
-              <SelectContent>{regulations.map((r) => <SelectItem key={r.fk_regulation_id} value={String(r.fk_regulation_id)}>{r.regulation_code}</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-          <GlobalFilterField label="Subject" icon={BookOpen}>
-            <Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}>
-              <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Subject" /></SelectTrigger>
-              <SelectContent>{subjects.map((s) => <SelectItem key={s.fk_subject_id} value={String(s.fk_subject_id)}>{s.subject_name} ({s.subject_code})</SelectItem>)}</SelectContent>
-            </Select>
-          </GlobalFilterField>
-          <GlobalFilterField label="Action" className="global-filter-field--action">
-            <Button onClick={getList} className="h-[30px] px-3 text-[12px] shrink-0">Get List</Button>
-          </GlobalFilterField>
-        </GlobalFilterBarRow>
-      </GlobalFilterBar>
-
-      {hasFetched && (
-        <TableCard withHeaderBorder={false}>
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loading}
-            pagination
-            paginationPageSize={10}
-            title=""
-            subtitle=""
-            toolbarLeading={<span />}
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search exam batches…',
-              pdfDocumentTitle: 'Exam Lab Batches',
-            }}
-            toolbarTrailing={(
-              <Button
-                size="sm"
-                onClick={openAdd}
-                disabled={!canManageBatches}
-                className="h-[30px] px-3 text-[12px]"
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Add Exam Batch
-              </Button>
-            )}
-          />
-        </TableCard>
+    <FilteredListPage
+      title="Exam Lab Batches"
+      filters={(
+        <div className="space-y-2">
+          <GlobalFilterBarRow columns={3}>
+            <GlobalFilterField label="Course" icon={GraduationCap}>
+              <Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loading}>
+                <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Course" /></SelectTrigger>
+                <SelectContent>{courses.map((c) => <SelectItem key={c.fk_course_id} value={String(c.fk_course_id)}>{c.course_code}</SelectItem>)}</SelectContent>
+              </Select>
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Year" icon={Calendar}>
+              <Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}>
+                <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Exam Year" /></SelectTrigger>
+                <SelectContent>{academicYears.map((a) => <SelectItem key={a.fk_academic_year_id} value={String(a.fk_academic_year_id)}>{a.academic_year}</SelectItem>)}</SelectContent>
+              </Select>
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Master" icon={ScrollText}>
+              <Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}>
+                <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Exam Master" /></SelectTrigger>
+                <SelectContent>{exams.map((e) => <SelectItem key={e.fk_exam_id} value={String(e.fk_exam_id)}>{e.exam_name}</SelectItem>)}</SelectContent>
+              </Select>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+          <GlobalFilterBarRow columns={3}>
+            <GlobalFilterField label="College" icon={Building2}>
+              <Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}>
+                <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="College" /></SelectTrigger>
+                <SelectContent>{colleges.map((c) => <SelectItem key={c.fk_college_id} value={String(c.fk_college_id)}>{c.college_code}</SelectItem>)}</SelectContent>
+              </Select>
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Group" icon={BookOpen}>
+              <Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}>
+                <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Course Group" /></SelectTrigger>
+                <SelectContent>{courseGroups.map((g) => <SelectItem key={g.fk_course_group_id} value={String(g.fk_course_group_id)}>{g.group_code}</SelectItem>)}</SelectContent>
+              </Select>
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Year" icon={GraduationCap}>
+              <Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}>
+                <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Course Year" /></SelectTrigger>
+                <SelectContent>{courseYears.map((y) => <SelectItem key={y.fk_course_year_id} value={String(y.fk_course_year_id)}>{y.course_year_code}</SelectItem>)}</SelectContent>
+              </Select>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+          <GlobalFilterBarRow columns={3}>
+            <GlobalFilterField label="Regulation" icon={ScrollText}>
+              <Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}>
+                <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Regulation" /></SelectTrigger>
+                <SelectContent>{regulations.map((r) => <SelectItem key={r.fk_regulation_id} value={String(r.fk_regulation_id)}>{r.regulation_code}</SelectItem>)}</SelectContent>
+              </Select>
+            </GlobalFilterField>
+            <GlobalFilterField label="Subject" icon={BookOpen}>
+              <Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}>
+                <SelectTrigger className="h-9 text-[13px]"><SelectValue placeholder="Subject" /></SelectTrigger>
+                <SelectContent>{subjects.map((s) => <SelectItem key={s.fk_subject_id} value={String(s.fk_subject_id)}>{s.subject_name} ({s.subject_code})</SelectItem>)}</SelectContent>
+              </Select>
+            </GlobalFilterField>
+            <GlobalFilterField label="Action" className="global-filter-field--action">
+              <Button onClick={getList} className="h-[30px] px-3 text-[12px] shrink-0">Get List</Button>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+        </div>
       )}
-
+      rowData={hasFetched ? rows : []}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      paginationPageSize={10}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search exam batches…',
+        pdfDocumentTitle: 'Exam Lab Batches',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          onClick={openAdd}
+          disabled={!canManageBatches}
+          className="h-[30px] px-3 text-[12px]"
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Add Exam Batch
+        </Button>
+      )}
+    >
       <Dialog
         open={open}
         onOpenChange={(v) => {
@@ -580,7 +570,7 @@ export default function ExamLabBatchesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredListPage>
   )
 }
 

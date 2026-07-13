@@ -20,10 +20,8 @@ import {
 } from '@/components/ui/select'
 import { format, parseISO } from 'date-fns'
 import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import {
   createInvigilatorRemuneration,
   listActiveColleges,
@@ -217,37 +215,27 @@ export default function InvigilatorRemunerationPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight text-foreground">
-        Exam Invigilator Remuneration
-      </h2>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          title=""
-          subtitle=""
-          toolbarLeading={<span />}
-          rowData={rows}
-          columnDefs={columnDefs}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search by college, designation, amount…',
-            pdfDocumentTitle: 'Invigilator Remuneration',
-          }}
-          toolbarTrailing={(
-            <Button
-              type="button"
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={openAdd}
-            >
-              + Add Invigilator Remuneration
-            </Button>
-          )}
-        />
-      </TableCard>
-
+    <ListPage
+      title="Exam Invigilator Remuneration"
+      rowData={rows}
+      columnDefs={columnDefs}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search by college, designation, amount…',
+        pdfDocumentTitle: 'Invigilator Remuneration',
+      }}
+      toolbarTrailing={(
+        <Button
+          type="button"
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          onClick={openAdd}
+        >
+          + Add Invigilator Remuneration
+        </Button>
+      )}
+    >
       <Dialog
         open={open}
         onOpenChange={(v) => {
@@ -390,6 +378,6 @@ export default function InvigilatorRemunerationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </ListPage>
   )
 }

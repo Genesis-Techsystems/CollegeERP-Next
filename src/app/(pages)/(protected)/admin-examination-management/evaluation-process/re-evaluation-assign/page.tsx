@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { BookMarked, ChevronDown } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import {
   assignReevaluationByCodes,
   getReevaluationAssignBundleByCodes,
@@ -48,7 +47,6 @@ export default function ReEvaluationAssignPage() {
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
 
   const [loading, setLoading] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(true)
   const [showContent, setShowContent] = useState(false)
 
   const [allSubjectRows, setAllSubjectRows] = useState<AnyRow[]>([])
@@ -307,67 +305,35 @@ export default function ReEvaluationAssignPage() {
     filteredOmrRows.every((r) => selectedOmrSet.has(textFrom(r, ['omr_serial_no'])))
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Re evaluation assign" subtitle="Evaluation process · Re-evaluation assignment" />
-
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-2">
-            <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
-            <h2 className="app-card-title">Re evaluation assign</h2>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-[13px]"
-            onClick={() => setFiltersOpen((prev) => !prev)}
-            aria-expanded={filtersOpen}
-          >
-            Filters
-            <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-
-        {(
-          <div className="mt-3 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              <div className="space-y-1 md:col-span-2">
-                <Label>Course</Label>
-                <Select value={courseCode} onChange={setCourseCode} options={courseOptions} searchable />
-              </div>
-              <div className="space-y-1 md:col-span-2">
-                <Label>Exam Month Year</Label>
-                <Select value={examMonthYear} onChange={setExamMonthYear} options={monthYearOptions} searchable />
-              </div>
-              <div className="space-y-1 md:col-span-2">
-                <Label>Course Year</Label>
-                <Select value={courseYearCode} onChange={setCourseYearCode} options={courseYearOptions} searchable />
-              </div>
-              <div className="space-y-1 md:col-span-5">
-                <Label>Subject</Label>
-                <Select value={subjectCode} onChange={setSubjectCode} options={subjectOptions} searchable />
-              </div>
-              <div className="md:col-span-1">
-                <Button className="h-9 w-full" onClick={() => void getList()} disabled={loading}>
-                  Get List
-                </Button>
-              </div>
-            </div>
-
-            {showContent && (
-              <p className="text-[13px] font-medium">
-                Total Students: <span className="text-red-600">{stats.totalStudents}</span> | No.Of AnswerPapers
-                Uploaded: <span className="text-red-600">{stats.uploaded}</span> | UnAssigned:{' '}
-                <span className="text-red-600">{stats.unassigned}</span> | Assigned:{' '}
-                <span className="text-red-600">{stats.assigned}</span> | No of Evaluators:{' '}
-                <span className="text-red-600">{stats.evaluatorCount}</span>
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
+    <FilteredPage
+      title="Re evaluation assign"
+      filters={(
+        <>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Course">
+              <Select value={courseCode} onChange={setCourseCode} options={courseOptions} searchable />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Month Year">
+              <Select value={examMonthYear} onChange={setExamMonthYear} options={monthYearOptions} searchable />
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Year">
+              <Select value={courseYearCode} onChange={setCourseYearCode} options={courseYearOptions} searchable />
+            </GlobalFilterField>
+            <GlobalFilterField label="Subject">
+              <Select value={subjectCode} onChange={setSubjectCode} options={subjectOptions} searchable />
+            </GlobalFilterField>
+            <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+              <Button className="h-[30px] px-3 text-[12px]" onClick={() => void getList()} disabled={loading}>Get List</Button>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+          {showContent && (
+            <p className="px-5 pb-1 text-[13px] font-medium">
+              Total Students: <span className="text-red-600">{stats.totalStudents}</span> | No.Of AnswerPapers Uploaded: <span className="text-red-600">{stats.uploaded}</span> | UnAssigned: <span className="text-red-600">{stats.unassigned}</span> | Assigned: <span className="text-red-600">{stats.assigned}</span> | No of Evaluators: <span className="text-red-600">{stats.evaluatorCount}</span>
+            </p>
+          )}
+        </>
+      )}
+    >
       {showContent && (
         <div className="app-card p-3 border-t-[3px] border-t-amber-300">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
@@ -462,6 +428,6 @@ export default function ReEvaluationAssignPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredPage>
   )
 }

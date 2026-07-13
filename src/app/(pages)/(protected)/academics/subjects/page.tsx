@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { Eye, Pencil, Plus } from "lucide-react";
-import { DataTable } from "@/common/components/table";
 import { Select } from "@/common/components/select";
 import { StatusBadge } from "@/common/components/data-display";
-import { FilterCard } from "@/common/components/feedback";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { MINIO_URL } from "@/config/constants/api";
 import {
@@ -235,8 +233,9 @@ export default function SubjectsMasterPage() {
   );
 
   return (
-    <PageContainer className="space-y-4">
-      <FilterCard title="Subjects">
+    <FilteredListPage
+      title="Subjects"
+      filters={(
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Select
             label="University"
@@ -246,7 +245,6 @@ export default function SubjectsMasterPage() {
             placeholder="Select university"
             searchable
           />
-
           <Select
             label="Course"
             value={courseId ? String(courseId) : null}
@@ -257,39 +255,30 @@ export default function SubjectsMasterPage() {
             disabled={!universityId}
           />
         </div>
-      </FilterCard>
-
-      {Boolean(courseId) && (
-        <div className="app-card mt-3 p-0 overflow-hidden">
-          <DataTable
-            title=""
-            subtitle=""
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loading}
-            toolbar={{
-              search: true,
-              searchPlaceholder: "Search subjects...",
-            }}
-            toolbarTrailing={
-              <Button
-                onClick={() => {
-                  setEditingRow(null);
-                  setOpen(true);
-                }}
-                disabled={!courseId}
-                className="h-[30px] px-3 text-[12px]"
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Add Subject
-              </Button>
-            }
-            pagination
-            paginationPageSize={10}
-          />
-        </div>
       )}
-
+      rowData={courseId ? rows : []}
+      columnDefs={columnDefs}
+      loading={loading}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search subjects...",
+      }}
+      toolbarTrailing={(
+        <Button
+          onClick={() => {
+            setEditingRow(null);
+            setOpen(true);
+          }}
+          disabled={!courseId}
+          className="h-[30px] px-3 text-[12px]"
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Add Subject
+        </Button>
+      )}
+      pagination
+      paginationPageSize={10}
+    >
       <SubjectModal
         open={open}
         onClose={() => setOpen(false)}
@@ -301,6 +290,6 @@ export default function SubjectsMasterPage() {
           if (courseId) void loadSubjects(courseId);
         }}
       />
-    </PageContainer>
+    </FilteredListPage>
   );
 }

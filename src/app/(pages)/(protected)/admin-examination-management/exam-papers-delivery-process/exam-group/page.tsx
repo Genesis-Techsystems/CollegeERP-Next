@@ -3,9 +3,8 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { BookMarked, ChevronDown, Filter, Pencil, Plus } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { Pencil, Plus } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
@@ -172,8 +171,6 @@ export default function ExamGroupPage() {
   const [loadingUni, setLoadingUni] = useState(true)
   const [universities, setUniversities] = useState<AnyRow[]>([])
   const [universityId, setUniversityId] = useState<number | null>(null)
-  const [filtersOpen, setFiltersOpen] = useState(true)
-
   const [loadingList, setLoadingList] = useState(false)
   const [hasLoaded, setHasLoaded] = useState(false)
   const [rows, setRows] = useState<GroupRow[]>([])
@@ -404,77 +401,43 @@ export default function ExamGroupPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader
-        title="Exam group"
-        subtitle="Exam papers delivery · Group exams by university"
-      />
-
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
-            <h2 className="app-card-title truncate">
-              Exam Group
-            </h2>
-          </div>
-          <button
-            type="button"
-            className="flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground"
-            onClick={() => setFiltersOpen((v) => !v)}
-            aria-expanded={filtersOpen}
-          >
-            <span>Filter</span>
-            <Filter className="h-4 w-4" aria-hidden />
-            <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-          </button>
-        </div>
-
-        {(
-          <div className="mt-4 flex flex-wrap items-end gap-3">
-            <div className="space-y-1 w-full sm:w-72">
-              <Label>
-                University <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                options={universityOptions}
-                value={universityId === null ? '' : String(universityId)}
-                onChange={(v) => setUniversityId(v ? Number(v) : null)}
-                placeholder={loadingUni ? 'Loading…' : 'Select university'}
-                disabled={loadingUni || universityOptions.length === 0}
-              />
-            </div>
-            <Button type="button" onClick={() => void fetchList()} disabled={loadingList || universityId == null}>
-              Get List
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {hasLoaded && (
-        <div className="app-card overflow-hidden">
-          <div className="p-2">
-            <DataTable
-              rowData={rows}
-              columnDefs={columnDefs}
-              loading={loadingList}
-              pagination
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search…',
-                pdfDocumentTitle: 'Exam Group',
-              }}
-              toolbarTrailing={
-                <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Add Exam Group
-                </Button>
-              }
+    <FilteredListPage
+      title="Exam Group"
+      filters={(
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1 w-full sm:w-72">
+            <Label>
+              University <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              options={universityOptions}
+              value={universityId === null ? '' : String(universityId)}
+              onChange={(v) => setUniversityId(v ? Number(v) : null)}
+              placeholder={loadingUni ? 'Loading…' : 'Select university'}
+              disabled={loadingUni || universityOptions.length === 0}
             />
           </div>
+          <Button type="button" onClick={() => void fetchList()} disabled={loadingList || universityId == null}>
+            Get List
+          </Button>
         </div>
       )}
-
+      rowData={hasLoaded ? rows : []}
+      columnDefs={columnDefs}
+      loading={loadingList}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Exam Group',
+      }}
+      toolbarTrailing={
+        <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          Add Exam Group
+        </Button>
+      }
+    >
       <FormModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -529,6 +492,6 @@ export default function ExamGroupPage() {
           onReasonChange={(v) => setForm((f) => ({ ...f, reason: v }))}
         />
       </FormModal>
-    </PageContainer>
+    </FilteredListPage>
   )
 }

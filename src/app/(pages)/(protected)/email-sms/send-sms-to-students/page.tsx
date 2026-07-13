@@ -1,11 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Filter, MessageSquare, Send } from 'lucide-react'
+import { Send } from 'lucide-react'
 import { Select } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
 import { FormField } from '@/common/components/forms'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -64,7 +64,6 @@ export default function SendSmsToStudentsPage() {
   const [filtersData, setFiltersData] = useState<AnyRow[]>([])
   const [academicData, setAcademicData] = useState<AnyRow[]>([])
   const [sections, setSections] = useState<AnyRow[]>([])
-  const [filterOpen, setFilterOpen] = useState(true)
   const [students, setStudents] = useState<StudentPickRow[]>([])
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [sending, setSending] = useState(false)
@@ -346,24 +345,10 @@ export default function SendSmsToStudentsPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-2.5 border-b flex items-center justify-between gap-4">
-          <h1 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Send SMS To Students
-          </h1>
-          <button
-            type="button"
-            className="text-sm text-foreground inline-flex items-center gap-1"
-            onClick={() => setFilterOpen((v) => !v)}
-          >
-            Filter
-            <Filter className="h-4 w-4" />
-          </button>
-        </div>
-        {filterOpen ? (
-          <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+    <FilteredPage
+      title="Send SMS To Students"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <Select
               label="College *"
               value={collegeId ? String(collegeId) : null}
@@ -418,10 +403,9 @@ export default function SendSmsToStudentsPage() {
               disabled={!collegeId || !courseGroupId || !courseYearId || !academicYearId}
               className="md:col-span-2"
             />
-          </div>
-        ) : null}
-      </div>
-
+        </div>
+      )}
+    >
       {groupSectionId ? (
         <div className="app-card p-4 space-y-4">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
@@ -577,6 +561,6 @@ export default function SendSmsToStudentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredPage>
   )
 }

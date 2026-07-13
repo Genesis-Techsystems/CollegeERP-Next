@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { Filter, Plus, Search, Target } from 'lucide-react'
+import { Plus, Target } from 'lucide-react'
 import { FormModal } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
-import { DataTable } from '@/common/components/table'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -47,8 +46,6 @@ export default function CourseOutcomesPage() {
   const [filtersData, setFiltersData] = useState<AnyRow[]>([])
   const [academicData, setAcademicData] = useState<AnyRow[]>([])
   const [regulations, setRegulations] = useState<AnyRow[]>([])
-  const [filterOpen, setFilterOpen] = useState(true)
-
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
   const [courseId, setCourseId] = useState<number | null>(null)
@@ -223,20 +220,11 @@ export default function CourseOutcomesPage() {
   }
 
   return (
-    <PageContainer>
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-2.5 border-b flex items-center justify-between gap-4">
-          <h2 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            Course Outcomes
-          </h2>
-          <button type="button" className="ml-auto inline-flex items-center gap-1 text-sm text-foreground" onClick={() => setFilterOpen((v) => !v)}>
-            <span>Filter</span>
-            <Filter className="h-4 w-4" />
-          </button>
-        </div>
-        {filterOpen ? (
-          <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+    <>
+      <FilteredListPage
+        title="Course Outcomes"
+        filters={(
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable className="md:col-span-2" />
             <Select label="Academic Year *" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable className="md:col-span-2" />
             <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable className="md:col-span-2" />
@@ -244,40 +232,19 @@ export default function CourseOutcomesPage() {
             <Select label="Course Year *" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable className="md:col-span-2" />
             <Select label="Regulation *" value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} searchable className="md:col-span-2" />
           </div>
-        ) : null}
-      </div>
-
-      {academicYearId ? (
-        <div className="app-card mt-4 overflow-hidden">
-          <div className="p-3 flex items-center justify-between gap-3 border-b">
-            <div className="relative w-full max-w-[280px]">
-              <Search className="h-4 w-4 text-muted-foreground absolute left-2 top-2" />
-              <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="Search" className="h-8 w-full rounded border border-input bg-background pl-8 pr-2 text-xs" />
-            </div>
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" className="h-[30px] px-3 text-[12px]">
-                Columns
-              </Button>
-              <Button type="button" variant="outline" className="h-[30px] px-3 text-[12px]">
-                Export PDF
-              </Button>
-              <Button type="button" className="h-[30px] rounded-full px-4 text-xs inline-flex items-center gap-1" onClick={onOpenAddModal}>
-                <Plus className="h-3.5 w-3.5" />
-                Add Program Outcomes
-              </Button>
-            </div>
-          </div>
-          <div className="overflow-hidden">
-            <DataTable
-              rowData={filteredRows}
-              columnDefs={tableColumns}
-              loading={false}
-              pagination
-              toolbar={false}
-            />
-          </div>
-        </div>
-      ) : null}
+        )}
+        rowData={academicYearId ? tableRows : []}
+        columnDefs={tableColumns}
+        loading={false}
+        toolbar={{ search: true, searchPlaceholder: 'Search' }}
+        toolbarTrailing={(
+          <Button type="button" className="h-[30px] rounded-full px-4 text-xs inline-flex items-center gap-1" onClick={onOpenAddModal}>
+            <Plus className="h-3.5 w-3.5" />
+            Add Program Outcomes
+          </Button>
+        )}
+        pagination
+      />
       <FormModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
@@ -335,6 +302,6 @@ export default function CourseOutcomesPage() {
           </label>
         </div>
       </FormModal>
-    </PageContainer>
+    </>
   )
 }

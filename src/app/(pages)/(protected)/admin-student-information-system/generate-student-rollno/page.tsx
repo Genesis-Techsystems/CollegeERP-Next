@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Printer, Download, ChevronDown, Filter } from "lucide-react";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { Printer, Download } from "lucide-react";
+import { FilteredPage } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -128,8 +128,6 @@ export default function GenerateStudentRollnoPage() {
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
-
   const [collegeId, setCollegeId] = useState<number | null>(null);
   const [academicYearId, setAcademicYearId] = useState<number | null>(null);
   const [courseId, setCourseId] = useState<number | null>(null);
@@ -451,131 +449,114 @@ export default function GenerateStudentRollnoPage() {
   ];
 
   return (
-    <PageContainer>
-      <div className="space-y-4 print:space-y-2">
-        <div className="app-card overflow-hidden print:hidden">
-          <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2.5">
-            <h2 className="app-card-title">Assign Student Roll Number</h2>
-            <Button
-              type="button"
-              variant="outline"
-              style={{ marginRight: "0px" }}
-              size="sm"
-              className="h-6 px-2.5 text-[12px]"
-              onClick={() => setFilterOpen((v) => !v)}
-              aria-expanded={filterOpen}
-            >
-              <Filter className="mr-1.5 h-3.5 w-3.5" />
-              <ChevronDown
-                className={`h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+    <FilteredPage
+      title="Assign Student Roll Number"
+      className="print:space-y-2"
+      filters={
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div className={selectClass()}>
+              <Select
+                label="College"
+                placeholder="College"
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => {
+                  setCollegeId(parseSelectNumber(v));
+                  setStudents([]);
+                }}
+                options={collegeOpts}
+                disabled={loadingFilters || !collegeOpts.length}
+                searchable
               />
-            </Button>
-          </div>
-          {filterOpen && (
-            <div className="p-3">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                <div className={selectClass()}>
-                  <Select
-                    label="College"
-                    placeholder="College"
-                    value={collegeId ? String(collegeId) : null}
-                    onChange={(v) => {
-                      setCollegeId(parseSelectNumber(v));
-                      setStudents([]);
-                    }}
-                    options={collegeOpts}
-                    disabled={loadingFilters || !collegeOpts.length}
-                    searchable
-                  />
-                </div>
-                <div className={selectClass()}>
-                  <Select
-                    label="Academic year"
-                    placeholder="Academic year"
-                    value={academicYearId ? String(academicYearId) : null}
-                    onChange={(v) => {
-                      setAcademicYearId(parseSelectNumber(v));
-                      setStudents([]);
-                    }}
-                    options={ayOpts}
-                    disabled={loadingFilters || !ayOpts.length}
-                    searchable
-                  />
-                </div>
-                <div className={selectClass()}>
-                  <Select
-                    label="Course"
-                    placeholder="Course"
-                    value={courseId ? String(courseId) : null}
-                    onChange={(v) => {
-                      setCourseId(parseSelectNumber(v));
-                      setStudents([]);
-                    }}
-                    options={courseOpts}
-                    disabled={loadingFilters || !courseOpts.length}
-                    searchable
-                  />
-                </div>
-                <div className={selectClass()}>
-                  <Select
-                    label="Course group"
-                    placeholder="Course group"
-                    value={courseGroupId ? String(courseGroupId) : null}
-                    onChange={(v) => {
-                      setCourseGroupId(parseSelectNumber(v));
-                      setStudents([]);
-                    }}
-                    options={groupOpts}
-                    disabled={loadingFilters || !groupOpts.length}
-                    searchable
-                  />
-                </div>
-                <div className={selectClass()}>
-                  <Select
-                    label="Course year"
-                    placeholder="Course year"
-                    value={courseYearId ? String(courseYearId) : null}
-                    onChange={(v) => {
-                      setCourseYearId(parseSelectNumber(v));
-                      setStudents([]);
-                    }}
-                    options={yearOpts}
-                    disabled={loadingFilters || !yearOpts.length}
-                    searchable
-                  />
-                </div>
-                <div className={selectClass()}>
-                  <Select
-                    label="Section"
-                    placeholder="Section"
-                    value={String(groupSectionId)}
-                    onChange={(v) => {
-                      setGroupSectionId(parseSelectNumberOrZero(v));
-                      setStudents([]);
-                    }}
-                    options={sectionOpts}
-                    disabled={loadingFilters || !courseYearId}
-                    searchable
-                  />
-                </div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button
-                  onClick={() => void handleGetList()}
-                  disabled={loadingList || loadingFilters}
-                >
-                  {loadingList ? "Loading…" : "Get list"}
-                </Button>
-                {loadingFilters && (
-                  <span className="self-center text-xs text-muted-foreground">
-                    Loading…
-                  </span>
-                )}
-              </div>
             </div>
-          )}
-        </div>
-
+            <div className={selectClass()}>
+              <Select
+                label="Academic year"
+                placeholder="Academic year"
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => {
+                  setAcademicYearId(parseSelectNumber(v));
+                  setStudents([]);
+                }}
+                options={ayOpts}
+                disabled={loadingFilters || !ayOpts.length}
+                searchable
+              />
+            </div>
+            <div className={selectClass()}>
+              <Select
+                label="Course"
+                placeholder="Course"
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => {
+                  setCourseId(parseSelectNumber(v));
+                  setStudents([]);
+                }}
+                options={courseOpts}
+                disabled={loadingFilters || !courseOpts.length}
+                searchable
+              />
+            </div>
+            <div className={selectClass()}>
+              <Select
+                label="Course group"
+                placeholder="Course group"
+                value={courseGroupId ? String(courseGroupId) : null}
+                onChange={(v) => {
+                  setCourseGroupId(parseSelectNumber(v));
+                  setStudents([]);
+                }}
+                options={groupOpts}
+                disabled={loadingFilters || !groupOpts.length}
+                searchable
+              />
+            </div>
+            <div className={selectClass()}>
+              <Select
+                label="Course year"
+                placeholder="Course year"
+                value={courseYearId ? String(courseYearId) : null}
+                onChange={(v) => {
+                  setCourseYearId(parseSelectNumber(v));
+                  setStudents([]);
+                }}
+                options={yearOpts}
+                disabled={loadingFilters || !yearOpts.length}
+                searchable
+              />
+            </div>
+            <div className={selectClass()}>
+              <Select
+                label="Section"
+                placeholder="Section"
+                value={String(groupSectionId)}
+                onChange={(v) => {
+                  setGroupSectionId(parseSelectNumberOrZero(v));
+                  setStudents([]);
+                }}
+                options={sectionOpts}
+                disabled={loadingFilters || !courseYearId}
+                searchable
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              onClick={() => void handleGetList()}
+              disabled={loadingList || loadingFilters}
+            >
+              {loadingList ? "Loading…" : "Get list"}
+            </Button>
+            {loadingFilters && (
+              <span className="self-center text-xs text-muted-foreground">
+                Loading…
+              </span>
+            )}
+          </div>
+        </>
+      }
+    >
+      <div className="space-y-4 print:space-y-2">
         {students.length > 0 && (
           <>
             <div className="rounded-lg border border-b-0 bg-muted/30 px-4 py-3 print:border print:bg-transparent">
@@ -726,6 +707,6 @@ export default function GenerateStudentRollnoPage() {
           </>
         )}
       </div>
-    </PageContainer>
+    </FilteredPage>
   );
 }

@@ -3,11 +3,9 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { DataTable } from '@/common/components/table'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
@@ -20,7 +18,6 @@ import {
 } from '@/services'
 import type { FeeCertificateIssueRow } from '@/types/tc-no-due'
 import type { CollegeCertificate } from '@/types/college-certificate'
-import { TcPageTitle } from '../_components/TcPageTitle'
 import { useTcCollegeCascade } from '../_lib/use-tc-college-cascade'
 import { IssueCertificateModal } from './IssueCertificateModal'
 
@@ -135,14 +132,12 @@ export default function CertificateRequestsPage() {
   }
 
   return (
-    <PageContainer className="space-y-5">
-      <TcPageTitle title="Certificate Requests" />
-
-      <FilterCard title="Certificates">
+    <FilteredListPage
+      title="Certificate Requests"
+      filters={(
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Select
             label="Organization"
-            className={FILTER_CARD_SELECT_CLASS}
             value={organizationId}
             onChange={setOrganizationId}
             options={orgOptions}
@@ -151,7 +146,6 @@ export default function CertificateRequestsPage() {
           />
           <Select
             label="College"
-            className={FILTER_CARD_SELECT_CLASS}
             value={collegeId}
             onChange={(v) => {
               setCollegeId(v)
@@ -165,7 +159,6 @@ export default function CertificateRequestsPage() {
           />
           <Select
             label="Certificate type"
-            className={FILTER_CARD_SELECT_CLASS}
             value={certificateId}
             onChange={setCertificateId}
             options={certificates.map((c) => ({
@@ -176,17 +169,13 @@ export default function CertificateRequestsPage() {
             disabled={!collegeNum}
           />
         </div>
-      </FilterCard>
-
-      {certNum > 0 && (
-        <DataTable
-          columnDefs={columnDefs}
-          rowData={pendingRows}
-          loading={isLoading}
-          height="auto"
-        />
       )}
-
+      rowData={certNum > 0 ? pendingRows : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      height="auto"
+      toolbar={{ search: true, searchPlaceholder: 'Search certificate requests…' }}
+    >
       <IssueCertificateModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -194,6 +183,6 @@ export default function CertificateRequestsPage() {
         defaultAmount={certAmount}
         onSubmit={(p) => void handleIssueSubmit(p)}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

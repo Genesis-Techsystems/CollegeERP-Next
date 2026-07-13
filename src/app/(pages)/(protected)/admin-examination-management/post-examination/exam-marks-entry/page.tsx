@@ -3,14 +3,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { GraduationCap } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select as CommonSelect } from '@/common/components/select'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
 import {
   getExamMarksEntryFilters,
   getExamMarksEntryRestFilters,
@@ -457,69 +454,61 @@ export default function ExamMarksEntryPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Exam Marks Entry</h1>
-
-      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Exam Marks Entry</span>}>
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course *</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Academic Year" searchable /></div>
+    <FilteredListPage
+      title="Exam Marks Entry"
+      notice={hasFetched ? (
+        <div className="app-card overflow-hidden border border-[#c3d9ff]">
+          <div className="flex items-start gap-4 p-3">
+            <div className="flex h-20 w-24 items-center justify-center bg-[#c3d9ff] text-slate-700"><GraduationCap className="h-10 w-10" /></div>
+            <div className="space-y-1 text-[13px]">
+              <p className="text-slate-700">{selectedExam?.exam_name ?? '-'} {examDate ? <span className="text-blue-700">({examDate})</span> : null}</p>
+              <p className="text-muted-foreground">/ {selectedCollege?.college_code ?? '-'} / {selectedCourse?.course_code ?? '-'} / {selectedGroup?.group_code ?? '-'} / {selectedYear?.course_year_code ?? '-'} / <span className="text-blue-700">({selectedAy?.academic_year ?? '-'})</span></p>
+              <p className="font-semibold text-slate-800">{selectedSubject?.subject_name ?? '-'} ({selectedRegulation?.regulation_code ?? '-'}) - <span className="text-blue-700">{selectedSubject?.subject_type ?? '-'}</span></p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="space-y-1 md:col-span-2"><Label>Course *</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Academic Year" /></div>
           <div className="space-y-1 md:col-span-6"><Label>Exam *</Label><CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Type *</Label><CommonSelect value={String(examTypeId)} onChange={(v) => setExamTypeId(Number(v || 0))} options={examTypeOptions} placeholder="Exam Type" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Faculty *</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="Faculty" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={groupOptions} placeholder="Course Group" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><CommonSelect value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><CommonSelect value={subjectTypeId ? String(subjectTypeId) : null} onChange={(v) => setSubjectTypeId(v ? Number(v) : null)} options={subjectTypeOptions} placeholder="Subject Type" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Exam Type *</Label><CommonSelect value={String(examTypeId)} onChange={(v) => setExamTypeId(Number(v || 0))} options={examTypeOptions} placeholder="Exam Type" /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Faculty *</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="Faculty" /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={groupOptions} placeholder="Course Group" /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><CommonSelect value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><CommonSelect value={subjectTypeId ? String(subjectTypeId) : null} onChange={(v) => setSubjectTypeId(v ? Number(v) : null)} options={subjectTypeOptions} placeholder="Subject Type" /></div>
           <div className="space-y-1 md:col-span-2"><Label>Subject</Label><CommonSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectOptions} placeholder="Subject" searchable /></div>
-          {labBatches.length > 0 && <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><CommonSelect value={String(labBatchId)} onChange={(v) => setLabBatchId(Number(v || 0))} options={labBatchOptions} placeholder="All" searchable /></div>}
+          {labBatches.length > 0 && <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><CommonSelect value={String(labBatchId)} onChange={(v) => setLabBatchId(Number(v || 0))} options={labBatchOptions} placeholder="All" /></div>}
           <div className="space-y-1 md:col-span-2"><Label>Employee</Label><Input className="h-8 text-[12px]" value={employeeDisplay} readOnly /></div>
           <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
           <div className="md:col-span-2"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loading}>{loading ? 'Loading...' : 'Get List'}</Button></div>
         </div>
-      </FilterCard>
-
-      {hasFetched && (
-        <div className="space-y-3">
-          <div className="px-1 text-[14px] text-slate-700">◉ List Of Marks</div>
-          <div className="app-card overflow-hidden border border-[#c3d9ff]">
-            <div className="flex items-start gap-4 p-3">
-              <div className="flex h-20 w-24 items-center justify-center bg-[#c3d9ff] text-slate-700"><GraduationCap className="h-10 w-10" /></div>
-              <div className="space-y-1 text-[13px]">
-                <p className="text-slate-700">{selectedExam?.exam_name ?? '-'} {examDate ? <span className="text-blue-700">({examDate})</span> : null}</p>
-                <p className="text-muted-foreground">/ {selectedCollege?.college_code ?? '-'} / {selectedCourse?.course_code ?? '-'} / {selectedGroup?.group_code ?? '-'} / {selectedYear?.course_year_code ?? '-'} / <span className="text-blue-700">({selectedAy?.academic_year ?? '-'})</span></p>
-                <p className="font-semibold text-slate-800">{selectedSubject?.subject_name ?? '-'} ({selectedRegulation?.regulation_code ?? '-'}) - <span className="text-blue-700">{selectedSubject?.subject_type ?? '-'}</span></p>
-              </div>
-            </div>
-          </div>
-          <TableCard withHeaderBorder={false}>
-            <div className="space-y-3">
-              <DataTable
-                rowData={rows}
-                columnDefs={columnDefs}
-                loading={loading}
-                getRowId={(p) => String(p.data.studentId ?? p.data.fk_student_id ?? p.data.hallticketNumber ?? '')}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search…',
-                  pdfDocumentTitle: 'Exam Marks Entry',
-                }}
-                toolbarLeading={
-                  <div className="text-[12px] text-slate-600 whitespace-nowrap shrink-0">
-                    Max Marks : <span className="font-semibold">{maxMarks || '-'}</span>
-                  </div>
-                }
-              />
-              <div className="flex items-center justify-end gap-2">
-                <Button className="h-8 text-[12px]" onClick={onSave} disabled={saving || rows.length === 0}>{saving ? 'Saving...' : 'Save Marks'}</Button>
-                <Button className="h-8 text-[12px]" variant="outline" onClick={() => globalThis?.print?.()}>Print</Button>
-              </div>
-            </div>
-          </TableCard>
+      )}
+      rowData={hasFetched ? rows : []}
+      columnDefs={columnDefs}
+      loading={loading}
+      getRowId={(p) => String(p.data.studentId ?? p.data.fk_student_id ?? p.data.hallticketNumber ?? '')}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Exam Marks Entry',
+      }}
+      toolbarLeading={(
+        <div className="text-[12px] text-slate-600 whitespace-nowrap shrink-0">
+          Max Marks : <span className="font-semibold">{maxMarks || '-'}</span>
         </div>
       )}
-    </PageContainer>
+    >
+      {hasFetched && (
+        <div className="flex items-center justify-end gap-2">
+          <Button className="h-8 text-[12px]" onClick={onSave} disabled={saving || rows.length === 0}>{saving ? 'Saving...' : 'Save Marks'}</Button>
+          <Button className="h-8 text-[12px]" variant="outline" onClick={() => globalThis?.print?.()}>Print</Button>
+        </div>
+      )}
+    </FilteredListPage>
   )
 }
 

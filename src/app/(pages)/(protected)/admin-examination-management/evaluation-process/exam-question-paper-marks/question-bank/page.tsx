@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select } from '@/common/components/select'
 import { useSessionContext } from '@/context/SessionContext'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -224,43 +225,28 @@ export default function QuestionBankPage() {
     )
   }
 
-  return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">
-            Question Bank
-            {params.questionPaperTitle ? (
-              <span className="ml-2 text-[13px] font-medium text-blue-700">
-                ({params.questionPaperTitle})
-              </span>
-            ) : null}
-          </h2>
-        </div>
+  const bankOptions = useMemo(
+    () => banks.map((b) => ({ value: String(b.assessmentId), label: String(b.assessmentName ?? b.assessmentCode ?? b.assessmentTitle ?? '-') })),
+    [banks],
+  )
 
-        <div className="m-4 rounded border border-border">
-          <div className="border-b border-border bg-muted/30 px-4 py-2 text-[13px] font-semibold text-slate-800">
+  return (
+    <FilteredPage
+      title={params.questionPaperTitle ? `Question Bank (${params.questionPaperTitle})` : 'Question Bank'}
+      filters={(
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Question Bank">
+            <Select value={bankId ? String(bankId) : null} onChange={(v) => handleBankPick(Number(v) || 0)} options={bankOptions} placeholder="Select Question Bank" searchable />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      )}
+      body={(
+        <div className="space-y-3">
+          <div className="border-b border-border bg-muted/30 px-0 py-2 text-[13px] font-semibold text-slate-800">
             Add Questions in &lsquo;{params.questionPaperTitle || '—'}&rsquo;
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4">
-            <div className="space-y-1">
-              <Label className="text-[12px]">Select Question Bank</Label>
-              <Select
-                value={bankId ? String(bankId) : null}
-                onChange={(v) => handleBankPick(Number(v) || 0)}
-                options={banks.map((b) => ({
-                  value: String(b.assessmentId),
-                  label: String(b.assessmentName ?? b.assessmentCode ?? b.assessmentTitle ?? '-'),
-                }))}
-                placeholder="Select Question Bank"
-                searchable
-              />
-            </div>
-          </div>
-
           {questions.length > 0 && (
-            <div className="px-4 pb-4 space-y-2">
+            <div className="space-y-2">
               <div className="border-b-2 border-amber-400 bg-white px-3 py-2 text-[16px] font-semibold text-slate-800">
                 List of <span className="text-blue-700">Questions</span>
               </div>
@@ -270,65 +256,28 @@ export default function QuestionBankPage() {
                   const courseQ = qu.courseQuestionDTO ?? qu
                   const isOpen = Boolean(expanded[id])
                   const isPicked = pickedQuestionId === id
-                  const options = Array.isArray(courseQ?.courseQuestionOptionDTOs)
-                    ? courseQ.courseQuestionOptionDTOs
-                    : []
+                  const options = Array.isArray(courseQ?.courseQuestionOptionDTOs) ? courseQ.courseQuestionOptionDTOs : []
                   return (
-                    <li
-                      key={`qb-${id}`}
-                      className={`rounded border ${isPicked ? 'border-blue-400 bg-blue-50/50' : 'border-border'}`}
-                    >
+                    <li key={`qb-${id}`} className={`rounded border ${isPicked ? 'border-blue-400 bg-blue-50/50' : 'border-border'}`}>
                       <div className="flex items-center gap-2 px-3 py-2">
-                        <input
-                          type="radio"
-                          name="qb-pick"
-                          checked={isPicked}
-                          onChange={() => setPickedQuestionId(id)}
-                          className="shrink-0"
-                        />
-                        <button
-                          type="button"
-                          className="flex-1 text-left flex items-start gap-2 min-w-0"
-                          onClick={() => setExpanded((s) => ({ ...s, [id]: !s[id] }))}
-                        >
-                          {isOpen ? (
-                            <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-                          ) : (
-                            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-                          )}
+                        <input type="radio" name="qb-pick" checked={isPicked} onChange={() => setPickedQuestionId(id)} className="shrink-0" />
+                        <button type="button" className="flex-1 text-left flex items-start gap-2 min-w-0" onClick={() => setExpanded((s) => ({ ...s, [id]: !s[id] }))}>
+                          {isOpen ? <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" /> : <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />}
                           <span className="flex-1 min-w-0">
-                            <span
-                              className="font-semibold text-[14px] text-slate-800"
-                              dangerouslySetInnerHTML={{
-                                __html: String(courseQ?.question ?? ''),
-                              }}
-                            />
-                            <span className="ml-2 font-semibold text-[12px] text-slate-600">
-                              ({courseQ?.marks ?? '-'} marks)
-                            </span>
+                            <span className="font-semibold text-[14px] text-slate-800" dangerouslySetInnerHTML={{ __html: String(courseQ?.question ?? '') }} />
+                            <span className="ml-2 font-semibold text-[12px] text-slate-600">({courseQ?.marks ?? '-'} marks)</span>
                           </span>
                         </button>
                       </div>
                       {isOpen ? (
                         <div className="border-t border-border bg-muted/20 px-3 py-2">
                           {options.length === 0 ? (
-                            <p className="text-[12px] text-muted-foreground">
-                              No options for this question.
-                            </p>
+                            <p className="text-[12px] text-muted-foreground">No options for this question.</p>
                           ) : (
                             <ul className="space-y-1 pl-6 list-disc text-[13px]">
                               {options.map((opt: AnyRow, i: number) => (
-                                <li
-                                  key={`opt-${id}-${i}`}
-                                  className={
-                                    opt.isCorrectAnswer
-                                      ? 'text-emerald-700 font-semibold'
-                                      : 'text-slate-700'
-                                  }
-                                >
-                                  <span
-                                    dangerouslySetInnerHTML={{ __html: String(opt.options ?? '') }}
-                                  />
+                                <li key={`opt-${id}-${i}`} className={opt.isCorrectAnswer ? 'text-emerald-700 font-semibold' : 'text-slate-700'}>
+                                  <span dangerouslySetInnerHTML={{ __html: String(opt.options ?? '') }} />
                                 </li>
                               ))}
                             </ul>
@@ -341,22 +290,13 @@ export default function QuestionBankPage() {
               </ul>
             </div>
           )}
+          <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
+            <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={navigateBack}>Back</Button>
+            <Button type="button" className="h-8 text-[12px]" onClick={openTypeModal} disabled={!pickedQuestionId}>Add</Button>
+          </div>
         </div>
-
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-muted/40">
-          <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={navigateBack}>
-            Back
-          </Button>
-          <Button
-            type="button"
-            className="h-8 text-[12px]"
-            onClick={openTypeModal}
-            disabled={!pickedQuestionId}
-          >
-            Add
-          </Button>
-        </div>
-      </div>
+      )}
+    >
 
       <Dialog
         open={typeModalOpen}
@@ -411,6 +351,6 @@ export default function QuestionBankPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredPage>
   )
 }

@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Filter, KeyRound, Send } from 'lucide-react'
+import { Send } from 'lucide-react'
 import { Select } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -54,7 +54,6 @@ function rowText(r: UserRow, ...keys: string[]): string {
 
 export default function SendLoginDetailsPage() {
   const { user } = useSessionContext()
-  const [filterOpen, setFilterOpen] = useState(true)
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [roleId, setRoleId] = useState<number | null>(null)
   const [users, setUsers] = useState<UserRow[]>([])
@@ -199,52 +198,37 @@ export default function SendLoginDetailsPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-2.5 border-b flex items-center justify-between gap-4">
-          <h1 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
-            <KeyRound className="h-4 w-4" />
-            Send Login Details
-          </h1>
-          <button
-            type="button"
-            className="text-sm text-foreground inline-flex items-center gap-1"
-            onClick={() => setFilterOpen((v) => !v)}
-          >
-            Filter
-            <Filter className="h-4 w-4" />
-          </button>
-        </div>
-        {filterOpen ? (
-          <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <Select
-              label="College *"
-              value={collegeId ? String(collegeId) : null}
-              onChange={(v) => setCollegeId(v ? Number(v) : null)}
-              options={collegeOptions}
-              searchable
-              isLoading={collegesLoading}
-              className="md:col-span-3"
-            />
-            <Select
-              label="Users (role) *"
-              value={roleId ? String(roleId) : null}
-              onChange={(v) => setRoleId(v ? Number(v) : null)}
-              options={roleOptions}
-              searchable
-              isLoading={rolesLoading}
-              placeholder="Select role"
-              className="md:col-span-3"
-            />
-            <div className="md:col-span-2">
-              <Button type="button" className="w-full md:w-auto" onClick={() => void loadUsers()} disabled={loadingList}>
-                {loadingList ? 'Loading…' : 'Get List'}
-              </Button>
-            </div>
+    <FilteredPage
+      title="Send Login Details"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <Select
+            label="College *"
+            value={collegeId ? String(collegeId) : null}
+            onChange={(v) => setCollegeId(v ? Number(v) : null)}
+            options={collegeOptions}
+            searchable
+            isLoading={collegesLoading}
+            className="md:col-span-3"
+          />
+          <Select
+            label="Users (role) *"
+            value={roleId ? String(roleId) : null}
+            onChange={(v) => setRoleId(v ? Number(v) : null)}
+            options={roleOptions}
+            searchable
+            isLoading={rolesLoading}
+            placeholder="Select role"
+            className="md:col-span-3"
+          />
+          <div className="md:col-span-2">
+            <Button type="button" className="w-full md:w-auto" onClick={() => void loadUsers()} disabled={loadingList}>
+              {loadingList ? 'Loading…' : 'Get List'}
+            </Button>
           </div>
-        ) : null}
-      </div>
-
+        </div>
+      )}
+    >
       {users.length > 0 ? (
         <div className="app-card p-4 space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -332,6 +316,6 @@ export default function SendLoginDetailsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredPage>
   )
 }

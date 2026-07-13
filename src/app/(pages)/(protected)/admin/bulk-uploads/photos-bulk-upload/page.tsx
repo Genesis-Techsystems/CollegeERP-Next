@@ -6,8 +6,7 @@ import { FileImage, ImageIcon, UploadIcon, X } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { FileDropzone } from '@/common/components/forms'
 import { Select } from '@/common/components/select'
-import { FilterCard } from '@/common/components/feedback'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { MINIO_URL } from '@/config/constants/api'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -172,10 +171,9 @@ export default function PhotosBulkUploadPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Photos Bulk Upload" subtitle="Admin / Bulk Uploads" />
-
-      <FilterCard title="Photos Bulk Upload">
+    <FilteredListPage
+      title="Photos Bulk Upload"
+      filters={(
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
             <div className="md:col-span-4">
@@ -237,29 +235,31 @@ export default function PhotosBulkUploadPage() {
             </div>
           </div>
         </div>
-      </FilterCard>
-
+      )}
+      rowData={uploadedRows}
+      columnDefs={UPLOADED_COLS}
+      pagination
+      toolbar={false}
+    >
       {uploadedRows.length > 0 && (
-        <div className="app-card p-3">
-          <div className="mb-2 border-b border-border pb-1.5 text-sm font-semibold text-[hsl(var(--primary))]">
-            Uploaded Files
-          </div>
-          <DataTable rowData={uploadedRows} columnDefs={UPLOADED_COLS} pagination toolbar={false} />
-          <div className="pt-2 flex justify-end">
-            <Button type="button" onClick={() => void onVerify()} disabled={uploadedRows.length === 0 || verifying || uploading}>
-              <ImageIcon className="h-4 w-4 mr-1.5" />
-              {verifying ? 'Verifying...' : 'Verify File'}
-            </Button>
-          </div>
+        <div className="pt-2 flex justify-end">
+          <Button type="button" onClick={() => void onVerify()} disabled={uploadedRows.length === 0 || verifying || uploading}>
+            <ImageIcon className="h-4 w-4 mr-1.5" />
+            {verifying ? 'Verifying...' : 'Verify File'}
+          </Button>
         </div>
       )}
-
       {verifiedRows.length > 0 && (
-        <div className="app-card p-3">
-          <div className="mb-2 text-sm font-semibold text-slate-700">Verified Files</div>
-          <DataTable rowData={verifiedRows} columnDefs={VERIFIED_COLS} pagination toolbar={false} />
-        </div>
+        <DataTable
+          title="Verified Files"
+          subtitle=""
+          bordered
+          rowData={verifiedRows}
+          columnDefs={VERIFIED_COLS}
+          pagination
+          toolbar={false}
+        />
       )}
-    </PageContainer>
+    </FilteredListPage>
   )
 }

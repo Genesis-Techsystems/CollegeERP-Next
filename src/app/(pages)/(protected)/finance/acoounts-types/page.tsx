@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon, PlusIcon } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { ListPage } from '@/components/layout'
+
 import { StatusBadge } from '@/common/components/data-display'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
@@ -77,11 +77,7 @@ export default function AccountTypesPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <DataTable
+    <ListPage
               title="Account Types"
               rowData={data}
               columnDefs={columnDefs}
@@ -94,16 +90,13 @@ export default function AccountTypesPage() {
                   Add Account Type
                 </Button>
               )}
-            />
-          </div>
-        </div>
-      </div>
+            >
       <AccountTypesModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditData(null) }}
         editData={editData}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

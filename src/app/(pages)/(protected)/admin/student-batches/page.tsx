@@ -3,11 +3,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon, PlusIcon } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useQuery } from '@tanstack/react-query'
 import { QK } from '@/lib/query-keys'
@@ -143,8 +142,9 @@ export default function StudentBatchesPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <GlobalFilterBar title="Student Batches" defaultOpen collapsible>
+    <FilteredListPage
+      title="Student Batches"
+      filters={(
         <GlobalFilterBarRow columns={3}>
           <GlobalFilterField label="College">
             <Select
@@ -157,39 +157,29 @@ export default function StudentBatchesPage() {
             />
           </GlobalFilterField>
         </GlobalFilterBarRow>
-      </GlobalFilterBar>
-
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Student Batches</h2>
-        </div>
-        <div className="px-3 pb-3 pt-2">
-          <DataTable
-            rowData={listQuery.data ?? []}
-            columnDefs={columnDefs}
-            loading={listQuery.isLoading || listQuery.isFetching}
-            pagination
-            toolbarTrailing={
-              <Button
-                size="sm"
-                onClick={() => {
-                  setRow(null)
-                  setOpen(true)
-                }}
-              >
-                <PlusIcon className="h-4 w-4 mr-1" />
-                Add Student Batch
-              </Button>
-            }
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search student batches…',
-              pdfDocumentTitle: 'Student batches',
-            }}
-          />
-        </div>
-      </div>
-
+      )}
+      rowData={listQuery.data ?? []}
+      columnDefs={columnDefs}
+      loading={listQuery.isLoading || listQuery.isFetching}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search student batches…',
+        pdfDocumentTitle: 'Student batches',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          onClick={() => {
+            setRow(null)
+            setOpen(true)
+          }}
+        >
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Student Batch
+        </Button>
+      )}
+    >
       <StudentBatchModal
         key={getCrudModalKey(row, open, 'studentbatchId')}
         open={open}
@@ -202,6 +192,6 @@ export default function StudentBatchesPage() {
         defaultUniversityId={selectedCollege?.universityId ?? null}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

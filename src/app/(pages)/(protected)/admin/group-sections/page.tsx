@@ -2,12 +2,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon, PlusIcon } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { Select } from '@/common/components/select'
 import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
-import { GlobalFilterBar } from '@/common/components/forms'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useQuery } from '@tanstack/react-query'
 import { QK } from '@/lib/query-keys'
@@ -251,10 +249,10 @@ export default function GroupSectionsPage() {
     courseYearId != null
 
   return (
-    <PageContainer className="space-y-4">
-      <h2 className="px-1 text-lg font-semibold tracking-tight text-foreground">Section</h2>
-      <GlobalFilterBar title="Section" defaultOpen={false} collapsible>
-        <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+    <FilteredListPage
+      title="Section"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <Select
             label="University *"
             value={universityId ? String(universityId) : null}
@@ -307,32 +305,19 @@ export default function GroupSectionsPage() {
             className="md:col-span-2"
           />
         </div>
-      </GlobalFilterBar>
-
-      {/* Table card (no extra "Sections" heading) */}
-      {canShowTable ? (
-        <div className="app-card overflow-hidden">
-          <div className="px-3 pb-3 pt-2">
-            <DataTable
-              // Prevent DataTable from inferring a title from breadcrumb/card and
-              // showing the default filter hint subtitle on this screen.
-              toolbarLeading={<span className="hidden" />}
-              subtitle="Click the filter icon next to each column header to filter that column."
-              rowData={data}
-              columnDefs={columnDefs}
-              loading={isLoading}
-              pagination
-              toolbarTrailing={
-                <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Add Section
-                </Button>
-              }
-              toolbar={{ search: true, searchPlaceholder: 'Search sections…', pdfDocumentTitle: 'Sections' }}
-            />
-          </div>
-        </div>
-      ) : null}
+      )}
+      rowData={canShowTable ? data : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search sections…', pdfDocumentTitle: 'Sections' }}
+      toolbarTrailing={(
+        <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Section
+        </Button>
+      )}
+    >
       <GroupSectionModal
         key={getCrudModalKey(row, open, 'groupSectionId')}
         open={open}
@@ -350,6 +335,6 @@ export default function GroupSectionsPage() {
         filtersData={filtersData as Record<string, unknown>[]}
         academicData={academicData as Record<string, unknown>[]}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

@@ -15,9 +15,11 @@
 //   Client-side component. Hides UI sections from users who lack a required
 //   role. Does NOT replace Layers 1 & 2 — it is UI-only, not a security boundary.
 //
+// Proxy configuration for Next.js 16+
+//
 import { NextRequest, NextResponse } from 'next/server'
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const sessionCookie = request.cookies.get(
     process.env.SESSION_COOKIE_NAME || 'college_erp_session',
   )

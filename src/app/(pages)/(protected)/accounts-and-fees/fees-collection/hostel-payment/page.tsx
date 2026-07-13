@@ -5,10 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { format, parseISO } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
-import { DataTable, TableCard } from '@/common/components/table'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { DATE_FORMATS } from '@/config/constants/app'
 import { QK } from '@/lib/query-keys'
@@ -167,11 +165,11 @@ export default function HostelPaymentPage() {
   const showAllocationTable = hostelNum > 0 && roomNum > 0
 
   return (
-    <PageContainer className="space-y-5">
-      <FilterCard title="Hostel Payment">
+    <FilteredListPage
+      title="Hostel Payment"
+      filters={(
         <div className="grid max-w-3xl grid-cols-1 gap-4 md:grid-cols-2">
           <Select
-            className={FILTER_CARD_SELECT_CLASS}
             label="Hostel"
             required
             value={hostelId}
@@ -185,7 +183,6 @@ export default function HostelPaymentPage() {
             isLoading={loadingHostels}
           />
           <Select
-            className={FILTER_CARD_SELECT_CLASS}
             label="Hostel Room"
             required
             value={roomId}
@@ -197,26 +194,13 @@ export default function HostelPaymentPage() {
             isLoading={loadingRooms}
           />
         </div>
-      </FilterCard>
-
-      {showAllocationTable ? (
-        <TableCard
-          headerLeft={
-            <span className="text-sm font-semibold text-[hsl(var(--card-title))]">
-              Room Allocation Details
-            </span>
-          }
-          withHeaderBorder
-        >
-          <DataTable
-            rowData={allocations}
-            columnDefs={columnDefs}
-            loading={loadingAllocations}
-            height="auto"
-            pagination
-          />
-        </TableCard>
-      ) : null}
-    </PageContainer>
+      )}
+      rowData={showAllocationTable ? allocations : []}
+      columnDefs={columnDefs}
+      loading={loadingAllocations}
+      height="auto"
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search allocations…' }}
+    />
   )
 }

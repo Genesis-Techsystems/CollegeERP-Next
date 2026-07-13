@@ -5,11 +5,10 @@ import { Eye } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { DataTable } from '@/common/components/table'
 import { Select } from '@/common/components/select'
-import { FilterCard } from '@/common/components/feedback'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { PageContainer, PageHeader } from '@/components/layout'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   getDigitalOnlineSyncFilters,
@@ -273,25 +272,29 @@ export default function StaffSubjectMappingPage() {
   }, [employees, employeeSearch])
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Staff Subject Mapping" />
-      <FilterCard title="Staff Subject Mapping">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
-          <Select label="College" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable />
-          <Select label="Course" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable disabled={!collegeId} />
-          <Select label="Course Group" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) }))} searchable disabled={!courseId} />
-          <Select label="Course Year" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable disabled={!courseGroupId} />
-          <Select label="Academic Year" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable disabled={!courseYearId} />
-          <Select label="Section" value={groupSectionId ? String(groupSectionId) : null} onChange={(v) => setGroupSectionId(v ? Number(v) : null)} options={sections.map((x) => ({ value: String(n(x.pk_group_section_id ?? x.groupSectionId)), label: s(x.section) }))} searchable disabled={!academicYearId} />
-        </div>
-      </FilterCard>
-
-      {rows.length > 0 && (
-        <div className="app-card mt-3 p-0 overflow-hidden">
-          <div className="px-4 py-2 text-[13px] text-blue-700 font-medium">{contextLine}</div>
-          <DataTable rowData={rows} columnDefs={columnDefs} loading={loading} toolbar={{ search: true, searchPlaceholder: 'Search' }} pagination paginationPageSize={10} />
-        </div>
-      )}
+    <>
+      <FilteredListPage
+        title="Staff Subject Mapping"
+        notice={rows.length > 0 ? (
+          <div className="px-1 text-[13px] text-blue-700 font-medium">{contextLine}</div>
+        ) : undefined}
+        filters={(
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
+            <Select label="College" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable />
+            <Select label="Course" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable disabled={!collegeId} />
+            <Select label="Course Group" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) }))} searchable disabled={!courseId} />
+            <Select label="Course Year" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable disabled={!courseGroupId} />
+            <Select label="Academic Year" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable disabled={!courseYearId} />
+            <Select label="Section" value={groupSectionId ? String(groupSectionId) : null} onChange={(v) => setGroupSectionId(v ? Number(v) : null)} options={sections.map((x) => ({ value: String(n(x.pk_group_section_id ?? x.groupSectionId)), label: s(x.section) }))} searchable disabled={!academicYearId} />
+          </div>
+        )}
+        rowData={rows}
+        columnDefs={columnDefs}
+        loading={loading}
+        toolbar={{ search: true, searchPlaceholder: 'Search' }}
+        pagination
+        paginationPageSize={10}
+      />
 
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-hidden p-0 flex flex-col">
@@ -359,7 +362,7 @@ export default function StaffSubjectMappingPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </>
   )
 }
 

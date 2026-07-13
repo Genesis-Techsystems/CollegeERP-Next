@@ -6,7 +6,6 @@ import { Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -14,8 +13,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { SearchInput } from '@/common/components/search'
+import { RichTextEditor } from '@/common/components/rich-text-editor'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   getQuestionPaperMarksById,
@@ -76,8 +76,9 @@ export default function ManageQuestionsPaperPage() {
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<AnyRow | null>(null)
   const [editQuestion, setEditQuestion] = useState('')
-  const [editIsActive, setEditIsActive] = useState(true)
+  const [editMarks, setEditMarks] = useState<string>('')
   const [editSaving, setEditSaving] = useState(false)
+  const [editLoading, setEditLoading] = useState(false)
 
   async function refresh() {
     if (!params.templateId) {
@@ -208,30 +209,51 @@ export default function ManageQuestionsPaperPage() {
       toastError('This row has no editable question yet.')
       return
     }
-    setEditing({ ...row, _resolvedMarksId: marksId })
-    setEditQuestion(String(row.question ?? ''))
-    setEditIsActive(row.is_active === false ? false : true)
-    // Try to enrich from the canonical record (Angular reads the full
-    // QuestionPaperMarks before opening the modal).
-    const full = await getQuestionPaperMarksById(marksId).catch(() => null)
-    if (full) {
+    // Angular: listDetailsById first, then open EditQuestionsComponent with that row.
+    setEditLoading(true)
+    try {
+      const full = await getQuestionPaperMarksById(marksId)
+      if (!full) {
+        toastError('Could not load question details.')
+        return
+      }
       setEditing({ ...row, ...full, _resolvedMarksId: marksId })
-      if (full.question != null) setEditQuestion(String(full.question))
-      if (full.isActive != null) setEditIsActive(Boolean(full.isActive))
+      setEditQuestion(String(full.question ?? ''))
+      const marks =
+        full.questionMarks ??
+        row.individual_question_marks ??
+        row.question_marks ??
+        ''
+      setEditMarks(marks === '' || marks == null ? '' : String(marks))
+    } catch (e: any) {
+      toastError(e?.message ?? 'Could not load question details.')
+    } finally {
+      setEditLoading(false)
     }
   }
 
-  async function saveEditedQuestion() {
+  async function persistEditedQuestion(next: {
+    question: string | null
+    isActive: boolean
+    questionMarks?: number | null
+  }) {
     if (!editing) return
     const marksId = Number(editing._resolvedMarksId ?? editing.questionPaperMarksId ?? 0)
     if (!marksId) return
     setEditSaving(true)
     try {
-      const trimmed = editQuestion.trim()
+      const marksRaw = editMarks.trim()
+      const questionMarks =
+        next.questionMarks !== undefined
+          ? next.questionMarks
+          : marksRaw === ''
+            ? editing.questionMarks ?? null
+            : Number(marksRaw)
       await updateQuestionPaperMarks(marksId, {
         ...editing,
-        question: trimmed === '' ? null : editQuestion,
-        isActive: editIsActive,
+        question: next.question,
+        isActive: next.isActive,
+        questionMarks,
         questionPaperMarksId: marksId,
       })
       toastSuccess('Question updated.')
@@ -244,21 +266,34 @@ export default function ManageQuestionsPaperPage() {
     }
   }
 
-  return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">
-            Manage Questions
-            {params.questionPaperTitle ? (
-              <span className="ml-2 text-[13px] font-medium text-blue-700">
-                (Question Paper: {params.questionPaperTitle})
-              </span>
-            ) : null}
-          </h2>
-        </div>
+  async function saveEditedQuestion() {
+    // Angular submit(): question from editor, questionMarks, isActive = true
+    const trimmed = editQuestion.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+    const emptyHtml =
+      !editQuestion ||
+      trimmed === '' ||
+      editQuestion === '<p></p>' ||
+      editQuestion === '<p><br></p>'
+    await persistEditedQuestion({
+      question: emptyHtml ? null : editQuestion,
+      isActive: true,
+    })
+  }
 
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+  async function deleteEditedQuestion() {
+    // Angular deleted(): clear question text, isActive = false, then update
+    await persistEditedQuestion({
+      question: null,
+      isActive: false,
+    })
+  }
+
+  return (
+    <FilteredPage
+      title={`Manage Questions${params.questionPaperTitle ? ` (${params.questionPaperTitle})` : ''}`}
+      filtersCollapsible={false}
+      filters={(
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <SearchInput value={search} onChange={setSearch} placeholder="Search" />
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={navigateBack}>
@@ -276,28 +311,40 @@ export default function ManageQuestionsPaperPage() {
             ) : null}
           </div>
         </div>
-
-        <div className="overflow-x-auto px-4 pb-4">
+      )}
+    >
+      <div className="app-card overflow-hidden p-0">
+        <div className="overflow-x-auto">
           <table className="w-full border-collapse text-[13px]">
             <thead>
-              <tr className="border-b border-border bg-muted/30 text-left">
-                <th className="w-12 px-2 py-2">SI.No</th>
-                <th className="w-24 px-2 py-2">QuestionNo</th>
-                <th className="px-2 py-2">Question</th>
-                <th className="w-20 px-2 py-2 text-center">Marks</th>
-                <th className="w-24 px-2 py-2 text-center">Actions</th>
+              <tr className="bg-[hsl(var(--primary)/0.06)] text-left">
+                <th className="border border-border px-3 py-2.5 w-14 text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
+                  SI.No
+                </th>
+                <th className="border border-border px-3 py-2.5 w-28 text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
+                  QuestionNo
+                </th>
+                <th className="border border-border px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
+                  Question
+                </th>
+                <th className="border border-border px-3 py-2.5 w-24 text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
+                  Marks
+                </th>
+                <th className="border border-border px-3 py-2.5 w-24 text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-2 py-6 text-center text-muted-foreground">
+                  <td colSpan={5} className="border border-border px-3 py-6 text-center text-muted-foreground">
                     Loading…
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-2 py-6 text-center text-muted-foreground">
+                  <td colSpan={5} className="border border-border px-3 py-6 text-center text-muted-foreground">
                     No questions found.
                   </td>
                 </tr>
@@ -309,10 +356,13 @@ export default function ManageQuestionsPaperPage() {
                   const questionEmpty = questionHtml.trim() === ''
                   const marksId = Number(r.pk_questionpaper_marks_id ?? r.questionPaperMarksId ?? 0)
                   return (
-                    <tr key={`mq-${r.pk_questionpaper_marks_id ?? r.questioncode ?? i}`} className="border-b border-border align-top">
-                      <td className="px-2 py-2">{i + 1}</td>
-                      <td className="px-2 py-2">{code || '-'}</td>
-                      <td className="px-2 py-2">
+                    <tr
+                      key={`mq-${r.pk_questionpaper_marks_id ?? r.questioncode ?? i}`}
+                      className="align-top hover:bg-muted/40"
+                    >
+                      <td className="border border-border px-3 py-2 font-medium">{i + 1}</td>
+                      <td className="border border-border px-3 py-2 font-medium">{code || '-'}</td>
+                      <td className="border border-border px-3 py-2 font-medium">
                         {!hasCode ? (
                           <p className="font-bold capitalize">{htmlToPlaintext(r.QuestionTitle)}</p>
                         ) : (
@@ -336,12 +386,12 @@ export default function ManageQuestionsPaperPage() {
                           </>
                         )}
                       </td>
-                      <td className="px-2 py-2 text-center">
+                      <td className="border border-border px-3 py-2 text-center font-medium">
                         {hasCode
                           ? (r.individual_question_marks ?? '-')
                           : (r.question_marks ?? '-')}
                       </td>
-                      <td className="px-2 py-2 text-center">
+                      <td className="border border-border px-3 py-2 text-center">
                         {hasCode && marksId > 0 ? (
                           <Button
                             type="button"
@@ -382,7 +432,7 @@ export default function ManageQuestionsPaperPage() {
       </div>
 
       <Dialog open={Boolean(editing)} onOpenChange={(v) => { if (!v) setEditing(null) }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[750px] gap-4">
           <DialogHeader>
             <DialogTitle className="text-[16px] text-[hsl(var(--primary))]">
               Edit Question
@@ -390,29 +440,40 @@ export default function ManageQuestionsPaperPage() {
           </DialogHeader>
           <div className="space-y-3 text-[13px]">
             <div>
-              <Label className="text-[12px]">Question</Label>
-              <textarea
-                className="min-h-[160px] w-full rounded-md border border-input bg-background px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-ring"
+              <Label className="mb-1.5 block text-[12px]">Question</Label>
+              <RichTextEditor
                 value={editQuestion}
-                onChange={(e) => setEditQuestion(e.target.value)}
-                placeholder="Enter question"
+                onChange={setEditQuestion}
+                placeholder="Enter Question"
+                minHeight={220}
               />
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                HTML allowed -- text rendered as innerHTML on the QP / Manage views.
-              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="edit-isactive"
-                checked={editIsActive}
-                onCheckedChange={(v) => setEditIsActive(v === true)}
+            <div className="max-w-[200px]">
+              <Label htmlFor="edit-marks" className="mb-1.5 block text-[12px]">
+                Marks
+              </Label>
+              <Input
+                id="edit-marks"
+                type="number"
+                min={0}
+                step="any"
+                className="h-9"
+                value={editMarks}
+                onChange={(e) => setEditMarks(e.target.value)}
+                placeholder="0"
               />
-              <Label htmlFor="edit-isactive" className="text-[12px]">Active</Label>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-2">
             <Button variant="outline" onClick={() => setEditing(null)} disabled={editSaving}>
               Close
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void deleteEditedQuestion()}
+              disabled={editSaving}
+            >
+              Delete
             </Button>
             <Button onClick={() => void saveEditedQuestion()} disabled={editSaving}>
               {editSaving ? 'Saving…' : 'Save'}
@@ -420,6 +481,14 @@ export default function ManageQuestionsPaperPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+
+      {editLoading ? (
+        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-black/10">
+          <div className="rounded-md bg-background px-4 py-2 text-[13px] shadow">
+            Loading question…
+          </div>
+        </div>
+      ) : null}
+    </FilteredPage>
   )
 }

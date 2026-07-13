@@ -4,9 +4,8 @@ import { useCallback, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
-import { BookMarked, PencilIcon, PlusIcon } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { PencilIcon, PlusIcon } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select, type SelectOption } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
@@ -213,17 +212,23 @@ export default function BudgetMidYearPage() {
 
   const resultsTitle = loadedContext
     ? `Budget Mid Year Estimation - ${loadedContext.collegeLabel}/${loadedContext.entityLabel}/${loadedContext.yearLabel}`
-    : ''
+    : 'Budget Mid Year Estimation'
+
+  const notice = (
+    <>
+      {cascade.isError ? (
+        <p className="text-sm text-destructive">{getErrorMessage(cascade.error)}</p>
+      ) : null}
+      {error ? <p className="text-sm text-destructive">{getErrorMessage(error)}</p> : null}
+    </>
+  )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center gap-2 border-b border-border pb-3">
-          <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
-          <h2 className="app-card-title">Budget Mid Year Estimation</h2>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-end gap-3">
+    <FilteredListPage
+      title="Budget Mid Year Estimation"
+      notice={notice}
+      filters={(
+        <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[180px] flex-1">
             <Select
               label="College"
@@ -266,43 +271,23 @@ export default function BudgetMidYearPage() {
             {isFetching ? 'Loading…' : 'Get List'}
           </Button>
         </div>
-      </div>
-
-      {cascade.isError ? (
-        <p className="text-sm text-destructive">{getErrorMessage(cascade.error)}</p>
-      ) : null}
-      {error ? <p className="text-sm text-destructive">{getErrorMessage(error)}</p> : null}
-
-      {loadedContext ? (
-        <>
-          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-border">
-            <h3 className="app-card-title">{resultsTitle}</h3>
-          </div>
-
-          <div className="app-card overflow-hidden">
-            <div className="p-2">
-              <DataTable
-                rowData={rows}
-                columnDefs={columnDefs}
-                loading={isFetching}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search…',
-                  pdfDocumentTitle: resultsTitle,
-                }}
-                toolbarTrailing={(
-                  <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
-                    <PlusIcon className="h-3.5 w-3.5 mr-1" />
-                    Add estimation
-                  </Button>
-                )}
-              />
-            </div>
-          </div>
-        </>
-      ) : null}
-
+      )}
+      rowData={loadedContext ? rows : []}
+      columnDefs={columnDefs}
+      loading={isFetching}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: resultsTitle,
+      }}
+      toolbarTrailing={loadedContext ? (
+        <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
+          <PlusIcon className="h-3.5 w-3.5 mr-1" />
+          Add estimation
+        </Button>
+      ) : undefined}
+    >
       <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) { setModalOpen(false); setEditing(null) } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -363,6 +348,6 @@ export default function BudgetMidYearPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredListPage>
   )
 }

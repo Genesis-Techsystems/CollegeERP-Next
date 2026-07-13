@@ -2,14 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { BookMarked, ChevronDown } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
+import { BookMarked } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
-import { DataTable, TableCard } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { FilterCard } from '@/common/components/feedback'
 import {
   getExamRevisionMarksBundle,
   getReevaluationMarksFilters,
@@ -86,7 +84,6 @@ export default function ReEvaluationMarksEntryPage() {
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(true)
 
   const [allFilters, setAllFilters] = useState<AnyRow[]>([])
   const [studentRows, setStudentRows] = useState<AnyRow[]>([])
@@ -382,174 +379,146 @@ export default function ReEvaluationMarksEntryPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Exam Revised Marks</h1>
-
-      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Exam Revised Marks</span>}>
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-2">
-            <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
-            <h2 className="text-[14px] font-semibold">Re-Evaluation Filters</h2>
+    <FilteredListPage
+      title="Exam revised marks"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div className="space-y-1 md:col-span-2">
+            <Label>College</Label>
+            <Select
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => setCollegeId(v ? Number(v) : null)}
+              options={colleges.map((r) => ({
+                value: String(numFrom(r, ['fk_college_id'])),
+                label: textFrom(r, ['college_code']),
+              }))}
+              searchable
+            />
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-[13px]"
-            onClick={() => setFiltersOpen((prev) => !prev)}
-            aria-expanded={filtersOpen}
-          >
-            Filters
-            <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-          </Button>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Exam Year</Label>
+            <Select
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+              options={academicYears.map((r) => ({
+                value: String(numFrom(r, ['fk_academic_year_id'])),
+                label: textFrom(r, ['academic_year']),
+              }))}
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Course</Label>
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : null)}
+              options={courses.map((r) => ({
+                value: String(numFrom(r, ['fk_course_id'])),
+                label: textFrom(r, ['course_code']),
+              }))}
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-6">
+            <Label>Exam</Label>
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(v ? Number(v) : null)}
+              options={exams.map((r) => ({
+                value: String(numFrom(r, ['fk_exam_id'])),
+                label: textFrom(r, ['exam_name']),
+              }))}
+              searchable
+            />
+          </div>
+
+          <div className="space-y-1 md:col-span-2">
+            <Label>Course Group</Label>
+            <Select
+              value={courseGroupId ? String(courseGroupId) : null}
+              onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+              options={courseGroups.map((r) => ({
+                value: String(numFrom(r, ['fk_course_group_id'])),
+                label: textFrom(r, ['group_code']),
+              }))}
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Course Year</Label>
+            <Select
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+              options={courseYears.map((r) => ({
+                value: String(numFrom(r, ['fk_course_year_id'])),
+                label: textFrom(r, ['course_year_name']),
+              }))}
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Subject Type</Label>
+            <Select
+              value={subjectTypeId ? String(subjectTypeId) : null}
+              onChange={(v) => setSubjectTypeId(v ? Number(v) : null)}
+              options={subjectTypes.map((r) => ({
+                value: String(numFrom(r, ['fk_subjecttype_catdet_id'])),
+                label: textFrom(r, ['subject_type']),
+              }))}
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-5">
+            <Label>Subject</Label>
+            <Select
+              value={examTimetableDetId ? String(examTimetableDetId) : null}
+              onChange={(v) => setExamTimetableDetId(v ? Number(v) : null)}
+              options={subjects.map((r) => {
+                const subject = textFrom(r, ['subject_name'])
+                const code = textFrom(r, ['subject_code'])
+                const regulation = textFrom(r, ['regulation_code'])
+                const examType = textFrom(r, ['ttd_exam_type'])
+                const labelParts = [subject]
+                if (code) labelParts.push(`- ${code}`)
+                if (regulation) labelParts.push(`(${regulation})`)
+                if (examType) labelParts.push(`(${examType})`)
+                return {
+                  value: String(numFrom(r, ['fk_exam_timetable_det_id'])),
+                  label: labelParts.join(' '),
+                }
+              })}
+              searchable
+            />
+          </div>
+          <div className="md:col-span-1">
+            <Button className="h-9 w-full" onClick={() => void getList()} disabled={loading}>
+              Get
+            </Button>
+          </div>
         </div>
-
-        {(
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="space-y-1 md:col-span-2">
-              <Label>College</Label>
-              <Select
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => setCollegeId(v ? Number(v) : null)}
-                options={colleges.map((r) => ({
-                  value: String(numFrom(r, ['fk_college_id'])),
-                  label: textFrom(r, ['college_code']),
-                }))}
-                searchable
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Exam Year</Label>
-              <Select
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-                options={academicYears.map((r) => ({
-                  value: String(numFrom(r, ['fk_academic_year_id'])),
-                  label: textFrom(r, ['academic_year']),
-                }))}
-                searchable
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course</Label>
-              <Select
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => setCourseId(v ? Number(v) : null)}
-                options={courses.map((r) => ({
-                  value: String(numFrom(r, ['fk_course_id'])),
-                  label: textFrom(r, ['course_code']),
-                }))}
-                searchable
-              />
-            </div>
-            <div className="space-y-1 md:col-span-6">
-              <Label>Exam</Label>
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => setExamId(v ? Number(v) : null)}
-                options={exams.map((r) => ({
-                  value: String(numFrom(r, ['fk_exam_id'])),
-                  label: textFrom(r, ['exam_name']),
-                }))}
-                searchable
-              />
-            </div>
-
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course Group</Label>
-              <Select
-                value={courseGroupId ? String(courseGroupId) : null}
-                onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
-                options={courseGroups.map((r) => ({
-                  value: String(numFrom(r, ['fk_course_group_id'])),
-                  label: textFrom(r, ['group_code']),
-                }))}
-                searchable
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course Year</Label>
-              <Select
-                value={courseYearId ? String(courseYearId) : null}
-                onChange={(v) => setCourseYearId(v ? Number(v) : null)}
-                options={courseYears.map((r) => ({
-                  value: String(numFrom(r, ['fk_course_year_id'])),
-                  label: textFrom(r, ['course_year_name']),
-                }))}
-                searchable
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Subject Type</Label>
-              <Select
-                value={subjectTypeId ? String(subjectTypeId) : null}
-                onChange={(v) => setSubjectTypeId(v ? Number(v) : null)}
-                options={subjectTypes.map((r) => ({
-                  value: String(numFrom(r, ['fk_subjecttype_catdet_id'])),
-                  label: textFrom(r, ['subject_type']),
-                }))}
-                searchable
-              />
-            </div>
-            <div className="space-y-1 md:col-span-5">
-              <Label>Subject</Label>
-              <Select
-                value={examTimetableDetId ? String(examTimetableDetId) : null}
-                onChange={(v) => setExamTimetableDetId(v ? Number(v) : null)}
-                options={subjects.map((r) => {
-                  const subject = textFrom(r, ['subject_name'])
-                  const code = textFrom(r, ['subject_code'])
-                  const regulation = textFrom(r, ['regulation_code'])
-                  const examType = textFrom(r, ['ttd_exam_type'])
-                  const labelParts = [subject]
-                  if (code) labelParts.push(`- ${code}`)
-                  if (regulation) labelParts.push(`(${regulation})`)
-                  if (examType) labelParts.push(`(${examType})`)
-                  return {
-                    value: String(numFrom(r, ['fk_exam_timetable_det_id'])),
-                    label: labelParts.join(' '),
-                  }
-                })}
-                searchable
-              />
-            </div>
-            <div className="md:col-span-1">
-              <Button className="h-9 w-full" onClick={() => void getList()} disabled={loading}>
-                Get
-              </Button>
-            </div>
-          </div>
-        )}
-      </FilterCard>
-
-      {studentRows.length > 0 && (
-        <TableCard withHeaderBorder={false}>
-          <DataTable<AnyRow>
-            rowData={studentRows}
-            columnDefs={columnDefs}
-            loading={loading}
-            getRowId={(p) => String(numFrom(p.data, ['pk_exam_revision_sub_id']))}
-            pagination
-            paginationPageSize={50}
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search…',
-              pdfDocumentTitle: 'Re-evaluation Marks Entry',
-              lockColumnIds: ['siNo', 'result'],
-            }}
-            toolbarLeading={
-              <div className="text-[12px] text-slate-600 whitespace-nowrap shrink-0">
-                Entered marks should be less than: <span className="font-semibold">{maxMarks || '-'}</span>
-              </div>
-            }
-            toolbarTrailing={
-              <Button size="sm" className="h-[30px] px-3 text-[12px]" onClick={() => void saveMarks()} disabled={saving || loading}>
-                Save
-              </Button>
-            }
-          />
-        </TableCard>
       )}
-    </PageContainer>
+      rowData={studentRows}
+      columnDefs={columnDefs}
+      loading={loading}
+      getRowId={(p) => String(numFrom(p.data, ['pk_exam_revision_sub_id']))}
+      pagination
+      paginationPageSize={50}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Re-evaluation Marks Entry',
+        lockColumnIds: ['siNo', 'result'],
+      }}
+      toolbarLeading={(
+        <div className="text-[12px] text-slate-600 whitespace-nowrap shrink-0">
+          Entered marks should be less than: <span className="font-semibold">{maxMarks || '-'}</span>
+        </div>
+      )}
+      toolbarTrailing={(
+        <Button size="sm" className="h-[30px] px-3 text-[12px]" onClick={() => void saveMarks()} disabled={saving || loading}>
+          Save
+        </Button>
+      )}
+    />
   )
 }

@@ -1,14 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, Filter, Send } from 'lucide-react'
+import { Send } from 'lucide-react'
 import { Select, MultiSelect } from '@/common/components/select'
 import { FormField } from '@/common/components/forms'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
@@ -71,7 +70,6 @@ function readPrincipalCollegeLock(): { locked: boolean; collegeId: number | null
 export default function DepartmentWiseEmailPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [filtersOpen, setFiltersOpen] = useState(true)
   const [mode, setMode] = useState<'1' | '2'>('1')
 
   const [colleges, setColleges] = useState<College[]>([])
@@ -390,127 +388,108 @@ export default function DepartmentWiseEmailPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card border-t-[3px] border-t-amber-300 p-0 overflow-hidden">
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
-          <h1 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
-            <FileText className="h-4 w-4 shrink-0" aria-hidden />
-            Send Email To Department Wise
-          </h1>
-          <button
-            type="button"
-            className="inline-flex shrink-0 items-center gap-1 text-sm text-foreground hover:text-foreground/80"
-            onClick={() => setFiltersOpen((prev) => !prev)}
-            aria-expanded={filtersOpen}
-            aria-controls="department-wise-email-filters"
+    <FilteredPage
+      title="Send Email To Department Wise"
+      filters={(
+        <div className="space-y-4">
+          <RadioGroup
+            value={mode}
+            onValueChange={(v) => switchMode(v as '1' | '2')}
+            className="flex flex-wrap gap-6"
           >
-            Filter
-            <Filter className="h-4 w-4" aria-hidden />
-          </button>
-        </div>
-        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
-          <CollapsibleContent id="department-wise-email-filters">
-            <div className="space-y-4 p-4 pt-3">
-              <RadioGroup
-                value={mode}
-                onValueChange={(v) => switchMode(v as '1' | '2')}
-                className="flex flex-wrap gap-6"
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="1" id="dw-mode-student" />
-                  <Label htmlFor="dw-mode-student" className="cursor-pointer text-sm font-normal">
-                    Student
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="2" id="dw-mode-employee" />
-                  <Label htmlFor="dw-mode-employee" className="cursor-pointer text-sm font-normal">
-                    Employee
-                  </Label>
-                </div>
-              </RadioGroup>
-
-              {mode === '1' ? (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 xl:items-end">
-                  <Select
-                    label="College *"
-                    value={collegeId ? String(collegeId) : null}
-                    onChange={(v) => setCollegeId(v ? Number(v) : null)}
-                    options={colleges.map((c) => ({ value: String(c.collegeId), label: c.collegeCode }))}
-                    searchable
-                    disabled={principalLock}
-                  />
-                  <Select
-                    label="Academic Year *"
-                    value={academicYearId ? String(academicYearId) : null}
-                    onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-                    options={academicYears.map((x) => ({
-                      value: String(n(x.academicYearId ?? x.academic_year_id ?? x.acdmYearId)),
-                      label: s(x.academicYear ?? x.academic_year ?? x.displayName ?? x.name),
-                    }))}
-                    searchable
-                    disabled={!collegeId}
-                  />
-                  <Select
-                    label="Course *"
-                    value={courseId ? String(courseId) : null}
-                    onChange={(v) => setCourseId(v ? Number(v) : null)}
-                    options={courses.map((x) => ({
-                      value: String(n(x.courseId ?? x.course_id)),
-                      label: s(x.courseCode ?? x.course_code ?? x.name),
-                    }))}
-                    searchable
-                    disabled={!academicYearId}
-                  />
-                  <Select
-                    label="Course Group *"
-                    value={courseGroupId ? String(courseGroupId) : null}
-                    onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
-                    options={courseGroups.map((x) => ({
-                      value: String(n(x.courseGroupId ?? x.course_group_id ?? x.fk_course_group_id)),
-                      label: s(x.groupCode ?? x.group_code ?? x.groupName ?? x.group_name),
-                    }))}
-                    searchable
-                    disabled={!courseId}
-                  />
-                  <MultiSelect
-                    label="Course Year *"
-                    value={courseYearIds}
-                    onChange={setCourseYearIds}
-                    options={courseYearOptions}
-                    searchable
-                    placeholder="Select course year(s)"
-                    disabled={!courseGroupId || courseYearOptions.length === 0}
-                  />
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
-                  <Select
-                    label="College *"
-                    value={collegeId ? String(collegeId) : null}
-                    onChange={(v) => setCollegeId(v ? Number(v) : null)}
-                    options={colleges.map((c) => ({ value: String(c.collegeId), label: c.collegeCode }))}
-                    searchable
-                    disabled={principalLock}
-                    className="md:col-span-6"
-                  />
-                  <MultiSelect
-                    label="Departments *"
-                    value={departmentIds}
-                    onChange={setDepartmentIds}
-                    options={departmentOptions}
-                    searchable
-                    placeholder="Select departments"
-                    disabled={!collegeId || departmentOptions.length === 0}
-                    className="md:col-span-6"
-                  />
-                </div>
-              )}
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="1" id="dw-mode-student" />
+              <Label htmlFor="dw-mode-student" className="cursor-pointer text-sm font-normal">
+                Student
+              </Label>
             </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="2" id="dw-mode-employee" />
+              <Label htmlFor="dw-mode-employee" className="cursor-pointer text-sm font-normal">
+                Employee
+              </Label>
+            </div>
+          </RadioGroup>
 
+          {mode === '1' ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 xl:items-end">
+              <Select
+                label="College *"
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                options={colleges.map((c) => ({ value: String(c.collegeId), label: c.collegeCode }))}
+                searchable
+                disabled={principalLock}
+              />
+              <Select
+                label="Academic Year *"
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+                options={academicYears.map((x) => ({
+                  value: String(n(x.academicYearId ?? x.academic_year_id ?? x.acdmYearId)),
+                  label: s(x.academicYear ?? x.academic_year ?? x.displayName ?? x.name),
+                }))}
+                searchable
+                disabled={!collegeId}
+              />
+              <Select
+                label="Course *"
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => setCourseId(v ? Number(v) : null)}
+                options={courses.map((x) => ({
+                  value: String(n(x.courseId ?? x.course_id)),
+                  label: s(x.courseCode ?? x.course_code ?? x.name),
+                }))}
+                searchable
+                disabled={!academicYearId}
+              />
+              <Select
+                label="Course Group *"
+                value={courseGroupId ? String(courseGroupId) : null}
+                onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+                options={courseGroups.map((x) => ({
+                  value: String(n(x.courseGroupId ?? x.course_group_id ?? x.fk_course_group_id)),
+                  label: s(x.groupCode ?? x.group_code ?? x.groupName ?? x.group_name),
+                }))}
+                searchable
+                disabled={!courseId}
+              />
+              <MultiSelect
+                label="Course Year *"
+                value={courseYearIds}
+                onChange={setCourseYearIds}
+                options={courseYearOptions}
+                searchable
+                placeholder="Select course year(s)"
+                disabled={!courseGroupId || courseYearOptions.length === 0}
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
+              <Select
+                label="College *"
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                options={colleges.map((c) => ({ value: String(c.collegeId), label: c.collegeCode }))}
+                searchable
+                disabled={principalLock}
+                className="md:col-span-6"
+              />
+              <MultiSelect
+                label="Departments *"
+                value={departmentIds}
+                onChange={setDepartmentIds}
+                options={departmentOptions}
+                searchable
+                placeholder="Select departments"
+                disabled={!collegeId || departmentOptions.length === 0}
+                className="md:col-span-6"
+              />
+            </div>
+          )}
+        </div>
+      )}
+    >
       {(canComposeStudent || canComposeEmployee) && (
         <div className="app-card p-0 overflow-hidden">
           <div className="border-b px-4 py-2.5">
@@ -573,6 +552,6 @@ export default function DepartmentWiseEmailPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredPage>
   )
 }

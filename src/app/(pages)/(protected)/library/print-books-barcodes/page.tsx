@@ -3,9 +3,9 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { RotateCcw, XIcon } from 'lucide-react'
-import { DataTable, TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { Select, type SelectOption } from '@/common/components/select'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -19,7 +19,6 @@ import {
   searchLibraryBooks,
 } from '@/services'
 import type { LibraryRow } from '@/services'
-import { LibraryScreenShell } from '../_components/LibraryScreenShell'
 import { LIB_COL } from '../_lib/library-columns'
 
 type SearchMode = 'title' | 'accession'
@@ -285,17 +284,89 @@ export default function PrintBooksBarcodesPage() {
     [removeFromQueue],
   )
 
+  const filters = (
+    <div className="space-y-4">
+      <RadioGroup
+        value={searchMode}
+        onValueChange={(v) => handleModeChange(v as SearchMode)}
+        className="flex flex-wrap gap-x-6 gap-y-2"
+      >
+        <div className="flex items-center gap-2">
+          <RadioGroupItem value="title" id="print-barcode-title" />
+          <Label htmlFor="print-barcode-title" className="text-[13px] font-normal">
+            Search By Book Title
+          </Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <RadioGroupItem value="accession" id="print-barcode-acc" />
+          <Label htmlFor="print-barcode-acc" className="text-[13px] font-normal">
+            Search By Accession Number
+          </Label>
+        </div>
+      </RadioGroup>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1 space-y-2">
+          <Label className="text-[13px]">
+            {searchMode === 'title' ? 'Search Book' : 'Search Accession Number'}
+          </Label>
+          <Select
+            value={selectedBookKey}
+            onChange={handleBookChange}
+            options={bookOptions}
+            placeholder={
+              searchMode === 'title' ? 'Search book title…' : 'Search accession no.…'
+            }
+            searchable
+            onSearch={(t) => void onBookSearch(t)}
+            isLoading={bookSearchLoading}
+            clearable
+            className="w-full"
+          />
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          disabled={adding || !selectedBook}
+          onClick={() => void handleAdd()}
+        >
+          Add
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-9 w-9 shrink-0 p-0"
+          aria-label="Reset"
+          onClick={handleReset}
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  )
+
   return (
-    <LibraryScreenShell
+    <FilteredListPage
       title="Print Books Barcodes"
-      action={
+      filters={filters}
+      rowData={printQueue}
+      columnDefs={columnDefs}
+      pagination
+      paginationPageSize={10}
+      height="auto"
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Filter queue…',
+        pdfDocumentTitle: 'Print Books Barcodes',
+      }}
+      toolbarTrailing={
         printQueue.length > 0 ? (
           <>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="h-8 px-3 text-[12px]"
               onClick={() => handlePrint(false)}
             >
               Print Stickers
@@ -303,7 +374,6 @@ export default function PrintBooksBarcodesPage() {
             <Button
               type="button"
               size="sm"
-              className="ml-2 h-8 px-3 text-[12px]"
               onClick={() => handlePrint(true)}
             >
               Print Spine Stickers
@@ -311,84 +381,6 @@ export default function PrintBooksBarcodesPage() {
           </>
         ) : undefined
       }
-    >
-      <div className="app-card space-y-4 p-4">
-        <RadioGroup
-          value={searchMode}
-          onValueChange={(v) => handleModeChange(v as SearchMode)}
-          className="flex flex-wrap gap-x-6 gap-y-2"
-        >
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="title" id="print-barcode-title" />
-            <Label htmlFor="print-barcode-title" className="text-[13px] font-normal">
-              Search By Book Title
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="accession" id="print-barcode-acc" />
-            <Label htmlFor="print-barcode-acc" className="text-[13px] font-normal">
-              Search By Accession Number
-            </Label>
-          </div>
-        </RadioGroup>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="min-w-0 flex-1 space-y-2">
-            <Label className="text-[13px]">
-              {searchMode === 'title' ? 'Search Book' : 'Search Accession Number'}
-            </Label>
-            <Select
-              value={selectedBookKey}
-              onChange={handleBookChange}
-              options={bookOptions}
-              placeholder={
-                searchMode === 'title' ? 'Search book title…' : 'Search accession no.…'
-              }
-              searchable
-              onSearch={(t) => void onBookSearch(t)}
-              isLoading={bookSearchLoading}
-              clearable
-              className="w-full"
-            />
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            className="h-9 px-4"
-            disabled={adding || !selectedBook}
-            onClick={() => void handleAdd()}
-          >
-            Add
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-9 w-9 shrink-0 p-0"
-            aria-label="Reset"
-            onClick={handleReset}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {printQueue.length > 0 ? (
-          <TableCard withHeaderBorder={false}>
-            <DataTable
-              rowData={printQueue}
-              columnDefs={columnDefs}
-              pagination
-              paginationPageSize={10}
-              height="auto"
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Filter queue…',
-                pdfDocumentTitle: 'Print Books Barcodes',
-              }}
-            />
-          </TableCard>
-        ) : null}
-      </div>
-    </LibraryScreenShell>
+    />
   )
 }

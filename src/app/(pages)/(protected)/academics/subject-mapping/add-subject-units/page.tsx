@@ -8,11 +8,11 @@ import { ChevronDown, Pencil } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { FormField } from '@/common/components/forms'
+import { FilteredListPage, ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { PageContainer, PageHeader } from '@/components/layout'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import {
@@ -477,49 +477,49 @@ export default function AddSubjectUnitsPage() {
 
   if (!resolveDone && !directSrId) {
     return (
-      <PageContainer>
-        <PageHeader title="Subjects Units" />
-        <div className="app-card p-6 text-sm text-muted-foreground">Resolving subject regulation…</div>
-      </PageContainer>
+      <ListPage
+        title="Subjects Units"
+        rowData={[]}
+        columnDefs={[]}
+        loading
+        toolbar={false}
+        pagination={false}
+      />
     )
   }
 
   if (resolveDone && !subjectRegulationId) {
     return (
-      <PageContainer>
-        <PageHeader title="Subjects Units" />
-        <div className="app-card p-6 text-sm text-muted-foreground">
-          <p className="mb-4">
-            No subject regulation could be resolved. Open this page from <strong>Subject Unit Topics</strong> via <strong>Assign Units</strong>,
-            or use <code className="text-xs">?subjectRegulationId=…</code> (or <code className="text-xs">?subjectId=…&amp;regulationId=…</code> with college / academic year / group / course year).
-          </p>
-          <Button variant="secondary" asChild>
-            <Link href="/academics/subject-unit-topics">Back to Subject Unit Topics</Link>
-          </Button>
-        </div>
-      </PageContainer>
+      <ListPage
+        title="Subjects Units"
+        rowData={[]}
+        columnDefs={[]}
+        toolbar={false}
+        pagination={false}
+        emptyState={(
+          <div className="rounded-lg border p-6 text-sm text-muted-foreground">
+            <p className="mb-4">
+              No subject regulation could be resolved. Open this page from <strong>Subject Unit Topics</strong> via <strong>Assign Units</strong>,
+              or use <code className="text-xs">?subjectRegulationId=…</code> (or <code className="text-xs">?subjectId=…&amp;regulationId=…</code> with college / academic year / group / course year).
+            </p>
+            <Button variant="secondary" asChild>
+              <Link href="/academics/subject-unit-topics">Back to Subject Unit Topics</Link>
+            </Button>
+          </div>
+        )}
+      />
     )
   }
 
   return (
-    <PageContainer>
-      <PageHeader title={titleSuffix ? `Subjects Units (${titleSuffix})` : 'Subjects Units'} />
-
-      <div className="app-card p-0 overflow-hidden">
-        <button
-          type="button"
-          className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left font-semibold text-primary border-b hover:bg-muted/40"
-          onClick={() => setFormOpen((o) => !o)}
-        >
-          <span>Add Subject Units</span>
-          <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', formOpen && 'rotate-180')} />
-        </button>
-
-        {formOpen && (
+    <>
+      <FilteredListPage
+        title={titleSuffix ? `Subjects Units (${titleSuffix})` : 'Subjects Units'}
+        filters={(
           <form
             id="add-subject-units-form"
             onSubmit={handleFormSubmit}
-            className="p-4 grid grid-cols-1 gap-x-4 gap-y-3 border-b bg-muted/20 md:grid-cols-12 md:items-end [&_label]:text-[11px]"
+            className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-12 md:items-end [&_label]:text-[11px]"
           >
             <div className="md:col-span-2">
               <FormField label="Unit Code" required htmlFor="unitCode">
@@ -565,30 +565,26 @@ export default function AddSubjectUnitsPage() {
             </div>
           </form>
         )}
+        filtersCollapsible={false}
+        rowData={rows}
+        columnDefs={columnDefs}
+        loading={loading}
+        toolbar={{ search: true, searchPlaceholder: 'Search units' }}
+        pagination
+        paginationPageSize={15}
+      />
 
-        <div className="p-2">
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loading}
-            toolbar={{ search: true, searchPlaceholder: 'Search units' }}
-            pagination
-            paginationPageSize={15}
-          />
-        </div>
-
-        <div className="px-4 py-3 border-t flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={() => router.back()}>
-            Back
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void performSave()}
-            disabled={saving || rows.every((r) => !r.__dirty)}
-          >
-            Save
-          </Button>
-        </div>
+      <div className="mt-3 flex justify-end gap-2">
+        <Button type="button" variant="secondary" onClick={() => router.back()}>
+          Back
+        </Button>
+        <Button
+          type="button"
+          onClick={() => void performSave()}
+          disabled={saving || rows.every((r) => !r.__dirty)}
+        >
+          Save
+        </Button>
       </div>
 
       <Dialog open={topicsModalOpen} onOpenChange={setTopicsModalOpen}>
@@ -674,6 +670,6 @@ export default function AddSubjectUnitsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </>
   )
 }

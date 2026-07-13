@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Select, type SelectOption } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
-import { ChevronDown, Filter } from 'lucide-react'
+import { FilteredListPage } from '@/components/layout'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   getAssignSubjectsEvaluatorRegulationSubjects,
@@ -16,7 +15,6 @@ import {
   getEvaluationExamFilters,
   saveAssignSubjectsEvaluator,
 } from '@/services/evaluation-process'
-import { PageContainer, PageHeader } from '@/components/layout'
 
 type AnyRow = Record<string, any>
 
@@ -65,7 +63,6 @@ function makeSelectRenderer(toggleOne: (index: number, checked: boolean) => void
 export default function AssignSubjectsEvaluatorPage() {
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
 
-  const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
 
@@ -334,146 +331,130 @@ export default function AssignSubjectsEvaluatorPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Assign Subjects Evaluator" subtitle="Assign evaluators to examination subjects" />
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Assign Subjects Evaluator</h2>
-          <Button type="button" variant="outline" size="sm" className="h-6 px-2.5 text-[12px]" onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen}>
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-        {(
-          <div className="p-3 space-y-2 text-[13px]">
+    <FilteredListPage
+      title="Assign Subjects Evaluator"
+      filters={(
+        <div className="space-y-2 text-[13px]">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+            <div className="md:col-span-2">
+              <Label className="text-[12px] text-muted-foreground">Course</Label>
+              <Select
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => setCourseId(v ? Number(v) : null)}
+                options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id'])), label: pickText(c, ['course_code', 'course_name']) } as SelectOption))}
+                placeholder="Course"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-[12px] text-muted-foreground">Academic Year</Label>
+              <Select
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+                options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id'])), label: pickText(a, ['academic_year']) } as SelectOption))}
+                placeholder="Academic Year"
+              />
+            </div>
+            <div className="md:col-span-4">
+              <Label className="text-[12px] text-muted-foreground">Exam</Label>
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => setExamId(v ? Number(v) : null)}
+                options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id'])), label: pickText(e, ['exam_name']) } as SelectOption))}
+                placeholder="Exam"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-[12px] text-muted-foreground">Regulation</Label>
+              <Select
+                value={regulationId ? String(regulationId) : null}
+                onChange={(v) => setRegulationId(v ? Number(v) : null)}
+                options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id'])), label: pickText(r, ['regulation_code']) } as SelectOption))}
+                placeholder="Regulation"
+              />
+            </div>
+            <div className="md:col-span-4">
+              <Label className="text-[12px] text-muted-foreground">Subjects</Label>
+              <Select
+                value={subjectId ? String(subjectId) : null}
+                onChange={(v) => setSubjectId(v ? Number(v) : null)}
+                options={subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id'])), label: `${pickText(s, ['subject_name'])} (${pickText(s, ['subject_code'])})` } as SelectOption))}
+                placeholder="Subject"
+              />
+            </div>
+            <div className="md:col-span-3">
+              <Label className="text-[12px] text-muted-foreground">Select Role</Label>
+              <Select
+                value={roleId ? String(roleId) : null}
+                onChange={(v) => setRoleId(v ? Number(v) : null)}
+                options={roleRows.map((r) => ({ value: String(pickNum(r, ['pk_role_id'])), label: pickText(r, ['role_name']) } as SelectOption))}
+                placeholder="Role"
+              />
+            </div>
+            <div className="md:col-span-2 flex items-center gap-2">
+              <Checkbox checked={isReEvaluation} onCheckedChange={(v) => setIsReEvaluation(v === true)} />
+              <span className="text-[12px]">Is Re-Evaluation</span>
+            </div>
+            <div className="md:col-span-1">
+              <Button className="h-8 px-3 text-[12px] w-full" onClick={onGetList} disabled={loading}>Get List</Button>
+            </div>
+          </div>
+
+          {showExtraFilters && (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">Course</Label>
+              <div className="md:col-span-3">
+                <Label className="text-[12px] text-muted-foreground">College</Label>
                 <Select
-                  value={courseId ? String(courseId) : null}
-                  onChange={(v) => setCourseId(v ? Number(v) : null)}
-                  options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id'])), label: pickText(c, ['course_code', 'course_name']) } as SelectOption))}
-                  placeholder="Course"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">Academic Year</Label>
-                <Select
-                  value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-                  options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id'])), label: pickText(a, ['academic_year']) } as SelectOption))}
-                  placeholder="Academic Year"
-                />
-              </div>
-              <div className="md:col-span-4">
-                <Label className="text-[12px] text-muted-foreground">Exam</Label>
-                <Select
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => setExamId(v ? Number(v) : null)}
-                  options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id'])), label: pickText(e, ['exam_name']) } as SelectOption))}
-                  placeholder="Exam"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">Regulation</Label>
-                <Select
-                  value={regulationId ? String(regulationId) : null}
-                  onChange={(v) => setRegulationId(v ? Number(v) : null)}
-                  options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id'])), label: pickText(r, ['regulation_code']) } as SelectOption))}
-                  placeholder="Regulation"
-                />
-              </div>
-              <div className="md:col-span-4">
-                <Label className="text-[12px] text-muted-foreground">Subjects</Label>
-                <Select
-                  value={subjectId ? String(subjectId) : null}
-                  onChange={(v) => setSubjectId(v ? Number(v) : null)}
-                  options={subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id'])), label: `${pickText(s, ['subject_name'])} (${pickText(s, ['subject_code'])})` } as SelectOption))}
-                  placeholder="Subject"
+                  value={collegeId ? String(collegeId) : null}
+                  onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                  options={colleges.map((c) => ({ value: String(pickNum(c, ['fk_college_id'])), label: pickText(c, ['college_code']) } as SelectOption))}
+                  placeholder="College"
                 />
               </div>
               <div className="md:col-span-3">
-                <Label className="text-[12px] text-muted-foreground">Select Role</Label>
+                <Label className="text-[12px] text-muted-foreground">Course Group</Label>
                 <Select
-                  value={roleId ? String(roleId) : null}
-                  onChange={(v) => setRoleId(v ? Number(v) : null)}
-                  options={roleRows.map((r) => ({ value: String(pickNum(r, ['pk_role_id'])), label: pickText(r, ['role_name']) } as SelectOption))}
-                  placeholder="Role"
+                  value={courseGroupId ? String(courseGroupId) : null}
+                  onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+                  options={courseGroups.map((g) => ({ value: String(pickNum(g, ['fk_course_group_id'])), label: pickText(g, ['group_code']) } as SelectOption))}
+                  placeholder="Course Group"
                 />
               </div>
-              <div className="md:col-span-2 flex items-center gap-2">
-                <Checkbox checked={isReEvaluation} onCheckedChange={(v) => setIsReEvaluation(v === true)} />
-                <span className="text-[12px]">Is Re-Evaluation</span>
-              </div>
-              <div className="md:col-span-1">
-                <Button className="h-8 px-3 text-[12px] w-full" onClick={onGetList} disabled={loading}>Get List</Button>
+              <div className="md:col-span-3">
+                <Label className="text-[12px] text-muted-foreground">Course Year</Label>
+                <Select
+                  value={courseYearId ? String(courseYearId) : null}
+                  onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+                  options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id'])), label: pickText(y, ['course_year_code']) } as SelectOption))}
+                  placeholder="Course Year"
+                />
               </div>
             </div>
-
-            {showExtraFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-                <div className="md:col-span-3">
-                  <Label className="text-[12px] text-muted-foreground">College</Label>
-                  <Select
-                    value={collegeId ? String(collegeId) : null}
-                    onChange={(v) => setCollegeId(v ? Number(v) : null)}
-                    options={colleges.map((c) => ({ value: String(pickNum(c, ['fk_college_id'])), label: pickText(c, ['college_code']) } as SelectOption))}
-                    placeholder="College"
-                  />
-                </div>
-                <div className="md:col-span-3">
-                  <Label className="text-[12px] text-muted-foreground">Course Group</Label>
-                  <Select
-                    value={courseGroupId ? String(courseGroupId) : null}
-                    onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
-                    options={courseGroups.map((g) => ({ value: String(pickNum(g, ['fk_course_group_id'])), label: pickText(g, ['group_code']) } as SelectOption))}
-                    placeholder="Course Group"
-                  />
-                </div>
-                <div className="md:col-span-3">
-                  <Label className="text-[12px] text-muted-foreground">Course Year</Label>
-                  <Select
-                    value={courseYearId ? String(courseYearId) : null}
-                    onChange={(v) => setCourseYearId(v ? Number(v) : null)}
-                    options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id'])), label: pickText(y, ['course_year_code']) } as SelectOption))}
-                    placeholder="Course Year"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {hasFetched && (
-        <div className="app-card overflow-hidden">
-          <div className="min-w-0 p-4">
-            <DataTable
-              rowData={rows}
-              columnDefs={cols}
-              pagination
-              loading={loading}
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search…',
-                pdfDocumentTitle: 'Assign Subjects Evaluator',
-              }}
-              toolbarTrailing={
-                <label className="inline-flex items-center gap-2 text-[12px] shrink-0">
-                  <input type="checkbox" checked={allSelected} onChange={(e) => toggleAll(e.target.checked)} />
-                  <span>All</span>
-                </label>
-              }
-            />
-          </div>
-          <div className="px-4 pb-4 flex justify-end">
-            <Button type="button" onClick={() => void onSave()} disabled={loading || rows.length === 0}>
-              Save
-            </Button>
-          </div>
+          )}
         </div>
       )}
-    </PageContainer>
+      rowData={hasFetched ? rows : []}
+      columnDefs={cols}
+      pagination
+      loading={loading}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Assign Subjects Evaluator',
+      }}
+      toolbarTrailing={(
+        <label className="inline-flex items-center gap-2 text-[12px] shrink-0">
+          <input type="checkbox" checked={allSelected} onChange={(e) => toggleAll(e.target.checked)} />
+          <span>All</span>
+        </label>
+      )}
+    >
+      {hasFetched && (
+        <div className="flex justify-end">
+          <Button type="button" onClick={() => void onSave()} disabled={loading || rows.length === 0}>
+            Save
+          </Button>
+        </div>
+      )}
+    </FilteredListPage>
   )
 }

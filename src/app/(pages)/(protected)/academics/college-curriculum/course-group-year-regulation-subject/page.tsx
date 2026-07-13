@@ -4,8 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
-import { PageContainer } from "@/components/layout";
-import { DataTable } from "@/common/components/table";
+import { FilteredListPage } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -391,152 +390,148 @@ export default function CourseGroupYearRegulationSubjectPage() {
   );
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="flex items-center justify-between rounded bg-[#edf0f3] px-2 p-1.5 text-[15px]">
-        <strong className="font-medium text-primary">
-          University Curriculum Regulation Subjects
-        </strong>
-        <div className="font-medium text-muted-foreground">
-          {context.universityName} / {context.courseName} / {context.groupName}{" "}
-          / {context.courseYearName} / {context.regulationName}
-        </div>
-      </div>
-
-      <div className="app-card overflow-hidden">
-        <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-4 py-3">
-          <h3 className="app-card-title">Add Regulation Subject</h3>
-          <button
-            type="button"
-            className="text-[12px] font-medium text-red-600 hover:underline"
-            onClick={() => setSubjectModalOpen(true)}
-          >
-            + New Subject
-          </button>
-        </div>
-
-        <div className="space-y-2 p-3">
-          <div className="grid grid-cols-8 items-end gap-2">
-            <div className="min-w-0">
-              <Select
-                label=""
-                value={form.subjectId ? String(form.subjectId) : null}
-                onChange={(v) => {
-                  const id = v ? Number(v) : null;
-                  const details = id ? hydrateSubjectFields(id) : {};
-                  setForm((prev) => ({
-                    ...prev,
-                    subjectId: id,
-                    credits: details.credits
-                      ? String(details.credits)
-                      : prev.credits,
-                  }));
-                }}
-                options={subjectOptions}
-                placeholder="Select subject"
-                searchable
-              />
+    <>
+      <FilteredListPage
+        title="University Curriculum Regulation Subjects"
+        notice={(
+          <div className="flex items-center justify-between rounded bg-[#edf0f3] px-2 p-1.5 text-[15px]">
+            <strong className="font-medium text-primary">
+              University Curriculum Regulation Subjects
+            </strong>
+            <div className="font-medium text-muted-foreground">
+              {context.universityName} / {context.courseName} / {context.groupName}{" "}
+              / {context.courseYearName} / {context.regulationName}
             </div>
-            <div className="min-w-0">
-              <Select
-                label=""
-                value={
-                  form.subjectCategoryCatDetId
-                    ? String(form.subjectCategoryCatDetId)
-                    : null
-                }
-                onChange={(v) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    subjectCategoryCatDetId: v ? Number(v) : null,
-                  }))
-                }
-                options={categoryOptions}
-                placeholder="Select category"
-                searchable
-              />
-            </div>
-            <Input
-              placeholder="Lectures"
-              type="number"
-              value={form.lectures}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, lectures: e.target.value }))
-              }
-            />
-            <Input
-              placeholder="Tutorials"
-              type="number"
-              value={form.tutorials}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, tutorials: e.target.value }))
-              }
-            />
-            <Input
-              placeholder="Practicals"
-              type="number"
-              value={form.practicals}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, practicals: e.target.value }))
-              }
-            />
-            <Input
-              placeholder="Internal Marks"
-              type="number"
-              value={form.internalmarks}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, internalmarks: e.target.value }))
-              }
-            />
-            <Input
-              placeholder="External Marks"
-              type="number"
-              value={form.externalmarks}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, externalmarks: e.target.value }))
-              }
-            />
-            <Input
-              placeholder="Credits"
-              type="number"
-              value={form.credits}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, credits: e.target.value }))
-              }
-            />
           </div>
-          <div className="mt-2 flex items-center justify-end gap-2">
-            <label className="inline-flex items-center gap-2 whitespace-nowrap text-[12px] font-medium">
-              <input
-                type="checkbox"
-                checked={form.isBridgeCourse}
+        )}
+        filters={(
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Add Regulation Subject</h3>
+              <button
+                type="button"
+                className="text-[12px] font-medium text-red-600 hover:underline"
+                onClick={() => setSubjectModalOpen(true)}
+              >
+                + New Subject
+              </button>
+            </div>
+            <div className="grid grid-cols-8 items-end gap-2">
+              <div className="min-w-0">
+                <Select
+                  label=""
+                  value={form.subjectId ? String(form.subjectId) : null}
+                  onChange={(v) => {
+                    const id = v ? Number(v) : null;
+                    const details = id ? hydrateSubjectFields(id) : {};
+                    setForm((prev) => ({
+                      ...prev,
+                      subjectId: id,
+                      credits: details.credits
+                        ? String(details.credits)
+                        : prev.credits,
+                    }));
+                  }}
+                  options={subjectOptions}
+                  placeholder="Select subject"
+                  searchable
+                />
+              </div>
+              <div className="min-w-0">
+                <Select
+                  label=""
+                  value={
+                    form.subjectCategoryCatDetId
+                      ? String(form.subjectCategoryCatDetId)
+                      : null
+                  }
+                  onChange={(v) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      subjectCategoryCatDetId: v ? Number(v) : null,
+                    }))
+                  }
+                  options={categoryOptions}
+                  placeholder="Select category"
+                  searchable
+                />
+              </div>
+              <Input
+                placeholder="Lectures"
+                type="number"
+                value={form.lectures}
                 onChange={(e) =>
-                  setForm((p) => ({ ...p, isBridgeCourse: e.target.checked }))
+                  setForm((p) => ({ ...p, lectures: e.target.value }))
                 }
               />
-              <span>Bridge Course</span>
-            </label>
-            <Button type="button" onClick={onAddOrUpdate}>
-              {editingId ? "Update" : "Add"}
-            </Button>
-            <Button type="button" variant="outline" onClick={clearForm}>
-              Clear
-            </Button>
+              <Input
+                placeholder="Tutorials"
+                type="number"
+                value={form.tutorials}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, tutorials: e.target.value }))
+                }
+              />
+              <Input
+                placeholder="Practicals"
+                type="number"
+                value={form.practicals}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, practicals: e.target.value }))
+                }
+              />
+              <Input
+                placeholder="Internal Marks"
+                type="number"
+                value={form.internalmarks}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, internalmarks: e.target.value }))
+                }
+              />
+              <Input
+                placeholder="External Marks"
+                type="number"
+                value={form.externalmarks}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, externalmarks: e.target.value }))
+                }
+              />
+              <Input
+                placeholder="Credits"
+                type="number"
+                value={form.credits}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, credits: e.target.value }))
+                }
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-end gap-2">
+              <label className="inline-flex items-center gap-2 whitespace-nowrap text-[12px] font-medium">
+                <input
+                  type="checkbox"
+                  checked={form.isBridgeCourse}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, isBridgeCourse: e.target.checked }))
+                  }
+                />
+                <span>Bridge Course</span>
+              </label>
+              <Button type="button" onClick={onAddOrUpdate}>
+                {editingId ? "Update" : "Add"}
+              </Button>
+              <Button type="button" variant="outline" onClick={clearForm}>
+                Clear
+              </Button>
+            </div>
           </div>
-        </div>
-      </div>
-
-      <div className="app-card overflow-hidden p-0">
-        <DataTable
-          title=""
-          subtitle=""
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={loading}
-          toolbar={{ search: true, searchPlaceholder: "Search subjects..." }}
-          pagination
-          paginationPageSize={10}
-        />
-      </div>
+        )}
+        rowData={rows}
+        columnDefs={columnDefs}
+        loading={loading}
+        toolbar={{ search: true, searchPlaceholder: "Search subjects..." }}
+        pagination
+        paginationPageSize={10}
+      />
 
       <div className="mt-3 flex justify-end gap-2">
         <Button
@@ -567,6 +562,6 @@ export default function CourseGroupYearRegulationSubjectPage() {
           }}
         />
       ) : null}
-    </PageContainer>
+    </>
   );
 }

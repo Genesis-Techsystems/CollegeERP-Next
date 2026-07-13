@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
-import { DataTable, TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import type { ColDef } from 'ag-grid-community'
 import { Pencil } from 'lucide-react'
@@ -284,10 +283,9 @@ export default function GradeRuleSettingsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Grade Rule Settings" subtitle="Report Processing" />
-
-      <div className="app-card p-3 space-y-3">
+    <FilteredListPage
+      title="Grade Rule Settings"
+      filters={(
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="space-y-1 md:col-span-3">
             <Label>College</Label>
@@ -320,23 +318,20 @@ export default function GradeRuleSettingsPage() {
               disabled={loadingFilters || !courseId}
             />
           </div>
-          <div className="md:col-span-3" />
         </div>
-      </div>
-
-      {Boolean(regulationId) && (
-      <TableCard
-        headerLeft={<SearchInput className="w-full max-w-sm" placeholder="Search…" value={q} onChange={setQ} />}
-        headerRight={
-          <Button size="sm" onClick={openAdd} disabled={!courseId || !regulationId}>
-            + Add Grade Rule
-          </Button>
-        }
-      >
-        <DataTable rowData={filteredRows} columnDefs={colDefs} loading={loadingList} pagination />
-      </TableCard>
       )}
-
+      rowData={regulationId ? filteredRows : []}
+      columnDefs={colDefs}
+      loading={loadingList}
+      pagination
+      toolbar={{ search: false }}
+      toolbarLeading={<SearchInput className="w-full max-w-sm" placeholder="Search…" value={q} onChange={setQ} />}
+      toolbarTrailing={(
+        <Button size="sm" onClick={openAdd} disabled={!courseId || !regulationId}>
+          + Add Grade Rule
+        </Button>
+      )}
+    >
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
@@ -368,7 +363,7 @@ export default function GradeRuleSettingsPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredListPage>
   )
 }
 

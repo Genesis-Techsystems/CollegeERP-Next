@@ -2,14 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Filter, List, Pencil } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
+import { List, Pencil } from 'lucide-react'
 import { StatusBadge } from '@/common/components/data-display'
 import { FormModal } from '@/common/components/feedback'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select } from '@/common/components/select'
-import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Input } from '@/components/ui/input'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { listAcademicBatchesOfStudent, listStudents, updateAcademicBatchRecord } from '@/services'
@@ -376,53 +374,33 @@ export default function AcademicBatchesPage() {
   }
 
   return (
-    <PageContainer>
-      <GlobalFilterBar
-        title={(
-          <span className="inline-flex items-center gap-2">
-            <List className="h-4 w-4" />
-            Academic Batches Of Student
-          </span>
+    <>
+      <FilteredListPage
+        title="Academic Batches Of Student"
+        filters={(
+          <Select
+            label="Student"
+            value={studentId ? String(studentId) : null}
+            onChange={(v) => setStudentId(v ? Number(v) : null)}
+            options={studentOptions}
+            placeholder="Student"
+            searchable
+            clearable
+            onSearch={(term) => { void onSearchStudents(term) }}
+            isLoading={loadingSearch}
+          />
         )}
-        defaultOpen={false}
-        collapsible
-      >
-        <GlobalFilterBarRow>
-          <GlobalFilterField label="Student">
-            <Select
-              value={studentId ? String(studentId) : null}
-              onChange={(v) => setStudentId(v ? Number(v) : null)}
-              options={studentOptions}
-              placeholder="Student"
-              searchable
-              clearable
-              onSearch={(term) => { void onSearchStudents(term) }}
-              isLoading={loadingSearch}
-            />
-          </GlobalFilterField>
-        </GlobalFilterBarRow>
-      </GlobalFilterBar>
-      {studentId ? (
-        <div className="app-card mt-4 overflow-hidden">
-          <div className="px-2.5 py-2 border-b text-sm font-semibold text-primary">
+        notice={studentId ? (
+          <div className="text-sm font-semibold text-primary">
             {s(selectedStudent?.collegeCode)} {s(selectedStudent?.academicYear ? `| ${selectedStudent.academicYear}` : '')} {s(selectedStudent?.courseCode ? `| ${selectedStudent.courseCode}` : '')} {s(selectedStudent?.groupCode ? `| ${selectedStudent.groupCode}` : '')} {s(selectedStudent?.courseYearName ? `| ${selectedStudent.courseYearName}` : '')} {s(selectedStudent?.section ? `| ${selectedStudent.section}` : '')}
           </div>
-          <div className="p-3">
-            <div className="mb-2 max-w-[320px]">
-              <Input value={tableSearch} onChange={(e) => setTableSearch(e.target.value)} placeholder="Search" className="h-8" />
-            </div>
-            <div className="rounded border overflow-hidden">
-              <DataTable
-                rowData={filteredHistoryRows}
-                columnDefs={historyColumnDefs}
-                loading={loadingHistory}
-                pagination
-                toolbar={false}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+        ) : undefined}
+        rowData={studentId ? studentHistoryRows : []}
+        columnDefs={historyColumnDefs}
+        loading={loadingHistory}
+        pagination
+        toolbar={{ search: true, searchPlaceholder: 'Search' }}
+      />
       <FormModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
@@ -471,6 +449,6 @@ export default function AcademicBatchesPage() {
           />
         </div>
       </FormModal>
-    </PageContainer>
+    </>
   )
 }

@@ -3,11 +3,9 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
@@ -15,7 +13,6 @@ import { toastError } from '@/lib/toast'
 import { listCollegeCertificatesByCollege, listFeeCertificateIssuesByCertificate } from '@/services'
 import type { FeeCertificateIssueRow } from '@/types/tc-no-due'
 import type { CollegeCertificate } from '@/types/college-certificate'
-import { TcPageTitle } from '../_components/TcPageTitle'
 import { useTcCollegeCascade } from '../_lib/use-tc-college-cascade'
 
 const COL_DEFS = {
@@ -99,14 +96,12 @@ export default function CertificatesIssuedListPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <TcPageTitle title="Certificates Issued" />
-
-      <FilterCard title="Filters">
+    <FilteredListPage
+      title="Certificates Issued"
+      filters={(
         <div className="grid gap-4 sm:grid-cols-2">
           <Select
             label="College"
-            className={FILTER_CARD_SELECT_CLASS}
             value={collegeId}
             onChange={(v) => {
               setCollegeId(v)
@@ -125,7 +120,6 @@ export default function CertificatesIssuedListPage() {
           />
           <Select
             label="Certificate type"
-            className={FILTER_CARD_SELECT_CLASS}
             value={certificateId}
             onChange={setCertificateId}
             options={certificates.map((c) => ({
@@ -136,11 +130,12 @@ export default function CertificatesIssuedListPage() {
             disabled={!collegeNum}
           />
         </div>
-      </FilterCard>
-
-      <TableCard headerLeft={<span className="text-sm font-semibold">Issued certificates</span>} withHeaderBorder={false}>
-        <DataTable columnDefs={columnDefs} rowData={issuedRows} loading={isLoading} height="auto" />
-      </TableCard>
-    </PageContainer>
+      )}
+      rowData={certNum > 0 ? issuedRows : []}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      height="auto"
+      toolbar={{ search: true, searchPlaceholder: 'Search issued certificates…' }}
+    />
   )
 }

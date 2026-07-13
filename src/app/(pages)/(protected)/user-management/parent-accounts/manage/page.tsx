@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Filter, Table } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
 import { getDigitalOnlineSyncFilters, listStudentsForParentAccountManage } from '@/services'
 
@@ -31,7 +31,6 @@ const uniq = (rows: AnyRow[], key: string) => {
 export default function ParentAccountsManagePage() {
   const [filtersData, setFiltersData] = useState<AnyRow[]>([])
   const [academicData, setAcademicData] = useState<AnyRow[]>([])
-  const [filterOpen, setFilterOpen] = useState(true)
 
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
@@ -101,36 +100,21 @@ export default function ParentAccountsManagePage() {
   }, [studentRows])
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden p-0">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-3">
-          <h2 className="app-card-title inline-flex items-center gap-2">
-            <Table className="h-4 w-4" />
-            Parent Account
-          </h2>
-          <button
-            type="button"
-            className="text-sm text-foreground inline-flex items-center gap-1.5 shrink-0"
-            onClick={() => setFilterOpen((v) => !v)}
-          >
-            Filter
-            <Filter className="h-4 w-4" />
-          </button>
-        </div>
-
-        {filterOpen ? (
-          <div className="p-3 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+    <FilteredPage
+      title="Parent Account"
+      filters={(
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="College">
             <Select
-              label="College"
               value={collegeId ? String(collegeId) : null}
               onChange={(v) => setCollegeId(v ? Number(v) : null)}
               options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))}
               searchable
               clearable
             />
+          </GlobalFilterField>
+          <GlobalFilterField label="Academic Year">
             <Select
-              label="Academic Year"
-              required
               value={academicYearId ? String(academicYearId) : null}
               onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
               options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))}
@@ -138,8 +122,9 @@ export default function ParentAccountsManagePage() {
               clearable
               disabled={!collegeId}
             />
+          </GlobalFilterField>
+          <GlobalFilterField label="Student">
             <Select
-              label="Student"
               value={studentId}
               onChange={setStudentId}
               options={studentOptions}
@@ -149,19 +134,19 @@ export default function ParentAccountsManagePage() {
               isLoading={studentsLoading}
               placeholder={!collegeId || !academicYearId ? 'Select college and year first' : 'Select student'}
             />
-          </div>
-        ) : null}
-
-        <div className="p-3 flex justify-end border-t border-slate-100">
-          <Button
-            type="button"
-            className="min-w-[120px] bg-amber-400 text-slate-900 hover:bg-amber-500 border-0 shadow-sm"
-            asChild
-          >
-            <Link href="/user-management/parent-accounts">Back</Link>
-          </Button>
-        </div>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      )}
+    >
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          className="min-w-[120px] bg-amber-400 text-slate-900 hover:bg-amber-500 border-0 shadow-sm"
+          asChild
+        >
+          <Link href="/user-management/parent-accounts">Back</Link>
+        </Button>
       </div>
-    </PageContainer>
+    </FilteredPage>
   )
 }

@@ -3,11 +3,10 @@
 import { useMemo, useState } from 'react'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
 import { EmptyState } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
 import { getErrorMessage } from '@/lib/errors'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -73,48 +72,39 @@ export default function TransportDetailsPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <div className="app-card overflow-hidden px-4 py-3">
-        <h1 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-          Transport Details
-        </h1>
-      </div>
-
-      <TableCard withHeaderBorder={false}>
-        {isError ? (
+    <ListPage
+      title="Transport Details"
+      rowData={isError ? [] : rows}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Transport Details',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
+          }}
+        >
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Transport Details
+        </Button>
+      )}
+      emptyState={
+        isError ? (
           <EmptyState
             title="Could not load transport details"
             description={getErrorMessage(error)}
             action={{ label: 'Retry', onClick: () => void refetch() }}
           />
-        ) : (
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loading}
-            pagination
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search…',
-              pdfDocumentTitle: 'Transport Details',
-            }}
-            toolbarTrailing={(
-              <Button
-                size="sm"
-                className="h-[30px] px-3 text-[12px]"
-                onClick={() => {
-                  setEditing(null)
-                  setModalOpen(true)
-                }}
-              >
-                <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-                Add Transport Details
-              </Button>
-            )}
-          />
-        )}
-      </TableCard>
-
+        ) : undefined
+      }
+    >
       <TransportDetailsModal
         open={modalOpen}
         onClose={() => {
@@ -124,6 +114,6 @@ export default function TransportDetailsPage() {
         row={editing}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

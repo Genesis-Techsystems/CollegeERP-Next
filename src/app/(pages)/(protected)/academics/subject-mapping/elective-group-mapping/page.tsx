@@ -1,16 +1,15 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Eye, Filter, Trash2 } from 'lucide-react'
+import { Eye, Trash2 } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable } from '@/common/components/table'
 import { Select } from '@/common/components/select'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PageContainer, PageHeader } from '@/components/layout'
 import { toastError, toastInfo, toastSuccess } from '@/lib/toast'
 import {
   createElectiveGroupMapping,
@@ -52,7 +51,6 @@ export default function ElectiveGroupMappingPage() {
   const [academicData, setAcademicData] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [filterOpen, setFilterOpen] = useState(true)
   const [addOpen, setAddOpen] = useState(false)
   const [tableEnabled, setTableEnabled] = useState(false)
 
@@ -368,18 +366,11 @@ export default function ElectiveGroupMappingPage() {
   ], [])
 
   return (
-    <PageContainer>
-      <PageHeader title="Elective Group Mapping" />
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center justify-between gap-4">
-          <h2 className="text-sm font-semibold text-primary">Elective Group Mapping</h2>
-          <button type="button" className="ml-auto inline-flex items-center gap-1 text-sm text-foreground" onClick={() => setFilterOpen((v) => !v)}>
-            <span>Filter</span>
-            <Filter className="h-4 w-4" />
-          </button>
-        </div>
-        {(
-          <div className="p-3 grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+    <>
+      <FilteredListPage
+        title="Elective Group Mapping"
+        filters={(
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
             <Select
               label="College *"
               value={collegeId ? String(collegeId) : null}
@@ -402,24 +393,18 @@ export default function ElectiveGroupMappingPage() {
             </div>
           </div>
         )}
-      </div>
-      {tableEnabled ? (
-        <div className="app-card mt-4 p-3">
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loading}
-            toolbar={{ search: true, searchPlaceholder: 'Search' }}
-            toolbarTrailing={(
-              <Button type="button" size="sm" className="h-[30px] bg-primary px-3 text-[12px] text-white hover:bg-[#123d79]" onClick={() => setAddOpen(true)}>
-                + Add Elective Group
-              </Button>
-            )}
-            pagination
-            paginationPageSize={10}
-          />
-        </div>
-      ) : null}
+        rowData={tableEnabled ? rows : []}
+        columnDefs={columnDefs}
+        loading={loading}
+        toolbar={{ search: true, searchPlaceholder: 'Search' }}
+        toolbarTrailing={(
+          <Button type="button" size="sm" className="h-[30px] bg-primary px-3 text-[12px] text-white hover:bg-[#123d79]" onClick={() => setAddOpen(true)}>
+            + Add Elective Group
+          </Button>
+        )}
+        pagination
+        paginationPageSize={10}
+      />
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -509,7 +494,7 @@ export default function ElectiveGroupMappingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </>
   )
 }
 

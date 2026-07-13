@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Select as CommonSelect } from '@/common/components/select'
-import { ConfirmDialog, FilterCard } from '@/common/components/feedback'
+import { ConfirmDialog } from '@/common/components/feedback'
 import {
   getCompleteExamProcessFilters,
   runCompleteExamFinalizeAction,
@@ -170,17 +170,22 @@ export default function CompleteExamProcessPage() {
   const selectedExamId = examId ?? 0
 
   return (
-    <PageContainer className="space-y-4">
-      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Complete Exam Process</h1>
-
-      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Complete Exam Process</span>}>
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={yearOptions} placeholder="Exam Year" searchable /></div>
-          <div className="space-y-1 md:col-span-6"><Label>Exam Master</Label><CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam Master" searchable /></div>
-        </div>
-      </FilterCard>
-
+    <FilteredPage
+      title="Complete Exam Process"
+      filters={(
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Course">
+            <CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" searchable />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Year">
+            <CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={yearOptions} placeholder="Exam Year" searchable />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Master">
+            <CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam Master" searchable />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      )}
+    >
       <div className="app-card p-3 space-y-3">
         <h3 className="text-[14px] font-semibold">Complete Exam Process</h3>
         <ActionCard title="Finalise Evaluator Profiles" subtitle="Finalise evaluator profiles by skipping committee." button="Finalise Evaluator Profiles" disabled={!examId || loading} onClick={() => confirmAction('Finalise Evaluator Profiles?', () => runCompleteExamFinalizeProfiles(), 'Evaluator profiles finalised')} />
@@ -220,7 +225,7 @@ export default function CompleteExamProcessPage() {
           void runAction(fn, success)
         }}
       />
-    </PageContainer>
+    </FilteredPage>
   )
 }
 

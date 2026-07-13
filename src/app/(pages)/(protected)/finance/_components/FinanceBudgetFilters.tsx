@@ -14,6 +14,8 @@ type FinanceBudgetFiltersProps = {
   loadLabel?: string
   showAccountType?: boolean
   children?: ReactNode
+  /** When true, omit the outer card wrapper (for FilteredListPage filters slot). */
+  bare?: boolean
 }
 
 function toSelectOptions(items: { value: number; label: string }[]): SelectOption[] {
@@ -27,9 +29,9 @@ export function FinanceBudgetFilters({
   loadLabel = 'Load',
   showAccountType,
   children,
+  bare,
 }: FinanceBudgetFiltersProps) {
-  return (
-    <div className="rounded-lg border bg-card p-4">
+  const content = (
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-[180px] flex-1">
           <Select
@@ -83,6 +85,13 @@ export function FinanceBudgetFilters({
           {loading ? 'Loading…' : loadLabel}
         </Button>
       </div>
+  )
+
+  if (bare) return content
+
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      {content}
     </div>
   )
 }

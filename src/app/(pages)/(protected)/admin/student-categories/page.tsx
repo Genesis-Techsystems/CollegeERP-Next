@@ -3,9 +3,8 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon, PlusIcon } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -51,29 +50,20 @@ export default function StudentCategoriesPage() {
   ], [])
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">
-            Student Categories
-          </h2>
-        </div>
-        <div className="px-3 pb-3 pt-2">
-          <DataTable
-            rowData={data}
-            columnDefs={columnDefs}
-            loading={isLoading}
-            pagination
-            toolbarTrailing={(
-              <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
-                <PlusIcon className="h-4 w-4 mr-1" />
-                Add Student Category
-              </Button>
-            )}
-            toolbar={{ search: true, searchPlaceholder: 'Search student categories…', pdfDocumentTitle: 'Student Categories' }}
-          />
-        </div>
-      </div>
+    <ListPage
+      title="Student Categories"
+      rowData={data}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search student categories…', pdfDocumentTitle: 'Student Categories' }}
+      toolbarTrailing={(
+        <Button size="sm" onClick={() => { setRow(null); setOpen(true) }}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Student Category
+        </Button>
+      )}
+    >
       <StudentCategoryModal
         key={getCrudModalKey(row, open, 'studentCatId')}
         open={open}
@@ -81,6 +71,6 @@ export default function StudentCategoriesPage() {
         row={row}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

@@ -9,8 +9,6 @@ import { StudentSearchSelect } from "@/common/components/student-search";
 import defaultStudent from "@/assets/images/avatars/default_Student.png";
 import { format, parseISO } from "date-fns";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { DataTable, TableCard } from "@/common/components/table";
-import { PageContainer, PageHeader } from "@/components/layout";
 import {
   getExamHalltickets,
   listExamMastersByCourse,
@@ -18,9 +16,10 @@ import {
   getUnivExamRestNoTt,
   listStudents,
 } from "@/services/pre-examination";
+import { FilteredListPage } from "@/components/layout";
 import { useSessionContext } from "@/context/SessionContext";
 import { useHallticketPrint } from "./_print/useHallticketPrint";
-import { ChevronDown, Filter, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 
 type AnyRow = Record<string, any>;
 
@@ -272,7 +271,6 @@ export default function ExamHallticketPage() {
   const [mode, setMode] = useState<"student" | "section">("student");
   const [loading, setLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
 
   const [students, setStudents] = useState<AnyRow[]>([]);
   const [studentId, setStudentId] = useState<number | null>(null);
@@ -582,33 +580,70 @@ export default function ExamHallticketPage() {
     void autoLoadStudentHallticket();
   }, [mode, studentId, studentExamId]);
 
+  const showTable =
+    hasFetched ||
+    (mode === "student"
+      ? studentDisplayRows.length > 0
+      : sectionTableRows.length > 0);
+
   // While the print dialog is open, replace the page with the hall-ticket
   // documents (AppShell @media print rules hide the app chrome).
   if (printMode) return <>{printView}</>;
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Hallticket</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
-            />
-          </Button>
-        </div>
-
-        <div className="p-3 space-y-2">
+    <FilteredListPage
+      title="Exam Hallticket"
+      notice={
+        mode === "student" && !!selectedStudent && !!studentExamId ? (
+          <div className="rounded border border-blue-200 bg-blue-50/40 p-3">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+              <div className="md:col-span-2 flex justify-center">
+                <img
+                  src={selectedStudent?.studentPhotoPath || defaultStudent.src}
+                  alt="Student"
+                  className="h-24 w-24 rounded object-cover border"
+                  onError={(e) => {
+                    e.currentTarget.src = defaultStudent.src;
+                  }}
+                />
+              </div>
+              <div className="md:col-span-7 text-[12px] leading-6">
+                <div className="font-semibold">
+                  {selectedStudent.firstName ?? selectedStudent.studentName ?? "-"}{" "}
+                  (
+                  <span className="text-blue-700">
+                    {selectedStudent.isLateral ? "LATERAL" : "REGULAR"}
+                  </span>
+                  )
+                </div>
+                <div className="text-muted-foreground">
+                  {selectedStudent.hallticketNumber ?? selectedStudent.rollNumber ?? "-"}
+                </div>
+                <div className="text-muted-foreground">
+                  {selectedStudent.collegeCode ?? "-"} / {selectedStudent.academicYear ?? "-"} /{" "}
+                  {selectedStudent.courseCode ?? "-"} / {selectedStudent.groupCode ?? "-"} /{" "}
+                  {selectedStudent.courseYearName ?? "-"} / Section {selectedStudent.section ?? "-"}
+                </div>
+                <div className="text-muted-foreground">{selectedStudent.mobile ?? "-"}</div>
+              </div>
+              <div className="md:col-span-3 text-[12px] leading-7">
+                <div>
+                  Quota :{" "}
+                  <span className="text-blue-700">{selectedStudent.quotaDisplayName ?? "-"}</span>
+                </div>
+                <div>
+                  Student Status :{" "}
+                  <span className="text-green-700 font-medium">
+                    {selectedStudent.studentStatusDisplayName ?? "-"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null
+      }
+      filters={(
+        <div className="space-y-2">
           <RadioGroup
             value={mode}
             onValueChange={(v) => {
@@ -618,7 +653,7 @@ export default function ExamHallticketPage() {
               setHasFetched(false);
               if (next === "section") initSectionFilters();
             }}
-            className="flex gap-6 p-3"
+            className="flex gap-6"
           >
             <div className="flex items-center gap-2">
               <RadioGroupItem value="student" id="by-student" />
@@ -631,94 +666,31 @@ export default function ExamHallticketPage() {
           </RadioGroup>
 
           {mode === "student" && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
-                <div className="md:col-span-4 space-y-1">
-                  <StudentSearchSelect
-                    label="Student"
-                    value={studentId}
-                    students={students}
-                    selectedStudent={selectedStudent}
-                    isLoading={studentSearchLoading}
-                    onSearch={(term) => void searchStudents(term)}
-                    onChange={(id, row) => void onStudentSelect(id, row)}
-                  />
-                </div>
-                <div className="md:col-span-7 space-y-1">
-                  <Label>Exam</Label>
-                  <Select
-                    value={studentExamId ? String(studentExamId) : null}
-                    onChange={(v) => setStudentExamId(v ? Number(v) : null)}
-                    options={studentExamOptions.map((e) => ({
-                      value: String(e.id),
-                      label: e.label,
-                    }))}
-                    placeholder="Exam"
-                  />
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+              <div className="md:col-span-4 space-y-1">
+                <StudentSearchSelect
+                  label="Student"
+                  value={studentId}
+                  students={students}
+                  selectedStudent={selectedStudent}
+                  isLoading={studentSearchLoading}
+                  onSearch={(term) => void searchStudents(term)}
+                  onChange={(id, row) => void onStudentSelect(id, row)}
+                />
               </div>
-              {!!selectedStudent && !!studentExamId && (
-                <div className="rounded border border-blue-200 bg-blue-50/40 p-3">
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
-                    <div className="md:col-span-2 flex justify-center">
-                      <img
-                        src={
-                          selectedStudent?.studentPhotoPath ||
-                          defaultStudent.src
-                        }
-                        alt="Student"
-                        className="h-24 w-24 rounded object-cover border"
-                        onError={(e) => {
-                          e.currentTarget.src = defaultStudent.src;
-                        }}
-                      />
-                    </div>
-                    <div className="md:col-span-7 text-[12px] leading-6">
-                      <div className="font-semibold">
-                        {selectedStudent.firstName ??
-                          selectedStudent.studentName ??
-                          "-"}{" "}
-                        (
-                        <span className="text-blue-700">
-                          {selectedStudent.isLateral ? "LATERAL" : "REGULAR"}
-                        </span>
-                        )
-                      </div>
-                      <div className="text-muted-foreground">
-                        {selectedStudent.hallticketNumber ??
-                          selectedStudent.rollNumber ??
-                          "-"}
-                      </div>
-                      <div className="text-muted-foreground">
-                        {selectedStudent.collegeCode ?? "-"} /{" "}
-                        {selectedStudent.academicYear ?? "-"} /{" "}
-                        {selectedStudent.courseCode ?? "-"} /{" "}
-                        {selectedStudent.groupCode ?? "-"} /{" "}
-                        {selectedStudent.courseYearName ?? "-"} / Section{" "}
-                        {selectedStudent.section ?? "-"}
-                      </div>
-                      <div className="text-muted-foreground">
-                        {selectedStudent.mobile ?? "-"}
-                      </div>
-                    </div>
-                    <div className="md:col-span-3 text-[12px] leading-7">
-                      <div>
-                        Quota :{" "}
-                        <span className="text-blue-700">
-                          {selectedStudent.quotaDisplayName ?? "-"}
-                        </span>
-                      </div>
-                      <div>
-                        Student Status :{" "}
-                        <span className="text-green-700 font-medium">
-                          {selectedStudent.studentStatusDisplayName ?? "-"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
+              <div className="md:col-span-7 space-y-1">
+                <Label>Exam</Label>
+                <Select
+                  value={studentExamId ? String(studentExamId) : null}
+                  onChange={(v) => setStudentExamId(v ? Number(v) : null)}
+                  options={studentExamOptions.map((e) => ({
+                    value: String(e.id),
+                    label: e.label,
+                  }))}
+                  placeholder="Exam"
+                />
+              </div>
+            </div>
           )}
 
           {mode === "section" && (
@@ -774,7 +746,6 @@ export default function ExamHallticketPage() {
                   placeholder="Exam Master"
                 />
               </div>
-
               <div className="md:col-span-2 space-y-1">
                 <Label>College</Label>
                 <Select
@@ -824,37 +795,26 @@ export default function ExamHallticketPage() {
             </div>
           )}
         </div>
-      </div>
-
-      {(hasFetched ||
-        (mode === "student"
-          ? studentDisplayRows.length > 0
-          : sectionTableRows.length > 0)) && (
-        <TableCard withHeaderBorder={false}>
-          <DataTable
-            rowData={mode === "student" ? studentDisplayRows : sectionTableRows}
-            columnDefs={
-              mode === "student"
-                ? STUDENT_HALLTICKET_COL_DEFS
-                : sectionColumnDefs
-            }
-            pagination
-            toolbar={{
-              pdfDocumentTitle: "Exam hallticket list",
-            }}
-            toolbarLeading={
-              <span className="text-[12px] text-muted-foreground whitespace-nowrap">
-                {mode === "student"
-                  ? `${studentDisplayRows.length} records`
-                  : `${sectionTableRows.length} students`}
-              </span>
-            }
-            toolbarTrailing={printButton(
-              mode === "student" ? "Print" : "Print All",
-            )}
-          />
-        </TableCard>
       )}
-    </PageContainer>
+      rowData={
+        showTable
+          ? mode === "student"
+            ? studentDisplayRows
+            : sectionTableRows
+          : []
+      }
+      columnDefs={mode === "student" ? STUDENT_HALLTICKET_COL_DEFS : sectionColumnDefs}
+      loading={loading}
+      pagination
+      toolbar={{ pdfDocumentTitle: "Exam hallticket list" }}
+      toolbarLeading={(
+        <span className="text-[12px] text-muted-foreground whitespace-nowrap">
+          {mode === "student"
+            ? `${studentDisplayRows.length} records`
+            : `${sectionTableRows.length} students`}
+        </span>
+      )}
+      toolbarTrailing={printButton(mode === "student" ? "Print" : "Print All")}
+    />
   );
 }

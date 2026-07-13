@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, PencilIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Select, type SelectOption } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { MINIO_URL } from '@/config/constants/api'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
@@ -453,60 +453,34 @@ export default function ChiefEvaluationPagesPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Chief Evaluation Pages" subtitle="Review evaluator marks and continue chief evaluation" />
-
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Chief Evaluation Pages</h2>
-        </div>
-        <div className="p-3">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-            <div className="md:col-span-2">
-              <Label className="text-[12px] text-muted-foreground">Course</Label>
-              <Select value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" />
-            </div>
-            <div className="md:col-span-2">
-              <Label className="text-[12px] text-muted-foreground">Academic Year</Label>
-              <Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={yearOptions} placeholder="Academic Year" />
-            </div>
-            <div className="md:col-span-4">
-              <Label className="text-[12px] text-muted-foreground">Exam</Label>
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => setExamId(v ? Number(v) : null)}
-                options={examOptions}
-                placeholder="Exam"
-                searchable
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label className="text-[12px] text-muted-foreground">Course Year</Label>
-              <Select value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" />
-            </div>
-            <div className="md:col-span-2">
-              <Label className="text-[12px] text-muted-foreground">Regulation</Label>
-              <Select value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" />
-            </div>
-            <div className="md:col-span-10">
-              <Label className="text-[12px] text-muted-foreground">Subject</Label>
-              <Select
-                value={subjectId ? String(subjectId) : null}
-                onChange={(v) => setSubjectId(v ? Number(v) : null)}
-                options={subjectOptions}
-                placeholder="Subject"
-                searchable
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Button className="h-8 px-3 text-[12px] w-full" onClick={() => void onGetList()} disabled={loading}>
-                Get List
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <FilteredPage
+      title="Chief Evaluation Pages"
+      filters={(
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Course">
+            <Select value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Academic Year">
+            <Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={yearOptions} placeholder="Academic Year" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam">
+            <Select value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam" searchable />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course Year">
+            <Select value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Regulation">
+            <Select value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" />
+          </GlobalFilterField>
+          <GlobalFilterField label="Subject">
+            <Select value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectOptions} placeholder="Subject" searchable />
+          </GlobalFilterField>
+          <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+            <Button className="h-[30px] px-3 text-[12px]" onClick={() => void onGetList()} disabled={loading}>Get List</Button>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      )}
+    >
       {hasFetched && (
         <div className="app-card overflow-hidden">
           <div className="p-4 border-b border-border bg-card flex flex-wrap items-center justify-between gap-3">
@@ -555,6 +529,6 @@ export default function ChiefEvaluationPagesPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredPage>
   )
 }

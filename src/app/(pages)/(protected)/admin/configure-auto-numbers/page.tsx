@@ -7,8 +7,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/common/components/select'
-import { FilterCard } from '@/common/components/feedback'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { APP_CONFIG } from '@/config/constants/app'
 import { QK } from '@/lib/query-keys'
 import {
@@ -81,37 +81,44 @@ export default function ConfigureAutoNumbersPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <FilterCard title="Auto Number Configuration">
-        <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-4">
-          <Select
-            label="Organization"
-            value={organizationId ? String(organizationId) : null}
-            onChange={(value) => {
-              const next = value ? Number(value) : undefined
-              setOrganizationId(next)
-              setCollegeId(undefined)
-              setRows([])
-            }}
-            options={orgOptions}
-            searchable
-          />
-          <Select
-            label="College"
-            value={collegeId ? String(collegeId) : null}
-            onChange={(value) => {
-              setCollegeId(value ? Number(value) : undefined)
-              setRows([])
-            }}
-            options={collegeOptions}
-            searchable
-            disabled={!organizationId}
-          />
-          <Button onClick={getList} disabled={!organizationId || !collegeId}>Get List</Button>
-          <Button variant="outline" onClick={() => setAttributeOpen(true)}>New Attribute</Button>
-        </div>
-      </FilterCard>
-
+    <FilteredPage
+      title="Auto Number Configuration"
+      filters={(
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Organization">
+            <Select
+              value={organizationId ? String(organizationId) : null}
+              onChange={(value) => {
+                const next = value ? Number(value) : undefined
+                setOrganizationId(next)
+                setCollegeId(undefined)
+                setRows([])
+              }}
+              options={orgOptions}
+              searchable
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="College">
+            <Select
+              value={collegeId ? String(collegeId) : null}
+              onChange={(value) => {
+                setCollegeId(value ? Number(value) : undefined)
+                setRows([])
+              }}
+              options={collegeOptions}
+              searchable
+              disabled={!organizationId}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+            <div className="flex gap-2">
+              <Button onClick={getList} disabled={!organizationId || !collegeId}>Get List</Button>
+              <Button variant="outline" onClick={() => setAttributeOpen(true)}>New Attribute</Button>
+            </div>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      )}
+    >
       {rows.length > 0 && (
         <div className="app-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between">
@@ -171,7 +178,7 @@ export default function ConfigureAutoNumbersPage() {
           if (organizationId && collegeId) await getList()
         }}
       />
-    </PageContainer>
+    </FilteredPage>
   )
 }
 

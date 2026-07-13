@@ -5,11 +5,9 @@ import { PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
 import { useCrudList } from '@/hooks/useCrudList'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
+import { FilteredListPage } from '@/components/layout'
 import { StatusBadge } from '@/common/components/data-display'
 import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useSessionContext } from '@/context/SessionContext'
 import { useLoginEmployeeId } from '@/hooks/useLoginEmployeeId'
@@ -202,30 +200,6 @@ export default function CollegeCounsellingPage() {
     [collegeId, courseId, batchId, courseGroupId],
   )
 
-  const filterSummary = useMemo(() => {
-    if (!listReady) return ''
-    const parts = [
-      universityOptions.find((o) => o.value === universityId)?.label,
-      collegeOptions.find((o) => o.value === collegeId)?.label,
-      courseOptions.find((o) => o.value === courseId)?.label,
-      batchOptions.find((o) => o.value === batchId)?.label,
-      courseGroupOptions.find((o) => o.value === courseGroupId)?.label,
-    ].filter(Boolean)
-    return parts.join(' / ')
-  }, [
-    listReady,
-    universityOptions,
-    universityId,
-    collegeOptions,
-    collegeId,
-    courseOptions,
-    courseId,
-    batchOptions,
-    batchId,
-    courseGroupOptions,
-    courseGroupId,
-  ])
-
   const {
     data: rows,
     isLoading,
@@ -298,8 +272,10 @@ export default function CollegeCounsellingPage() {
   }
 
   return (
-    <PageContainer className="space-y-5">
-      <FilterCard title="College Counselling">
+    <FilteredListPage
+      title="College Counselling"
+      className="college-counselling-table"
+      filters={(
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Select
             label="University"
@@ -359,57 +335,41 @@ export default function CollegeCounsellingPage() {
             disabled={!batchId}
           />
         </div>
-      </FilterCard>
-
-      {listReady && (
-        <>
-          {filterSummary && (
-            <div className="app-card overflow-hidden px-4 py-3">
-              <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-                College Counselling — {filterSummary}
-              </h2>
-            </div>
-          )}
-
-          <TableCard withHeaderBorder={false} className="college-counselling-table">
-            <DataTable
-              rowData={rows}
-              columnDefs={columnDefs}
-              loading={isLoading || filtersLoading}
-              pagination
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search counselling…',
-                pdfDocumentTitle: 'College Counselling',
-              }}
-              toolbarTrailing={(
-                <Button
-                  size="sm"
-                  className="h-[30px] px-3 text-[12px]"
-                  onClick={() => {
-                    setEditing(null)
-                    setModalOpen(true)
-                  }}
-                >
-                  <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-                  Add College Counselling
-                </Button>
-              )}
-            />
-          </TableCard>
-
-          <CollegeCounsellingModal
-            open={modalOpen}
-            onClose={() => {
-              setModalOpen(false)
-              setEditing(null)
-            }}
-            row={editing}
-            context={listContext}
-            onSaved={invalidateList}
-          />
-        </>
       )}
-    </PageContainer>
+      rowData={listReady ? rows : []}
+      columnDefs={columnDefs}
+      loading={isLoading || filtersLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search counselling…',
+        pdfDocumentTitle: 'College Counselling',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          disabled={!listReady}
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
+          }}
+        >
+          <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+          Add College Counselling
+        </Button>
+      )}
+    >
+      <CollegeCounsellingModal
+        open={modalOpen}
+        onClose={() => {
+          setModalOpen(false)
+          setEditing(null)
+        }}
+        row={editing}
+        context={listContext}
+        onSaved={invalidateList}
+      />
+    </FilteredListPage>
   )
 }

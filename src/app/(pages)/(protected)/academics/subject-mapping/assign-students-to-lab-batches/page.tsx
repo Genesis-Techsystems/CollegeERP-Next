@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Filter, FlaskConical, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -36,7 +36,6 @@ export default function AssignStudentsToLabBatchesPage() {
   const [filtersData, setFiltersData] = useState<AnyRow[]>([])
   const [academicData, setAcademicData] = useState<AnyRow[]>([])
   const [sections, setSections] = useState<AnyRow[]>([])
-  const [filterOpen, setFilterOpen] = useState(true)
   const [rows, setRows] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -254,32 +253,21 @@ export default function AssignStudentsToLabBatchesPage() {
   }
 
   return (
-    <PageContainer>
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-2.5 border-b flex items-center justify-between gap-4">
-          <h2 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
-            <FlaskConical className="h-4 w-4" />
-            Assign Students To Lab
-          </h2>
-          <button type="button" className="ml-auto inline-flex items-center gap-1 text-sm text-foreground" onClick={() => setFilterOpen((v) => !v)}>
-            <span>Filter</span>
-            <Filter className="h-4 w-4" />
-          </button>
+    <FilteredPage
+      title="Assign Students To Lab"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable className="md:col-span-2" />
+          <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable className="md:col-span-2" />
+          <Select label="Course Group *" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) || s(x.group_name) }))} searchable className="md:col-span-2" />
+          <Select label="Course Year *" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable className="md:col-span-2" />
+          <Select label="Academic Year *" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable className="md:col-span-2" />
+          <Select label="Section *" value={groupSectionId ? String(groupSectionId) : null} onChange={(v) => setGroupSectionId(v ? Number(v) : null)} options={batchOptions} searchable className="md:col-span-2" />
         </div>
-        {(
-          <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable className="md:col-span-2" />
-            <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable className="md:col-span-2" />
-            <Select label="Course Group *" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) || s(x.group_name) }))} searchable className="md:col-span-2" />
-            <Select label="Course Year *" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable className="md:col-span-2" />
-            <Select label="Academic Year *" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable className="md:col-span-2" />
-            <Select label="Section *" value={groupSectionId ? String(groupSectionId) : null} onChange={(v) => setGroupSectionId(v ? Number(v) : null)} options={batchOptions} searchable className="md:col-span-2" />
-          </div>
-        )}
-      </div>
-
+      )}
+    >
       {cardsEnabled ? (
-        <div className="app-card mt-4 p-3">
+        <div className="app-card p-3">
           <div className="mb-2.5 px-1 text-sm font-semibold text-primary">
             Students - {selectedCollege} / {selectedCourse} / {selectedGroup} / {selectedYear} ({selectedAcademic})
           </div>
@@ -326,7 +314,7 @@ export default function AssignStudentsToLabBatchesPage() {
           </div>
         </div>
       ) : null}
-    </PageContainer>
+    </FilteredPage>
   )
 }
 

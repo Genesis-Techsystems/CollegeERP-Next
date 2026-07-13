@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Filter } from "lucide-react";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
 import { toDateStr } from "@/common/generic-functions";
@@ -18,7 +16,8 @@ import {
   listExamTimetablesByExam,
   listInvigilatorDesignations,
 } from "@/services/pre-examination";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
+import { GlobalFilterBarRow, GlobalFilterField } from "@/common/components/forms";
 import {
   InvigilatorAllotmentModal,
   type InvigilatorModalContext,
@@ -87,7 +86,6 @@ function getExamTimetableParts(row: AnyRow): {
 }
 
 export default function InvigilatorAllotmentPage() {
-  const [filterOpen, setFilterOpen] = useState(true);
   const [colleges, setColleges] = useState<AnyRow[]>([]);
   const [academicYears, setAcademicYears] = useState<AnyRow[]>([]);
   const [courses, setCourses] = useState<AnyRow[]>([]);
@@ -466,135 +464,111 @@ export default function InvigilatorAllotmentPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Invigilation Allotment</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+    <FilteredPage
+      title="Invigilation Allotment"
+      filters={(
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="College">
+            <Select
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => setCollegeId(v ? Number(v) : 0)}
+              options={colleges.map((c, i) => {
+                const id = pickNum(c, [
+                  "collegeId",
+                  "fk_college_id",
+                  "fk_collegeId",
+                ]);
+                return {
+                  value: String(id || i),
+                  label:
+                    pickText(c, [
+                      "collegeCode",
+                      "college_code",
+                      "collegeName",
+                      "college_name",
+                    ]) || "-",
+                };
+              })}
+              placeholder="College"
             />
-          </Button>
-        </div>
-        {filterOpen && (
-          <div className="px-3 py-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-            <div className="space-y-1 md:col-span-2">
-              <Label>College</Label>
-              <Select
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => setCollegeId(v ? Number(v) : 0)}
-                options={colleges.map((c, i) => {
-                  const id = pickNum(c, [
-                    "collegeId",
-                    "fk_college_id",
-                    "fk_collegeId",
-                  ]);
-                  return {
-                    value: String(id || i),
-                    label:
-                      pickText(c, [
-                        "collegeCode",
-                        "college_code",
-                        "collegeName",
-                        "college_name",
-                      ]) || "-",
-                  };
-                })}
-                placeholder="College"
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Exam Year</Label>
-              <Select
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
-                options={academicYears.map((a, i) => {
-                  const id = pickNum(a, [
-                    "academicYearId",
-                    "fk_academic_year_id",
-                    "fk_academicYearId",
-                  ]);
-                  return {
-                    value: String(id || i),
-                    label:
-                      pickText(a, ["academicYear", "academic_year"]) || "-",
-                  };
-                })}
-                placeholder="Exam Year"
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course</Label>
-              <Select
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => setCourseId(v ? Number(v) : 0)}
-                options={courses.map((c, i) => {
-                  const id = pickNum(c, [
-                    "courseId",
-                    "fk_course_id",
-                    "fk_courseId",
-                  ]);
-                  return {
-                    value: String(id || i),
-                    label:
-                      pickText(c, [
-                        "courseCode",
-                        "course_code",
-                        "courseName",
-                        "course_name",
-                      ]) || "-",
-                  };
-                })}
-                placeholder="Course"
-              />
-            </div>
-            <div className="space-y-1 md:col-span-4">
-              <Label>Exam</Label>
-              <Select
-                value={examId ? String(examId) : null}
-                onChange={(v) => setExamId(v ? Number(v) : 0)}
-                options={exams.map((e, i) => {
-                  const id = pickNum(e, ["examId", "fk_exam_id", "fk_examId"]);
-                  return {
-                    value: String(id || i),
-                    label: pickText(e, ["examName", "exam_name"]) || "-",
-                  };
-                })}
-                placeholder="Exam"
-              />
-            </div>
-            <div className="space-y-1 md:col-span-4">
-              <Label>Exam Timetable</Label>
-              <Select
-                value={examTimetableId ? String(examTimetableId) : null}
-                onChange={(v) => setExamTimetableId(v ? Number(v) : 0)}
-                options={examTimetables.map((t, i) => {
-                  const id = pickNum(t, [
-                    "examTimetableId",
-                    "exam_timetable_id",
-                  ]);
-                  return {
-                    value: String(id || i),
-                    label: `${toDateStr(t.examDate)} (${pickText(t, ["examSessionName", "exam_session_name"]) || "-"})`,
-                  };
-                })}
-                placeholder="Exam Timetable"
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Year">
+            <Select
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
+              options={academicYears.map((a, i) => {
+                const id = pickNum(a, [
+                  "academicYearId",
+                  "fk_academic_year_id",
+                  "fk_academicYearId",
+                ]);
+                return {
+                  value: String(id || i),
+                  label:
+                    pickText(a, ["academicYear", "academic_year"]) || "-",
+                };
+              })}
+              placeholder="Exam Year"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course">
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : 0)}
+              options={courses.map((c, i) => {
+                const id = pickNum(c, [
+                  "courseId",
+                  "fk_course_id",
+                  "fk_courseId",
+                ]);
+                return {
+                  value: String(id || i),
+                  label:
+                    pickText(c, [
+                      "courseCode",
+                      "course_code",
+                      "courseName",
+                      "course_name",
+                    ]) || "-",
+                };
+              })}
+              placeholder="Course"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam">
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(v ? Number(v) : 0)}
+              options={exams.map((e, i) => {
+                const id = pickNum(e, ["examId", "fk_exam_id", "fk_examId"]);
+                return {
+                  value: String(id || i),
+                  label: pickText(e, ["examName", "exam_name"]) || "-",
+                };
+              })}
+              placeholder="Exam"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Timetable">
+            <Select
+              value={examTimetableId ? String(examTimetableId) : null}
+              onChange={(v) => setExamTimetableId(v ? Number(v) : 0)}
+              options={examTimetables.map((t, i) => {
+                const id = pickNum(t, [
+                  "examTimetableId",
+                  "exam_timetable_id",
+                ]);
+                return {
+                  value: String(id || i),
+                  label: `${toDateStr(t.examDate)} (${pickText(t, ["examSessionName", "exam_session_name"]) || "-"})`,
+                };
+              })}
+              placeholder="Exam Timetable"
+            />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      )}
+    >
       {examTimetableId && (
         <>
           <div className="app-card p-3 flex items-center justify-between">
@@ -725,6 +699,6 @@ export default function InvigilatorAllotmentPage() {
           />
         </>
       )}
-    </PageContainer>
+    </FilteredPage>
   );
 }

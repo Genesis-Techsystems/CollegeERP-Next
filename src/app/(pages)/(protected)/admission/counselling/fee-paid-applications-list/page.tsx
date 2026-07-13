@@ -3,12 +3,10 @@
 import { useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
+import { FilteredListPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PageContainer } from '@/components/layout'
 import { useSessionContext } from '@/context/SessionContext'
 import { useLoginEmployeeId } from '@/hooks/useLoginEmployeeId'
 import { QK } from '@/lib/query-keys'
@@ -117,27 +115,6 @@ export default function FeePaidApplicationsListPage() {
     enabled: listReady,
   })
 
-  const filterSummary = useMemo(() => {
-    if (!listReady) return ''
-    const parts = [
-      universityOptions.find((o) => o.value === universityId)?.label,
-      collegeOptions.find((o) => o.value === collegeId)?.label,
-      courseOptions.find((o) => o.value === courseId)?.label,
-      courseGroupOptions.find((o) => o.value === courseGroupId)?.label,
-    ].filter(Boolean)
-    return parts.join(' / ')
-  }, [
-    listReady,
-    universityOptions,
-    universityId,
-    collegeOptions,
-    collegeId,
-    courseOptions,
-    courseId,
-    courseGroupOptions,
-    courseGroupId,
-  ])
-
   const columnDefs = useMemo(() => Object.values(COL_DEFS), [])
 
   function resetBelowUniversity() {
@@ -156,8 +133,9 @@ export default function FeePaidApplicationsListPage() {
   }
 
   return (
-    <PageContainer className="space-y-5">
-      <FilterCard title="Fee Paid Applications">
+    <FilteredListPage
+      title="Fee Paid Applications"
+      filters={(
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Select
             label="University"
@@ -213,33 +191,16 @@ export default function FeePaidApplicationsListPage() {
             />
           </div>
         </div>
-      </FilterCard>
-
-      {listReady && (
-        <>
-          {filterSummary && (
-            <div className="app-card overflow-hidden px-4 py-3">
-              <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-                Fee Paid Applications — {filterSummary}
-              </h2>
-            </div>
-          )}
-
-          <TableCard withHeaderBorder={false}>
-            <DataTable
-              rowData={rows}
-              columnDefs={columnDefs}
-              loading={isLoading || filtersLoading}
-              pagination
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search fee paid applications…',
-                pdfDocumentTitle: 'Fee Paid Applications',
-              }}
-            />
-          </TableCard>
-        </>
       )}
-    </PageContainer>
+      rowData={listReady ? rows : []}
+      columnDefs={columnDefs}
+      loading={isLoading || filtersLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search fee paid applications…',
+        pdfDocumentTitle: 'Fee Paid Applications',
+      }}
+    />
   )
 }

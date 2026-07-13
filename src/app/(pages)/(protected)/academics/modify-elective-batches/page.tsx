@@ -2,11 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Filter, Users } from 'lucide-react'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select } from '@/common/components/select'
-import { DataTable } from '@/common/components/table'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -50,7 +48,6 @@ export default function ModifyElectiveBatchesPage() {
   const [academicData, setAcademicData] = useState<AnyRow[]>([])
   const [sections, setSections] = useState<AnyRow[]>([])
   const [electiveGroups, setElectiveGroups] = useState<AnyRow[]>([])
-  const [filterOpen, setFilterOpen] = useState(true)
   const [rows, setRows] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -265,88 +262,69 @@ export default function ModifyElectiveBatchesPage() {
   }
 
   return (
-    <PageContainer>
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-2.5 border-b flex items-center justify-between gap-4">
-          <h2 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Modify Elective Batches
-          </h2>
-          <button type="button" className="ml-auto inline-flex items-center gap-1 text-sm text-foreground" onClick={() => setFilterOpen((v) => !v)}>
-            <span>Filter</span>
-            <Filter className="h-4 w-4" />
-          </button>
+    <FilteredListPage
+      title="Modify Elective Batches"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable className="md:col-span-3" />
+          <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable className="md:col-span-3" />
+          <Select label="Course Group *" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) || s(x.group_name) }))} searchable className="md:col-span-3" />
+          <Select label="Course Year *" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable className="md:col-span-3" />
+          <Select label="Academic Year *" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable className="md:col-span-3" />
+          <Select label="Section *" value={groupSectionId ? String(groupSectionId) : null} onChange={(v) => setGroupSectionId(v ? Number(v) : null)} options={sectionOptions} searchable className="md:col-span-3" />
+          <Select label="Elective *" value={sourceElectiveId ? String(sourceElectiveId) : null} onChange={(v) => setSourceElectiveId(v ? Number(v) : null)} options={electiveOptions} searchable className="md:col-span-3" />
         </div>
-        {filterOpen ? (
-          <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable className="md:col-span-3" />
-            <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable className="md:col-span-3" />
-            <Select label="Course Group *" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) || s(x.group_name) }))} searchable className="md:col-span-3" />
-            <Select label="Course Year *" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable className="md:col-span-3" />
-            <Select label="Academic Year *" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable className="md:col-span-3" />
-            <Select label="Section *" value={groupSectionId ? String(groupSectionId) : null} onChange={(v) => setGroupSectionId(v ? Number(v) : null)} options={sectionOptions} searchable className="md:col-span-3" />
-            <Select label="Elective *" value={sourceElectiveId ? String(sourceElectiveId) : null} onChange={(v) => setSourceElectiveId(v ? Number(v) : null)} options={electiveOptions} searchable className="md:col-span-3" />
-          </div>
-        ) : null}
-      </div>
-
+      )}
+      notice={tableEnabled ? (
+        <div className="text-sm font-semibold text-primary">
+          Students - {electiveOptions.find((x) => n(x.value) === (sourceElectiveId ?? 0))?.label ?? '-'} / Section {sectionOptions.find((x) => n(x.value) === (groupSectionId ?? 0))?.label ?? '-'} ({s(academicYears.find((x) => n(x.fk_academic_year_id) === (academicYearId ?? 0))?.academic_year)})
+        </div>
+      ) : undefined}
+      rowData={tableEnabled ? filteredRows : []}
+      columnDefs={studentColumnDefs}
+      loading={loading}
+      pagination
+      toolbar={false}
+    >
       {tableEnabled ? (
-        <div className="app-card mt-4 overflow-hidden">
-          <div className="px-4 py-2 border-b text-sm font-semibold text-primary">
-            Students - {electiveOptions.find((x) => n(x.value) === (sourceElectiveId ?? 0))?.label ?? '-'} / Section {sectionOptions.find((x) => n(x.value) === (groupSectionId ?? 0))?.label ?? '-'} ({s(academicYears.find((x) => n(x.fk_academic_year_id) === (academicYearId ?? 0))?.academic_year)})
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 -mt-2">
+          <div className="md:col-span-8 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" className="h-8 max-w-[220px]" />
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={allFilteredSelected} onChange={(e) => toggleAllFiltered(e.target.checked)} />
+              Select All
+            </label>
+            <button type="button" onClick={() => setSelectedIds(new Set())}>
+              UnMark All
+            </button>
           </div>
-          <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div className="md:col-span-8">
-              <div className="mb-2 max-w-[220px]">
-                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" className="h-8" />
-              </div>
-              <div className="mb-2 flex items-center gap-3 text-xs text-muted-foreground">
-                <label className="inline-flex items-center gap-2">
-                  <input type="checkbox" checked={allFilteredSelected} onChange={(e) => toggleAllFiltered(e.target.checked)} />
-                  Select All
-                </label>
-                <button type="button" onClick={() => setSelectedIds(new Set())}>
-                  UnMark All
-                </button>
-              </div>
-              <div className="rounded border overflow-hidden">
-                <DataTable
-                  rowData={filteredRows}
-                  columnDefs={studentColumnDefs}
-                  loading={loading}
-                  pagination
-                  toolbar={false}
+          <div className="md:col-span-4">
+            <div className="rounded border overflow-hidden">
+              <div className="px-4 py-2 border-b bg-muted/40 text-sm font-semibold text-center">MODIFY ELECTIVE TO</div>
+              <div className="p-3 space-y-3">
+                <DatePicker
+                  label="To Date"
+                  value={toDate}
+                  onChange={setToDate}
+                  placeholder="Select date"
                 />
-              </div>
-            </div>
-            <div className="md:col-span-4">
-              <div className="rounded border overflow-hidden">
-                <div className="px-4 py-2 border-b bg-muted/40 text-sm font-semibold text-center">MODIFY ELECTIVE TO</div>
-                <div className="p-3 space-y-3">
-                  <DatePicker
-                    label="To Date"
-                    value={toDate}
-                    onChange={setToDate}
-                    placeholder="Select date"
-                  />
-                  <Select
-                    label="Modify Elective To *"
-                    value={targetElectiveId ? String(targetElectiveId) : null}
-                    onChange={(v) => setTargetElectiveId(v ? Number(v) : null)}
-                    options={electiveOptions}
-                    searchable
-                  />
-                  <div className="pt-1 flex justify-end">
-                    <Button type="button" className="h-8 px-5" onClick={() => { void onModify() }} disabled={saving || !targetElectiveId}>
-                      Modify
-                    </Button>
-                  </div>
+                <Select
+                  label="Modify Elective To *"
+                  value={targetElectiveId ? String(targetElectiveId) : null}
+                  onChange={(v) => setTargetElectiveId(v ? Number(v) : null)}
+                  options={electiveOptions}
+                  searchable
+                />
+                <div className="pt-1 flex justify-end">
+                  <Button type="button" className="h-8 px-5" onClick={() => { void onModify() }} disabled={saving || !targetElectiveId}>
+                    Modify
+                  </Button>
                 </div>
               </div>
             </div>
           </div>
         </div>
       ) : null}
-    </PageContainer>
+    </FilteredListPage>
   )
 }

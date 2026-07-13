@@ -1,11 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Filter, Mail, Send } from 'lucide-react'
+import { Send } from 'lucide-react'
 import { Select, MultiSelect } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
 import { FormField } from '@/common/components/forms'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -70,7 +70,6 @@ export default function StaffToStudentEmailPage() {
   const [filtersData, setFiltersData] = useState<AnyRow[]>([])
   const [academicData, setAcademicData] = useState<AnyRow[]>([])
   const [sections, setSections] = useState<AnyRow[]>([])
-  const [filterOpen, setFilterOpen] = useState(true)
   const [mode, setMode] = useState<'1' | '2'>('1')
 
   const [students, setStudents] = useState<StudentPickRow[]>([])
@@ -437,47 +436,33 @@ export default function StaffToStudentEmailPage() {
   const filtersReady = Boolean(collegeId && academicYearId && courseId && courseGroupId && courseYearId)
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-2.5 border-b flex items-center justify-between gap-4">
-          <h1 className="text-sm font-semibold text-primary inline-flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            Send Email To Students
-          </h1>
-          <button
-            type="button"
-            className="text-sm text-foreground inline-flex items-center gap-1"
-            onClick={() => setFilterOpen((v) => !v)}
-          >
-            Filter
-            <Filter className="h-4 w-4" />
-          </button>
-        </div>
-        {filterOpen ? (
-          <div className="p-3 space-y-4 border-b">
-            <div className="flex flex-wrap gap-6 text-sm">
-              <label className="inline-flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="email-mode"
-                  checked={mode === '1'}
-                  onChange={() => setMode('1')}
-                  className="accent-primary"
-                />
-                To students
-              </label>
-              <label className="inline-flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="email-mode"
-                  checked={mode === '2'}
-                  onChange={() => setMode('2')}
-                  className="accent-primary"
-                />
-                To section
-              </label>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+    <FilteredPage
+      title="Send Email To Students"
+      filters={(
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-6 text-sm">
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="email-mode"
+                checked={mode === '1'}
+                onChange={() => setMode('1')}
+                className="accent-primary"
+              />
+              To students
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="email-mode"
+                checked={mode === '2'}
+                onChange={() => setMode('2')}
+                className="accent-primary"
+              />
+              To section
+            </label>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
               <Select
                 label="College *"
                 value={collegeId ? String(collegeId) : null}
@@ -545,11 +530,10 @@ export default function StaffToStudentEmailPage() {
                   className="md:col-span-2"
                 />
               )}
-            </div>
           </div>
-        ) : null}
-      </div>
-
+        </div>
+      )}
+    >
       {filtersReady && (mode === '2' || (mode === '1' && groupSectionId)) ? (
         <div className="app-card p-4 space-y-4">
           {mode === '1' && groupSectionId ? (
@@ -710,6 +694,6 @@ export default function StaffToStudentEmailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredPage>
   )
 }

@@ -12,10 +12,8 @@ import {
   DownloadIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { SearchInput } from '@/common/components/search'
 import { StatusBadge } from '@/common/components/data-display'
 import { useCrudList } from '@/hooks/useCrudList'
 import { useSession } from '@/hooks/useSession'
@@ -116,7 +114,6 @@ export default function QuestionBankPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingBank, setEditingBank] = useState<Assessment | null>(null)
   const [drawerBank, setDrawerBank] = useState<Assessment | null>(null)
-  const [searchValue, setSearchValue] = useState('')
   const [importingId, setImportingId] = useState<number | null>(null)
 
   // Hidden file input for Excel import
@@ -131,15 +128,6 @@ export default function QuestionBankPage() {
     queryFn: () => listQuestionBanks(userId),
     enabled: user !== null,
   })
-
-  const filteredData = useMemo(() => {
-    if (!searchValue.trim()) return banks
-    const lower = searchValue.toLowerCase()
-    return banks.filter((row) =>
-      [row.assessmentName, row.assessmentDescription]
-        .some((v) => String(v ?? '').toLowerCase().includes(lower))
-    )
-  }, [searchValue, banks])
 
   const handleAddQuestion = (bank: Assessment) => {
     router.push(
@@ -205,38 +193,42 @@ export default function QuestionBankPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader
-        title="Question Bank"
-        subtitle="Manage question banks and their questions"
-        action={
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              asChild
-            >
-              <a href="/assets/docs/QuestionSheet_bulk_upload.xlsx" download>
-                <DownloadIcon className="h-4 w-4 mr-1" />
-                Template
-              </a>
-            </Button>
-            <Button size="sm" onClick={() => { setEditingBank(null); setModalOpen(true) }}>
-              <PlusIcon className="h-4 w-4 mr-1" />
-              Add Question Bank
-            </Button>
-          </div>
-        }
-      />
-
-      <SearchInput
-        className="w-full max-w-sm"
-        placeholder="Search question banks…"
-        value={searchValue}
-        onChange={setSearchValue}
-      />
-
-      {/* Hidden file input for Excel import */}
+    <ListPage
+      title="Question Bank"
+      rowData={banks}
+      columnDefs={columnDefs}
+      loading={loading || importingId !== null}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search question banks…',
+        pdfDocumentTitle: 'Question Bank',
+      }}
+      toolbarTrailing={(
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            asChild
+          >
+            <a href="/assets/docs/QuestionSheet_bulk_upload.xlsx" download>
+              <DownloadIcon className="h-4 w-4 mr-1" />
+              Template
+            </a>
+          </Button>
+          <Button size="sm" onClick={() => { setEditingBank(null); setModalOpen(true) }}>
+            <PlusIcon className="h-4 w-4 mr-1" />
+            Add Question Bank
+          </Button>
+        </div>
+      )}
+      emptyState={(
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-card py-16 text-muted-foreground">
+          <BookOpen className="h-10 w-10 mb-3 opacity-40" />
+          <p className="text-sm">No question banks found</p>
+        </div>
+      )}
+    >
       <input
         ref={fileInputRef}
         type="file"
@@ -244,22 +236,6 @@ export default function QuestionBankPage() {
         className="hidden"
         onChange={handleFileChange}
       />
-
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        {!loading && banks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <BookOpen className="h-10 w-10 mb-3 opacity-40" />
-            <p className="text-sm">No question banks found</p>
-          </div>
-        ) : (
-          <DataTable
-            rowData={filteredData}
-            columnDefs={columnDefs}
-            loading={loading || importingId !== null}
-            pagination
-          />
-        )}
-      </div>
 
       <QuestionBankModal
         open={modalOpen}
@@ -280,6 +256,6 @@ export default function QuestionBankPage() {
         onDeleted={invalidate}
         evaluatorProfileId={user?.employeeId ?? null}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

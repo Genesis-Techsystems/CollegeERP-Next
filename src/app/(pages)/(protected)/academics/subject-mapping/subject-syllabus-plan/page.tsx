@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Filter } from 'lucide-react'
 import { Select } from '@/common/components/select'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import {
   getDigitalOnlineSyncFilters,
   listSubjectSyllabusPlanReport,
@@ -67,7 +66,6 @@ export default function SubjectSyllabusPlanPage() {
   const [sections, setSections] = useState<AnyRow[]>([])
   const [subjects, setSubjects] = useState<AnyRow[]>([])
   const [syllabusRows, setSyllabusRows] = useState<AnyRow[]>([])
-  const [filterOpen, setFilterOpen] = useState(true)
 
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [courseId, setCourseId] = useState<number | null>(null)
@@ -196,47 +194,38 @@ export default function SubjectSyllabusPlanPage() {
   }, [subjectId, collegeId])
 
   return (
-    <PageContainer>
-      <PageHeader title="Subjects Syllabus Plan" />
-      <div className="app-card p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center justify-between gap-4">
-          <h2 className="text-sm font-semibold text-primary">Subjects Syllabus Plan</h2>
-          <button type="button" className="ml-auto inline-flex items-center gap-1 text-sm text-foreground" onClick={() => setFilterOpen((v) => !v)}>
-            <span>Filter</span>
-            <Filter className="h-4 w-4" />
-          </button>
-        </div>
-        {(
-          <div className="p-3 grid grid-cols-1 md:grid-cols-6 gap-3">
-            <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable />
-            <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable disabled={!collegeId} />
-            <Select label="Course Group *" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) }))} searchable disabled={!courseId} />
-            <Select label="Course Year *" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable disabled={!courseGroupId} />
-            <Select label="Academic Year *" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable disabled={!courseYearId} />
-            <Select label="Section *" value={groupSectionId ? String(groupSectionId) : null} onChange={(v) => setGroupSectionId(v ? Number(v) : null)} options={sections.map((x) => ({ value: String(sectionIdOf(x)), label: sectionLabelOf(x) }))} searchable disabled={!academicYearId} />
-
-            <div className="md:col-span-3">
-              <Select
-                label="Subject *"
-                value={subjectId ? String(subjectId) : null}
-                onChange={(v) => setSubjectId(v ? Number(v) : null)}
-                options={subjects.map((x) => ({
-                  value: String(subjectIdOf(x)),
-                  label: subjectLabelOf(x),
-                }))}
-                searchable
-                disabled={!groupSectionId}
-              />
-            </div>
-            {!!subjectId && (
-              <div className="md:col-span-6 text-xs text-muted-foreground">
-                Loaded syllabus records: {syllabusRows.length}
-              </div>
-            )}
+    <FilteredPage
+      title="Subjects Syllabus Plan"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+          <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable />
+          <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable disabled={!collegeId} />
+          <Select label="Course Group *" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) }))} searchable disabled={!courseId} />
+          <Select label="Course Year *" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable disabled={!courseGroupId} />
+          <Select label="Academic Year *" value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYears.map((x) => ({ value: String(n(x.fk_academic_year_id)), label: s(x.academic_year) }))} searchable disabled={!courseYearId} />
+          <Select label="Section *" value={groupSectionId ? String(groupSectionId) : null} onChange={(v) => setGroupSectionId(v ? Number(v) : null)} options={sections.map((x) => ({ value: String(sectionIdOf(x)), label: sectionLabelOf(x) }))} searchable disabled={!academicYearId} />
+          <div className="md:col-span-3">
+            <Select
+              label="Subject *"
+              value={subjectId ? String(subjectId) : null}
+              onChange={(v) => setSubjectId(v ? Number(v) : null)}
+              options={subjects.map((x) => ({
+                value: String(subjectIdOf(x)),
+                label: subjectLabelOf(x),
+              }))}
+              searchable
+              disabled={!groupSectionId}
+            />
           </div>
-        )}
-      </div>
-    </PageContainer>
+        </div>
+      )}
+    >
+      {!!subjectId && (
+        <div className="app-card px-4 py-3 text-xs text-muted-foreground">
+          Loaded syllabus records: {syllabusRows.length}
+        </div>
+      )}
+    </FilteredPage>
   )
 }
 

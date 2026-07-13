@@ -3,8 +3,8 @@
 import { useState, useMemo } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Eye, PencilIcon, PlusIcon } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { ListPage } from '@/components/layout'
+
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -96,14 +96,8 @@ export default function NewComplaintsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">My Complaints</h2>
-        </div>
-        <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <DataTable
+    <ListPage
+      title="My Complaints"
               rowData={issues}
               columnDefs={columnDefs}
               loading={isLoading || sessionLoading}
@@ -122,11 +116,7 @@ export default function NewComplaintsPage() {
                   New Complaint
                 </Button>
               }
-            />
-          </div>
-        </div>
-      </div>
-
+            >
       <NewComplaintModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditData(null) }}
@@ -135,6 +125,6 @@ export default function NewComplaintsPage() {
         raisedEmpId={employeeId}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

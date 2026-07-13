@@ -4,11 +4,10 @@ import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { BookOpen, PencilIcon, PlusIcon } from 'lucide-react'
 import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
-import { DataTable } from '@/common/components/table'
-import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
-import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
-import { PageContainer } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { Select } from '@/common/components/select'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useSession } from '@/hooks/useSession'
 import { useCrudList } from '@/hooks/useCrudList'
@@ -161,9 +160,9 @@ export default function CollegeCoursesGroupsPage() {
   ], [])
 
   return (
-    <PageContainer className="space-y-4">
-      <h2 className="px-1 text-lg font-semibold tracking-tight text-foreground">College Courses & Groups</h2>
-      <GlobalFilterBar title="College Courses & Groups">
+    <FilteredListPage
+      title="College Courses & Groups"
+      filters={(
         <GlobalFilterBarRow>
           <GlobalFilterField label="University">
             <Select
@@ -219,43 +218,19 @@ export default function CollegeCoursesGroupsPage() {
             </Button>
           </GlobalFilterField>
         </GlobalFilterBarRow>
-      </GlobalFilterBar>
-
-      {showList && (
-        <div className="app-card overflow-hidden">
-          <div className="px-3 pb-3 pt-2">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              {rows.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <BookOpen className="h-10 w-10 mb-2 opacity-40" />
-                  <p className="text-sm">No records found</p>
-                  <Button size="sm" className="mt-4" onClick={() => setModalOpen(true)}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Course / Groups
-                  </Button>
-                </div>
-              ) : (
-                <DataTable
-                  // Prevent DataTable from inferring a title and rendering its own heading.
-                  toolbarLeading={<span className="hidden" />}
-                  rowData={rows}
-                  columnDefs={columnDefs}
-                  loading={false}
-                  pagination
-                  toolbar={{ search: true, searchPlaceholder: 'Search college courses & groups…', pdfDocumentTitle: 'College Courses & Groups' }}
-                  toolbarTrailing={
-                    <Button size="sm" onClick={() => setModalOpen(true)}>
-                      <PlusIcon className="h-4 w-4 mr-1" />
-                      Add Course / Groups
-                    </Button>
-                  }
-                />
-              )}
-            </div>
-          </div>
-        </div>
       )}
-
+      rowData={showList ? rows : []}
+      columnDefs={columnDefs}
+      loading={false}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search college courses & groups…', pdfDocumentTitle: 'College Courses & Groups' }}
+      toolbarTrailing={(
+        <Button size="sm" onClick={() => setModalOpen(true)}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Course / Groups
+        </Button>
+      )}
+    >
       <CollegeCourseGroupModal
         key={`add-${getCrudModalKey(null, modalOpen)}`}
         open={modalOpen}
@@ -275,6 +250,6 @@ export default function CollegeCoursesGroupsPage() {
         row={editRow}
         onSaved={() => { void getList() }}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

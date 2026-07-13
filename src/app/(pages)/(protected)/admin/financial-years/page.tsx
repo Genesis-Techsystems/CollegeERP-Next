@@ -3,9 +3,8 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { CalendarDays, PencilIcon, PlusIcon } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -97,41 +96,30 @@ export default function FinancialYearsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Financial Years</h2>
+    <ListPage
+      title="Financial Years"
+      rowData={financialYears}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search financial years…', pdfDocumentTitle: 'Financial Years' }}
+      toolbarTrailing={
+        <Button size="sm" onClick={() => { setEditingFinancialYear(null); setModalOpen(true) }}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Financial Year
+        </Button>
+      }
+      emptyState={
+        <div className="app-card flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <CalendarDays className="h-10 w-10 mb-3 opacity-40" />
+          <p className="text-sm">No financial years found</p>
+          <Button size="sm" className="mt-4" onClick={() => { setEditingFinancialYear(null); setModalOpen(true) }}>
+            <PlusIcon className="h-4 w-4 mr-1" />
+            Add Financial Year
+          </Button>
         </div>
-        <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!loading && financialYears.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <CalendarDays className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No financial years found</p>
-                <Button size="sm" className="mt-4" onClick={() => { setEditingFinancialYear(null); setModalOpen(true) }}>
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Add Financial Year
-                </Button>
-              </div>
-            ) : (
-              <DataTable
-                rowData={financialYears}
-                columnDefs={columnDefs}
-                loading={loading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search financial years…', pdfDocumentTitle: 'Financial Years' }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setEditingFinancialYear(null); setModalOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Financial Year
-                  </Button>
-                }
-              />
-            )}
-          </div>
-        </div>
-      </div>
-
+      }
+    >
       <FinancialYearModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingFinancialYear(null) }}
@@ -139,6 +127,6 @@ export default function FinancialYearsPage() {
         existingRows={financialYears}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

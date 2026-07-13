@@ -1,13 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Filter } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Select } from '@/common/components/select'
 import { getExamTimetableDetails } from '@/services/examination'
 import { getUnivExamFiltersByType, getUnivExamRestNoTtBundle } from '@/services/pre-examination'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 
 type AnyRow = Record<string, any>
 
@@ -48,7 +46,6 @@ const dayLabel = (ymd: string) => new Date(ymd).toLocaleDateString('en-US', { we
 const longDate = (ymd: string) => new Date(ymd).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
 
 export default function CollegeExamTimetableViewPage() {
-  const [filterOpen, setFilterOpen] = useState(true)
   const [loading, setLoading] = useState(false)
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
@@ -195,74 +192,49 @@ export default function CollegeExamTimetableViewPage() {
   }, [courseId, courseYearId, examId, collegeId])
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="College Exam Timetable View" subtitle="View college examination timetables" />
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">College Exam Timetable View</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-
-        {(
-          <div className="p-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course</Label>
-                <Select
-                  value={courseId ? String(courseId) : null}
-                  onChange={(v) => setCourseId(v ? Number(v) : null)}
-                  options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode']) }))}
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Exam Year</Label>
-                <Select
-                  value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-                  options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) }))}
-                />
-              </div>
-              <div className="md:col-span-4 space-y-1">
-                <Label>Exam Master</Label>
-                <Select
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => setExamId(v ? Number(v) : null)}
-                  options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) }))}
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>College</Label>
-                <Select
-                  value={collegeId ? String(collegeId) : null}
-                  onChange={(v) => setCollegeId(v ? Number(v) : null)}
-                  options={colleges.map((c) => ({ value: String(pickNum(c, ['fk_college_id', 'collegeId'])), label: pickText(c, ['college_code', 'collegeCode']) }))}
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course Year</Label>
-                <Select
-                  value={courseYearId ? String(courseYearId) : null}
-                  onChange={(v) => setCourseYearId(v ? Number(v) : null)}
-                  options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_code', 'courseYearCode']) }))}
-                  placeholder="Select Course Year"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
+    <FilteredPage
+      title="College Exam Timetable View"
+      filters={(
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Course">
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : null)}
+              options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode']) }))}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Year">
+            <Select
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+              options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) }))}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Master">
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(v ? Number(v) : null)}
+              options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) }))}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="College">
+            <Select
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => setCollegeId(v ? Number(v) : null)}
+              options={colleges.map((c) => ({ value: String(pickNum(c, ['fk_college_id', 'collegeId'])), label: pickText(c, ['college_code', 'collegeCode']) }))}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course Year">
+            <Select
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+              options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_code', 'courseYearCode']) }))}
+              placeholder="Select Course Year"
+            />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      )}
+    >
       {Boolean(courseYearId) && (
         <div className="app-card p-3 space-y-2">
           <div className="text-[13px] font-semibold text-[hsl(var(--primary))]">
@@ -351,7 +323,7 @@ export default function CollegeExamTimetableViewPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredPage>
   )
 }
 

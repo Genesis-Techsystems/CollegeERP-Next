@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
-import { ChevronDown, Eye, Filter, PlusCircle } from "lucide-react";
+import { Eye, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +24,8 @@ import {
   getStudentExamFeeStructure,
   listExamFeeAdditionalStructureByExamType,
 } from "@/services/pre-examination";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
+import { GlobalFilterBarRow } from "@/common/components/forms";
 
 type AnyRow = Record<string, any>;
 type AddedFeeRow = {
@@ -106,7 +106,6 @@ const dedupeFeeTypes = (rows: AnyRow[]) => {
 };
 
 export default function AdditionalExamFeesPage() {
-  const [filterOpen, setFilterOpen] = useState(true);
   const [loading, setLoading] = useState(false);
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [students, setStudents] = useState<AnyRow[]>([]);
@@ -927,61 +926,39 @@ export default function AdditionalExamFeesPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden bg-card">
-        <div className="px-4 py-3 border-b border-border bg-card flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Additional Fee Collection</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+    <FilteredPage
+      title="Additional Fee Collection"
+      filters={(
+        <GlobalFilterBarRow>
+          <div className="md:col-span-4 space-y-1">
+            <StudentSearchSelect
+              label="Student *"
+              value={studentId}
+              students={students}
+              selectedStudent={student ?? selectedStudentCache}
+              isLoading={studentsLoading}
+              onSearch={(term) => void onSearchStudents(term)}
+              onChange={onStudentChange}
             />
-          </Button>
-        </div>
-        {
-          <div className="p-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
-              <div className="md:col-span-4 space-y-1">
-                <StudentSearchSelect
-                  label="Student *"
-                  value={studentId}
-                  students={students}
-                  selectedStudent={student ?? selectedStudentCache}
-                  isLoading={studentsLoading}
-                  onSearch={(term) => void onSearchStudents(term)}
-                  onChange={onStudentChange}
-                />
-              </div>
-
-              <div className="md:col-span-7 space-y-1">
-                <Label>Exam *</Label>
-                <Select
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => {
-                    const next = v ? Number(v) : null;
-                    setExamId(next);
-                    setExamSearch("");
-                  }}
-                  options={examOptions}
-                  placeholder="Search exam…"
-                  searchable
-                  onSearch={(term) => setExamSearch(term)}
-                />
-              </div>
-            </div>
           </div>
-        }
-      </div>
-
+          <div className="md:col-span-7 space-y-1">
+            <Label>Exam *</Label>
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => {
+                const next = v ? Number(v) : null;
+                setExamId(next);
+                setExamSearch("");
+              }}
+              options={examOptions}
+              placeholder="Search exam…"
+              searchable
+              onSearch={(term) => setExamSearch(term)}
+            />
+          </div>
+        </GlobalFilterBarRow>
+      )}
+    >
       {student && examId && (
         <div className="rounded border border-blue-200 bg-blue-50/40 p-3">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
@@ -1538,6 +1515,6 @@ export default function AdditionalExamFeesPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredPage>
   );
 }

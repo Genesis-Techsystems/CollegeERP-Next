@@ -2,12 +2,10 @@
 
 import { useMemo, useState } from 'react'
 import type { ColDef } from 'ag-grid-community'
-import { DatePicker } from '@/common/components/date-picker'
 import { Select } from '@/common/components/select'
 import { StudentSearchSelect } from '@/common/components/student-search'
-import { DataTable } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { DatePicker } from '@/common/components/date-picker'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useSessionContext } from '@/context/SessionContext'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -173,10 +171,9 @@ export default function ModifySubjectGroupsPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Modify Subject Groups" subtitle="Academics" />
-
-      <FilterCard title="Modify Course Group" fieldMaxWidth="36rem">
+    <FilteredListPage
+      title="Modify Subject Groups"
+      filters={(
         <StudentSearchSelect
           label="Student"
           value={selectedStudentId}
@@ -186,60 +183,42 @@ export default function ModifySubjectGroupsPage() {
           onSearch={(term) => void onSearchStudents(term)}
           onChange={(id, row) => void onStudentSelect(id, row)}
         />
-      </FilterCard>
-
+      )}
+      rowData={student ? studentDetailsRows : []}
+      columnDefs={studentDetailsColumnDefs}
+      toolbar={false}
+      pagination={false}
+    >
       {student && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
-          <div className="lg:col-span-2 app-card overflow-hidden h-full flex flex-col">
-            <div className="px-4 py-3 border-b border-border bg-muted/40">
-              <h2 className="app-card-title">Student Details</h2>
-            </div>
-            <div className="p-3 overflow-auto flex-1">
-              <div className="rounded-md border border-border overflow-hidden">
-                <DataTable
-                  rowData={studentDetailsRows}
-                  columnDefs={studentDetailsColumnDefs}
-                  toolbar={false}
-                  pagination={false}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="app-card overflow-hidden h-full flex flex-col !mt-0">
-            <div className="px-4 py-3 border-b border-border bg-muted/40">
-              <h2 className="app-card-title">To Course Group</h2>
-            </div>
-            <div className="p-3 space-y-3 flex-1">
-              <Select
-                label="Course Group"
-                value={targetGroupId ? String(targetGroupId) : null}
-                onChange={(v) => setTargetGroupId(v ? Number(v) : null)}
-                options={groupOptions}
-                placeholder="Select course group"
-                searchable
-                isLoading={loadingGroups}
-                disabled={loadingGroups}
-              />
-              <DatePicker
-                label="Modified On"
-                value={modifiedOn}
-                onChange={setModifiedOn}
-                placeholder="Select date"
-              />
-              <div className="pt-1">
-                <Button
-                  type="button"
-                  disabled={!targetGroupId || submitting}
-                  onClick={() => void onSubmitChange()}
-                >
-                  {submitting ? 'Changing...' : 'Change'}
-                </Button>
-              </div>
-            </div>
+        <div className="mt-4 max-w-md space-y-3 rounded-lg border p-4">
+          <h2 className="text-sm font-semibold">To Course Group</h2>
+          <Select
+            label="Course Group"
+            value={targetGroupId ? String(targetGroupId) : null}
+            onChange={(v) => setTargetGroupId(v ? Number(v) : null)}
+            options={groupOptions}
+            placeholder="Select course group"
+            searchable
+            isLoading={loadingGroups}
+            disabled={loadingGroups}
+          />
+          <DatePicker
+            label="Modified On"
+            value={modifiedOn}
+            onChange={setModifiedOn}
+            placeholder="Select date"
+          />
+          <div className="pt-1">
+            <Button
+              type="button"
+              disabled={!targetGroupId || submitting}
+              onClick={() => void onSubmitChange()}
+            >
+              {submitting ? 'Changing...' : 'Change'}
+            </Button>
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredListPage>
   )
 }

@@ -3,9 +3,8 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { GraduationCap, PencilIcon, PlusIcon } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -97,41 +96,30 @@ export default function AcademicYearsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Academic Years</h2>
+    <ListPage
+      title="Academic Years"
+      rowData={academicYears}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search academic years…', pdfDocumentTitle: 'Academic Years' }}
+      toolbarTrailing={
+        <Button size="sm" onClick={() => { setEditingAcademicYear(null); setModalOpen(true) }}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Academic Year
+        </Button>
+      }
+      emptyState={
+        <div className="app-card flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <GraduationCap className="h-10 w-10 mb-3 opacity-40" />
+          <p className="text-sm">No academic years found</p>
+          <Button size="sm" className="mt-4" onClick={() => { setEditingAcademicYear(null); setModalOpen(true) }}>
+            <PlusIcon className="h-4 w-4 mr-1" />
+            Add Academic Year
+          </Button>
         </div>
-        <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!loading && academicYears.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <GraduationCap className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No academic years found</p>
-                <Button size="sm" className="mt-4" onClick={() => { setEditingAcademicYear(null); setModalOpen(true) }}>
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Add Academic Year
-                </Button>
-              </div>
-            ) : (
-              <DataTable
-                rowData={academicYears}
-                columnDefs={columnDefs}
-                loading={loading}
-                pagination
-                toolbar={{ search: true, searchPlaceholder: 'Search academic years…', pdfDocumentTitle: 'Academic Years' }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setEditingAcademicYear(null); setModalOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Academic Year
-                  </Button>
-                }
-              />
-            )}
-          </div>
-        </div>
-      </div>
-
+      }
+    >
       <AcademicYearModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingAcademicYear(null) }}
@@ -139,6 +127,6 @@ export default function AcademicYearsPage() {
         existingRows={academicYears}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

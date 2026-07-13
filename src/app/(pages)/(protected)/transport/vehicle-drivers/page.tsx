@@ -3,18 +3,16 @@
 import { useMemo, useState } from 'react'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DataTable, TableCard } from '@/common/components/table'
 import { EmptyState } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
 import { getErrorMessage } from '@/lib/errors'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
 import { listVehicleDrivers } from '@/services'
 import type { VehicleDriver } from '@/types/transport'
-import { TransportPageTitle } from '../_components/TransportPageTitle'
 import { VehicleDriverModal } from './VehicleDriverModal'
 
 const COL_DEFS = {
@@ -74,44 +72,39 @@ export default function VehicleDriversPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <TransportPageTitle title="Map Vehicle Driver" />
-
-      <TableCard withHeaderBorder={false}>
-        {isError ? (
+    <ListPage
+      title="Map Vehicle Driver"
+      rowData={isError ? [] : rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Vehicle Drivers',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
+          }}
+        >
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Assign
+        </Button>
+      )}
+      emptyState={
+        isError ? (
           <EmptyState
             title="Could not load vehicle drivers"
             description={getErrorMessage(error)}
             action={{ label: 'Retry', onClick: () => void refetch() }}
           />
-        ) : (
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={isLoading}
-            pagination
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search…',
-              pdfDocumentTitle: 'Vehicle Drivers',
-            }}
-            toolbarTrailing={(
-              <Button
-                size="sm"
-                className="h-[30px] px-3 text-[12px]"
-                onClick={() => {
-                  setEditing(null)
-                  setModalOpen(true)
-                }}
-              >
-                <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-                Assign
-              </Button>
-            )}
-          />
-        )}
-      </TableCard>
-
+        ) : undefined
+      }
+    >
       <VehicleDriverModal
         open={modalOpen}
         onClose={() => {
@@ -121,6 +114,6 @@ export default function VehicleDriversPage() {
         row={editing}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

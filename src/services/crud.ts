@@ -87,6 +87,19 @@ class CrudService {
    */
   private readonly procGetDedupe = new Map<string, ProcGetCacheEntry>()
   private static readonly PROC_GET_FRESH_MS = 900
+
+  /** Drop cached getAllRecords responses (e.g. after upload/create so list refresh hits the network). */
+  clearProcGetCache(procName?: string): void {
+    if (!procName) {
+      this.procGetDedupe.clear()
+      return
+    }
+    const prefix = `${normalizeProcName(procName)}::`
+    for (const key of [...this.procGetDedupe.keys()]) {
+      if (key.startsWith(prefix)) this.procGetDedupe.delete(key)
+    }
+  }
+
   private toQueryString(params?: Record<string, string | number>): string {
     if (!params || Object.keys(params).length === 0) return ''
     const searchParams = new URLSearchParams(
@@ -624,6 +637,8 @@ export const getAllRecords = <T>(
   procName: string,
   params: Record<string, string | number>,
 ): Promise<T> => crud.getAllRecords<T>(procName, params)
+
+export const clearProcGetCache = (procName?: string): void => crud.clearProcGetCache(procName)
 
 export const getAllRecordsEnvelope = <T = unknown>(
   procName: string,

@@ -3,15 +3,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { GraduationCap } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select as CommonSelect } from '@/common/components/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
 import {
   generateMarksEntrySecretCode,
   getMarksEntryStudentsBundle,
@@ -209,50 +206,6 @@ export default function SecureExamMarksEntryPage() {
         'fk_exam_labbatch_id',
       ),
     [subjectRows, subjectId],
-  )
-  const courseOptions = useMemo(
-    () => courses.map((x) => ({ value: String(x.fk_course_id), label: String(x.course_code ?? '-') })),
-    [courses],
-  )
-  const academicYearOptions = useMemo(
-    () => academicYears.map((x) => ({ value: String(x.fk_academic_year_id), label: String(x.academic_year ?? '-') })),
-    [academicYears],
-  )
-  const examOptions = useMemo(
-    () => exams.map((x) => ({ value: String(x.fk_exam_id), label: String(x.exam_name ?? '-') })),
-    [exams],
-  )
-  const collegeOptions = useMemo(
-    () => colleges.map((x) => ({ value: String(x.fk_college_id), label: String(x.college_code ?? '-') })),
-    [colleges],
-  )
-  const groupOptions = useMemo(
-    () => courseGroups.map((x) => ({ value: String(x.fk_course_group_id), label: String(x.group_code ?? '-') })),
-    [courseGroups],
-  )
-  const courseYearOptions = useMemo(
-    () => courseYears.map((x) => ({ value: String(x.fk_course_year_id), label: String(x.course_year_code ?? '-') })),
-    [courseYears],
-  )
-  const regulationOptions = useMemo(
-    () => regulations.map((x) => ({ value: String(x.fk_regulation_id), label: String(x.regulation_code ?? '-') })),
-    [regulations],
-  )
-  const subjectTypeOptions = useMemo(
-    () => subjectTypes.map((x) => ({ value: String(x.fk_subjecttype_catdet_id), label: String(x.subject_type ?? '-') })),
-    [subjectTypes],
-  )
-  const subjectOptions = useMemo(
-    () =>
-      subjects.map((x) => ({
-        value: String(x.fk_subject_id),
-        label: `${String(x.subject_name ?? '-')} (${String(x.subject_code ?? '-')})`,
-      })),
-    [subjects],
-  )
-  const labBatchOptions = useMemo(
-    () => [{ value: '0', label: 'All' }, ...labBatches.map((x) => ({ value: String(x.fk_exam_labbatch_id), label: String(x.labbatch_name ?? '-') }))],
-    [labBatches],
   )
   useEffect(() => {
     async function loadFilters() {
@@ -510,83 +463,72 @@ export default function SecureExamMarksEntryPage() {
   if (printMode) return <>{printView}</>
 
   return (
-    <PageContainer className="space-y-4">
-      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Secure Marks Entry</h1>
-
-      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Secure Marks Entry</span>}>
-        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-12 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course *</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Year *</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Exam Year" searchable /></div>
-          <div className="space-y-1 md:col-span-8"><Label>Exam *</Label><CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>College *</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="College" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={groupOptions} placeholder="Course Group" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><CommonSelect value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><CommonSelect value={subjectTypeId ? String(subjectTypeId) : null} onChange={(v) => setSubjectTypeId(v ? Number(v) : null)} options={subjectTypeOptions} placeholder="Subject Type" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Subject</Label><CommonSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectOptions} placeholder="Subject" searchable /></div>
+    <FilteredListPage
+      title="Secure Marks Entry"
+      notice={hasFetched ? (
+        <div className="app-card overflow-hidden border border-[#c3d9ff]">
+          <div className="flex items-start gap-4 p-3">
+            <div className="flex h-20 w-24 items-center justify-center bg-[#c3d9ff] text-slate-700">
+              <GraduationCap className="h-10 w-10" />
+            </div>
+            <div className="space-y-1 text-[13px]">
+              <p className="text-slate-700">{selectedExam?.exam_name ?? '-'} {examDate ? <span className="text-blue-700">({examDate})</span> : null}</p>
+              <p className="text-muted-foreground">/ {selectedCollege?.college_code ?? '-'} / {selectedCourse?.course_code ?? '-'} / {selectedGroup?.group_code ?? '-'} / {selectedYear?.course_year_code ?? '-'} / <span className="text-blue-700">({selectedAcademicYear?.academic_year ?? '-'})</span></p>
+              <p className="font-semibold text-slate-800">{selectedSubject?.subject_name ?? '-'} ({selectedRegulation?.regulation_code ?? '-'}) - <span className="text-blue-700">{selectedSubject?.subject_type ?? '-'}</span></p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      filters={(
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-12 items-end">
+          <div className="space-y-1 md:col-span-2"><Label>Course *</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((x) => <SelectItem key={x.fk_course_id} value={String(x.fk_course_id)}>{x.course_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Exam Year *</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger><SelectContent>{academicYears.map((x) => <SelectItem key={x.fk_academic_year_id} value={String(x.fk_academic_year_id)}>{x.academic_year}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-8"><Label>Exam *</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((x) => <SelectItem key={x.fk_exam_id} value={String(x.fk_exam_id)}>{x.exam_name}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>College *</Label><Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger><SelectContent>{colleges.map((x) => <SelectItem key={x.fk_college_id} value={String(x.fk_college_id)}>{x.college_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Group" /></SelectTrigger><SelectContent>{courseGroups.map((x) => <SelectItem key={x.fk_course_group_id} value={String(x.fk_course_group_id)}>{x.group_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((x) => <SelectItem key={x.fk_course_year_id} value={String(x.fk_course_year_id)}>{x.course_year_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((x) => <SelectItem key={x.fk_regulation_id} value={String(x.fk_regulation_id)}>{x.regulation_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><Select value={subjectTypeId ? String(subjectTypeId) : undefined} onValueChange={(v) => setSubjectTypeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject Type" /></SelectTrigger><SelectContent>{subjectTypes.map((x) => <SelectItem key={x.fk_subjecttype_catdet_id} value={String(x.fk_subjecttype_catdet_id)}>{x.subject_type}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.map((x) => <SelectItem key={x.fk_subject_id} value={String(x.fk_subject_id)}>{x.subject_name} ({x.subject_code})</SelectItem>)}</SelectContent></Select></div>
           {labBatches.length > 0 && (
-            <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><CommonSelect value={String(labBatchId)} onChange={(v) => setLabBatchId(Number(v || 0))} options={labBatchOptions} placeholder="All" searchable /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><Select value={String(labBatchId)} onValueChange={(v) => setLabBatchId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent><SelectItem value="0">All</SelectItem>{labBatches.map((x) => <SelectItem key={x.fk_exam_labbatch_id} value={String(x.fk_exam_labbatch_id)}>{x.labbatch_name}</SelectItem>)}</SelectContent></Select></div>
           )}
           <div className="space-y-1 md:col-span-2"><Label>Employee</Label><Input className="h-8 text-[12px]" value={employeeDisplay} readOnly /></div>
           <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
           <div className="md:col-span-2"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loading}>{loading ? 'Loading...' : 'Get List'}</Button></div>
         </div>
-      </FilterCard>
-
-      {hasFetched && (
-        <div className="space-y-3">
-          <div className="px-1 text-[14px] text-slate-700">◉ List Of Marks</div>
-          <div className="app-card overflow-hidden border border-[#c3d9ff]">
-            <div className="flex items-start gap-4 p-3">
-              <div className="flex h-20 w-24 items-center justify-center bg-[#c3d9ff] text-slate-700">
-                <GraduationCap className="h-10 w-10" />
-              </div>
-              <div className="space-y-1 text-[13px]">
-                <p className="text-slate-700">{selectedExam?.exam_name ?? '-'} {examDate ? <span className="text-blue-700">({examDate})</span> : null}</p>
-                <p className="text-muted-foreground">/ {selectedCollege?.college_code ?? '-'} / {selectedCourse?.course_code ?? '-'} / {selectedGroup?.group_code ?? '-'} / {selectedYear?.course_year_code ?? '-'} / <span className="text-blue-700">({selectedAcademicYear?.academic_year ?? '-'})</span></p>
-                <p className="font-semibold text-slate-800">{selectedSubject?.subject_name ?? '-'} ({selectedRegulation?.regulation_code ?? '-'}) - <span className="text-blue-700">{selectedSubject?.subject_type ?? '-'}</span></p>
-              </div>
-            </div>
-          </div>
-
-          <TableCard withHeaderBorder={false}>
-            <div className="space-y-3">
-              <DataTable
-                rowData={rows}
-                columnDefs={columnDefs}
-                loading={loading}
-                getRowId={(p) => String(p.data.studentId ?? p.data.fk_student_id ?? p.data.hallticketNumber ?? '')}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search…',
-                  pdfDocumentTitle: 'Secure Exam Marks Entry',
-                }}
-                toolbarLeading={
-                  <div className="text-[12px] text-slate-600 whitespace-nowrap shrink-0">
-                    Max Marks : <span className="font-semibold">{maxMarks || '-'}</span>
-                  </div>
-                }
-              />
-              <div className="flex items-center justify-end gap-2">
-                {!saveUnlocked && (
-                  <Button className="h-8 text-[12px]" onClick={onGenerateSecretCode} disabled={rows.length === 0}>
-                    Generate Secret Code
-                  </Button>
-                )}
-                {saveUnlocked && (
-                  <Button className="h-8 text-[12px]" onClick={onSave} disabled={saving || rows.length === 0}>
-                    {saveButtonText}
-                  </Button>
-                )}
-                {printButton}
-              </div>
-            </div>
-          </TableCard>
+      )}
+      rowData={hasFetched ? rows : []}
+      columnDefs={columnDefs}
+      loading={loading}
+      getRowId={(p) => String(p.data.studentId ?? p.data.fk_student_id ?? p.data.hallticketNumber ?? '')}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Secure Exam Marks Entry',
+      }}
+      toolbarLeading={(
+        <div className="text-[12px] text-slate-600 whitespace-nowrap shrink-0">
+          Max Marks : <span className="font-semibold">{maxMarks || '-'}</span>
         </div>
       )}
-
-      {/* Secret-code validation (replaces the browser prompt) */}
+    >
+      {hasFetched && (
+        <div className="flex items-center justify-end gap-2">
+          {!saveUnlocked && (
+            <Button className="h-8 text-[12px]" onClick={onGenerateSecretCode} disabled={rows.length === 0}>
+              Generate Secret Code
+            </Button>
+          )}
+          {saveUnlocked && (
+            <Button className="h-8 text-[12px]" onClick={onSave} disabled={saving || rows.length === 0}>
+              {saveButtonText}
+            </Button>
+          )}
+          {printButton}
+        </div>
+      )}
       <Dialog open={codeDialogOpen} onOpenChange={(next) => { if (!next) setCodeDialogOpen(false) }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -616,7 +558,7 @@ export default function SecureExamMarksEntryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredListPage>
   )
 }
 

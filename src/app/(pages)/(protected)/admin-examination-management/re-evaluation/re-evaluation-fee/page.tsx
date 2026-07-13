@@ -2,26 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
-import type {
-  ColDef,
-  ICellRendererParams,
-  IHeaderParams,
-} from "ag-grid-community";
-import { BookMarked, ChevronDown, Filter, UserRound } from "lucide-react";
-import { PageContainer } from "@/components/layout";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { UserRound } from "lucide-react";
+import { FilteredPage } from "@/components/layout";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
+import { DataTable } from "@/common/components/table";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/common/components/select";
-import { StudentSearchSelect } from "@/common/components/student-search";
-import { DataTable } from "@/common/components/table";
-import { rowIndexGetter } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { MINIO_URL } from "@/config/constants/api";
 import {
@@ -31,8 +28,7 @@ import {
 } from "@/services/pre-examination";
 import {
   getExamRevisionStdDetailsBundle,
-  getStudentRevisionPaymentDetails,
-  dedupeRevisionHistoryRows,
+  getStudentRevisionRequestHistory,
   listExamRevisionTypes,
   listStudentExamsForRevaluationFee,
   listStudentPhotocopyEvaluationDetails,
@@ -57,6 +53,17 @@ function strFrom(row: AnyRow, keys: string[]): string {
     if (val) return val;
   }
   return "";
+}
+function studentSelectLabel(r: AnyRow): string {
+  const ht = strFrom(r, [
+    "hallticketNumber",
+    "hallticket_number",
+    "rollNumber",
+    "roll_number",
+  ]);
+  const name = strFrom(r, ["firstName", "first_name"]);
+  if (ht && name) return `${ht}(${name})`;
+  return ht || name || "-";
 }
 function statusTextClass(code: string): string {
   const c = code.replaceAll(/\s+/g, "").toUpperCase();
@@ -102,24 +109,22 @@ function openFile(path: string) {
   window.open(url, "_blank", "width=700,height=600");
 }
 
-function subjectRowId(row: AnyRow | undefined): number {
-  return numFrom(row ?? {}, ["fk_subject_id"]);
-}
-
-function SelectAllHeader(
-  props: IHeaderParams & {
-    checked?: boolean;
-    onToggle?: (checked: boolean) => void;
-  },
-) {
+/** AG Grid header: master "All" checkbox (Angular markItems). */
+function SubjectAllHeader(props: {
+  checkAll?: boolean;
+  onToggleAll?: (checked: boolean) => void;
+}) {
   return (
-    <label className="inline-flex items-center gap-2 text-[12px] font-medium">
+    <label
+      className="flex items-center gap-1 text-[12px] font-semibold"
+      onClick={(e) => e.stopPropagation()}
+    >
       <input
         type="checkbox"
-        checked={Boolean(props.checked)}
-        onChange={(e) => props.onToggle?.(e.target.checked)}
+        checked={Boolean(props.checkAll)}
+        onChange={(e) => props.onToggleAll?.(e.target.checked)}
       />
-      <span>All</span>
+      All
     </label>
   );
 }
@@ -218,7 +223,6 @@ export default function ReEvaluationFeeCollectionPage() {
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
   const appliedQueryKey = useRef<string | null>(null);
-  const [filterOpen, setFilterOpen] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [studentSearchLoading, setStudentSearchLoading] = useState(false);
@@ -259,9 +263,6 @@ export default function ReEvaluationFeeCollectionPage() {
 
   // revision history + photocopy
   const [revisionHistory, setRevisionHistory] = useState<AnyRow[]>([]);
-  const [revisionPaymentDetails, setRevisionPaymentDetails] = useState<
-    AnyRow[]
-  >([]);
   const [isPhotoCopy, setIsPhotoCopy] = useState(false);
   const [photocopyOpen, setPhotocopyOpen] = useState(false);
   const [photocopyData, setPhotocopyData] = useState<AnyRow[]>([]);
@@ -320,6 +321,19 @@ export default function ReEvaluationFeeCollectionPage() {
     }
   }, []);
 
+  const studentOptions = useMemo(() => {
+    const base = studentRows
+      .map((r) => ({
+        value: String(numFrom(r, ["studentId", "student_id", "fk_student_id"])),
+        label: studentSelectLabel(r),
+      }))
+      .filter((o) => o.value !== "0");
+    const sid = studentId ? String(studentId) : null;
+    if (sid && studentRow && !base.some((o) => o.value === sid))
+      return [{ value: sid, label: studentSelectLabel(studentRow) }, ...base];
+    return base;
+  }, [studentRows, studentId, studentRow]);
+
   const examOptions = useMemo(
     () =>
       exams
@@ -367,12 +381,19 @@ export default function ReEvaluationFeeCollectionPage() {
     setDuplicateSelectedList([]);
     setMergedReceipts([]);
     setRevisionHistory([]);
-    setRevisionPaymentDetails([]);
   }
 
-  async function onStudentChange(sid: number | null, student: AnyRow | null) {
+  async function onSelectStudent(value: string | null) {
+    const sid = value ? Number(value) : null;
     setStudentId(sid);
-    setStudentRow(student);
+    setStudentRow(
+      sid
+        ? (studentRows.find(
+            (r) =>
+              numFrom(r, ["studentId", "student_id", "fk_student_id"]) === sid,
+          ) ?? null)
+        : null,
+    );
     setExamId(null);
     setRevisionTypeId(null);
     setShowProfile(false);
@@ -380,118 +401,6 @@ export default function ReEvaluationFeeCollectionPage() {
     resetSelection();
     if (sid && sid > 0) await loadExamsForStudent(sid);
   }
-
-  const toggleAllSubjects = useCallback((all: boolean) => {
-    setChecksubject(all);
-    setExamRevisionStdDetails((prev) =>
-      prev.map((it) =>
-        Number(it.already_reg) === 1
-          ? { ...it, checked: false, disabled: true }
-          : { ...it, checked: all },
-      ),
-    );
-  }, []);
-
-  const toggleSubject = useCallback((check: boolean, row: AnyRow) => {
-    if (Number(row.already_reg) === 1) return;
-    setExamRevisionStdDetails((prev) =>
-      prev.map((it) =>
-        Number(it.fk_subject_id) === Number(row.fk_subject_id)
-          ? { ...it, checked: check }
-          : it,
-      ),
-    );
-    if (!check)
-      setDuplicateSelectedList((prev) =>
-        prev.filter(
-          (x) => Number(x.fk_subject_id) !== Number(row.fk_subject_id),
-        ),
-      );
-  }, []);
-
-  const subjectColumnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [
-      {
-        colId: "select",
-        headerName: "All",
-        width: 80,
-        flex: 0,
-        sortable: false,
-        filter: false,
-        headerComponent: SelectAllHeader,
-        headerComponentParams: {
-          checked: checksubject,
-          onToggle: toggleAllSubjects,
-        },
-        cellRenderer: (p: ICellRendererParams<AnyRow>) => {
-          const row = p.data;
-          if (!row) return null;
-          return (
-            <input
-              type="checkbox"
-              disabled={!!row.disabled}
-              checked={!!row.checked}
-              onChange={(e) => toggleSubject(e.target.checked, row)}
-            />
-          );
-        },
-      },
-      {
-        headerName: "Subject",
-        minWidth: 220,
-        flex: 1.5,
-        valueGetter: (p) =>
-          `${strFrom(p.data ?? {}, ["subject_code"])} - ${strFrom(p.data ?? {}, ["subject_name"])}`,
-      },
-      {
-        headerName: "Subject Marks",
-        minWidth: 120,
-        flex: 0.8,
-        type: "rightAligned",
-        valueGetter: (p) => strFrom(p.data ?? {}, ["subject_marks"]) || "-",
-      },
-      {
-        headerName: "Grade",
-        minWidth: 90,
-        flex: 0.6,
-        valueGetter: (p) => strFrom(p.data ?? {}, ["grade"]) || "-",
-      },
-      {
-        headerName: "Grade Points",
-        minWidth: 110,
-        flex: 0.7,
-        type: "rightAligned",
-        valueGetter: (p) => strFrom(p.data ?? {}, ["grade_points"]) || "-",
-      },
-    ],
-    [checksubject, toggleAllSubjects, toggleSubject],
-  );
-
-  const duplicateColumnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [
-      {
-        headerName: "SI.No",
-        valueGetter: rowIndexGetter,
-        width: 72,
-        flex: 0,
-      },
-      {
-        headerName: "Subject",
-        minWidth: 200,
-        flex: 1,
-        valueGetter: (p) =>
-          `${strFrom(p.data ?? {}, ["subject_code"])} - ${strFrom(p.data ?? {}, ["subject_name"])}`,
-      },
-      {
-        headerName: "Course Marks",
-        minWidth: 120,
-        flex: 0.6,
-        type: "rightAligned",
-        valueGetter: (p) => strFrom(p.data ?? {}, ["subject_marks"]) || "-",
-      },
-    ],
-    [],
-  );
 
   // Angular setCourseYear + CoursemarkItems (checkCourse master = true)
   function buildSubjectsForCourseYears(
@@ -541,18 +450,16 @@ export default function ReEvaluationFeeCollectionPage() {
 
     setLoading(true);
     try {
-      const [bundle, paymentDetails] = await Promise.all([
+      const [bundle, history] = await Promise.all([
         getExamRevisionStdDetailsBundle({ examId, studentId }),
-        getStudentRevisionPaymentDetails({ examId, studentId }).catch(() => []),
+        getStudentRevisionRequestHistory({ examId, studentId }).catch(() => []),
       ]);
       const details = Array.isArray(bundle.detailsList)
         ? bundle.detailsList
         : [];
       setDetailsList(details);
       setMergedReceipts(mergeRevaluationReceiptRows(bundle.receiptRows));
-      const paymentRows = Array.isArray(paymentDetails) ? paymentDetails : [];
-      setRevisionPaymentDetails(paymentRows);
-      setRevisionHistory(dedupeRevisionHistoryRows(paymentRows));
+      setRevisionHistory(Array.isArray(history) ? history : []);
 
       // setCourseYear(): distinct course-years for this exam + revision type
       const courses = details.filter(
@@ -594,6 +501,35 @@ export default function ReEvaluationFeeCollectionPage() {
       buildSubjectsForCourseYears(detailsList, next, Number(revisionTypeId)),
     );
     setChecksubject(true);
+  }
+
+  // markItems master
+  function toggleAllSubjects(all: boolean) {
+    setChecksubject(all);
+    setExamRevisionStdDetails((prev) =>
+      prev.map((it) =>
+        Number(it.already_reg) === 1
+          ? { ...it, checked: false, disabled: true }
+          : { ...it, checked: all },
+      ),
+    );
+  }
+
+  function toggleSubject(check: boolean, row: AnyRow) {
+    if (Number(row.already_reg) === 1) return;
+    setExamRevisionStdDetails((prev) =>
+      prev.map((it) =>
+        Number(it.fk_subject_id) === Number(row.fk_subject_id)
+          ? { ...it, checked: check }
+          : it,
+      ),
+    );
+    if (!check)
+      setDuplicateSelectedList((prev) =>
+        prev.filter(
+          (x) => Number(x.fk_subject_id) !== Number(row.fk_subject_id),
+        ),
+      );
   }
 
   // AddData(): move newly-checked subjects into the selected (duplicate) list
@@ -754,19 +690,93 @@ export default function ReEvaluationFeeCollectionPage() {
     setPhotocopyData(Array.isArray(rows) ? rows : []);
     setPhotocopyOpen(true);
   }
-  function openViewRevisionDetails(row: AnyRow) {
-    const receiptId = numFrom(row, ["fk_exam_fee_receipt_id"]);
-    const rows = revisionPaymentDetails.filter(
-      (r) => numFrom(r, ["fk_exam_fee_receipt_id"]) === receiptId,
-    );
-    setViewSubjRows(rows);
-    setViewSubjOpen(true);
-  }
-
   function openViewSubjects(r: MergedRevaluationReceipt) {
     setViewSubjRows(Array.isArray(r.subjects) ? r.subjects : []);
     setViewSubjOpen(true);
   }
+
+  const subjectColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      {
+        colId: "select",
+        headerName: "All",
+        width: 72,
+        maxWidth: 80,
+        flex: 0,
+        sortable: false,
+        filter: false,
+        suppressHeaderMenuButton: true,
+        headerComponent: SubjectAllHeader,
+        headerComponentParams: {
+          checkAll: checksubject,
+          onToggleAll: toggleAllSubjects,
+        },
+        cellRenderer: (p: ICellRendererParams<AnyRow>) => {
+          const row = p.data;
+          if (!row) return null;
+          return (
+            <input
+              type="checkbox"
+              disabled={!!row.disabled}
+              checked={!!row.checked}
+              onChange={(e) => toggleSubject(e.target.checked, row)}
+            />
+          );
+        },
+        cellStyle: {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        },
+      },
+      {
+        colId: "subject",
+        headerName: "Subject",
+        flex: 1,
+        minWidth: 220,
+        valueGetter: (p) => {
+          const row = p.data;
+          if (!row) return "";
+          const code = strFrom(row, ["subject_code"]);
+          const name = strFrom(row, ["subject_name"]);
+          return code && name ? `${code} - ${name}` : code || name || "-";
+        },
+        cellStyle: { textAlign: "left" },
+      },
+      {
+        field: "subject_marks",
+        headerName: "Subject Marks",
+        width: 130,
+        valueFormatter: (p) =>
+          p.value == null || String(p.value).trim() === ""
+            ? "-"
+            : String(p.value),
+        cellStyle: { textAlign: "right" },
+      },
+      {
+        field: "grade",
+        headerName: "Grade",
+        width: 100,
+        valueFormatter: (p) =>
+          p.value == null || String(p.value).trim() === ""
+            ? "-"
+            : String(p.value),
+        cellStyle: { textAlign: "left" },
+      },
+      {
+        field: "grade_points",
+        headerName: "Grade Points",
+        width: 120,
+        valueFormatter: (p) =>
+          p.value == null || String(p.value).trim() === ""
+            ? "-"
+            : String(p.value),
+        cellStyle: { textAlign: "right" },
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [checksubject, examRevisionStdDetails],
+  );
 
   const photoSrc = resolvePhotoUrl(studentRow);
   const statusCode = strFrom(studentRow ?? {}, [
@@ -780,76 +790,49 @@ export default function ReEvaluationFeeCollectionPage() {
   ]);
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title flex items-center gap-2">
-            <BookMarked className="h-4 w-4 text-primary" aria-hidden />
-            Re-Valuation Fee
-          </h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
-            />
-          </Button>
-        </div>
-
-        {filterOpen && (
-          <div className="p-3 space-y-3">
-            <StudentSearchSelect
-              label="Student"
-              value={studentId}
-              students={studentRows}
-              selectedStudent={studentRow}
-              isLoading={studentSearchLoading}
-              minChars={2}
+    <FilteredPage
+      title="Re-Valuation Fee"
+      filters={
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Student">
+            <Select
+              value={studentId ? String(studentId) : null}
+              onChange={(v) => void onSelectStudent(v)}
+              options={studentOptions}
               placeholder="Search by name or hall ticket…"
-              onSearch={(term) => void onStudentSearch(term)}
-              onChange={(sid, student) => void onStudentChange(sid, student)}
+              searchable
+              onSearch={(t) => void onStudentSearch(t)}
+              isLoading={studentSearchLoading}
+              clearable
             />
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="space-y-1 md:col-span-6">
-                <Label>Exam *</Label>
-                <Select
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => {
-                    setExamId(v ? Number(v) : null);
-                    setRevisionTypeId(null);
-                    setShowProfile(false);
-                    resetSelection();
-                  }}
-                  options={examOptions}
-                  placeholder="Exam"
-                  searchable
-                  disabled={!studentId || exams.length === 0}
-                />
-              </div>
-              <div className="space-y-1 md:col-span-6">
-                <Label>Exam Revision Type</Label>
-                <Select
-                  value={revisionTypeId ? String(revisionTypeId) : null}
-                  onChange={(v) => void onSelectRevision(v)}
-                  options={revisionOptions}
-                  placeholder="Type"
-                  disabled={!examId}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Student banner */}
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam">
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => {
+                setExamId(v ? Number(v) : null);
+                setRevisionTypeId(null);
+                setShowProfile(false);
+                resetSelection();
+              }}
+              options={examOptions}
+              placeholder="Exam"
+              searchable
+              disabled={!studentId || exams.length === 0}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Revision Type">
+            <Select
+              value={revisionTypeId ? String(revisionTypeId) : null}
+              onChange={(v) => void onSelectRevision(v)}
+              options={revisionOptions}
+              placeholder="Type"
+              disabled={!examId}
+            />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      }
+    >
       {showProfile && studentRow && (
         <div className="app-card p-3 border-t-[3px] border-t-amber-300">
           <div className="rounded-md border border-blue-200 bg-muted/40 p-3">
@@ -952,8 +935,14 @@ export default function ReEvaluationFeeCollectionPage() {
               </div>
             </div>
 
-            {/* Subjects + marks */}
-            <div className="md:col-span-9 rounded border overflow-hidden">
+            {/* Subjects + marks — AG Grid with column filters (Angular parity) */}
+            <div
+              className="md:col-span-9 rounded border overflow-hidden [&_.app-data-table]:min-h-0"
+              style={{
+                // Keep Angular light-blue header (#C3D9FF); do not change page colors.
+                ["--ag-header-background-color" as string]: "#C3D9FF",
+              }}
+            >
               <DataTable
                 title=""
                 subtitle=""
@@ -961,16 +950,19 @@ export default function ReEvaluationFeeCollectionPage() {
                 rowData={examRevisionStdDetails}
                 columnDefs={subjectColumnDefs}
                 loading={loading}
-                pagination={false}
                 height="300px"
-                fitColumnsToWidth={false}
-                getRowId={(p) => String(subjectRowId(p.data))}
+                pagination={false}
+                getRowId={(p) => {
+                  const id = numFrom(p.data, ["fk_subject_id"]);
+                  if (id > 0) return String(id);
+                  return `${strFrom(p.data, ["subject_code"])}-${strFrom(p.data, ["fk_course_year_id"])}`;
+                }}
                 toolbar={{
-                  search: true,
                   searchPlaceholder: "Search subject…",
+                  columnFilters: true,
                   columnPicker: false,
-                  exportExcel: false,
                   exportPdf: false,
+                  exportExcel: false,
                 }}
                 toolbarTrailing={
                   <div className="flex items-center gap-3">
@@ -978,7 +970,6 @@ export default function ReEvaluationFeeCollectionPage() {
                       Each Course Fee — {eachCourseFee} /-
                     </span>
                     <Button
-                      type="button"
                       className="h-8 text-[12px]"
                       onClick={addData}
                       disabled={
@@ -1001,22 +992,29 @@ export default function ReEvaluationFeeCollectionPage() {
         <div className="app-card p-3 border-t-[3px] border-t-amber-300">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <div className="md:col-span-6 rounded border overflow-hidden">
-              <DataTable
-                title=""
-                subtitle=""
-                bordered={false}
-                rowData={duplicateSelectedList}
-                columnDefs={duplicateColumnDefs}
-                pagination={false}
-                height="auto"
-                fitColumnsToWidth
-                toolbar={{
-                  columnPicker: false,
-                  exportExcel: false,
-                  exportPdf: false,
-                  search: false,
-                }}
-              />
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr className="bg-[#C3D9FF]">
+                    <th className="px-2 py-1 text-left">SI.No</th>
+                    <th className="px-2 py-1 text-left">Subject</th>
+                    <th className="px-2 py-1 text-right">Course Marks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {duplicateSelectedList.map((s, i) => (
+                    <tr key={`d-${i}`} className="border-t">
+                      <td className="px-2 py-1">{i + 1}</td>
+                      <td className="px-2 py-1">
+                        {strFrom(s, ["subject_code"])} -{" "}
+                        {strFrom(s, ["subject_name"])}
+                      </td>
+                      <td className="px-2 py-1 text-right">
+                        {strFrom(s, ["subject_marks"]) || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
             <div className="md:col-span-6 rounded border p-3 space-y-3">
@@ -1127,73 +1125,56 @@ export default function ReEvaluationFeeCollectionPage() {
         </div>
       )}
 
-      {/* Revision history — Angular revisionHistoryList table */}
-      {showProfile && (
+      {/* Revision history */}
+      {showProfile && revisionHistory.length > 0 && (
         <div className="app-card p-3 border-t-[3px] border-t-amber-300 overflow-x-auto">
-          <table className="w-full min-w-[480px] border-collapse text-[12px]">
+          <div className="mb-2 text-[13px] font-semibold text-slate-700">
+            Revision Requests
+          </div>
+          <table className="w-full min-w-[640px] border-collapse text-[12px]">
             <thead>
               <tr className="border-b bg-muted/40">
-                <th className="px-3 py-2 text-left">Receipt Date</th>
-                <th className="px-3 py-2 text-left">Receipt No.</th>
-                <th className="px-3 py-2 text-right">Receipt Amount</th>
-                <th className="px-3 py-2 text-center">
-                  {isPhotoCopy ? "View" : "Details"}
-                </th>
+                <th className="px-3 py-2 text-left">Hall Ticket No</th>
+                <th className="px-3 py-2 text-left">Course / Year</th>
+                <th className="px-3 py-2 text-left">GD Code</th>
+                <th className="px-3 py-2 text-left">Subject Details</th>
+                {isPhotoCopy && (
+                  <th className="px-3 py-2 text-center">Photo Copy</th>
+                )}
               </tr>
             </thead>
             <tbody>
-              {revisionHistory.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-3 py-6 text-center text-muted-foreground"
-                  >
-                    {loading ? "Loading…" : "No receipt records"}
+              {revisionHistory.map((r, i) => (
+                <tr key={`rh-${i}`} className="border-b">
+                  <td className="px-3 py-2">
+                    {strFrom(r, ["hallticket_number"])}
                   </td>
-                </tr>
-              ) : (
-                revisionHistory.map((r, i) => (
-                  <tr key={`rh-${i}`} className="border-b">
-                    <td className="px-3 py-2">
-                      {formatReceiptDate(
-                        strFrom(r, ["recepit_date", "receipt_date"]),
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {strFrom(r, ["receipt_no", "fee_receipt_no"]) || "-"}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {strFrom(r, ["fee_amount", "exam_total_amount"]) || "-"}
-                    </td>
+                  <td className="px-3 py-2">
+                    {strFrom(r, ["course_year_code"])}
+                  </td>
+                  <td className="px-3 py-2">{strFrom(r, ["gd_code"])}</td>
+                  <td className="px-3 py-2">
+                    {strFrom(r, ["subject_details"])}
+                  </td>
+                  {isPhotoCopy && (
                     <td className="px-3 py-2 text-center">
-                      {isPhotoCopy ? (
-                        <button
-                          type="button"
-                          className="text-blue-700 hover:underline"
-                          onClick={() => void openPhotocopy()}
-                        >
-                          View
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="text-blue-700 hover:underline"
-                          onClick={() => openViewRevisionDetails(r)}
-                        >
-                          View
-                        </button>
-                      )}
+                      <button
+                        className="text-blue-700 hover:underline"
+                        onClick={() => void openPhotocopy()}
+                      >
+                        View
+                      </button>
                     </td>
-                  </tr>
-                ))
-              )}
+                  )}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
 
       {/* Receipts */}
-      {/* {showProfile && (
+      {showProfile && (
         <div className="app-card p-3 border-t-[3px] border-t-amber-300 overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-[12px]">
             <thead>
@@ -1257,7 +1238,7 @@ export default function ReEvaluationFeeCollectionPage() {
             </tbody>
           </table>
         </div>
-      )} */}
+      )}
 
       {/* Photocopy popup */}
       <Dialog open={photocopyOpen} onOpenChange={setPhotocopyOpen}>
@@ -1327,21 +1308,20 @@ export default function ReEvaluationFeeCollectionPage() {
       <Dialog open={viewSubjOpen} onOpenChange={setViewSubjOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Receipt Details</DialogTitle>
+            <DialogTitle>Subjects</DialogTitle>
           </DialogHeader>
           <div className="overflow-auto rounded border">
             <table className="w-full text-[12px]">
               <thead className="bg-muted/40">
                 <tr>
-                  <th className="px-2 py-1 text-left">SI.No</th>
                   <th className="px-2 py-1 text-left">Course Year</th>
-                  <th className="px-2 py-1 text-left">Subject</th>
+                  <th className="px-2 py-1 text-left">Subject Code</th>
+                  <th className="px-2 py-1 text-left">Subject Name</th>
                 </tr>
               </thead>
               <tbody>
                 {viewSubjRows.map((s, i) => (
                   <tr key={`vs-${i}`} className="border-t">
-                    <td className="px-2 py-1">{i + 1}</td>
                     <td className="px-2 py-1">
                       {strFrom(s, [
                         "course_year_code",
@@ -1350,12 +1330,10 @@ export default function ReEvaluationFeeCollectionPage() {
                       ])}
                     </td>
                     <td className="px-2 py-1">
-                      {strFrom(s, [
-                        "subject_details",
-                        "subject_code",
-                        "subject_name",
-                      ]) ||
-                        `${strFrom(s, ["subject_code"])} - ${strFrom(s, ["subject_name"])}`}
+                      {strFrom(s, ["subject_code", "subjectCode"])}
+                    </td>
+                    <td className="px-2 py-1">
+                      {strFrom(s, ["subject_name", "subjectName"])}
                     </td>
                   </tr>
                 ))}
@@ -1374,6 +1352,6 @@ export default function ReEvaluationFeeCollectionPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredPage>
   );
 }

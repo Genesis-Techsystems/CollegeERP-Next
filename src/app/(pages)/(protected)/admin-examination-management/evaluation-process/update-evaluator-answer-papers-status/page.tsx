@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { BookMarked, ChevronDown, Pencil } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import type { ColDef } from 'ag-grid-community'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { FilteredListPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { Button } from '@/components/ui/button'
@@ -120,7 +119,6 @@ export default function EvaluationStatusTrackingPage() {
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
   const organizationId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
   const [loading, setLoading] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(true)
   const [filters, setFilters] = useState<AnyRow[]>([])
   const [rows, setRows] = useState<AnswerPaperRow[]>([])
   const [hasFetched, setHasFetched] = useState(false)
@@ -274,111 +272,81 @@ export default function EvaluationStatusTrackingPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Evaluation status tracking" subtitle="Evaluation process · Update evaluator answer paper status" />
-
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-2">
-            <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
-            <h2 className="app-card-title">Evaluation status tracking</h2>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-[13px]"
-            onClick={() => setFiltersOpen((prev) => !prev)}
-            aria-expanded={filtersOpen}
-          >
-            Filters
-            <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-
-        {(
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="space-y-1 md:col-span-2">
-              <Label>Exam Month Year</Label>
-              <Select
-                value={examMonthYear}
-                onChange={(v) => setExamMonthYear(v)}
-                options={monthYearRows.map((r) => {
-                  const val = pickText(r, ['exam_month_yr', 'examMonthYear'])
-                  return { value: val, label: val || '-' }
-                })}
-                placeholder="Exam month year"
-                searchable
-                disabled={loading}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-6">
-              <Label>Subject</Label>
-              <Select
-                value={subjectCode}
-                onChange={(v) => setSubjectCode(v)}
-                options={subjectRows.map((r) => {
-                  const code = pickText(r, ['evaluator_subject_code', 'subject_code', 'subjectCode'])
-                  const name = pickText(r, ['subject_name', 'subjectName'])
-                  const label = (name || 'Subject') + (code ? ` (${code})` : '')
-                  return { value: code, label }
-                })}
-                placeholder="Subject"
-                searchable
-                disabled={!examMonthYear || loading}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-3">
-              <Label>Evaluators</Label>
-              <Select
-                value={evaluatorProfileId ? String(evaluatorProfileId) : null}
-                onChange={(v) => {
-                  const id = v ? Number(v) : 0
-                  const match = evaluatorRows.find(
-                    (r) => pickNum(r, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId']) === id,
-                  )
-                  setEvaluatorProfileId(id > 0 ? id : null)
-                  setTimeTableId(match ? pickNum(match, ['fk_exam_timetable_det_id', 'examTimetableDetId']) : null)
-                }}
-                options={evaluatorRows.map((r) => {
-                  const id = pickNum(r, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])
-                  const evaluator = pickText(r, ['evaluator_name', 'evaluatorName'])
-                  const user = pickText(r, ['user_name', 'userName'])
-                  const label = (evaluator || 'Evaluator') + (user ? ` (${user})` : '')
-                  return { value: String(id), label }
-                })}
-                placeholder="Evaluator"
-                searchable
-                disabled={!subjectCode || loading}
-              />
-            </div>
-            <div className="md:col-span-1">
-              <Button className="h-9 w-full" onClick={() => void getList()} disabled={loading}>
-                Get List
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {hasFetched && (
-        <div className="app-card overflow-hidden">
-          <div className="p-3">
-            <DataTable
-              rowData={rows}
-              columnDefs={columnDefs}
-              pagination
-              loading={loading}
-              toolbar={{
-                search: true,
-                searchPlaceholder: 'Search…',
-                pdfDocumentTitle: 'Answer Paper Status',
-              }}
+    <FilteredListPage
+      title="Evaluation status tracking"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div className="space-y-1 md:col-span-2">
+            <Label>Exam Month Year</Label>
+            <Select
+              value={examMonthYear}
+              onChange={(v) => setExamMonthYear(v)}
+              options={monthYearRows.map((r) => {
+                const val = pickText(r, ['exam_month_yr', 'examMonthYear'])
+                return { value: val, label: val || '-' }
+              })}
+              placeholder="Exam month year"
+              searchable
+              disabled={loading}
             />
+          </div>
+          <div className="space-y-1 md:col-span-6">
+            <Label>Subject</Label>
+            <Select
+              value={subjectCode}
+              onChange={(v) => setSubjectCode(v)}
+              options={subjectRows.map((r) => {
+                const code = pickText(r, ['evaluator_subject_code', 'subject_code', 'subjectCode'])
+                const name = pickText(r, ['subject_name', 'subjectName'])
+                const label = (name || 'Subject') + (code ? ` (${code})` : '')
+                return { value: code, label }
+              })}
+              placeholder="Subject"
+              searchable
+              disabled={!examMonthYear || loading}
+            />
+          </div>
+          <div className="space-y-1 md:col-span-3">
+            <Label>Evaluators</Label>
+            <Select
+              value={evaluatorProfileId ? String(evaluatorProfileId) : null}
+              onChange={(v) => {
+                const id = v ? Number(v) : 0
+                const match = evaluatorRows.find(
+                  (r) => pickNum(r, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId']) === id,
+                )
+                setEvaluatorProfileId(id > 0 ? id : null)
+                setTimeTableId(match ? pickNum(match, ['fk_exam_timetable_det_id', 'examTimetableDetId']) : null)
+              }}
+              options={evaluatorRows.map((r) => {
+                const id = pickNum(r, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])
+                const evaluator = pickText(r, ['evaluator_name', 'evaluatorName'])
+                const user = pickText(r, ['user_name', 'userName'])
+                const label = (evaluator || 'Evaluator') + (user ? ` (${user})` : '')
+                return { value: String(id), label }
+              })}
+              placeholder="Evaluator"
+              searchable
+              disabled={!subjectCode || loading}
+            />
+          </div>
+          <div className="md:col-span-1">
+            <Button className="h-9 w-full" onClick={() => void getList()} disabled={loading}>
+              Get List
+            </Button>
           </div>
         </div>
       )}
-
+      rowData={hasFetched ? rows : []}
+      columnDefs={columnDefs}
+      pagination
+      loading={loading}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Answer Paper Status',
+      }}
+    >
       <FormModal
         open={editOpen}
         onClose={() => {
@@ -402,6 +370,6 @@ export default function EvaluationStatusTrackingPage() {
           />
         </div>
       </FormModal>
-    </PageContainer>
+    </FilteredListPage>
   )
 }

@@ -4,9 +4,8 @@ import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
@@ -117,35 +116,38 @@ export default function AffiliatedCollegeExamPaymentsPage() {
   )
 
   return (
-    <PageContainer>
-      <PageHeader title="Affiliated College Exam Payments" />
-      <AffiliatedCollegeFilters
-        title="Affiliated College Exam Payments"
-        cascade={cascade}
-        onGetDetails={() => setListEnabled(true)}
-        loadingDetails={isFetching}
-        allowAllGroupYear
-        showExam
-      />
-      {listEnabled ? (
-        <TableCard
-          headerRight={
-            <Button
-              size="sm"
-              onClick={() => {
-                setEditing(null)
-                setModalOpen(true)
-              }}
-              disabled={!cascade.collegeId}
-            >
-              <PlusIcon className="h-3.5 w-3.5 mr-1" />
-              Exam Payments
-            </Button>
-          }
+    <FilteredListPage
+      title="Affiliated College Exam Payments"
+      filters={(
+        <AffiliatedCollegeFilters
+          title="Affiliated College Exam Payments"
+          cascade={cascade}
+          onGetDetails={() => setListEnabled(true)}
+          loadingDetails={isFetching}
+          allowAllGroupYear
+          showExam
+          bare
+        />
+      )}
+      rowData={listEnabled ? rows : []}
+      columnDefs={columnDefs}
+      loading={isFetching}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search payments…', pdfDocumentTitle: 'Affiliated College Exam Payments' }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
+          }}
+          disabled={!listEnabled || !cascade.collegeId}
         >
-          <DataTable rowData={rows} columnDefs={columnDefs} />
-        </TableCard>
-      ) : null}
+          <PlusIcon className="h-3.5 w-3.5 mr-1" />
+          Exam Payments
+        </Button>
+      )}
+    >
       <ExamPaymentModal
         open={modalOpen}
         onClose={() => {
@@ -156,6 +158,6 @@ export default function AffiliatedCollegeExamPaymentsPage() {
         onSave={(payload) => saveMutation.mutate(payload)}
         isSubmitting={saveMutation.isPending}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

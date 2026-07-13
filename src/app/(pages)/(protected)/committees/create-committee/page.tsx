@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon, PlusIcon } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { DataTable } from '@/common/components/table'
+import { ListPage } from '@/components/layout'
+
 import { StatusBadge } from '@/common/components/data-display'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
@@ -75,11 +75,7 @@ export default function CreateCommitteePage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <DataTable
+    <ListPage
               title="Create Committee"
               rowData={data}
               columnDefs={columnDefs}
@@ -92,10 +88,7 @@ export default function CreateCommitteePage() {
                   Add Committee
                 </Button>
               )}
-            />
-          </div>
-        </div>
-      </div>
+            >
       <CommitteeModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditData(null) }}
@@ -103,6 +96,6 @@ export default function CreateCommitteePage() {
         organizationId={orgId}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

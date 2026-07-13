@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -20,8 +20,6 @@ import {
 } from '@/services'
 import type { StudentFeeSearchRow } from '@/types/fees-collection'
 import type { TcClearanceRow } from '@/types/tc-no-due'
-import { TcPageTitle } from '../_components/TcPageTitle'
-import { ClearanceTable } from '../_components/ClearanceTable'
 import { ConfirmTcDialog } from '../_components/ConfirmTcDialog'
 import { useTcCollegeCascade } from '../_lib/use-tc-college-cascade'
 import { TC_CLEARANCE_ROWS } from '../_lib/tc-constants'
@@ -30,6 +28,15 @@ function studentLabel(s: StudentFeeSearchRow): string {
   const name = s.firstName ?? 'Student'
   const id = s.hallticketNumber ?? s.rollNumber ?? s.studentId
   return id ? `${name} (${id})` : name
+}
+
+function clearanceStatusRenderer(p: ICellRendererParams<TcClearanceRow>) {
+  const isDue = p.data?.isDue ?? true
+  return (
+    <span className={isDue ? 'font-medium text-amber-700' : 'font-medium text-emerald-700'}>
+      {isDue ? 'Pending' : 'Cleared'}
+    </span>
+  )
 }
 
 export default function SendNoDueApprovalRequestPage() {
@@ -86,6 +93,14 @@ export default function SendNoDueApprovalRequestPage() {
       isDue: workflows.length === 0 ? true : !allNodue && !nodueCodes.has('NODUE'),
     }))
   }, [workflows])
+
+  const clearanceColumnDefs = useMemo<ColDef<TcClearanceRow>[]>(
+    () => [
+      { field: 'name', headerName: 'Clearance', minWidth: 200, flex: 1 },
+      { field: 'isDue', headerName: 'Status', minWidth: 100, flex: 0, cellRenderer: clearanceStatusRenderer },
+    ],
+    [],
+  )
 
   const onStudentSearch = useCallback(
     async (term: string) => {
@@ -155,14 +170,12 @@ export default function SendNoDueApprovalRequestPage() {
   }
 
   return (
-    <PageContainer className="space-y-5">
-      <TcPageTitle title="No Due Approval Request" />
-
-      <FilterCard title="Search student">
+    <FilteredListPage
+      title="No Due Approval Request"
+      filters={(
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Select
             label="College"
-            className={FILTER_CARD_SELECT_CLASS}
             value={collegeId}
             onChange={(v) => {
               setCollegeId(v)
@@ -177,7 +190,6 @@ export default function SendNoDueApprovalRequestPage() {
           />
           <Select
             label="Academic year"
-            className={FILTER_CARD_SELECT_CLASS}
             value={academicYearId}
             onChange={setAcademicYearId}
             options={academicYears}
@@ -188,7 +200,6 @@ export default function SendNoDueApprovalRequestPage() {
           />
           <Select
             label="Student"
-            className={FILTER_CARD_SELECT_CLASS}
             value={studentId}
             onChange={(v) => {
               setStudentId(v)
@@ -203,12 +214,14 @@ export default function SendNoDueApprovalRequestPage() {
             disabled={!collegeNum}
           />
         </div>
-      </FilterCard>
-
+      )}
+      rowData={studentNum > 0 ? clearanceRows : []}
+      columnDefs={clearanceColumnDefs}
+      height="auto"
+      filtersDefaultOpen
+    >
       {studentNum > 0 && (
-        <div className="app-card space-y-4 p-4">
-          <h2 className="text-sm font-semibold">Department clearances</h2>
-          <ClearanceTable rows={clearanceRows} />
+        <div className="space-y-3">
           {issue && (
             <p className="text-sm text-muted-foreground">
               TC request status:{' '}
@@ -236,6 +249,6 @@ export default function SendNoDueApprovalRequestPage() {
         onConfirm={() => void handleApply()}
         loading={applying}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

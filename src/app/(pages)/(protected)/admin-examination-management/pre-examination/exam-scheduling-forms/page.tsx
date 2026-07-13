@@ -3,10 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Select } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
-import { ChevronDown, Filter } from 'lucide-react'
 import { toDateStr } from '@/common/generic-functions'
 import {
   getUnivExamFiltersRegSup,
@@ -15,7 +13,8 @@ import {
   listExamTimetablesByExam,
 } from '@/services/pre-examination'
 import { getExamTimetableDetails, listCourseYears } from '@/services/examination'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { useSchedulingFormsPrint, type PrintAllocationRow } from './_print/useSchedulingFormsPrint'
 import { useCollegeLogo } from '@/hooks/useCollegeLogo'
 
@@ -66,7 +65,6 @@ export default function ExamSchedulingFormsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [hasFetchedList, setHasFetchedList] = useState(false)
-  const [filterOpen, setFilterOpen] = useState(true)
   const [search, setSearch] = useState('')
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
@@ -308,30 +306,13 @@ export default function ExamSchedulingFormsPage() {
   if (printMode) return <>{printView}</>
 
   return (
-    <PageContainer className="space-y-4">
-      {loadingOverlay}
-      <PageHeader title="Exam Scheduling Forms" subtitle="View and manage exam scheduling" />
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Scheduling Forms</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
-        {(
-        <div className="p-3 space-y-2">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-            <div className="md:col-span-2 space-y-1">
-              <Label>Course</Label>
+    <FilteredPage
+      title="Exam Scheduling Forms"
+      notice={loadingOverlay}
+      filters={(
+        <>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Course">
               <Select
                 value={courseId ? String(courseId) : null}
                 onChange={(v) => {
@@ -348,10 +329,8 @@ export default function ExamSchedulingFormsPage() {
                 options={courses.map((c) => ({ value: String(c.fk_course_id), label: c.course_code }))}
                 placeholder="Course"
               />
-            </div>
-
-            <div className="md:col-span-2 space-y-1">
-              <Label>Exam Year</Label>
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Year">
               <Select
                 value={academicYearId ? String(academicYearId) : null}
                 onChange={(v) => {
@@ -367,10 +346,8 @@ export default function ExamSchedulingFormsPage() {
                 options={academicYears.map((a) => ({ value: String(a.fk_academic_year_id), label: a.academic_year }))}
                 placeholder="Exam Year"
               />
-            </div>
-
-            <div className="md:col-span-4 space-y-1">
-              <Label>Exam Master</Label>
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Master">
               <Select
                 value={examId ? String(examId) : null}
                 onChange={(v) => {
@@ -381,20 +358,16 @@ export default function ExamSchedulingFormsPage() {
                 options={exams.map((e) => ({ value: String(e.fk_exam_id), label: e.exam_name }))}
                 placeholder="Exam Master"
               />
-            </div>
-
-            <div className="md:col-span-2 space-y-1">
-              <Label>College</Label>
+            </GlobalFilterField>
+            <GlobalFilterField label="College">
               <Select
                 value={collegeId ? String(collegeId) : null}
                 onChange={(v) => setCollegeId(v ? Number(v) : null)}
                 options={colleges.map((c) => ({ value: String(c.fk_college_id), label: c.college_code }))}
                 placeholder="College"
               />
-            </div>
-
-            <div className="md:col-span-2 space-y-1">
-              <Label>Exam Timetable</Label>
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Timetable">
               <Select
                 value={examTimetableId ? String(examTimetableId) : null}
                 onChange={(v) => {
@@ -404,18 +377,16 @@ export default function ExamSchedulingFormsPage() {
                 options={timetables.map((t) => ({ value: String(pickId(t, ['examTimetableId', 'fk_exam_timetable_id', 'exam_timetable_id', 'id'])), label: `${toDateStr(t.examDate)} (${t.examSessionName ?? '-'})` }))}
                 placeholder="Exam Timetable"
               />
-            </div>
-          </div>
-
-          <div className="flex justify-end">
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+          <div className="flex justify-end pt-2">
             <Button type="button" onClick={getList} disabled={loading || !canGetList} className="h-8 px-3 text-[12px]">
               Get List
             </Button>
           </div>
-        </div>
-        )}
-      </div>
-
+        </>
+      )}
+    >
       {hasFetchedList && (
         <div className="app-card p-3 space-y-2">
           <div className="space-y-3">
@@ -475,7 +446,7 @@ export default function ExamSchedulingFormsPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredPage>
   )
 }
 

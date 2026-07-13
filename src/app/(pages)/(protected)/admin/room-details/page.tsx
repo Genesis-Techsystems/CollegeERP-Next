@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { DoorOpen, PencilIcon, PlusIcon } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
+import { PencilIcon, PlusIcon } from 'lucide-react'
 import { StatusBadge } from '@/common/components/data-display'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -424,15 +424,12 @@ export default function RoomDetailsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Room Details</h2>
-        </div>
-        <div className="grid grid-cols-12 gap-2 p-3">
-          <div className="col-span-12 md:col-span-2">
+    <FilteredListPage
+      title="Room Details"
+      filters={
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Campus">
             <Select
-              label="Campus"
               value={campusId}
               onChange={(v) => {
                 setCampusId(v)
@@ -445,10 +442,9 @@ export default function RoomDetailsPage() {
               placeholder="All"
               searchable
             />
-          </div>
-          <div className="col-span-12 md:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Building">
             <Select
-              label="Building"
               value={buildingId}
               onChange={(v) => {
                 setBuildingId(v)
@@ -460,10 +456,9 @@ export default function RoomDetailsPage() {
               placeholder="All"
               searchable
             />
-          </div>
-          <div className="col-span-12 md:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Block">
             <Select
-              label="Block"
               value={blockId}
               onChange={(v) => {
                 setBlockId(v)
@@ -475,10 +470,9 @@ export default function RoomDetailsPage() {
               searchable
               disabled={!buildingId}
             />
-          </div>
-          <div className="col-span-12 md:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Floor">
             <Select
-              label="Floor"
               value={floorId}
               onChange={(v) => {
                 setFloorId(v)
@@ -489,64 +483,39 @@ export default function RoomDetailsPage() {
               searchable
               disabled={!blockId}
             />
-          </div>
-          <div className="col-span-12 md:col-span-2">
+          </GlobalFilterField>
+          <GlobalFilterField label="Room">
             <Select
-              label="Room"
               value={roomId}
               onChange={setRoomId}
               options={roomOptions}
               placeholder="All"
               searchable
             />
-          </div>
-          <div className="col-span-12 md:col-span-2 flex items-end">
-            <Button
-              size="sm"
-              onClick={loadDetails}
-            >
+          </GlobalFilterField>
+          <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+            <Button size="sm" className="h-[30px] px-4 text-[12px]" onClick={() => void loadDetails()}>
               Get Details
             </Button>
-          </div>
-        </div>
-      </div>
-
-      {showResults && (
-        <div className="app-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-border bg-muted/40">
-            <h2 className="app-card-title">Room Details List</h2>
-          </div>
-          <div className="px-3 pb-3 pt-2">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              {!detailsLoading && filteredData.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                  <DoorOpen className="h-10 w-10 mb-3 opacity-40" />
-                  <p className="text-sm">No room details found</p>
-                  <Button size="sm" className="mt-4" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Room Details
-                  </Button>
-                </div>
-              ) : (
-                <DataTable
-                  rowData={filteredData}
-                  columnDefs={columnDefs}
-                  loading={detailsLoading}
-                  pagination
-                  toolbar={{ search: true, searchPlaceholder: 'Search room details…', pdfDocumentTitle: 'Room Details List' }}
-                  toolbarTrailing={
-                    <Button size="sm" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
-                      <PlusIcon className="h-4 w-4 mr-1" />
-                      Add Room Details
-                    </Button>
-                  }
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      }
+      rowData={showResults ? filteredData : []}
+      columnDefs={columnDefs}
+      loading={detailsLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search room details…',
+        pdfDocumentTitle: 'Room Details',
+      }}
+      toolbarTrailing={
+        <Button size="sm" onClick={() => { setEditingRoom(null); setModalOpen(true) }}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Room Details
+        </Button>
+      }
+    >
       <RoomDetailModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingRoom(null) }}
@@ -559,6 +528,6 @@ export default function RoomDetailsPage() {
         roomDeviceRows={resultRows}
         onSaved={() => { invalidate(); void loadDetails() }}
       />
-    </PageContainer>
+    </FilteredListPage>
   )
 }

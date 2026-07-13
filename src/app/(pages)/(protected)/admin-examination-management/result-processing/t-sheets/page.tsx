@@ -1,13 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select } from '@/common/components/select'
-import { DataTable, TableCard } from '@/common/components/table'
 import type { ColDef } from 'ag-grid-community'
 import { getAllRecords } from '@/services/crud'
 import { getTSheetEvaluationFilters, getTSheetResultList, listStudents } from '@/services'
@@ -390,115 +389,109 @@ export default function TSheetsPage() {
   }, [rows])
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="T-Sheets" subtitle="Result Processing" />
-
-      <div className="app-card p-3 space-y-3">
-        <RadioGroup value={mode} onValueChange={(v) => setMode(v as 'course' | 'student')} className="flex items-center gap-6">
-          <label className="flex items-center gap-2 text-[12px]">
-            <RadioGroupItem value="course" id="mode-course" />
-            Detailed Result By Course
-          </label>
-          <label className="flex items-center gap-2 text-[12px]">
-            <RadioGroupItem value="student" id="mode-student" />
-            Detailed Result By Student
-          </label>
-        </RadioGroup>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          {mode === 'course' && (
-            <>
-              <div className="space-y-1 md:col-span-2">
-                <Label>College</Label>
-                <Select value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="College" />
-              </div>
-              <div className="space-y-1 md:col-span-2">
-                <Label>Course</Label>
-                <Select value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" />
-              </div>
-              <div className="space-y-1 md:col-span-2">
-                <Label>Exam Year</Label>
-                <Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Exam Year" />
-              </div>
-            </>
-          )}
-
-          {mode === 'student' && (
-            <div className="space-y-1 md:col-span-4">
-              <Label>Student</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={studentQuery}
-                  onChange={(e) => setStudentQuery(e.target.value)}
-                  placeholder="Search by student name or rollNo."
-                  className="h-8 text-[12px]"
+    <FilteredListPage
+      title="T-Sheets"
+      filters={(
+        <div className="space-y-3">
+          <RadioGroup value={mode} onValueChange={(v) => setMode(v as 'course' | 'student')} className="flex items-center gap-6">
+            <label className="flex items-center gap-2 text-[12px]">
+              <RadioGroupItem value="course" id="mode-course" />
+              Detailed Result By Course
+            </label>
+            <label className="flex items-center gap-2 text-[12px]">
+              <RadioGroupItem value="student" id="mode-student" />
+              Detailed Result By Student
+            </label>
+          </RadioGroup>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+            {mode === 'course' && (
+              <>
+                <div className="space-y-1 md:col-span-2">
+                  <Label>College</Label>
+                  <Select value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="College" />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <Label>Course</Label>
+                  <Select value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <Label>Exam Year</Label>
+                  <Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Exam Year" />
+                </div>
+              </>
+            )}
+            {mode === 'student' && (
+              <div className="space-y-1 md:col-span-4">
+                <Label>Student</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={studentQuery}
+                    onChange={(e) => setStudentQuery(e.target.value)}
+                    placeholder="Search by student name or rollNo."
+                    className="h-8 text-[12px]"
+                  />
+                  <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => void onSearchStudents()} disabled={searchingStudents}>
+                    Search
+                  </Button>
+                </div>
+                <Select
+                  value={studentId ? String(studentId) : null}
+                  onChange={(v) => setStudentId(v ? Number(v) : null)}
+                  options={studentOptions}
+                  placeholder="Select Student"
+                  searchable
                 />
-                <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => void onSearchStudents()} disabled={searchingStudents}>
-                  Search
-                </Button>
               </div>
+            )}
+            <div className="space-y-1 md:col-span-4">
+              <Label>Exam</Label>
+              <Select value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam" searchable />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Course Group</Label>
+              <Select value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroupOptions} placeholder="Course Group" />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Course Year</Label>
+              <Select value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Regulation</Label>
+              <Select value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Result Status</Label>
               <Select
-                value={studentId ? String(studentId) : null}
-                onChange={(v) => setStudentId(v ? Number(v) : null)}
-                options={studentOptions}
-                placeholder="Select Student"
-                searchable
+                value={String(isPass)}
+                onChange={(v) => setIsPass(v === '1' ? 1 : v === '0' ? 0 : -1)}
+                options={[
+                  { value: '-1', label: 'All' },
+                  { value: '1', label: 'Pass' },
+                  { value: '0', label: 'Fail' },
+                ]}
+                placeholder="Result Status"
               />
             </div>
-          )}
-
-          <div className="space-y-1 md:col-span-4">
-            <Label>Exam</Label>
-            <Select value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam" searchable />
-          </div>
-
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Group</Label>
-            <Select value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroupOptions} placeholder="Course Group" />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Year</Label>
-            <Select value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Regulation</Label>
-            <Select value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Result Status</Label>
-            <Select
-              value={String(isPass)}
-              onChange={(v) => setIsPass(v === '1' ? 1 : v === '0' ? 0 : -1)}
-              options={[
-                { value: '-1', label: 'All' },
-                { value: '1', label: 'Pass' },
-                { value: '0', label: 'Fail' },
-              ]}
-              placeholder="Result Status"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Exam Month Year</Label>
-            <Select value={examMonthYear || null} onChange={(v) => setExamMonthYear(v ?? '')} options={monthYearOptions} placeholder="Exam Month Year" />
-          </div>
-
-          <div className="md:col-span-2 flex gap-2">
-            <Button className="h-8 text-[12px] flex-1" onClick={() => void getList()} disabled={loading}>
-              Get List
-            </Button>
-            <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={resetFilters}>
-              Reset
-            </Button>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Exam Month Year</Label>
+              <Select value={examMonthYear || null} onChange={(v) => setExamMonthYear(v ?? '')} options={monthYearOptions} placeholder="Exam Month Year" />
+            </div>
+            <div className="md:col-span-2 flex gap-2">
+              <Button className="h-8 text-[12px] flex-1" onClick={() => void getList()} disabled={loading}>
+                Get List
+              </Button>
+              <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={resetFilters}>
+                Reset
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
-
-      {rows.length > 0 && (
-        <TableCard>
-          <DataTable rowData={rows} columnDefs={columnDefs} loading={loading} pagination />
-        </TableCard>
       )}
-    </PageContainer>
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+    />
   )
 }
 

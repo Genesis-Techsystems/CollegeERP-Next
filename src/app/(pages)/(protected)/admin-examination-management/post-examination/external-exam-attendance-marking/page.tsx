@@ -3,15 +3,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { GraduationCap } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select as CommonSelect } from '@/common/components/select'
-import { DataTable } from '@/common/components/table'
-import { TableCard } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   getExternalAttendanceFilters,
   getExternalAttendanceRestFilters,
@@ -151,50 +148,6 @@ export default function ExternalExamAttendanceMarkingPage() {
   const rooms = useMemo(
     () => [0, ...dedupeBy(roomRows, 'roomId').map((x) => Number(x.roomId)).filter((x) => Number.isFinite(x) && x >= 0)],
     [roomRows],
-  )
-  const courseOptions = useMemo(
-    () => courses.map((x) => ({ value: String(x.fk_course_id), label: String(x.course_code ?? '-') })),
-    [courses],
-  )
-  const academicYearOptions = useMemo(
-    () => academicYears.map((x) => ({ value: String(x.fk_academic_year_id), label: String(x.academic_year ?? '-') })),
-    [academicYears],
-  )
-  const examOptions = useMemo(
-    () => exams.map((x) => ({ value: String(x.fk_exam_id), label: String(x.exam_name ?? '-') })),
-    [exams],
-  )
-  const regulationOptions = useMemo(
-    () => regulations.map((x) => ({ value: String(x.fk_regulation_id), label: String(x.regulation_code ?? '-') })),
-    [regulations],
-  )
-  const subjectOptions = useMemo(
-    () => subjects.map((x) => ({ value: String(x.fk_subject_id), label: `${String(x.subject_name ?? '-')} (${String(x.subject_code ?? '-')})` })),
-    [subjects],
-  )
-  const courseGroupOptions = useMemo(
-    () =>
-      courseGroups.map((x) => ({
-        value: String(x),
-        label: x === 0 ? 'All' : String(restRows.find((r) => Number(r.fk_course_group_id) === x)?.group_code ?? `Group ${x}`),
-      })),
-    [courseGroups, restRows],
-  )
-  const courseYearOptions = useMemo(
-    () =>
-      courseYears.map((x) => ({
-        value: String(x),
-        label: x === 0 ? 'All' : String(restRows.find((r) => Number(r.fk_course_year_id) === x)?.course_year_code ?? `Year ${x}`),
-      })),
-    [courseYears, restRows],
-  )
-  const roomOptions = useMemo(
-    () =>
-      rooms.map((x) => ({
-        value: String(x),
-        label: x === 0 ? 'All' : String(roomRows.find((r) => Number(r.roomId) === x)?.roomCode ?? `Room ${x}`),
-      })),
-    [rooms, roomRows],
   )
 
   useEffect(() => {
@@ -367,99 +320,86 @@ export default function ExternalExamAttendanceMarkingPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <h1 className="text-[18px] font-semibold leading-tight text-foreground">External Exam Attendance Marking</h1>
-
-      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">External Exam Attendance Marking</span>}>
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Exam Year" searchable /></div>
-          <div className="space-y-1 md:col-span-4"><Label>Exam</Label><CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><CommonSelect value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" searchable /></div>
-          <div className="space-y-1 md:col-span-5"><Label>Subject</Label><CommonSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectOptions} placeholder="Subject" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Group</Label><CommonSelect value={courseGroupId === null ? '0' : String(courseGroupId)} onChange={(v) => setCourseGroupId(Number(v || 0))} options={courseGroupOptions} placeholder="Course Group" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Year</Label><CommonSelect value={courseYearId === null ? '0' : String(courseYearId)} onChange={(v) => setCourseYearId(Number(v || 0))} options={courseYearOptions} placeholder="Course Year" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Room</Label><CommonSelect value={roomId === null ? '0' : String(roomId)} onChange={(v) => setRoomId(Number(v || 0))} options={roomOptions} placeholder="Room" searchable /></div>
-          <div className="md:col-span-1"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loadingList}>{loadingList ? 'Loading...' : 'Get List'}</Button></div>
-        </div>
-      </FilterCard>
-
-      {hasFetched && (
-        <div className="space-y-3">
-          <div className="app-card overflow-hidden">
-            <div className="border-b border-[#c3d9ff] bg-muted/40 px-3 py-2 text-[22px] leading-none text-[#315f8a]">◉</div>
-            <div className="border-2 border-[#c3d9ff] bg-card p-2">
-              <div className="flex items-start gap-4">
-                <div className="flex h-20 w-20 items-center justify-center bg-[#c3d9ff] text-slate-700">
-                  <GraduationCap className="h-10 w-10" />
-                </div>
-                <div className="space-y-1 text-[13px] text-slate-600">
-                  <p>
-                    {selectedExam?.exam_name ?? '-'} {examTypeText ? <span className="text-blue-700">({examTypeText})</span> : null}
-                  </p>
-                  <p>
-                    {selectedCourse?.course_code ?? '-'} {examDate ? <span className="text-blue-700">({examDate})</span> : null}
-                  </p>
-                  <p>
-                    Room : <span className="text-slate-800">{selectedRoom?.roomCode ?? '-'}</span>
-                  </p>
-                </div>
-              </div>
+    <FilteredListPage
+      title="External Exam Attendance Marking"
+      notice={hasFetched ? (
+        <div className="app-card overflow-hidden border-2 border-[#c3d9ff] bg-card p-2">
+          <div className="flex items-start gap-4">
+            <div className="flex h-20 w-20 items-center justify-center bg-[#c3d9ff] text-slate-700">
+              <GraduationCap className="h-10 w-10" />
+            </div>
+            <div className="space-y-1 text-[13px] text-slate-600">
+              <p>
+                {selectedExam?.exam_name ?? '-'} {examTypeText ? <span className="text-blue-700">({examTypeText})</span> : null}
+              </p>
+              <p>
+                {selectedCourse?.course_code ?? '-'} {examDate ? <span className="text-blue-700">({examDate})</span> : null}
+              </p>
+              <p>
+                Room : <span className="text-slate-800">{selectedRoom?.roomCode ?? '-'}</span>
+              </p>
             </div>
           </div>
-
-          <div className="app-card overflow-hidden">
-            <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-12">
-              <div className="lg:col-span-9">
-                <TableCard withHeaderBorder={false}>
-                  <DataTable
-                    rowData={rows}
-                    columnDefs={columnDefs}
-                    loading={loadingList}
-                    pagination
-                    toolbar={{
-                      search: true,
-                      searchPlaceholder: 'Search…',
-                      pdfDocumentTitle: 'External Exam Attendance',
-                    }}
-                    toolbarTrailing={
-                      <label className="inline-flex items-center gap-2 text-[12px] shrink-0">
-                        <Checkbox checked={allPresent} onCheckedChange={(v) => setRows((prev) => prev.map((r) => ({ ...r, isPresent: Boolean(v) })))} />
-                        <span>{allPresent ? 'UnMark All' : 'Mark All'}</span>
-                      </label>
-                    }
-                  />
-                </TableCard>
+        </div>
+      ) : null}
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="space-y-1 md:col-span-2"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loadingFilters}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((x) => <SelectItem key={x.fk_course_id} value={String(x.fk_course_id)}>{x.course_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger><SelectContent>{academicYears.map((x) => <SelectItem key={x.fk_academic_year_id} value={String(x.fk_academic_year_id)}>{x.academic_year}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-4"><Label>Exam</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((x) => <SelectItem key={x.fk_exam_id} value={String(x.fk_exam_id)}>{x.exam_name}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((x) => <SelectItem key={x.fk_regulation_id} value={String(x.fk_regulation_id)}>{x.regulation_code}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-5"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.map((x) => <SelectItem key={x.fk_subject_id} value={String(x.fk_subject_id)}>{x.subject_name} ({x.subject_code})</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Group</Label><Select value={courseGroupId === null ? '0' : String(courseGroupId)} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Group" /></SelectTrigger><SelectContent>{courseGroups.map((x) => <SelectItem key={`cg-${x}`} value={String(x)}>{x === 0 ? 'All' : restRows.find((r) => Number(r.fk_course_group_id) === x)?.group_code ?? `Group ${x}`}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Year</Label><Select value={courseYearId === null ? '0' : String(courseYearId)} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((x) => <SelectItem key={`cy-${x}`} value={String(x)}>{x === 0 ? 'All' : restRows.find((r) => Number(r.fk_course_year_id) === x)?.course_year_code ?? `Year ${x}`}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Room</Label><Select value={roomId === null ? '0' : String(roomId)} onValueChange={(v) => setRoomId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Room" /></SelectTrigger><SelectContent>{rooms.map((x) => <SelectItem key={`room-${x}`} value={String(x)}>{x === 0 ? 'All' : roomRows.find((r) => Number(r.roomId) === x)?.roomCode ?? `Room ${x}`}</SelectItem>)}</SelectContent></Select></div>
+          <div className="md:col-span-1"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loadingList}>{loadingList ? 'Loading...' : 'Get List'}</Button></div>
+        </div>
+      )}
+      rowData={hasFetched ? rows : []}
+      columnDefs={columnDefs}
+      loading={loadingList}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'External Exam Attendance',
+      }}
+      toolbarTrailing={(
+        <label className="inline-flex items-center gap-2 text-[12px] shrink-0">
+          <Checkbox checked={allPresent} onCheckedChange={(v) => setRows((prev) => prev.map((r) => ({ ...r, isPresent: Boolean(v) })))} />
+          <span>{allPresent ? 'UnMark All' : 'Mark All'}</span>
+        </label>
+      )}
+    >
+      {hasFetched && (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+          <div className="space-y-3 lg:col-span-3 lg:col-start-10">
+            <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">
+              <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[14px] font-semibold uppercase text-slate-700">
+                Absentees : <span className="rounded-full bg-cyan-300 px-2 py-0.5">{absentees.length}</span>
+              </h3>
+              <div className="max-h-[320px] overflow-auto p-3 text-[12px]">
+                {absentees.length === 0 ? (
+                  <p className="text-muted-foreground">No absents found.</p>
+                ) : (
+                  absentees.map((a) => (
+                    <p key={a.examStdDetId} className="mb-1">
+                      {a.firstName} (<span className="text-blue-700">{a.hallticketNumber}</span>)
+                    </p>
+                  ))
+                )}
               </div>
-              <div className="space-y-3 lg:col-span-3">
-                <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">
-                  <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[14px] font-semibold uppercase text-slate-700">
-                    Absentees : <span className="rounded-full bg-cyan-300 px-2 py-0.5">{absentees.length}</span>
-                  </h3>
-                  <div className="max-h-[320px] overflow-auto p-3 text-[12px]">
-                    {absentees.length === 0 ? (
-                      <p className="text-muted-foreground">No absents found.</p>
-                    ) : (
-                      absentees.map((a) => (
-                        <p key={a.examStdDetId} className="mb-1">
-                          {a.firstName} (<span className="text-blue-700">{a.hallticketNumber}</span>)
-                        </p>
-                      ))
-                    )}
-                  </div>
-                </div>
-                <div className="flex justify-center">
-                  <Button className="h-8 px-5 text-[12px]" onClick={onSave} disabled={saving || rows.length === 0}>
-                    {saving ? 'Saving...' : 'Save Attendance'}
-                  </Button>
-                </div>
-              </div>
+            </div>
+            <div className="flex justify-center">
+              <Button className="h-8 px-5 text-[12px]" onClick={onSave} disabled={saving || rows.length === 0}>
+                {saving ? 'Saving...' : 'Save Attendance'}
+              </Button>
             </div>
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredListPage>
   )
 }
 

@@ -3,9 +3,8 @@
 import { useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
 import { Building2, PencilIcon, PlusIcon } from 'lucide-react'
-import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
@@ -109,51 +108,40 @@ export default function BuildingsPage() {
   )
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Buildings</h2>
+    <ListPage
+      title="Buildings"
+      rowData={buildings}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search buildings…',
+        pdfDocumentTitle: 'Buildings',
+      }}
+      toolbarTrailing={
+        <Button size="sm" onClick={() => { setEditingBuilding(null); setModalOpen(true) }}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Building
+        </Button>
+      }
+      emptyState={
+        <div className="app-card flex flex-col items-center justify-center py-16 text-muted-foreground">
+          <Building2 className="h-10 w-10 mb-3 opacity-40" />
+          <p className="text-sm">No buildings found</p>
+          <Button size="sm" className="mt-4" onClick={() => { setEditingBuilding(null); setModalOpen(true) }}>
+            <PlusIcon className="h-4 w-4 mr-1" />
+            Add Building
+          </Button>
         </div>
-        <div className="px-3 pb-3 pt-2">
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {!loading && buildings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Building2 className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm">No buildings found</p>
-                <Button size="sm" className="mt-4" onClick={() => { setEditingBuilding(null); setModalOpen(true) }}>
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Add Building
-                </Button>
-              </div>
-            ) : (
-              <DataTable
-                rowData={buildings}
-                columnDefs={columnDefs}
-                loading={loading}
-                pagination
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search buildings…',
-                  pdfDocumentTitle: 'Buildings',
-                }}
-                toolbarTrailing={
-                  <Button size="sm" onClick={() => { setEditingBuilding(null); setModalOpen(true) }}>
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Building
-                  </Button>
-                }
-              />
-            )}
-          </div>
-        </div>
-      </div>
-
+      }
+    >
       <BuildingModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingBuilding(null) }}
         building={editingBuilding}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

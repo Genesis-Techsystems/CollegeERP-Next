@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Filter, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/common/components/select";
@@ -12,8 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { DataTable, TableCard } from "@/common/components/table";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import {
   getUnivExamFiltersRegSup,
   getUnivExamRestNoTt,
@@ -137,7 +136,6 @@ export default function OnlineExamFeeRegistrationPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(true);
   const [filterRows, setFilterRows] = useState<AnyRow[]>([]);
   const [restRows, setRestRows] = useState<AnyRow[]>([]);
   const [fallbackColleges, setFallbackColleges] = useState<AnyRow[]>([]);
@@ -361,132 +359,103 @@ export default function OnlineExamFeeRegistrationPage() {
   }, []);
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">Exam Fee Registrations</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            style={{ marginRight: "0px" }}
-            className="h-6 px-2.5 text-[12px]"
-            onClick={() => setFilterOpen((v) => !v)}
-            aria-expanded={filterOpen}
-          >
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown
-              className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? "rotate-180" : ""}`}
+    <FilteredListPage
+      title="Exam Fee Registrations"
+      filters={(
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="md:col-span-2 space-y-1">
+            <Label>Course *</Label>
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => onCourseChange(v ?? "")}
+              options={courses.map((c) => ({
+                value: String(c.fk_course_id),
+                label: c.course_code,
+              }))}
+              placeholder="Course"
             />
-          </Button>
-        </div>
-
-        {
-          <div className="p-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-2 space-y-1">
-                <Label>Course *</Label>
-                <Select
-                  value={courseId ? String(courseId) : null}
-                  onChange={(v) => onCourseChange(v ?? "")}
-                  options={courses.map((c) => ({
-                    value: String(c.fk_course_id),
-                    label: c.course_code,
-                  }))}
-                  placeholder="Course"
-                />
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <Label>Exam Year *</Label>
-                <Select
-                  value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => onAcademicYearChange(v ?? "")}
-                  options={academicYears.map((a) => ({
-                    value: String(a.fk_academic_year_id),
-                    label: a.academic_year,
-                  }))}
-                  placeholder="Exam Year"
-                />
-              </div>
-
-              <div className="md:col-span-5 space-y-1">
-                <Label>Exam Master *</Label>
-                <Select
-                  value={examId ? String(examId) : null}
-                  onChange={(v) => onExamChange(v ?? "")}
-                  options={exams.map((e) => ({
-                    value: String(e.fk_exam_id),
-                    label: e.exam_name ?? e.examName ?? `Exam ${e.fk_exam_id}`,
-                  }))}
-                  placeholder="Exam Master"
-                />
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <Label>College *</Label>
-                <Select
-                  value={collegeId ? String(collegeId) : null}
-                  onChange={(v) => setCollegeId(v ? Number(v) : null)}
-                  options={colleges.map((c) => ({
-                    value: String(c.fk_college_id ?? c.collegeId),
-                    label:
-                      c.college_code ??
-                      c.collegeCode ??
-                      c.college_name ??
-                      c.collegeName ??
-                      `College ${c.fk_college_id ?? c.collegeId}`,
-                  }))}
-                  placeholder="College"
-                />
-              </div>
-
-              <div className="md:col-span-1">
-                <Button
-                  type="button"
-                  onClick={onGetList}
-                  disabled={loading || tableLoading || !collegeId || !examId}
-                  className="h-8 px-3 text-[12px] w-full"
-                >
-                  Get List
-                </Button>
-              </div>
-            </div>
           </div>
-        }
-      </div>
 
-      {hasFetched && (
-        <TableCard withHeaderBorder={false}>
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={tableLoading}
-            pagination
-            paginationPageSize={10}
-            getRowId={getRowId}
-            toolbar={{
-              search: true,
-              searchPlaceholder: "Search registrations…",
-              pdfDocumentTitle: "Exam Fee Registrations",
-            }}
-            toolbarTrailing={
-              <Button
-                type="button"
-                size="sm"
-                onClick={onRegister}
-                disabled={!collegeId || !examId}
-                className="h-[30px] px-3 text-[12px]"
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Register
-              </Button>
-            }
-          />
-        </TableCard>
+          <div className="md:col-span-2 space-y-1">
+            <Label>Exam Year *</Label>
+            <Select
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => onAcademicYearChange(v ?? "")}
+              options={academicYears.map((a) => ({
+                value: String(a.fk_academic_year_id),
+                label: a.academic_year,
+              }))}
+              placeholder="Exam Year"
+            />
+          </div>
+
+          <div className="md:col-span-5 space-y-1">
+            <Label>Exam Master *</Label>
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => onExamChange(v ?? "")}
+              options={exams.map((e) => ({
+                value: String(e.fk_exam_id),
+                label: e.exam_name ?? e.examName ?? `Exam ${e.fk_exam_id}`,
+              }))}
+              placeholder="Exam Master"
+            />
+          </div>
+
+          <div className="md:col-span-2 space-y-1">
+            <Label>College *</Label>
+            <Select
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => setCollegeId(v ? Number(v) : null)}
+              options={colleges.map((c) => ({
+                value: String(c.fk_college_id ?? c.collegeId),
+                label:
+                  c.college_code ??
+                  c.collegeCode ??
+                  c.college_name ??
+                  c.collegeName ??
+                  `College ${c.fk_college_id ?? c.collegeId}`,
+              }))}
+              placeholder="College"
+            />
+          </div>
+
+          <div className="md:col-span-1">
+            <Button
+              type="button"
+              onClick={onGetList}
+              disabled={loading || tableLoading || !collegeId || !examId}
+              className="h-8 px-3 text-[12px] w-full"
+            >
+              Get List
+            </Button>
+          </div>
+        </div>
       )}
-
+      rowData={hasFetched ? rows : []}
+      columnDefs={columnDefs}
+      loading={tableLoading}
+      pagination
+      paginationPageSize={10}
+      getRowId={getRowId}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search registrations…",
+        pdfDocumentTitle: "Exam Fee Registrations",
+      }}
+      toolbarTrailing={(
+        <Button
+          type="button"
+          size="sm"
+          onClick={onRegister}
+          disabled={!collegeId || !examId}
+          className="h-[30px] px-3 text-[12px]"
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Register
+        </Button>
+      )}
+    >
       <Dialog open={subjectsOpen} onOpenChange={setSubjectsOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -574,6 +543,6 @@ export default function OnlineExamFeeRegistrationPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </FilteredListPage>
   );
 }
