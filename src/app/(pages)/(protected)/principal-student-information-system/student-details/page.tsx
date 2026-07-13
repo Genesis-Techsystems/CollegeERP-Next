@@ -91,19 +91,24 @@ function pickCourseId(student: AnyRow): number {
   return Number(student.courseId ?? student.fk_course_id ?? 0) || 0;
 }
 
-function PrincipalStudentHeader({ student }: { student: AnyRow }) {
+function PrincipalStudentHeader({
+  student,
+  feeLedger,
+}: {
+  student: AnyRow;
+  feeLedger: AnyRow | null;
+}) {
   const isLateral = student.isLateral === true;
   const statusCode = pickText(student, ["studentStatusCode", "statusCode"]);
   const statusLabel = pickDisplay(student, [
     "studentStatusDisplayName",
     "studentStatusName",
   ]);
-  const categoryLabel = pickDisplay(student, [
-    "scholarshipTypeCode",
+  // Scholarship category lives on the fee-ledger proc (s_fee_std_ledger), NOT on the
+  // studentdetail object — reading it off `student` left Category always blank.
+  const categoryLabel = pickDisplay(feeLedger ?? {}, [
     "scholarship_type_code",
-    "studentCategoryDisplayName",
-    "studentCategory",
-    "categoryDisplayName",
+    "scholarshipTypeCode",
   ]);
 
   const pathLine = [
@@ -384,7 +389,7 @@ export default function PrincipalStudentDetailsPage() {
           </div>
 
           <div className="rounded space-y-4 p-4">
-            <PrincipalStudentHeader student={data.student} />
+            <PrincipalStudentHeader student={data.student} feeLedger={data.feeLedger} />
 
             <ProfileSection title="Academic Details">
               <ProfileAngularTable

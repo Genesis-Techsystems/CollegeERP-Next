@@ -23,14 +23,14 @@ import {
 	getUnivExamSubjectFilters,
 	listExamFeeTypeGeneralDetails,
 	getExamTimetableDetails,
+	saveExamTimetable,
 } from '@/services/examination'
 import { getRegulations } from '@/services/exam-master'
 import { useSessionContext } from '@/context/SessionContext'
 import { PageContainer } from '@/components/layout'
 import { useBreadcrumbLabel } from '@/common/components/breadcrumb'
-import { toastError, toastSuccess } from '@/lib/toast'
+import { toastError, toastSuccess, toastInfo } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
-import { EXAM_API, NEXT_API } from '@/config/constants/api'
 import ExistingExamTimetableModal, { type ExistingExamTimetableRow } from '../ExistingExamTimetableModal'
 
 type Slot = {
@@ -495,8 +495,16 @@ export default function CreateExamTimetablePage() {
 	}
 
 	function addSelectedToStage() {
-		const session: 'M' | 'A' | null = slotDraft.startTime ? (slotDraft.startTime < '12:00' ? 'M' : 'A') : null
-		if (!slotDraft.date || !session || selectedExamSessionId == null || !selectedSubjectCode || selectedGroups.size === 0) return
+		// Start time is NOT required — it is bundled with the exam session and may
+		// legitimately be blank (mirrors Angular addExamCourseGroups, which gates only
+		// on session/subject + at least one checked course group).
+		if (!slotDraft.date || selectedExamSessionId == null || !selectedSubjectCode || selectedGroups.size === 0) {
+			toastError('Select exam date, session, subject and at least one course group.')
+			return
+		}
+		// Morning/Afternoon bucket derives from the session start time when present;
+		// default to 'M' when the session carries no start time.
+		const session: 'M' | 'A' = slotDraft.startTime && slotDraft.startTime >= '12:00' ? 'A' : 'M'
 		const rows: StagedRow[] = []
 		for (const code of Array.from(selectedGroups)) {
 			rows.push({
@@ -575,14 +583,18 @@ export default function CreateExamTimetablePage() {
 
 		setSaving(true)
 		try {
-			const res = await fetch(NEXT_API.PROXY(EXAM_API.SAVE_EXAM_TIMETABLE), {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload),
-			})
-			const body = await res.json().catch(() => null)
-			if (!res.ok || !body || body.success === false) {
+			const body = await saveExamTimetable(payload)
+			// Contract (mirrors Angular addExamTable, add-exam-timetable.component.ts:549-575):
+			// the application status is the BODY's `statusCode`, not the HTTP status.
+			//   statusCode===200 && success && non-empty `data`  => conflict (subjects already exist)
+			//   statusCode===200 && success && empty/absent data  => clean save
+			//   statusCode===200 && !success                      => soft failure (nothing saved)
+			if (!body.ok || body.statusCode !== 200) {
 				toastError(body?.message ?? 'Save failed')
+				return
+			}
+			if (!body.success) {
+				toastInfo(body.message ?? 'Nothing was saved.')
 				return
 			}
 			if (Array.isArray(body.data) && body.data.length > 0) {
@@ -594,10 +606,10 @@ export default function CreateExamTimetablePage() {
 				}))
 				setExistingRows(conflicts)
 				setExistingOpen(true)
-				toastError('Some subjects already exist for this session/year.')
+				toastInfo('Already same subject exists for same year.')
 				return
 			}
-			toastSuccess('Exam timetable saved')
+			toastSuccess(body.message ?? 'Exam timetable saved')
 			setStagedRows([])
 		} catch (err) {
 			toastError(getErrorMessage(err) ?? 'Save failed')

@@ -182,7 +182,11 @@ export default function StudentDetailsPage() {
   const sectionCascadeAutoFill = useRef(true);
 
   const isAdmin = user?.isAdmin ?? readStorage("isAdmin") === "true";
-  const isHod = readStorage("isHOD") === "true";
+  // isHOD is never written to localStorage in Next (SessionContext doesn't sync it),
+  // so this must read the server-derived session flag — otherwise it is permanently
+  // false, which mis-authorizes HODs (full edit instead of the restricted modal) and
+  // blocks them from sending credentials.
+  const isHod = user?.isHod ?? readStorage("isHOD") === "true";
   const roleName = user?.roleName ?? readStorage("roleName");
   const check = mode === "section" ? 2 : 1;
   const specialEditRoles = [

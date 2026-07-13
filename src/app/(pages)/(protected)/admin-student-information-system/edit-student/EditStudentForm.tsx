@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toastError, toastSuccess } from '@/lib/toast'
+import { useSessionContext } from '@/context/SessionContext'
 import {
   listAcademicYearsForReadmission,
   listBatchesByCourse,
@@ -67,6 +68,7 @@ function readStorage(key: string): string {
 
 export function EditStudentForm({ initialData, check }: EditStudentFormProps) {
   const router = useRouter()
+  const { user } = useSessionContext()
   const [activeStep, setActiveStep] = useState<EditStepId>('office')
   const [data, setData] = useState<AnyRow>(() => initLanguageFlags(initialData))
   const [documents, setDocuments] = useState<StudentDocumentRow[]>([])
@@ -349,7 +351,7 @@ export function EditStudentForm({ initialData, check }: EditStudentFormProps) {
       fatherPhotoPath: data.fatherPhotoPath,
       motherPhotoPath: data.motherPhotoPath,
       studentSignaturePath: data.studentSignaturePath,
-      organizationId: Number(readStorage('organizationId') || data.organizationId || 0),
+      organizationId: Number(user?.organizationId ?? data.organizationId ?? readStorage('organizationId') ?? 0),
       isActive: true,
       studentEducationDetails: education,
       studentActivitiesDetails: activities,
@@ -373,8 +375,10 @@ export function EditStudentForm({ initialData, check }: EditStudentFormProps) {
       const collections = ensureArray<AnyRow>(result?.studentDocumentCollections ?? result?.data?.studentDocumentCollections)
 
       const formData = new FormData()
-      formData.append('orgCode', readStorage('orgCode'))
-      formData.append('collegeCode', readStorage('collegeCode'))
+      // orgCode/collegeCode build the server-side upload storage path — Next never
+      // wrote these to localStorage, so sourcing from the session avoids empty paths.
+      formData.append('orgCode', String(user?.organizationCode ?? readStorage('orgCode')))
+      formData.append('collegeCode', String(user?.collegeCode ?? readStorage('collegeCode')))
       formData.append('studentId', String(data.studentId))
       formData.append('studentAadharFileName', '')
       formData.append('studentPancardFileName', '')
