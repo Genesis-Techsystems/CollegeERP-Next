@@ -1133,6 +1133,29 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       const adminInstitutionalRoom = mapAdminInstitutionalRoomRoute(item.href, item.label)
       if (adminInstitutionalRoom) return adminInstitutionalRoom
 
+      // Must run before hostel room mapping — label "Exam Center Rooms" contains "room"
+      // and was incorrectly forced to /hostel/rooms.
+      const deliveryBase = '/admin-examination-management/exam-papers-delivery-process'
+      if (
+        hrefLower.includes('univ-exam-center-rooms') ||
+        labelLower.includes('university exam center room') ||
+        labelLower.includes('univ exam center room') ||
+        (labelLower.includes('exam center room') &&
+          !labelLower.includes('type') &&
+          !labelLower.includes('allot'))
+      ) {
+        // Angular: exam-papers-delivery-process/univ-exam-center-rooms
+        return `${deliveryBase}/univ-exam-center-rooms`
+      }
+      if (
+        hrefLower.includes('exam-center-rooms') &&
+        !hrefLower.includes('univ-exam-center-rooms') &&
+        !hrefLower.includes('room-type') &&
+        !hrefLower.includes('allotment')
+      ) {
+        return `${deliveryBase}/exam-center-rooms`
+      }
+
       const hostelRoute = mapHostelNavRoute(item.href, item.label)
       if (hostelRoute) return hostelRoute
     }

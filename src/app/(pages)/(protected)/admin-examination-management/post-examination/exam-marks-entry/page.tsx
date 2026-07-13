@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { GraduationCap } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select as CommonSelect } from '@/common/components/select'
 import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table'
+import { FilterCard } from '@/common/components/feedback'
 import {
   getExamMarksEntryFilters,
   getExamMarksEntryRestFilters,
@@ -457,29 +458,26 @@ export default function ExamMarksEntryPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Exam Marks Entry" subtitle="Post examination marks workflow" />
+      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Exam Marks Entry</h1>
 
-      <div className="app-card p-3">
-        <div className="border-b border-border pb-3">
-          <h2 className="app-card-title">Exam Marks Entry</h2>
-        </div>
+      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Exam Marks Entry</span>}>
         <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course *</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Academic Year" /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course *</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Academic Year" searchable /></div>
           <div className="space-y-1 md:col-span-6"><Label>Exam *</Label><CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Type *</Label><CommonSelect value={String(examTypeId)} onChange={(v) => setExamTypeId(Number(v || 0))} options={examTypeOptions} placeholder="Exam Type" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Faculty *</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="Faculty" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={groupOptions} placeholder="Course Group" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><CommonSelect value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><CommonSelect value={subjectTypeId ? String(subjectTypeId) : null} onChange={(v) => setSubjectTypeId(v ? Number(v) : null)} options={subjectTypeOptions} placeholder="Subject Type" /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Exam Type *</Label><CommonSelect value={String(examTypeId)} onChange={(v) => setExamTypeId(Number(v || 0))} options={examTypeOptions} placeholder="Exam Type" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Faculty *</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="Faculty" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={groupOptions} placeholder="Course Group" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><CommonSelect value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><CommonSelect value={subjectTypeId ? String(subjectTypeId) : null} onChange={(v) => setSubjectTypeId(v ? Number(v) : null)} options={subjectTypeOptions} placeholder="Subject Type" searchable /></div>
           <div className="space-y-1 md:col-span-2"><Label>Subject</Label><CommonSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectOptions} placeholder="Subject" searchable /></div>
-          {labBatches.length > 0 && <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><CommonSelect value={String(labBatchId)} onChange={(v) => setLabBatchId(Number(v || 0))} options={labBatchOptions} placeholder="All" /></div>}
+          {labBatches.length > 0 && <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><CommonSelect value={String(labBatchId)} onChange={(v) => setLabBatchId(Number(v || 0))} options={labBatchOptions} placeholder="All" searchable /></div>}
           <div className="space-y-1 md:col-span-2"><Label>Employee</Label><Input className="h-8 text-[12px]" value={employeeDisplay} readOnly /></div>
           <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
           <div className="md:col-span-2"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loading}>{loading ? 'Loading...' : 'Get List'}</Button></div>
         </div>
-      </div>
+      </FilterCard>
 
       {hasFetched && (
         <div className="space-y-3">

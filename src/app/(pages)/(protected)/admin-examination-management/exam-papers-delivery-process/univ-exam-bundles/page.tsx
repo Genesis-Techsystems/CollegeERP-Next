@@ -1,5 +1,13 @@
 'use client'
 
+/**
+ * Legacy route alias.
+ *
+ * Sidebar/menu data still points to `univ-exam-bundles`; keep this path
+ * available and render the current Exam Bundle Print implementation.
+ */
+// export { default } from '../exam-bundle-print/page'
+
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { BookMarked, ChevronDown, Filter, Pencil, Plus } from 'lucide-react'

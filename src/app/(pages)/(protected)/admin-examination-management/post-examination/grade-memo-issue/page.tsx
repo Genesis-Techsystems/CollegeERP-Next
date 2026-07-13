@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select as CommonSelect } from '@/common/components/select'
 import { DataTable } from '@/common/components/table'
+import { FilterCard } from '@/common/components/feedback'
 import type { ColDef } from 'ag-grid-community'
 import {
   getGradeMemoIssueFilters,
@@ -247,25 +248,27 @@ export default function GradeMemoIssuePage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Student Exam Certificates" subtitle="Grade memo issue" />
+      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Student Exam Certificates</h1>
 
-      <div className="app-card p-3 space-y-3">
+      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Grade Memo Issue</span>}>
+        <div className="space-y-3">
         <div className="flex items-center gap-6 text-[13px]">
           <label className="flex items-center gap-2"><input type="radio" checked={mode === 'section'} onChange={() => { setMode('section'); setStudentId(0) }} /> Certificates By Section</label>
           <label className="flex items-center gap-2"><input type="radio" checked={mode === 'student'} onChange={() => setMode('student')} /> Certificates By Student</label>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={yearOptions} placeholder="Exam Year" /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={yearOptions} placeholder="Exam Year" searchable /></div>
           <div className="space-y-1 md:col-span-6"><Label>Exam Master</Label><CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam Master" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>College</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="College" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Group</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={groupOptions} placeholder="Course Group" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Year</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" /></div>
+          <div className="space-y-1 md:col-span-2"><Label>College</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="College" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Group</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={groupOptions} placeholder="Course Group" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Year</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" searchable /></div>
           {mode === 'student' && <div className="space-y-1 md:col-span-3"><Label>Student</Label><CommonSelect value={String(studentId || 0)} onChange={(v) => setStudentId(Number(v || 0))} options={studentOptions} placeholder="Student" searchable /></div>}
           <div className="space-y-1 md:col-span-2"><Label>Memo Date</Label><Input type="date" className="h-8 text-[12px]" value={memoDate} onChange={(e) => setMemoDate(e.target.value)} /></div>
           <div className="md:col-span-1"><Button className="h-8 text-[12px] w-full" onClick={() => void getDetails()} disabled={loading}>{loading ? 'Loading...' : 'Get Details'}</Button></div>
         </div>
-      </div>
+        </div>
+      </FilterCard>
 
       {mode === 'student' && resultRows.length > 0 && (
         <div className="app-card overflow-hidden">

@@ -915,9 +915,11 @@ export function pickUnivExamCenterRoomId(row: AnyRow): number {
 
 export async function listBuildingsByUnivExamCenter(univExamcenterId: number): Promise<AnyRow[]> {
   if (!univExamcenterId) return []
-  return domainList<AnyRow>(
-    SETUP_API.BUILDING,
-    buildQuery({ univExamCenterId: univExamcenterId, isActive: true }),
+  // Angular selectedExamCenter: listDetailsById(Building, isActive) then client-filter
+  // by univExamCenterId — server query on univExamCenterId causes Internal Server Error.
+  const rows = await domainList<AnyRow>(SETUP_API.BUILDING, buildQuery({ isActive: true }))
+  return (Array.isArray(rows) ? rows : []).filter(
+    (r) => num(r.univExamCenterId ?? r.univExamcenterId) === univExamcenterId,
   )
 }
 
@@ -943,19 +945,119 @@ export async function listRoomsByFilters(
   return domainList<AnyRow>(SETUP_API.ROOM, buildQuery(where))
 }
 
+function pickUnivExamCenterRoomExamId(row: AnyRow): number {
+  const nested = row.examMaster
+  const nestedId =
+    nested && typeof nested === 'object' ? num((nested as AnyRow).examId) : 0
+  return num(row.examId ?? row.examMasterId ?? row.fk_exam_id ?? nestedId)
+}
+
+function pickUnivExamCenterRoomCenterId(row: AnyRow): number {
+  const nestedA = row.univExamcenters
+  const nestedB = row.univExamCenters
+  const fromNested =
+    (nestedA && typeof nestedA === 'object'
+      ? num((nestedA as AnyRow).univExamcenterId ?? (nestedA as AnyRow).univExamCenterId)
+      : 0) ||
+    (nestedB && typeof nestedB === 'object'
+      ? num((nestedB as AnyRow).univExamcenterId ?? (nestedB as AnyRow).univExamCenterId)
+      : 0)
+  return num(
+    row.univExamcenterId ??
+      row.univExamCentersId ??
+      row.univExamCenterId ??
+      row.univ_examcenter_id ??
+      fromNested,
+  )
+}
+
+function pickUnivExamCenterRoomBuildingId(row: AnyRow): number {
+  const nested = row.building
+  const nestedId =
+    nested && typeof nested === 'object' ? num((nested as AnyRow).buildingId) : 0
+  return num(row.buildingId ?? row.pk_building_id ?? nestedId)
+}
+
+function filterUnivExamCenterRoomsClient(
+  rows: AnyRow[],
+  examId: number,
+  univExamcenterId: number,
+  buildingId: number,
+): AnyRow[] {
+  return rows.filter((r) => {
+    if (pickUnivExamCenterRoomExamId(r) !== examId) return false
+    if (pickUnivExamCenterRoomCenterId(r) !== univExamcenterId) return false
+    if (buildingId > 0 && pickUnivExamCenterRoomBuildingId(r) !== buildingId) return false
+    return true
+  })
+}
+
 export async function listUnivExamCenterRoomsByFilters(
   examId: number,
   univExamcenterId: number,
   buildingId: number,
 ): Promise<AnyRow[]> {
   if (!examId || !univExamcenterId) return []
-  const where: Record<string, string | number | boolean> = {
+
+  // Backend often 500s on nested UnivExamCenterRooms joins — try Angular + alternate
+  // relation spellings, then fall back to isActive + client filter (same pattern as buildings).
+  const queryVariants: Array<Record<string, string | number | boolean>> = []
+  if (buildingId > 0) {
+    queryVariants.push({
+      'examMaster.examId': examId,
+      'univExamcenters.univExamcenterId': univExamcenterId,
+      'building.buildingId': buildingId,
+      isActive: true,
+    })
+    queryVariants.push({
+      'examMaster.examId': examId,
+      'univExamCenters.univExamcenterId': univExamcenterId,
+      'building.buildingId': buildingId,
+      isActive: true,
+    })
+  }
+  queryVariants.push({
     'examMaster.examId': examId,
     'univExamcenters.univExamcenterId': univExamcenterId,
     isActive: true,
+  })
+  queryVariants.push({
+    'examMaster.examId': examId,
+    'univExamCenters.univExamcenterId': univExamcenterId,
+    isActive: true,
+  })
+  queryVariants.push({
+    'ExamMaster.examId': examId,
+    'UnivExamCenters.univExamcenterId': univExamcenterId,
+    isActive: true,
+  })
+
+  for (const where of queryVariants) {
+    try {
+      const rows = await domainList<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_CENTER_ROOMS, buildQuery(where))
+      const list = Array.isArray(rows) ? rows : []
+      return buildingId > 0 && !('building.buildingId' in where)
+        ? filterUnivExamCenterRoomsClient(list, examId, univExamcenterId, buildingId)
+        : list
+    } catch {
+      /* try next relation-path spelling */
+    }
   }
-  if (buildingId > 0) where['building.buildingId'] = buildingId
-  return domainList<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_CENTER_ROOMS, buildQuery(where))
+
+  try {
+    const rows = await domainList<AnyRow>(
+      UNIV_EXAM_CENTER_API.EXAM_CENTER_ROOMS,
+      buildQuery({ isActive: true }),
+    )
+    return filterUnivExamCenterRoomsClient(
+      Array.isArray(rows) ? rows : [],
+      examId,
+      univExamcenterId,
+      buildingId,
+    )
+  } catch {
+    return []
+  }
 }
 
 export async function addListUnivExamCenterRooms(payload: Record<string, unknown>[]): Promise<void> {

@@ -2,15 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { ChevronDown, Filter, GraduationCap } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { GraduationCap } from 'lucide-react'
+import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select as CommonSelect } from '@/common/components/select'
 import { DataTable } from '@/common/components/table'
 import { TableCard } from '@/common/components/table'
+import { FilterCard } from '@/common/components/feedback'
 import {
   getExternalAttendanceFilters,
   getExternalAttendanceRestFilters,
@@ -99,7 +100,6 @@ function normalizeRows(rows: AnyRow[]): AttendanceRow[] {
 export default function ExternalExamAttendanceMarkingPage() {
   const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
 
-  const [filterOpen, setFilterOpen] = useState(true)
   const [loadingFilters, setLoadingFilters] = useState(false)
   const [loadingList, setLoadingList] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -151,6 +151,50 @@ export default function ExternalExamAttendanceMarkingPage() {
   const rooms = useMemo(
     () => [0, ...dedupeBy(roomRows, 'roomId').map((x) => Number(x.roomId)).filter((x) => Number.isFinite(x) && x >= 0)],
     [roomRows],
+  )
+  const courseOptions = useMemo(
+    () => courses.map((x) => ({ value: String(x.fk_course_id), label: String(x.course_code ?? '-') })),
+    [courses],
+  )
+  const academicYearOptions = useMemo(
+    () => academicYears.map((x) => ({ value: String(x.fk_academic_year_id), label: String(x.academic_year ?? '-') })),
+    [academicYears],
+  )
+  const examOptions = useMemo(
+    () => exams.map((x) => ({ value: String(x.fk_exam_id), label: String(x.exam_name ?? '-') })),
+    [exams],
+  )
+  const regulationOptions = useMemo(
+    () => regulations.map((x) => ({ value: String(x.fk_regulation_id), label: String(x.regulation_code ?? '-') })),
+    [regulations],
+  )
+  const subjectOptions = useMemo(
+    () => subjects.map((x) => ({ value: String(x.fk_subject_id), label: `${String(x.subject_name ?? '-')} (${String(x.subject_code ?? '-')})` })),
+    [subjects],
+  )
+  const courseGroupOptions = useMemo(
+    () =>
+      courseGroups.map((x) => ({
+        value: String(x),
+        label: x === 0 ? 'All' : String(restRows.find((r) => Number(r.fk_course_group_id) === x)?.group_code ?? `Group ${x}`),
+      })),
+    [courseGroups, restRows],
+  )
+  const courseYearOptions = useMemo(
+    () =>
+      courseYears.map((x) => ({
+        value: String(x),
+        label: x === 0 ? 'All' : String(restRows.find((r) => Number(r.fk_course_year_id) === x)?.course_year_code ?? `Year ${x}`),
+      })),
+    [courseYears, restRows],
+  )
+  const roomOptions = useMemo(
+    () =>
+      rooms.map((x) => ({
+        value: String(x),
+        label: x === 0 ? 'All' : String(roomRows.find((r) => Number(r.roomId) === x)?.roomCode ?? `Room ${x}`),
+      })),
+    [rooms, roomRows],
   )
 
   useEffect(() => {
@@ -324,33 +368,22 @@ export default function ExternalExamAttendanceMarkingPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="External Exam Attendance Marking" subtitle="Post examination attendance workflow" />
+      <h1 className="text-[18px] font-semibold leading-tight text-foreground">External Exam Attendance Marking</h1>
 
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between gap-2">
-          <h2 className="app-card-title">External Exam Attendance Marking</h2>
-          <Button type="button" variant="outline" size="sm" className="h-6 px-2.5 text-[12px]" onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen}>
-            <Filter className="mr-1.5 h-3.5 w-3.5" />
-            Filter
-            <ChevronDown className={`ml-1.5 h-3.5 w-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-          </Button>
+      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">External Exam Attendance Marking</span>}>
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+          <div className="space-y-1 md:col-span-2"><Label>Course</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Exam Year" searchable /></div>
+          <div className="space-y-1 md:col-span-4"><Label>Exam</Label><CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><CommonSelect value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" searchable /></div>
+          <div className="space-y-1 md:col-span-5"><Label>Subject</Label><CommonSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectOptions} placeholder="Subject" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Group</Label><CommonSelect value={courseGroupId === null ? '0' : String(courseGroupId)} onChange={(v) => setCourseGroupId(Number(v || 0))} options={courseGroupOptions} placeholder="Course Group" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Year</Label><CommonSelect value={courseYearId === null ? '0' : String(courseYearId)} onChange={(v) => setCourseYearId(Number(v || 0))} options={courseYearOptions} placeholder="Course Year" searchable /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Room</Label><CommonSelect value={roomId === null ? '0' : String(roomId)} onChange={(v) => setRoomId(Number(v || 0))} options={roomOptions} placeholder="Room" searchable /></div>
+          <div className="md:col-span-1"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loadingList}>{loadingList ? 'Loading...' : 'Get List'}</Button></div>
         </div>
-
-        {(
-          <div className="px-3 py-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-            <div className="space-y-1 md:col-span-2"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loadingFilters}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((x) => <SelectItem key={x.fk_course_id} value={String(x.fk_course_id)}>{x.course_code}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger><SelectContent>{academicYears.map((x) => <SelectItem key={x.fk_academic_year_id} value={String(x.fk_academic_year_id)}>{x.academic_year}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1 md:col-span-4"><Label>Exam</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((x) => <SelectItem key={x.fk_exam_id} value={String(x.fk_exam_id)}>{x.exam_name}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((x) => <SelectItem key={x.fk_regulation_id} value={String(x.fk_regulation_id)}>{x.regulation_code}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1 md:col-span-5"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.map((x) => <SelectItem key={x.fk_subject_id} value={String(x.fk_subject_id)}>{x.subject_name} ({x.subject_code})</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1 md:col-span-2"><Label>Course Group</Label><Select value={courseGroupId === null ? '0' : String(courseGroupId)} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Group" /></SelectTrigger><SelectContent>{courseGroups.map((x) => <SelectItem key={`cg-${x}`} value={String(x)}>{x === 0 ? 'All' : restRows.find((r) => Number(r.fk_course_group_id) === x)?.group_code ?? `Group ${x}`}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1 md:col-span-2"><Label>Course Year</Label><Select value={courseYearId === null ? '0' : String(courseYearId)} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((x) => <SelectItem key={`cy-${x}`} value={String(x)}>{x === 0 ? 'All' : restRows.find((r) => Number(r.fk_course_year_id) === x)?.course_year_code ?? `Year ${x}`}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
-            <div className="space-y-1 md:col-span-2"><Label>Room</Label><Select value={roomId === null ? '0' : String(roomId)} onValueChange={(v) => setRoomId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Room" /></SelectTrigger><SelectContent>{rooms.map((x) => <SelectItem key={`room-${x}`} value={String(x)}>{x === 0 ? 'All' : roomRows.find((r) => Number(r.roomId) === x)?.roomCode ?? `Room ${x}`}</SelectItem>)}</SelectContent></Select></div>
-            <div className="md:col-span-1"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loadingList}>{loadingList ? 'Loading...' : 'Get List'}</Button></div>
-          </div>
-        )}
-      </div>
+      </FilterCard>
 
       {hasFetched && (
         <div className="space-y-3">

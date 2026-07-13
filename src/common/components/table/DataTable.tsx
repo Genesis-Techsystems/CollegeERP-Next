@@ -120,8 +120,8 @@ function adoptLegacyTableShell(root: HTMLElement): () => void {
 }
 
 export interface DataTableProps<T> {
-  /** Optional title above the toolbar */
-  title?: string;
+  /** Optional title above the toolbar (string or custom node) */
+  title?: ReactNode;
   /** Optional subtitle; defaults to filter hint when column filters are on */
   subtitle?: string;
   /** Wrap in a bordered card. Default **true**. */
@@ -580,9 +580,14 @@ export function DataTable<T>({
       {(resolvedTitle || resolvedSubtitle) && (
         <div className="app-data-table-heading px-5 pb-1 pt-5">
           {resolvedTitle ? (
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">
-              {resolvedTitle}
-            </h2>
+            typeof resolvedTitle === "string" ||
+            typeof resolvedTitle === "number" ? (
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                {resolvedTitle}
+              </h2>
+            ) : (
+              resolvedTitle
+            )
           ) : null}
           {resolvedSubtitle ? (
             <p className="mt-1 text-[13px] text-muted-foreground">

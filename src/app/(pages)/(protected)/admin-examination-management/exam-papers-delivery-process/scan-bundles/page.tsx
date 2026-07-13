@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { BookMarked, ChevronDown, Filter, Pencil, Plus, Printer } from 'lucide-react'
+import { Pencil, Plus, Printer } from 'lucide-react'
 import { PageContainer } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
+import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
@@ -123,7 +124,6 @@ export default function ScanBundlesPage() {
   const [loadingFilters, setLoadingFilters] = useState(false)
   const [loadingList, setLoadingList] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(true)
   const [saving, setSaving] = useState(false)
 
   const [stickerRows, setStickerRows] = useState<Row[]>([])
@@ -666,94 +666,135 @@ export default function ScanBundlesPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card p-3 border-t-[3px] border-t-amber-300">
-        <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <BookMarked className="h-4 w-4 text-blue-700 shrink-0" aria-hidden />
-            <h2 className="app-card-title">Scan Bundles</h2>
-          </div>
-          <button
-            type="button"
-            className="flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground"
-            onClick={() => setFiltersOpen((v) => !v)}
-            aria-expanded={filtersOpen}
-          >
-            <span>Filter</span>
-            <Filter className="h-4 w-4" aria-hidden />
-            <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} />
-          </button>
-        </div>
+      <h2 className="px-1 text-lg font-semibold tracking-tight text-foreground">Exam Scan Bundles</h2>
 
-        {filtersOpen && (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div className="space-y-1 md:col-span-3">
-              <Label>Academic Year *</Label>
-              <Select options={academicYearOptions} value={form.academicYearId} onChange={onAcademicYearChange} disabled={loadingFilters} />
-            </div>
-            <div className="space-y-1 md:col-span-3">
-              <Label>Exam Group *</Label>
-              <Select options={examGroupOptions} value={form.examGroupId} onChange={onExamGroupChange} />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course *</Label>
-              <Select options={courseOptions} value={form.courseId} onChange={onCourseChange} searchable />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course Years *</Label>
-              <Select options={courseYearOptions} value={form.courseYearId} onChange={onCourseYearChange} />
-            </div>
-            <div className="space-y-1 md:col-span-3">
-              <Label>Regulation *</Label>
-              <Select options={regulationOptions} value={form.regulationId} onChange={onRegulationChange} />
-            </div>
-            <div className="space-y-1 md:col-span-5">
-              <Label>Subjects</Label>
-              <Select options={subjectOptions} value={form.subjectId} onChange={onSubjectChange} searchable />
-            </div>
-            <div className="md:col-span-2">
-              <Button type="button" onClick={() => void onGetList()} disabled={loadingList}>
-                Get List
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
+      <GlobalFilterBar title="Scan Bundles" defaultOpen={false}>
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Academic Year *">
+            <Select
+              options={academicYearOptions}
+              value={form.academicYearId}
+              onChange={onAcademicYearChange}
+              placeholder="Academic Year"
+              disabled={loadingFilters}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam Group *">
+            <Select
+              options={examGroupOptions}
+              value={form.examGroupId}
+              onChange={onExamGroupChange}
+              placeholder="Exam Group"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course *">
+            <Select
+              options={courseOptions}
+              value={form.courseId}
+              onChange={onCourseChange}
+              placeholder="Course"
+              searchable
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Course Years *">
+            <Select
+              options={courseYearOptions}
+              value={form.courseYearId}
+              onChange={onCourseYearChange}
+              placeholder="Course Years"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Regulation *">
+            <Select
+              options={regulationOptions}
+              value={form.regulationId}
+              onChange={onRegulationChange}
+              placeholder="Regulation"
+            />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Subjects">
+            <Select
+              options={subjectOptions}
+              value={form.subjectId}
+              onChange={onSubjectChange}
+              placeholder="Subjects"
+              searchable
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label=" " className="global-filter-field--action global-filter-field--shrink">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void onGetList()}
+              disabled={loadingList}
+              className="h-8 shrink-0 px-3 text-[12px]"
+            >
+              Get List
+            </Button>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      </GlobalFilterBar>
 
       {hasFetched && (
-        <>
-          <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-border">
-            <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">Scan Bundles - {tableSummaryText}</h3>
-          </div>
-          <div className="app-card overflow-hidden">
-            <div className="p-2">
+        <div className="app-card overflow-hidden">
+          <div className="px-3 pb-3 pt-2">
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
               <DataTable
                 rowData={rows}
                 columnDefs={columnDefs}
                 loading={loadingList}
                 pagination
+                title={
+                  <p
+                    className="truncate text-[12px] font-medium text-[hsl(var(--primary))]"
+                    title={`Scan Bundles - ${tableSummaryText}`}
+                  >
+                    Scan Bundles - {tableSummaryText}
+                  </p>
+                }
                 toolbar={{
                   search: true,
                   searchPlaceholder: 'Search…',
                   pdfDocumentTitle: 'Scan Bundles',
                 }}
                 toolbarTrailing={
-                  <>
-                    <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={() => void onPopulate(0)} disabled={loadingList}>
+                  <div className="flex flex-nowrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-[30px] shrink-0 gap-1.5 px-3 text-[12px]"
+                      onClick={() => void onPopulate(0)}
+                      disabled={loadingList}
+                    >
                       Bulk Populate
                     </Button>
-                    <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={() => void onPrintStickers(0)} disabled={loadingList}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-[30px] shrink-0 gap-1.5 px-3 text-[12px]"
+                      onClick={() => void onPrintStickers(0)}
+                      disabled={loadingList}
+                    >
+                      <Printer className="h-3.5 w-3.5" />
                       Bulk Print Stickers
                     </Button>
-                    <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={() => void openCreate()}>
-                      <Plus className="h-3.5 w-3.5 mr-1" />
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-[30px] shrink-0 gap-1.5 px-3 text-[12px]"
+                      onClick={() => void openCreate()}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
                       Scan Bundles
                     </Button>
-                  </>
+                  </div>
                 }
               />
             </div>
           </div>
-        </>
+        </div>
       )}
 
       <FormModal

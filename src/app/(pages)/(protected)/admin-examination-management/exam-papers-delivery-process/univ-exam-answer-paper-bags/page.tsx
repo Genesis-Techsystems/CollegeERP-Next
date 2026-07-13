@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { BookMarked, Pencil, Plus } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
+import { Pencil, Plus } from 'lucide-react'
+import { PageContainer } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
 import { FormModal } from '@/common/components/feedback'
-import { ActiveStatusField } from '@/common/components/forms'
+import { ActiveStatusField, GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { StatusBadge } from '@/common/components/data-display'
+import { Select } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -57,7 +58,13 @@ function makeEditRenderer(onEdit: (row: Row) => void) {
 export default function UnivExamAnswerPaperBagsPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [hasFetched, setHasFetched] = useState(false)
   const [rows, setRows] = useState<Row[]>([])
+  const [allRows, setAllRows] = useState<Row[]>([])
+  const [selectedBagId, setSelectedBagId] = useState('')
+  const [omrSerialNo, setOmrSerialNo] = useState('')
+  const [appliedBagId, setAppliedBagId] = useState('')
+  const [appliedOmrSerialNo, setAppliedOmrSerialNo] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Row | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -87,11 +94,35 @@ export default function UnivExamAnswerPaperBagsPage() {
     [],
   )
 
+  const bagOptions = useMemo(
+    () =>
+      allRows
+        .map((r) => ({
+          value: String(num(r.univExamBagId ?? r.univExamBagsId ?? r.univ_exam_bag_id)),
+          label: txt(r.bagSerialNo),
+        }))
+        .filter((o) => o.value !== '0' && o.label.trim().length > 0),
+    [allRows],
+  )
+
   async function loadData() {
     setLoading(true)
     try {
       const data = await listAllActiveUnivExamBags().catch(() => [])
-      setRows(Array.isArray(data) ? data : [])
+      const list = Array.isArray(data) ? data : []
+      setAllRows(list)
+      if (!appliedBagId) {
+        setRows(list)
+      } else {
+        const bagId = Number(appliedBagId)
+        const filteredByBag = list.filter((r) => num(r.univExamBagId ?? r.univExamBagsId ?? r.univ_exam_bag_id) === bagId)
+        const omr = appliedOmrSerialNo.trim().toLowerCase()
+        setRows(
+          !omr
+            ? filteredByBag
+            : filteredByBag.filter((r) => txt(r.omrSerialNo ?? r.omr_serial_no).toLowerCase().includes(omr)),
+        )
+      }
     } finally {
       setLoading(false)
     }
@@ -100,6 +131,24 @@ export default function UnivExamAnswerPaperBagsPage() {
   useEffect(() => {
     void loadData()
   }, [])
+
+  function getListByFilters() {
+    if (!selectedBagId) {
+      toastError('Exam Bags is required.')
+      return
+    }
+    const bagId = Number(selectedBagId)
+    setAppliedBagId(selectedBagId)
+    setAppliedOmrSerialNo(omrSerialNo)
+    setHasFetched(true)
+    const filteredByBag = allRows.filter((r) => num(r.univExamBagId ?? r.univExamBagsId ?? r.univ_exam_bag_id) === bagId)
+    const omr = omrSerialNo.trim().toLowerCase()
+    setRows(
+      !omr
+        ? filteredByBag
+        : filteredByBag.filter((r) => txt(r.omrSerialNo ?? r.omr_serial_no).toLowerCase().includes(omr)),
+    )
+  }
 
   function openCreate() {
     setEditing(null)
@@ -203,36 +252,75 @@ export default function UnivExamAnswerPaperBagsPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <PageHeader title="Exam answer paper bags" subtitle="Exam papers delivery process · Answer paper bags" />
+      <h2 className="px-1 text-lg font-semibold tracking-tight text-foreground">Exam Answer Paper Bags</h2>
 
-      <div className="app-card px-3 py-2 border-t-[3px] border-t-amber-300 border-b border-border">
-        <div className="flex items-center gap-2 border-b border-border pb-3">
-          <BookMarked className="h-4 w-4 text-blue-700" aria-hidden />
-          <h2 className="app-card-title">Exam Answer Paper Bags</h2>
-        </div>
-      </div>
+      <GlobalFilterBar title="Exam Answer Paper Bags" defaultOpen={false}>
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Exam Bags *">
+            <Select
+              options={bagOptions}
+              value={selectedBagId}
+              onChange={(v) => setSelectedBagId(v ?? '')}
+              placeholder="Exam Bags"
+              searchable
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Omr Serial No">
+            <Input
+              value={omrSerialNo}
+              onChange={(e) => setOmrSerialNo(e.target.value)}
+              placeholder="Omr Serial No"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label=" " className="global-filter-field--action global-filter-field--shrink">
+            <Button
+              type="button"
+              size="sm"
+              onClick={getListByFilters}
+              disabled={loading}
+              className="h-8 shrink-0 px-3 text-[12px]"
+            >
+              Get List
+            </Button>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      </GlobalFilterBar>
 
-      <div className="app-card overflow-hidden">
-        <div className="p-2">
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loading}
-            pagination
-            toolbar={{
-              search: true,
-              searchPlaceholder: 'Search…',
-              pdfDocumentTitle: 'Exam Answer Paper Bags',
-            }}
-            toolbarTrailing={
-              <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreate}>
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Add Exam Answer Paper Bag
-              </Button>
-            }
-          />
+      {hasFetched && (
+        <div className="app-card overflow-hidden">
+          <div className="px-3 pb-3 pt-2">
+            <div className="overflow-hidden rounded-lg border border-border bg-card">
+              <DataTable
+                rowData={rows}
+                columnDefs={columnDefs}
+                loading={loading}
+                pagination
+                title={
+                  <p className="truncate text-[12px] font-medium text-[hsl(var(--primary))]" title="Exam Answer Paper Bags">
+                    Exam Answer Paper Bags
+                  </p>
+                }
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Exam Answer Paper Bags',
+                }}
+                toolbarTrailing={
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="app-data-table-toolbar-btn h-9 gap-1.5 px-3 text-[12px]"
+                    onClick={openCreate}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Exam Answer Paper Bag
+                  </Button>
+                }
+              />
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       <FormModal
         open={modalOpen}

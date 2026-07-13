@@ -693,32 +693,39 @@ export default function ExamScanBundlesPrintPage() {
 
 			{hasFetched && (
 				<div className="app-card overflow-hidden">
-					<div className="p-2">
-						<DataTable
-							rowData={bundles}
-							columnDefs={columnDefs}
-							loading={loadingList}
-							pagination
-							title=""
-							subtitle={tableSummaryText}
-							toolbar={{
-								search: true,
-								searchPlaceholder: 'Search…',
-								pdfDocumentTitle: 'Exam Scan Bundles',
-							}}
-							toolbarTrailing={
-								bundles.length > 0 ? (
-									<Button
-										type="button"
-										className="h-[30px] px-3 text-[12px]"
-										onClick={() => void loadAndPrintStickers(0, 'stickers')}
-										disabled={loadingList}
-									>
-										Bulk Print Stickers
-									</Button>
-								) : null
-							}
-						/>
+					<div className="px-3 pb-3 pt-2">
+						<div className="overflow-hidden rounded-lg border border-border bg-card">
+							<p
+								className="truncate px-5 pb-0 pt-4 text-[12px] font-medium text-[hsl(var(--primary))]"
+								title={tableSummaryText}
+							>
+								{tableSummaryText}
+							</p>
+							<DataTable
+								rowData={bundles}
+								columnDefs={columnDefs}
+								loading={loadingList}
+								pagination
+								toolbar={{
+									search: true,
+									searchPlaceholder: 'Search…',
+									pdfDocumentTitle: 'Exam Scan Bundles',
+								}}
+								toolbarLeading={<span className="hidden" aria-hidden />}
+								toolbarTrailing={
+									bundles.length > 0 ? (
+										<Button
+											type="button"
+											className="h-[30px] px-3 text-[12px]"
+											onClick={() => void loadAndPrintStickers(0, 'stickers')}
+											disabled={loadingList}
+										>
+											Bulk Print Stickers
+										</Button>
+									) : null
+								}
+							/>
+						</div>
 					</div>
 				</div>
 			)}

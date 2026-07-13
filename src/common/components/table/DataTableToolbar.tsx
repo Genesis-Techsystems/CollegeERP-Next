@@ -84,13 +84,13 @@ export function DataTableToolbar({
   const visibleCount = columnItems.filter((c) => c.visible).length
 
   return (
-    <div className="app-data-table-toolbar flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
+    <div className="app-data-table-toolbar flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-x-3">
         {leading}
         {searchEnabled ? (
           <>
             <SearchInput
-              className="w-full max-w-md"
+              className="min-w-0 w-full max-w-md"
               placeholder={searchPlaceholder}
               value={searchQuery}
               onChange={onSearchChange}
@@ -119,7 +119,7 @@ export function DataTableToolbar({
         ) : null}
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center justify-end gap-2">
         {columnPickerEnabled ? (
           <DropdownMenu onOpenChange={(open) => { if (open) bump() }}>
             <DropdownMenuTrigger asChild>
