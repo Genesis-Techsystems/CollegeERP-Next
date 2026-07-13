@@ -555,13 +555,15 @@ export async function saveExamMarksSetup(rows: any[]): Promise<{ statusCode: num
 // Exam Timetable — Save entries
 // ──────────────────────────────────────────────────────────────────────────────
 
-export async function saveExamTimetable(rows: any[]): Promise<{ statusCode: number; success: boolean; message: string }> {
+export async function saveExamTimetable(
+  rows: any[],
+): Promise<{ ok: boolean; statusCode: number; success: boolean; message: string; data?: any[] }> {
   const { NEXT_API, EXAM_API } = await import('@/config/constants/api')
   const res = await fetch(NEXT_API.PROXY(EXAM_API.SAVE_EXAM_TIMETABLE), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(rows),
   })
-  const body = await res.json()
-  return body
+  const body = await res.json().catch(() => null)
+  return { ok: res.ok, ...(body ?? { statusCode: 0, success: false, message: 'Save failed' }) }
 }

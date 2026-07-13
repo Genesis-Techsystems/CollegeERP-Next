@@ -7,6 +7,7 @@ import {
   fetchDetails,
   getAllRecords,
   postDetails,
+  postDetailsEnvelope,
   putDetails,
   uploadFile,
 } from '@/services/crud'
@@ -1384,11 +1385,28 @@ export async function listGroupSectionsByFilters(params: {
 }
 
 export async function promoteStudents(payload: Record<string, unknown>): Promise<AnyRow> {
-  return postDetails<AnyRow>('promotestudent', payload)
+  // Return the FULL envelope (do not throw on success:false): a promotion that hits
+  // a conflict comes back success:false with the conflicting academic-batches in
+  // `data`, which the page surfaces in its "Academic Batches" modal. Angular's
+  // student-promotions treats success:false as a non-fatal conflict result, not an error.
+  return (await postDetailsEnvelope<AnyRow>('promotestudent', payload)) as unknown as AnyRow
 }
 
 export async function submitStudentDetain(payload: Record<string, unknown> | Record<string, unknown>[]): Promise<AnyRow> {
   return postDetails<AnyRow>('detainrecommended', payload)
+}
+
+/**
+ * Numeric generalDetailId for STUDENTSTATUS code DETAINRECOMMENDED — the value the
+ * `detainrecommended` proc consumes (Angular student-detain-modal parity). Detain must
+ * write this numeric id as `studentStatusId`, NOT the string code "DETAINRECOMMENDED".
+ */
+export async function resolveDetainRecommendedGeneralDetailId(): Promise<number> {
+  const rows = await listGeneralDetailsByCode('STUDENTSTATUS')
+  const row = rows.find(
+    (r) => String(r.generalDetailCode ?? r.gd_code ?? '').trim().toUpperCase() === 'DETAINRECOMMENDED',
+  )
+  return num(row ?? {}, ['generalDetailId', 'pk_gd_id', 'gd_id', 'general_detail_id'])
 }
 
 export async function listCollegesByOrganization(organizationId: number): Promise<AnyRow[]> {

@@ -68,11 +68,15 @@ function MarksInputRenderer(
 }
 
 export default function SecureExamMarksEntryPage() {
-  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
-  const userId = Number(globalThis?.localStorage?.getItem('userId') ?? 0)
-  const userRole = String(globalThis?.localStorage?.getItem('userRole') ?? '')
-  const empNumber = globalThis?.localStorage?.getItem('empNumber') ?? ''
-  const userName = globalThis?.localStorage?.getItem('userName') ?? ''
+  const { user } = useSessionContext()
+  // The approve/save action's acting identity must come from the authenticated
+  // session (httpOnly iron-session), NOT client-writable localStorage — otherwise a
+  // user could overwrite employeeId/userRole and approve as/for someone else.
+  const employeeId = Number(user?.employeeId ?? globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const userId = Number(user?.userId ?? globalThis?.localStorage?.getItem('userId') ?? 0)
+  const userRole = String(user?.userRole ?? globalThis?.localStorage?.getItem('userRole') ?? '')
+  const empNumber = String(globalThis?.localStorage?.getItem('empNumber') ?? '') // display-only; not on SessionUser
+  const userName = String(user?.userName ?? globalThis?.localStorage?.getItem('userName') ?? '')
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -93,7 +97,6 @@ export default function SecureExamMarksEntryPage() {
   const [regulationId, setRegulationId] = useState<number | null>(null)
   const [subjectTypeId, setSubjectTypeId] = useState<number | null>(null)
   const [subjectId, setSubjectId] = useState<number | null>(null)
-  const [examType, setExamType] = useState('ALL')
   const [labBatchId, setLabBatchId] = useState(0)
   const [examDate, setExamDate] = useState('')
 
@@ -106,7 +109,6 @@ export default function SecureExamMarksEntryPage() {
   const [internalEvaluators, setInternalEvaluators] = useState<AnyRow[]>([])
   const [externalEvaluators, setExternalEvaluators] = useState<AnyRow[]>([])
   const [collegeLogoUrl, setCollegeLogoUrl] = useState<string | null>(null)
-  const { user } = useSessionContext()
 
   // Resolve the SELECTED college's logo (MinIO); fall back to the login DTO logo.
   useEffect(() => {
@@ -207,16 +209,6 @@ export default function SecureExamMarksEntryPage() {
       ),
     [subjectRows, subjectId],
   )
-  const examTypeOptions = useMemo(() => {
-    const exam = exams.find((x) => Number(x.fk_exam_id) === Number(examId))
-    if (!exam) return [{ value: 'ALL', label: 'All' }]
-    const opts: { value: string; label: string }[] = []
-    if (exam.is_regular_exam) opts.push({ value: 'REGULAR', label: 'Regular' })
-    if (exam.is_supply_exam) opts.push({ value: 'SUPPLY', label: 'Supple' })
-    if (exam.is_internal_exam) opts.push({ value: 'INTERNAL', label: 'Internal' })
-    return opts.length > 0 ? opts : [{ value: 'ALL', label: 'All' }]
-  }, [exams, examId])
-
   useEffect(() => {
     async function loadFilters() {
       setLoading(true)
@@ -296,9 +288,6 @@ export default function SecureExamMarksEntryPage() {
   useEffect(() => {
     if (subjects[0]?.fk_subject_id) setSubjectId(Number(subjects[0].fk_subject_id))
   }, [subjects])
-  useEffect(() => {
-    if (examTypeOptions[0]?.value) setExamType(examTypeOptions[0].value)
-  }, [examTypeOptions])
   useEffect(() => {
     const nextDate = String(subjects[0]?.exam_date ?? '').slice(0, 10)
     setExamDate(nextDate || '')
@@ -486,8 +475,7 @@ export default function SecureExamMarksEntryPage() {
         <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-12 items-end">
           <div className="space-y-1 md:col-span-2"><Label>Course *</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((x) => <SelectItem key={x.fk_course_id} value={String(x.fk_course_id)}>{x.course_code}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-2"><Label>Exam Year *</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger><SelectContent>{academicYears.map((x) => <SelectItem key={x.fk_academic_year_id} value={String(x.fk_academic_year_id)}>{x.academic_year}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-6"><Label>Exam *</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((x) => <SelectItem key={x.fk_exam_id} value={String(x.fk_exam_id)}>{x.exam_name}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Type *</Label><Select value={examType} onValueChange={setExamType}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Type" /></SelectTrigger><SelectContent>{examTypeOptions.map((x) => <SelectItem key={x.value} value={x.value}>{x.label}</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-8"><Label>Exam *</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((x) => <SelectItem key={x.fk_exam_id} value={String(x.fk_exam_id)}>{x.exam_name}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-2"><Label>College *</Label><Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger><SelectContent>{colleges.map((x) => <SelectItem key={x.fk_college_id} value={String(x.fk_college_id)}>{x.college_code}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Group" /></SelectTrigger><SelectContent>{courseGroups.map((x) => <SelectItem key={x.fk_course_group_id} value={String(x.fk_course_group_id)}>{x.group_code}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((x) => <SelectItem key={x.fk_course_year_id} value={String(x.fk_course_year_id)}>{x.course_year_code}</SelectItem>)}</SelectContent></Select></div>

@@ -6,14 +6,28 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select as CommonSelect } from '@/common/components/select'
+import { DataTable } from '@/common/components/table'
+import type { ColDef } from 'ag-grid-community'
 import {
   getGradeMemoIssueFilters,
   getGradeMemoIssueRestFilters,
   getGradeMemoIssueResult,
-} from '@/services/post-examination'
+  getSessionUser,
+} from '@/services'
 import { toastError } from '@/lib/toast'
 
 type AnyRow = Record<string, any>
+
+const SUBJECT_COLS: ColDef<AnyRow>[] = [
+  { headerName: 'SI No.', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80, flex: 0 },
+  { field: 'subject_code', headerName: 'Subject Code', minWidth: 140 },
+  { field: 'subject_name', headerName: 'Subject Title', minWidth: 240 },
+  { field: 'internal_marks', headerName: 'Internal', width: 120 },
+  { field: 'external_marks', headerName: 'External', width: 120 },
+  { field: 'totalMarks', headerName: 'Total', width: 110 },
+  { field: 'examresult', headerName: 'Result', width: 120 },
+  { field: 'credits', headerName: 'Credits', width: 100 },
+]
 
 function numFrom(row: AnyRow, keys: string[]): number {
   for (const key of keys) {
@@ -42,8 +56,8 @@ function dedupeBy(rows: AnyRow[], keys: string[]): AnyRow[] {
 }
 
 export default function GradeMemoIssuePage() {
-  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
-  const organizationId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
+  const [employeeId, setEmployeeId] = useState(0)
+  const [organizationId, setOrganizationId] = useState(0)
 
   const [mode, setMode] = useState<'section' | 'student'>('section')
   const [loading, setLoading] = useState(false)
@@ -65,14 +79,23 @@ export default function GradeMemoIssuePage() {
     async function run() {
       setLoading(true)
       try {
-        const rows = await getGradeMemoIssueFilters(employeeId).catch(() => [])
+        let empId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
+        let orgId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
+        if (!empId || !orgId) {
+          const sessionUser = await getSessionUser().catch(() => null)
+          if (!empId) empId = Number(sessionUser?.employeeId ?? sessionUser?.userId ?? 0)
+          if (!orgId) orgId = Number(sessionUser?.organizationId ?? 0)
+        }
+        setEmployeeId(empId)
+        setOrganizationId(orgId)
+        const rows = await getGradeMemoIssueFilters(empId).catch(() => [])
         setFilters(rows)
       } finally {
         setLoading(false)
       }
     }
     void run()
-  }, [employeeId])
+  }, [])
 
   const courses = useMemo(() => dedupeBy(filters, ['fk_course_id', 'courseId']), [filters])
   const years = useMemo(
@@ -245,12 +268,23 @@ export default function GradeMemoIssuePage() {
       </div>
 
       {mode === 'student' && resultRows.length > 0 && (
-        <div className="app-card p-3 overflow-x-auto">
-          <h3 className="text-[14px] font-semibold mb-2">Student Exam Subjects</h3>
-          <table className="w-full min-w-[900px] border-collapse text-[12px]">
-            <thead><tr><th className="border px-2 py-1">SI No.</th><th className="border px-2 py-1">Subject Code</th><th className="border px-2 py-1">Subject Title</th><th className="border px-2 py-1">Internal</th><th className="border px-2 py-1">External</th><th className="border px-2 py-1">Total</th><th className="border px-2 py-1">Result</th><th className="border px-2 py-1">Credits</th></tr></thead>
-            <tbody>{resultRows.map((r, i) => <tr key={`${r.subject_code}-${i}`}><td className="border px-2 py-1 text-center">{i + 1}</td><td className="border px-2 py-1">{strFrom(r, ['subject_code'])}</td><td className="border px-2 py-1">{strFrom(r, ['subject_name'])}</td><td className="border px-2 py-1 text-center">{r.internal_marks ?? '-'}</td><td className="border px-2 py-1 text-center">{r.external_marks ?? '-'}</td><td className="border px-2 py-1 text-center">{r.totalMarks ?? '-'}</td><td className="border px-2 py-1 text-center">{strFrom(r, ['examresult'])}</td><td className="border px-2 py-1 text-center">{r.credits ?? '-'}</td></tr>)}</tbody>
-          </table>
+        <div className="app-card overflow-hidden">
+          <div className="border-b border-border px-3 py-2.5">
+            <h3 className="app-card-title">{strFrom(resultRows[0] ?? {}, ['exam_name'])} — {strFrom(resultRows[0] ?? {}, ['exam_month_year'])}</h3>
+            <p className="text-[12px] text-muted-foreground">
+              SGPA: {resultRows[0]?.sgpa ?? '-'} &nbsp;·&nbsp; CGPA: {resultRows[0]?.cgpa ?? '-'}
+            </p>
+          </div>
+          <div className="p-1.5">
+            <DataTable
+              rowData={resultRows}
+              columnDefs={SUBJECT_COLS}
+              loading={loading}
+              pagination
+              exportCsv
+              toolbar={{ search: true, searchPlaceholder: 'Search…', exportPdf: false }}
+            />
+          </div>
         </div>
       )}
 
