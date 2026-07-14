@@ -1,14 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { User } from "lucide-react";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { PageContainer } from "@/components/layout";
+import { DataTable } from "@/common/components/table";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import { Select } from "@/common/components/select";
 import { DatePicker } from "@/common/components/date-picker";
 import { FormModal } from "@/common/components/feedback";
 import { StatusBadge } from "@/common/components/data-display";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSessionContext } from "@/context/SessionContext";
 import { toastError, toastSuccess } from "@/lib/toast";
@@ -32,6 +37,15 @@ import {
 import { StudentSearchSelect } from "@/common/components/student-search";
 
 type AnyRow = Record<string, any>;
+
+const SEARCH_ONLY_TOOLBAR = {
+  search: true,
+  searchPlaceholder: "Search...",
+  columnPicker: false,
+  exportPdf: false,
+  exportExcel: false,
+  columnFilters: false,
+} as const;
 
 function pickNum(row: AnyRow | null | undefined, keys: string[]): number {
   if (!row) return 0;
@@ -102,6 +116,82 @@ function buildDiscontinuePayload(
   };
 }
 
+function studentDetailsLine(row: AnyRow): string {
+  return [
+    pickText(row, ["collegeCode"]),
+    pickText(row, ["courseCode"]),
+    pickText(row, ["groupCode"]),
+    pickText(row, ["courseYearName"]),
+    pickText(row, ["section", "sectionName"]),
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function studentSearchText(row: AnyRow): string {
+  return [
+    pickText(row, ["hallticketNumber", "rollNumber"]),
+    pickText(row, ["firstName", "studentName"]),
+    studentDetailsLine(row),
+    pickText(row, ["mobile", "mobileNumber"]),
+    pickText(row, ["reason"]),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function photoRenderer(_p: ICellRendererParams<AnyRow>) {
+  return (
+    <div className="my-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-slate-100 text-muted-foreground">
+      <User className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+    </div>
+  );
+}
+
+function studentInfoRenderer(p: ICellRendererParams<AnyRow>) {
+  const row = p.data;
+  if (!row) return null;
+  return (
+    <div className="leading-snug py-2">
+      <div className="font-medium text-slate-900">
+        {pickText(row, ["hallticketNumber", "rollNumber"])},{" "}
+        {pickText(row, ["firstName", "studentName"])}
+      </div>
+      <div className="text-slate-600">{studentDetailsLine(row) || "-"}</div>
+      <div className="text-slate-600">
+        {pickText(row, ["mobile", "mobileNumber"]) || "-"}
+      </div>
+    </div>
+  );
+}
+
+function makeDiscontinueActionRenderer(onOpen: (row: AnyRow) => void) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    const row = p.data;
+    if (!row) return null;
+    const already = statusUpper(row) === "DISCONTINUED";
+    if (already) {
+      return (
+        <div className="py-2">
+          <StatusBadge status="inactive" label="DISCONTINUED" />
+        </div>
+      );
+    }
+    return (
+      <div className="py-2">
+        <Button
+          type="button"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => onOpen(row)}
+        >
+          Discontinue
+        </Button>
+      </div>
+    );
+  };
+}
+
 export default function StudentDiscontinuePage() {
   const { user } = useSessionContext();
 
@@ -127,9 +217,7 @@ export default function StudentDiscontinuePage() {
   const [groupSectionId, setGroupSectionId] = useState<number | null>(null);
 
   const [tableRows, setTableRows] = useState<AnyRow[]>([]);
-  const [tableFilter, setTableFilter] = useState("");
   const [discRows, setDiscRows] = useState<AnyRow[]>([]);
-  const [listFilter, setListFilter] = useState("");
 
   const [studentOptions, setStudentOptions] = useState<AnyRow[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(
@@ -499,43 +587,6 @@ export default function StudentDiscontinuePage() {
     setTableRows([{ ...normalizeStudentRow(match), ...match }]);
   }
 
-  const filteredTable = useMemo(() => {
-    const q = tableFilter.trim().toLowerCase();
-    if (!q) return tableRows;
-    return tableRows.filter((row) =>
-      [
-        pickText(row, ["firstName", "studentName"]),
-        pickText(row, ["hallticketNumber", "rollNumber"]),
-        pickText(row, [
-          "collegeCode",
-          "courseCode",
-          "groupCode",
-          "courseYearName",
-          "section",
-        ]),
-        pickText(row, ["mobile", "mobileNumber"]),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [tableFilter, tableRows]);
-
-  const filteredDisc = useMemo(() => {
-    const q = listFilter.trim().toLowerCase();
-    if (!q) return discRows;
-    return discRows.filter((row) =>
-      [
-        pickText(row, ["firstName", "studentName"]),
-        pickText(row, ["hallticketNumber", "rollNumber"]),
-        pickText(row, ["reason"]),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [listFilter, discRows]);
-
   function openModal(row: AnyRow) {
     setModalRow(row);
     const d = new Date();
@@ -690,13 +741,116 @@ export default function StudentDiscontinuePage() {
   const selectCls =
     "[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]";
 
+  const discontinueColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      {
+        headerName: "Photo",
+        width: 80,
+        flex: 0,
+        sortable: false,
+        autoHeight: true,
+        cellRenderer: photoRenderer,
+        cellClass: "flex items-center",
+      },
+      {
+        headerName: "Student",
+        minWidth: 280,
+        flex: 1,
+        wrapText: true,
+        autoHeight: true,
+        valueGetter: (p) => studentSearchText(p.data ?? {}),
+        cellRenderer: studentInfoRenderer,
+      },
+      {
+        headerName: "Action",
+        width: 140,
+        flex: 0,
+        sortable: false,
+        autoHeight: true,
+        cellRenderer: makeDiscontinueActionRenderer(openModal),
+        cellClass: "flex items-center",
+      },
+    ],
+    [],
+  );
+
+  const discListColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      {
+        headerName: "Photo",
+        width: 80,
+        flex: 0,
+        sortable: false,
+        autoHeight: true,
+        cellRenderer: photoRenderer,
+        cellClass: "flex items-center",
+      },
+      {
+        headerName: "Student",
+        minWidth: 280,
+        flex: 1,
+        wrapText: true,
+        autoHeight: true,
+        valueGetter: (p) => studentSearchText(p.data ?? {}),
+        cellRenderer: studentInfoRenderer,
+      },
+      {
+        headerName: "Reason",
+        minWidth: 160,
+        autoHeight: true,
+        wrapText: true,
+        valueGetter: (p) => pickText(p.data, ["reason"]) || "—",
+        cellClass: "flex items-center py-2",
+      },
+    ],
+    [],
+  );
+
+  const discontinuedListFilters = (
+    <GlobalFilterBarRow columns={3}>
+      <GlobalFilterField label="Organization">
+        <Select
+          required
+          value={organizationId ? String(organizationId) : null}
+          onChange={(v) => setOrganizationId(v ? Number(v) : null)}
+          options={orgOptions}
+          placeholder="Organization"
+          isLoading={loadingOrgs}
+          className="[&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
+        />
+      </GlobalFilterField>
+      <GlobalFilterField label="College">
+        <Select
+          required
+          value={collegeId ? String(collegeId) : null}
+          onChange={(v) => setCollegeId(v ? Number(v) : null)}
+          options={collegeOptions}
+          placeholder="College"
+          isLoading={loadingColleges}
+          disabled={!organizationId}
+          className="[&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
+        />
+      </GlobalFilterField>
+      <GlobalFilterField label="Academic Year">
+        <Select
+          required
+          value={academicYearId ? String(academicYearId) : null}
+          onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+          options={ayOptions}
+          placeholder="Academic Year"
+          disabled={!collegeId}
+          className="[&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
+        />
+      </GlobalFilterField>
+    </GlobalFilterBarRow>
+  );
+
   return (
     <PageContainer className="space-y-4">
       <Tabs
         value={mainTab}
         onValueChange={(v) => {
           setMainTab(v as "discontinue" | "list");
-          if (v === "list") setTableFilter("");
         }}
       >
         <div className="app-card overflow-hidden" data-no-page-name>
@@ -832,202 +986,27 @@ export default function StudentDiscontinuePage() {
             </Tabs>
           </TabsContent>
 
-          <TabsContent value="list" className="m-0 p-4 space-y-4">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-              <Select
-                label="Organization"
-                required
-                value={organizationId ? String(organizationId) : null}
-                onChange={(v) => setOrganizationId(v ? Number(v) : null)}
-                options={orgOptions}
-                placeholder="Organization"
-                isLoading={loadingOrgs}
-                className={selectCls}
-              />
-              <Select
-                label="College"
-                required
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => setCollegeId(v ? Number(v) : null)}
-                options={collegeOptions}
-                placeholder="College"
-                isLoading={loadingColleges}
-                disabled={!organizationId}
-                className={selectCls}
-              />
-              <Select
-                label="Academic Year"
-                required
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-                options={ayOptions}
-                placeholder="Academic Year"
-                disabled={!collegeId}
-                className={selectCls}
-              />
-            </div>
-
-            <div className="space-y-3">
-              <div className="max-w-sm">
-                <Input
-                  value={listFilter}
-                  onChange={(e) => setListFilter(e.target.value)}
-                  placeholder="Search"
-                  className="h-8 text-xs"
-                />
-              </div>
-              {loadingDisc ? (
-                <p className="text-xs text-muted-foreground">Loading…</p>
-              ) : null}
-              {!loadingDisc &&
-              collegeId &&
-              academicYearId &&
-              filteredDisc.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No discontinued students for this college and year.
-                </p>
-              ) : null}
-              {discRows.length > 0 ? (
-                <div className="overflow-auto rounded border">
-                  <table className="w-full text-[12px]">
-                    <thead className="bg-muted/40">
-                      <tr>
-                        <th className="px-2 py-1 text-left w-14">Photo</th>
-                        <th className="px-2 py-1 text-left">Student</th>
-                        <th className="px-2 py-1 text-left">Reason</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredDisc.map((row, index) => {
-                        const sid = studentId(row, index + 1);
-                        return (
-                          <tr key={`dl-${sid}-${index}`} className="border-t">
-                            <td className="px-2 py-1 align-middle">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-slate-100 text-muted-foreground">
-                                <User
-                                  className="h-5 w-5"
-                                  strokeWidth={1.75}
-                                  aria-hidden
-                                />
-                              </div>
-                            </td>
-                            <td className="px-2 py-1">
-                              <div className="font-medium text-slate-900">
-                                {pickText(row, [
-                                  "hallticketNumber",
-                                  "rollNumber",
-                                ])}
-                                , {pickText(row, ["firstName", "studentName"])}
-                              </div>
-                              <div className="text-slate-600">
-                                {[
-                                  pickText(row, ["collegeCode"]),
-                                  pickText(row, ["courseCode"]),
-                                  pickText(row, ["groupCode"]),
-                                  pickText(row, ["courseYearName"]),
-                                  pickText(row, ["section", "sectionName"]),
-                                ]
-                                  .filter(Boolean)
-                                  .join(" | ") || "-"}
-                              </div>
-                              <div className="text-slate-600">
-                                {pickText(row, ["mobile", "mobileNumber"]) ||
-                                  "-"}
-                              </div>
-                            </td>
-                            <td className="px-2 py-1 text-slate-700 align-top">
-                              {pickText(row, ["reason"]) || "—"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-            </div>
+          <TabsContent value="list" className="m-0 p-4">
+            <DataTable
+              title=""
+              filters={discontinuedListFilters}
+              filtersCollapsible={false}
+              rowData={discRows}
+              columnDefs={discListColumnDefs}
+              loading={loadingDisc}
+              pagination
+              toolbar={SEARCH_ONLY_TOOLBAR}
+            />
           </TabsContent>
         </div>
 
         {mainTab === "discontinue" && tableRows.length > 0 && (
-          <div className="app-card p-4 space-y-3">
-            <div className="max-w-sm">
-              <Input
-                value={tableFilter}
-                onChange={(e) => setTableFilter(e.target.value)}
-                placeholder="Search"
-                className="h-8 text-xs"
-              />
-            </div>
-            <div className="overflow-auto rounded border">
-              <table className="w-full text-[12px]">
-                <thead className="bg-muted/40">
-                  <tr>
-                    <th className="px-2 py-1 text-left w-14">Photo</th>
-                    <th className="px-2 py-1 text-left">Student</th>
-                    <th className="px-2 py-1 text-left">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTable.map((row, index) => {
-                    const sid = studentId(row, index + 1);
-                    const st = statusUpper(row);
-                    const already = st === "DISCONTINUED";
-                    return (
-                      <tr key={`dc-${sid}-${index}`} className="border-t">
-                        <td className="px-2 py-1 align-middle">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-slate-100 text-muted-foreground">
-                            <User
-                              className="h-5 w-5"
-                              strokeWidth={1.75}
-                              aria-hidden
-                            />
-                          </div>
-                        </td>
-                        <td className="px-2 py-1">
-                          <div className="font-medium text-slate-900">
-                            {pickText(row, ["hallticketNumber", "rollNumber"])},{" "}
-                            {pickText(row, ["firstName", "studentName"])}
-                          </div>
-                          <div className="text-slate-600">
-                            {[
-                              pickText(row, ["collegeCode"]),
-                              pickText(row, ["courseCode"]),
-                              pickText(row, ["groupCode"]),
-                              pickText(row, ["courseYearName"]),
-                              pickText(row, ["section", "sectionName"]),
-                            ]
-                              .filter(Boolean)
-                              .join(" | ") || "-"}
-                          </div>
-                          <div className="text-slate-600">
-                            {pickText(row, ["mobile", "mobileNumber"]) || "-"}
-                          </div>
-                        </td>
-                        <td className="px-2 py-1">
-                          {!already ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              className="h-7 text-xs"
-                              onClick={() => openModal(row)}
-                            >
-                              Discontinue
-                            </Button>
-                          ) : (
-                            <StatusBadge
-                              status="inactive"
-                              label="DISCONTINUED"
-                            />
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <DataTable
+            rowData={tableRows}
+            columnDefs={discontinueColumnDefs}
+            pagination
+            toolbar={SEARCH_ONLY_TOOLBAR}
+          />
         )}
       </Tabs>
 

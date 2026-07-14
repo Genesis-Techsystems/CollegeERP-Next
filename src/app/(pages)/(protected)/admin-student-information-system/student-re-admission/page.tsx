@@ -2,14 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { User } from "lucide-react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import defaultStudent from "@/assets/images/avatars/default_Student.png";
-import { FilteredPage } from "@/components/layout";
-import { GlobalFilterBarRow, GlobalFilterField } from "@/common/components/forms";
+import { FilteredListPage } from "@/components/layout";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import { Select } from "@/common/components/select";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { toastError } from "@/lib/toast";
 import {
   listActiveOrganizations,
@@ -18,6 +19,15 @@ import {
 } from "@/services";
 
 type AnyRow = Record<string, any>;
+
+const SEARCH_ONLY_TOOLBAR = {
+  search: true,
+  searchPlaceholder: "Search...",
+  columnPicker: false,
+  exportPdf: false,
+  exportExcel: false,
+  columnFilters: false,
+} as const;
 
 function pickNum(row: AnyRow | null | undefined, keys: string[]): number {
   if (!row) return 0;
@@ -43,6 +53,32 @@ function studentId(row: AnyRow, fallback: number): number {
   );
 }
 
+function studentDetailsLine(row: AnyRow): string {
+  return [
+    pickText(row, ["collegeCode"]),
+    pickText(row, ["courseCode"]),
+    pickText(row, ["groupCode"]),
+    pickText(row, ["courseYearName"]),
+    pickText(row, ["section", "sectionName"]),
+  ]
+    .filter((text) => text.trim().length > 0)
+    .join(" | ");
+}
+
+function studentSearchText(row: AnyRow): string {
+  const admissionNo =
+    pickText(row, ["admissionNumber", "hallticketNumber", "rollNumber"]) || "-";
+  const studentName = pickText(row, ["firstName", "studentName"]) || "-";
+  return [
+    admissionNo,
+    studentName,
+    studentDetailsLine(row),
+    pickText(row, ["mobile", "mobileNumber"]),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function mapOrganizationOptions(rows: AnyRow[]) {
   return rows.map((row) => ({
     value: String(pickNum(row, ["organizationId", "fk_organization_id"])),
@@ -61,6 +97,66 @@ function mapCollegeOptions(rows: AnyRow[]) {
   }));
 }
 
+function photoRenderer(p: ICellRendererParams<AnyRow>) {
+  const row = p.data;
+  if (!row) return null;
+  return (
+    <img
+      src={row.studentPhotoPath || defaultStudent.src}
+      alt="Student"
+      className="my-1.5 h-10 w-10 rounded-md border object-cover"
+      onError={(e) => {
+        e.currentTarget.src = defaultStudent.src;
+      }}
+    />
+  );
+}
+
+function studentInfoRenderer(p: ICellRendererParams<AnyRow>) {
+  const row = p.data;
+  if (!row) return null;
+  const admissionNo =
+    pickText(row, ["admissionNumber", "hallticketNumber", "rollNumber"]) || "-";
+  const studentName = pickText(row, ["firstName", "studentName"]) || "-";
+  return (
+    <div className="leading-snug py-2">
+      <div className="font-medium text-slate-900">
+        {admissionNo}, {studentName}
+      </div>
+      <div className="text-slate-600">{studentDetailsLine(row) || "-"}</div>
+      <div className="text-slate-600">
+        {pickText(row, ["mobile", "mobileNumber"]) || "-"}
+      </div>
+    </div>
+  );
+}
+
+function makeActionsRenderer(onOpen: (row: AnyRow) => void) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    const row = p.data;
+    if (!row) return null;
+    const studentName =
+      pickText(row, ["firstName", "studentName"]) || "student";
+    return (
+      <div className="py-2">
+        <button
+          type="button"
+          onClick={() => onOpen(row)}
+          className="inline-flex"
+          aria-label={`Open re-admission for ${studentName}`}
+        >
+          <Badge
+            variant="outline"
+            className="cursor-pointer border-[hsl(var(--primary))]/40 bg-[hsl(var(--primary))]/5 px-2 py-0.5 text-[11px] font-medium text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/10"
+          >
+            Re-Admission
+          </Badge>
+        </button>
+      </div>
+    );
+  };
+}
+
 export default function StudentReadmissionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -68,7 +164,6 @@ export default function StudentReadmissionPage() {
   const [organizations, setOrganizations] = useState<AnyRow[]>([]);
   const [colleges, setColleges] = useState<AnyRow[]>([]);
   const [students, setStudents] = useState<AnyRow[]>([]);
-  const [search, setSearch] = useState("");
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<
     number | null
   >(null);
@@ -78,28 +173,6 @@ export default function StudentReadmissionPage() {
   const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [loadingColleges, setLoadingColleges] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
-
-  const filteredStudents = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return students;
-    return students.filter((row) =>
-      [
-        pickText(row, ["firstName", "studentName"]),
-        pickText(row, ["hallticketNumber", "admissionNumber", "rollNumber"]),
-        pickText(row, [
-          "collegeCode",
-          "courseCode",
-          "groupCode",
-          "courseYearName",
-          "section",
-        ]),
-        pickText(row, ["mobile", "mobileNumber"]),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [search, students]);
 
   useEffect(() => {
     async function loadOrganizations() {
@@ -209,8 +282,43 @@ export default function StudentReadmissionPage() {
     );
   }
 
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      {
+        headerName: "Photo",
+        width: 80,
+        flex: 0,
+        sortable: false,
+        autoHeight: true,
+        cellRenderer: photoRenderer,
+        cellClass: "flex items-center",
+      },
+      {
+        headerName: "Student",
+        minWidth: 280,
+        flex: 1,
+        wrapText: true,
+        autoHeight: true,
+        valueGetter: (p) => studentSearchText(p.data ?? {}),
+        cellRenderer: studentInfoRenderer,
+      },
+      {
+        headerName: "Actions",
+        width: 140,
+        flex: 0,
+        sortable: false,
+        autoHeight: true,
+        cellRenderer: makeActionsRenderer(openReadmission),
+        cellClass: "flex items-center",
+      },
+    ],
+    // openReadmission closes over selectedOrganizationId / selectedCollegeId
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedOrganizationId, selectedCollegeId],
+  );
+
   return (
-    <FilteredPage
+    <FilteredListPage
       title="Student Re-Admission"
       filters={
         <GlobalFilterBarRow columns={2}>
@@ -239,105 +347,11 @@ export default function StudentReadmissionPage() {
           </GlobalFilterField>
         </GlobalFilterBarRow>
       }
-      body={
-        <>
-          <div className="max-w-sm">
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search"
-              className="h-8 text-xs"
-            />
-          </div>
-
-          <div className="mt-3 overflow-auto rounded border">
-          <table className="w-full text-[12px]">
-            <thead className="bg-muted/40">
-              <tr>
-                <th className="px-2 py-1 text-left w-14">Photo</th>
-                <th className="px-2 py-1 text-left">Student</th>
-                <th className="px-2 py-1 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loadingStudents ? (
-                <tr className="border-t">
-                  <td className="px-2 py-2 text-slate-600" colSpan={3}>
-                    Loading students…
-                  </td>
-                </tr>
-              ) : filteredStudents.length === 0 ? (
-                <tr className="border-t">
-                  <td className="px-2 py-2 text-slate-600" colSpan={3}>
-                    No detained students found.
-                  </td>
-                </tr>
-              ) : (
-                filteredStudents.map((row, index) => {
-                  const sid = studentId(row, index + 1);
-                  const admissionNo =
-                    pickText(row, [
-                      "admissionNumber",
-                      "hallticketNumber",
-                      "rollNumber",
-                    ]) || "-";
-                  const studentName =
-                    pickText(row, ["firstName", "studentName"]) || "-";
-                  const details = [
-                    pickText(row, ["collegeCode"]),
-                    pickText(row, ["courseCode"]),
-                    pickText(row, ["groupCode"]),
-                    pickText(row, ["courseYearName"]),
-                    pickText(row, ["section", "sectionName"]),
-                  ]
-                    .filter((text) => text.trim().length > 0)
-                    .join(" | ");
-
-                  return (
-                    <tr key={`detained-${sid}-${index}`} className="border-t">
-                      <td className="px-2 py-1 align-middle">
-                        <img
-                          src={row.studentPhotoPath || defaultStudent.src}
-                          alt="Student"
-                          className="h-10 w-10 rounded-md border object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = defaultStudent.src;
-                          }}
-                        />
-                      </td>
-                      <td className="px-2 py-1">
-                        <div className="font-medium text-slate-900">
-                          {admissionNo}, {studentName}
-                        </div>
-                        <div className="text-slate-600">{details || "-"}</div>
-                        <div className="text-slate-600">
-                          {pickText(row, ["mobile", "mobileNumber"]) || "-"}
-                        </div>
-                      </td>
-                      <td className="px-2 py-1">
-                        <button
-                          type="button"
-                          onClick={() => openReadmission(row)}
-                          className="inline-flex"
-                          aria-label={`Open re-admission for ${studentName}`}
-                        >
-                          <Badge
-                            variant="outline"
-                            className="cursor-pointer border-[hsl(var(--primary))]/40 bg-[hsl(var(--primary))]/5 px-2 py-0.5 text-[11px] font-medium text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/10"
-                          >
-                            Re-Admission
-                          </Badge>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-          </div>
-        </>
-      }
+      rowData={students}
+      columnDefs={columnDefs}
+      loading={loadingStudents}
+      pagination
+      toolbar={SEARCH_ONLY_TOOLBAR}
     />
   );
 }

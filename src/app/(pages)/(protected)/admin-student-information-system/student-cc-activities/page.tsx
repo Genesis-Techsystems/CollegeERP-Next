@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useMemo, useState } from 'react'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Plus, Pencil } from 'lucide-react'
-import { FilteredPage } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { rowIndexGetter } from '@/lib/utils'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   createStudentCcActivity,
@@ -27,6 +29,15 @@ import {
 import { StudentSearchSelect } from '@/common/components/student-search'
 
 type AnyRow = Record<string, any>
+
+const SEARCH_ONLY_TOOLBAR = {
+  search: true,
+  searchPlaceholder: 'Search activities',
+  columnPicker: false,
+  exportPdf: false,
+  exportExcel: false,
+  columnFilters: false,
+} as const
 
 const SELECT_CLASS =
   "[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
@@ -55,13 +66,33 @@ function parseSelectNumber(v: string | null): number | null {
   return Number.isFinite(n) && n > 0 ? n : null
 }
 
+function statusRenderer(p: ICellRendererParams<AnyRow>) {
+  return <StatusBadge status={Boolean(p.data?.isActive)} />
+}
+
+function makeActionsRenderer(onEdit: (row: AnyRow) => void) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    const row = p.data
+    if (!row) return null
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => void onEdit(row)}
+        aria-label="Edit activity"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </Button>
+    )
+  }
+}
+
 export default function StudentCcActivitiesPage() {
   const [studentOptionsRows, setStudentOptionsRows] = useState<AnyRow[]>([])
   const [studentId, setStudentId] = useState<number | null>(null)
   const [selectedStudent, setSelectedStudent] = useState<AnyRow | null>(null)
 
   const [activityRows, setActivityRows] = useState<AnyRow[]>([])
-  const [tableSearch, setTableSearch] = useState('')
 
   const [loadingStudentSearch, setLoadingStudentSearch] = useState(false)
   const [loadingActivities, setLoadingActivities] = useState(false)
@@ -79,24 +110,15 @@ export default function StudentCcActivitiesPage() {
     () =>
       activityTypeRows.map((row) => ({
         value: String(pickNum(row, ['generalDetailId', 'pk_gd_id', 'gd_id'])),
-        label: pickText(row, ['generalDetailDisplayName', 'gd_name', 'general_detail_display_name']) || 'Activity',
+        label:
+          pickText(row, [
+            'generalDetailDisplayName',
+            'gd_name',
+            'general_detail_display_name',
+          ]) || 'Activity',
       })),
     [activityTypeRows],
   )
-
-  const filteredActivities = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase()
-    if (!q) return activityRows
-    return activityRows.filter((row) =>
-      [
-        pickText(row, ['ccactivityCatdetName', 'ccactivity_catdet_name']),
-        pickText(row, ['courseYearName', 'course_year_name']),
-      ]
-        .join(' ')
-        .toLowerCase()
-        .includes(q),
-    )
-  }, [tableSearch, activityRows])
 
   async function searchStudents(term: string) {
     const q = term.trim()
@@ -138,7 +160,6 @@ export default function StudentCcActivitiesPage() {
   async function onStudentSelect(nextId: number | null, row: AnyRow | null) {
     setStudentId(nextId)
     setActivityRows([])
-    setTableSearch('')
     if (!nextId || !row) {
       setSelectedStudent(null)
       return
@@ -220,8 +241,40 @@ export default function StudentCcActivitiesPage() {
     }
   }
 
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 },
+      {
+        headerName: 'Activity',
+        minWidth: 180,
+        valueGetter: (p) =>
+          pickText(p.data, ['ccactivityCatdetName', 'ccactivity_catdet_name']) ||
+          '-',
+      },
+      {
+        headerName: 'Course year',
+        minWidth: 140,
+        valueGetter: (p) =>
+          pickText(p.data, ['courseYearName', 'course_year_name']) || '-',
+      },
+      {
+        headerName: 'Status',
+        minWidth: 110,
+        cellRenderer: statusRenderer,
+      },
+      {
+        headerName: 'Actions',
+        width: 90,
+        flex: 0,
+        sortable: false,
+        cellRenderer: makeActionsRenderer(openEditDialog),
+      },
+    ],
+    [],
+  )
+
   return (
-    <FilteredPage
+    <FilteredListPage
       title="Student Co-Curriculum Activities"
       filters={
         <StudentSearchSelect
@@ -235,69 +288,30 @@ export default function StudentCcActivitiesPage() {
           onChange={(id, row) => void onStudentSelect(id, row)}
         />
       }
+      rowData={activityRows}
+      columnDefs={columnDefs}
+      loading={loadingActivities}
+      pagination
+      toolbar={SEARCH_ONLY_TOOLBAR}
+      toolbarTrailing={
+        <Button
+          size="sm"
+          onClick={() => void openAddDialog()}
+          disabled={!studentId}
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Add Co-Curriculum Activity
+        </Button>
+      }
     >
-      {!!selectedStudent && (
-        <div className="app-card p-4 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <Input
-              value={tableSearch}
-              onChange={(e) => setTableSearch(e.target.value)}
-              placeholder="Search activities"
-              className="h-8 max-w-xs text-xs"
-            />
-            <Button size="sm" onClick={() => void openAddDialog()}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Add Co-Curriculum Activity
-            </Button>
-          </div>
-
-          <div className="overflow-auto rounded border">
-            <table className="w-full text-[12px]">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="px-2 py-1 text-left">SI.No</th>
-                  <th className="px-2 py-1 text-left">Activity</th>
-                  <th className="px-2 py-1 text-left">Course year</th>
-                  <th className="px-2 py-1 text-left">Status</th>
-                  <th className="px-2 py-1 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loadingActivities ? (
-                  <tr className="border-t">
-                    <td className="px-2 py-2 text-slate-600" colSpan={5}>Loading activities…</td>
-                  </tr>
-                ) : filteredActivities.length === 0 ? (
-                  <tr className="border-t">
-                    <td className="px-2 py-2 text-slate-600" colSpan={5}>No activities found.</td>
-                  </tr>
-                ) : (
-                  filteredActivities.map((row, index) => (
-                    <tr key={`cca-${pickNum(row, ['stdCcactivityId']) || index}`} className="border-t">
-                      <td className="px-2 py-1">{index + 1}</td>
-                      <td className="px-2 py-1">{pickText(row, ['ccactivityCatdetName']) || '-'}</td>
-                      <td className="px-2 py-1">{pickText(row, ['courseYearName']) || '-'}</td>
-                      <td className="px-2 py-1">
-                        <StatusBadge status={Boolean(row.isActive)} />
-                      </td>
-                      <td className="px-2 py-1">
-                        <Button variant="ghost" size="icon" onClick={() => void openEditDialog(row)} aria-label="Edit activity">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent hasDescription>
           <DialogHeader>
-            <DialogTitle>{editingRow ? 'Edit Student Co-Curriculum Activity' : 'Add Student Co-Curriculum Activity'}</DialogTitle>
+            <DialogTitle>
+              {editingRow
+                ? 'Edit Student Co-Curriculum Activity'
+                : 'Add Student Co-Curriculum Activity'}
+            </DialogTitle>
             <DialogDescription>Select activity and update status.</DialogDescription>
           </DialogHeader>
 
@@ -312,8 +326,14 @@ export default function StudentCcActivitiesPage() {
               className={SELECT_CLASS}
             />
             <div className="flex items-center gap-2">
-              <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(v === true)} id="isActive" />
-              <label htmlFor="isActive" className="text-xs font-medium">Active</label>
+              <Checkbox
+                checked={isActive}
+                onCheckedChange={(v) => setIsActive(v === true)}
+                id="isActive"
+              />
+              <label htmlFor="isActive" className="text-xs font-medium">
+                Active
+              </label>
             </div>
             {!isActive && (
               <Input
@@ -326,7 +346,11 @@ export default function StudentCcActivitiesPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+              disabled={saving}
+            >
               Close
             </Button>
             <Button onClick={() => void saveDialog()} disabled={saving}>
@@ -335,6 +359,6 @@ export default function StudentCcActivitiesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </FilteredPage>
+    </FilteredListPage>
   )
 }

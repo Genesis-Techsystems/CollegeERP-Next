@@ -151,6 +151,8 @@ export const GM_CODES = {
   EMP_ACTIVE_STATUS: 'ACTV',
   PAYER_TYPE: 'PYRTYP',
   EXAM_SEAT_STATUS: 'EXMSEATS',
+  /** Angular CONSTANTS.examBagDispatchStatus — generalDetailsByCode */
+  EXAM_BAG_DISPATCH_STATUS: 'ExamBagDispatchStatus',
   ADDITIONAL_FEE_TYPE: 'ADDFEETYPE',
   EXAM_RESULT: 'RESULT',
   INTERNAL_EXAM_MARKS_TYPE: 'EIMT',

@@ -122,10 +122,43 @@ export function dedupeBy<T>(
 export async function listUnivExamBundlesByExamId(
   examId: number,
 ): Promise<AnyRow[]> {
+  if (!examId) return [];
   return domainList<AnyRow>(
     UNIV_EXAM_CENTER_API.EXAM_BUNDLE,
     buildQuery({ "examMaster.examId": examId, isActive: true }),
   );
+}
+
+/**
+ * Angular getDetails: when bag !== 0 → listDetailsByThreeIds
+ * `examMaster.examId` + `univExamBags.univExamBagId` + isActive.
+ */
+export async function listUnivExamBundlesByExamAndBag(
+  examId: number,
+  univExamBagId: number,
+): Promise<AnyRow[]> {
+  if (!examId) return [];
+  if (!univExamBagId) return listUnivExamBundlesByExamId(examId);
+  const queries = [
+    buildQuery({
+      "examMaster.examId": examId,
+      "univExamBags.univExamBagId": univExamBagId,
+      isActive: true,
+    }),
+    buildQuery({
+      "ExamMaster.examId": examId,
+      "UnivExamBags.univExamBagId": univExamBagId,
+      isActive: true,
+    }),
+  ];
+  for (const q of queries) {
+    try {
+      return await domainList<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_BUNDLE, q);
+    } catch {
+      /* try next */
+    }
+  }
+  return [];
 }
 
 /** Active exam bags (serial dropdown). */
@@ -1532,10 +1565,83 @@ export async function addListUnivEcStudents(
   await postDetails(UNIV_EXAM_CENTER_API.ADD_EC_STUDENTS, payload);
 }
 
+export async function updateUnivEcStudent(
+  univEcStudentId: number,
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  return domainUpdate<AnyRow>(
+    UNIV_EXAM_CENTER_API.EC_STUDENTS,
+    "univEcStudentId",
+    univEcStudentId,
+    payload,
+  );
+}
+
+/**
+ * Angular univ-examcenter-students filter + list APIs on `s_get_exam_center_bycode`.
+ * - eg_filters → group flag `eg_ay_filter` (AY + exam groups)
+ * - eg_ec_clg_cou_filter → result[0] centers, result[1] courses
+ * - eg_cg_cy_sub_filter → result[0] regulation/group/year/subject rows
+ * - ec_std_list → result[0] students (`row_exists` 0/1)
+ */
+export async function getUnivEcStudentsByCodeGroups(args: {
+  flag:
+    | "eg_filters"
+    | "eg_ec_clg_cou_filter"
+    | "eg_cg_cy_sub_filter"
+    | "ec_std_list";
+  flagType?: string;
+  univExamcenterId?: number;
+  examGroupId?: number;
+  collegeId?: number;
+  courseId?: number;
+  courseGroupId?: number;
+  courseYearId?: number;
+  academicYearId?: number;
+  regulationId?: number;
+  subjectId?: number;
+  universityId?: number;
+  examDate?: string;
+}): Promise<AnyRow[][]> {
+  const data = await getAllRecords<{ result?: unknown }>(
+    UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS,
+    {
+      in_flag: args.flag,
+      in_flag_type: args.flagType ?? (args.flag === "ec_std_list" ? "" : "REGSUP"),
+      in_univ_examcenter_id: args.univExamcenterId ?? 0,
+      in_exam_group_id: args.examGroupId ?? 0,
+      in_college_id: args.collegeId ?? 0,
+      in_course_id: args.courseId ?? 0,
+      in_course_group_id: args.courseGroupId ?? 0,
+      in_course_year_id: args.courseYearId ?? 0,
+      in_academic_year_id: args.academicYearId ?? 0,
+      in_exam_id: 0,
+      in_regulation_id: args.regulationId ?? 0,
+      in_subject_id: args.subjectId ?? 0,
+      in_university_id: args.universityId ?? 0,
+      in_exam_date: args.examDate ?? "1900-01-01",
+      in_questionpaper_code: "",
+    },
+  ).catch((error: unknown) => {
+    if (isNoRecordsProcError(error)) return { result: [] };
+    throw error;
+  });
+  const raw = data?.result;
+  if (!Array.isArray(raw)) return [];
+  return raw.map((g) =>
+    Array.isArray(g)
+      ? (g.filter((r) => r && typeof r === "object") as AnyRow[])
+      : g && typeof g === "object"
+        ? [g as AnyRow]
+        : [],
+  );
+}
+
 // ─── Exam Center Courses/Groups/Years/Subjects (`UnivEcCollegeDetails`) ──────
 
-export async function getExamCenterByCodeRows(args: {
+export async function getExamCenterByCodeGroups(args: {
   flag:
+    | "college_center_filters"
     | "exam_center_clg_filters"
     | "ec_grp_yr_subjects"
     | "eg_filters"
@@ -1552,7 +1658,7 @@ export async function getExamCenterByCodeRows(args: {
   academicYearId?: number;
   regulationId?: number;
   universityId?: number;
-}): Promise<AnyRow[]> {
+}): Promise<AnyRow[][]> {
   const data = await getAllRecords<{ result?: unknown }>(
     UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS,
     {
@@ -1572,18 +1678,69 @@ export async function getExamCenterByCodeRows(args: {
       in_exam_date: "1900-01-01",
       in_questionpaper_code: "",
     },
-  );
+  ).catch((error: unknown) => {
+    if (isNoRecordsProcError(error)) return { result: [] };
+    throw error;
+  });
   const raw = data?.result;
   if (!Array.isArray(raw)) return [];
+  return raw.map((g) =>
+    Array.isArray(g)
+      ? (g.filter((r) => r && typeof r === "object") as AnyRow[])
+      : g && typeof g === "object"
+        ? [g as AnyRow]
+        : [],
+  );
+}
+
+/**
+ * Angular univ-exam-bags filter cascade on `s_get_exam_center_bycode`:
+ * - college_center_filters → group `college_center_filters` (exam centers)
+ * - exam_center_clg_filters → group `exam_center_filters` (course / AY / exam)
+ */
+export async function getExamBagsFilterRows(args: {
+  flag: "college_center_filters" | "exam_center_clg_filters";
+  univExamcenterId?: number;
+}): Promise<AnyRow[]> {
+  const groups = await getExamCenterByCodeGroups({
+    flag: args.flag,
+    flagType: "REGSUP",
+    univExamcenterId: args.univExamcenterId ?? 0,
+  });
+  const want =
+    args.flag === "college_center_filters"
+      ? "college_center_filters"
+      : "exam_center_filters";
+  const matched =
+    groups.find((g) => g.length > 0 && String(g[0].flag ?? "") === want) ?? [];
+  if (matched.length > 0) return matched;
+  // Fallback: first non-empty group (proc shape varies by environment)
+  return groups.find((g) => g.length > 0) ?? [];
+}
+
+export async function getExamCenterByCodeRows(args: {
+  flag:
+    | "college_center_filters"
+    | "exam_center_clg_filters"
+    | "ec_grp_yr_subjects"
+    | "eg_filters"
+    | "eg_scan_filter";
+  flagType?: string;
+  univExamcenterId?: number;
+  examGroupId?: number;
+  collegeId?: number;
+  courseId?: number;
+  courseGroupId?: number;
+  courseYearId?: number;
+  subjectId?: number;
+  examId?: number;
+  academicYearId?: number;
+  regulationId?: number;
+  universityId?: number;
+}): Promise<AnyRow[]> {
+  const groups = await getExamCenterByCodeGroups(args);
   const out: AnyRow[] = [];
-  for (const chunk of raw) {
-    if (Array.isArray(chunk)) {
-      for (const row of chunk)
-        if (row && typeof row === "object") out.push(row as AnyRow);
-    } else if (chunk && typeof chunk === "object") {
-      out.push(chunk as AnyRow);
-    }
-  }
+  for (const chunk of groups) out.push(...chunk);
   return out;
 }
 

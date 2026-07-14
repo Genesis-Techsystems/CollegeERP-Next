@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { SearchInput } from "@/common/components/search";
 import { Select } from "@/common/components/select";
+import { DataTable } from "@/common/components/table";
 import { StudentSearchSelect } from "@/common/components/student-search";
 import {
   deactivateRegisteredExamSubject,
@@ -20,9 +21,19 @@ import {
 import { FilteredPage } from "@/components/layout";
 import { GlobalFilterBarRow } from "@/common/components/forms";
 import { listCourseYears } from "@/services/examination";
+import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast";
 
 type AnyRow = Record<string, any>;
+
+const SEARCH_ONLY_TOOLBAR = {
+  search: true,
+  searchPlaceholder: "Search...",
+  columnPicker: false,
+  exportPdf: false,
+  exportExcel: false,
+  columnFilters: false,
+} as const;
 
 function num(v: unknown): number {
   const n = Number(v);
@@ -69,6 +80,50 @@ function registeredSubjectCell(row: AnyRow) {
       {name} <span className="font-medium text-blue-600">({type})</span>
     </>
   );
+}
+
+function registeredSubjectRenderer(p: ICellRendererParams<AnyRow>) {
+  if (!p.data) return null;
+  return registeredSubjectCell(p.data);
+}
+
+function makeSubjectCheckRenderer(
+  checkedSubjects: Set<number>,
+  onToggle: (id: number, checked: boolean) => void,
+) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    const row = p.data;
+    if (!row) return null;
+    const sid = subjectIdOf(row);
+    if (!sid) return null;
+    return (
+      <Checkbox
+        checked={checkedSubjects.has(sid)}
+        onCheckedChange={(v) => onToggle(sid, !!v)}
+        aria-label={`Select ${subjectLabel(row)}`}
+      />
+    );
+  };
+}
+
+function makeDeleteRenderer(onDelete: (row: AnyRow) => void) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    const row = p.data;
+    if (!row) return null;
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 text-red-600 hover:bg-red-50 hover:text-red-700"
+        onClick={() => void onDelete(row)}
+        aria-label="Delete subject"
+        title="Delete"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
+    );
+  };
 }
 
 function fmtDate(v: unknown): string {
@@ -138,7 +193,6 @@ export default function ExamRegisterSubjectsPage() {
   const [examId, setExamId] = useState<number | null>(null);
   const [examSelected, setExamSelected] = useState(false);
   const [courseYearId, setCourseYearId] = useState<number | null>(null);
-  const [subjectSearch, setSubjectSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [photoError, setPhotoError] = useState(false);
 
@@ -151,24 +205,14 @@ export default function ExamRegisterSubjectsPage() {
     selectedStudent?.courseYearId ?? selectedStudent?.fk_course_year_id,
   );
 
-  const filteredSubjects = useMemo(() => {
-    const q = subjectSearch.trim().toLowerCase();
-    if (!q) return subjects;
-    return subjects.filter((s) =>
-      `${subjectLabel(s)} ${text(s.subjectCode, s.subject_code, s.Subject_code)}`
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [subjects, subjectSearch]);
-
   const selectedSubjectRows = useMemo(
     () => subjects.filter((s) => checkedSubjects.has(subjectIdOf(s))),
     [subjects, checkedSubjects],
   );
 
-  const allFilteredSelected =
-    filteredSubjects.length > 0 &&
-    filteredSubjects.every((s) => {
+  const allSubjectsSelected =
+    subjects.length > 0 &&
+    subjects.every((s) => {
       const sid = subjectIdOf(s);
       return sid > 0 && checkedSubjects.has(sid);
     });
@@ -353,7 +397,6 @@ export default function ExamRegisterSubjectsPage() {
     setSubjects([]);
     setRegisteredSubjects([]);
     setCheckedSubjects(new Set());
-    setSubjectSearch("");
 
     const cid = num(row.courseId ?? row.fk_course_id);
     if (!cid) return;
@@ -448,7 +491,7 @@ export default function ExamRegisterSubjectsPage() {
     setCheckAll(checked);
     setCheckedSubjects((prev) => {
       const next = new Set(prev);
-      for (const s of filteredSubjects) {
+      for (const s of subjects) {
         const sid = subjectIdOf(s);
         if (!sid) continue;
         if (checked) next.add(sid);
@@ -540,10 +583,81 @@ export default function ExamRegisterSubjectsPage() {
     }
   }
 
+  const selectSubjectColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      {
+        headerName: "All",
+        width: 90,
+        flex: 0,
+        sortable: false,
+        cellRenderer: makeSubjectCheckRenderer(checkedSubjects, toggleSubject),
+      },
+      {
+        headerName: "Subjects",
+        flex: 1,
+        minWidth: 200,
+        valueGetter: (p) => subjectLabel(p.data ?? {}),
+      },
+    ],
+    [checkedSubjects],
+  );
+
+  const registeredColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      { headerName: "SI No.", valueGetter: rowIndexGetter, width: 80, flex: 0 },
+      {
+        headerName: "Course Year",
+        minWidth: 120,
+        valueGetter: (p) =>
+          text(p.data?.courseYearName, p.data?.course_year_name) || "-",
+      },
+      {
+        headerName: "Subject Code",
+        minWidth: 120,
+        valueGetter: (p) =>
+          text(p.data?.subjectCode, p.data?.subject_code) || "-",
+      },
+      {
+        headerName: "Subject",
+        minWidth: 220,
+        flex: 1,
+        wrapText: true,
+        autoHeight: true,
+        valueGetter: (p) => {
+          const row = p.data ?? {};
+          const name = text(row.subjectName, row.subject_name) || "-";
+          const type = subjectTypeCode(row);
+          return type ? `${name} (${type})` : name;
+        },
+        cellRenderer: registeredSubjectRenderer,
+      },
+      {
+        headerName: "Exam Type",
+        minWidth: 110,
+        valueGetter: (p) =>
+          text(
+            p.data?.examtypeCatCode,
+            p.data?.exam_type_code,
+            p.data?.examType,
+          ) || "-",
+      },
+      {
+        headerName: "Actions",
+        width: 90,
+        flex: 0,
+        sortable: false,
+        cellRenderer: makeDeleteRenderer(onDeleteRegistered),
+      },
+    ],
+    // onDeleteRegistered closes over selectedStudent / examId
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedStudent, examId],
+  );
+
   return (
     <FilteredPage
       title="Exam Register Subjects Update"
-      filters={(
+      filters={
         <GlobalFilterBarRow>
           <div className="md:col-span-5 space-y-1">
             <StudentSearchSelect
@@ -573,7 +687,7 @@ export default function ExamRegisterSubjectsPage() {
             />
           </div>
         </GlobalFilterBarRow>
-      )}
+      }
     >
       {!!selectedStudent && examSelected && (
         <>
@@ -687,68 +801,36 @@ export default function ExamRegisterSubjectsPage() {
                 />
               </div>
 
-              <div className="overflow-hidden rounded border md:col-span-5">
-                <div className="flex items-center justify-between gap-3 border-b bg-muted/40 px-3 py-2">
-                  <div className="min-w-0 w-full max-w-sm">
-                    <SearchInput
-                      className="w-full"
-                      placeholder="Search..."
-                      value={subjectSearch}
-                      onChange={setSubjectSearch}
-                    />
-                  </div>
-                  <div className="whitespace-nowrap text-[12px]">
-                    Total Subjects:{" "}
-                    <span className="font-semibold text-muted-foreground">
-                      {loading ? "…" : subjects.length}
+              <div className="md:col-span-9 min-w-0">
+                <DataTable
+                  bordered={false}
+                  rowData={subjects}
+                  columnDefs={selectSubjectColumnDefs}
+                  loading={loading}
+                  height="260px"
+                  pagination={false}
+                  toolbar={SEARCH_ONLY_TOOLBAR}
+                  toolbarLeading={
+                    <label className="inline-flex items-center gap-2 text-xs font-medium text-foreground">
+                      <Checkbox
+                        checked={
+                          allSubjectsSelected ||
+                          (checkAll && subjects.length > 0)
+                        }
+                        onCheckedChange={(v) => toggleAllFiltered(!!v)}
+                      />
+                      All
+                    </label>
+                  }
+                  toolbarTrailing={
+                    <span className="whitespace-nowrap text-[12px]">
+                      Total Subjects:{" "}
+                      <span className="font-semibold text-muted-foreground">
+                        {loading ? "…" : subjects.length}
+                      </span>
                     </span>
-                  </div>
-                </div>
-                <div className="max-h-[158px] overflow-auto">
-                  <table className="w-full text-[12px]">
-                    <thead className="sticky top-0 bg-[#C3D9FF]">
-                      <tr>
-                        <th className="w-14 px-2 py-2 text-left">
-                          <Checkbox
-                            checked={
-                              allFilteredSelected ||
-                              (checkAll && filteredSubjects.length > 0)
-                            }
-                            onCheckedChange={(v) => toggleAllFiltered(!!v)}
-                          />
-                          <span className="ml-1">All</span>
-                        </th>
-                        <th className="px-2 py-2 text-left">Subjects</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredSubjects.map((s, i) => {
-                        const sid = subjectIdOf(s);
-                        return (
-                          <tr key={`sub-${sid || i}`} className="border-t">
-                            <td className="px-2 py-2">
-                              <Checkbox
-                                checked={checkedSubjects.has(sid)}
-                                onCheckedChange={(v) => toggleSubject(sid, !!v)}
-                              />
-                            </td>
-                            <td className="px-2 py-2">{subjectLabel(s)}</td>
-                          </tr>
-                        );
-                      })}
-                      {!loading && filteredSubjects.length === 0 && (
-                        <tr className="border-t">
-                          <td
-                            colSpan={2}
-                            className="px-2 py-6 text-center text-muted-foreground"
-                          >
-                            No subjects found.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                  }
+                />
               </div>
 
               {selectedSubjectRows.length > 0 && (
@@ -756,7 +838,7 @@ export default function ExamRegisterSubjectsPage() {
                   <div className="bg-[#C3D9FF] px-2 py-2 text-[14px]">
                     Selected Subjects : {selectedSubjectRows.length}
                   </div>
-                  <div className="max-h-[158px] divide-y overflow-auto">
+                  <div className="max-h-[220px] divide-y overflow-auto">
                     {selectedSubjectRows.map((s, i) => (
                       <div key={`sel-${i}`} className="px-2 py-2 text-[12px]">
                         {subjectLabel(s)}
@@ -782,78 +864,12 @@ export default function ExamRegisterSubjectsPage() {
           </div>
           {registeredSubjects.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between rounded bg-[#edf0f3] px-2 p-1.5 text-[15px]">
-                <strong className="font-medium text-primary">
-                  Existing Exam Subjects
-                </strong>
-              </div>
-              <div className="rounded app-card p-1">
-                <div className="overflow-auto">
-                  <table className="w-full bg-white text-[12px]">
-                    <thead>
-                      <tr className="bg-white">
-                        <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
-                          SI No.
-                        </th>
-                        <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
-                          Course Year
-                        </th>
-                        <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
-                          Subject Code
-                        </th>
-                        <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
-                          Subject
-                        </th>
-                        <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
-                          Exam Type
-                        </th>
-                        <th className="border-b-4 border-[#c3d9ff] px-2 py-1 text-left">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {registeredSubjects.map((r, i) => (
-                        <tr
-                          key={`reg-${i}`}
-                          className={i % 2 ? "bg-[#f1f6ff]" : "bg-white"}
-                        >
-                          <td className="px-2 py-1">{i + 1}</td>
-                          <td className="px-2 py-1">
-                            {text(r.courseYearName, r.course_year_name) || "-"}
-                          </td>
-                          <td className="px-2 py-1">
-                            {text(r.subjectCode, r.subject_code) || "-"}
-                          </td>
-                          <td className="px-2 py-1">
-                            {registeredSubjectCell(r)}
-                          </td>
-                          <td className="px-2 py-1">
-                            {text(
-                              r.examtypeCatCode,
-                              r.exam_type_code,
-                              r.examType,
-                            ) || "-"}
-                          </td>
-                          <td className="px-2 py-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-red-600 hover:bg-red-50 hover:text-red-700"
-                              onClick={() => void onDeleteRegistered(r)}
-                              aria-label="Delete subject"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <DataTable
+                rowData={registeredSubjects}
+                columnDefs={registeredColumnDefs}
+                pagination
+                toolbar={SEARCH_ONLY_TOOLBAR}
+              />
             </div>
           )}
         </>

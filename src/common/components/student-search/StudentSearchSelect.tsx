@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -178,11 +179,16 @@ export function StudentSearchSelect({
 }: StudentSearchSelectProps) {
   const inputId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
+  const anchorRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const [open, setOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [displayValue, setDisplayValue] = useState('')
+  const [listPos, setListPos] = useState<{ top: number; left: number; width: number } | null>(
+    null,
+  )
 
   const searchNotify = useCallback(
     (term: string) => {
@@ -200,6 +206,20 @@ export function StudentSearchSelect({
     students.find((row) => pickNum(row, ['studentId', 'fk_student_id']) === value) ??
     null
 
+  const showList =
+    open && (isLoading || students.length > 0 || searchTerm.trim().length >= minChars)
+
+  const updateListPosition = useCallback(() => {
+    const el = anchorRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setListPos({
+      top: rect.bottom + 2,
+      left: rect.left,
+      width: Math.max(rect.width, 280),
+    })
+  }, [])
+
   useEffect(() => {
     if (!value || !resolvedSelected) {
       if (!open) setDisplayValue('')
@@ -208,9 +228,25 @@ export function StudentSearchSelect({
     if (!open) setDisplayValue(triggerLabel(resolvedSelected))
   }, [value, resolvedSelected, open])
 
+  useLayoutEffect(() => {
+    if (!showList) {
+      setListPos(null)
+      return
+    }
+    updateListPosition()
+    window.addEventListener('resize', updateListPosition)
+    window.addEventListener('scroll', updateListPosition, true)
+    return () => {
+      window.removeEventListener('resize', updateListPosition)
+      window.removeEventListener('scroll', updateListPosition, true)
+    }
+  }, [showList, students.length, isLoading, updateListPosition])
+
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (rootRef.current?.contains(target) || listRef.current?.contains(target)) return
+      setOpen(false)
     }
     document.addEventListener('mousedown', onDocMouseDown)
     return () => document.removeEventListener('mousedown', onDocMouseDown)
@@ -220,6 +256,7 @@ export function StudentSearchSelect({
     setSearchTerm(term)
     setDisplayValue(term)
     setOpen(true)
+    queueMicrotask(() => updateListPosition())
     if (term.trim().length >= minChars) {
       scheduleSearch(term)
     } else {
@@ -230,6 +267,7 @@ export function StudentSearchSelect({
 
   function handleFocus() {
     setOpen(true)
+    queueMicrotask(() => updateListPosition())
     if (resolvedSelected && !searchTerm) {
       setDisplayValue('')
       setSearchTerm('')
@@ -255,8 +293,49 @@ export function StudentSearchSelect({
     onChange(sid || null, row)
   }
 
-  const showList =
-    open && (isLoading || students.length > 0 || searchTerm.trim().length >= minChars)
+  const listbox =
+    showList && listPos && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            ref={listRef}
+            role="listbox"
+            style={{
+              position: 'fixed',
+              top: listPos.top,
+              left: listPos.left,
+              width: listPos.width,
+              zIndex: 9999,
+            }}
+            className="max-h-72 overflow-y-auto rounded-md border border-slate-300 bg-white shadow-lg"
+          >
+            {isLoading ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Searching…</span>
+              </div>
+            ) : students.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                {searchTerm.trim().length < minChars
+                  ? `Type at least ${minChars} characters to search`
+                  : 'No matching students found'}
+              </div>
+            ) : (
+              students.map((row) => {
+                const sid = pickNum(row, ['studentId', 'fk_student_id'])
+                return (
+                  <StudentSearchOption
+                    key={sid || pickText(row, ['hallticketNumber', 'rollNumber'])}
+                    row={row}
+                    selected={value === sid}
+                    onSelect={() => handleSelect(row)}
+                  />
+                )
+              })
+            )}
+          </div>,
+          document.body,
+        )
+      : null
 
   return (
     <div ref={rootRef} className={cn('flex flex-col gap-1', className)}>
@@ -266,7 +345,7 @@ export function StudentSearchSelect({
         </label>
       ) : null}
 
-      <div className="w-full max-w-md rounded-md border border-slate-300 bg-white shadow-sm">
+      <div ref={anchorRef} className="w-full max-w-md rounded-md border border-slate-300 bg-white shadow-sm">
         <div className="relative flex items-center">
           <input
             ref={inputRef}
@@ -293,36 +372,8 @@ export function StudentSearchSelect({
             </button>
           ) : null}
         </div>
-
-        {showList ? (
-          <div role="listbox" className="max-h-72 overflow-y-auto border-t border-slate-200">
-            {isLoading ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Searching…</span>
-              </div>
-            ) : students.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                {searchTerm.trim().length < minChars
-                  ? `Type at least ${minChars} characters to search`
-                  : 'No matching students found'}
-              </div>
-            ) : (
-              students.map((row) => {
-                const sid = pickNum(row, ['studentId', 'fk_student_id'])
-                return (
-                  <StudentSearchOption
-                    key={sid || pickText(row, ['hallticketNumber', 'rollNumber'])}
-                    row={row}
-                    selected={value === sid}
-                    onSelect={() => handleSelect(row)}
-                  />
-                )
-              })
-            )}
-          </div>
-        ) : null}
       </div>
+      {listbox}
     </div>
   )
 }

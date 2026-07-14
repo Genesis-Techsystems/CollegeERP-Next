@@ -169,11 +169,11 @@
 
 .global-filter-bar__row--fields {
   display: flex;
-  flex-wrap: nowrap;
-  align-items: flex-end;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 1rem;
   width: 100%;
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .global-filter-bar__row--leading {
@@ -206,8 +206,9 @@
 }
 
 .global-filter-field {
-  flex: 1 1 0;
-  min-width: 8.5rem;
+  flex: 1 1 12rem;
+  min-width: 10rem;
+  max-width: 100%;
 }
 
 .global-filter-field--shrink {
@@ -229,7 +230,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
-  align-items: end;
+  align-items: start;
   flex-wrap: unset;
   overflow: visible;
 }
@@ -238,7 +239,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
-  align-items: end;
+  align-items: start;
   flex-wrap: unset;
   overflow: visible;
 }
