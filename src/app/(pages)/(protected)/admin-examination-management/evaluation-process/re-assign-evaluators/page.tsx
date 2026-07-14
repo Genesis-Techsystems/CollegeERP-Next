@@ -83,14 +83,6 @@ export default function ReAssignEvaluatorsPage() {
     () => subjects.map((r) => ({ value: String(num(r.fk_subject_id)), label: `${txt(r.subject_name)} - ${txt(r.subject_code)} (${txt(r.regulation_code)})` })),
     [subjects],
   )
-  const sourceEvaluatorOptions = useMemo(
-    () => filteredSourceEvaluators.map((r) => ({ value: String(num(r.pk_exam_evaluator_profile_id)), label: txt(r.evaluator_name) })),
-    [filteredSourceEvaluators],
-  )
-  const targetEvaluatorOptions = useMemo(
-    () => [{ value: '0', label: 'UnAssigned' }, ...filteredTargetEvaluators.map((r) => ({ value: String(num(r.pk_exam_evaluator_profile_id)), label: txt(r.evaluator_name) }))],
-    [filteredTargetEvaluators],
-  )
 
   const filteredSourceEvaluators = useMemo(() => {
     const q = searchSource.trim().toLowerCase()
@@ -103,6 +95,15 @@ export default function ReAssignEvaluatorsPage() {
     if (!q) return targetEvaluators
     return targetEvaluators.filter((r) => txt(r.evaluator_name).toLowerCase().includes(q))
   }, [targetEvaluators, searchTarget])
+
+  const sourceEvaluatorOptions = useMemo(
+    () => filteredSourceEvaluators.map((r) => ({ value: String(num(r.pk_exam_evaluator_profile_id)), label: txt(r.evaluator_name) })),
+    [filteredSourceEvaluators],
+  )
+  const targetEvaluatorOptions = useMemo(
+    () => [{ value: '0', label: 'UnAssigned' }, ...filteredTargetEvaluators.map((r) => ({ value: String(num(r.pk_exam_evaluator_profile_id)), label: txt(r.evaluator_name) }))],
+    [filteredTargetEvaluators],
+  )
 
   const filteredOmrRows = useMemo(() => {
     const q = searchOmr.trim().toLowerCase()

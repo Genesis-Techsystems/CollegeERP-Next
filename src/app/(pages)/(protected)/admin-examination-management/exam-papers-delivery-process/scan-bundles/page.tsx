@@ -60,10 +60,6 @@ function pickExamGroupId(row: Row): number {
   return num(row.fk_exam_group_id ?? row.examGroupId ?? row.exam_group_id ?? row.fk_exam_id ?? row.examId ?? row.exam_id)
 }
 
-function pickAcademicYearId(row: Row): number {
-  return num(row.fk_academic_year_id ?? row.academicYearId ?? row.academic_year_id ?? row.fk_academic_yearid)
-}
-
 function pickCourseId(row: Row): number {
   return num(row.fk_course_id ?? row.courseId ?? row.course_id)
 }
@@ -161,16 +157,13 @@ export default function ScanBundlesPage() {
   )
   const courseYears = useMemo(
     () =>
+      // Angular selectedCourse(): filter examCourseFiltersList by fk_course_id only
+      // (eg_scan_filter rows are already scoped to academic year + exam group).
       dedupeBy(
-        scanFilterRows.filter(
-          (r) =>
-            pickCourseId(r) === Number(form.courseId) &&
-            pickAcademicYearId(r) === Number(form.academicYearId) &&
-            num(r.fk_exam_id ?? r.examId) === Number(form.examId),
-        ),
+        scanFilterRows.filter((r) => pickCourseId(r) === Number(form.courseId)),
         (r) => num(r.fk_course_year_id ?? r.courseYearId),
       ),
-    [scanFilterRows, form.courseId, form.academicYearId, form.examId],
+    [scanFilterRows, form.courseId],
   )
   const regulations = useMemo(
     () =>
@@ -178,13 +171,11 @@ export default function ScanBundlesPage() {
         scanFilterRows.filter(
           (r) =>
             pickCourseId(r) === Number(form.courseId) &&
-            pickAcademicYearId(r) === Number(form.academicYearId) &&
-            num(r.fk_exam_id ?? r.examId) === Number(form.examId) &&
             num(r.fk_course_year_id ?? r.courseYearId) === Number(form.courseYearId),
         ),
         (r) => num(r.fk_regulation_id ?? r.regulationId ?? r.regulationCatId),
       ),
-    [scanFilterRows, form.courseId, form.academicYearId, form.examId, form.courseYearId],
+    [scanFilterRows, form.courseId, form.courseYearId],
   )
   const subjects = useMemo(
     () =>
@@ -192,14 +183,12 @@ export default function ScanBundlesPage() {
         scanFilterRows.filter(
           (r) =>
             pickCourseId(r) === Number(form.courseId) &&
-            pickAcademicYearId(r) === Number(form.academicYearId) &&
-            num(r.fk_exam_id ?? r.examId) === Number(form.examId) &&
             num(r.fk_course_year_id ?? r.courseYearId) === Number(form.courseYearId) &&
             num(r.fk_regulation_id ?? r.regulationId ?? r.regulationCatId) === Number(form.regulationId),
         ),
         (r) => num(r.fk_subject_id ?? r.subjectId),
       ),
-    [scanFilterRows, form.courseId, form.academicYearId, form.examId, form.courseYearId, form.regulationId],
+    [scanFilterRows, form.courseId, form.courseYearId, form.regulationId],
   )
 
   const headerText = useMemo(() => {
@@ -429,9 +418,9 @@ export default function ScanBundlesPage() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <div className="space-y-1 md:col-span-3"><Label>Academic Year *</Label><Select options={academicYears.map((r) => ({ value: pickAcademicYearKey(r), label: txt(r.academic_year ?? r.academicYear ?? r.academicYearCode ?? pickAcademicYearKey(r)) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>
           <div className="space-y-1 md:col-span-4"><Label>Exam Group *</Label><Select options={exams.map((r) => ({ value: pickExamGroupKey(r), label: txt(r.exam_name ?? r.examName ?? r.examGroupName ?? pickExamGroupKey(r)) }))} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v ?? '' }))} /></div>
-          <div className="space-y-1 md:col-span-3"><Label>Course *</Label><Select options={courses.map((r) => ({ value: String(pickCourseId(r)), label: txt(r.course_code ?? r.courseCode) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Years *</Label><Select options={courseYears.map((r) => ({ value: String(num(r.fk_course_year_id ?? r.courseYearId)), label: txt(r.course_year_code ?? r.courseYearCode) }))} value={form.courseYearId} onChange={(v) => setForm((f) => ({ ...f, courseYearId: v ?? '' }))} /></div>
-          <div className="space-y-1 md:col-span-3"><Label>Regulation *</Label><Select options={regulations.map((r) => ({ value: String(num(r.fk_regulation_id ?? r.regulationId ?? r.regulationCatId)), label: txt(r.regulation_code ?? r.regulationCode ?? r.regulation_name) }))} value={form.regulationId} onChange={(v) => setForm((f) => ({ ...f, regulationId: v ?? '' }))} /></div>
+          <div className="space-y-1 md:col-span-3"><Label>Course *</Label><Select options={courses.map((r) => ({ value: String(pickCourseId(r)), label: txt(r.course_code ?? r.courseCode) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '', courseYearId: '', regulationId: '', subjectId: '' }))} /></div>
+          <div className="space-y-1 md:col-span-2"><Label>Course Years *</Label><Select options={courseYears.map((r) => ({ value: String(num(r.fk_course_year_id ?? r.courseYearId)), label: txt(r.course_year_code ?? r.courseYearCode) }))} value={form.courseYearId} onChange={(v) => setForm((f) => ({ ...f, courseYearId: v ?? '', regulationId: '', subjectId: '' }))} /></div>
+          <div className="space-y-1 md:col-span-3"><Label>Regulation *</Label><Select options={regulations.map((r) => ({ value: String(num(r.fk_regulation_id ?? r.regulationId ?? r.regulationCatId)), label: txt(r.regulation_code ?? r.regulationCode ?? r.regulation_name) }))} value={form.regulationId} onChange={(v) => setForm((f) => ({ ...f, regulationId: v ?? '', subjectId: '' }))} /></div>
           <div className="space-y-1 md:col-span-5"><Label>Subjects</Label><Select options={subjects.map((r) => ({ value: String(num(r.fk_subject_id ?? r.subjectId)), label: `${txt(r.subject_name ?? r.subjectName)} (${txt(r.subject_code ?? r.subjectCode)})` }))} value={form.subjectId} onChange={(v) => setForm((f) => ({ ...f, subjectId: v ?? '' }))} /></div>
           <div className="md:col-span-2"><Button type="button" onClick={() => void onGetList()} disabled={loading}>Get List</Button></div>
         </div>
