@@ -1,21 +1,23 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { PageContainer } from '@/components/layout'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select as CommonSelect } from '@/common/components/select'
 import { DataTable } from '@/common/components/table'
-import { FilterCard } from '@/common/components/feedback'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import type { ColDef } from 'ag-grid-community'
 import {
   getGradeMemoIssueFilters,
   getGradeMemoIssueRestFilters,
   getGradeMemoIssueResult,
   getSessionUser,
+  searchStudentsByKeyword,
 } from '@/services'
-import { toastError } from '@/lib/toast'
+import { toastError, toastInfo } from '@/lib/toast'
+import { useGradeMemoPrint, type GradeMemoPrintMode } from './_print/useGradeMemoPrint'
 
 type AnyRow = Record<string, any>
 
@@ -56,6 +58,40 @@ function dedupeBy(rows: AnyRow[], keys: string[]): AnyRow[] {
   return out
 }
 
+function asBool(v: unknown): boolean {
+  return v === true || v === 1 || v === '1' || v === 'true'
+}
+
+function applyRestRows(
+  rows: AnyRow[],
+  setters: {
+    setRestFilters: (r: AnyRow[]) => void
+    setCollegeId: (n: number | null) => void
+    setCourseGroupId: (n: number | null) => void
+    setCourseYearId: (n: number | null) => void
+  },
+) {
+  setters.setRestFilters(rows)
+  const nextColleges = dedupeBy(rows, ['fk_college_id', 'collegeId'])
+  const nextCollegeId = nextColleges[0] ? numFrom(nextColleges[0], ['fk_college_id', 'collegeId']) : null
+  const nextGroups = dedupeBy(
+    rows.filter((x) => numFrom(x, ['fk_college_id', 'collegeId']) === Number(nextCollegeId)),
+    ['fk_course_group_id', 'courseGroupId'],
+  )
+  const nextGroupId = nextGroups[0] ? numFrom(nextGroups[0], ['fk_course_group_id', 'courseGroupId']) : null
+  const nextYears = dedupeBy(
+    rows.filter(
+      (x) =>
+        numFrom(x, ['fk_college_id', 'collegeId']) === Number(nextCollegeId) &&
+        numFrom(x, ['fk_course_group_id', 'courseGroupId']) === Number(nextGroupId),
+    ),
+    ['fk_course_year_id', 'courseYearId'],
+  )
+  setters.setCollegeId(nextCollegeId)
+  setters.setCourseGroupId(nextGroupId)
+  setters.setCourseYearId(nextYears[0] ? numFrom(nextYears[0], ['fk_course_year_id', 'courseYearId']) : null)
+}
+
 export default function GradeMemoIssuePage() {
   const [employeeId, setEmployeeId] = useState(0)
   const [organizationId, setOrganizationId] = useState(0)
@@ -66,6 +102,7 @@ export default function GradeMemoIssuePage() {
   const [restFilters, setRestFilters] = useState<AnyRow[]>([])
   const [resultRows, setResultRows] = useState<AnyRow[]>([])
   const [gradesRows, setGradesRows] = useState<AnyRow[]>([])
+  const [searchedStudents, setSearchedStudents] = useState<AnyRow[]>([])
 
   const [courseId, setCourseId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
@@ -76,7 +113,149 @@ export default function GradeMemoIssuePage() {
   const [studentId, setStudentId] = useState<number>(0)
   const [memoDate, setMemoDate] = useState<string>(new Date().toISOString().slice(0, 10))
 
+  /** Skip duplicate rest-filter fetches for the same course/exam/year (Angular: one selectedExam call). */
+  const restKeyRef = useRef('')
+  const restReqRef = useRef(0)
+  const filtersRef = useRef<AnyRow[]>([])
+  filtersRef.current = filters
+  const employeeIdRef = useRef(0)
+  employeeIdRef.current = employeeId
+
+  const loadRestFilters = useCallback(async (nextCourseId: number, nextExamId: number, nextAcademicYearId: number) => {
+    const empId = employeeIdRef.current
+    const key = `${nextCourseId}|${nextExamId}|${nextAcademicYearId}|${empId}`
+    if (restKeyRef.current === key) return
+    restKeyRef.current = key
+    const req = ++restReqRef.current
+
+    setRestFilters([])
+    setCollegeId(null)
+    setCourseGroupId(null)
+    setCourseYearId(null)
+    setResultRows([])
+    setGradesRows([])
+
+    const rows = await getGradeMemoIssueRestFilters({
+      courseId: nextCourseId,
+      examId: nextExamId,
+      academicYearId: nextAcademicYearId,
+      employeeId: empId,
+    }).catch(() => [])
+
+    if (req !== restReqRef.current) return
+    applyRestRows(rows, { setRestFilters, setCollegeId, setCourseGroupId, setCourseYearId })
+  }, [])
+
+  /** Angular selectedCourse → auto year[0] → auto exam[0] → selectedExam (one rest call). */
+  const selectCourse = useCallback(
+    (nextCourseId: number | null) => {
+      restKeyRef.current = ''
+      setCourseId(nextCourseId)
+      setResultRows([])
+      setGradesRows([])
+      if (!nextCourseId) {
+        setAcademicYearId(null)
+        setExamId(null)
+        setRestFilters([])
+        setCollegeId(null)
+        setCourseGroupId(null)
+        setCourseYearId(null)
+        return
+      }
+      const yearRows = dedupeBy(
+        filtersRef.current.filter((x) => numFrom(x, ['fk_course_id', 'courseId']) === nextCourseId),
+        ['fk_academic_year_id', 'academicYearId'],
+      )
+      const nextYearId = yearRows[0] ? numFrom(yearRows[0], ['fk_academic_year_id', 'academicYearId']) : null
+      setAcademicYearId(nextYearId)
+      if (!nextYearId) {
+        setExamId(null)
+        setRestFilters([])
+        setCollegeId(null)
+        setCourseGroupId(null)
+        setCourseYearId(null)
+        return
+      }
+      const examRows = dedupeBy(
+        filtersRef.current.filter(
+          (x) =>
+            numFrom(x, ['fk_course_id', 'courseId']) === nextCourseId &&
+            numFrom(x, ['fk_academic_year_id', 'academicYearId']) === nextYearId,
+        ),
+        ['fk_exam_id', 'examId'],
+      )
+      const nextExamId = examRows[0] ? numFrom(examRows[0], ['fk_exam_id', 'examId']) : null
+      setExamId(nextExamId)
+      if (!nextExamId) {
+        setRestFilters([])
+        setCollegeId(null)
+        setCourseGroupId(null)
+        setCourseYearId(null)
+        return
+      }
+      void loadRestFilters(nextCourseId, nextExamId, nextYearId)
+    },
+    [loadRestFilters],
+  )
+
+  /** Angular selectedAcademicYear → auto exam[0] → selectedExam (one rest call). */
+  const selectAcademicYear = useCallback(
+    (nextYearId: number | null) => {
+      restKeyRef.current = ''
+      setAcademicYearId(nextYearId)
+      setResultRows([])
+      setGradesRows([])
+      if (!courseId || !nextYearId) {
+        setExamId(null)
+        setRestFilters([])
+        setCollegeId(null)
+        setCourseGroupId(null)
+        setCourseYearId(null)
+        return
+      }
+      const examRows = dedupeBy(
+        filtersRef.current.filter(
+          (x) =>
+            numFrom(x, ['fk_course_id', 'courseId']) === Number(courseId) &&
+            numFrom(x, ['fk_academic_year_id', 'academicYearId']) === nextYearId,
+        ),
+        ['fk_exam_id', 'examId'],
+      )
+      const nextExamId = examRows[0] ? numFrom(examRows[0], ['fk_exam_id', 'examId']) : null
+      setExamId(nextExamId)
+      if (!nextExamId) {
+        setRestFilters([])
+        setCollegeId(null)
+        setCourseGroupId(null)
+        setCourseYearId(null)
+        return
+      }
+      void loadRestFilters(courseId, nextExamId, nextYearId)
+    },
+    [courseId, loadRestFilters],
+  )
+
+  /** Angular selectedExam → one rest call. */
+  const selectExam = useCallback(
+    (nextExamId: number | null) => {
+      restKeyRef.current = ''
+      setExamId(nextExamId)
+      setResultRows([])
+      setGradesRows([])
+      if (!courseId || !academicYearId || !nextExamId) {
+        setRestFilters([])
+        setCollegeId(null)
+        setCourseGroupId(null)
+        setCourseYearId(null)
+        return
+      }
+      void loadRestFilters(courseId, nextExamId, academicYearId)
+    },
+    [courseId, academicYearId, loadRestFilters],
+  )
+
   useEffect(() => {
+    let cancelled = false
     async function run() {
       setLoading(true)
       try {
@@ -87,20 +266,37 @@ export default function GradeMemoIssuePage() {
           if (!empId) empId = Number(sessionUser?.employeeId ?? sessionUser?.userId ?? 0)
           if (!orgId) orgId = Number(sessionUser?.organizationId ?? 0)
         }
+        if (cancelled) return
         setEmployeeId(empId)
         setOrganizationId(orgId)
+        employeeIdRef.current = empId
         const rows = await getGradeMemoIssueFilters(empId).catch(() => [])
+        if (cancelled) return
         setFilters(rows)
+        filtersRef.current = rows
+        // Angular getFiltersList → selectedCourse(courses[0]) — triggers one rest load at end.
+        const firstCourse = dedupeBy(rows, ['fk_course_id', 'courseId'])[0]
+        const firstCourseId = firstCourse ? numFrom(firstCourse, ['fk_course_id', 'courseId']) : null
+        if (firstCourseId) selectCourse(firstCourseId)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     void run()
+    return () => {
+      cancelled = true
+    }
+    // intentionally once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const courses = useMemo(() => dedupeBy(filters, ['fk_course_id', 'courseId']), [filters])
   const years = useMemo(
-    () => dedupeBy(filters.filter((x) => numFrom(x, ['fk_course_id', 'courseId']) === Number(courseId)), ['fk_academic_year_id', 'academicYearId']),
+    () =>
+      dedupeBy(
+        filters.filter((x) => numFrom(x, ['fk_course_id', 'courseId']) === Number(courseId)),
+        ['fk_academic_year_id', 'academicYearId'],
+      ),
     [filters, courseId],
   )
   const exams = useMemo(
@@ -137,7 +333,23 @@ export default function GradeMemoIssuePage() {
     [restFilters, collegeId, courseGroupId],
   )
 
-  const students = useMemo(() => {
+  const selectedCourseRow = useMemo(
+    () => courses.find((x) => numFrom(x, ['fk_course_id', 'courseId']) === Number(courseId)) ?? {},
+    [courses, courseId],
+  )
+  const selectedExamRow = useMemo(
+    () => exams.find((x) => numFrom(x, ['fk_exam_id', 'examId']) === Number(examId)) ?? {},
+    [exams, examId],
+  )
+  const orgCode =
+    strFrom(selectedCourseRow, ['university_code', 'universityCode', 'org_code', 'orgCode']) ||
+    String(globalThis?.localStorage?.getItem('orgCode') ?? '')
+  const courseCode = strFrom(selectedCourseRow, ['course_code', 'courseCode'])
+  const dataFlag = courseCode.toUpperCase() !== 'DPHARM'
+  const isRegular = asBool(selectedExamRow.is_regular_exam ?? selectedExamRow.isRegularExam)
+  const isSupply = asBool(selectedExamRow.is_supply_exam ?? selectedExamRow.isSupplyExam)
+
+  const resultStudents = useMemo(() => {
     const map = new Map<number, AnyRow>()
     for (const row of resultRows) {
       const sid = numFrom(row, ['student_id', 'studentId', 'fk_student_id'])
@@ -146,67 +358,128 @@ export default function GradeMemoIssuePage() {
     }
     return [...map.values()]
   }, [resultRows])
+
+  const students = useMemo(() => {
+    const map = new Map<number, AnyRow>()
+    for (const row of [...searchedStudents, ...resultStudents]) {
+      const sid = numFrom(row, ['student_id', 'studentId', 'fk_student_id', 'studentid'])
+      if (!sid || map.has(sid)) continue
+      map.set(sid, row)
+    }
+    return [...map.values()]
+  }, [searchedStudents, resultStudents])
+
   const courseOptions = useMemo(
-    () => courses.map((x) => ({ value: String(numFrom(x, ['fk_course_id', 'courseId'])), label: strFrom(x, ['course_code', 'courseCode']) })).filter((o) => o.value !== '0'),
+    () =>
+      courses
+        .map((x) => ({ value: String(numFrom(x, ['fk_course_id', 'courseId'])), label: strFrom(x, ['course_code', 'courseCode']) }))
+        .filter((o) => o.value !== '0'),
     [courses],
   )
   const yearOptions = useMemo(
-    () => years.map((x) => ({ value: String(numFrom(x, ['fk_academic_year_id', 'academicYearId'])), label: strFrom(x, ['academic_year', 'academicYear']) })).filter((o) => o.value !== '0'),
+    () =>
+      years
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_academic_year_id', 'academicYearId'])),
+          label: strFrom(x, ['academic_year', 'academicYear']),
+        }))
+        .filter((o) => o.value !== '0'),
     [years],
   )
   const examOptions = useMemo(
-    () => exams.map((x) => ({ value: String(numFrom(x, ['fk_exam_id', 'examId'])), label: strFrom(x, ['exam_name', 'examName']) })).filter((o) => o.value !== '0'),
+    () =>
+      exams
+        .map((x) => ({ value: String(numFrom(x, ['fk_exam_id', 'examId'])), label: strFrom(x, ['exam_name', 'examName']) }))
+        .filter((o) => o.value !== '0'),
     [exams],
   )
   const collegeOptions = useMemo(
-    () => colleges.map((x) => ({ value: String(numFrom(x, ['fk_college_id', 'collegeId'])), label: strFrom(x, ['college_code', 'collegeCode']) })).filter((o) => o.value !== '0'),
+    () =>
+      colleges
+        .map((x) => ({ value: String(numFrom(x, ['fk_college_id', 'collegeId'])), label: strFrom(x, ['college_code', 'collegeCode']) }))
+        .filter((o) => o.value !== '0'),
     [colleges],
   )
   const groupOptions = useMemo(
-    () => groups.map((x) => ({ value: String(numFrom(x, ['fk_course_group_id', 'courseGroupId'])), label: strFrom(x, ['group_code', 'groupCode']) })).filter((o) => o.value !== '0'),
+    () =>
+      groups
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_course_group_id', 'courseGroupId'])),
+          label: strFrom(x, ['group_code', 'groupCode']),
+        }))
+        .filter((o) => o.value !== '0'),
     [groups],
   )
   const courseYearOptions = useMemo(
-    () => courseYears.map((x) => ({ value: String(numFrom(x, ['fk_course_year_id', 'courseYearId'])), label: strFrom(x, ['course_year_code', 'courseYearName']) })).filter((o) => o.value !== '0'),
+    () =>
+      courseYears
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_course_year_id', 'courseYearId'])),
+          label: strFrom(x, ['course_year_code', 'courseYearName']),
+        }))
+        .filter((o) => o.value !== '0'),
     [courseYears],
   )
   const studentOptions = useMemo(
-    () => [{ value: '0', label: 'All' }, ...students.map((s) => ({ value: String(numFrom(s, ['student_id', 'studentId', 'fk_student_id'])), label: `${strFrom(s, ['first_name', 'student_name'])} (${strFrom(s, ['hallticket_number', 'roll_number'])})` })).filter((o) => o.value !== '0')],
+    () => [
+      { value: '0', label: 'All' },
+      ...students
+        .map((s) => ({
+          value: String(numFrom(s, ['student_id', 'studentId', 'fk_student_id', 'studentid'])),
+          label: `${strFrom(s, ['studentName', 'first_name', 'firstName', 'student_name'])} (${strFrom(s, ['hallticketNumber', 'hallticket_number', 'roll_number', 'rollNumber'])})`,
+        }))
+        .filter((o) => o.value !== '0'),
+    ],
     [students],
   )
 
-  useEffect(() => {
-    if (courses[0]) setCourseId(numFrom(courses[0], ['fk_course_id', 'courseId']))
-  }, [courses])
-  useEffect(() => {
-    if (years[0]) setAcademicYearId(numFrom(years[0], ['fk_academic_year_id', 'academicYearId']))
-  }, [years])
-  useEffect(() => {
-    if (exams[0]) setExamId(numFrom(exams[0], ['fk_exam_id', 'examId']))
-  }, [exams])
+  function onCollegeChange(v: string | null) {
+    const next = v ? Number(v) : null
+    setCollegeId(next)
+    setResultRows([])
+    setGradesRows([])
+    const nextGroups = dedupeBy(
+      restFilters.filter((x) => numFrom(x, ['fk_college_id', 'collegeId']) === Number(next)),
+      ['fk_course_group_id', 'courseGroupId'],
+    )
+    const nextGroupId = nextGroups[0] ? numFrom(nextGroups[0], ['fk_course_group_id', 'courseGroupId']) : null
+    setCourseGroupId(nextGroupId)
+    const nextYears = dedupeBy(
+      restFilters.filter(
+        (x) =>
+          numFrom(x, ['fk_college_id', 'collegeId']) === Number(next) &&
+          numFrom(x, ['fk_course_group_id', 'courseGroupId']) === Number(nextGroupId),
+      ),
+      ['fk_course_year_id', 'courseYearId'],
+    )
+    setCourseYearId(nextYears[0] ? numFrom(nextYears[0], ['fk_course_year_id', 'courseYearId']) : null)
+  }
 
-  useEffect(() => {
-    async function run() {
-      setRestFilters([])
-      if (!courseId || !examId || !academicYearId) return
-      const rows = await getGradeMemoIssueRestFilters({ courseId, examId, academicYearId, employeeId }).catch(() => [])
-      setRestFilters(rows)
-    }
-    void run()
-  }, [courseId, examId, academicYearId, employeeId])
-
-  useEffect(() => {
-    if (colleges[0]) setCollegeId(numFrom(colleges[0], ['fk_college_id', 'collegeId']))
-  }, [colleges])
-  useEffect(() => {
-    if (groups[0]) setCourseGroupId(numFrom(groups[0], ['fk_course_group_id', 'courseGroupId']))
-  }, [groups])
-  useEffect(() => {
-    if (courseYears[0]) setCourseYearId(numFrom(courseYears[0], ['fk_course_year_id', 'courseYearId']))
-  }, [courseYears])
+  function onCourseGroupChange(v: string | null) {
+    const next = v ? Number(v) : null
+    setCourseGroupId(next)
+    setResultRows([])
+    setGradesRows([])
+    const nextYears = dedupeBy(
+      restFilters.filter(
+        (x) =>
+          numFrom(x, ['fk_college_id', 'collegeId']) === Number(collegeId) &&
+          numFrom(x, ['fk_course_group_id', 'courseGroupId']) === Number(next),
+      ),
+      ['fk_course_year_id', 'courseYearId'],
+    )
+    setCourseYearId(nextYears[0] ? numFrom(nextYears[0], ['fk_course_year_id', 'courseYearId']) : null)
+  }
 
   async function getDetails(selectedStudentId?: number) {
-    if (!courseId || !examId || !collegeId || !courseGroupId || !courseYearId) return
+    if (!courseId || !examId || !collegeId || !courseGroupId || !courseYearId) {
+      toastInfo('Select Course, Exam, College, Course Group and Course Year first')
+      return
+    }
+    if (!organizationId) {
+      toastInfo('Organization not loaded yet — try again')
+      return
+    }
     setLoading(true)
     try {
       const data = await getGradeMemoIssueResult({
@@ -218,19 +491,40 @@ export default function GradeMemoIssuePage() {
         courseYearId,
         studentId: selectedStudentId ?? (mode === 'student' ? studentId : 0),
       })
-      const groupCode = strFrom(groups.find((g) => numFrom(g, ['fk_course_group_id', 'courseGroupId']) === Number(courseGroupId)) ?? {}, [
-        'group_code',
-        'groupCode',
-      ])
-      const filtered = (data.resultRows ?? [])
+      const groupCode = strFrom(
+        groups.find((g) => numFrom(g, ['fk_course_group_id', 'courseGroupId']) === Number(courseGroupId)) ?? {},
+        ['group_code', 'groupCode'],
+      )
+      const raw = data.resultRows ?? []
+      let filtered = raw
         .filter((x) => (groupCode ? strFrom(x, ['group_code']) === groupCode : true))
         .sort((a, b) => Number(a.order_no ?? 0) - Number(b.order_no ?? 0))
+      if (filtered.length === 0 && raw.length > 0) {
+        filtered = [...raw].sort((a, b) => Number(a.order_no ?? 0) - Number(b.order_no ?? 0))
+      }
       setResultRows(filtered)
       setGradesRows([...(data.gradesRows ?? [])].sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0)))
+      if (filtered.length === 0) {
+        toastInfo('No grade card details found for the selected filters')
+      }
     } catch (e) {
       toastError(e, 'Failed to fetch result details')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function onStudentSearch(term: string) {
+    const q = term.trim()
+    if (q.length < 5) {
+      if (!q) setSearchedStudents([])
+      return
+    }
+    try {
+      const rows = await searchStudentsByKeyword(q)
+      setSearchedStudents(rows)
+    } catch (e) {
+      toastError(e, 'Student search failed')
     }
   }
 
@@ -243,70 +537,254 @@ export default function GradeMemoIssuePage() {
       const bucket = map.get(key)
       if (bucket) bucket.push(row)
     }
-    return [...map.values()]
+    const groupsList = [...map.values()].map((rows) =>
+      [...rows].sort((a, b) => Number(a.order_no ?? 0) - Number(b.order_no ?? 0)),
+    )
+    groupsList.sort((a, b) =>
+      strFrom(a[0] ?? {}, ['hallticket_number']).localeCompare(
+        strFrom(b[0] ?? {}, ['hallticket_number']),
+        undefined,
+        { numeric: true },
+      ),
+    )
+    return groupsList
   }, [resultRows])
 
+  const studentPrintGroups = useMemo(() => {
+    if (mode !== 'student' || studentId <= 0) return groupedByStudent.slice(0, 1)
+    const sid = Number(studentId)
+    const matched = groupedByStudent.filter((rows) =>
+      rows.some((r) => numFrom(r, ['student_id', 'studentId', 'fk_student_id']) === sid),
+    )
+    return matched.length > 0 ? matched : groupedByStudent.slice(0, 1)
+  }, [mode, studentId, groupedByStudent])
+
+  const { printMode, triggerPrint, printView, canPrint } = useGradeMemoPrint({
+    studentGroups: mode === 'section' ? groupedByStudent : studentPrintGroups,
+    gradesRows,
+    memoDate,
+    orgCode,
+    isRegular,
+    isSupply,
+    dataFlag,
+  })
+
+  function handlePrint(next: GradeMemoPrintMode) {
+    if (groupedByStudent.length === 0) {
+      toastInfo('Get details before printing')
+      return
+    }
+    if (!canPrint && orgCode.toUpperCase() !== 'SUK') {
+      toastInfo('Print templates are available for SUK university only')
+      return
+    }
+    triggerPrint(next)
+  }
+
+  if (printMode) return <>{printView}</>
+
   return (
-    <PageContainer className="space-y-4">
-      <h1 className="text-[18px] font-semibold leading-tight text-foreground">Student Exam Certificates</h1>
-
-      <FilterCard title={<span className="text-[14px] font-semibold leading-tight">Grade Memo Issue</span>}>
+    <FilteredPage
+      title="Student Exam Certificates"
+      filters={
         <div className="space-y-3">
-        <div className="flex items-center gap-6 text-[13px]">
-          <label className="flex items-center gap-2"><input type="radio" checked={mode === 'section'} onChange={() => { setMode('section'); setStudentId(0) }} /> Certificates By Section</label>
-          <label className="flex items-center gap-2"><input type="radio" checked={mode === 'student'} onChange={() => setMode('student')} /> Certificates By Student</label>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={yearOptions} placeholder="Exam Year" searchable /></div>
-          <div className="space-y-1 md:col-span-6"><Label>Exam Master</Label><CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam Master" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>College</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="College" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Group</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={groupOptions} placeholder="Course Group" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Year</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" searchable /></div>
-          {mode === 'student' && <div className="space-y-1 md:col-span-3"><Label>Student</Label><CommonSelect value={String(studentId || 0)} onChange={(v) => setStudentId(Number(v || 0))} options={studentOptions} placeholder="Student" searchable /></div>}
-          <div className="space-y-1 md:col-span-2"><Label>Memo Date</Label><Input type="date" className="h-8 text-[12px]" value={memoDate} onChange={(e) => setMemoDate(e.target.value)} /></div>
-          <div className="md:col-span-1"><Button className="h-8 text-[12px] w-full" onClick={() => void getDetails()} disabled={loading}>{loading ? 'Loading...' : 'Get Details'}</Button></div>
-        </div>
-        </div>
-      </FilterCard>
+          <RadioGroup
+            value={mode}
+            onValueChange={(value) => {
+              const next = value as 'section' | 'student'
+              setMode(next)
+              setResultRows([])
+              if (next === 'section') {
+                setStudentId(0)
+                setSearchedStudents([])
+              }
+            }}
+            className="flex flex-wrap items-center gap-6"
+          >
+            <label className="flex items-center gap-2 text-[12px]">
+              <RadioGroupItem value="section" id="gmi-mode-section" />
+              Certificates By Section
+            </label>
+            <label className="flex items-center gap-2 text-[12px]">
+              <RadioGroupItem value="student" id="gmi-mode-student" />
+              Certificates By Student
+            </label>
+          </RadioGroup>
 
-      {mode === 'student' && resultRows.length > 0 && (
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Course">
+              <CommonSelect
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => selectCourse(v ? Number(v) : null)}
+                options={courseOptions}
+                placeholder="Course"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Year">
+              <CommonSelect
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => selectAcademicYear(v ? Number(v) : null)}
+                options={yearOptions}
+                placeholder="Exam Year"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Master" className="md:col-span-2">
+              <CommonSelect
+                value={examId ? String(examId) : null}
+                onChange={(v) => selectExam(v ? Number(v) : null)}
+                options={examOptions}
+                placeholder="Exam Master"
+                searchable
+              />
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="College">
+              <CommonSelect
+                value={collegeId ? String(collegeId) : null}
+                onChange={onCollegeChange}
+                options={collegeOptions}
+                placeholder="College"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Group">
+              <CommonSelect
+                value={courseGroupId ? String(courseGroupId) : null}
+                onChange={onCourseGroupChange}
+                options={groupOptions}
+                placeholder="Course Group"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Year">
+              <CommonSelect
+                value={courseYearId ? String(courseYearId) : null}
+                onChange={(v) => {
+                  setCourseYearId(v ? Number(v) : null)
+                  setResultRows([])
+                  setGradesRows([])
+                }}
+                options={courseYearOptions}
+                placeholder="Course Year"
+                searchable
+              />
+            </GlobalFilterField>
+            {mode === 'student' ? (
+              <GlobalFilterField label="Student">
+                <CommonSelect
+                  value={String(studentId || 0)}
+                  onChange={(v) => setStudentId(Number(v || 0))}
+                  options={studentOptions}
+                  placeholder="Student"
+                  searchable
+                  onSearch={onStudentSearch}
+                />
+              </GlobalFilterField>
+            ) : null}
+            <GlobalFilterField label="Memo Date">
+              <Input
+                type="date"
+                className="h-8 text-[12px]"
+                value={memoDate}
+                onChange={(e) => setMemoDate(e.target.value)}
+              />
+            </GlobalFilterField>
+            <div className="flex items-end">
+              <Button className="h-8 text-[12px]" onClick={() => void getDetails()} disabled={loading}>
+                {loading ? 'Loading...' : 'Get Details'}
+              </Button>
+            </div>
+          </GlobalFilterBarRow>
+        </div>
+      }
+    >
+      {mode === 'student' && resultRows.length > 0 ? (
+        <DataTable
+          title={`${strFrom(resultRows[0] ?? {}, ['exam_name'])} — ${strFrom(resultRows[0] ?? {}, ['exam_month_year'])}`}
+          rowData={resultRows}
+          columnDefs={SUBJECT_COLS}
+          loading={loading}
+          pagination
+          exportCsv
+          toolbar={{ search: true, searchPlaceholder: 'Search…', exportPdf: false }}
+          toolbarLeading={
+            <span className="text-[12px] text-muted-foreground whitespace-nowrap">
+              SGPA: {resultRows[0]?.sgpa ?? '-'} · CGPA: {resultRows[0]?.cgpa ?? '-'}
+            </span>
+          }
+          toolbarTrailing={
+            <>
+              <Button className="h-8 text-[12px]" variant="outline" onClick={() => handlePrint('sample')}>
+                Sample Grade Card
+              </Button>
+              <Button className="h-8 text-[12px]" variant="outline" onClick={() => handlePrint('gradeCard')}>
+                Print Grade Card
+              </Button>
+              <Button className="h-8 text-[12px]" variant="outline" onClick={() => handlePrint('markSheet')}>
+                Print Mark Sheet
+              </Button>
+            </>
+          }
+        />
+      ) : null}
+
+      {mode === 'section' && groupedByStudent.length > 0 ? (
         <div className="app-card overflow-hidden">
-          <div className="border-b border-border px-3 py-2.5">
-            <h3 className="app-card-title">{strFrom(resultRows[0] ?? {}, ['exam_name'])} — {strFrom(resultRows[0] ?? {}, ['exam_month_year'])}</h3>
-            <p className="text-[12px] text-muted-foreground">
-              SGPA: {resultRows[0]?.sgpa ?? '-'} &nbsp;·&nbsp; CGPA: {resultRows[0]?.cgpa ?? '-'}
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+            <div>
+              <h3 className="app-card-title">Section Certificates</h3>
+              <p className="text-[12px] text-muted-foreground">Memo Date: {memoDate}</p>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button className="h-8 text-[12px]" variant="outline" onClick={() => handlePrint('bulkSample')}>
+                Print Bulk Sample Grade Card
+              </Button>
+              <Button className="h-8 text-[12px]" variant="outline" onClick={() => handlePrint('bulkGradeCard')}>
+                Print Bulk Grade Card
+              </Button>
+              <Button className="h-8 text-[12px]" variant="outline" onClick={() => handlePrint('bulkMarkSheet')}>
+                Print Bulk Mark Sheet
+              </Button>
+            </div>
           </div>
-          <div className="p-1.5">
-            <DataTable
-              rowData={resultRows}
-              columnDefs={SUBJECT_COLS}
-              loading={loading}
-              pagination
-              exportCsv
-              toolbar={{ search: true, searchPlaceholder: 'Search…', exportPdf: false }}
-            />
+          <div className="p-3 overflow-x-auto">
+            <table className="w-full min-w-[1000px] border-collapse text-[12px]">
+              <thead>
+                <tr>
+                  <th className="border px-2 py-1 text-left">USN</th>
+                  <th className="border px-2 py-1 text-left">Student</th>
+                  <th className="border px-2 py-1 text-left">Subjects</th>
+                  <th className="border px-2 py-1 text-left">SGPA</th>
+                  <th className="border px-2 py-1 text-left">CGPA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupedByStudent.map((rows) => (
+                  <tr
+                    key={
+                      strFrom(rows[0] ?? {}, ['hallticket_number']) ||
+                      strFrom(rows[0] ?? {}, ['student_name', 'first_name'])
+                    }
+                  >
+                    <td className="border px-2 py-1">{strFrom(rows[0] ?? {}, ['hallticket_number'])}</td>
+                    <td className="border px-2 py-1">{strFrom(rows[0] ?? {}, ['student_name', 'first_name'])}</td>
+                    <td className="border px-2 py-1">{rows.length}</td>
+                    <td className="border px-2 py-1">{rows[0]?.sgpa ?? '-'}</td>
+                    <td className="border px-2 py-1">{rows[0]?.cgpa ?? '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {gradesRows.length > 0 ? (
+              <p className="text-[12px] text-muted-foreground mt-2">Grade scale loaded for selected regulation.</p>
+            ) : null}
           </div>
         </div>
-      )}
-
-      {mode === 'section' && groupedByStudent.length > 0 && (
-        <div className="app-card p-3 overflow-x-auto">
-          <div className="flex items-center justify-end gap-2 mb-2">
-            <Button className="h-8 text-[12px]" onClick={() => globalThis?.print?.()}>Print Bulk Sample Grade Card</Button>
-            <Button className="h-8 text-[12px]" onClick={() => globalThis?.print?.()}>Print Bulk Grade Card</Button>
-            <Button className="h-8 text-[12px]" onClick={() => globalThis?.print?.()}>Print Bulk Mark Sheet</Button>
-          </div>
-          <p className="text-[12px] text-muted-foreground mb-2">Memo Date: {memoDate}</p>
-          <table className="w-full min-w-[1000px] border-collapse text-[12px]">
-            <thead><tr><th className="border px-2 py-1">USN</th><th className="border px-2 py-1">Student</th><th className="border px-2 py-1">Subjects</th><th className="border px-2 py-1">SGPA</th><th className="border px-2 py-1">CGPA</th></tr></thead>
-            <tbody>{groupedByStudent.map((rows) => <tr key={strFrom(rows[0] ?? {}, ['hallticket_number']) || strFrom(rows[0] ?? {}, ['student_name', 'first_name'])}><td className="border px-2 py-1">{strFrom(rows[0] ?? {}, ['hallticket_number'])}</td><td className="border px-2 py-1">{strFrom(rows[0] ?? {}, ['student_name', 'first_name'])}</td><td className="border px-2 py-1">{rows.length}</td><td className="border px-2 py-1">{rows[0]?.sgpa ?? '-'}</td><td className="border px-2 py-1">{rows[0]?.cgpa ?? '-'}</td></tr>)}</tbody>
-          </table>
-          {gradesRows.length > 0 && <p className="text-[12px] text-muted-foreground mt-2">Grade scale loaded for selected regulation.</p>}
-        </div>
-      )}
-    </PageContainer>
+      ) : null}
+    </FilteredPage>
   )
 }
-

@@ -1,4 +1,4 @@
-import { buildQuery, domainList, getAllRecords, getAllRecordsEnvelope, postDetails, putDetails } from '@/services/crud'
+import { buildQuery, domainList, getAllRecords, getAllRecordsEnvelope, postDetails, putDetails, uploadFile } from '@/services/crud'
 import { EXAM_EVAL_API } from '@/config/constants/api'
 import { GM_CODES } from '@/config/constants/ui'
 import {
@@ -216,39 +216,33 @@ export async function saveInternalExamAverageMarks(rows: AnyRow[]): Promise<any>
 }
 
 export async function getGradeMemoIssueFilters(employeeId: number): Promise<AnyRow[]> {
-  const attempts = [
-    { in_flag: 'univ_exam_filters', in_flag_type: 'REGSUP' },
-    { in_flag: 'univ_exam_filters', in_flag_type: 'ALL' },
-  ]
-  for (const attempt of attempts) {
-    try {
-      const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
-        ...attempt,
-        in_university_id: 0,
-        in_college_id: 0,
-        in_course_id: 0,
-        in_course_group_id: 0,
-        in_course_year_id: 0,
-        in_exam_id: 0,
-        in_academic_year_id: 0,
-        in_regulation_id: 0,
-        in_subject_id: 0,
-        in_loginuser_empid: employeeId || 0,
-        in_loginuser_roleid: 0,
-        in_sub_flag_type: 'ALL',
-        in_param1: 0,
-        in_param2: 0,
-      })
-      const groups = data?.result ?? []
-      const picked = firstGroupByFlag(groups, ['univ_exam_filters'])
-      if (picked.length > 0) return picked
-      const fallback = firstNonEmptyGroup(groups)
-      if (fallback.length > 0) return fallback
-    } catch {
-      // try next
-    }
+  // Angular getFiltersList(): single call with REGSUP.
+  try {
+    const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
+      in_flag: 'univ_exam_filters',
+      in_flag_type: 'REGSUP',
+      in_university_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: 0,
+      in_academic_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_loginuser_empid: employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_sub_flag_type: 'ALL',
+      in_param1: 0,
+      in_param2: 0,
+    })
+    const groups = data?.result ?? []
+    const picked = firstGroupByFlag(groups, ['univ_exam_filters'])
+    if (picked.length > 0) return picked
+    return firstNonEmptyGroup(groups)
+  } catch {
+    return []
   }
-  return []
 }
 
 export async function getGradeMemoIssueRestFilters(params: {
@@ -257,37 +251,33 @@ export async function getGradeMemoIssueRestFilters(params: {
   academicYearId: number
   employeeId: number
 }): Promise<AnyRow[]> {
-  const attempts = ['ALL', 'REGSUP']
-  for (const flagType of attempts) {
-    try {
-      const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
-        in_flag: 'univ_exam_rest_in_regexamstd',
-        in_flag_type: flagType,
-        in_university_id: 0,
-        in_college_id: 0,
-        in_course_id: params.courseId,
-        in_course_group_id: 0,
-        in_course_year_id: 0,
-        in_exam_id: params.examId,
-        in_academic_year_id: params.academicYearId,
-        in_regulation_id: 0,
-        in_subject_id: 0,
-        in_loginuser_empid: params.employeeId || 0,
-        in_loginuser_roleid: 0,
-        in_sub_flag_type: 'ALL',
-        in_param1: 0,
-        in_param2: 0,
-      })
-      const groups = data?.result ?? []
-      const picked = firstGroupByFlag(groups, ['univ_exam_rest_filters'])
-      if (picked.length > 0) return picked
-      const fallback = firstNonEmptyGroup(groups)
-      if (fallback.length > 0) return fallback
-    } catch {
-      // try next
-    }
+  // Angular selectedExam(): single call with in_flag_type ALL.
+  try {
+    const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
+      in_flag: 'univ_exam_rest_in_regexamstd',
+      in_flag_type: 'ALL',
+      in_university_id: 0,
+      in_college_id: 0,
+      in_course_id: params.courseId,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: params.examId,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_loginuser_empid: params.employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_sub_flag_type: 'ALL',
+      in_param1: 0,
+      in_param2: 0,
+    })
+    const groups = data?.result ?? []
+    const picked = firstGroupByFlag(groups, ['univ_exam_rest_filters'])
+    if (picked.length > 0) return picked
+    return firstNonEmptyGroup(groups)
+  } catch {
+    return []
   }
-  return []
 }
 
 export async function getGradeMemoIssueResult(params: {
@@ -509,6 +499,33 @@ export async function getInternalAttendanceStudents(
 
 export async function saveInternalAttendance(rows: AnyRow[]): Promise<void> {
   await putDetails('examstudentdetails', rows)
+}
+
+export async function uploadInvigilatorAttendanceSheet(params: {
+  examInvEmployeeId: number
+  examTimetableId: number
+  studentAttendance: File
+}): Promise<void> {
+  const uploadPaths = [
+    'uploadInvigilatorAttendanceSheet',
+    'uploadinvigilatorattendancesheet',
+  ]
+  let lastError: unknown = null
+
+  for (const path of uploadPaths) {
+    try {
+      const formData = new FormData()
+      formData.append('examInvEmployeeId', String(params.examInvEmployeeId))
+      formData.append('examTimetableId', String(params.examTimetableId))
+      formData.append('studentAttendance', params.studentAttendance, params.studentAttendance.name)
+      await uploadFile(path, formData)
+      return
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError ?? new Error('Failed to upload attendance sheet')
 }
 
 export async function getExternalAttendanceFilters(employeeId: number): Promise<AnyRow[]> {
