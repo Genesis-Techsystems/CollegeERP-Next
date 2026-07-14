@@ -312,125 +312,126 @@ export default function ManageQuestionsPaperPage() {
           </div>
         </div>
       )}
+      body={(
+        <div className="-mx-5 -my-4 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr className="bg-[hsl(var(--primary)/0.06)] text-left">
+                  <th className="border border-border px-3 py-2.5 w-14 text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
+                    SI.No
+                  </th>
+                  <th className="border border-border px-3 py-2.5 w-28 text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
+                    QuestionNo
+                  </th>
+                  <th className="border border-border px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
+                    Question
+                  </th>
+                  <th className="border border-border px-3 py-2.5 w-24 text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
+                    Marks
+                  </th>
+                  <th className="border border-border px-3 py-2.5 w-24 text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="border border-border px-3 py-6 text-center text-muted-foreground">
+                      Loading…
+                    </td>
+                  </tr>
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="border border-border px-3 py-6 text-center text-muted-foreground">
+                      No questions found.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((r, i) => {
+                    const code = pickText(r, ['questioncode'])
+                    const hasCode = code.length > 0
+                    const questionHtml = String(r.question ?? '')
+                    const questionEmpty = questionHtml.trim() === ''
+                    const marksId = Number(r.pk_questionpaper_marks_id ?? r.questionPaperMarksId ?? 0)
+                    return (
+                      <tr
+                        key={`mq-${r.pk_questionpaper_marks_id ?? r.questioncode ?? i}`}
+                        className="align-top hover:bg-muted/40"
+                      >
+                        <td className="border border-border px-3 py-2 font-medium">{i + 1}</td>
+                        <td className="border border-border px-3 py-2 font-medium">{code || '-'}</td>
+                        <td className="border border-border px-3 py-2 font-medium">
+                          {!hasCode ? (
+                            <p className="font-bold capitalize">{htmlToPlaintext(r.QuestionTitle)}</p>
+                          ) : (
+                            <>
+                              <span
+                                className="block"
+                                dangerouslySetInnerHTML={{ __html: questionHtml }}
+                              />
+                              {questionEmpty && hasCode ? (
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    className="h-7 text-[11px]"
+                                    onClick={() => questionBank(r)}
+                                  >
+                                    <Plus className="mr-1 h-3 w-3" /> QB
+                                  </Button>
+                                </div>
+                              ) : null}
+                            </>
+                          )}
+                        </td>
+                        <td className="border border-border px-3 py-2 text-center font-medium">
+                          {hasCode
+                            ? (r.individual_question_marks ?? '-')
+                            : (r.question_marks ?? '-')}
+                        </td>
+                        <td className="border border-border px-3 py-2 text-center">
+                          {hasCode && marksId > 0 ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              aria-label="Edit question"
+                              title="Edit"
+                              onClick={() => void openEditQuestion(r)}
+                            >
+                              <Pencil className="h-4 w-4 text-slate-700" />
+                            </Button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-muted/40">
+            <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={navigateBack}>
+              Back
+            </Button>
+            {rows.length > 0 ? (
+              <>
+                <Button type="button" className="h-8 text-[12px]" onClick={printQuestionPaper}>
+                  Print Question Paper
+                </Button>
+                <Button type="button" className="h-8 text-[12px]" onClick={printQA}>
+                  Print QA
+                </Button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
     >
-      <div className="app-card overflow-hidden p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[13px]">
-            <thead>
-              <tr className="bg-[hsl(var(--primary)/0.06)] text-left">
-                <th className="border border-border px-3 py-2.5 w-14 text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
-                  SI.No
-                </th>
-                <th className="border border-border px-3 py-2.5 w-28 text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
-                  QuestionNo
-                </th>
-                <th className="border border-border px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
-                  Question
-                </th>
-                <th className="border border-border px-3 py-2.5 w-24 text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
-                  Marks
-                </th>
-                <th className="border border-border px-3 py-2.5 w-24 text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="border border-border px-3 py-6 text-center text-muted-foreground">
-                    Loading…
-                  </td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="border border-border px-3 py-6 text-center text-muted-foreground">
-                    No questions found.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((r, i) => {
-                  const code = pickText(r, ['questioncode'])
-                  const hasCode = code.length > 0
-                  const questionHtml = String(r.question ?? '')
-                  const questionEmpty = questionHtml.trim() === ''
-                  const marksId = Number(r.pk_questionpaper_marks_id ?? r.questionPaperMarksId ?? 0)
-                  return (
-                    <tr
-                      key={`mq-${r.pk_questionpaper_marks_id ?? r.questioncode ?? i}`}
-                      className="align-top hover:bg-muted/40"
-                    >
-                      <td className="border border-border px-3 py-2 font-medium">{i + 1}</td>
-                      <td className="border border-border px-3 py-2 font-medium">{code || '-'}</td>
-                      <td className="border border-border px-3 py-2 font-medium">
-                        {!hasCode ? (
-                          <p className="font-bold capitalize">{htmlToPlaintext(r.QuestionTitle)}</p>
-                        ) : (
-                          <>
-                            <span
-                              className="block"
-                              dangerouslySetInnerHTML={{ __html: questionHtml }}
-                            />
-                            {questionEmpty && hasCode ? (
-                              <div className="mt-1 flex flex-wrap items-center gap-2">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  className="h-7 text-[11px]"
-                                  onClick={() => questionBank(r)}
-                                >
-                                  <Plus className="mr-1 h-3 w-3" /> QB
-                                </Button>
-                              </div>
-                            ) : null}
-                          </>
-                        )}
-                      </td>
-                      <td className="border border-border px-3 py-2 text-center font-medium">
-                        {hasCode
-                          ? (r.individual_question_marks ?? '-')
-                          : (r.question_marks ?? '-')}
-                      </td>
-                      <td className="border border-border px-3 py-2 text-center">
-                        {hasCode && marksId > 0 ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 p-0"
-                            aria-label="Edit question"
-                            title="Edit"
-                            onClick={() => void openEditQuestion(r)}
-                          >
-                            <Pencil className="h-4 w-4 text-slate-700" />
-                          </Button>
-                        ) : null}
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-muted/40">
-          <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={navigateBack}>
-            Back
-          </Button>
-          {rows.length > 0 ? (
-            <>
-              <Button type="button" className="h-8 text-[12px]" onClick={printQuestionPaper}>
-                Print Question Paper
-              </Button>
-              <Button type="button" className="h-8 text-[12px]" onClick={printQA}>
-                Print QA
-              </Button>
-            </>
-          ) : null}
-        </div>
-      </div>
-
       <Dialog open={Boolean(editing)} onOpenChange={(v) => { if (!v) setEditing(null) }}>
         <DialogContent className="max-w-[750px] gap-4">
           <DialogHeader>

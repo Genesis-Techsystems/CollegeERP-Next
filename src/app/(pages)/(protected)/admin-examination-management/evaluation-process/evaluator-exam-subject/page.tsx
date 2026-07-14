@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { FilteredPage } from '@/components/layout'
+import type { ColDef } from 'ag-grid-community'
+import { FilteredListPage } from '@/components/layout'
 import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
-import { SearchInput } from '@/common/components/search'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Select } from '@/common/components/select'
 import { addExamEvaluators, runEvaluationProc } from '@/services/evaluation-process-admin'
 import { getUnivExamFiltersByType } from '@/services/pre-examination'
+import { rowIndexGetter } from '@/lib/utils'
 
 type AnyRow = Record<string, any>
 
@@ -31,8 +33,51 @@ const dedupeBy = <T,>(rows: T[], keyFn: (row: T) => number | string) => {
   })
 }
 
+const COL_DEFS = {
+  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<AnyRow>,
+  evaluatorName: {
+    headerName: 'Evaluator Name',
+    minWidth: 220,
+    flex: 1,
+    valueGetter: (p) => txt(p.data?.evaluator_name ?? p.data?.evaluatorName) || '-',
+  } as ColDef<AnyRow>,
+  subject: {
+    headerName: 'Subjects',
+    minWidth: 140,
+    flex: 1,
+    valueGetter: (p) =>
+      txt(
+        p.data?.subject_code ??
+          p.data?.subjectCode ??
+          p.data?.subject_name ??
+          p.data?.subjectName,
+      ) || '-',
+  } as ColDef<AnyRow>,
+  college: {
+    headerName: 'College',
+    minWidth: 120,
+    flex: 1,
+    valueGetter: (p) =>
+      txt(
+        p.data?.college_code ??
+          p.data?.collegeCode ??
+          p.data?.college_name ??
+          p.data?.collegeName ??
+          p.data?.College ??
+          p.data?.college,
+      ) || '-',
+  } as ColDef<AnyRow>,
+  examMonthYear: {
+    headerName: 'Exam Month Year',
+    minWidth: 140,
+    flex: 1,
+    valueGetter: (p) => txt(p.data?.exam_month_yr ?? p.data?.examMonthYear) || '-',
+  } as ColDef<AnyRow>,
+}
+
 export default function EvaluatorExamSubjectPage() {
   const [loading, setLoading] = useState(false)
+  const [hasFetched, setHasFetched] = useState(false)
   const [baseRows, setBaseRows] = useState<AnyRow[]>([])
   const [restRows, setRestRows] = useState<AnyRow[]>([])
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
@@ -40,7 +85,6 @@ export default function EvaluatorExamSubjectPage() {
   const [notConfiguredRows, setNotConfiguredRows] = useState<AnyRow[]>([])
   const [selectedEvaluatorIds, setSelectedEvaluatorIds] = useState<number[]>([])
   const [selectedCollegeIds, setSelectedCollegeIds] = useState<number[]>([])
-  const [search, setSearch] = useState('')
 
   const [courseId, setCourseId] = useState<number | null>(null)
   const [academicYearId, setAcademicYearId] = useState<number | null>(null)
@@ -87,11 +131,6 @@ export default function EvaluatorExamSubjectPage() {
     [subjects],
   )
 
-  const filteredConfiguredRows = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return configuredRows
-    return configuredRows.filter((r) => JSON.stringify(r).toLowerCase().includes(q))
-  }, [configuredRows, search])
   const evaluators = useMemo(
     () => dedupeBy(notConfiguredRows, (r) => num(r.pk_exam_evaluator_profile_id)),
     [notConfiguredRows],
@@ -99,6 +138,17 @@ export default function EvaluatorExamSubjectPage() {
   const colleges = useMemo(
     () => dedupeBy(notConfiguredRows, (r) => num(r.fk_college_id)),
     [notConfiguredRows],
+  )
+
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      COL_DEFS.siNo,
+      COL_DEFS.college,
+      COL_DEFS.evaluatorName,
+      COL_DEFS.subject,
+      COL_DEFS.examMonthYear,
+    ],
+    [],
   )
 
   useEffect(() => {
@@ -191,6 +241,7 @@ export default function EvaluatorExamSubjectPage() {
   async function onGetList() {
     if (!courseId || !academicYearId || !examId || !courseYearId || !regulationId || !subjectId) return
     setLoading(true)
+    setHasFetched(true)
     try {
       const params = {
         in_flag: 'list_evaluator_subjects',
@@ -276,97 +327,171 @@ export default function EvaluatorExamSubjectPage() {
     setSelectedCollegeIds((s) => (checked ? [...s, id] : s.filter((x) => x !== id)))
   }
 
+  function hideResults() {
+    setHasFetched(false)
+    setConfiguredRows([])
+    setNotConfiguredRows([])
+  }
+
   return (
-    <FilteredPage
+    <FilteredListPage
       title="Evaluator Exam Subjects"
       filters={(
         <GlobalFilterBarRow>
           <GlobalFilterField label="Course">
-            <Select value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(num(v) || null)} options={courseOptions} placeholder="Course" />
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => {
+                hideResults()
+                setCourseId(num(v) || null)
+              }}
+              options={courseOptions}
+              placeholder="Course"
+            />
           </GlobalFilterField>
           <GlobalFilterField label="Academic Year">
-            <Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(num(v) || null)} options={academicYearOptions} placeholder="Academic Year" />
+            <Select
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => {
+                hideResults()
+                setAcademicYearId(num(v) || null)
+              }}
+              options={academicYearOptions}
+              placeholder="Academic Year"
+            />
           </GlobalFilterField>
           <GlobalFilterField label="Exam">
-            <Select value={examId ? String(examId) : null} onChange={(v) => setExamId(num(v) || null)} options={examOptions} placeholder="Exam" searchable />
+            <Select
+              value={examId ? String(examId) : null}
+              onChange={(v) => {
+                hideResults()
+                setExamId(num(v) || null)
+              }}
+              options={examOptions}
+              placeholder="Exam"
+              searchable
+            />
           </GlobalFilterField>
           <GlobalFilterField label="Course Year">
-            <Select value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(num(v) || null)} options={courseYearOptions} placeholder="Course Year" />
+            <Select
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => {
+                hideResults()
+                setCourseYearId(num(v) || null)
+              }}
+              options={courseYearOptions}
+              placeholder="Course Year"
+            />
           </GlobalFilterField>
           <GlobalFilterField label="Regulation">
-            <Select value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(num(v) || null)} options={regulationOptions} placeholder="Regulation" />
+            <Select
+              value={regulationId ? String(regulationId) : null}
+              onChange={(v) => {
+                hideResults()
+                setRegulationId(num(v) || null)
+              }}
+              options={regulationOptions}
+              placeholder="Regulation"
+            />
           </GlobalFilterField>
           <GlobalFilterField label="Subject">
-            <Select value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(num(v) || null)} options={subjectOptions} placeholder="Subject" searchable />
+            <Select
+              value={subjectId ? String(subjectId) : null}
+              onChange={(v) => {
+                hideResults()
+                setSubjectId(num(v) || null)
+              }}
+              options={subjectOptions}
+              placeholder="Subject"
+              searchable
+            />
           </GlobalFilterField>
-          <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
-            <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={onGetList} disabled={loading}>Get List</Button>
+          <GlobalFilterField label=" " className="global-filter-field--shrink global-filter-field--action">
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 shrink-0 px-3 text-[12px]"
+              onClick={() => void onGetList()}
+              disabled={loading}
+            >
+              Get List
+            </Button>
           </GlobalFilterField>
         </GlobalFilterBarRow>
       )}
+      rowData={hasFetched ? configuredRows : []}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search…',
+        pdfDocumentTitle: 'Evaluator Exam Subjects',
+      }}
     >
-      {configuredRows.length > 0 && (
-        <div className="app-card p-3 space-y-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search…" className="w-full max-w-sm" />
-          <div className="overflow-auto rounded border">
-            <table className="w-full text-[12px]">
-              <thead className="bg-muted/40"><tr><th className="px-2 py-1 text-left">SI.No</th><th className="px-2 py-1 text-left">Evaluator Name</th><th className="px-2 py-1 text-left">Subject</th><th className="px-2 py-1 text-left">College</th><th className="px-2 py-1 text-left">Exam Month Year</th></tr></thead>
-              <tbody>{filteredConfiguredRows.map((r, i) => <tr key={`${txt(r.evaluator_name)}-${txt(r.subject_code)}-${txt(r.college_code)}`} className="border-t"><td className="px-2 py-1">{i + 1}</td><td className="px-2 py-1">{txt(r.evaluator_name)}</td><td className="px-2 py-1">{txt(r.subject_code)}</td><td className="px-2 py-1">{txt(r.college_code)}</td><td className="px-2 py-1">{txt(r.exam_month_yr)}</td></tr>)}</tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      {notConfiguredRows.length > 0 && (
+      {hasFetched && notConfiguredRows.length > 0 ? (
         <div className="app-card p-3 space-y-3">
-          <h3 className="app-card-title">List Of Evaluator</h3>
+          <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">List Of Evaluator</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="rounded border p-2">
-              <p className="text-[12px] font-semibold mb-2">Evaluators List: <span className="text-blue-700">{evaluators.length}</span></p>
-              <div className="max-h-[260px] overflow-auto space-y-1">
+            <div className="rounded border overflow-hidden bg-card">
+              <div className="border-b bg-[#C3D9FF] px-2 py-1.5 text-[12px] font-semibold">
+                Evaluators List: <span className="text-blue-700">{evaluators.length}</span>
+              </div>
+              <div className="max-h-[260px] overflow-auto p-2 space-y-1">
                 {evaluators.map((e) => {
                   const id = num(e.pk_exam_evaluator_profile_id)
                   const checked = selectedEvaluatorIds.includes(id)
                   return (
                     <label key={id} className="flex items-center gap-2 text-[12px]">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={checked}
-                        onChange={(ev) => toggleEvaluator(id, ev.target.checked)}
+                        onCheckedChange={(v) => toggleEvaluator(id, v === true)}
                       />
                       {txt(e.evaluator_name)}
                     </label>
                   )
                 })}
+                {evaluators.length === 0 && (
+                  <p className="px-1 py-4 text-center text-muted-foreground text-[12px]">No evaluators.</p>
+                )}
               </div>
             </div>
-            <div className="rounded border p-2">
-              <p className="text-[12px] font-semibold mb-2">Colleges: <span className="text-blue-700">{colleges.length}</span></p>
-              <div className="max-h-[260px] overflow-auto space-y-1">
+            <div className="rounded border overflow-hidden bg-card">
+              <div className="border-b bg-[#C3D9FF] px-2 py-1.5 text-[12px] font-semibold">
+                Colleges: <span className="text-blue-700">{colleges.length}</span>
+              </div>
+              <div className="max-h-[260px] overflow-auto p-2 space-y-1">
                 {colleges.map((c) => {
                   const id = num(c.fk_college_id)
                   const checked = selectedCollegeIds.includes(id)
                   return (
                     <label key={id} className="flex items-center gap-2 text-[12px]">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={checked}
-                        onChange={(ev) => toggleCollege(id, ev.target.checked)}
+                        onCheckedChange={(v) => toggleCollege(id, v === true)}
                       />
                       {txt(c.college_code)}
                     </label>
                   )
                 })}
+                {colleges.length === 0 && (
+                  <p className="px-1 py-4 text-center text-muted-foreground text-[12px]">No colleges.</p>
+                )}
               </div>
             </div>
           </div>
           <div className="flex justify-end">
-            <Button type="button" onClick={onAssign} disabled={loading || selectedEvaluatorIds.length === 0 || selectedCollegeIds.length === 0}>
+            <Button
+              type="button"
+              className="h-8 text-[12px]"
+              onClick={() => void onAssign()}
+              disabled={loading || selectedEvaluatorIds.length === 0 || selectedCollegeIds.length === 0}
+            >
               Assign
             </Button>
           </div>
         </div>
-      )}
-    </FilteredPage>
+      ) : null}
+    </FilteredListPage>
   )
 }
-

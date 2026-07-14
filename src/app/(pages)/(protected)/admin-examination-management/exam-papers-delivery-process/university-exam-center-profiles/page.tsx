@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Pencil } from 'lucide-react'
-import { FilteredListPage } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import { DataTable } from '@/common/components/table'
 import { SearchInput } from '@/common/components/search'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
-import { ActiveStatusField } from '@/common/components/forms'
+import { ActiveStatusField, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -107,10 +108,17 @@ export default function UniversityExamCenterProfilesPage() {
 
   const centerOptions: SelectOption[] = useMemo(
     () =>
-      centers.map((c) => ({
-        value: String(num(c.univExamcenterId ?? c.univExamCenterId)),
-        label: txt(c.examcenterCode ?? c.examCenterCode),
-      })),
+      centers
+        .map((c) => {
+          const id = num(c.univExamcenterId ?? c.univExamCenterId)
+          return {
+            value: String(id),
+            label: txt(c.examcenterCode ?? c.examCenterCode) || String(id),
+            id,
+          }
+        })
+        .filter((o) => o.id > 0)
+        .map(({ value, label }) => ({ value, label })),
     [centers],
   )
 
@@ -119,25 +127,27 @@ export default function UniversityExamCenterProfilesPage() {
     [],
   )
 
-  const headerText = useMemo(() => {
-    const c = centers.find((x) => num(x.univExamcenterId ?? x.univExamCenterId) === Number(filter.univExamCentersId))
-    const r = ROLES.find((x) => x.roleId === Number(filter.profileRoleId))
-    return `${txt(c?.examcenterCode ?? c?.examCenterCode)} - ${r?.roleName ?? ''}`
-  }, [centers, filter])
-
   async function onGetList() {
     if (!filter.univExamCentersId || !filter.profileRoleId) {
       toastError('Select Exam Center and Profile Role.')
       return
     }
+    const centerId = Number(filter.univExamCentersId)
+    const roleId = Number(filter.profileRoleId)
+    if (!Number.isFinite(centerId) || centerId <= 0 || !Number.isFinite(roleId) || roleId <= 0) {
+      toastError('Select a valid Exam Center and Profile Role.')
+      return
+    }
     setLoadingList(true)
+    setSelectedSet(new Set())
+    setSelectAll(false)
+    setAvailableSearch('')
+    // Always show result cards after Get List (empty table on no data / API error)
+    setShown(true)
     try {
       const [existingRows, evaluatorRows] = await Promise.all([
-        listUnivEcProfilesByCenterAndRole(
-          Number(filter.univExamCentersId),
-          Number(filter.profileRoleId),
-        ),
-        listExamEvaluatorProfilesByRole(Number(filter.profileRoleId)),
+        listUnivEcProfilesByCenterAndRole(centerId, roleId),
+        listExamEvaluatorProfilesByRole(roleId),
       ])
       setExisting(existingRows)
       const assignedIds = new Set(
@@ -145,12 +155,10 @@ export default function UniversityExamCenterProfilesPage() {
       )
       const remaining = evaluatorRows.filter((r) => !assignedIds.has(pickEvaluatorProfileId(r)))
       setAvailable(remaining)
-      setSelectedSet(new Set())
-      setSelectAll(false)
-      setShown(true)
     } catch (e) {
+      setExisting([])
+      setAvailable([])
       toastError(e, 'Failed to load profiles')
-      setShown(false)
     } finally {
       setLoadingList(false)
     }
@@ -161,6 +169,11 @@ export default function UniversityExamCenterProfilesPage() {
     if (!q) return available
     return available.filter((r) => txt(r.evaluatorName).toLowerCase().includes(q))
   }, [available, availableSearch])
+
+  const selectedEvaluators = useMemo(
+    () => available.filter((r) => selectedSet.has(pickEvaluatorProfileId(r))),
+    [available, selectedSet],
+  )
 
   function toggleOne(id: number, checked: boolean) {
     setSelectedSet((s) => {
@@ -251,125 +264,179 @@ export default function UniversityExamCenterProfilesPage() {
     () => [
       { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 },
       { headerName: 'Role', minWidth: 160, valueGetter: (p) => txt(p.data?.roleName ?? p.data?.profileRoleName) },
-      { headerName: 'Evaluator Name', minWidth: 220, valueGetter: (p) => txt(p.data?.evaluatorName) },
+      {
+        headerName: 'Evaluator Name',
+        minWidth: 220,
+        valueGetter: (p) =>
+          txt(p.data?.examEvaluatorProfilesName ?? p.data?.evaluatorName),
+      },
       { headerName: 'Actions', minWidth: 90, width: 90, flex: 0, cellRenderer: makeEditRenderer(onEdit) },
     ],
     [],
   )
 
   return (
-    <FilteredListPage
+    <FilteredPage
       title="Exam Center Profiles"
       filters={(
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-          <div className="space-y-1 md:col-span-4">
-            <Label>Exam Center *</Label>
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Exam Center *">
             <Select
               options={centerOptions}
               value={filter.univExamCentersId}
-              onChange={(v) => setFilter((f) => ({ ...f, univExamCentersId: v ?? '' }))}
+              onChange={(v) => {
+                setShown(false)
+                setFilter((f) => ({ ...f, univExamCentersId: v ?? '' }))
+              }}
               placeholder="Select exam center"
               searchable
               disabled={loadingFilters}
             />
-          </div>
-          <div className="space-y-1 md:col-span-4">
-            <Label>Profile Role *</Label>
+          </GlobalFilterField>
+          <GlobalFilterField label="Profile Role *">
             <Select
               options={roleOptions}
               value={filter.profileRoleId}
-              onChange={(v) => setFilter((f) => ({ ...f, profileRoleId: v ?? '' }))}
+              onChange={(v) => {
+                setShown(false)
+                setFilter((f) => ({ ...f, profileRoleId: v ?? '' }))
+              }}
               placeholder="Select role"
               searchable
             />
-          </div>
-          <div className="md:col-span-2">
-            <Button type="button" onClick={() => void onGetList()} disabled={loadingList}>
+          </GlobalFilterField>
+          <GlobalFilterField label=" " className="global-filter-field--action global-filter-field--shrink">
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 shrink-0 px-3 text-[12px]"
+              onClick={() => void onGetList()}
+              disabled={loadingList}
+            >
               Get List
             </Button>
-          </div>
-        </div>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
       )}
-      notice={shown && available.length > 0 ? (
-        <div className="app-card p-3 space-y-2">
-          <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">
-            Available Evaluators - {headerText}
-          </h3>
-          <div className="flex items-center gap-2">
-            <SearchInput
-              value={availableSearch}
-              onChange={setAvailableSearch}
-              placeholder="Search…"
-              className="w-full max-w-sm"
-            />
-            <span className="text-xs text-blue-700 font-semibold">
-              Selected: {selectedSet.size}
-            </span>
-            <div className="ml-auto">
-              <Button size="sm" onClick={() => void onAssign()} disabled={assigning}>
-                Assign
-              </Button>
+      body={
+        shown ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+              <div className="md:col-span-5 rounded border overflow-hidden bg-card">
+                <div className="flex items-center justify-between gap-2 border-b p-2">
+                  <SearchInput
+                    value={availableSearch}
+                    onChange={setAvailableSearch}
+                    placeholder="Search…"
+                    className="w-full max-w-sm"
+                  />
+                  <span className="shrink-0 text-[12px] font-semibold text-blue-700">
+                    Selected : {selectedSet.size}
+                  </span>
+                </div>
+                <div className="max-h-72 overflow-auto">
+                  <table className="w-full text-[12px]">
+                    <thead className="sticky top-0 bg-[#C3D9FF]">
+                      <tr>
+                        <th className="w-16 px-2 py-1.5 text-left">
+                          <label className="flex items-center gap-1.5 font-semibold">
+                            <Checkbox
+                              checked={selectAll}
+                              onCheckedChange={(v) => toggleAll(v === true)}
+                            />
+                            All
+                          </label>
+                        </th>
+                        <th className="px-2 py-1.5 text-left font-semibold">Evaluators</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredAvailable.map((r) => {
+                        const id = pickEvaluatorProfileId(r)
+                        const checked = selectedSet.has(id)
+                        return (
+                          <tr key={id} className="border-t">
+                            <td className="px-2 py-1.5">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) => toggleOne(id, v === true)}
+                              />
+                            </td>
+                            <td className="px-2 py-1.5">{txt(r.evaluatorName)}</td>
+                          </tr>
+                        )
+                      })}
+                      {filteredAvailable.length === 0 && (
+                        <tr>
+                          <td colSpan={2} className="px-2 py-6 text-center text-muted-foreground">
+                            {loadingList ? 'Loading…' : 'No available evaluators.'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="md:col-span-5 rounded border overflow-hidden bg-card">
+                <div className="max-h-[22.5rem] overflow-auto">
+                  <table className="w-full text-[12px]">
+                    <thead className="sticky top-0 bg-[#C3D9FF]">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left font-semibold text-blue-700">
+                          Selected Evaluators : {selectedSet.size}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedEvaluators.map((r) => {
+                        const id = pickEvaluatorProfileId(r)
+                        return (
+                          <tr key={`sel-${id}`} className="border-t">
+                            <td className="px-2 py-1.5 text-blue-700">{txt(r.evaluatorName) || '-'}</td>
+                          </tr>
+                        )
+                      })}
+                      {selectedEvaluators.length === 0 && (
+                        <tr>
+                          <td className="px-2 py-6 text-center text-muted-foreground">—</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="md:col-span-2 flex items-end justify-end md:justify-start">
+                <Button
+                  type="button"
+                  className="h-8 text-[12px]"
+                  onClick={() => void onAssign()}
+                  disabled={assigning || selectedSet.size === 0}
+                >
+                  {assigning ? 'Assigning…' : 'Assign'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="-mx-5 -mb-4 overflow-hidden border-t border-border">
+              <DataTable
+                bordered={false}
+                title=""
+                subtitle=""
+                rowData={existing}
+                columnDefs={existingColumns}
+                loading={loadingList}
+                pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Exam Center Profiles',
+                }}
+              />
             </div>
           </div>
-          <div className="max-h-72 overflow-auto border rounded">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="text-left p-2 w-16">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={selectAll}
-                        onCheckedChange={(v) => toggleAll(v === true)}
-                      />
-                      All
-                    </div>
-                  </th>
-                  <th className="text-left p-2 text-blue-700">Evaluator</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAvailable.map((r) => {
-                  const id = pickEvaluatorProfileId(r)
-                  const checked = selectedSet.has(id)
-                  return (
-                    <tr key={id} className="border-t">
-                      <td className="p-2">
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(v) => toggleOne(id, v === true)}
-                        />
-                      </td>
-                      <td className="p-2">{txt(r.evaluatorName)}</td>
-                    </tr>
-                  )
-                })}
-                {filteredAvailable.length === 0 && (
-                  <tr>
-                    <td colSpan={2} className="p-3 text-center text-muted-foreground">
-                      No available evaluators.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : null}
-      rowData={shown ? existing : []}
-      columnDefs={existingColumns}
-      loading={loadingList}
-      pagination
-      toolbar={{
-        search: true,
-        searchPlaceholder: 'Search…',
-        pdfDocumentTitle: 'Exam Center Profiles',
-      }}
-      toolbarLeading={
-        shown ? (
-          <span className="text-[12px] font-medium text-[hsl(var(--primary))] truncate max-w-[min(100%,40rem)]">
-            Existing Profiles - {headerText}
-          </span>
-        ) : null
+        ) : undefined
       }
     >
       <FormModal
@@ -405,6 +472,6 @@ export default function UniversityExamCenterProfilesPage() {
           />
         </div>
       </FormModal>
-    </FilteredListPage>
+    </FilteredPage>
   )
 }
