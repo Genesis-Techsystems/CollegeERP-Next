@@ -155,6 +155,8 @@ export interface DataTableProps<T> {
   toolbar?: boolean | DataTableToolbarConfig;
   toolbarLeading?: ReactNode;
   toolbarTrailing?: ReactNode;
+  /** Optional right-side panel rendered beside the grid inside the same card. */
+  rightRail?: ReactNode;
   /** @deprecated Use toolbar.exportExcel instead */
   exportCsv?: boolean;
   onGridApiReady?: (api: GridApi<T>) => void;
@@ -378,6 +380,7 @@ export function DataTable<T>({
   toolbar: toolbarProp,
   toolbarLeading,
   toolbarTrailing,
+  rightRail,
   exportCsv = false,
   onGridApiReady,
   fitColumnsToWidth = true,
@@ -727,36 +730,41 @@ export function DataTable<T>({
         </div>
       )}
 
-      <div
-        className={cn(
-          "ag-theme-quartz",
-          isGridEmpty && "app-data-table-grid-empty",
-        )}
-        style={isAutoHeight ? undefined : { height }}
-      >
-        <AgGridReact<T>
-          ref={gridRef}
-          context={{ __rowNumberOffset: rowNumberOffset }}
-          rowData={pagedRowData}
-          columnDefs={resolvedColumnDefs}
-          defaultColDef={defaultColDef}
-          domLayout={isAutoHeight ? "autoHeight" : undefined}
-          loading={loading}
-          // suppressCellFocus={true}
-          overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
-          onGridReady={handleGridReady}
-          onFirstDataRendered={(e) => fitColumns(e.api)}
-          onRowDataUpdated={(e) => fitColumns(e.api)}
-          onGridSizeChanged={(e) => fitColumns(e.api)}
-          alwaysShowHorizontalScroll={!fitColumnsToWidth}
-          enableCellTextSelection
-          ensureDomOrder
-          getRowId={getRowId}
-          onCellClicked={onCellClicked}
-          onRowClicked={onRowClick ? handleRowClicked : undefined}
-          popupParent={popupParent}
-          animateRows
-        />
+      <div className={cn(rightRail && "grid grid-cols-1 gap-3 lg:grid-cols-12")}>
+        <div className={cn("min-w-0", rightRail && "lg:col-span-9")}>
+          <div
+            className={cn(
+              "ag-theme-quartz",
+              isGridEmpty && "app-data-table-grid-empty",
+            )}
+            style={isAutoHeight ? undefined : { height }}
+          >
+            <AgGridReact<T>
+              ref={gridRef}
+              context={{ __rowNumberOffset: rowNumberOffset }}
+              rowData={pagedRowData}
+              columnDefs={resolvedColumnDefs}
+              defaultColDef={defaultColDef}
+              domLayout={isAutoHeight ? "autoHeight" : undefined}
+              loading={loading}
+              // suppressCellFocus={true}
+              overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
+              onGridReady={handleGridReady}
+              onFirstDataRendered={(e) => fitColumns(e.api)}
+              onRowDataUpdated={(e) => fitColumns(e.api)}
+              onGridSizeChanged={(e) => fitColumns(e.api)}
+              alwaysShowHorizontalScroll={!fitColumnsToWidth}
+              enableCellTextSelection
+              ensureDomOrder
+              getRowId={getRowId}
+              onCellClicked={onCellClicked}
+              onRowClicked={onRowClick ? handleRowClicked : undefined}
+              popupParent={popupParent}
+              animateRows
+            />
+          </div>
+        </div>
+        {rightRail ? <div className="lg:col-span-3">{rightRail}</div> : null}
       </div>
 
       {clientPaginationEnabled && (

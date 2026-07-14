@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { GraduationCap } from 'lucide-react'
 import { FilteredListPage } from '@/components/layout'
@@ -16,6 +16,7 @@ import {
   listActiveRooms,
   listExternalAttendanceStudents,
   saveInternalAttendance,
+  uploadInvigilatorAttendanceSheet,
 } from '@/services/post-examination'
 import { toastError, toastSuccess } from '@/lib/toast'
 
@@ -23,6 +24,7 @@ type AnyRow = Record<string, any>
 
 type AttendanceRow = {
   examStdDetId: number
+  examTimetableId: number
   examId: number
   studentId: number
   hallticketNumber: string
@@ -80,6 +82,7 @@ function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
 function normalizeRows(rows: AnyRow[]): AttendanceRow[] {
   return rows.map((r, i) => ({
     examStdDetId: Number(r.pk_exam_std_det_id ?? i + 1),
+    examTimetableId: Number(r.examTimeTableId ?? r.exam_timetable_id ?? r.fk_exam_timetable_id ?? 0),
     examId: Number(r.fk_exam_id ?? 0),
     studentId: Number(r.fk_student_id ?? 0),
     hallticketNumber: String(r.hallticket_number ?? r.roll_number ?? '-'),
@@ -100,6 +103,7 @@ export default function ExternalExamAttendanceMarkingPage() {
   const [loadingFilters, setLoadingFilters] = useState(false)
   const [loadingList, setLoadingList] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [uploadingAttendance, setUploadingAttendance] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
 
   const [allFilters, setAllFilters] = useState<AnyRow[]>([])
@@ -117,6 +121,8 @@ export default function ExternalExamAttendanceMarkingPage() {
   const [courseYearId, setCourseYearId] = useState<number | null>(0)
   const [roomId, setRoomId] = useState<number | null>(0)
   const [examDate, setExamDate] = useState('')
+  const [selectedAttendanceFileName, setSelectedAttendanceFileName] = useState('')
+  const attendanceFileInputRef = useRef<HTMLInputElement | null>(null)
 
   const courses = useMemo(() => dedupeBy(allFilters, 'fk_course_id'), [allFilters])
   const academicYears = useMemo(
@@ -285,10 +291,43 @@ export default function ExternalExamAttendanceMarkingPage() {
     }
   }
 
+  function onUploadAttendanceClick() {
+    attendanceFileInputRef.current?.click()
+  }
+
+  async function onAttendanceFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setSelectedAttendanceFileName(file.name)
+
+    const examTimetableId = rows.find((r) => Number(r.examTimetableId) > 0)?.examTimetableId ?? 0
+    if (!examTimetableId) {
+      toastError('Exam timetable not found for selected attendance rows', 'Upload failed')
+      event.target.value = ''
+      return
+    }
+
+    setUploadingAttendance(true)
+    try {
+      await uploadInvigilatorAttendanceSheet({
+        examInvEmployeeId: employeeId,
+        examTimetableId,
+        studentAttendance: file,
+      })
+      toastSuccess('Attendance file uploaded successfully')
+      await onGetList()
+    } catch (error) {
+      toastError(error, 'Failed to upload attendance file')
+    } finally {
+      setUploadingAttendance(false)
+      event.target.value = ''
+    }
+  }
+
   const columnDefs = useMemo<ColDef<AttendanceRow>[]>(
     () => [
-      { headerName: 'SI.No', width: 70, flex: 0, valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1 },
-      { field: 'hallticketNumber', headerName: 'Hall Ticket No', minWidth: 150 },
+      { headerName: 'SI.No', width: 55, minWidth: 55, maxWidth: 55, flex: 0, valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1 },
+      { field: 'hallticketNumber', headerName: 'Hall Ticket No', width: 150, minWidth: 140, maxWidth: 160, flex: 0 },
       { field: 'groupCode', headerName: 'Group', minWidth: 90, flex: 0 },
       { field: 'firstName', headerName: 'Student Name', minWidth: 180, flex: 1 },
       {
@@ -310,7 +349,9 @@ export default function ExternalExamAttendanceMarkingPage() {
       },
       {
         headerName: 'MalPractice',
-        minWidth: 120,
+        width: 95,
+        minWidth: 95,
+        maxWidth: 95,
         flex: 0,
         cellRenderer: UfmRenderer,
         cellRendererParams: { onToggleUfm },
@@ -322,28 +363,8 @@ export default function ExternalExamAttendanceMarkingPage() {
   return (
     <FilteredListPage
       title="External Exam Attendance Marking"
-      notice={hasFetched ? (
-        <div className="app-card overflow-hidden border-2 border-[#c3d9ff] bg-card p-2">
-          <div className="flex items-start gap-4">
-            <div className="flex h-20 w-20 items-center justify-center bg-[#c3d9ff] text-slate-700">
-              <GraduationCap className="h-10 w-10" />
-            </div>
-            <div className="space-y-1 text-[13px] text-slate-600">
-              <p>
-                {selectedExam?.exam_name ?? '-'} {examTypeText ? <span className="text-blue-700">({examTypeText})</span> : null}
-              </p>
-              <p>
-                {selectedCourse?.course_code ?? '-'} {examDate ? <span className="text-blue-700">({examDate})</span> : null}
-              </p>
-              <p>
-                Room : <span className="text-slate-800">{selectedRoom?.roomCode ?? '-'}</span>
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : null}
       filters={(
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-12 md:items-end">
           <div className="space-y-1 md:col-span-2"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loadingFilters}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((x) => <SelectItem key={x.fk_course_id} value={String(x.fk_course_id)}>{x.course_code}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-2"><Label>Exam Year</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger><SelectContent>{academicYears.map((x) => <SelectItem key={x.fk_academic_year_id} value={String(x.fk_academic_year_id)}>{x.academic_year}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-4"><Label>Exam</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((x) => <SelectItem key={x.fk_exam_id} value={String(x.fk_exam_id)}>{x.exam_name}</SelectItem>)}</SelectContent></Select></div>
@@ -354,11 +375,32 @@ export default function ExternalExamAttendanceMarkingPage() {
           <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
           <div className="space-y-1 md:col-span-2"><Label>Room</Label><Select value={roomId === null ? '0' : String(roomId)} onValueChange={(v) => setRoomId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Room" /></SelectTrigger><SelectContent>{rooms.map((x) => <SelectItem key={`room-${x}`} value={String(x)}>{x === 0 ? 'All' : roomRows.find((r) => Number(r.roomId) === x)?.roomCode ?? `Room ${x}`}</SelectItem>)}</SelectContent></Select></div>
           <div className="md:col-span-1"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loadingList}>{loadingList ? 'Loading...' : 'Get List'}</Button></div>
+          {hasFetched ? (
+            <div className="app-card overflow-hidden border-2 border-[#c3d9ff] bg-card p-2 md:col-span-12">
+              <div className="flex items-start gap-4">
+                <div className="flex h-20 w-20 items-center justify-center bg-[#c3d9ff] text-slate-700">
+                  <GraduationCap className="h-10 w-10" />
+                </div>
+                <div className="space-y-1 text-[13px] text-slate-600">
+                  <p>
+                    {selectedExam?.exam_name ?? '-'} {examTypeText ? <span className="text-blue-700">({examTypeText})</span> : null}
+                  </p>
+                  <p>
+                    {selectedCourse?.course_code ?? '-'} {examDate ? <span className="text-blue-700">({examDate})</span> : null}
+                  </p>
+                  <p>
+                    Room : <span className="text-slate-800">{selectedRoom?.roomCode ?? '-'}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList}
+      fitColumnsToWidth={false}
       pagination
       toolbar={{
         search: true,
@@ -371,15 +413,14 @@ export default function ExternalExamAttendanceMarkingPage() {
           <span>{allPresent ? 'UnMark All' : 'Mark All'}</span>
         </label>
       )}
-    >
-      {hasFetched && (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-          <div className="space-y-3 lg:col-span-3 lg:col-start-10">
+      rightRail={
+        hasFetched ? (
+          <div className="space-y-3">
             <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">
               <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[14px] font-semibold uppercase text-slate-700">
                 Absentees : <span className="rounded-full bg-cyan-300 px-2 py-0.5">{absentees.length}</span>
               </h3>
-              <div className="max-h-[320px] overflow-auto p-3 text-[12px]">
+              <div className="max-h-[420px] overflow-auto p-3 text-[12px]">
                 {absentees.length === 0 ? (
                   <p className="text-muted-foreground">No absents found.</p>
                 ) : (
@@ -396,10 +437,31 @@ export default function ExternalExamAttendanceMarkingPage() {
                 {saving ? 'Saving...' : 'Save Attendance'}
               </Button>
             </div>
+            <div className="flex justify-center">
+              <Button
+                className="h-8 px-5 text-[12px] bg-blue-600 text-white hover:bg-blue-700"
+                onClick={onUploadAttendanceClick}
+                disabled={rows.length === 0 || uploadingAttendance}
+              >
+                {uploadingAttendance ? 'Uploading...' : 'Upload Attendance'}
+              </Button>
+              <input
+                ref={attendanceFileInputRef}
+                type="file"
+                className="hidden"
+                accept=".xlsx,.xls,.csv"
+                onChange={onAttendanceFileChange}
+              />
+            </div>
+            {selectedAttendanceFileName ? (
+              <p className="text-center text-[11px] text-muted-foreground">
+                Selected file: {selectedAttendanceFileName}
+              </p>
+            ) : null}
           </div>
-        </div>
-      )}
-    </FilteredListPage>
+        ) : null
+      }
+    />
   )
 }
 
