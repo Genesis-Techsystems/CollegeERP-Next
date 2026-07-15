@@ -2,11 +2,15 @@
 
 /**
  * Grade Memo Issue — printable Grade Card / Mark Sheet / Sample layouts.
- * Ported from Angular grade-memo-issue (+ grade-card-modal for sample).
- * Templates are gated by university_code === 'SUK' (same as Angular).
+ *
+ * Angular behaviour:
+ * - Print Grade Card / Mark Sheet / Bulk — window.print() on page (SUK templates only).
+ * - Sample / Bulk Sample — navigate to grade-card-modal preview (Back + Print).
+ *   SUK → GRADE CARD layout; non-SUK → SEMESTER GRADE REPORT (Matrusri, etc.).
  */
 
-import { type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useState, type CSSProperties, type ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
 import { usePrintMode } from '@/lib/print'
 import { MINIO_URL } from '@/config/constants/api'
 
@@ -56,6 +60,15 @@ function fmtMemoDate(value?: string): string {
   if (Number.isNaN(d.getTime())) return value
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   return `${d.getDate()}-${months[d.getMonth()]}-${d.getFullYear()}`
+}
+
+/** Angular sample modal: date:'d/MMM/y' */
+function fmtMemoDateSlash(value?: string): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${d.getDate()}/${months[d.getMonth()]}/${d.getFullYear()}`
 }
 
 function numToWords(num: number): string {
@@ -114,6 +127,49 @@ function emptyPad(count: number): number[] {
   return count > 0 ? Array.from({ length: count }, (_, i) => i) : []
 }
 
+/** Print HTML in a hidden iframe (avoids AppShell @media print blank sheets). */
+function printHtmlInIframe(html: string): void {
+  if (typeof document === 'undefined') return
+  const frame = document.createElement('iframe')
+  frame.setAttribute('aria-hidden', 'true')
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;'
+  document.body.appendChild(frame)
+  const fdoc = frame.contentDocument
+  const win = frame.contentWindow
+  if (!fdoc || !win) {
+    frame.remove()
+    return
+  }
+  fdoc.open()
+  fdoc.write(html)
+  fdoc.close()
+  const cleanup = () => frame.remove()
+  win.addEventListener('afterprint', cleanup)
+  const imgs = Array.from(fdoc.images)
+  const wait = imgs.length
+    ? Promise.all(
+        imgs.map(
+          (img) =>
+            new Promise<void>((resolve) => {
+              if (img.complete) {
+                resolve()
+                return
+              }
+              img.onload = () => resolve()
+              img.onerror = () => resolve()
+            }),
+        ),
+      )
+    : Promise.resolve()
+  void wait.then(() => {
+    setTimeout(() => {
+      win.focus()
+      win.print()
+      setTimeout(cleanup, 1500)
+    }, 100)
+  })
+}
+
 // ── styles ───────────────────────────────────────────────────────────────────
 
 const page: CSSProperties = {
@@ -124,6 +180,18 @@ const page: CSSProperties = {
   padding: '12px 16px',
   boxSizing: 'border-box',
   minHeight: '100vh',
+}
+
+/** Compact A4 card — Angular grade-card-modal non-SUK (screen ~50% / 210mm). */
+const semesterPage: CSSProperties = {
+  background: '#fff',
+  color: '#000',
+  fontFamily: "'Times New Roman', Times, serif",
+  pageBreakAfter: 'always',
+  padding: '4px 8px 10px',
+  boxSizing: 'border-box',
+  fontSize: 11,
+  width: '100%',
 }
 
 const titleRed: CSSProperties = {
@@ -140,6 +208,22 @@ const titleBlack: CSSProperties = {
   color: '#000',
   textAlign: 'center',
   fontWeight: 700,
+}
+
+const semesterTitle: CSSProperties = {
+  fontSize: 15,
+  margin: '4px 0 0',
+  color: '#000',
+  textAlign: 'center',
+  fontWeight: 700,
+}
+
+const semesterSubTitle: CSSProperties = {
+  fontSize: 12,
+  margin: '4px 0 6px',
+  color: '#000',
+  textAlign: 'center',
+  fontWeight: 600,
 }
 
 const subTitleRed: CSSProperties = {
@@ -595,6 +679,153 @@ function MarkSheetPage({
   )
 }
 
+/** Angular grade-card-modal non-SUK bulk layout — SEMESTER GRADE REPORT (compact). */
+function SemesterGradeReportPage({
+  rows,
+  memoDate,
+  isLast,
+}: {
+  rows: AnyRow[]
+  memoDate: string
+  isLast?: boolean
+}) {
+  const head = rows[0] ?? {}
+  const photoPath = minioSrc(head.student_photo_path)
+  const pad = emptyPad(12 - rows.length)
+  const infoThS: CSSProperties = { ...infoTh, fontSize: 11, padding: '1px 0', width: '32%' }
+  const infoTdS: CSSProperties = { ...infoTd, fontSize: 11, padding: '1px 0' }
+  const gridHeadS: CSSProperties = { ...gridHead, fontSize: 10, padding: '2px 3px' }
+  const gridCellS: CSSProperties = { ...gridCell, fontSize: 10, padding: '2px 3px' }
+  const leftCellS: CSSProperties = { ...leftCell, fontSize: 10, padding: '2px 3px' }
+  return (
+    <div
+      style={{ ...semesterPage, pageBreakAfter: isLast ? 'auto' : 'always' }}
+      className="bulkPage"
+    >
+      <p style={semesterTitle}>SEMESTER GRADE REPORT</p>
+      <p style={semesterSubTitle}>{txt(head.exam_name)}</p>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 6, marginTop: 4 }}>
+        <div style={{ flex: 1 }}>
+          <table style={{ ...infoTable, fontSize: 11 }}>
+            <tbody>
+              <tr>
+                <th style={infoThS}>Examination</th>
+                <td style={{ padding: '0 3px', textAlign: 'center', width: 10 }}>:</td>
+                <td style={{ ...infoTdS, textTransform: 'none' }}>{txt(head.exam_name)}</td>
+              </tr>
+              <tr>
+                <th style={infoThS}>REF.No.</th>
+                <td style={{ padding: '0 3px', textAlign: 'center' }}>:</td>
+                <td style={{ ...infoTdS, textTransform: 'none' }}>{txt(head.ref_no)}</td>
+              </tr>
+              <tr>
+                <th style={infoThS}>Name</th>
+                <td style={{ padding: '0 3px', textAlign: 'center' }}>:</td>
+                <td style={infoTdS}>{txt(head.student_name)}</td>
+              </tr>
+              <tr>
+                <th style={infoThS}>Father&apos;s Name</th>
+                <td style={{ padding: '0 3px', textAlign: 'center' }}>:</td>
+                <td style={infoTdS}>{txt(head.father_name)}</td>
+              </tr>
+              <tr>
+                <th style={infoThS}>Mother&apos;s Name</th>
+                <td style={{ padding: '0 3px', textAlign: 'center' }}>:</td>
+                <td style={{ ...infoTdS, textTransform: 'none' }}>{txt(head.mother_name)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style={{ width: 88, textAlign: 'center', flexShrink: 0 }}>
+          <div style={{ fontSize: 8, fontWeight: 700, marginBottom: 2 }}>
+            RollNo: {txt(head.hallticket_number)}
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={photoPath || DEFAULT_STUDENT}
+            alt=""
+            style={{ height: 72, width: 76, objectFit: 'cover', border: '1px solid #000' }}
+            onError={(e) => {
+              e.currentTarget.onerror = null
+              e.currentTarget.src = DEFAULT_STUDENT
+            }}
+          />
+        </div>
+      </div>
+      <table style={{ ...gridTable, fontSize: 10, marginTop: 4 }}>
+        <thead>
+          <tr>
+            <th style={{ ...gridHeadS, width: '16%' }}>Subject Code</th>
+            <th style={{ ...gridHeadS, width: '50%' }}>Subject</th>
+            <th style={{ ...gridHeadS, width: '10%' }}>Credits</th>
+            <th style={{ ...gridHeadS, width: '14%' }}>
+              Grade
+              <br />
+              Awarded
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((s, i) => (
+            <tr key={`${txt(s.subject_code)}-${i}`}>
+              <td style={leftCellS}>{txt(s.subject_code)}</td>
+              <td style={leftCellS}>{txt(s.subject_name)}</td>
+              <td style={gridCellS}>{txt(s.credits)}</td>
+              <td style={gridCellS}>{txt(s.grade)}</td>
+            </tr>
+          ))}
+          {pad.map((i) => (
+            <tr key={`pad-${i}`}>
+              <td style={gridCellS}>&nbsp;</td>
+              <td style={gridCellS}>&nbsp;</td>
+              <td style={gridCellS}>&nbsp;</td>
+              <td style={gridCellS}>&nbsp;</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div style={{ display: 'flex', margin: '8px 8px 0', fontWeight: 700, fontSize: 11 }}>
+        <div style={{ flex: 1, textAlign: 'left' }}>
+          S.G.P.A &nbsp;: &nbsp;{txt(head.sgpa)}
+          <br />
+          The date of decleration of result &nbsp;: &nbsp;{fmtMemoDateSlash(memoDate)}
+        </div>
+        <div style={{ flex: 1, textAlign: 'right' }}>Result &nbsp;: &nbsp;{txt(head.result)}</div>
+      </div>
+    </div>
+  )
+}
+
+function SamplePreviewChrome({
+  onBack,
+  onPrint,
+  children,
+}: {
+  onBack: () => void
+  onPrint: () => void
+  children: ReactNode
+}) {
+  // Angular: .main-div / .grade-card width ~50% centered on screen.
+  return (
+    <div data-print-root className="min-h-screen bg-[#f5f5f5]">
+      <div className="flex justify-center gap-2 py-2 print:hidden">
+        <Button type="button" variant="outline" className="h-8 min-w-24" onClick={onBack}>
+          Back
+        </Button>
+        <Button type="button" className="h-8 min-w-24" onClick={onPrint}>
+          Print
+        </Button>
+      </div>
+      <div
+        data-print-pages
+        className="mx-auto mb-4 w-full max-w-[520px] bg-white px-3 py-2 shadow-sm"
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // ── hook ─────────────────────────────────────────────────────────────────────
 
 export function useGradeMemoPrint(params: {
@@ -612,45 +843,98 @@ export function useGradeMemoPrint(params: {
   canPrint: boolean
 } {
   const { studentGroups, gradesRows, memoDate, orgCode, isRegular, isSupply, dataFlag } = params
-  const { mode: printMode, triggerPrint } = usePrintMode<GradeMemoPrintMode>()
+  const { mode: autoPrintMode, triggerPrint: triggerAutoPrint } = usePrintMode<GradeMemoPrintMode>()
+  // Angular SampleFormat / printBulkSampleGradeCard → grade-card-modal (preview, not auto-print)
+  const [previewMode, setPreviewMode] = useState<'sample' | 'bulkSample' | null>(null)
 
   const isSuk = orgCode.toUpperCase() === 'SUK'
+  const printMode = previewMode ?? autoPrintMode
+
+  const triggerPrint = useCallback(
+    (mode: GradeMemoPrintMode) => {
+      if (mode === 'sample' || mode === 'bulkSample') {
+        setPreviewMode(mode)
+        return
+      }
+      triggerAutoPrint(mode)
+    },
+    [triggerAutoPrint],
+  )
+
+  const closePreview = useCallback(() => setPreviewMode(null), [])
+  const printFromPreview = useCallback(() => {
+    if (typeof document === 'undefined') return
+    const root = document.querySelector('[data-print-pages]')
+    if (!root) return
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Semester Grade Report</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+  body { font-family: 'Times New Roman', Times, serif; }
+  .bulkPage { page-break-after: always; box-sizing: border-box; width: 100%; }
+  .bulkPage:last-child { page-break-after: auto; }
+  @page { size: A4; margin: 10mm; }
+  @media print {
+    html, body { background: #fff !important; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style></head><body>${root.innerHTML}</body></html>`
+    printHtmlInIframe(html)
+  }, [])
+
   const groups =
     printMode === 'gradeCard' || printMode === 'markSheet' || printMode === 'sample'
       ? studentGroups.slice(0, 1)
       : studentGroups
 
   let printView: ReactNode = null
-  if (printMode && isSuk && groups.length > 0) {
+  if (printMode && groups.length > 0) {
     const isSample = printMode === 'sample' || printMode === 'bulkSample'
     const isMark = printMode === 'markSheet' || printMode === 'bulkMarkSheet'
-    printView = (
-      <div data-print-root>
-        {groups.map((rows, idx) =>
-          isMark ? (
-            <MarkSheetPage
-              key={idx}
-              rows={rows}
-              memoDate={memoDate}
-              isRegular={isRegular}
-              isSupply={isSupply}
-              dataFlag={dataFlag}
-              grades={gradesRows}
-            />
-          ) : (
-            <GradeCardPage
-              key={idx}
-              rows={rows}
-              memoDate={memoDate}
-              isRegular={isRegular}
-              isSupply={isSupply}
-              sample={isSample}
-            />
-          ),
-        )}
-      </div>
+
+    const pages = groups.map((rows, idx) => {
+      if (isSample && !isSuk) {
+        return (
+          <SemesterGradeReportPage
+            key={idx}
+            rows={rows}
+            memoDate={memoDate}
+            isLast={idx === groups.length - 1}
+          />
+        )
+      }
+      if (isMark) {
+        return (
+          <MarkSheetPage
+            key={idx}
+            rows={rows}
+            memoDate={memoDate}
+            isRegular={isRegular}
+            isSupply={isSupply}
+            dataFlag={dataFlag}
+            grades={gradesRows}
+          />
+        )
+      }
+      return (
+        <GradeCardPage
+          key={idx}
+          rows={rows}
+          memoDate={memoDate}
+          isRegular={isRegular}
+          isSupply={isSupply}
+          sample={isSample}
+        />
+      )
+    })
+
+    printView = isSample ? (
+      <SamplePreviewChrome onBack={closePreview} onPrint={printFromPreview}>
+        {pages}
+      </SamplePreviewChrome>
+    ) : (
+      <div data-print-root>{pages}</div>
     )
   }
 
-  return { printMode, triggerPrint, printView, canPrint: isSuk && studentGroups.length > 0 }
+  return { printMode, triggerPrint, printView, canPrint: studentGroups.length > 0 }
 }

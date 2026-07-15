@@ -17,6 +17,7 @@ import {
   searchStudentsByKeyword,
 } from '@/services'
 import { toastError, toastInfo } from '@/lib/toast'
+import { useSessionContext } from '@/context/SessionContext'
 import { useGradeMemoPrint, type GradeMemoPrintMode } from './_print/useGradeMemoPrint'
 
 type AnyRow = Record<string, any>
@@ -42,6 +43,25 @@ function numFrom(row: AnyRow, keys: string[]): number {
 function strFrom(row: AnyRow, keys: string[]): string {
   for (const key of keys) {
     const v = String(row?.[key] ?? '').trim()
+    if (v) return v
+  }
+  return ''
+}
+
+/** Angular selectedCourse.university_code — tolerate alternate key casings from the filter proc. */
+function pickUniversityCode(row: AnyRow): string {
+  const preferred = strFrom(row, [
+    'university_code',
+    'universityCode',
+    'University_Code',
+    'UNIVERSITY_CODE',
+    'univ_code',
+    'univCode',
+  ])
+  if (preferred) return preferred
+  for (const [key, value] of Object.entries(row ?? {})) {
+    if (!/univ(ersity)?_?code$/i.test(key)) continue
+    const v = String(value ?? '').trim()
     if (v) return v
   }
   return ''
@@ -93,6 +113,7 @@ function applyRestRows(
 }
 
 export default function GradeMemoIssuePage() {
+  const { user } = useSessionContext()
   const [employeeId, setEmployeeId] = useState(0)
   const [organizationId, setOrganizationId] = useState(0)
 
@@ -341,9 +362,22 @@ export default function GradeMemoIssuePage() {
     () => exams.find((x) => numFrom(x, ['fk_exam_id', 'examId']) === Number(examId)) ?? {},
     [exams, examId],
   )
+  // Angular: this.orgCode = selectedCourse.university_code (selectedCourse()).
+  // Scan all filter rows for the course — deduped first row can miss university_code.
+  const orgCodeFromCourse =
+    filters
+      .filter((x) => numFrom(x, ['fk_course_id', 'courseId']) === Number(courseId))
+      .map(pickUniversityCode)
+      .find((v) => Boolean(v)) ||
+    pickUniversityCode(selectedCourseRow)
+  // Angular login also sets localStorage.orgCode = organizationCode (used elsewhere).
   const orgCode =
-    strFrom(selectedCourseRow, ['university_code', 'universityCode', 'org_code', 'orgCode']) ||
-    String(globalThis?.localStorage?.getItem('orgCode') ?? '')
+    orgCodeFromCourse ||
+    pickUniversityCode(resultRows[0] ?? {}) ||
+    String(user?.universityCode ?? '').trim() ||
+    String(user?.organizationCode ?? '').trim() ||
+    String(globalThis?.localStorage?.getItem('universityCode') ?? '').trim() ||
+    String(globalThis?.localStorage?.getItem('orgCode') ?? '').trim()
   const courseCode = strFrom(selectedCourseRow, ['course_code', 'courseCode'])
   const dataFlag = courseCode.toUpperCase() !== 'DPHARM'
   const isRegular = asBool(selectedExamRow.is_regular_exam ?? selectedExamRow.isRegularExam)
@@ -559,7 +593,7 @@ export default function GradeMemoIssuePage() {
     return matched.length > 0 ? matched : groupedByStudent.slice(0, 1)
   }, [mode, studentId, groupedByStudent])
 
-  const { printMode, triggerPrint, printView, canPrint } = useGradeMemoPrint({
+  const { printMode, triggerPrint, printView } = useGradeMemoPrint({
     studentGroups: mode === 'section' ? groupedByStudent : studentPrintGroups,
     gradesRows,
     memoDate,
@@ -570,12 +604,10 @@ export default function GradeMemoIssuePage() {
   })
 
   function handlePrint(next: GradeMemoPrintMode) {
+    // Angular: Sample / Bulk Sample → modal preview (Back + Print).
+    // Other print buttons → window.print() after layout swap.
     if (groupedByStudent.length === 0) {
       toastInfo('Get details before printing')
-      return
-    }
-    if (!canPrint && orgCode.toUpperCase() !== 'SUK') {
-      toastInfo('Print templates are available for SUK university only')
       return
     }
     triggerPrint(next)
