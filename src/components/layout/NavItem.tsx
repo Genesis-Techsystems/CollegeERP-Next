@@ -1132,6 +1132,225 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const forcedRoute = (() => {
     const hrefLower = (item.href ?? "").toLowerCase();
 
+    // ── Exam Reports ─────────────────────────────────────────────────────────
+    // DB menu often builds `/reports/admin-exam-reports/...` (Reports module URL).
+    // App Router pages are under `/admin-examination-management/admin-exam-reports`.
+    // Resolve BEFORE ERP mappers so the wrong prefix never wins.
+    const examReportsBase = "/admin-examination-management/admin-exam-reports";
+    if (hrefLower.includes("admin-exam-reports/")) {
+      const after = hrefLower.split("admin-exam-reports/")[1] ?? "";
+      const slug = after.split(/[?#]/)[0].replace(/\/+$/, "");
+      // Angular folder aliases → App Router folder names.
+      if (slug === "grace-benefited-students-report" || slug === "exam-gracemarks-reports") {
+        return `${examReportsBase}/grace-marks-benefited-students-report`;
+      }
+      if (slug === "re-evaluation-comparison-report") {
+        return `${examReportsBase}/re-evaluation-comparision-report`;
+      }
+      if (slug === "internal-marks-entry-report") {
+        return `${examReportsBase}/internal-marks-report`;
+      }
+      if (slug === "lab-external-remuneration-report") {
+        return `${examReportsBase}/lab-remuneration-report`;
+      }
+      if (
+        slug === "invigilator-remuneration-report" ||
+        slug === "invigilators-remuneration"
+      ) {
+        return `${examReportsBase}/invigilators-remuneration-report`;
+      }
+      if (slug) return `${examReportsBase}/${slug}`;
+    }
+    if (
+      hrefLower.includes("moderation-benefited") ||
+      hrefLower.includes("moderation_benefited") ||
+      hrefLower.includes("jntu-moderation-benefited") ||
+      (labelLower.includes("moderation") &&
+        labelLower.includes("benefited") &&
+        (labelLower.includes("student") || labelLower.includes("report")))
+    ) {
+      return `${examReportsBase}/moderation-benefited-students-report`;
+    }
+    if (
+      hrefLower.includes("grace-marks-benefited") ||
+      hrefLower.includes("grace-benefited-students") ||
+      hrefLower.includes("gracemarks-benefited") ||
+      hrefLower.includes("exam-gracemarks") ||
+      ((labelLower.includes("grace") || labelLower.includes("gracemarks")) &&
+        labelLower.includes("benefited") &&
+        (labelLower.includes("student") || labelLower.includes("report")))
+    ) {
+      return `${examReportsBase}/grace-marks-benefited-students-report`;
+    }
+    if (
+      hrefLower.includes("detention-report") ||
+      hrefLower.includes("batch-wise-detention") ||
+      hrefLower.includes("batchwise-detention") ||
+      labelLower.includes("batch wise detention") ||
+      labelLower.includes("batch-wise detention") ||
+      (labelLower.includes("detention") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("backlog"))
+    ) {
+      return `${examReportsBase}/detention-report`;
+    }
+    if (
+      hrefLower.includes("student-backlog-data") ||
+      hrefLower.includes("batch-wise-student-backlog") ||
+      hrefLower.includes("batchwise-student-backlog") ||
+      labelLower.includes("batch wise student backlog") ||
+      labelLower.includes("batch-wise student backlog") ||
+      labelLower.includes("student backlog data") ||
+      (labelLower.includes("backlog") &&
+        labelLower.includes("batch") &&
+        !labelLower.includes("detention"))
+    ) {
+      return `${examReportsBase}/student-backlog-data`;
+    }
+    if (
+      hrefLower.includes("student-wise-grade-point") ||
+      hrefLower.includes("grade-and-grade-points") ||
+      hrefLower.includes("grade_and_grade_points") ||
+      labelLower.includes("grade and grade points") ||
+      labelLower.includes("grade & grade points") ||
+      labelLower.includes("student wise grade point") ||
+      (labelLower.includes("grade") &&
+        labelLower.includes("grade point") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("setup"))
+    ) {
+      return `${examReportsBase}/student-wise-grade-point-report`;
+    }
+    if (
+      hrefLower.includes("exam-absentees-report") ||
+      hrefLower.includes("exam-absentee-report") ||
+      hrefLower.includes("exam-absenties") ||
+      labelLower.includes("exam absentees") ||
+      labelLower.includes("exam absentee") ||
+      labelLower.includes("exam absenties") ||
+      (labelLower.includes("absentee") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("sms"))
+    ) {
+      return `${examReportsBase}/exam-absentees-report`;
+    }
+    if (
+      hrefLower.includes("re-evaluation-comparision-report") ||
+      hrefLower.includes("re-evaluation-comparison-report") ||
+      hrefLower.includes("reevaluation-comparision") ||
+      hrefLower.includes("reevaluation-comparison") ||
+      labelLower.includes("re-evaluation comparision") ||
+      labelLower.includes("re-evaluation comparison") ||
+      labelLower.includes("reevaluation comparision") ||
+      labelLower.includes("reevaluation comparison") ||
+      ((labelLower.includes("re-evaluation") || labelLower.includes("reevaluation")) &&
+        (labelLower.includes("comparision") || labelLower.includes("comparison")) &&
+        labelLower.includes("report"))
+    ) {
+      return `${examReportsBase}/re-evaluation-comparision-report`;
+    }
+    if (
+      hrefLower.includes("re-evaluation-exam-report") ||
+      hrefLower.includes("re-evaluation-result-report") ||
+      hrefLower.includes("reevaluation-exam-report") ||
+      labelLower.includes("re-evaluation exam report") ||
+      labelLower.includes("re evaluation exam report") ||
+      labelLower.includes("re-evaluation result report") ||
+      labelLower.includes("reevaluation result report") ||
+      ((labelLower.includes("re-evaluation") || labelLower.includes("reevaluation")) &&
+        labelLower.includes("exam") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("comparison") &&
+        !labelLower.includes("comparision") &&
+        !labelLower.includes("branch") &&
+        !labelLower.includes("analysis") &&
+        !labelLower.includes("student"))
+    ) {
+      return `${examReportsBase}/re-evaluation-exam-report`;
+    }
+    if (
+      hrefLower.includes("consolidated-exam-report") ||
+      hrefLower.includes("consolidated_exam_report") ||
+      labelLower.includes("consolidated exam report") ||
+      (labelLower.includes("consolidated") &&
+        labelLower.includes("exam") &&
+        labelLower.includes("report"))
+    ) {
+      return `${examReportsBase}/consolidated-exam-report`;
+    }
+    if (
+      hrefLower.includes("internal-marks-report") ||
+      hrefLower.includes("internal-marks-entry-report") ||
+      labelLower.includes("internal marks report") ||
+      (labelLower.includes("internal marks") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("entry") &&
+        !labelLower.includes("average") &&
+        !labelLower.includes("avg"))
+    ) {
+      return `${examReportsBase}/internal-marks-report`;
+    }
+    if (
+      hrefLower.includes("academic-year-curriculum-report") ||
+      hrefLower.includes("academic-curriculum-report") ||
+      hrefLower.includes("academic_curriculum_report") ||
+      labelLower.includes("academic year curriculum") ||
+      labelLower.includes("academic curriculum report") ||
+      (labelLower.includes("academic") &&
+        labelLower.includes("curriculum") &&
+        labelLower.includes("report"))
+    ) {
+      return `${examReportsBase}/academic-year-curriculum-report`;
+    }
+    if (
+      hrefLower.includes("batchwise-sgpa-report") ||
+      hrefLower.includes("batch-wise-sgpa") ||
+      hrefLower.includes("batch_wise_sgpa") ||
+      labelLower.includes("batch wise sgpa") ||
+      labelLower.includes("batch-wise sgpa") ||
+      (labelLower.includes("sgpa") &&
+        labelLower.includes("batch") &&
+        labelLower.includes("report"))
+    ) {
+      return `${examReportsBase}/batchwise-sgpa-report`;
+    }
+    if (
+      hrefLower.includes("lab-remuneration-report") ||
+      hrefLower.includes("lab-external-remuneration-report") ||
+      hrefLower.includes("lab_remuneration") ||
+      (labelLower.includes("lab") &&
+        labelLower.includes("remuneration") &&
+        labelLower.includes("report"))
+    ) {
+      return `${examReportsBase}/lab-remuneration-report`;
+    }
+    if (
+      hrefLower.includes("invigilators-remuneration-report") ||
+      hrefLower.includes("invigilator-remuneration-report") ||
+      hrefLower.includes("invigilators_remuneration") ||
+      ((labelLower.includes("invigilator") || labelLower.includes("invigilators")) &&
+        labelLower.includes("remuneration") &&
+        labelLower.includes("report"))
+    ) {
+      return `${examReportsBase}/invigilators-remuneration-report`;
+    }
+    if (
+      hrefLower.includes("group-wise-passed-result-sheets") ||
+      hrefLower.includes("branch-wise-passes-result-sheets") ||
+      (labelLower.includes("group wise passed") && labelLower.includes("result")) ||
+      (labelLower.includes("group-wise-passed") && labelLower.includes("result"))
+    ) {
+      return `${examReportsBase}/group-wise-passed-result-sheets`;
+    }
+    if (
+      hrefLower.includes("group-wise-failed-result-sheets") ||
+      hrefLower.includes("branch-wise-failed-result-sheets") ||
+      (labelLower.includes("group wise failed") && labelLower.includes("result")) ||
+      (labelLower.includes("group-wise-failed") && labelLower.includes("result"))
+    ) {
+      return `${examReportsBase}/group-wise-failed-result-sheets`;
+    }
+
     // ── Exam attendance marking ──────────────────────────────────────────────
     // The DB ships both items with href `/attendance-management/mark-attendance`
     // (a placeholder page), so href/label heuristics can't tell them apart or
@@ -1661,10 +1880,17 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     if (labelLower.includes("apply moderation rule")) {
       return "/admin-examination-management/result-processing/apply-moderation-rule";
     }
+    // Match real "T-Sheets" only — do NOT use bare `includes('t sheets')`, because that
+    // also matches "Group Wise Passed/Failed Result Sheets" (...resul**t sheets**).
+    // (Exam-report routes are resolved at the top of forcedRoute.)
     if (
-      labelLower.includes("t-sheets") ||
-      labelLower.includes("t sheets") ||
-      labelLower.includes("t-sheet")
+      hrefLower.includes("/t-sheets") ||
+      hrefLower.includes("result-processing/t-sheets") ||
+      ((labelLower.includes("t-sheets") ||
+        labelLower.includes("t sheets") ||
+        labelLower.includes("t-sheet") ||
+        labelLower.includes("t sheet")) &&
+        !labelLower.includes("result sheet"))
     ) {
       return "/admin-examination-management/result-processing/t-sheets";
     }

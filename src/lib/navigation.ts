@@ -95,6 +95,16 @@ export function normalizeHref(path: string): string {
       /\/admin-examination-management\/post-examination\/internal-exams-avg(?=\/|$)/i,
       '/admin-examination-management/post-examination/internal-exams-average',
     )
+    // DB menu module URL is often `reports` (Angular Reports module), but App Router
+    // pages live under `admin-examination-management/admin-exam-reports`.
+    .replace(
+      /\/reports\/admin-exam-reports(?=\/|$)/gi,
+      '/admin-examination-management/admin-exam-reports',
+    )
+    .replace(
+      /\/apps\/reports\/admin-exam-reports(?=\/|$)/gi,
+      '/admin-examination-management/admin-exam-reports',
+    )
     // Angular Assessments module folder typo `assissments` → canonical `assessments`.
     .replace(/\/apps\/assissments\//gi, '/assessments/')
     .replace(/\/assissments\//gi, '/assessments/')

@@ -127,6 +127,8 @@ export const EXAM_API = {
   EXAM_ROOM_ALLOTMENT: "examroomallotment",
   /** GET: exam student results */
   GET_EXAM_STUDENT_RESULTS: "getAllRecords/s_get_exam_student_results",
+  /** POST: consolidated / final student result PDF (Angular `examResultPDF`) */
+  EXAM_RESULT_PDF: "examResultPDF",
   /** GET: examwise student result */
   GET_EXAMWISE_STUDENT_RESULT: "getAllRecords/s_get_examwise_student_result",
   /** POST: exam marks entry student details */
@@ -139,6 +141,14 @@ export const EXAM_API = {
   GET_EXAM_RESULT_MEMOS: "getAllRecords/s_get_exam_result_memos",
   /** GET: final internal marks */
   FINAL_INTERNAL_MARKS: "getAllRecords/s_get_exam_internal_final_marks",
+  /** GET: curriculum report (Angular `curriculumReportUrl`) */
+  CURRICULUM_REPORT: "getAllRecords/curriculum_report",
+  /** GET: batch-wise SGPA report (Angular `batchwisesgpaUrl`) */
+  BATCHWISE_SGPA: "getAllRecords/s_get_batchwise_sgpa",
+  /** GET: evaluators bank / lab remuneration (Angular `getEvaluatorsBankCopy`) */
+  EVALUATORS_BANK_COPY: "getAllRecords/s_get_evaluators_bank_copy_report",
+  /** GET: exam evaluation codes / evaluator lists (Angular `getExamEvaluationCodesUrl`) */
+  EXAM_EVALUATION_BYCODES: "getAllRecords/s_get_examevaluation_bycodes",
   /** POST: seating solution solve */
   SEATING_SOLUTION_SOLVE: "seatingSolution/solve",
   /** CRUD: seating solution */
