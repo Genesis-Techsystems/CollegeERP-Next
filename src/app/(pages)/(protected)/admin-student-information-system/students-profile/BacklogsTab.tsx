@@ -1,142 +1,164 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useEffect, useMemo, useState } from "react";
+import type { ColDef } from "ag-grid-community";
+import { DataTable } from "@/common/components/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { rowIndexGetter } from "@/lib/utils";
 import {
   loadStudentBacklogsForSemester,
   loadStudentExamResultsShell,
   pickProfileCell,
   type StudentCurriculumSemester,
-} from '@/services'
+} from "@/services";
 
-type AnyRow = Record<string, unknown>
+type AnyRow = Record<string, unknown>;
 
 const SEM_TAB_CLASS =
-  'rounded-none border-b-2 border-transparent px-3 py-2 text-[11px] whitespace-nowrap data-[state=active]:border-[#ffcf46] data-[state=active]:bg-[#ffcf46]/20 data-[state=active]:text-primary data-[state=active]:shadow-none'
+  "rounded-none border-b-2 border-transparent px-3 py-2 text-[11px] whitespace-nowrap data-[state=active]:border-[#ffcf46] data-[state=active]:bg-[#ffcf46]/20 data-[state=active]:text-primary data-[state=active]:shadow-none";
 
-const TH_CLASS = 'border border-border bg-[#C3D9FF] px-2 py-1.5 text-left text-xs font-medium'
-const TD_CLASS = 'border border-border px-2 py-1.5 text-left text-xs font-medium'
-const TD_CENTER = `${TD_CLASS} text-center`
+const SEARCH_ONLY_TOOLBAR = {
+  search: true,
+  searchPlaceholder: "Search...",
+  columnPicker: false,
+  exportPdf: false,
+  exportExcel: false,
+  columnFilters: false,
+} as const;
 
 function backlogValue(row: AnyRow, keys: string[]): string {
-  const value = pickProfileCell(row, keys)
-  return value && value !== '—' ? value : '—'
+  const value = pickProfileCell(row, keys);
+  return value && value !== "—" ? value : "—";
 }
 
-function BacklogsTable({ rows, loading }: { rows: AnyRow[]; loading: boolean }) {
-  if (loading) {
-    return <p className="py-6 text-center text-xs text-muted-foreground">Loading…</p>
-  }
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-xs">
-        <thead>
-          <tr>
-            <th className={`${TH_CLASS} w-[5%]`}>SI.No</th>
-            <th className={TH_CLASS}>Subject Code</th>
-            <th className={TH_CLASS}>Subject</th>
-            <th className={`${TH_CLASS} text-center`}>Grade</th>
-            <th className={`${TH_CLASS} text-center`}>Grade Points</th>
-            <th className={`${TH_CLASS} text-center`}>Internal Marks</th>
-            <th className={`${TH_CLASS} text-center`}>External Marks</th>
-            <th className={`${TH_CLASS} text-center`}>Result</th>
-            <th className={`${TH_CLASS} text-center`}>Credits</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={9} className={`${TH_CLASS} text-center`}>
-                <span className="text-sm font-medium text-destructive">No Results are found.</span>
-              </td>
-            </tr>
-          ) : (
-            rows.map((row, index) => (
-              <tr
-                key={`${backlogValue(row, ['subjectCode', 'subject_code'])}-${index}`}
-                className={index % 2 === 0 ? 'bg-white' : 'bg-[#f1f6ff]'}
-              >
-                <td className={TD_CLASS}>{index + 1}</td>
-                <td className={TD_CLASS}>{backlogValue(row, ['subjectCode', 'subject_code'])}</td>
-                <td className={TD_CLASS}>
-                  {backlogValue(row, ['subjectName', 'subject_name', 'shortName', 'subjectShortName'])}
-                </td>
-                <td className={TD_CENTER}>{backlogValue(row, ['grade', 'letterGrade', 'letter_grade'])}</td>
-                <td className={TD_CENTER}>
-                  {backlogValue(row, ['gradePoints', 'grade_points', 'gradePoint'])}
-                </td>
-                <td className={TD_CENTER}>
-                  {backlogValue(row, ['internalMarks', 'internal_marks', 'intMarks', 'int_marks'])}
-                </td>
-                <td className={TD_CENTER}>
-                  {backlogValue(row, ['externalMarks', 'external_marks', 'extMarks', 'ext_marks'])}
-                </td>
-                <td className={TD_CENTER}>{backlogValue(row, ['result', 'examResult', 'exam_result'])}</td>
-                <td className={TD_CENTER}>{backlogValue(row, ['credits', 'credit', 'subjectCredits'])}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  )
-}
+const BACKLOG_COLS: ColDef<AnyRow>[] = [
+  { headerName: "SI.No", valueGetter: rowIndexGetter, width: 70, flex: 0 },
+  {
+    headerName: "Subject Code",
+    minWidth: 130,
+    valueGetter: (p) =>
+      backlogValue(p.data ?? {}, ["subjectCode", "subject_code"]),
+  },
+  {
+    headerName: "Subject",
+    minWidth: 180,
+    valueGetter: (p) =>
+      backlogValue(p.data ?? {}, [
+        "subjectName",
+        "subject_name",
+        "shortName",
+        "subjectShortName",
+      ]),
+  },
+  {
+    headerName: "Grade",
+    minWidth: 90,
+    valueGetter: (p) =>
+      backlogValue(p.data ?? {}, ["grade", "letterGrade", "letter_grade"]),
+  },
+  {
+    headerName: "Grade Points",
+    minWidth: 110,
+    valueGetter: (p) =>
+      backlogValue(p.data ?? {}, ["gradePoints", "grade_points", "gradePoint"]),
+  },
+  {
+    headerName: "Internal Marks",
+    minWidth: 120,
+    valueGetter: (p) =>
+      backlogValue(p.data ?? {}, [
+        "internalMarks",
+        "internal_marks",
+        "intMarks",
+        "int_marks",
+      ]),
+  },
+  {
+    headerName: "External Marks",
+    minWidth: 120,
+    valueGetter: (p) =>
+      backlogValue(p.data ?? {}, [
+        "externalMarks",
+        "external_marks",
+        "extMarks",
+        "ext_marks",
+      ]),
+  },
+  {
+    headerName: "Result",
+    minWidth: 100,
+    valueGetter: (p) =>
+      backlogValue(p.data ?? {}, ["result", "examResult", "exam_result"]),
+  },
+  {
+    headerName: "Credits",
+    minWidth: 90,
+    valueGetter: (p) =>
+      backlogValue(p.data ?? {}, ["credits", "credit", "subjectCredits"]),
+  },
+];
 
 export function BacklogsTab({ student }: { readonly student: AnyRow }) {
-  const [semesters, setSemesters] = useState<StudentCurriculumSemester[]>([])
-  const [activeSem, setActiveSem] = useState('')
-  const [rows, setRows] = useState<AnyRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [semLoading, setSemLoading] = useState(false)
+  const [semesters, setSemesters] = useState<StudentCurriculumSemester[]>([]);
+  const [activeSem, setActiveSem] = useState("");
+  const [rows, setRows] = useState<AnyRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [semLoading, setSemLoading] = useState(false);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     void (async () => {
-      setLoading(true)
+      setLoading(true);
       try {
-        const shell = await loadStudentExamResultsShell(student)
-        if (cancelled) return
-        setSemesters(shell.semesters)
-        if (shell.semesters[0]) setActiveSem(String(shell.semesters[0].courseYearId))
+        const shell = await loadStudentExamResultsShell(student);
+        if (cancelled) return;
+        setSemesters(shell.semesters);
+        if (shell.semesters[0])
+          setActiveSem(String(shell.semesters[0].courseYearId));
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoading(false);
       }
-    })()
+    })();
     return () => {
-      cancelled = true
-    }
-  }, [student])
+      cancelled = true;
+    };
+  }, [student]);
 
   useEffect(() => {
-    const cyId = Number(activeSem)
-    if (!cyId) return
-    let cancelled = false
+    const cyId = Number(activeSem);
+    if (!cyId) return;
+    let cancelled = false;
     void (async () => {
-      setSemLoading(true)
+      setSemLoading(true);
       try {
-        const data = await loadStudentBacklogsForSemester(student, cyId)
-        if (!cancelled) setRows(data)
+        const data = await loadStudentBacklogsForSemester(student, cyId);
+        if (!cancelled) setRows(data);
       } finally {
-        if (!cancelled) setSemLoading(false)
+        if (!cancelled) setSemLoading(false);
       }
-    })()
+    })();
     return () => {
-      cancelled = true
-    }
-  }, [student, activeSem])
+      cancelled = true;
+    };
+  }, [student, activeSem]);
+
+  const columnDefs = useMemo(() => BACKLOG_COLS, []);
 
   if (loading) {
-    return <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+    );
   }
 
   if (!semesters.length) {
     return (
       <div className="space-y-3">
         <p className="text-base font-medium text-[#0c51a4]">Semwise Backlogs</p>
-        <p className="py-6 text-center text-sm font-medium text-destructive">No Results are found.</p>
+        <p className="py-6 text-center text-sm font-medium text-destructive">
+          No Results are found.
+        </p>
       </div>
-    )
+    );
   }
 
   return (
@@ -146,20 +168,36 @@ export function BacklogsTab({ student }: { readonly student: AnyRow }) {
         <div className="overflow-x-auto rounded-sm border border-[#ffcf46]">
           <TabsList className="h-auto min-w-max justify-start rounded-none bg-transparent p-0">
             {semesters.map((sem) => (
-              <TabsTrigger key={sem.courseYearId} value={String(sem.courseYearId)} className={SEM_TAB_CLASS}>
+              <TabsTrigger
+                key={sem.courseYearId}
+                value={String(sem.courseYearId)}
+                className={SEM_TAB_CLASS}
+              >
                 {sem.label}
               </TabsTrigger>
             ))}
           </TabsList>
         </div>
         {semesters.map((sem) => (
-          <TabsContent key={sem.courseYearId} value={String(sem.courseYearId)} className="mt-3 p-2">
+          <TabsContent
+            key={sem.courseYearId}
+            value={String(sem.courseYearId)}
+            className="mt-3 p-2"
+          >
             {activeSem === String(sem.courseYearId) ? (
-              <BacklogsTable rows={rows} loading={semLoading} />
+              <DataTable
+                title=""
+                subtitle=""
+                rowData={rows}
+                columnDefs={columnDefs}
+                loading={semLoading}
+                pagination
+                toolbar={SEARCH_ONLY_TOOLBAR}
+              />
             ) : null}
           </TabsContent>
         ))}
       </Tabs>
     </div>
-  )
+  );
 }

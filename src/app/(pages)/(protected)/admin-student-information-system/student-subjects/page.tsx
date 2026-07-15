@@ -1,28 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import type { ColDef } from "ag-grid-community";
+import { DataTable } from "@/common/components/table";
 import { FilteredPage } from "@/components/layout";
-import { Select } from "@/common/components/select";
-import { Button } from "@/components/ui/button";
+import { StudentSearchSelect } from "@/common/components/student-search";
+import { rowIndexGetter } from "@/lib/utils";
 import { toastError } from "@/lib/toast";
 import {
   listStudentSubjectsForStudent,
   searchStudentsByKeyword,
 } from "@/services";
-import { StudentSearchSelect } from "@/common/components/student-search";
 
 type AnyRow = Record<string, any>;
 
-const PAGE_SIZES = ["5", "10", "25"];
-
-const COLORS = {
-  contextBlue: "#1a5fb4",
-  headerBg: "#eef6ff",
-  border: "#dee2e6",
-  accentYellow: "#ffc107",
-  navy: "#003366",
-  muted: "#6c757d",
+const SEARCH_ONLY_TOOLBAR = {
+  search: true,
+  searchPlaceholder: "Search...",
+  columnPicker: false,
+  exportPdf: false,
+  exportExcel: false,
+  columnFilters: false,
 } as const;
 
 function pickNum(row: AnyRow | null | undefined, keys: string[]): number {
@@ -43,186 +41,41 @@ function pickText(row: AnyRow | null | undefined, keys: string[]): string {
   return "";
 }
 
-function StudentSubjectsResultTable({
-  subjects,
-  loading,
-}: {
-  subjects: AnyRow[];
-  loading: boolean;
-}) {
-  const [pageSize, setPageSize] = useState("5");
-  const [pageIndex, setPageIndex] = useState(0);
-
-  useEffect(() => {
-    setPageIndex(0);
-  }, [subjects]);
-
-  const size = Number(pageSize) || 5;
-  const total = subjects.length;
-  const totalPages = Math.max(1, Math.ceil(total / size));
-  const safePage = Math.min(pageIndex, totalPages - 1);
-  const pageRows = subjects.slice(safePage * size, safePage * size + size);
-  const rangeStart = total === 0 ? 0 : safePage * size + 1;
-  const rangeEnd = Math.min(total, (safePage + 1) * size);
-
-  const thClass = "border px-2 py-1 text-left text-[12px] font-bold";
-  const tdClass = "border px-2 py-1 text-[12px] text-[#333333]";
-
-  return (
-    <>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-[12px]">
-          <thead>
-            <tr style={{ backgroundColor: COLORS.headerBg }}>
-              <th
-                className={thClass}
-                style={{ borderColor: COLORS.border, color: COLORS.navy }}
-              >
-                Sl.No
-              </th>
-              <th
-                className={thClass}
-                style={{ borderColor: COLORS.border, color: COLORS.navy }}
-              >
-                Subject Code
-              </th>
-              <th
-                className={thClass}
-                style={{ borderColor: COLORS.border, color: COLORS.navy }}
-              >
-                Subject Name
-              </th>
-              <th
-                className={thClass}
-                style={{ borderColor: COLORS.border, color: COLORS.navy }}
-              >
-                Subject Type
-              </th>
-              <th
-                className={thClass}
-                style={{ borderColor: COLORS.border, color: COLORS.navy }}
-              >
-                Regulation
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr className="bg-white">
-                <td
-                  className={tdClass}
-                  colSpan={5}
-                  style={{ borderColor: COLORS.border, color: COLORS.muted }}
-                >
-                  Loading subjects…
-                </td>
-              </tr>
-            ) : pageRows.length === 0 ? (
-              <tr className="bg-white">
-                <td
-                  className={tdClass}
-                  colSpan={5}
-                  style={{ borderColor: COLORS.border, color: COLORS.muted }}
-                >
-                  No subjects found.
-                </td>
-              </tr>
-            ) : (
-              pageRows.map((row, index) => (
-                <tr
-                  key={`subject-${safePage * size + index}`}
-                  className="bg-white"
-                >
-                  <td
-                    className={tdClass}
-                    style={{ borderColor: COLORS.border }}
-                  >
-                    {safePage * size + index + 1}
-                  </td>
-                  <td
-                    className={tdClass}
-                    style={{ borderColor: COLORS.border }}
-                  >
-                    {pickText(row, ["subjectCode", "subject_code"]) || "—"}
-                  </td>
-                  <td
-                    className={tdClass}
-                    style={{ borderColor: COLORS.border }}
-                  >
-                    {pickText(row, ["subjectName", "subject_name"]) || "—"}
-                  </td>
-                  <td
-                    className={tdClass}
-                    style={{ borderColor: COLORS.border }}
-                  >
-                    {pickText(row, [
-                      "subjectTypeName",
-                      "subjectType",
-                      "subject_type_name",
-                    ]) || "—"}
-                  </td>
-                  <td
-                    className={tdClass}
-                    style={{ borderColor: COLORS.border }}
-                  >
-                    {pickText(row, [
-                      "regulationName",
-                      "regulationCode",
-                      "regulation_name",
-                    ]) || "—"}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div
-        className="flex flex-wrap items-center justify-end gap-3 border-t bg-white px-4 py-2 text-[11px]"
-        style={{ borderColor: COLORS.border, color: COLORS.muted }}
-      >
-        <div className="flex items-center gap-2">
-          <span>Items per page:</span>
-          <Select
-            value={pageSize}
-            onChange={(v) => {
-              setPageSize(v ?? "5");
-              setPageIndex(0);
-            }}
-            options={PAGE_SIZES.map((n) => ({ value: n, label: n }))}
-            className="w-[72px] [&_button[role='combobox']]:h-7 [&_button[role='combobox']]:border-[#dee2e6] [&_button[role='combobox']]:text-[11px]"
-          />
-        </div>
-        <span>
-          {rangeStart} – {rangeEnd} of {total}
-        </span>
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-[#6c757d] hover:text-foreground"
-            disabled={safePage <= 0}
-            onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-[#6c757d] hover:text-foreground"
-            disabled={safePage >= totalPages - 1}
-            onClick={() => setPageIndex((p) => Math.min(totalPages - 1, p + 1))}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </>
-  );
-}
+const SUBJECT_COLS: ColDef<AnyRow>[] = [
+  { headerName: "Sl.No", valueGetter: rowIndexGetter, width: 70, flex: 0 },
+  {
+    headerName: "Subject Code",
+    minWidth: 130,
+    valueGetter: (p) =>
+      pickText(p.data, ["subjectCode", "subject_code"]) || "—",
+  },
+  {
+    headerName: "Subject Name",
+    minWidth: 200,
+    valueGetter: (p) =>
+      pickText(p.data, ["subjectName", "subject_name"]) || "—",
+  },
+  {
+    headerName: "Subject Type",
+    minWidth: 130,
+    valueGetter: (p) =>
+      pickText(p.data, [
+        "subjectTypeName",
+        "subjectType",
+        "subject_type_name",
+      ]) || "—",
+  },
+  {
+    headerName: "Regulation",
+    minWidth: 140,
+    valueGetter: (p) =>
+      pickText(p.data, [
+        "regulationName",
+        "regulationCode",
+        "regulation_name",
+      ]) || "—",
+  },
+];
 
 export default function StudentSubjectsPage() {
   const [loadingStudentSearch, setLoadingStudentSearch] = useState(false);
@@ -326,6 +179,8 @@ export default function StudentSubjectsPage() {
         .join(" | ")
     : "";
 
+  const columnDefs = useMemo(() => SUBJECT_COLS, []);
+
   return (
     <FilteredPage
       title="Student Subjects"
@@ -343,23 +198,20 @@ export default function StudentSubjectsPage() {
       }
     >
       {selectedStudent ? (
-        <div
-          className="overflow-hidden rounded border bg-white shadow-sm"
-          style={{ borderColor: COLORS.border }}
-        >
+        <div className="space-y-2">
           {contextLine ? (
-            <div className="border-b-2 px-4 py-2">
-              <p
-                className="text-[12px] font-semibold leading-snug"
-                style={{ color: COLORS.contextBlue }}
-              >
-                {contextLine}
-              </p>
-            </div>
+            <p className="text-[12px] font-semibold leading-snug text-[#1a5fb4]">
+              {contextLine}
+            </p>
           ) : null}
-          <StudentSubjectsResultTable
-            subjects={subjects}
+          <DataTable
+            title=""
+            subtitle=""
+            rowData={subjects}
+            columnDefs={columnDefs}
             loading={loadingSubjects}
+            pagination
+            toolbar={SEARCH_ONLY_TOOLBAR}
           />
         </div>
       ) : null}

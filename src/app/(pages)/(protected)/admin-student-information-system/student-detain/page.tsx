@@ -1,11 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { DataTable } from "@/common/components/table";
 import { FilteredPage } from "@/components/layout";
-import { GlobalFilterBarRow, GlobalFilterField } from "@/common/components/forms";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import { Select } from "@/common/components/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSessionContext } from "@/context/SessionContext";
+import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
   getStudentInfoCollegeFilters,
@@ -18,6 +24,15 @@ import {
 import { StudentSearchSelect } from "@/common/components/student-search";
 
 type AnyRow = Record<string, any>;
+
+const SEARCH_ONLY_TOOLBAR = {
+  search: true,
+  searchPlaceholder: "Search...",
+  columnPicker: false,
+  exportPdf: false,
+  exportExcel: false,
+  columnFilters: false,
+} as const;
 
 const UNIV = ["fk_university_id", "universityId"];
 const COL = ["fk_college_id", "collegeId"];
@@ -90,6 +105,45 @@ function parseSelectNumber(v: string | null): number | null {
   if (!v) return null;
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function statusCode(row: AnyRow): string {
+  return String(row.studentStatusCode ?? row.student_status_code ?? "")
+    .trim()
+    .toUpperCase();
+}
+
+function canDetain(row: AnyRow): boolean {
+  const code = statusCode(row);
+  if (!code) return true;
+  return code !== "DTND" && code !== "DETAINRECOMMENDED";
+}
+
+function makeSelectRenderer(
+  selectedIds: number[],
+  onToggle: (id: number, checked: boolean) => void,
+) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    const row = p.data;
+    if (!row) return null;
+    const sid = studentId(row, (p.node?.rowIndex ?? 0) + 1);
+    const disabled = !canDetain(row);
+    return (
+      <span className="inline-flex items-center gap-2">
+        <input
+          type="checkbox"
+          className="h-4 w-4"
+          disabled={disabled}
+          checked={selectedIds.includes(sid)}
+          onChange={(e) => onToggle(sid, e.target.checked)}
+          aria-label={`Select ${pickText(row, ["studentName", "firstName"]) || "student"}`}
+        />
+        {disabled ? (
+          <span className="text-[11px] text-amber-700">{statusCode(row)}</span>
+        ) : null}
+      </span>
+    );
+  };
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity -- Angular student-detain section cascade
@@ -419,18 +473,6 @@ export default function StudentDetainPage() {
     });
   }
 
-  function statusCode(row: AnyRow): string {
-    return String(row.studentStatusCode ?? row.student_status_code ?? "")
-      .trim()
-      .toUpperCase();
-  }
-
-  function canDetain(row: AnyRow): boolean {
-    const code = statusCode(row);
-    if (!code) return true;
-    return code !== "DTND" && code !== "DETAINRECOMMENDED";
-  }
-
   function setReason(id: number, reason: string) {
     setReasonById((prev) => ({ ...prev, [id]: reason }));
   }
@@ -529,10 +571,36 @@ export default function StudentDetainPage() {
       ]) || "Year",
   }));
 
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      { headerName: "Sl.No", valueGetter: rowIndexGetter, width: 70, flex: 0 },
+      {
+        headerName: "Hallticket No",
+        minWidth: 150,
+        valueGetter: (p) =>
+          pickText(p.data, ["hallticketNumber", "rollNumber"]) || "-",
+      },
+      {
+        headerName: "Student Name",
+        minWidth: 180,
+        valueGetter: (p) =>
+          pickText(p.data, ["studentName", "firstName"]) || "-",
+      },
+      {
+        headerName: "Select",
+        width: 120,
+        flex: 0,
+        sortable: false,
+        cellRenderer: makeSelectRenderer(selectedIds, toggleSelected),
+      },
+    ],
+    [selectedIds],
+  );
+
   return (
     <FilteredPage
       title={mode === "section" ? "Students Detain" : "Student Detain"}
-      notice={(
+      notice={
         <div className="px-1">
           <Tabs
             value={mode}
@@ -570,7 +638,7 @@ export default function StudentDetainPage() {
             </TabsList>
           </Tabs>
         </div>
-      )}
+      }
       filters={
         mode === "student" ? (
           <StudentSearchSelect
@@ -677,9 +745,7 @@ export default function StudentDetainPage() {
                   setGroupSectionId(parseSelectNumber(v));
                 }}
                 disabled={
-                  loadingFilters ||
-                  !courseYearId ||
-                  sectionOpts.length === 0
+                  loadingFilters || !courseYearId || sectionOpts.length === 0
                 }
                 searchable
               />
@@ -699,56 +765,16 @@ export default function StudentDetainPage() {
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2">
             <div className="border-b p-3 lg:border-b-0 lg:border-r">
-              <div className="overflow-auto rounded border">
-                <table className="w-full text-[12px]">
-                  <thead className="bg-muted/40">
-                    <tr>
-                      <th className="px-2 py-1 text-left">Sl.No</th>
-                      <th className="px-2 py-1 text-left">Hallticket No</th>
-                      <th className="px-2 py-1 text-left">Student Name</th>
-                      <th className="px-2 py-1 text-left">Select</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row, index) => {
-                      const sid = studentId(row, index + 1);
-                      const disabled = !canDetain(row);
-                      return (
-                        <tr
-                          key={`detain-row-${sid}-${index}`}
-                          className="border-t"
-                        >
-                          <td className="px-2 py-1">{index + 1}</td>
-                          <td className="px-2 py-1">
-                            {pickText(row, [
-                              "hallticketNumber",
-                              "rollNumber",
-                            ]) || "-"}
-                          </td>
-                          <td className="px-2 py-1">
-                            {pickText(row, ["studentName", "firstName"]) || "-"}
-                          </td>
-                          <td className="px-2 py-1">
-                            <input
-                              type="checkbox"
-                              disabled={disabled}
-                              checked={selectedIds.includes(sid)}
-                              onChange={(e) =>
-                                toggleSelected(sid, e.target.checked)
-                              }
-                            />
-                            {disabled && (
-                              <span className="ml-2 text-[11px] text-amber-700">
-                                {statusCode(row)}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                title=""
+                subtitle=""
+                rowData={rows}
+                columnDefs={columnDefs}
+                loading={loadingRows}
+                pagination
+                bordered={false}
+                toolbar={SEARCH_ONLY_TOOLBAR}
+              />
             </div>
 
             <div className="p-3">

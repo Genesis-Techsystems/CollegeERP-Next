@@ -223,6 +223,8 @@ export const EXAM_EVAL_API = {
   EVALUATORS: "ExamEvaluators",
   /** POST: upload exam OMR */
   UPLOAD_EXAM_OMR: "uploadExamOmr",
+  /** GET: `getAllRecords/s_get_answerpaperupload_details` — Angular getAnswerPaperUploadUrl (Check Upload Status) */
+  ANSWER_PAPER_UPLOAD_DETAILS: "s_get_answerpaperupload_details",
   /** CRUD: ExamStudentAnswerPaper */
   STUDENT_ANSWER_PAPER: "ExamStudentAnswerPaper",
   /** GET: base64 PDF for a student answer paper — Angular: sheetDataUrl = 'sheetData', param: id= */

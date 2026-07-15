@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select as SearchableSelect } from "@/common/components/select";
@@ -27,8 +31,44 @@ import {
 
 type AnyRow = Record<string, unknown>;
 
+const SEARCH_ONLY_TOOLBAR = {
+  search: true,
+  searchPlaceholder: "Search subjects...",
+  columnPicker: false,
+  exportPdf: false,
+  exportExcel: false,
+  columnFilters: false,
+} as const;
+
 function evaluatorById(rows: AnyRow[], id: number): AnyRow | undefined {
   return rows.find((row) => num(row.pk_exam_evaluator_profile_id) === id);
+}
+
+function fmtExamDate(v: unknown): string {
+  if (!v) return "";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/** Angular exam dropdown: name (from - to) (Regular)/(Supple)/(Internal) */
+function examOptionLabel(row: AnyRow): string {
+  const name = txt(row.exam_name) || `Exam ${num(row.fk_exam_id)}`;
+  const from = fmtExamDate(row.from_date ?? row.fromDate);
+  const to = fmtExamDate(row.to_date ?? row.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = [
+    row.is_regular_exam || row.isRegularExam ? "(Regular)" : "",
+    row.is_supply_exam || row.isSupplyExam ? "(Supple)" : "",
+    row.is_internal_exam || row.isInternalExam ? "(Internal)" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `${name}${range}${tags ? ` ${tags}` : ""}`;
 }
 
 export default function AssignReEvaluatorPage() {
@@ -68,14 +108,18 @@ export default function AssignReEvaluatorPage() {
     () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
     [baseRows],
   );
-  const academicYears = useMemo(
-    () =>
-      dedupeBy(
-        baseRows.filter((r) => num(r.fk_course_id) === num(courseId)),
-        (r) => num(r.fk_academic_year_id),
-      ),
-    [baseRows, courseId],
-  );
+  const academicYears = useMemo(() => {
+    // Angular selectedCourse: sort academic years DESC by academic_year
+    const rows = dedupeBy(
+      baseRows.filter((r) => num(r.fk_course_id) === num(courseId)),
+      (r) => num(r.fk_academic_year_id),
+    );
+    return [...rows].sort(
+      (a, b) =>
+        parseInt(String(txt(b.academic_year) || "0"), 10) -
+        parseInt(String(txt(a.academic_year) || "0"), 10),
+    );
+  }, [baseRows, courseId]);
   const exams = useMemo(
     () =>
       dedupeBy(
@@ -141,7 +185,7 @@ export default function AssignReEvaluatorPage() {
     () =>
       exams.map((r) => ({
         value: String(num(r.fk_exam_id)),
-        label: txt(r.exam_name),
+        label: examOptionLabel(r),
       })),
     [exams],
   );
@@ -164,6 +208,7 @@ export default function AssignReEvaluatorPage() {
 
   useEffect(() => {
     async function init() {
+      // Angular getFiltersData: s_get_exam_filters_bycode + univ_exam_filters / REGSUP
       setLoading(true);
       try {
         const rows = await getRegSupBaseFilters(employeeId);
@@ -176,32 +221,52 @@ export default function AssignReEvaluatorPage() {
     void init();
   }, [employeeId]);
 
-  useEffect(
-    () => setAcademicYearId(num(academicYears[0]?.fk_academic_year_id) || null),
-    [academicYears],
-  );
-  useEffect(() => setExamId(num(exams[0]?.fk_exam_id) || null), [exams]);
+  // Angular selectedCourse → auto first AY (already DESC-sorted)
+  useEffect(() => {
+    setAcademicYearId(num(academicYears[0]?.fk_academic_year_id) || null);
+  }, [academicYears]);
 
+  // Angular selectedAcadamicYear → auto first exam
+  useEffect(() => {
+    setExamId(num(exams[0]?.fk_exam_id) || null);
+  }, [exams]);
+
+  // Angular selectedExam: s_get_exam_filters_bycode + univ_exam_rest_in_regexamstd
   useEffect(() => {
     async function loadRest() {
-      if (!courseId || !academicYearId || !examId) return;
-      const rest = await getRegSupRestFilters({
-        courseId,
-        academicYearId,
-        examId,
-        employeeId,
-      });
-      setRestRows(rest);
-      setCourseYearId(num(rest[0]?.fk_course_year_id) || null);
+      if (!courseId || !academicYearId || !examId) {
+        setRestRows([]);
+        setCourseYearId(null);
+        setRegulationId(null);
+        setSubjectRows([]);
+        setSubjectId(null);
+        return;
+      }
+      try {
+        const rest = await getRegSupRestFilters({
+          courseId,
+          academicYearId,
+          examId,
+          employeeId,
+        });
+        setRestRows(rest);
+        setCourseYearId(num(rest[0]?.fk_course_year_id) || null);
+      } catch {
+        setRestRows([]);
+        setCourseYearId(null);
+        toastError("Failed to load course year filters");
+      }
     }
     void loadRest();
   }, [courseId, academicYearId, examId, employeeId]);
 
-  useEffect(
-    () => setRegulationId(num(regulations[0]?.fk_regulation_id) || null),
-    [regulations],
-  );
+  // Angular selectedCourseYear → filter regulations client-side, auto first
+  useEffect(() => {
+    setRegulationId(num(regulations[0]?.fk_regulation_id) || null);
+  }, [regulations]);
 
+  // Angular selectedRegulation: univ_exam_subject_regexamstd + NoLAB
+  // Subject is NOT auto-selected — user must pick (form required)
   useEffect(() => {
     async function loadSubjects() {
       if (
@@ -210,18 +275,27 @@ export default function AssignReEvaluatorPage() {
         !examId ||
         !courseYearId ||
         !regulationId
-      )
+      ) {
+        setSubjectRows([]);
+        setSubjectId(null);
         return;
-      const sub = await getRegSupSubjectFilters({
-        courseId,
-        academicYearId,
-        examId,
-        courseYearId,
-        regulationId,
-        employeeId,
-      });
-      setSubjectRows(sub);
-      setSubjectId(num(sub[0]?.fk_subject_id) || null);
+      }
+      try {
+        const sub = await getRegSupSubjectFilters({
+          courseId,
+          academicYearId,
+          examId,
+          courseYearId,
+          regulationId,
+          employeeId,
+        });
+        setSubjectRows(sub);
+        setSubjectId(null);
+      } catch {
+        setSubjectRows([]);
+        setSubjectId(null);
+        toastError("Failed to load subjects");
+      }
     }
     void loadSubjects();
   }, [
@@ -245,7 +319,61 @@ export default function AssignReEvaluatorPage() {
     setDetailPage(0);
   }
 
+  function onCourseChange(v: string | null) {
+    resetResult();
+    setCourseId(v ? Number(v) : null);
+    setAcademicYearId(null);
+    setExamId(null);
+    setRestRows([]);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectRows([]);
+    setSubjectId(null);
+  }
+
+  function onAcademicYearChange(v: string | null) {
+    resetResult();
+    setAcademicYearId(v ? Number(v) : null);
+    setExamId(null);
+    setRestRows([]);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectRows([]);
+    setSubjectId(null);
+  }
+
+  function onExamChange(v: string | null) {
+    resetResult();
+    setExamId(v ? Number(v) : null);
+    setRestRows([]);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectRows([]);
+    setSubjectId(null);
+  }
+
+  function onCourseYearChange(v: string | null) {
+    resetResult();
+    setCourseYearId(v ? Number(v) : null);
+    setRegulationId(null);
+    setSubjectRows([]);
+    setSubjectId(null);
+  }
+
+  function onRegulationChange(v: string | null) {
+    resetResult();
+    setRegulationId(v ? Number(v) : null);
+    setSubjectRows([]);
+    setSubjectId(null);
+  }
+
+  function onSubjectChange(v: string | null) {
+    resetResult();
+    setSubjectId(v ? Number(v) : null);
+  }
+
   async function getList() {
+    // Angular: form requires subjectId before Get List (Validators.required)
     if (
       !courseId ||
       !academicYearId ||
@@ -253,8 +381,12 @@ export default function AssignReEvaluatorPage() {
       !courseYearId ||
       !regulationId ||
       !subjectId
-    )
+    ) {
+      toastError(
+        "Select Course, Academic Year, Exam, Course Year, Regulation and Subject",
+      );
       return;
+    }
     resetResult();
     setLoading(true);
     try {
@@ -270,6 +402,8 @@ export default function AssignReEvaluatorPage() {
         isReevaluation,
       });
       setSubjectMasterRows(rows);
+    } catch {
+      toastError("Failed to load re-evaluator master list");
     } finally {
       setLoading(false);
     }
@@ -538,88 +672,94 @@ export default function AssignReEvaluatorPage() {
     <FilteredListPage
       title="Assign Re-Evaluator"
       filters={(
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="md:col-span-2 space-y-1">
-            <Label>Course</Label>
-            <SearchableSelect
-              value={courseId ? String(courseId) : null}
-              onChange={(v) => setCourseId(num(v) || null)}
-              options={courseOptions}
-              placeholder="Course"
-            />
-          </div>
-          <div className="md:col-span-2 space-y-1">
-            <Label>Academic Year</Label>
-            <SearchableSelect
-              value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(num(v) || null)}
-              options={academicYearOptions}
-              placeholder="Academic Year"
-            />
-          </div>
-          <div className="md:col-span-4 space-y-1">
-            <Label>Exam</Label>
-            <SearchableSelect
-              value={examId ? String(examId) : null}
-              onChange={(v) => setExamId(num(v) || null)}
-              options={examOptions}
-              placeholder="Search exam…"
-              searchable
-            />
-          </div>
-          <div className="md:col-span-2 space-y-1">
-            <Label>Course Year</Label>
-            <SearchableSelect
-              value={courseYearId ? String(courseYearId) : null}
-              onChange={(v) => setCourseYearId(num(v) || null)}
-              options={courseYearOptions}
-              placeholder="Course Year"
-            />
-          </div>
-          <div className="md:col-span-2 space-y-1">
-            <Label>Regulation</Label>
-            <SearchableSelect
-              value={regulationId ? String(regulationId) : null}
-              onChange={(v) => setRegulationId(num(v) || null)}
-              options={regulationOptions}
-              placeholder="Regulation"
-            />
-          </div>
-          <div className="md:col-span-4 space-y-1">
-            <Label>Subject</Label>
-            <SearchableSelect
-              value={subjectId ? String(subjectId) : null}
-              onChange={(v) => setSubjectId(num(v) || null)}
-              options={subjectOptions}
-              placeholder="Search subjects…"
-              searchable
-            />
-          </div>
-          <div className="md:col-span-3">
-            <label className="inline-flex items-center gap-2 text-[12px]">
-              <input
-                type="checkbox"
-                checked={isReevaluation}
-                onChange={(e) => {
-                  setIsReevaluation(e.target.checked);
-                  resetResult();
-                }}
+        <>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Course">
+              <SearchableSelect
+                value={courseId ? String(courseId) : null}
+                onChange={onCourseChange}
+                options={courseOptions}
+                placeholder="Course"
               />
-              <span>Is Re-Evaluation</span>
-            </label>
-          </div>
-          <div className="md:col-span-2 flex justify-end">
-            <Button type="button" onClick={getList} disabled={loading}>
-              Get List
-            </Button>
-          </div>
-        </div>
+            </GlobalFilterField>
+            <GlobalFilterField label="Academic Year">
+              <SearchableSelect
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={onAcademicYearChange}
+                options={academicYearOptions}
+                placeholder="Academic Year"
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam">
+              <SearchableSelect
+                value={examId ? String(examId) : null}
+                onChange={onExamChange}
+                options={examOptions}
+                placeholder="Search exam…"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Year">
+              <SearchableSelect
+                value={courseYearId ? String(courseYearId) : null}
+                onChange={onCourseYearChange}
+                options={courseYearOptions}
+                placeholder="Course Year"
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Regulation">
+              <SearchableSelect
+                value={regulationId ? String(regulationId) : null}
+                onChange={onRegulationChange}
+                options={regulationOptions}
+                placeholder="Regulation"
+              />
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Subject">
+              <SearchableSelect
+                value={subjectId ? String(subjectId) : null}
+                onChange={onSubjectChange}
+                options={subjectOptions}
+                placeholder="Search subjects…"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="">
+              <label className="inline-flex h-[30px] items-center gap-2 text-[12px]">
+                <input
+                  type="checkbox"
+                  checked={isReevaluation}
+                  onChange={(e) => {
+                    setIsReevaluation(e.target.checked);
+                    resetResult();
+                  }}
+                />
+                <span>Is Re-Evaluation</span>
+              </label>
+            </GlobalFilterField>
+            <GlobalFilterField
+              label=""
+              className="global-filter-field--shrink global-filter-field--action"
+            >
+              <Button
+                type="button"
+                onClick={() => void getList()}
+                disabled={loading}
+                className="h-[30px] px-3 text-[12px]"
+              >
+                Get List
+              </Button>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+        </>
       )}
       rowData={subjectMasterRows}
       columnDefs={masterColumnDefs}
       loading={loading}
       pagination
-      toolbar={{ search: true, searchPlaceholder: "Search subjects…" }}
+      toolbar={SEARCH_ONLY_TOOLBAR}
     >
       {unmappedRows.length > 0 && (
         <div className="app-card p-3 space-y-3">

@@ -2,12 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Pencil, Save } from 'lucide-react'
-import { FilteredListPage } from '@/components/layout'
+import { Pencil } from 'lucide-react'
+import { FilteredPage } from '@/components/layout'
+import { DataTable } from '@/common/components/table'
 import { SearchInput } from '@/common/components/search'
 import { Select } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
-import { ActiveStatusField } from '@/common/components/forms'
+import {
+  ActiveStatusField,
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -85,6 +90,18 @@ function pickExamLabel(row: Row): string {
   return txt(row.exam_name ?? row.examName ?? row.exam_group_name ?? row.examGroupName ?? row.exam)
 }
 
+function roomLabel(r: Row): string {
+  const built = txt(r.room)
+  if (built) return built
+  const parts = [
+    txt(r.roomCode ?? r.room_code ?? r.roomName ?? r.room_name),
+    txt(r.buildingCode ?? r.building_code ?? r.pk_building_id ?? r.buildingId),
+    txt(r.floorName ?? r.floor_name),
+    txt(r.floorNo ?? r.floor_no),
+  ].filter(Boolean)
+  return parts.join('/') || '-'
+}
+
 function makeEditRenderer(onEdit: (row: Row) => void) {
   return (p: ICellRendererParams<Row>) => {
     const row = p.data
@@ -115,7 +132,7 @@ export default function UnivExamCenterRoomsPage() {
   const [selectedRooms, setSelectedRooms] = useState<Row[]>([])
   const [selectAll, setSelectAll] = useState(false)
 
-  const [showSections, setShowSections] = useState(false)
+  const [shown, setShown] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editRow, setEditRow] = useState<Row | null>(null)
   const [editForm, setEditForm] = useState({ isActive: true, reason: '' })
@@ -125,7 +142,7 @@ export default function UnivExamCenterRoomsPage() {
     academicYearId: '',
     examId: '',
     univExamcenterId: '',
-    buildingId: '',
+    buildingId: '0',
     blockId: '0',
     floorId: '0',
   })
@@ -152,13 +169,13 @@ export default function UnivExamCenterRoomsPage() {
   const filteredVacancyRooms = useMemo(() => {
     const q = vacancySearch.trim().toLowerCase()
     if (!q) return vacancyRooms
-    return vacancyRooms.filter((r) => txt(r.roomName ?? r.roomCode ?? r.room).toLowerCase().includes(q))
+    return vacancyRooms.filter((r) => roomLabel(r).toLowerCase().includes(q))
   }, [vacancyRooms, vacancySearch])
 
   const headingText = useMemo(() => {
     const center = centers.find((c) => num(c.univExamcenterId ?? c.univExamCenterId) === Number(form.univExamcenterId))
-    return `${txt(center?.examcenterName ?? center?.examCenterName)}`
-  }, [centers, form])
+    return txt(center?.examcenterName ?? center?.examCenterName) || txt(center?.examcenterCode)
+  }, [centers, form.univExamcenterId])
 
   const columnDefs = useMemo<ColDef<Row>[]>(
     () => [
@@ -169,6 +186,7 @@ export default function UnivExamCenterRoomsPage() {
       { headerName: 'Room Code', minWidth: 120, valueGetter: (p) => txt(p.data?.roomCode) },
       { headerName: 'Actions', minWidth: 72, width: 72, flex: 0, cellRenderer: makeEditRenderer(onEdit) },
     ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   )
 
@@ -226,7 +244,7 @@ export default function UnivExamCenterRoomsPage() {
 
   useEffect(() => {
     const v = centers[0] ? String(num(centers[0].univExamcenterId ?? centers[0].univExamCenterId)) : ''
-    if (!form.univExamcenterId) setForm((f) => ({ ...f, univExamcenterId: v }))
+    if (!form.univExamcenterId && v && Number(v) > 0) setForm((f) => ({ ...f, univExamcenterId: v }))
   }, [centers, form.univExamcenterId])
 
   useEffect(() => {
@@ -248,8 +266,7 @@ export default function UnivExamCenterRoomsPage() {
       }
       const rows = await listBlocksByBuilding(Number(form.buildingId)).catch(() => [])
       setBlocks(Array.isArray(rows) ? rows : [])
-      const first = Array.isArray(rows) && rows[0] ? String(num(rows[0].blockId)) : '0'
-      setForm((f) => ({ ...f, blockId: first, floorId: '0' }))
+      setForm((f) => ({ ...f, blockId: '0', floorId: '0' }))
     }
     void loadBlocks()
   }, [form.buildingId])
@@ -263,26 +280,30 @@ export default function UnivExamCenterRoomsPage() {
       }
       const rows = await listFloorsByBlock(Number(form.blockId)).catch(() => [])
       setFloors(Array.isArray(rows) ? rows : [])
-      const first = Array.isArray(rows) && rows[0] ? String(num(rows[0].floorId)) : '0'
-      setForm((f) => ({ ...f, floorId: first }))
+      setForm((f) => ({ ...f, floorId: '0' }))
     }
     void loadFloors()
   }, [form.blockId])
 
-  function roomName(r: Row) {
-    return txt(r.roomName ?? r.roomCode ?? r.room)
-  }
-
   async function getList() {
-    if (!form.examId || !form.univExamcenterId) {
+    if (!form.courseId || !form.academicYearId || !form.examId || !form.univExamcenterId) {
       toastError('Course, Academic Year, Exam and Exam Center are required.')
       return
     }
     setLoading(true)
+    setVacancySearch('')
+    setSelectedRooms([])
+    setSelectAll(false)
+    // Always show Angular-style result UI after Get List (empty on no data / error)
+    setShown(true)
     try {
       const [assigned, available] = await Promise.all([
-        listUnivExamCenterRoomsByFilters(Number(form.examId), Number(form.univExamcenterId), Number(form.buildingId)).catch(() => []),
-        listRoomsByFilters(Number(form.buildingId), Number(form.blockId || 0), Number(form.floorId || 0)).catch(() => []),
+        listUnivExamCenterRoomsByFilters(
+          Number(form.examId),
+          Number(form.univExamcenterId),
+          Number(form.buildingId),
+        ),
+        listRoomsByFilters(Number(form.buildingId), Number(form.blockId || 0), Number(form.floorId || 0)),
       ])
       const assignedRows = Array.isArray(assigned) ? assigned : []
       const availableRows = Array.isArray(available) ? available : []
@@ -303,9 +324,10 @@ export default function UnivExamCenterRoomsPage() {
         .map((r) => ({ ...r, checked: false, isSelected: false }))
       setExistingRooms(assignedRows)
       setVacancyRooms(vacancy)
-      setSelectedRooms([])
-      setSelectAll(false)
-      setShowSections(true)
+    } catch (e) {
+      setExistingRooms([])
+      setVacancyRooms([])
+      toastError(e, 'Failed to load exam center rooms')
     } finally {
       setLoading(false)
     }
@@ -338,7 +360,7 @@ export default function UnivExamCenterRoomsPage() {
     const payload = selectedRooms.map((room) => ({
       roomId: num(room.roomId ?? room.pk_room_id),
       collegeId,
-      buildingId: Number(form.buildingId),
+      buildingId: Number(form.buildingId) || num(room.pk_building_id ?? room.buildingId),
       examMasterId: Number(form.examId),
       univExamCentersId: Number(form.univExamcenterId),
       isAllrooms: true,
@@ -388,125 +410,298 @@ export default function UnivExamCenterRoomsPage() {
     }
   }
 
+  function hideResults() {
+    setShown(false)
+  }
+
   return (
-    <FilteredListPage
+    <FilteredPage
       title="Exam Center Rooms"
       filters={(
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course *</Label><Select options={courses.map((r) => ({ value: String(pickCourseId(r)), label: pickCourseLabel(r) }))} value={form.courseId} onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))} disabled={loadingFilters} /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><Select options={academicYears.map((r) => ({ value: String(pickAcademicYearId(r)), label: pickAcademicYearLabel(r) }))} value={form.academicYearId} onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))} /></div>
-          <div className="space-y-1 md:col-span-4"><Label>Exam *</Label><Select options={exams.map((r) => ({ value: String(pickExamId(r)), label: `${pickExamLabel(r)} (${txt(r.from_date ?? r.fromDate)} - ${txt(r.to_date ?? r.toDate)})` }))} value={form.examId} onChange={(v) => setForm((f) => ({ ...f, examId: v ?? '' }))} /></div>
-          <div className="space-y-1 md:col-span-4"><Label>Exam Center *</Label><Select options={centers.map((r) => ({ value: String(num(r.univExamcenterId ?? r.univExamCenterId)), label: txt(r.examcenterCode) }))} value={form.univExamcenterId} onChange={(v) => setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))} /></div>
-          <div className="space-y-1 md:col-span-4"><Label>Exam Center - Building</Label><Select options={[{ value: '0', label: 'All' }, ...buildings.map((r) => ({ value: String(num(r.buildingId)), label: `${txt(r.campusName)} - ${txt(r.buildingCode)}` }))]} value={form.buildingId} onChange={(v) => setForm((f) => ({ ...f, buildingId: v ?? '0' }))} /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Block</Label><Select options={[{ value: '0', label: 'All' }, ...blocks.map((r) => ({ value: String(num(r.blockId)), label: txt(r.blockCode) }))]} value={form.blockId} onChange={(v) => setForm((f) => ({ ...f, blockId: v ?? '0' }))} /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Floor - No</Label><Select options={[{ value: '0', label: 'All' }, ...floors.map((r) => ({ value: String(num(r.floorId)), label: `${txt(r.floorName)} - ${txt(r.floorNo)}` }))]} value={form.floorId} onChange={(v) => setForm((f) => ({ ...f, floorId: v ?? '0' }))} /></div>
-          <div className="md:col-span-2"><Button type="button" onClick={() => void getList()} disabled={loading}>Get List</Button></div>
-        </div>
-      )}
-      notice={showSections && vacancyRooms.length > 0 ? (
-        <div className="app-card p-3 space-y-3">
-          <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">
-            Exam Center Rooms - {headingText}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-            <div className="md:col-span-5 border rounded bg-card">
-              <div className="p-2 flex items-center justify-between gap-2">
-                <SearchInput value={vacancySearch} onChange={setVacancySearch} placeholder="Search…" className="w-full max-w-sm" />
-                <span className="text-xs text-blue-700 font-semibold">Selected : {selectedRooms.length}</span>
-              </div>
-              <div className="max-h-72 overflow-auto border-t">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40">
-                    <tr>
-                      <th className="text-left p-2 w-16">
-                        <div className="flex items-center gap-2">
-                          <Checkbox checked={selectAll} onCheckedChange={(v) => toggleAll(v === true)} />
-                          All
-                        </div>
-                      </th>
-                      <th className="text-left p-2 text-blue-700">Rooms</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredVacancyRooms.map((r) => {
-                      const id = num(r.roomId ?? r.pk_room_id)
-                      const checked = r.isSelected === true
-                      return (
-                        <tr key={id} className="border-t">
-                          <td className="p-2">
-                            <Checkbox checked={checked} onCheckedChange={(v) => toggleOne(id, v === true)} />
-                          </td>
-                          <td className="p-2">{roomName(r)}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className="md:col-span-5 border rounded bg-card">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/40">
-                  <tr>
-                    <th className="text-left p-2 text-blue-700">Selected Rooms : {selectedRooms.length}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedRooms.map((r) => (
-                    <tr key={num(r.roomId ?? r.pk_room_id)} className="border-t">
-                      <td className="p-2">{roomName(r)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="md:col-span-2 flex items-end justify-start">
-              <Button type="button" onClick={() => void onSaveSelected()} disabled={saving}>
-                <Save className="h-4 w-4 mr-1" />
-                Save
+        <>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Course *">
+              <Select
+                options={courses.map((r) => ({ value: String(pickCourseId(r)), label: pickCourseLabel(r) }))}
+                value={form.courseId}
+                onChange={(v) => {
+                  hideResults()
+                  setForm((f) => ({ ...f, courseId: v ?? '' }))
+                }}
+                placeholder="Select course"
+                searchable
+                disabled={loadingFilters}
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Academic Year *">
+              <Select
+                options={academicYears.map((r) => ({
+                  value: String(pickAcademicYearId(r)),
+                  label: pickAcademicYearLabel(r),
+                }))}
+                value={form.academicYearId}
+                onChange={(v) => {
+                  hideResults()
+                  setForm((f) => ({ ...f, academicYearId: v ?? '' }))
+                }}
+                placeholder="Select academic year"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam *" className="min-w-[18rem] flex-[2]">
+              <Select
+                options={exams.map((r) => ({
+                  value: String(pickExamId(r)),
+                  label: `${pickExamLabel(r)} (${txt(r.from_date ?? r.fromDate)} - ${txt(r.to_date ?? r.toDate)})`,
+                }))}
+                value={form.examId}
+                onChange={(v) => {
+                  hideResults()
+                  setForm((f) => ({ ...f, examId: v ?? '' }))
+                }}
+                placeholder="Select exam"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Center *">
+              <Select
+                options={centers
+                  .map((r) => {
+                    const id = num(r.univExamcenterId ?? r.univExamCenterId)
+                    return { value: String(id), label: txt(r.examcenterCode), id }
+                  })
+                  .filter((o) => o.id > 0)
+                  .map(({ value, label }) => ({ value, label }))}
+                value={form.univExamcenterId}
+                onChange={(v) => {
+                  hideResults()
+                  setForm((f) => ({ ...f, univExamcenterId: v ?? '' }))
+                }}
+                placeholder="Select exam center"
+                searchable
+              />
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Exam Center - Building" className="min-w-[14rem] flex-[1.5]">
+              <Select
+                options={[
+                  { value: '0', label: 'All' },
+                  ...buildings.map((r) => ({
+                    value: String(num(r.buildingId)),
+                    label: `${txt(r.campusName)} - ${txt(r.buildingCode)}`,
+                  })),
+                ]}
+                value={form.buildingId}
+                onChange={(v) => {
+                  hideResults()
+                  setForm((f) => ({ ...f, buildingId: v ?? '0' }))
+                }}
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Block">
+              <Select
+                options={[
+                  { value: '0', label: 'All' },
+                  ...blocks.map((r) => ({ value: String(num(r.blockId)), label: txt(r.blockCode) })),
+                ]}
+                value={form.blockId}
+                onChange={(v) => {
+                  hideResults()
+                  setForm((f) => ({ ...f, blockId: v ?? '0' }))
+                }}
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Floor - No">
+              <Select
+                options={[
+                  { value: '0', label: 'All' },
+                  ...floors.map((r) => ({
+                    value: String(num(r.floorId)),
+                    label: `${txt(r.floorName)} - ${txt(r.floorNo)}`,
+                  })),
+                ]}
+                value={form.floorId}
+                onChange={(v) => {
+                  hideResults()
+                  setForm((f) => ({ ...f, floorId: v ?? '0' }))
+                }}
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label=" " className="global-filter-field--action global-filter-field--shrink">
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 shrink-0 px-3 text-[12px]"
+                onClick={() => void getList()}
+                disabled={loading}
+              >
+                Get List
               </Button>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+        </>
+      )}
+      body={
+        shown ? (
+          <div className="space-y-4">
+            <h3 className="text-[13px] font-semibold text-[hsl(var(--card-title))]">
+              Exam Center Rooms - {headingText || '—'}
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+              <div className="md:col-span-5 rounded border overflow-hidden bg-card">
+                <div className="flex items-center justify-between gap-2 border-b p-2">
+                  <SearchInput
+                    value={vacancySearch}
+                    onChange={setVacancySearch}
+                    placeholder="Search…"
+                    className="w-full max-w-sm"
+                  />
+                  <span className="shrink-0 text-[12px] font-semibold text-blue-700">
+                    Selected : {selectedRooms.length}
+                  </span>
+                </div>
+                <div className="max-h-72 overflow-auto">
+                  <table className="w-full text-[12px]">
+                    <thead className="sticky top-0 bg-[#C3D9FF]">
+                      <tr>
+                        <th className="w-16 px-2 py-1.5 text-left">
+                          <label className="flex items-center gap-1.5 font-semibold">
+                            <Checkbox
+                              checked={selectAll}
+                              onCheckedChange={(v) => toggleAll(v === true)}
+                            />
+                            All
+                          </label>
+                        </th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-blue-700">Rooms</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredVacancyRooms.map((r) => {
+                        const id = num(r.roomId ?? r.pk_room_id)
+                        const checked = r.isSelected === true
+                        return (
+                          <tr key={id} className="border-t">
+                            <td className="px-2 py-1.5">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) => toggleOne(id, v === true)}
+                              />
+                            </td>
+                            <td className="px-2 py-1.5">{roomLabel(r)}</td>
+                          </tr>
+                        )
+                      })}
+                      {filteredVacancyRooms.length === 0 && (
+                        <tr>
+                          <td colSpan={2} className="px-2 py-6 text-center text-muted-foreground">
+                            {loading ? 'Loading…' : 'No available rooms.'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="md:col-span-5 rounded border overflow-hidden bg-card">
+                <div className="max-h-[22.5rem] overflow-auto">
+                  <table className="w-full text-[12px]">
+                    <thead className="sticky top-0 bg-[#C3D9FF]">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left font-semibold text-blue-700">
+                          Selected Rooms : {selectedRooms.length}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedRooms.map((r) => {
+                        const id = num(r.roomId ?? r.pk_room_id)
+                        return (
+                          <tr key={`sel-${id}`} className="border-t">
+                            <td className="px-2 py-1.5 text-blue-700">{roomLabel(r)}</td>
+                          </tr>
+                        )
+                      })}
+                      {selectedRooms.length === 0 && (
+                        <tr>
+                          <td className="px-2 py-6 text-center text-muted-foreground">—</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="md:col-span-2 flex items-end justify-end md:justify-start">
+                <Button
+                  type="button"
+                  className="h-8 text-[12px]"
+                  onClick={() => void onSaveSelected()}
+                  disabled={saving || selectedRooms.length === 0}
+                >
+                  {saving ? 'Saving…' : 'Save'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="-mx-5 -mb-4 overflow-hidden border-t border-border">
+              <DataTable
+                bordered={false}
+                title=""
+                subtitle=""
+                rowData={existingRooms}
+                columnDefs={columnDefs}
+                loading={loading}
+                pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: 'Search…',
+                  pdfDocumentTitle: 'Exam Center Rooms',
+                }}
+              />
             </div>
           </div>
-        </div>
-      ) : null}
-      rowData={showSections ? existingRooms : []}
-      columnDefs={columnDefs}
-      loading={loading}
-      pagination
-      toolbar={{
-        search: true,
-        searchPlaceholder: 'Search…',
-        pdfDocumentTitle: 'Exam Center Rooms',
-      }}
-      toolbarLeading={
-        showSections && existingRooms.length > 0 ? (
-          <span className="text-[12px] font-medium text-[hsl(var(--primary))] truncate max-w-[min(100%,40rem)]">
-            {headingText}
-          </span>
-        ) : null
+        ) : undefined
       }
     >
       <FormModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
-        title="Update Exam Answer Paper"
+        title="Update Exam Center Room"
         onSubmit={onSaveEdit}
         isSubmitting={saving}
         size="md"
       >
         <div className="space-y-1 text-sm">
-          <p><span className="font-medium">center Name :</span> <span className="text-blue-700">{txt(editRow?.examCenterName)}</span></p>
-          <p><span className="font-medium">Building Name :</span> <span className="text-blue-700">{txt(editRow?.buildingName ?? editRow?.buildingId)}</span></p>
-          <p><span className="font-medium">Room Name :</span> <span className="text-blue-700">{txt(editRow?.roomName)}</span></p>
+          <p>
+            <span className="font-medium">center Name :</span>{' '}
+            <span className="text-blue-700">{txt(editRow?.examCenterName)}</span>
+          </p>
+          <p>
+            <span className="font-medium">Building Name :</span>{' '}
+            <span className="text-blue-700">{txt(editRow?.buildingName ?? editRow?.buildingId)}</span>
+          </p>
+          <p>
+            <span className="font-medium">Room Name :</span>{' '}
+            <span className="text-blue-700">{txt(editRow?.roomName)}</span>
+          </p>
         </div>
-        <ActiveStatusField
-          isActive={editForm.isActive}
-          reason={editForm.reason}
-          onActiveChange={(v) => setEditForm((f) => ({ ...f, isActive: v === true }))}
-          onReasonChange={(v) => setEditForm((f) => ({ ...f, reason: v }))}
-        />
+        <div className="mt-3">
+          <Label className="sr-only">Status</Label>
+          <ActiveStatusField
+            isActive={editForm.isActive}
+            reason={editForm.reason}
+            onActiveChange={(v) => setEditForm((f) => ({ ...f, isActive: v === true }))}
+            onReasonChange={(v) => setEditForm((f) => ({ ...f, reason: v }))}
+          />
+        </div>
       </FormModal>
-    </FilteredListPage>
+    </FilteredPage>
   )
 }
-

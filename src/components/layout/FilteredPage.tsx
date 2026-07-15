@@ -89,7 +89,12 @@ export function FilteredPage({
             filtersOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
           )}
         >
-          <div className="min-h-0 overflow-hidden">
+          <div
+            className={cn(
+              'min-h-0',
+              filtersOpen ? 'overflow-visible' : 'overflow-hidden',
+            )}
+          >
             <div className="global-filter-bar__inner px-5 pb-3 [&_.global-filter-bar__inner]:!pt-0">
               {filters}
             </div>

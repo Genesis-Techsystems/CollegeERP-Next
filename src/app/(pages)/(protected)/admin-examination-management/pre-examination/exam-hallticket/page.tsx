@@ -550,7 +550,9 @@ export default function ExamHallticketPage() {
         courseGroupId: mode === "section" ? (courseGroupId ?? 0) : 0,
         courseYearId: mode === "section" ? (courseYearId ?? 0) : 0,
       });
-      setRows(data);
+      setRows(Array.isArray(data) ? data : []);
+    } catch {
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -573,6 +575,8 @@ export default function ExamHallticketPage() {
           courseYearId: 0,
         });
         setRows(Array.isArray(data) ? data : []);
+      } catch {
+        setRows([]);
       } finally {
         setLoading(false);
       }

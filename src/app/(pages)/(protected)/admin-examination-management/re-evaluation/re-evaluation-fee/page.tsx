@@ -3,17 +3,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { UserRound } from "lucide-react";
+import { Eye, UserRound } from "lucide-react";
 import { FilteredPage } from "@/components/layout";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
 import { DataTable } from "@/common/components/table";
+import { Select } from "@/common/components/select";
+import { StudentSearchSelect } from "@/common/components/student-search";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/common/components/select";
 import {
   Dialog,
   DialogContent,
@@ -27,13 +28,12 @@ import {
   addExamAdditionalFeeReceipt,
 } from "@/services/pre-examination";
 import {
+  dedupeRevisionHistoryRows,
   getExamRevisionStdDetailsBundle,
-  getStudentRevisionRequestHistory,
+  getStudentRevisionPaymentDetails,
   listExamRevisionTypes,
   listStudentExamsForRevaluationFee,
   listStudentPhotocopyEvaluationDetails,
-  mergeRevaluationReceiptRows,
-  type MergedRevaluationReceipt,
 } from "@/services/re-evaluation";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
@@ -53,17 +53,6 @@ function strFrom(row: AnyRow, keys: string[]): string {
     if (val) return val;
   }
   return "";
-}
-function studentSelectLabel(r: AnyRow): string {
-  const ht = strFrom(r, [
-    "hallticketNumber",
-    "hallticket_number",
-    "rollNumber",
-    "roll_number",
-  ]);
-  const name = strFrom(r, ["firstName", "first_name"]);
-  if (ht && name) return `${ht}(${name})`;
-  return ht || name || "-";
 }
 function statusTextClass(code: string): string {
   const c = code.replaceAll(/\s+/g, "").toUpperCase();
@@ -234,9 +223,6 @@ export default function ReEvaluationFeeCollectionPage() {
   const [revisionTypes, setRevisionTypes] = useState<AnyRow[]>([]);
   const [revisionTypeId, setRevisionTypeId] = useState<number | null>(null);
   const [showProfile, setShowProfile] = useState(false);
-  const [mergedReceipts, setMergedReceipts] = useState<
-    MergedRevaluationReceipt[]
-  >([]);
 
   // re-evaluation subject selection
   const [detailsList, setDetailsList] = useState<AnyRow[]>([]);
@@ -261,13 +247,16 @@ export default function ReEvaluationFeeCollectionPage() {
   const [feeComments, setFeeComments] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // revision history + photocopy
+  // Angular revisionHistoryList + revisionPaymentDetails (callRevisionHistory)
   const [revisionHistory, setRevisionHistory] = useState<AnyRow[]>([]);
+  const [revisionPaymentDetails, setRevisionPaymentDetails] = useState<
+    AnyRow[]
+  >([]);
   const [isPhotoCopy, setIsPhotoCopy] = useState(false);
   const [photocopyOpen, setPhotocopyOpen] = useState(false);
   const [photocopyData, setPhotocopyData] = useState<AnyRow[]>([]);
 
-  // view subjects modal
+  // viewDetails modal (Receipt Details)
   const [viewSubjOpen, setViewSubjOpen] = useState(false);
   const [viewSubjRows, setViewSubjRows] = useState<AnyRow[]>([]);
 
@@ -321,19 +310,6 @@ export default function ReEvaluationFeeCollectionPage() {
     }
   }, []);
 
-  const studentOptions = useMemo(() => {
-    const base = studentRows
-      .map((r) => ({
-        value: String(numFrom(r, ["studentId", "student_id", "fk_student_id"])),
-        label: studentSelectLabel(r),
-      }))
-      .filter((o) => o.value !== "0");
-    const sid = studentId ? String(studentId) : null;
-    if (sid && studentRow && !base.some((o) => o.value === sid))
-      return [{ value: sid, label: studentSelectLabel(studentRow) }, ...base];
-    return base;
-  }, [studentRows, studentId, studentRow]);
-
   const examOptions = useMemo(
     () =>
       exams
@@ -379,21 +355,13 @@ export default function ReEvaluationFeeCollectionPage() {
     setCoursesYearList([]);
     setExamRevisionStdDetails([]);
     setDuplicateSelectedList([]);
-    setMergedReceipts([]);
     setRevisionHistory([]);
+    setRevisionPaymentDetails([]);
   }
 
-  async function onSelectStudent(value: string | null) {
-    const sid = value ? Number(value) : null;
+  async function onSelectStudent(sid: number | null, row: AnyRow | null) {
     setStudentId(sid);
-    setStudentRow(
-      sid
-        ? (studentRows.find(
-            (r) =>
-              numFrom(r, ["studentId", "student_id", "fk_student_id"]) === sid,
-          ) ?? null)
-        : null,
-    );
+    setStudentRow(row);
     setExamId(null);
     setRevisionTypeId(null);
     setShowProfile(false);
@@ -450,16 +418,18 @@ export default function ReEvaluationFeeCollectionPage() {
 
     setLoading(true);
     try {
-      const [bundle, history] = await Promise.all([
+      const [bundle, paymentDetails] = await Promise.all([
         getExamRevisionStdDetailsBundle({ examId, studentId }),
-        getStudentRevisionRequestHistory({ examId, studentId }).catch(() => []),
+        getStudentRevisionPaymentDetails({ examId, studentId }).catch(() => []),
       ]);
       const details = Array.isArray(bundle.detailsList)
         ? bundle.detailsList
         : [];
       setDetailsList(details);
-      setMergedReceipts(mergeRevaluationReceiptRows(bundle.receiptRows));
-      setRevisionHistory(Array.isArray(history) ? history : []);
+      // Angular callRevisionHistory → full rows + deduped history list
+      const paymentRows = Array.isArray(paymentDetails) ? paymentDetails : [];
+      setRevisionPaymentDetails(paymentRows);
+      setRevisionHistory(dedupeRevisionHistoryRows(paymentRows));
 
       // setCourseYear(): distinct course-years for this exam + revision type
       const courses = details.filter(
@@ -690,13 +660,19 @@ export default function ReEvaluationFeeCollectionPage() {
     setPhotocopyData(Array.isArray(rows) ? rows : []);
     setPhotocopyOpen(true);
   }
-  function openViewSubjects(r: MergedRevaluationReceipt) {
-    setViewSubjRows(Array.isArray(r.subjects) ? r.subjects : []);
+
+  /** Angular viewDetails(row): filter revisionPaymentDetails by fk_exam_fee_receipt_id */
+  function openViewDetails(row: AnyRow) {
+    const receiptId = numFrom(row, ["fk_exam_fee_receipt_id"]);
+    const data = revisionPaymentDetails.filter(
+      (x) => numFrom(x, ["fk_exam_fee_receipt_id"]) === receiptId,
+    );
+    setViewSubjRows(data.length > 0 ? data : [row]);
     setViewSubjOpen(true);
   }
 
-  const subjectColumnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [
+  const subjectColumnDefs = useMemo(
+    (): ColDef<AnyRow>[] => [
       {
         colId: "select",
         headerName: "All",
@@ -794,16 +770,20 @@ export default function ReEvaluationFeeCollectionPage() {
       title="Re-Valuation Fee"
       filters={
         <GlobalFilterBarRow>
-          <GlobalFilterField label="Student">
-            <Select
-              value={studentId ? String(studentId) : null}
-              onChange={(v) => void onSelectStudent(v)}
-              options={studentOptions}
-              placeholder="Search by name or hall ticket…"
-              searchable
-              onSearch={(t) => void onStudentSearch(t)}
+          <GlobalFilterField
+            label="Student"
+            className="min-w-[18rem] flex-[1.4_1_18rem]"
+          >
+            <StudentSearchSelect
+              label=""
+              placeholder="Search student by name or hall ticket…"
+              value={studentId}
+              students={studentRows}
+              selectedStudent={studentRow}
               isLoading={studentSearchLoading}
-              clearable
+              minChars={2}
+              onSearch={(term) => void onStudentSearch(term)}
+              onChange={(id, row) => void onSelectStudent(id, row)}
             />
           </GlobalFilterField>
           <GlobalFilterField label="Exam">
@@ -1125,112 +1105,83 @@ export default function ReEvaluationFeeCollectionPage() {
         </div>
       )}
 
-      {/* Revision history */}
-      {showProfile && revisionHistory.length > 0 && (
-        <div className="app-card p-3 border-t-[3px] border-t-amber-300 overflow-x-auto">
-          <div className="mb-2 text-[13px] font-semibold text-slate-700">
-            Revision Requests
-          </div>
-          <table className="w-full min-w-[640px] border-collapse text-[12px]">
-            <thead>
-              <tr className="border-b bg-muted/40">
-                <th className="px-3 py-2 text-left">Hall Ticket No</th>
-                <th className="px-3 py-2 text-left">Course / Year</th>
-                <th className="px-3 py-2 text-left">GD Code</th>
-                <th className="px-3 py-2 text-left">Subject Details</th>
-                {isPhotoCopy && (
-                  <th className="px-3 py-2 text-center">Photo Copy</th>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {revisionHistory.map((r, i) => (
-                <tr key={`rh-${i}`} className="border-b">
-                  <td className="px-3 py-2">
-                    {strFrom(r, ["hallticket_number"])}
-                  </td>
-                  <td className="px-3 py-2">
-                    {strFrom(r, ["course_year_code"])}
-                  </td>
-                  <td className="px-3 py-2">{strFrom(r, ["gd_code"])}</td>
-                  <td className="px-3 py-2">
-                    {strFrom(r, ["subject_details"])}
-                  </td>
-                  {isPhotoCopy && (
-                    <td className="px-3 py-2 text-center">
-                      <button
-                        className="text-blue-700 hover:underline"
-                        onClick={() => void openPhotocopy()}
-                      >
-                        View
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Receipts */}
+      {/* Angular revisionHistoryList — Receipt Date / No. / Amount / Details */}
       {showProfile && (
         <div className="app-card p-3 border-t-[3px] border-t-amber-300 overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-[12px]">
+          <table className="w-full min-w-[560px] border-collapse text-[12px]">
             <thead>
               <tr className="border-b bg-muted/40">
-                <th className="px-3 py-2 text-left">SI No.</th>
-                <th className="px-3 py-2 text-left">Semester</th>
+                <th className="px-3 py-2 text-left">Receipt Date</th>
                 <th className="px-3 py-2 text-left">Receipt No.</th>
-                <th className="px-3 py-2 text-left">Payment Date</th>
-                <th className="px-3 py-2 text-left">Payment Mode</th>
-                <th className="px-3 py-2 text-right">Exam Fee (₹)</th>
-                <th className="px-3 py-2 text-right">Add. Fee (₹)</th>
-                <th className="px-3 py-2 text-right">LateFee (₹)</th>
-                <th className="px-3 py-2 text-right">Amount (₹)</th>
-                <th className="px-3 py-2 text-center">Subjects</th>
+                <th className="px-3 py-2 text-left">Receipt Amount</th>
+                <th className="px-3 py-2 text-center">
+                  {isPhotoCopy ? "View" : "Details"}
+                </th>
               </tr>
             </thead>
             <tbody>
-              {mergedReceipts.length === 0 ? (
+              {revisionHistory.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={4}
                     className="px-3 py-6 text-center text-muted-foreground"
                   >
                     {loading ? "Loading…" : "No receipt records"}
                   </td>
                 </tr>
               ) : (
-                mergedReceipts.map((r, i) => (
-                  <tr key={r.fk_exam_addt_fee_receipt_id} className="border-b">
-                    <td className="px-3 py-2">{i + 1}</td>
-                    <td className="px-3 py-2">{r.course_year_code || "-"}</td>
-                    <td className="px-3 py-2">{r.fee_receipt_no || "-"}</td>
+                revisionHistory.map((r, i) => (
+                  <tr
+                    key={`rh-${numFrom(r, ["fk_exam_fee_receipt_id"])}-${i}`}
+                    className="border-b"
+                  >
                     <td className="px-3 py-2">
-                      {formatReceiptDate(r.receipt_date)}
+                      {formatReceiptDate(
+                        strFrom(r, [
+                          "recepit_date",
+                          "receipt_date",
+                          "receiptDate",
+                        ]),
+                      )}
                     </td>
-                    <td className="px-3 py-2">{r.payment_mode || "-"}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {r.exam_fee_amount ?? "-"}
+                    <td className="px-3 py-2">
+                      {strFrom(r, [
+                        "receipt_no",
+                        "fee_receipt_no",
+                        "addt_receipt_no",
+                      ]) || "-"}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {r.exam_addt_fee ?? "-"}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {r.exam_fine_amount ?? "-"}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {r.exam_total_amount ?? "-"}
+                    <td className="px-3 py-2">
+                      {strFrom(r, [
+                        "fee_amount",
+                        "exam_total_amount",
+                        "amount",
+                      ]) || "-"}
                     </td>
                     <td className="px-3 py-2 text-center">
-                      <Button
-                        variant="outline"
-                        className="h-7 text-[12px]"
-                        onClick={() => openViewSubjects(r)}
-                      >
-                        Courses
-                      </Button>
+                      {isPhotoCopy ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-[hsl(var(--primary))]"
+                          title="View photocopy"
+                          onClick={() => void openPhotocopy()}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-[hsl(var(--primary))]"
+                          title="View details"
+                          onClick={() => openViewDetails(r)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -1304,36 +1255,45 @@ export default function ReEvaluationFeeCollectionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* View subjects modal */}
+      {/* Angular ViewSubjectDetails — Receipt Details */}
       <Dialog open={viewSubjOpen} onOpenChange={setViewSubjOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Subjects</DialogTitle>
+            <DialogTitle>Receipt Details</DialogTitle>
           </DialogHeader>
           <div className="overflow-auto rounded border">
             <table className="w-full text-[12px]">
               <thead className="bg-muted/40">
                 <tr>
+                  <th className="px-2 py-1 text-left">SI.No</th>
                   <th className="px-2 py-1 text-left">Course Year</th>
-                  <th className="px-2 py-1 text-left">Subject Code</th>
-                  <th className="px-2 py-1 text-left">Subject Name</th>
+                  <th className="px-2 py-1 text-left">Subject</th>
                 </tr>
               </thead>
               <tbody>
                 {viewSubjRows.map((s, i) => (
                   <tr key={`vs-${i}`} className="border-t">
+                    <td className="px-2 py-1">{i + 1}</td>
                     <td className="px-2 py-1">
                       {strFrom(s, [
                         "course_year_code",
                         "courseYearCode",
                         "course_year_name",
-                      ])}
+                      ]) || "-"}
                     </td>
                     <td className="px-2 py-1">
-                      {strFrom(s, ["subject_code", "subjectCode"])}
-                    </td>
-                    <td className="px-2 py-1">
-                      {strFrom(s, ["subject_name", "subjectName"])}
+                      {strFrom(s, [
+                        "subject_details",
+                        "subject_name",
+                        "subjectName",
+                      ]) ||
+                        [
+                          strFrom(s, ["subject_code", "subjectCode"]),
+                          strFrom(s, ["subject_name", "subjectName"]),
+                        ]
+                          .filter(Boolean)
+                          .join(" - ") ||
+                        "-"}
                     </td>
                   </tr>
                 ))}

@@ -87,7 +87,9 @@ const STICKER_PRINT_STYLES = `
 function groupByBundleId(rows: StickerRow[]): StickerRow[][] {
 	const grouped = new Map<string, StickerRow[]>()
 	for (const r of rows) {
-		const key = String(r.fk_univ_exam_bundle_id ?? '0')
+		const key = String(
+			r.fk_univ_exam_scan_bundle_id ?? r.fk_univ_exam_bundle_id ?? '0',
+		)
 		if (!grouped.has(key)) grouped.set(key, [])
 		grouped.get(key)!.push(r)
 	}

@@ -398,12 +398,19 @@ export async function getExamHalltickets(params: {
   // Both "By Student" and "By Section" use this same proc — the page passes the
   // selected filter ids (college/course/group/year/academic-year) for section,
   // or studentId for the single-student lookup.
-  const data = await getAllRecords<any>("s_get_exam_hallticket", payload);
-  const first = data?.result?.[0];
-  if (Array.isArray(first)) return first;
-  if (Array.isArray(data?.result)) return data.result;
-  if (Array.isArray(data)) return data;
-  return [];
+  try {
+    const data = await getAllRecords<any>("s_get_exam_hallticket", payload);
+    const first = data?.result?.[0];
+    if (Array.isArray(first)) return first;
+    if (Array.isArray(data?.result)) return data.result;
+    if (Array.isArray(data)) return data;
+    return [];
+  } catch (error: unknown) {
+    const msg = String((error as { message?: string })?.message ?? "");
+    // Backend returns success:false with "No Records(s) found." when empty
+    if (msg.toLowerCase().includes("no record")) return [];
+    throw error;
+  }
 }
 
 export async function getUnivExamFiltersRegSup(

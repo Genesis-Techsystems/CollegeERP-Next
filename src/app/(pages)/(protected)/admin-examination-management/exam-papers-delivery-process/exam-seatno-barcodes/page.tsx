@@ -12,9 +12,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { ColDef, ICellRendererParams, IHeaderParams } from 'ag-grid-community'
 import { Printer, Trash2 } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
 import { DataTable } from '@/common/components/table'
-import { GlobalFilterBar, GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select, type SelectOption } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -519,116 +519,117 @@ export default function ExamSeatnoBarcodesPage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      <GlobalFilterBar title={PAGE_TITLE} defaultOpen>
-        <GlobalFilterBarRow>
-          <GlobalFilterField label="Academic Year *">
-            <Select
-              options={academicYearOptions}
-              value={form.academicYearId}
-              onChange={onAcademicYearChange}
-              placeholder="Academic Year"
-              disabled={loadingFilters}
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam Group *">
-            <Select
-              options={examGroupOptions}
-              value={form.examGroupId}
-              onChange={onExamGroupChange}
-              placeholder="Exam Group"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam Center *">
-            <Select
-              options={examCenterOptions}
-              value={form.examCenterId}
-              onChange={onExamCenterChange}
-              placeholder="Exam Center"
-              searchable
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam Date *">
-            <Select
-              options={examDateOptions}
-              value={form.examDate}
-              onChange={onExamDateChange}
-              placeholder="Exam Date"
-              searchable
-            />
-          </GlobalFilterField>
-        </GlobalFilterBarRow>
-        <GlobalFilterBarRow>
-          <GlobalFilterField label="Subject *">
-            <Select
-              options={subjectOptions}
-              value={form.subjectId}
-              onChange={onSubjectChange}
-              placeholder="Subject"
-              searchable
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Seat No">
-            <Input
-              type="number"
-              min={0}
-              value={form.ecStdSeatNo}
-              onChange={(e) => {
-                clearListState()
-                setForm((f) => ({ ...f, ecStdSeatNo: e.target.value }))
-              }}
-              className="h-8 text-[12px]"
-              placeholder="Seat No"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label=" " className="global-filter-field--action global-filter-field--shrink">
-            <Button
-              size="sm"
-              onClick={() => void onGetList()}
-              disabled={loadingList}
-              className="h-8 shrink-0 px-3 text-[12px]"
-            >
-              Get List
-            </Button>
-          </GlobalFilterField>
-        </GlobalFilterBarRow>
-      </GlobalFilterBar>
-
-      {hasFetched && barcodeRows.length > 0 && (
-        <div className="app-card overflow-hidden">
-          <div className="px-3 pb-3 pt-2">
-            <div className="overflow-hidden rounded-lg border border-border bg-card">
-              <DataTable
-                rowData={barcodeRows}
-                columnDefs={barcodeColumnDefs}
-                loading={loadingList}
-                pagination
-                paginationPageSize={10}
-                getRowId={getBarcodeRowId}
-                title=""
-                subtitle=""
-                toolbarLeading={<span className="hidden" aria-hidden />}
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search…',
-                  pdfDocumentTitle: PAGE_TITLE,
-                }}
-                toolbarTrailing={
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
-                    onClick={onAddSelected}
-                  >
-                    Add Selected
-                  </Button>
-                }
+    <FilteredPage
+      title={PAGE_TITLE}
+      filters={(
+        <>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Academic Year *">
+              <Select
+                options={academicYearOptions}
+                value={form.academicYearId}
+                onChange={onAcademicYearChange}
+                placeholder="Academic Year"
+                disabled={loadingFilters}
               />
-            </div>
-          </div>
-        </div>
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Group *">
+              <Select
+                options={examGroupOptions}
+                value={form.examGroupId}
+                onChange={onExamGroupChange}
+                placeholder="Exam Group"
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Center *">
+              <Select
+                options={examCenterOptions}
+                value={form.examCenterId}
+                onChange={onExamCenterChange}
+                placeholder="Exam Center"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Exam Date *">
+              <Select
+                options={examDateOptions}
+                value={form.examDate}
+                onChange={onExamDateChange}
+                placeholder="Exam Date"
+                searchable
+              />
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Subject *">
+              <Select
+                options={subjectOptions}
+                value={form.subjectId}
+                onChange={onSubjectChange}
+                placeholder="Subject"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Seat No">
+              <Input
+                type="number"
+                min={0}
+                value={form.ecStdSeatNo}
+                onChange={(e) => {
+                  clearListState()
+                  setForm((f) => ({ ...f, ecStdSeatNo: e.target.value }))
+                }}
+                className="h-8 text-[12px]"
+                placeholder="Seat No"
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label=" " className="global-filter-field--action global-filter-field--shrink">
+              <Button
+                size="sm"
+                onClick={() => void onGetList()}
+                disabled={loadingList}
+                className="h-8 shrink-0 px-3 text-[12px]"
+              >
+                Get List
+              </Button>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+        </>
       )}
-
+      body={
+        hasFetched && barcodeRows.length > 0 ? (
+          <div className="-mx-5 -my-4 overflow-hidden">
+            <DataTable
+              bordered={false}
+              rowData={barcodeRows}
+              columnDefs={barcodeColumnDefs}
+              loading={loadingList}
+              pagination
+              paginationPageSize={10}
+              getRowId={getBarcodeRowId}
+              title=""
+              subtitle=""
+              toolbarLeading={<span className="hidden" aria-hidden />}
+              toolbar={{
+                search: true,
+                searchPlaceholder: 'Search…',
+                pdfDocumentTitle: PAGE_TITLE,
+              }}
+              toolbarTrailing={
+                <Button
+                  type="button"
+                  size="sm"
+                  className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
+                  onClick={onAddSelected}
+                >
+                  Add Selected
+                </Button>
+              }
+            />
+          </div>
+        ) : undefined
+      }
+    >
       {selectedRows.length > 0 && (
         <div className="app-card overflow-hidden">
           <div className="px-3 pb-3 pt-2">
@@ -672,6 +673,6 @@ export default function ExamSeatnoBarcodesPage() {
           </div>
         </div>
       )}
-    </PageContainer>
+    </FilteredPage>
   )
 }

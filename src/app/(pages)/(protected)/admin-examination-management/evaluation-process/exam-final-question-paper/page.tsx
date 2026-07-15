@@ -44,10 +44,19 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
 }
 
 function questionPaperStatusRenderer(p: { value?: string }) {
-  return p.value === 'Approved' ? (
-    <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200">Approved</Badge>
-  ) : (
-    <Badge className="bg-amber-50 text-amber-700 border border-amber-200">Prepared</Badge>
+  const status = (p.value ?? '').trim() || '-'
+  if (status === 'Approved') {
+    return (
+      <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200">{status}</Badge>
+    )
+  }
+  if (status === 'Draft') {
+    return (
+      <Badge className="bg-slate-50 text-slate-700 border border-slate-200">{status}</Badge>
+    )
+  }
+  return (
+    <Badge className="bg-amber-50 text-amber-700 border border-amber-200">{status}</Badge>
   )
 }
 
@@ -259,7 +268,7 @@ export default function ExamFinalQuestionPaperPage() {
         field: 'questionPaperStatus',
         headerName: 'Question Paper Status',
         minWidth: 160,
-        valueGetter: (p) => p.data?.question_status ?? p.data?.questionPaperStatus ?? 'Prepared',
+        valueGetter: (p) => p.data?.question_status ?? p.data?.questionPaperStatus ?? '-',
         cellRenderer: questionPaperStatusRenderer,
       },
     ],
@@ -324,7 +333,15 @@ export default function ExamFinalQuestionPaperPage() {
             <Select
               value={subjectId ? String(subjectId) : null}
               onChange={(v) => setSubjectId(v ? Number(v) : 0)}
-              options={subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id', 'subjectId'])), label: pickText(s, ['subject_code', 'subjectCode', 'subject_name', 'subjectName']) }))}
+              options={subjects.map((s) => {
+                const code = pickText(s, ['subject_code', 'subjectCode'])
+                const name = pickText(s, ['subject_name', 'subjectName'])
+                const label = code && name ? `${code}-${name}` : name || code || '-'
+                return {
+                  value: String(pickNum(s, ['fk_subject_id', 'subjectId'])),
+                  label,
+                }
+              })}
               placeholder="Subject"
             />
           </div>

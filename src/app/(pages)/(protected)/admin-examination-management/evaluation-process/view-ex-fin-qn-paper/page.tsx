@@ -417,7 +417,7 @@ export default function ViewFinalExamQuestionPaperPage() {
   return (
     <FilteredListPage
       title="Publish Exam Question Paper"
-      filters={(
+      filters={
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end text-[13px]">
           <div className="md:col-span-3">
             <Label className="text-[12px] text-muted-foreground">Course</Label>
@@ -435,14 +435,18 @@ export default function ViewFinalExamQuestionPaperPage() {
             />
           </div>
           <div className="md:col-span-3">
-            <Label className="text-[12px] text-muted-foreground">Academic Year</Label>
+            <Label className="text-[12px] text-muted-foreground">
+              Academic Year
+            </Label>
             <Select
               value={academicYearId ? String(academicYearId) : null}
               onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
               options={academicYears.map(
                 (a) =>
                   ({
-                    value: String(pickNum(a, ["fk_academic_year_id", "academicYearId"])),
+                    value: String(
+                      pickNum(a, ["fk_academic_year_id", "academicYearId"]),
+                    ),
                     label: pickText(a, ["academic_year", "academicYear"]),
                   }) as SelectOption,
               )}
@@ -465,12 +469,16 @@ export default function ViewFinalExamQuestionPaperPage() {
             />
           </div>
           <div className="md:col-span-1">
-            <Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>
+            <Button
+              className="h-8 px-3 text-[12px] w-full"
+              onClick={getList}
+              disabled={loading}
+            >
               Get List
             </Button>
           </div>
         </div>
-      )}
+      }
       toolbarLeading={<span />}
       rowData={hasFetched ? rows : []}
       columnDefs={cols}
