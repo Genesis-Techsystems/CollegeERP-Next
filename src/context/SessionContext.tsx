@@ -27,6 +27,9 @@ function syncUserToLocalStorage(user: SessionUser): void {
   const pairs: Array<[string, unknown]> = [
     ['employeeId', user.employeeId],
     ['organizationId', user.organizationId],
+    // Angular login: localStorage.orgCode = organizationCode
+    ['orgCode', user.organizationCode],
+    ['universityCode', user.universityCode],
     ['collegeId', user.collegeId],
     ['academicYearId', user.academicYearId],
     ['userId', user.userId],

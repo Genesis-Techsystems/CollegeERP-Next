@@ -676,50 +676,52 @@ export default function InternalMarksEntryPage() {
   return (
     <FilteredListPage
       title="Internal Marks Entry"
-      notice={hasFetched && checkUploadType === 1 ? (
-        <div className="app-card overflow-hidden border border-[#c3d9ff]">
-          <div className="flex items-start gap-4 p-3">
-            <div className="flex h-20 w-24 items-center justify-center bg-[#c3d9ff] text-slate-700">
-              <GraduationCap className="h-10 w-10" />
-            </div>
-            <div className="space-y-1 text-[13px]">
-              <p className="text-slate-700">
-                {selectedExam?.exam_name ?? '-'}{' '}
-                <span className="text-muted-foreground">
-                  ({String(selectedExam?.from_date ?? '').slice(0, 10)} - {String(selectedExam?.to_date ?? '').slice(0, 10)})
-                </span>{' '}
-                {examDate ? <span className="text-blue-700">({examDate})</span> : null}
-              </p>
-              <p className="text-muted-foreground">
-                / {selectedCollege?.college_code ?? '-'} / {selectedCourse?.course_code ?? '-'} / {selectedGroup?.group_code ?? '-'} /{' '}
-                {selectedYear?.course_year_code ?? '-'} / <span className="text-blue-700">({selectedAcademicYear?.academic_year ?? '-'})</span>
-              </p>
-              <p className="font-semibold text-slate-800">
-                {selectedSubject?.subject_name ?? '-'} ({selectedRegulation?.regulation_code ?? '-'}) -{' '}
-                <span className="text-blue-700">{selectedSubject?.subject_type ?? '-'}</span>{' '}
-                <span>({selectedExam?.is_internal_exam ? 'Internal' : 'Regular'})</span>
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : null}
       filters={(
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-12 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course *</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => { resetAfterCourseChange(); setCourseId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((x) => <SelectItem key={x.fk_course_id} value={String(x.fk_course_id)}>{x.course_code}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => { resetAfterAcademicYearChange(); setAcademicYearId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((x) => <SelectItem key={x.fk_academic_year_id} value={String(x.fk_academic_year_id)}>{x.academic_year}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-8"><Label>Exam *</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => { resetAfterExamChange(); setExamId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((x) => <SelectItem key={x.fk_exam_id} value={String(x.fk_exam_id)}>{x.exam_name}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>College *</Label><Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => { setCourseGroupId(null); setCourseYearId(null); setRegulationId(null); setSubjectTypeId(null); setSubjectId(null); setLabBatchId(0); setSubjectRows([]); setRows([]); setHasFetched(false); setCollegeId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger><SelectContent>{colleges.map((x) => <SelectItem key={x.fk_college_id} value={String(x.fk_college_id)}>{x.college_code}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => { setCourseYearId(null); setRegulationId(null); setSubjectTypeId(null); setSubjectId(null); setLabBatchId(0); setSubjectRows([]); setRows([]); setHasFetched(false); setCourseGroupId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Group" /></SelectTrigger><SelectContent>{courseGroups.map((x) => <SelectItem key={x.fk_course_group_id} value={String(x.fk_course_group_id)}>{x.group_code}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => { setRegulationId(null); setSubjectTypeId(null); setSubjectId(null); setLabBatchId(0); setSubjectRows([]); setRows([]); setHasFetched(false); setCourseYearId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((x) => <SelectItem key={x.fk_course_year_id} value={String(x.fk_course_year_id)}>{x.course_year_code}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => { setSubjectTypeId(null); setSubjectId(null); setLabBatchId(0); setSubjectRows([]); setRows([]); setHasFetched(false); setRegulationId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((x) => <SelectItem key={x.fk_regulation_id} value={String(x.fk_regulation_id)}>{x.regulation_code}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><Select value={subjectTypeId ? String(subjectTypeId) : undefined} onValueChange={(v) => { setSubjectId(null); setLabBatchId(0); setRows([]); setHasFetched(false); setSubjectTypeId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject Type" /></SelectTrigger><SelectContent>{subjectTypes.map((x) => <SelectItem key={x.fk_subjecttype_catdet_id} value={String(x.fk_subjecttype_catdet_id)}>{x.subject_type}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => { setLabBatchId(0); setRows([]); setHasFetched(false); setSubjectId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.map((x) => <SelectItem key={x.fk_subject_id} value={String(x.fk_subject_id)}>{x.subject_name} ({x.subject_code})</SelectItem>)}</SelectContent></Select></div>
-          {labBatches.length > 0 && (
-            <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><Select value={String(labBatchId)} onValueChange={(v) => setLabBatchId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent><SelectItem value="0">All</SelectItem>{labBatches.map((x) => <SelectItem key={x.fk_exam_labbatch_id} value={String(x.fk_exam_labbatch_id)}>{x.labbatch_name}</SelectItem>)}</SelectContent></Select></div>
-          )}
-          <div className="space-y-1 md:col-span-2"><Label>Employee</Label><Input className="h-8 text-[12px]" value={employeeDisplay} readOnly /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
-          <div className="md:col-span-2"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loading}>{loading ? 'Loading...' : 'Get List'}</Button></div>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-12 items-end">
+            <div className="space-y-1 md:col-span-2"><Label>Course *</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => { resetAfterCourseChange(); setCourseId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((x) => <SelectItem key={x.fk_course_id} value={String(x.fk_course_id)}>{x.course_code}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => { resetAfterAcademicYearChange(); setAcademicYearId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((x) => <SelectItem key={x.fk_academic_year_id} value={String(x.fk_academic_year_id)}>{x.academic_year}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1 md:col-span-8"><Label>Exam *</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => { resetAfterExamChange(); setExamId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((x) => <SelectItem key={x.fk_exam_id} value={String(x.fk_exam_id)}>{x.exam_name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1 md:col-span-2"><Label>College *</Label><Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => { setCourseGroupId(null); setCourseYearId(null); setRegulationId(null); setSubjectTypeId(null); setSubjectId(null); setLabBatchId(0); setSubjectRows([]); setRows([]); setHasFetched(false); setCollegeId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger><SelectContent>{colleges.map((x) => <SelectItem key={x.fk_college_id} value={String(x.fk_college_id)}>{x.college_code}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => { setCourseYearId(null); setRegulationId(null); setSubjectTypeId(null); setSubjectId(null); setLabBatchId(0); setSubjectRows([]); setRows([]); setHasFetched(false); setCourseGroupId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Group" /></SelectTrigger><SelectContent>{courseGroups.map((x) => <SelectItem key={x.fk_course_group_id} value={String(x.fk_course_group_id)}>{x.group_code}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => { setRegulationId(null); setSubjectTypeId(null); setSubjectId(null); setLabBatchId(0); setSubjectRows([]); setRows([]); setHasFetched(false); setCourseYearId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((x) => <SelectItem key={x.fk_course_year_id} value={String(x.fk_course_year_id)}>{x.course_year_code}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => { setSubjectTypeId(null); setSubjectId(null); setLabBatchId(0); setSubjectRows([]); setRows([]); setHasFetched(false); setRegulationId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((x) => <SelectItem key={x.fk_regulation_id} value={String(x.fk_regulation_id)}>{x.regulation_code}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><Select value={subjectTypeId ? String(subjectTypeId) : undefined} onValueChange={(v) => { setSubjectId(null); setLabBatchId(0); setRows([]); setHasFetched(false); setSubjectTypeId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject Type" /></SelectTrigger><SelectContent>{subjectTypes.map((x) => <SelectItem key={x.fk_subjecttype_catdet_id} value={String(x.fk_subjecttype_catdet_id)}>{x.subject_type}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1 md:col-span-2"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => { setLabBatchId(0); setRows([]); setHasFetched(false); setSubjectId(Number(v)) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.map((x) => <SelectItem key={x.fk_subject_id} value={String(x.fk_subject_id)}>{x.subject_name} ({x.subject_code})</SelectItem>)}</SelectContent></Select></div>
+            {labBatches.length > 0 && (
+              <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><Select value={String(labBatchId)} onValueChange={(v) => setLabBatchId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent><SelectItem value="0">All</SelectItem>{labBatches.map((x) => <SelectItem key={x.fk_exam_labbatch_id} value={String(x.fk_exam_labbatch_id)}>{x.labbatch_name}</SelectItem>)}</SelectContent></Select></div>
+            )}
+            <div className="space-y-1 md:col-span-2"><Label>Employee</Label><Input className="h-8 text-[12px]" value={employeeDisplay} readOnly /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
+            <div className="md:col-span-2"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loading}>{loading ? 'Loading...' : 'Get List'}</Button></div>
+          </div>
+          {hasFetched && checkUploadType === 1 ? (
+            <div className="overflow-hidden rounded-md border border-[#c3d9ff]">
+              <div className="flex items-start gap-4 p-3">
+                <div className="flex h-20 w-24 shrink-0 items-center justify-center bg-[#c3d9ff] text-slate-700">
+                  <GraduationCap className="h-10 w-10" />
+                </div>
+                <div className="space-y-1 text-[13px]">
+                  <p className="text-slate-700">
+                    {selectedExam?.exam_name ?? '-'}{' '}
+                    <span className="text-muted-foreground">
+                      ({String(selectedExam?.from_date ?? '').slice(0, 10)} - {String(selectedExam?.to_date ?? '').slice(0, 10)})
+                    </span>{' '}
+                    {examDate ? <span className="text-blue-700">({examDate})</span> : null}
+                  </p>
+                  <p className="text-muted-foreground">
+                    / {selectedCollege?.college_code ?? '-'} / {selectedCourse?.course_code ?? '-'} / {selectedGroup?.group_code ?? '-'} /{' '}
+                    {selectedYear?.course_year_code ?? '-'} / <span className="text-blue-700">({selectedAcademicYear?.academic_year ?? '-'})</span>
+                  </p>
+                  <p className="font-semibold text-slate-800">
+                    {selectedSubject?.subject_name ?? '-'} ({selectedRegulation?.regulation_code ?? '-'}) -{' '}
+                    <span className="text-blue-700">{selectedSubject?.subject_type ?? '-'}</span>{' '}
+                    <span>({selectedExam?.is_internal_exam ? 'Internal' : 'Regular'})</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
       rowData={hasFetched ? rows : []}

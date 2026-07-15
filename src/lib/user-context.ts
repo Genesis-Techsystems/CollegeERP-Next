@@ -63,6 +63,9 @@ export function syncSessionUserToStorage(user: SessionUser): void {
   if (employeeId > 0) storage.setItem('employeeId', String(employeeId))
   const orgId = resolveOrganizationId(user)
   if (orgId > 0) storage.setItem('organizationId', String(orgId))
+  // Angular login.component: localStorage.orgCode = organizationCode
+  if (user.organizationCode) storage.setItem('orgCode', user.organizationCode)
+  if (user.universityCode) storage.setItem('universityCode', user.universityCode)
   if (user.academicYearId) storage.setItem('academicYearId', String(user.academicYearId))
   if (user.collegeId) storage.setItem('collegeId', String(user.collegeId))
   if (user.universityId) storage.setItem('universityId', String(user.universityId))

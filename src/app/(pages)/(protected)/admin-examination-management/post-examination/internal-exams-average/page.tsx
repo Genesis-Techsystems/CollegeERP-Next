@@ -143,8 +143,6 @@ export default function InternalExamsAveragePage() {
   const [regulationCode, setRegulationCode] = useState('')
   const [internalType, setInternalType] = useState('')
 
-  const [selectedData, setSelectedData] = useState('')
-  const [tempV, setTempV] = useState('')
   const [finalInternalMarks, setFinalInternalMarks] = useState<AnyRow[]>([])
   const [midExamMarks, setMidExamMarks] = useState<AnyRow[]>([])
   const [keys, setKeys] = useState<Array<{ subject_code: string; subject_name: string }>>([])
@@ -326,20 +324,6 @@ export default function InternalExamsAveragePage() {
       setExamNames(matrix.examNameList)
       setKeys(matrix.subjects)
       setMidExamMarks(matrix.students)
-
-      const c = colleges.find((x) => numFrom(x, ['collegeId', 'fk_college_id']) === collegeId)
-      const ay = years.find((x) => numFrom(x, ['academicYearId', 'fk_academic_year_id']) === academicYearId)
-      const co = courses.find((x) => numFrom(x, ['courseId', 'fk_course_id']) === courseId)
-      const cg = groups.find((x) => numFrom(x, ['courseGroupId', 'fk_course_group_id']) === courseGroupId)
-      const cy = courseYears.find((x) => numFrom(x, ['courseYearId', 'fk_course_year_id']) === courseYearId)
-      setSelectedData(
-        [strFrom(c ?? {}, ['collegeCode', 'college_code']), strFrom(ay ?? {}, ['academicYear', 'academic_year']), strFrom(co ?? {}, ['courseCode', 'course_code']), strFrom(cg ?? {}, ['groupCode', 'group_code']), strFrom(cy ?? {}, ['courseYearName', 'course_year_code'])].filter(Boolean).join(' / '),
-      )
-      setTempV(
-        selectedExams
-          .map((e) => `${strFrom(e, ['examName', 'exam_name'])} (${dateShort(strFrom(e, ['examFromDate', 'from_date']))} - ${dateShort(strFrom(e, ['examToDate', 'to_date']))})`)
-          .join(' && '),
-      )
     } catch (e) {
       toastError(e, 'Failed to fetch list')
     } finally {
@@ -420,11 +404,6 @@ export default function InternalExamsAveragePage() {
         <>
           {!examIntMarkTypeId && flag && <p className="text-[13px] font-semibold text-red-600 px-1">Note: Exam internal marks type is not updated in regulation master.</p>}
           {!!examIntMarkTypeId && flag && <p className="text-[13px] font-semibold text-red-600 px-1">Note: For Regulation {regulationCode || '-'} the Exam internal marks type is {internalType || '-'}.</p>}
-          {midExamMarks.length > 0 && (
-            <div className="app-card p-3 border-t-[7px] border-t-slate-100">
-              <div className="text-[14px] font-semibold">{selectedData} <span className="text-muted-foreground font-normal">({tempV})</span></div>
-            </div>
-          )}
         </>
       )}
       filters={(
