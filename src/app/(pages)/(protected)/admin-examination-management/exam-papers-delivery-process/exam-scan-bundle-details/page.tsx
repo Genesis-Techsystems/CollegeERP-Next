@@ -8,18 +8,15 @@ import { Button } from '@/components/ui/button'
 import { toastError } from '@/lib/toast'
 import {
   getExamCenterByCodeRows,
-  listAllActiveExamScanBundles,
-  listAllActiveUnivEcProfiles,
+  listExamScanBundlesBySubjectFilters,
+  pickExamScanBundleId,
+  pickExamScanBundleLabel,
   type AnyRow,
 } from '@/services/exam-papers-delivery'
 import { getUnivExamFiltersRegSup } from '@/services/pre-examination'
 
 type Row = AnyRow
 
-function num(v: unknown): number {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : 0
-}
 function txt(v: unknown): string {
   if (typeof v === 'string') return v
   if (typeof v === 'number' || typeof v === 'boolean') return String(v)
@@ -45,7 +42,16 @@ function pickAcademicYearKey(row: Row): string {
 }
 
 function pickExamGroupKey(row: Row): string {
-  return String(row.fk_exam_group_id ?? row.examGroupId ?? row.exam_group_id ?? row.fk_exam_id ?? row.examId ?? '').trim()
+  return String(
+    row.fk_univ_exam_group_id ??
+      row.univExamGroupId ??
+      row.fk_exam_group_id ??
+      row.examGroupId ??
+      row.exam_group_id ??
+      row.fk_exam_id ??
+      row.examId ??
+      '',
+  ).trim()
 }
 
 function pickCourseKey(row: Row): string {
@@ -67,11 +73,11 @@ function pickSubjectKey(row: Row): string {
 export default function ExamScanBundleDetailsPage() {
   const [captureMode, setCaptureMode] = useState<'manual' | 'auto'>('manual')
   const [loading, setLoading] = useState(false)
+  const [bundlesLoading, setBundlesLoading] = useState(false)
   const [employeeId, setEmployeeId] = useState(0)
 
   const [topRows, setTopRows] = useState<Row[]>([])
   const [scanFilterRows, setScanFilterRows] = useState<Row[]>([])
-  const [scanProfiles, setScanProfiles] = useState<Row[]>([])
   const [bundles, setBundles] = useState<Row[]>([])
 
   const [form, setForm] = useState({
@@ -123,14 +129,19 @@ export default function ExamScanBundleDetailsPage() {
     [scanFilterRows, form.courseId, form.courseYearId, form.regulationId],
   )
 
-  const bundleOptions: SelectOption[] = useMemo(
-    () =>
-      bundles.map((b) => ({
-        value: String(num(b.examScanBundleId ?? b.scanBundleId)),
-        label: txt(b.bundleNumber ?? b.scanBundleNumber),
-      })),
-    [bundles],
-  )
+  const bundleOptions: SelectOption[] = useMemo(() => {
+    const seen = new Set<string>()
+    const out: SelectOption[] = []
+    for (const b of bundles) {
+      const id = pickExamScanBundleId(b)
+      if (!id) continue
+      const value = String(id)
+      if (seen.has(value)) continue
+      seen.add(value)
+      out.push({ value, label: pickExamScanBundleLabel(b) || value })
+    }
+    return out
+  }, [bundles])
 
   useEffect(() => {
     setEmployeeId(Number(globalThis?.localStorage?.getItem('employeeId') ?? 0))
@@ -143,10 +154,6 @@ export default function ExamScanBundleDetailsPage() {
       try {
         const top = await getUnivExamFiltersRegSup(employeeId).catch(() => [])
         setTopRows(Array.isArray(top) ? top : [])
-        const profiles = await listAllActiveUnivEcProfiles().catch(() => [])
-        setScanProfiles(Array.isArray(profiles) ? profiles : [])
-        const bundleRows = await listAllActiveExamScanBundles().catch(() => [])
-        setBundles(Array.isArray(bundleRows) ? bundleRows : [])
       } finally {
         setLoading(false)
       }
@@ -183,6 +190,7 @@ export default function ExamScanBundleDetailsPage() {
         universityId: 0,
       }).catch(() => [])
       setScanFilterRows(Array.isArray(rows) ? rows : [])
+      setBundles([])
       setForm((f) => ({ ...f, courseId: '', courseYearId: '', regulationId: '', subjectId: '', examScanBundleId: '' }))
     }
     void loadScanFilters()
@@ -207,6 +215,41 @@ export default function ExamScanBundleDetailsPage() {
     if (!subjects.length) return
     setForm((f) => ({ ...f, subjectId: f.subjectId || pickSubjectKey(subjects[0]) }))
   }, [subjects])
+
+  // Angular `selectedSubject` — load bundles for exam group + course year + regulation + subject
+  useEffect(() => {
+    async function loadBundles() {
+      const examGroupId = Number(form.examGroupId)
+      const courseYearId = Number(form.courseYearId)
+      const regulationId = Number(form.regulationId)
+      const subjectId = Number(form.subjectId)
+      if (!examGroupId || !courseYearId || !regulationId || !subjectId) {
+        setBundles([])
+        setForm((f) => (f.examScanBundleId ? { ...f, examScanBundleId: '' } : f))
+        return
+      }
+      setBundlesLoading(true)
+      try {
+        const rows = await listExamScanBundlesBySubjectFilters({
+          examGroupId,
+          courseYearId,
+          regulationId,
+          subjectId,
+        }).catch(() => [])
+        const list = Array.isArray(rows) ? rows : []
+        setBundles(list)
+        setForm((f) => {
+          const stillValid = list.some((b) => String(pickExamScanBundleId(b)) === f.examScanBundleId)
+          if (stillValid) return f
+          const first = list[0] ? String(pickExamScanBundleId(list[0])) : ''
+          return { ...f, examScanBundleId: first && first !== '0' ? first : '' }
+        })
+      } finally {
+        setBundlesLoading(false)
+      }
+    }
+    void loadBundles()
+  }, [form.examGroupId, form.courseYearId, form.regulationId, form.subjectId])
 
   function onGetDetails() {
     if (!form.examScanBundleId) {
@@ -246,7 +289,14 @@ export default function ExamScanBundleDetailsPage() {
               <Select
                 options={examGroups.map((r) => ({
                   value: pickExamGroupKey(r),
-                  label: txt(r.exam_name ?? r.examName ?? r.examGroupName ?? pickExamGroupKey(r)),
+                  label: txt(
+                    r.exam_group_code ??
+                      r.examGroupCode ??
+                      r.exam_name ??
+                      r.examName ??
+                      r.examGroupName ??
+                      pickExamGroupKey(r),
+                  ),
                 }))}
                 value={form.examGroupId}
                 onChange={(v) => setForm((f) => ({ ...f, examGroupId: v ?? '' }))}
@@ -259,7 +309,16 @@ export default function ExamScanBundleDetailsPage() {
                   label: txt(r.course_code ?? r.courseCode),
                 }))}
                 value={form.courseId}
-                onChange={(v) => setForm((f) => ({ ...f, courseId: v ?? '' }))}
+                onChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    courseId: v ?? '',
+                    courseYearId: '',
+                    regulationId: '',
+                    subjectId: '',
+                    examScanBundleId: '',
+                  }))
+                }
               />
             </GlobalFilterField>
             <GlobalFilterField label="Course Years">
@@ -269,7 +328,15 @@ export default function ExamScanBundleDetailsPage() {
                   label: txt(r.course_year_code ?? r.courseYearCode),
                 }))}
                 value={form.courseYearId}
-                onChange={(v) => setForm((f) => ({ ...f, courseYearId: v ?? '' }))}
+                onChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    courseYearId: v ?? '',
+                    regulationId: '',
+                    subjectId: '',
+                    examScanBundleId: '',
+                  }))
+                }
               />
             </GlobalFilterField>
             <GlobalFilterField label="Regulation">
@@ -279,7 +346,9 @@ export default function ExamScanBundleDetailsPage() {
                   label: txt(r.regulation_code ?? r.regulationCode ?? r.regulation_name),
                 }))}
                 value={form.regulationId}
-                onChange={(v) => setForm((f) => ({ ...f, regulationId: v ?? '' }))}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, regulationId: v ?? '', subjectId: '', examScanBundleId: '' }))
+                }
               />
             </GlobalFilterField>
             <GlobalFilterField label="Subjects">
@@ -289,7 +358,7 @@ export default function ExamScanBundleDetailsPage() {
                   label: `${txt(r.subject_name ?? r.subjectName)} (${txt(r.subject_code ?? r.subjectCode)})`,
                 }))}
                 value={form.subjectId}
-                onChange={(v) => setForm((f) => ({ ...f, subjectId: v ?? '' }))}
+                onChange={(v) => setForm((f) => ({ ...f, subjectId: v ?? '', examScanBundleId: '' }))}
               />
             </GlobalFilterField>
             <GlobalFilterField label="Exam Scan Bundle">
@@ -297,10 +366,14 @@ export default function ExamScanBundleDetailsPage() {
                 options={bundleOptions}
                 value={form.examScanBundleId}
                 onChange={(v) => setForm((f) => ({ ...f, examScanBundleId: v ?? '' }))}
+                isLoading={bundlesLoading}
+                searchable={bundleOptions.length > 8}
               />
             </GlobalFilterField>
             <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
-              <Button type="button" onClick={onGetDetails} disabled={loading}>Get Details</Button>
+              <Button type="button" onClick={onGetDetails} disabled={loading || bundlesLoading}>
+                Get Details
+              </Button>
             </GlobalFilterField>
           </GlobalFilterBarRow>
         </>
@@ -308,4 +381,3 @@ export default function ExamScanBundleDetailsPage() {
     />
   )
 }
-

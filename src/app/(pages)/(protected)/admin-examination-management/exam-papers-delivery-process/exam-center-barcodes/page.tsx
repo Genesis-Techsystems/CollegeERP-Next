@@ -1,408 +1,556 @@
 'use client'
 
+/**
+ * Exam Center Barcodes — React port of Angular
+ * `exam-papers-delivery-process/exam-center-barcodes`.
+ *
+ * Cascade:
+ *  1. eg_filters → eg_ay_filter (AY + exam groups) + ec_filter (centers)
+ *  2. eg_cg_cy_sub_filter → course group / year / subject
+ *  3. Get Students → s_get_exam_center_details flag exam_center_students
+ */
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { ColDef } from 'ag-grid-community'
+import { FilteredListPage } from '@/components/layout'
+import { Select, type SelectOption } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { toastError } from '@/lib/toast'
+import { toast } from 'sonner'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  generateBarcodesForExamStudents,
-  getExamOmrStudents,
-  getUnivExamFiltersRegSup,
-  getUnivExamRestNoTtBundle,
-  getUnivExamSubjectUc,
-} from '@/services/pre-examination'
-import { listUnivExamCentersByUniversity, listUniversitiesForExamGroup } from '@/services/exam-papers-delivery'
-import { ChevronDown, Filter } from 'lucide-react'
-import { FilteredListPage } from '@/components/layout'
-import type { ColDef } from 'ag-grid-community'
+  getExamCenterFilterGroups,
+  getUnivEcStudentsByCodeGroups,
+  listExamCenterBarcodeStudents,
+  type AnyRow,
+} from '@/services/exam-papers-delivery'
 
-type AnyRow = Record<string, any>
+type Row = AnyRow
 
-const BARCODE_COL_ORDER = ['siNo', 'student', 'barcodeNo', 'subject'] as const
-type BarcodeColKey = (typeof BARCODE_COL_ORDER)[number]
+/** Angular supports `0` = All for course group / year / subject. */
+const ALL = '0'
 
-const BARCODE_COL_DEFS: Record<BarcodeColKey, ColDef<AnyRow>> = {
+function num(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
+function txt(v: unknown): string {
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  return ''
+}
+
+function dedupeBy<T>(rows: T[], keyFn: (r: T) => number): T[] {
+  const seen = new Set<number>()
+  const out: T[] = []
+  for (const r of rows) {
+    const k = keyFn(r)
+    if (!k || seen.has(k)) continue
+    seen.add(k)
+    out.push(r)
+  }
+  return out
+}
+
+interface FormState {
+  academicYearId: string
+  examGroupId: string
+  univExamcenterId: string
+  courseGroupId: string
+  courseYearId: string
+  subjectId: string
+}
+
+const EMPTY_FORM: FormState = {
+  academicYearId: '',
+  examGroupId: '',
+  univExamcenterId: '',
+  courseGroupId: ALL,
+  courseYearId: ALL,
+  subjectId: ALL,
+}
+
+const COL_DEFS = {
   siNo: {
-    colId: 'siNo',
     headerName: 'S.No',
     valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
     width: 80,
     minWidth: 70,
     flex: 0,
-  },
+  } as ColDef<Row>,
   student: {
-    colId: 'student',
     headerName: 'Student',
     minWidth: 200,
     flex: 1,
     valueGetter: (p) => {
       const r = p.data
       if (!r) return '—'
-      const name = r.student_name ?? '—'
-      const ht = r.hallticket_number ?? '-'
-      return `${name} (${ht})`
+      const name = txt(r.student_name ?? r.studentName ?? r.std_first_name)
+      const ht = txt(r.hallticket_number ?? r.hallticketNumber ?? r.hall_ticket_number)
+      if (name && ht) return `${name} (${ht})`
+      return name || ht || '—'
     },
-  },
+  } as ColDef<Row>,
   barcodeNo: {
-    colId: 'barcodeNo',
     headerName: 'Barcode No',
     minWidth: 140,
     flex: 0,
-    valueGetter: (p) => p.data?.omr_serial_no ?? '—',
-  },
+    valueGetter: (p) =>
+      txt(p.data?.omr_serial_no ?? p.data?.omrSerialNo ?? p.data?.barcodeNo ?? p.data?.seat_no) || '—',
+  } as ColDef<Row>,
   subject: {
-    colId: 'subject',
     headerName: 'Subject',
     minWidth: 220,
     flex: 1,
     valueGetter: (p) => {
       const r = p.data
       if (!r) return '—'
-      const sn = r.subject_name ?? '-'
-      const sc = r.subject_code ?? '-'
-      return `${sn} (${sc})`
+      const sn = txt(r.subject_name ?? r.subjectName)
+      const sc = txt(r.subject_code ?? r.subjectCode)
+      if (sn && sc) return `${sn} (${sc})`
+      return sn || sc || '—'
     },
-  },
+  } as ColDef<Row>,
 }
-
-const REG_ID_KEYS = [
-  'fk_regulation_id',
-  'regulationId',
-  'fk_regulationId',
-  'regulation_id',
-  'regulationCatId',
-  'fk_regulation_cat_id',
-  'regulation.regulationId',
-  'Regulation.regulationId',
-]
-const REG_TEXT_KEYS = [
-  'regulation_code',
-  'regulationCode',
-  'regulation_name',
-  'regulationName',
-  'regulation',
-  'regulation.regulationCode',
-  'Regulation.regulationCode',
-  'regulation.regulationName',
-  'Regulation.regulationName',
-]
-const SUBJECT_ID_KEYS = ['fk_subject_id', 'subjectId', 'fk_subjectId', 'subject_id']
-
-const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
-  const seen = new Set<string | number>()
-  return rows.filter((r) => {
-    const key = keyFn(r)
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
-
-const getByPath = (obj: AnyRow | null | undefined, path: string): any => {
-  if (!obj) return undefined
-  if (Object.prototype.hasOwnProperty.call(obj, path)) return obj[path]
-  const parts = path.split('.')
-  let cur: any = obj
-  for (const p of parts) {
-    if (cur == null || typeof cur !== 'object' || !(p in cur)) return undefined
-    cur = cur[p]
-  }
-  return cur
-}
-
-const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return 0
-  for (const key of keys) {
-    const v = Number(getByPath(row, key))
-    if (v > 0) return v
-  }
-  return 0
-}
-
-const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return ''
-  for (const key of keys) {
-    const v = getByPath(row, key)
-    if (v != null && String(v).trim() !== '') return String(v)
-  }
-  return ''
-}
-
-const regSyntheticId = (row: AnyRow | null | undefined) => {
-  const txt = pickText(row, REG_TEXT_KEYS).trim().toLowerCase()
-  if (!txt) return 0
-  let h = 0
-  for (let i = 0; i < txt.length; i++) h = (h * 31 + txt.charCodeAt(i)) >>> 0
-  return h > 0 ? h : 0
-}
-const pickRegValue = (row: AnyRow | null | undefined) => pickNum(row, REG_ID_KEYS) || regSyntheticId(row)
-const pickBackendRegId = (row: AnyRow | null | undefined) => pickNum(row, REG_ID_KEYS)
 
 export default function ExamCenterBarcodesPage() {
-  const [isMounted, setIsMounted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loadingFilters, setLoadingFilters] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
-  const [rows, setRows] = useState<AnyRow[]>([])
-  const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
-  const [baseRows, setBaseRows] = useState<AnyRow[]>([])
-  const [restRows, setRestRows] = useState<AnyRow[]>([])
-  const [regulationRows, setRegulationRows] = useState<AnyRow[]>([])
 
-  const [courseId, setCourseId] = useState<number | null>(null)
-  const [academicYearId, setAcademicYearId] = useState<number | null>(null)
-  const [examId, setExamId] = useState<number | null>(null)
-  const [collegeId, setCollegeId] = useState<number | null>(null)
-  const [examCenterId, setExamCenterId] = useState<number | null>(null)
-  const [examCenters, setExamCenters] = useState<AnyRow[]>([])
-  const [courseGroupId, setCourseGroupId] = useState<number | null>(null)
-  const [courseYearId, setCourseYearId] = useState<number | null>(null)
-  const [regulationId, setRegulationId] = useState<number | null>(null)
-  const [selectedBackendRegulationId, setSelectedBackendRegulationId] = useState<number>(0)
-  const [subjectId, setSubjectId] = useState<number | null>(null)
-  const [employeeId, setEmployeeId] = useState(0)
+  const [ayFilterRows, setAyFilterRows] = useState<Row[]>([])
+  const [ecFilterRows, setEcFilterRows] = useState<Row[]>([])
+  const [cgCySubRows, setCgCySubRows] = useState<Row[]>([])
+  const [rows, setRows] = useState<Row[]>([])
+  const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
-  const courses = useMemo(
-    () => dedupeBy(baseRows, (r) => pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId'])).filter((r) => pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']) > 0),
-    [baseRows],
-  )
-  const academicYears = useMemo(
-    () =>
-      dedupeBy(
-        baseRows.filter((r) => pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']) === Number(courseId)),
-        (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']),
-      ),
-    [baseRows, courseId],
-  )
-  const exams = useMemo(
-    () =>
-      dedupeBy(
-        baseRows.filter(
-          (r) =>
-            pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']) === Number(courseId) &&
-            pickNum(r, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']) === Number(academicYearId),
-        ),
-        (r) => pickNum(r, ['fk_exam_id', 'examId', 'fk_examId']),
-      ),
-    [baseRows, courseId, academicYearId],
-  )
-  const groups = useMemo(
-    () => dedupeBy(restRows, (r) => pickNum(r, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId'])),
-    [restRows],
-  )
-  const years = useMemo(
-    () =>
-      dedupeBy(
-        restRows.filter(
-          (r) =>
-            pickNum(r, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']) === Number(courseGroupId),
-        ),
-        (r) => pickNum(r, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']),
-      ),
-    [restRows, courseGroupId],
-  )
-  const regulations = useMemo(
-    () =>
-      dedupeBy([...restRows, ...regulationRows].filter((r) => pickRegValue(r) > 0), (r) => pickRegValue(r)),
-    [restRows, regulationRows],
-  )
-  const regulationBackendIdMap = useMemo(() => {
-    const map = new Map<number, number>()
-    for (const r of regulations) map.set(pickRegValue(r), pickBackendRegId(r))
-    return map
-  }, [regulations])
-  const subjects = useMemo(() => dedupeBy(subjectRows, (r) => pickNum(r, SUBJECT_ID_KEYS)), [subjectRows])
-
-  async function onExamLoad(cid: number, ayid: number, eid: number) {
-    const bundle = await getUnivExamRestNoTtBundle({
-      courseId: cid,
-      examId: eid,
-      academicYearId: ayid,
-      employeeId,
-    }).catch(() => ({ restFilters: [], regulations: [] }))
-    const rest = Array.isArray(bundle?.restFilters) ? bundle.restFilters : []
-    const regsFromFlag = Array.isArray(bundle?.regulations) ? bundle.regulations : []
-    setRestRows(rest)
-    const regs = dedupeBy([...regsFromFlag, ...rest].filter((r) => pickRegValue(r) > 0), (r) => pickRegValue(r))
-    setRegulationRows(regs)
-    if (regs[0]) setRegulationId(pickRegValue(regs[0]))
-    const clg = dedupeBy(rest, (r) => pickNum(r, ['fk_college_id', 'collegeId', 'fk_collegeId']))[0]
-    if (clg) setCollegeId(pickNum(clg, ['fk_college_id', 'collegeId', 'fk_collegeId']))
-  }
-
-  async function loadSubjects(targetRegulationId?: number | null) {
-    if (!collegeId || !courseId || !courseGroupId || !courseYearId || !examId || !academicYearId) return
-    const uiRegId = Number(targetRegulationId ?? regulationId ?? 0)
-    const mappedBackendId = regulationBackendIdMap.get(uiRegId) ?? 0
-    const selectedReg = regulations.find((r) => pickRegValue(r) === uiRegId)
-    const regId = Number(mappedBackendId || pickNum(selectedReg, REG_ID_KEYS) || selectedBackendRegulationId || 0)
-    const list = await getUnivExamSubjectUc({
-      collegeId,
-      courseId,
-      courseGroupId,
-      courseYearId,
-      examId,
-      academicYearId,
-      regulationId: regId,
-      employeeId,
-    }).catch(() => [])
-    setSubjectRows(Array.isArray(list) ? list : [])
-    const first = Array.isArray(list) ? list[0] : null
-    if (first) setSubjectId(pickNum(first, SUBJECT_ID_KEYS))
-  }
-
-  async function init() {
-    setLoading(true)
-    try {
-      const filters = await getUnivExamFiltersRegSup(employeeId).catch(() => [])
-      setBaseRows(Array.isArray(filters) ? filters : [])
-      const c = dedupeBy(filters, (r) => pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']))[0]
-      if (!c) return
-      const cid = pickNum(c, ['fk_course_id', 'courseId', 'fk_courseId'])
-      setCourseId(cid)
-      const ay = dedupeBy(
-        filters.filter((r) => pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']) === cid),
-        (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']),
-      )[0]
-      if (!ay) return
-      const ayid = pickNum(ay, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId'])
-      setAcademicYearId(ayid)
-      const ex = dedupeBy(
-        filters.filter(
-          (r) =>
-            pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']) === cid &&
-            pickNum(r, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']) === ayid,
-        ),
-        (r) => pickNum(r, ['fk_exam_id', 'examId', 'fk_examId']),
-      )[0]
-      if (!ex) return
-      const eid = pickNum(ex, ['fk_exam_id', 'examId', 'fk_examId'])
-      setExamId(eid)
-      await onExamLoad(cid, ayid, eid)
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // ── Angular getExamCenters(): eg_filters → eg_ay_filter + ec_filter ──
   useEffect(() => {
-    setIsMounted(true)
-    const id = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
-    setEmployeeId(Number.isFinite(id) ? id : 0)
+    async function init() {
+      setLoadingFilters(true)
+      try {
+        const groups = await getExamCenterFilterGroups({
+          flag: 'eg_filters',
+          flagType: 'REGSUP',
+        })
+        const ay =
+          groups.find((g) => g.length > 0 && txt(g[0].flag) === 'eg_ay_filter') ?? []
+        const ec =
+          groups.find((g) => g.length > 0 && txt(g[0].flag) === 'ec_filter') ??
+          groups.find((g) => g.length > 0 && num(g[0].fk_univ_ec_id) > 0) ??
+          []
+        setAyFilterRows(ay)
+        setEcFilterRows(ec)
+        const years = dedupeBy(ay, (r) => num(r.fk_academic_year_id))
+        if (years[0]) {
+          setForm({
+            ...EMPTY_FORM,
+            academicYearId: String(num(years[0].fk_academic_year_id)),
+          })
+        }
+      } catch (e) {
+        toastError(e, 'Failed to load filters')
+      } finally {
+        setLoadingFilters(false)
+      }
+    }
+    void init()
   }, [])
 
-  useEffect(() => {
-    if (!isMounted) return
-    void init()
-  }, [isMounted, employeeId])
+  const academicYears = useMemo(
+    () => dedupeBy(ayFilterRows, (r) => num(r.fk_academic_year_id)),
+    [ayFilterRows],
+  )
 
+  const examGroups = useMemo(
+    () =>
+      dedupeBy(
+        ayFilterRows.filter(
+          (r) => num(r.fk_academic_year_id) === Number(form.academicYearId),
+        ),
+        (r) => num(r.fk_univ_exam_group_id),
+      ),
+    [ayFilterRows, form.academicYearId],
+  )
+
+  // Angular selectedExamGroup: centers for university of selected AY
+  const examCenters = useMemo(() => {
+    const ayRow = ayFilterRows.find(
+      (r) => num(r.fk_academic_year_id) === Number(form.academicYearId),
+    )
+    const universityId = num(ayRow?.fk_university_id ?? ayRow?.universityId)
+    const filtered = universityId
+      ? ecFilterRows.filter((r) => num(r.fk_university_id ?? r.universityId) === universityId)
+      : ecFilterRows
+    return dedupeBy(filtered, (r) => num(r.fk_univ_ec_id ?? r.univExamcenterId ?? r.univ_examcenter_id))
+  }, [ayFilterRows, ecFilterRows, form.academicYearId])
+
+  const courseGroups = useMemo(
+    () => dedupeBy(cgCySubRows, (r) => num(r.fk_course_group_id)),
+    [cgCySubRows],
+  )
+
+  const courseYears = useMemo(() => {
+    const gid = Number(form.courseGroupId)
+    const source =
+      gid === 0
+        ? cgCySubRows
+        : cgCySubRows.filter((r) => num(r.fk_course_group_id) === gid)
+    return dedupeBy(source, (r) => num(r.fk_course_year_id))
+  }, [cgCySubRows, form.courseGroupId])
+
+  const subjects = useMemo(() => {
+    const gid = Number(form.courseGroupId)
+    const yid = Number(form.courseYearId)
+    const source = cgCySubRows.filter(
+      (r) =>
+        (gid === 0 || num(r.fk_course_group_id) === gid) &&
+        (yid === 0 || num(r.fk_course_year_id) === yid),
+    )
+    return dedupeBy(source, (r) => num(r.fk_subject_id))
+  }, [cgCySubRows, form.courseGroupId, form.courseYearId])
+
+  const academicYearOptions: SelectOption[] = useMemo(
+    () =>
+      academicYears.map((r) => ({
+        value: String(num(r.fk_academic_year_id)),
+        label: txt(r.academic_year ?? r.academicYear) || String(num(r.fk_academic_year_id)),
+      })),
+    [academicYears],
+  )
+
+  const examGroupOptions: SelectOption[] = useMemo(
+    () =>
+      examGroups.map((r) => ({
+        value: String(num(r.fk_univ_exam_group_id)),
+        label:
+          txt(r.exam_group_code ?? r.examGroupCode ?? r.exam_name ?? r.examName) ||
+          String(num(r.fk_univ_exam_group_id)),
+      })),
+    [examGroups],
+  )
+
+  const examCenterOptions: SelectOption[] = useMemo(
+    () =>
+      examCenters.map((r) => ({
+        value: String(num(r.fk_univ_ec_id ?? r.univExamcenterId ?? r.univ_examcenter_id)),
+        label: txt(r.ec_code ?? r.examcenterCode ?? r.examCenterCode ?? r.ec_name) || '—',
+      })),
+    [examCenters],
+  )
+
+  const courseGroupOptions: SelectOption[] = useMemo(
+    () => [
+      { value: ALL, label: 'All' },
+      ...courseGroups.map((r) => ({
+        value: String(num(r.fk_course_group_id)),
+        label: txt(r.group_code ?? r.groupCode) || String(num(r.fk_course_group_id)),
+      })),
+    ],
+    [courseGroups],
+  )
+
+  const courseYearOptions: SelectOption[] = useMemo(
+    () => [
+      { value: ALL, label: 'All' },
+      ...courseYears.map((r) => ({
+        value: String(num(r.fk_course_year_id)),
+        label: txt(r.course_year_code ?? r.courseYearCode) || String(num(r.fk_course_year_id)),
+      })),
+    ],
+    [courseYears],
+  )
+
+  const subjectOptions: SelectOption[] = useMemo(
+    () => [
+      { value: ALL, label: 'All' },
+      ...subjects.map((r) => ({
+        value: String(num(r.fk_subject_id)),
+        label: `${txt(r.subject_name ?? r.subjectName) || '—'} (${txt(r.subject_code ?? r.subjectCode) || '—'})`,
+      })),
+    ],
+    [subjects],
+  )
+
+  // Auto first exam group when AY changes
   useEffect(() => {
-    async function loadCenters() {
-      const orgId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
-      const univs = await listUniversitiesForExamGroup(orgId, employeeId).catch(() => [])
-      const firstUniv = Array.isArray(univs) ? univs[0] : null
-      const universityId = Number(firstUniv?.universityId ?? firstUniv?.university_id ?? 0)
-      if (!universityId) {
-        setExamCenters([])
-        setExamCenterId(null)
+    if (!form.academicYearId || examGroups.length === 0) return
+    const ok = examGroups.some(
+      (r) => num(r.fk_univ_exam_group_id) === Number(form.examGroupId),
+    )
+    if (ok) return
+    setForm((f) => ({
+      ...f,
+      examGroupId: String(num(examGroups[0].fk_univ_exam_group_id)),
+      univExamcenterId: '',
+      courseGroupId: ALL,
+      courseYearId: ALL,
+      subjectId: ALL,
+    }))
+    setCgCySubRows([])
+    setRows([])
+    setHasFetched(false)
+  }, [form.academicYearId, form.examGroupId, examGroups])
+
+  // Auto first exam center when centers list updates
+  useEffect(() => {
+    if (!form.examGroupId || examCenters.length === 0) return
+    const ok = examCenters.some(
+      (r) =>
+        num(r.fk_univ_ec_id ?? r.univExamcenterId ?? r.univ_examcenter_id) ===
+        Number(form.univExamcenterId),
+    )
+    if (ok) return
+    setForm((f) => ({
+      ...f,
+      univExamcenterId: String(
+        num(examCenters[0].fk_univ_ec_id ?? examCenters[0].univExamcenterId ?? examCenters[0].univ_examcenter_id),
+      ),
+      courseGroupId: ALL,
+      courseYearId: ALL,
+      subjectId: ALL,
+    }))
+  }, [form.examGroupId, form.univExamcenterId, examCenters])
+
+  // Angular selectedExamCenter → eg_cg_cy_sub_filter
+  useEffect(() => {
+    async function loadCgCySub() {
+      if (!form.academicYearId || !form.examGroupId || !form.univExamcenterId) {
+        setCgCySubRows([])
         return
       }
-      const centers = await listUnivExamCentersByUniversity(universityId).catch(() => [])
-      const centerRows = Array.isArray(centers) ? centers : []
-      setExamCenters(centerRows)
-      const firstCenterId = Number(
-        centerRows[0]?.univExamcenterId ?? centerRows[0]?.univExamCenterId ?? centerRows[0]?.univ_examcenter_id ?? 0,
-      )
-      setExamCenterId(firstCenterId || null)
+      setLoadingFilters(true)
+      try {
+        const groups = await getUnivEcStudentsByCodeGroups({
+          flag: 'eg_cg_cy_sub_filter',
+          flagType: 'REGSUP',
+          univExamcenterId: Number(form.univExamcenterId),
+          examGroupId: Number(form.examGroupId),
+          academicYearId: Number(form.academicYearId),
+        })
+        const list = groups[0] ?? []
+        setCgCySubRows(list)
+        const groupsDedupe = dedupeBy(list, (r) => num(r.fk_course_group_id))
+        const firstGroupId = groupsDedupe[0] ? String(num(groupsDedupe[0].fk_course_group_id)) : ALL
+        const yearsForGroup =
+          firstGroupId === ALL
+            ? list
+            : list.filter((r) => num(r.fk_course_group_id) === Number(firstGroupId))
+        const yearsDedupe = dedupeBy(yearsForGroup, (r) => num(r.fk_course_year_id))
+        const firstYearId = yearsDedupe[0] ? String(num(yearsDedupe[0].fk_course_year_id)) : ALL
+        const subSource = list.filter(
+          (r) =>
+            (Number(firstGroupId) === 0 || num(r.fk_course_group_id) === Number(firstGroupId)) &&
+            (Number(firstYearId) === 0 || num(r.fk_course_year_id) === Number(firstYearId)),
+        )
+        const subsDedupe = dedupeBy(subSource, (r) => num(r.fk_subject_id))
+        const firstSubjectId = subsDedupe[0] ? String(num(subsDedupe[0].fk_subject_id)) : ALL
+        setForm((f) => ({
+          ...f,
+          courseGroupId: firstGroupId,
+          courseYearId: firstYearId,
+          subjectId: firstSubjectId,
+        }))
+        setRows([])
+        setHasFetched(false)
+      } catch (e) {
+        toastError(e, 'Failed to load course / subject filters')
+        setCgCySubRows([])
+      } finally {
+        setLoadingFilters(false)
+      }
     }
-    if (employeeId > 0) void loadCenters()
-  }, [employeeId])
+    void loadCgCySub()
+  }, [form.academicYearId, form.examGroupId, form.univExamcenterId])
 
+  // Keep year/subject in sync when group changes
   useEffect(() => {
-    setCourseGroupId(null)
-    setCourseYearId(null)
-    setSubjectRows([])
-    setSubjectId(null)
-    const first = groups[0]
-    if (first) setCourseGroupId(pickNum(first, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']))
-  }, [groups])
-
-  useEffect(() => {
-    setCourseYearId(null)
-    setSubjectRows([])
-    setSubjectId(null)
-    const first = years[0]
-    if (first) setCourseYearId(pickNum(first, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']))
-  }, [courseGroupId])
-
-  useEffect(() => {
-    if (collegeId && courseId && courseGroupId && courseYearId && examId && academicYearId) {
-      void loadSubjects(0)
+    if (!cgCySubRows.length) return
+    const gid = Number(form.courseGroupId)
+    const years =
+      gid === 0
+        ? cgCySubRows
+        : cgCySubRows.filter((r) => num(r.fk_course_group_id) === gid)
+    const yearsDedupe = dedupeBy(years, (r) => num(r.fk_course_year_id))
+    const yOk = yearsDedupe.some((r) => num(r.fk_course_year_id) === Number(form.courseYearId))
+    if (!yOk && yearsDedupe[0]) {
+      setForm((f) => ({ ...f, courseYearId: String(num(yearsDedupe[0].fk_course_year_id)), subjectId: ALL }))
     }
-  }, [collegeId, courseId, courseGroupId, courseYearId, examId, academicYearId])
+  }, [form.courseGroupId, form.courseYearId, cgCySubRows])
 
   useEffect(() => {
-    if (!regulationId) return
-    void loadSubjects(regulationId)
-  }, [regulationId])
+    if (!cgCySubRows.length) return
+    const gid = Number(form.courseGroupId)
+    const yid = Number(form.courseYearId)
+    const source = cgCySubRows.filter(
+      (r) =>
+        (gid === 0 || num(r.fk_course_group_id) === gid) &&
+        (yid === 0 || num(r.fk_course_year_id) === yid),
+    )
+    const subs = dedupeBy(source, (r) => num(r.fk_subject_id))
+    const ok = subs.some((r) => num(r.fk_subject_id) === Number(form.subjectId))
+    if (!ok && subs[0]) {
+      setForm((f) => ({ ...f, subjectId: String(num(subs[0].fk_subject_id)) }))
+    }
+  }, [form.courseGroupId, form.courseYearId, form.subjectId, cgCySubRows])
 
-  const columnDefs = useMemo(() => BARCODE_COL_ORDER.map((k) => BARCODE_COL_DEFS[k]), [])
+  const columnDefs = useMemo<ColDef<Row>[]>(
+    () => [COL_DEFS.siNo, COL_DEFS.student, COL_DEFS.barcodeNo, COL_DEFS.subject],
+    [],
+  )
 
-  const getRowId = useCallback((p: { data?: AnyRow }) => {
+  const getRowId = useCallback((p: { data?: Row }) => {
     const d = p.data
     if (!d) return ''
-    const det = Number(d.fk_exam_std_det_id ?? d.examStdDetId ?? d.exam_std_det_id ?? 0)
+    const det = num(
+      d.fk_exam_std_det_id ??
+        d.examStdDetId ??
+        d.pk_univ_ec_student_id ??
+        d.univEcStudentId,
+    )
     if (det > 0) return String(det)
-    const sid = Number(d.student_id ?? d.studentId ?? d.fk_student_id ?? 0)
-    const sub = Number(d.fk_subject_id ?? d.subjectId ?? 0)
-    return `row-${sid}-${sub}-${String(d.omr_serial_no ?? d.hallticket_number ?? '')}`
+    const ht = txt(d.hallticket_number ?? d.hallticketNumber)
+    const seat = txt(d.seat_no ?? d.omr_serial_no ?? d.omrSerialNo)
+    const sub = num(d.fk_subject_id ?? d.subjectId)
+    return `row-${ht}-${seat}-${sub}`
   }, [])
 
   async function getList() {
-    if (!examId || !collegeId || !courseGroupId || !courseYearId || !subjectId) return
-    const selectedRegRow = regulations.find((r) => pickRegValue(r) === Number(regulationId ?? 0)) ?? null
-    const backendRegulationId = selectedBackendRegulationId || pickBackendRegId(selectedRegRow)
+    if (!form.academicYearId || !form.examGroupId || !form.univExamcenterId) {
+      toast.info('Please Select Valid Filters')
+      return
+    }
     setLoading(true)
     setHasFetched(true)
     try {
-      const res = await getExamOmrStudents({
-        examId,
-        collegeId,
-        courseGroupId,
-        courseYearId,
-        regulationId: backendRegulationId > 0 ? backendRegulationId : 0,
-        subjectId,
-      }).catch(() => [])
-      setRows(Array.isArray(res) ? res : [])
+      const list = await listExamCenterBarcodeStudents({
+        univExamcenterId: Number(form.univExamcenterId),
+        examGroupId: Number(form.examGroupId),
+        academicYearId: Number(form.academicYearId),
+        courseGroupId: Number(form.courseGroupId || 0),
+        courseYearId: Number(form.courseYearId || 0),
+        subjectId: Number(form.subjectId || 0),
+      })
+      setRows(Array.isArray(list) ? list : [])
+      if (!list?.length) toast.info('No students found for the selected filters')
+    } catch (e) {
+      toastError(e, 'Failed to load students')
+      setRows([])
     } finally {
       setLoading(false)
     }
-  }
-
-  async function generateBarcode() {
-    const ids = rows.map((r) => Number(r.fk_exam_std_det_id ?? 0)).filter((x) => x > 0)
-    if (!ids.length) return
-    await generateBarcodesForExamStudents(ids).catch(() => null)
-    await getList()
   }
 
   return (
     <FilteredListPage
       title="Exam Center Barcodes"
       filters={(
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="md:col-span-3 space-y-1"><Label>Academic Year *</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Academic Year" /></SelectTrigger><SelectContent>{academicYears.map((a, i) => <SelectItem key={`ay-${i}`} value={String(pickNum(a, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']))}>{pickText(a, ['academic_year', 'academicYear']) || '-'}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-4 space-y-1"><Label>Exam Group *</Label><Select value={examId ? String(examId) : undefined} onValueChange={async (v) => { const eid = Number(v); setExamId(eid); if (courseId && academicYearId) await onExamLoad(courseId, academicYearId, eid) }}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Group" /></SelectTrigger><SelectContent>{exams.map((e, i) => <SelectItem key={`e-${i}`} value={String(pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']))}>{pickText(e, ['exam_name', 'examName']) || '-'}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-5 space-y-1"><Label>Exam Center *</Label><Select value={examCenterId ? String(examCenterId) : undefined} onValueChange={(v) => setExamCenterId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Center" /></SelectTrigger><SelectContent>{examCenters.map((c, i) => <SelectItem key={`ec-${i}`} value={String(Number(c.univExamcenterId ?? c.univExamCenterId ?? c.univ_examcenter_id ?? 0))}>{String(c.examcenterCode ?? c.examCenterCode ?? '-')}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-3 space-y-1"><Label>Course Group</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{groups.map((g, i) => <SelectItem key={`g-${i}`} value={String(pickNum(g, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']))}>{pickText(g, ['group_code', 'groupCode']) || '-'}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-4 space-y-1"><Label>Course Years *</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{years.map((y, i) => <SelectItem key={`y-${i}`} value={String(pickNum(y, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']))}>{pickText(y, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) || '-'}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-3 space-y-1"><Label>Subjects</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent>{subjects.map((s, i) => <SelectItem key={`s-${i}`} value={String(pickNum(s, SUBJECT_ID_KEYS))}>{(pickText(s, ['subject_name', 'subjectName']) || '-') + ' (' + (pickText(s, ['subject_code', 'subjectCode']) || '-') + ')'}</SelectItem>)}</SelectContent></Select></div>
-          <div className="md:col-span-2 flex flex-col justify-end md:items-end">
-            <Button type="button" onClick={getList} disabled={loading} className="h-8 shrink-0 px-2.5 text-[12px] w-full md:w-auto">
+        <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
+          <div className="space-y-1 md:col-span-3">
+            <Label>Academic Year *</Label>
+            <Select
+              value={form.academicYearId || null}
+              onChange={(v) =>
+                setForm({
+                  ...EMPTY_FORM,
+                  academicYearId: v ?? '',
+                })
+              }
+              options={academicYearOptions}
+              placeholder="Academic Year"
+              isLoading={loadingFilters}
+              disabled={loadingFilters}
+            />
+          </div>
+          <div className="space-y-1 md:col-span-4">
+            <Label>Exam Group *</Label>
+            <Select
+              value={form.examGroupId || null}
+              onChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  examGroupId: v ?? '',
+                  univExamcenterId: '',
+                  courseGroupId: ALL,
+                  courseYearId: ALL,
+                  subjectId: ALL,
+                }))
+              }
+              options={examGroupOptions}
+              placeholder="Exam Group"
+              disabled={loadingFilters || !form.academicYearId}
+            />
+          </div>
+          <div className="space-y-1 md:col-span-5">
+            <Label>Exam Center *</Label>
+            <Select
+              value={form.univExamcenterId || null}
+              onChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  univExamcenterId: v ?? '',
+                  courseGroupId: ALL,
+                  courseYearId: ALL,
+                  subjectId: ALL,
+                }))
+              }
+              options={examCenterOptions}
+              placeholder="Exam Center"
+              disabled={loadingFilters || !form.examGroupId}
+            />
+          </div>
+          <div className="space-y-1 md:col-span-3">
+            <Label>Course Group</Label>
+            <Select
+              value={form.courseGroupId || ALL}
+              onChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  courseGroupId: v ?? ALL,
+                  courseYearId: ALL,
+                  subjectId: ALL,
+                }))
+              }
+              options={courseGroupOptions}
+              placeholder="All"
+              disabled={loadingFilters || !form.univExamcenterId}
+            />
+          </div>
+          <div className="space-y-1 md:col-span-4">
+            <Label>Course Years *</Label>
+            <Select
+              value={form.courseYearId || ALL}
+              onChange={(v) =>
+                setForm((f) => ({
+                  ...f,
+                  courseYearId: v ?? ALL,
+                  subjectId: ALL,
+                }))
+              }
+              options={courseYearOptions}
+              placeholder="All"
+              disabled={loadingFilters || !form.univExamcenterId}
+            />
+          </div>
+          <div className="space-y-1 md:col-span-3">
+            <Label>Subjects</Label>
+            <Select
+              value={form.subjectId || ALL}
+              onChange={(v) => setForm((f) => ({ ...f, subjectId: v ?? ALL }))}
+              options={subjectOptions}
+              placeholder="All"
+              searchable={subjectOptions.length > 8}
+              disabled={loadingFilters || !form.univExamcenterId}
+            />
+          </div>
+          <div className="flex flex-col justify-end md:col-span-2 md:items-end">
+            <Button
+              type="button"
+              onClick={() => void getList()}
+              disabled={loading || loadingFilters}
+              className="h-8 w-full shrink-0 px-2.5 text-[12px] md:w-auto"
+            >
               Get Students
             </Button>
           </div>
@@ -422,4 +570,3 @@ export default function ExamCenterBarcodesPage() {
     />
   )
 }
-

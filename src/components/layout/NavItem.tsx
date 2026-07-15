@@ -787,6 +787,122 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
     }
     if (lower.includes('room type') || lower === 'room types') return '/admin/room-types'
     if (lower.includes('room details') || lower === 'room detail') return '/admin/room-details'
+    if (
+      lower.includes('exam') &&
+      lower.includes('timetable') &&
+      lower.includes('report') &&
+      !lower.includes('course year') &&
+      !lower.includes('lab')
+    ) {
+      return '/admin-examination-management/admin-exam-reports/exam-timetable-report'
+    }
+    if (lower.includes('invigilator') && lower.includes('allot') && lower.includes('report')) {
+      return '/admin-examination-management/admin-exam-reports/exam-invigilator-allotment-report'
+    }
+    if (
+      lower.includes('student') &&
+      lower.includes('registration') &&
+      lower.includes('report') &&
+      !lower.includes('timetable')
+    ) {
+      return '/admin-examination-management/admin-exam-reports/exam-student-registration-report'
+    }
+    if (lower.includes('summary') && lower.includes('result') && lower.includes('report')) {
+      return '/admin-examination-management/admin-exam-reports/student-summary-result-report'
+    }
+    if (lower.includes('result') && lower.includes('detail') && lower.includes('report')) {
+      return '/admin-examination-management/admin-exam-reports/student-result-details-report'
+    }
+    if (
+      lower.includes('batch') &&
+      lower.includes('backlog') &&
+      lower.includes('report')
+    ) {
+      return '/admin-examination-management/admin-exam-reports/student-backlog-data'
+    }
+    if (
+      lower.includes('backlog') &&
+      lower.includes('report') &&
+      lower.includes('student') &&
+      !lower.includes('batch')
+    ) {
+      return '/admin-examination-management/admin-exam-reports/student-backlog-report'
+    }
+    if (
+      lower.includes('credit') &&
+      lower.includes('report') &&
+      (lower.includes('student') || lower.includes('credits'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/student-credits-report'
+    }
+    if (lower.includes('assignment') && lower.includes('pending')) {
+      return '/admin-examination-management/admin-exam-reports/assignment-pending-list-report'
+    }
+    if (
+      lower.includes('moderation') &&
+      lower.includes('report') &&
+      !lower.includes('benefit') &&
+      !lower.includes('jntu') &&
+      !lower.includes('rule') &&
+      !lower.includes('before') &&
+      !lower.includes('after') &&
+      !lower.includes('analysis') &&
+      !lower.includes('apply')
+    ) {
+      return '/admin-examination-management/admin-exam-reports/exam-moderation-reports'
+    }
+    if (
+      (lower.includes('grace') && lower.includes('mark') && lower.includes('report')) ||
+      (lower.includes('gracemark') && lower.includes('report'))
+    ) {
+      if (!lower.includes('benefit') && !lower.includes('jntu')) {
+        return '/admin-examination-management/admin-exam-reports/exam-gracemarks-reports'
+      }
+    }
+    if (lower.includes('tabulation')) {
+      return '/admin-examination-management/admin-exam-reports/tabulation-register'
+    }
+    if (
+      (lower.includes('exam') && lower.includes('result') && lower.includes('sheet')) ||
+      (lower.includes('exam') && lower.includes('results') && lower.includes('sheet'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/exam-results-sheets'
+    }
+    if (lower.includes('gradewise') && lower.includes('result')) {
+      return '/admin-examination-management/admin-exam-reports/subject-gradewise-result-report'
+    }
+    if (lower.includes('final') && lower.includes('result') && lower.includes('analysis')) {
+      return '/admin-examination-management/admin-exam-reports/final-result-analysis-report'
+    }
+    if (
+      lower.includes('final') &&
+      lower.includes('mark') &&
+      (lower.includes('pre moderation') || lower.includes('premoderation') || lower.includes('pre-moderation'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/final-marks-premoderation'
+    }
+    if (
+      lower.includes('subject') &&
+      lower.includes('wise') &&
+      lower.includes('result') &&
+      !lower.includes('group') &&
+      !lower.includes('grade') &&
+      !lower.includes('pass percent')
+    ) {
+      return '/admin-examination-management/admin-exam-reports/subjectwise-result-report'
+    }
+    if (
+      (lower.includes('group') && lower.includes('subject') && lower.includes('result')) ||
+      (lower.includes('group') && lower.includes('subjectwise'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/group-subjectwise-result-report'
+    }
+    if (
+      (lower.includes('answer') && lower.includes('sheet') && lower.includes('report')) ||
+      (lower.includes('exam') && lower.includes('answer') && lower.includes('sheet'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/exam-answer-sheets-report'
+    }
     const hostel = mapHostelNavRoute(undefined, label)
     if (hostel) return hostel
     const erpModule = mapErpModuleLabelToRoute(label)
@@ -1005,6 +1121,244 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const postExamBase = '/admin-examination-management/post-examination'
   const forcedRoute = (() => {
     const hrefLower = (item.href ?? '').toLowerCase()
+    const labelKey = labelLower.replace(/[^a-z0-9]+/g, ' ').trim()
+
+    // Exam Results Sheets — pin early (Angular `exam_results_sheets` 404→dashboard otherwise)
+    if (
+      hrefLower.includes('exam_results_sheets') ||
+      hrefLower.includes('exam-results-sheets') ||
+      hrefLower.includes('exam-result-sheets') ||
+      hrefLower.includes('exam-result-sheet') ||
+      hrefLower.includes('exam_result_sheet') ||
+      labelKey === 'exam results sheets' ||
+      labelKey === 'exam result sheets' ||
+      labelKey === 'exam result sheet' ||
+      ((labelLower.includes('exam') || labelLower.includes('admin')) &&
+        (labelLower.includes('result sheet') || labelLower.includes('results sheet')))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/exam-results-sheets'
+    }
+
+    // Exam Timetable Report (Exam Reports) — must not fall through to Time-Table Management / 404→dashboard
+    if (
+      hrefLower.includes('exam-timetable-report') ||
+      (labelLower.includes('exam') &&
+        labelLower.includes('timetable') &&
+        labelLower.includes('report') &&
+        !labelLower.includes('course year') &&
+        !labelLower.includes('lab'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/exam-timetable-report'
+    }
+    // Exam Invigilator Allotment Report (Exam Reports) — not Pre Examination allotment
+    if (
+      hrefLower.includes('exam-invigilator-allotment-report') ||
+      (labelLower.includes('invigilator') &&
+        labelLower.includes('allot') &&
+        labelLower.includes('report'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/exam-invigilator-allotment-report'
+    }
+    // Exam Student Registration Report (Exam Reports)
+    if (
+      hrefLower.includes('exam-student-registration-report') ||
+      (labelLower.includes('student') &&
+        labelLower.includes('registration') &&
+        labelLower.includes('report') &&
+        !labelLower.includes('timetable') &&
+        !labelLower.includes(' tt'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/exam-student-registration-report'
+    }
+    // Student Summary / Details / Backlog result reports
+    if (
+      hrefLower.includes('student-summary-result-report') ||
+      (labelLower.includes('summary') &&
+        labelLower.includes('result') &&
+        labelLower.includes('report'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/student-summary-result-report'
+    }
+    if (
+      hrefLower.includes('student-result-details-report') ||
+      (labelLower.includes('result') &&
+        labelLower.includes('detail') &&
+        labelLower.includes('report'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/student-result-details-report'
+    }
+    if (
+      hrefLower.includes('student-backlog-data') ||
+      (labelLower.includes('batch') &&
+        labelLower.includes('backlog') &&
+        labelLower.includes('report'))
+    ) {
+      // Angular `student-backlog-data` — distinct from Student Backlog Report
+      return '/admin-examination-management/admin-exam-reports/student-backlog-data'
+    }
+    if (
+      (hrefLower.includes('student-backlog-report') &&
+        !hrefLower.includes('batch') &&
+        !hrefLower.includes('student-backlog-data') &&
+        !labelLower.includes('batch')) ||
+      (labelLower.includes('student') &&
+        labelLower.includes('backlog') &&
+        labelLower.includes('report') &&
+        !labelLower.includes('batch'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/student-backlog-report'
+    }
+    // Student Credits Report
+    if (
+      hrefLower.includes('student-credits-report') ||
+      (labelLower.includes('credit') &&
+        labelLower.includes('report') &&
+        (labelLower.includes('student') || labelLower.includes('credits')))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/student-credits-report'
+    }
+    // Assignment Pending List
+    if (
+      hrefLower.includes('assignment-pending-list') ||
+      (labelLower.includes('assignment') && labelLower.includes('pending'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/assignment-pending-list-report'
+    }
+    // Moderation Reports (Exam Reports) — not rule setup / JNTU / benefitted variants
+    if (
+      hrefLower.includes('exam-moderation-reports') ||
+      (labelLower.includes('moderation') &&
+        labelLower.includes('report') &&
+        !labelLower.includes('benefit') &&
+        !labelLower.includes('jntu') &&
+        !labelLower.includes('rule') &&
+        !labelLower.includes('before') &&
+        !labelLower.includes('after') &&
+        !labelLower.includes('analysis') &&
+        !labelLower.includes('apply') &&
+        !hrefLower.includes('benefited') &&
+        !hrefLower.includes('jntu') &&
+        !hrefLower.includes('rule'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/exam-moderation-reports'
+    }
+    // Gracemarks Reports
+    {
+      const isGraceReportLabel =
+        ((labelLower.includes('grace') && labelLower.includes('mark') && labelLower.includes('report')) ||
+          (labelLower.includes('gracemark') && labelLower.includes('report'))) &&
+        !labelLower.includes('benefit') &&
+        !labelLower.includes('jntu') &&
+        !hrefLower.includes('benefited')
+      if (
+        hrefLower.includes('exam-gracemarks-reports') ||
+        hrefLower.includes('exam-grace-marks-reports') ||
+        isGraceReportLabel
+      ) {
+        return '/admin-examination-management/admin-exam-reports/exam-gracemarks-reports'
+      }
+    }
+    // Tabulation Register (Angular `tabulation_register`)
+    if (
+      hrefLower.includes('tabulation-register') ||
+      hrefLower.includes('tabulation_register') ||
+      hrefLower.includes('tabulation-registration') ||
+      labelLower.includes('tabulation')
+    ) {
+      return '/admin-examination-management/admin-exam-reports/tabulation-register'
+    }
+    // Exam Result Sheets
+    if (
+      hrefLower.includes('exam-results-sheets') ||
+      hrefLower.includes('exam_results_sheets') ||
+      hrefLower.includes('exam-result-sheet') ||
+      ((labelLower.includes('exam') && labelLower.includes('result') && labelLower.includes('sheet')) ||
+        (labelLower.includes('exam') && labelLower.includes('results') && labelLower.includes('sheet')))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/exam-results-sheets'
+    }
+    // Gradewise Result Report
+    if (
+      hrefLower.includes('subject-gradewise-result-report') ||
+      hrefLower.includes('gradewise-result') ||
+      (labelLower.includes('gradewise') && labelLower.includes('result'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/subject-gradewise-result-report'
+    }
+    // Final Result Analysis Report
+    if (
+      hrefLower.includes('final-result-analysis-report') ||
+      (labelLower.includes('final') &&
+        labelLower.includes('result') &&
+        labelLower.includes('analysis') &&
+        !labelLower.includes('moderation'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/final-result-analysis-report'
+    }
+    // Final Marks Pre Moderation Report
+    if (
+      hrefLower.includes('final-marks-premoderation') ||
+      (labelLower.includes('final') &&
+        labelLower.includes('mark') &&
+        (labelLower.includes('pre moderation') ||
+          labelLower.includes('premoderation') ||
+          labelLower.includes('pre-moderation')))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/final-marks-premoderation'
+    }
+    // Subject Wise Result Report (not group / gradewise / pass %)
+    if (
+      hrefLower.includes('subjectwise-result-report') ||
+      (labelLower.includes('subject') &&
+        labelLower.includes('wise') &&
+        labelLower.includes('result') &&
+        !labelLower.includes('group') &&
+        !labelLower.includes('grade') &&
+        !labelLower.includes('pass percent') &&
+        !labelLower.includes('evaluator'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/subjectwise-result-report'
+    }
+    // Group & Subject Wise Result Report
+    if (
+      hrefLower.includes('group-subjectwise-result-report') ||
+      (labelLower.includes('group') &&
+        labelLower.includes('subject') &&
+        labelLower.includes('result') &&
+        !labelLower.includes('grade'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/group-subjectwise-result-report'
+    }
+    // Admin Exam Answer Sheets Report
+    if (
+      hrefLower.includes('exam-answer-sheets-report') ||
+      (labelLower.includes('answer') &&
+        labelLower.includes('sheet') &&
+        (labelLower.includes('report') || labelLower.includes('exam')) &&
+        !labelLower.includes('upload') &&
+        !labelLower.includes('view'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/exam-answer-sheets-report'
+    }
+    // Legacy Angular hrefs: /reports/admin-exam-reports/... → Next admin-exam-reports pages
+    if (hrefLower.includes('/reports/admin-exam-reports/')) {
+      const seg = hrefLower.split('/reports/admin-exam-reports/')[1]?.split(/[?#]/)[0]?.replace(/\/+$/, '')
+      if (seg) {
+        if (seg === 'tabulation_register' || seg === 'tabulation-registration') {
+          return '/admin-examination-management/admin-exam-reports/tabulation-register'
+        }
+        if (seg === 'exam_results_sheets') {
+          return '/admin-examination-management/admin-exam-reports/exam-results-sheets'
+        }
+        return `/admin-examination-management/admin-exam-reports/${seg}`
+      }
+    }
+    if (
+      hrefLower.includes('course-year-timetable-report') ||
+      (labelLower.includes('course year') && labelLower.includes('timetable') && labelLower.includes('report'))
+    ) {
+      return '/admin-examination-management/admin-exam-reports/course-year-timetable-report'
+    }
 
     // ── Exam attendance marking ──────────────────────────────────────────────
     // The DB ships both items with href `/attendance-management/mark-attendance`
@@ -1396,7 +1750,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     if (labelLower.includes('exam hallticket')) return `${preExamBase}/exam-hallticket`
     if (labelLower.includes('exam subject barcode')) return `${preExamBase}/exam-subject-barcode-generation`
     if (labelLower.includes('exam forms')) return `${preExamBase}/exam-forms`
-    if (labelLower.includes('exam invigilator allot')) return `${preExamBase}/invigilator-allotment`
+    if (labelLower.includes('exam invigilator allot')) {
+      if (labelLower.includes('report')) {
+        return '/admin-examination-management/admin-exam-reports/exam-invigilator-allotment-report'
+      }
+      return `${preExamBase}/invigilator-allotment`
+    }
     if (labelLower.includes('additional exam fee')) return `${preExamBase}/additional-exam-fees`
     if (labelLower.includes('exam attendance-wis') || labelLower.includes('exam attendancewis')) {
       return `${preExamBase}/exam-attendancewise-subject-barcode`

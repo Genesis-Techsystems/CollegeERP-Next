@@ -5,14 +5,15 @@ import {
   domainUpdate,
   fetchDetails,
   getAllRecords,
+  getAllRecordsEnvelope,
   postDetails,
   uploadFile,
 } from "@/services/crud";
-import { EXAM_API } from "@/config/constants/api";
+import { EXAM_API, SETUP_API } from "@/config/constants/api";
 import { GM_CODES } from "@/config/constants/ui";
 import { toDateStr } from "@/common/generic-functions";
 
-type AnyRow = Record<string, any>;
+export type AnyRow = Record<string, any>;
 
 /** Share one in-flight promise per key (Strict Mode double effects + overlapping UI cascades). */
 function dedupeInflight<T>(
@@ -538,6 +539,598 @@ export async function getUnivExamRestNoTtBundle(params: {
   const regulations =
     groups.find((g) => (g?.[0]?.flag ?? "") === "regulations") ?? [];
   return { restFilters, regulations };
+}
+
+/** Angular exam-timetable-report `selectedExam` — flag `univ_exam_rest_in_regexamstd`. */
+export async function getUnivExamRestInRegExamStd(params: {
+  courseId: number;
+  examId: number;
+  academicYearId: number;
+  employeeId: number;
+}): Promise<{ restFilters: AnyRow[]; regulations: AnyRow[] }> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_rest_in_regexamstd",
+      in_flag_type: "ALL",
+      in_university_id: 0,
+      in_college_id: 0,
+      in_course_id: params.courseId,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: params.examId,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_loginuser_empid: params.employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_sub_flag_type: "ALL",
+      in_param1: 0,
+      in_param2: 0,
+    },
+  );
+  const groups = data?.result ?? [];
+  const restFilters =
+    groups.find((g) => (g?.[0]?.flag ?? "") === "univ_exam_rest_filters") ?? [];
+  const regulations =
+    groups.find((g) => (g?.[0]?.flag ?? "") === "regulations") ?? [];
+  return { restFilters, regulations };
+}
+
+/**
+ * Angular exam-timetable-report `getDetails()` —
+ * `s_get_exam_allotment_details` with flag `exam_timetable`.
+ */
+export async function getExamTimetableReportRows(args: {
+  examId: number;
+  courseId: number;
+  collegeId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  regulationId: number;
+  fromDate: string;
+  toDate: string;
+}): Promise<AnyRow[]> {
+  try {
+    const data = await getAllRecords<{ result?: unknown }>(
+      "s_get_exam_allotment_details",
+      {
+        in_flag: "exam_timetable",
+        in_exam_id: args.examId ?? 0,
+        in_course_id: args.courseId ?? 0,
+        in_college_id: args.collegeId ?? 0,
+        in_course_group_id: args.courseGroupId ?? 0,
+        in_course_year_id: args.courseYearId ?? 0,
+        in_std_id: 0,
+        in_invgilator_emp_id: 0,
+        in_regulation_id: args.regulationId ?? 0,
+        in_room_id: 0,
+        from_exam_date: args.fromDate || "1990-01-01",
+        to_exam_date: args.toDate || "9999-12-31",
+        in_subject_id: 0,
+        in_session_id: 0,
+      },
+    );
+    const raw = data?.result;
+    if (!Array.isArray(raw)) return [];
+    const first = raw[0];
+    if (Array.isArray(first)) {
+      return first.filter((r): r is AnyRow => !!r && typeof r === "object");
+    }
+    if (first && typeof first === "object") return [first as AnyRow];
+    return [];
+  } catch (error: unknown) {
+    const msg = String(error instanceof Error ? error.message : (error ?? ""));
+    if (msg.toLowerCase().includes("no record")) return [];
+    throw error;
+  }
+}
+
+/**
+ * Angular invigilator-allotment-report `getDetails()` —
+ * `s_get_exam_allotment_details` with flag `invigilator_allotment`.
+ */
+export async function getInvigilatorAllotmentReportRows(args: {
+  examId: number;
+  courseId: number;
+  collegeId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  empId?: number;
+  roomId?: number;
+  fromDate: string;
+  toDate: string;
+}): Promise<AnyRow[]> {
+  try {
+    const data = await getAllRecords<{ result?: unknown }>(
+      "s_get_exam_allotment_details",
+      {
+        in_flag: "invigilator_allotment",
+        in_exam_id: args.examId ?? 0,
+        in_course_id: args.courseId ?? 0,
+        in_college_id: args.collegeId ?? 0,
+        in_course_group_id: args.courseGroupId ?? 0,
+        in_course_year_id: args.courseYearId ?? 0,
+        in_std_id: 0,
+        in_invgilator_emp_id: args.empId ?? 0,
+        in_regulation_id: 0,
+        in_room_id: args.roomId ?? 0,
+        from_exam_date: args.fromDate || "1990-01-01",
+        to_exam_date: args.toDate || "9999-12-31",
+        in_subject_id: 0,
+        in_session_id: 0,
+      },
+    );
+    const raw = data?.result;
+    if (!Array.isArray(raw)) return [];
+    const first = raw[0];
+    if (Array.isArray(first)) {
+      return first.filter((r): r is AnyRow => !!r && typeof r === "object");
+    }
+    if (first && typeof first === "object") return [first as AnyRow];
+    return [];
+  } catch (error: unknown) {
+    const msg = String(error instanceof Error ? error.message : (error ?? ""));
+    if (msg.toLowerCase().includes("no record")) return [];
+    throw error;
+  }
+}
+
+/**
+ * Angular exam-student-registration-report `getDetails()` —
+ * `s_get_exam_allotment_details` with flag `exam_student_reg`.
+ */
+export async function getExamStudentRegistrationReportRows(args: {
+  examId: number;
+  courseId: number;
+  collegeId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  studentId?: number;
+  regulationId?: number;
+  roomId?: number;
+}): Promise<AnyRow[]> {
+  try {
+    const data = await getAllRecords<{ result?: unknown }>(
+      "s_get_exam_allotment_details",
+      {
+        in_flag: "exam_student_reg",
+        in_exam_id: args.examId ?? 0,
+        in_course_id: args.courseId ?? 0,
+        in_college_id: args.collegeId ?? 0,
+        in_course_group_id: args.courseGroupId ?? 0,
+        in_course_year_id: args.courseYearId ?? 0,
+        in_std_id: args.studentId ?? 0,
+        in_invgilator_emp_id: 0,
+        in_regulation_id: args.regulationId ?? 0,
+        in_room_id: args.roomId ?? 0,
+        from_exam_date: "1900-01-01",
+        to_exam_date: "9999-12-31",
+        in_subject_id: 0,
+        in_session_id: 0,
+      },
+    );
+    const raw = data?.result;
+    if (!Array.isArray(raw)) return [];
+    const first = raw[0];
+    if (Array.isArray(first)) {
+      return first.filter((r): r is AnyRow => !!r && typeof r === "object");
+    }
+    if (first && typeof first === "object") return [first as AnyRow];
+    return [];
+  } catch (error: unknown) {
+    const msg = String(error instanceof Error ? error.message : (error ?? ""));
+    if (msg.toLowerCase().includes("no record")) return [];
+    throw error;
+  }
+}
+
+/**
+ * Angular exam student results reports —
+ * `s_get_exam_student_results` (summary / details / backlog).
+ */
+export async function getExamStudentResultsReport(args: {
+  flag: "std_summary" | "exam_std_result_detail";
+  examId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  collegeId: number;
+  studentId?: number;
+  regulationId?: number;
+  /** -1 All, 1 Pass, 0 Fail. Backlog always uses -1. */
+  isPass?: number | string;
+  /** Backlog: `in_above_fail_subjects` (default -1). */
+  aboveFailSubjects?: number | string;
+  /** Credits report: `in_below_credits` (default -1). */
+  belowCredits?: number | string;
+}): Promise<AnyRow[]> {
+  try {
+    const data = await getAllRecords<{ result?: unknown }>(
+      "s_get_exam_student_results",
+      {
+        in_flag: args.flag,
+        in_exam_id: args.examId ?? 0,
+        in_course_id: args.courseId ?? 0,
+        in_course_group_id: args.courseGroupId ?? 0,
+        in_course_year_id: args.courseYearId ?? 0,
+        in_college_id: args.collegeId ?? 0,
+        in_std_id: args.studentId ?? 0,
+        in_regulation_id: args.regulationId ?? 0,
+        in_ispass: args.isPass ?? -1,
+        in_subject_id: 0,
+        in_above_fail_subjects: args.aboveFailSubjects ?? -1,
+        in_below_credits: args.belowCredits ?? -1,
+      },
+    );
+    const raw = data?.result;
+    if (!Array.isArray(raw)) return [];
+    const first = raw[0];
+    if (Array.isArray(first)) {
+      return first.filter((r): r is AnyRow => !!r && typeof r === "object");
+    }
+    if (first && typeof first === "object") return [first as AnyRow];
+    return [];
+  } catch (error: unknown) {
+    const msg = String(error instanceof Error ? error.message : (error ?? ""));
+    if (msg.toLowerCase().includes("no record")) return [];
+    throw error;
+  }
+}
+
+/** Angular assignment-pending-list `getDetails` — `s_get_assignment_pending_list`. */
+export async function getAssignmentPendingListRows(args: {
+  collegeId: number;
+  courseYearId: number;
+  sectionId?: number;
+}): Promise<AnyRow[]> {
+  try {
+    const data = await getAllRecords<{ result?: unknown }>("s_get_assignment_pending_list", {
+      in_clg_id: args.collegeId ?? 0,
+      in_course_year_id: args.courseYearId ?? 0,
+      in_section_id: args.sectionId ?? 0,
+      in_emp_id: 0,
+    });
+    const raw = data?.result;
+    if (!Array.isArray(raw)) return [];
+    const first = raw[0];
+    if (Array.isArray(first)) {
+      return first.filter((r): r is AnyRow => !!r && typeof r === "object");
+    }
+    if (first && typeof first === "object") return [first as AnyRow];
+    return [];
+  } catch (error: unknown) {
+    const msg = String(error instanceof Error ? error.message : (error ?? ""));
+    if (msg.toLowerCase().includes("no record")) return [];
+    throw error;
+  }
+}
+
+/**
+ * Angular exam-moderation / gracemarks reports —
+ * `s_get_exam_resultprocessing_bycode` (CONSTANTS.ResultProcessingUrl).
+ */
+export async function getExamResultProcessingReport(args: {
+  flag: "exam_analysis_by_subject" | "exam_gracemark_added_list";
+  examId: number;
+  examType: number | string;
+  collegeId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+}): Promise<AnyRow[]> {
+  try {
+    const data = await getAllRecords<{ result?: unknown }>("s_get_exam_resultprocessing_bycode", {
+      in_flag: args.flag,
+      in_exam_id: args.examId ?? 0,
+      in_examtype: args.examType ?? 0,
+      in_college_id: args.collegeId ?? 0,
+      in_course_id: args.courseId ?? 0,
+      in_course_group_id: args.courseGroupId ?? 0,
+      in_course_year_id: args.courseYearId ?? 0,
+    });
+    const raw = data?.result;
+    if (!Array.isArray(raw)) return [];
+    const first = raw[0];
+    if (Array.isArray(first)) {
+      return first.filter((r): r is AnyRow => !!r && typeof r === "object");
+    }
+    if (first && typeof first === "object") return [first as AnyRow];
+    return [];
+  } catch (error: unknown) {
+    const msg = String(error instanceof Error ? error.message : (error ?? ""));
+    if (msg.toLowerCase().includes("no record")) return [];
+    throw error;
+  }
+}
+
+/** Angular tabulation-registration — `s_get_exam_results_bycode`. */
+export async function getTabulationRegisterRows(args: {
+  examId: number;
+  collegeId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  hallticketNo?: string;
+  examType?: number | string;
+  isReEvaluation?: boolean;
+}): Promise<AnyRow[]> {
+  try {
+    const ht = String(args.hallticketNo ?? "").trim();
+    const data = await getAllRecords<{ result?: unknown }>("s_get_exam_results_bycode", {
+      in_flag: args.isReEvaluation
+        ? "tabulation_register_re_evaluation"
+        : "tabulation_register",
+      in_exam_id: args.examId ?? 0,
+      in_college_id: args.collegeId ?? 0,
+      in_course_id: args.courseId ?? 0,
+      in_course_group_id: args.courseGroupId ?? 0,
+      in_course_year_id: args.courseYearId ?? 0,
+      // Angular sends empty string for "All", not 0
+      in_hallticket_no: !ht || ht === "0" ? "" : ht,
+      in_examtype: args.examType ?? 0,
+    });
+    const raw = data?.result;
+    if (!Array.isArray(raw)) return [];
+    const first = raw[0];
+    if (Array.isArray(first)) {
+      return first.filter((r): r is AnyRow => !!r && typeof r === "object");
+    }
+    if (first && typeof first === "object") return [first as AnyRow];
+    return [];
+  } catch (error: unknown) {
+    const msg = String(error instanceof Error ? error.message : (error ?? ""));
+    if (msg.toLowerCase().includes("no record")) return [];
+    throw error;
+  }
+}
+
+function unwrapProcResult(data: { result?: unknown } | null | undefined): AnyRow[] {
+  const raw = data?.result;
+  if (!Array.isArray(raw)) return [];
+  const first = raw[0];
+  if (Array.isArray(first)) {
+    return first.filter((r): r is AnyRow => !!r && typeof r === "object");
+  }
+  if (first && typeof first === "object") return [first as AnyRow];
+  // Some procs put the list at result[0], others at a later index (e.g. answer sheets → [2])
+  for (const group of raw) {
+    if (Array.isArray(group) && group.length > 0 && typeof group[0] === "object") {
+      return group.filter((r): r is AnyRow => !!r && typeof r === "object");
+    }
+  }
+  return [];
+}
+
+/**
+ * Angular CONSTANTS.ResultFinalAnalysisUrl — used by Exam Result Sheets,
+ * Gradewise / Final Analysis / Group-Subject Wise reports.
+ */
+export async function getExamFinalAnalysisReport(args: {
+  flag:
+    | "final_results_list"
+    | "final_reeval_results_list"
+    | "final_result_analysis"
+    | "final_group_subject_grade_results"
+    | "final_group_subject_wise_results";
+  examId: number;
+  collegeId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  examTypeCatDetId?: number | string;
+}): Promise<AnyRow[]> {
+  const payload = {
+    in_flag: args.flag,
+    in_exam_id: args.examId ?? 0,
+    in_college_id: args.collegeId ?? 0,
+    in_course_id: args.courseId ?? 0,
+    in_course_group_id: args.courseGroupId ?? 0,
+    in_course_year_id: args.courseYearId ?? 0,
+    in_examtypecate_det_id: args.examTypeCatDetId ?? 0,
+  };
+  const procs = [
+    "s_get_exam_final_analysis_bycodes",
+    "s_get_exam_final_analysis_bycode",
+    "s_get_exam_final_results_bycode",
+    "s_get_exam_final_result_analysis_bycode",
+  ];
+  let lastMessage = "";
+  for (const proc of procs) {
+    const envelope = await getAllRecordsEnvelope<{ result?: unknown; errorDetails?: string }>(
+      proc,
+      payload,
+    );
+    if (envelope.success) {
+      return unwrapProcResult(envelope.data);
+    }
+    const details = String(
+      (envelope.data as { errorDetails?: string } | null | undefined)?.errorDetails ??
+        envelope.message ??
+        "",
+    ).toLowerCase();
+    lastMessage = envelope.message ?? details;
+    if (details.includes("no record")) return [];
+    if (
+      details.includes("no procedure") ||
+      details.includes("call signature") ||
+      details.includes("does not exist")
+    ) {
+      continue;
+    }
+    throw new Error(envelope.message || `Failed to call ${proc}`);
+  }
+  throw new Error(lastMessage || "Failed to load final analysis report");
+}
+
+/** Angular CONSTANTS.ExamPreModerationUrl — final-marks-premoderation. */
+export async function getExamPreModerationReport(args: {
+  examId: number;
+  collegeId: number;
+  courseGroupId: number;
+  courseYearId?: number;
+  subjectId?: number;
+  regulationId?: number;
+}): Promise<AnyRow[]> {
+  const payload = {
+    in_flag: "exam_pre_mod_ext_results_subject",
+    in_exam_id: args.examId ?? 0,
+    in_college_id: args.collegeId ?? 0,
+    in_course_id: 0,
+    in_course_group_id: args.courseGroupId ?? 0,
+    in_course_year_id: args.courseYearId ?? 0,
+    in_academic_year_id: 0,
+    in_regulation_id: args.regulationId ?? 0,
+    in_subject_id: args.subjectId ?? 0,
+  };
+  const procs = [
+    "s_get_exam_premoderation_reports_bycodes",
+    "s_get_exam_premoderation_reports_bycode",
+    "s_get_exam_premoderation",
+  ];
+  let lastMessage = "";
+  for (const proc of procs) {
+    const envelope = await getAllRecordsEnvelope<{ result?: unknown; errorDetails?: string }>(
+      proc,
+      payload,
+    );
+    if (envelope.success) {
+      return unwrapProcResult(envelope.data);
+    }
+    const details = String(
+      (envelope.data as { errorDetails?: string } | null | undefined)?.errorDetails ??
+        envelope.message ??
+        "",
+    ).toLowerCase();
+    lastMessage = envelope.message ?? details;
+    if (details.includes("no record")) return [];
+    if (
+      details.includes("no procedure") ||
+      details.includes("call signature") ||
+      details.includes("does not exist")
+    ) {
+      continue;
+    }
+    throw new Error(envelope.message || `Failed to call ${proc}`);
+  }
+  throw new Error(lastMessage || "Failed to load pre-moderation report");
+}
+
+/**
+ * Angular exam-answer-sheets-report —
+ * `s_get_answerpaperupload_details` flag `exam_timetable_answerpaper_details` (result[2]).
+ */
+export async function getExamAnswerSheetsReport(args: {
+  orgId?: number;
+  examId: number;
+  timetableId?: number;
+  examDate?: string;
+}): Promise<AnyRow[]> {
+  try {
+    const orgId =
+      args.orgId ??
+      Number(
+        globalThis?.localStorage?.getItem("organizationId") ??
+          globalThis?.localStorage?.getItem("orgId") ??
+          0,
+      );
+    const data = await getAllRecords<{ result?: unknown }>("s_get_answerpaperupload_details", {
+      in_flag: "exam_timetable_answerpaper_details",
+      in_org_id: orgId,
+      in_college_id: 0,
+      in_academic_year_id: 0,
+      in_isadmin: 0,
+      in_exam_id: args.examId ?? 0,
+      in_timetable_id: args.timetableId ?? 0,
+      in_exam_date: args.examDate || 0,
+      in_subject_id: 0,
+      in_loginuser_empid: 0,
+      in_loginuser_roleid: 0,
+    });
+    const raw = data?.result;
+    if (!Array.isArray(raw)) return [];
+    const group = (Array.isArray(raw[2]) ? raw[2] : Array.isArray(raw[0]) ? raw[0] : null) as unknown;
+    if (Array.isArray(group)) {
+      return group.filter((r): r is AnyRow => !!r && typeof r === "object");
+    }
+    return unwrapProcResult(data);
+  } catch (error: unknown) {
+    const msg = String(error instanceof Error ? error.message : (error ?? ""));
+    if (msg.toLowerCase().includes("no record")) return [];
+    throw error;
+  }
+}
+
+/** Angular subjectwise-result-report — `exammarksentrystddetails`. */
+export async function getSubjectWiseResultReport(args: {
+  examId: number;
+  collegeId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  subjectId: number;
+  regulationId?: number;
+  examDate?: string;
+}): Promise<AnyRow[]> {
+  try {
+    const data = await fetchDetails<unknown>("exammarksentrystddetails", {
+      examId: args.examId,
+      collegeId: args.collegeId,
+      courseId: args.courseId,
+      courseGroupId: args.courseGroupId,
+      courseYearId: args.courseYearId,
+      subjectId: args.subjectId,
+      regulationId: args.regulationId ?? 0,
+      examDate: args.examDate || "",
+      isActive: "true",
+    });
+    if (Array.isArray(data)) {
+      return data.filter((r): r is AnyRow => !!r && typeof r === "object");
+    }
+    if (data && typeof data === "object") {
+      const d = data as Record<string, unknown>;
+      for (const key of ["resultList", "data", "result", "students"]) {
+        const v = d[key];
+        if (Array.isArray(v)) return v.filter((r): r is AnyRow => !!r && typeof r === "object");
+        if (Array.isArray((v as { result?: unknown })?.result)) {
+          const inner = (v as { result: unknown[] }).result[0];
+          if (Array.isArray(inner)) return inner.filter((r): r is AnyRow => !!r && typeof r === "object");
+        }
+      }
+    }
+    return [];
+  } catch (error: unknown) {
+    const msg = String(error instanceof Error ? error.message : (error ?? ""));
+    if (msg.toLowerCase().includes("no record")) return [];
+    throw error;
+  }
+}
+
+/** Angular `buildingdetails?q=` room typeahead (min ~2 chars). */
+export async function searchBuildingDetailsRooms(term: string): Promise<AnyRow[]> {
+  const q = term.trim();
+  if (q.length < 2) return [];
+  try {
+    const data = await fetchDetails<unknown>(SETUP_API.BUILDING_DETAILS_SEARCH, { q });
+    if (Array.isArray(data)) {
+      return data.filter((r): r is AnyRow => !!r && typeof r === "object");
+    }
+    if (data && typeof data === "object") {
+      const d = data as Record<string, unknown>;
+      if (Array.isArray(d.resultList)) {
+        return d.resultList.filter((r): r is AnyRow => !!r && typeof r === "object");
+      }
+      if (Array.isArray(d.data)) {
+        return d.data.filter((r): r is AnyRow => !!r && typeof r === "object");
+      }
+      if (Array.isArray(d.result)) {
+        return d.result.filter((r): r is AnyRow => !!r && typeof r === "object");
+      }
+    }
+    return [];
+  } catch {
+    return [];
+  }
 }
 
 export async function getUnivExamSubjectUc(params: {

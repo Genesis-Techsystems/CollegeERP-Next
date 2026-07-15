@@ -109,41 +109,66 @@ export async function updateExamQuestionPaper(
   examQuestionPaperId: number,
   payload: Record<string, unknown>,
 ): Promise<AnyRow> {
-  // Angular calls the dedicated /updateExamQuestionPapers endpoint, not
-  // the generic /domain/update path. The endpoint expects the payload
-  // shape from createExamQuestionPaper plus the primary key.
+  // Angular: crudService.update(UpdateExamQuestionpaper, details) → PUT
+  // /cms/updateExamQuestionPapers (POST yields 405 Method Not Allowed).
   const body = {
     ...payload,
     examQuestionPaperId,
+    questionPaperId: examQuestionPaperId,
     pkExamQuestionpaperId: examQuestionPaperId,
   };
-  const res = await fetch(NEXT_API.PROXY("/updateExamQuestionPapers"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const json = (await res.json().catch(() => null)) as {
-    success?: boolean;
-    message?: string;
-    data?: AnyRow;
-  } | null;
-  if (!res.ok || (json && json.success === false)) {
-    throw new Error(json?.message ?? `Update failed (${res.status}).`);
+  try {
+    return await putDetails<AnyRow>(EXAM_EVAL_API.UPDATE_EXAM_QUESTION_PAPERS, body);
+  } catch {
+    // Fallback: standard domain update used elsewhere for ExamQuestionPapers.
+    return domainUpdate<AnyRow>(
+      EXAM_EVAL_API.QUESTION_PAPERS,
+      "questionPaperId",
+      examQuestionPaperId,
+      body,
+    );
   }
-  return (json?.data ?? {}) as AnyRow;
+}
+
+function pickUploadPath(data: unknown, keys: string[]): string {
+  if (!data) return "";
+  if (typeof data === "string") return data.trim();
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      const found = pickUploadPath(item, keys);
+      if (found) return found;
+    }
+    return "";
+  }
+  if (typeof data === "object") {
+    const row = data as AnyRow;
+    for (const k of keys) {
+      const v = row[k];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    if (row.data != null) return pickUploadPath(row.data, keys);
+    if (row.result != null) return pickUploadPath(row.result, keys);
+  }
+  return "";
 }
 
 /**
  * Upload Question Paper and/or Model Answer Paper files for an
- * exam question paper. Mirrors Angular UploadPapersComponent which
- * builds a FormData with {questionPaperId, questionPaper, modelAnswerPaper}
- * and POSTs to CONSTANTS.PaperPathUploadUrl ("examQuestionPaperPathUpload").
+ * exam question paper. Same API as Angular Network call:
+ * POST /cms/uploadquestionpapermodelanswerpapers
+ * FormData: questionPaperId, questionPaper, modelAnswerPaper
  */
 export async function uploadQuestionPaperFiles(params: {
   examQuestionPaperId: number;
   questionPapers?: File[] | null;
   modelAnswerPapers?: File[] | null;
-}): Promise<{ success: boolean; message: string; data?: AnyRow }> {
+}): Promise<{
+  success: boolean;
+  message: string;
+  data?: AnyRow;
+  /** True when a non-empty QP/AS path is known after upload + entity re-read. */
+  persisted: boolean;
+}> {
   const formData = new FormData();
   // Angular UploadPapersComponent: questionPaperId = row.pk_exam_questionpaper_id
   formData.append("questionPaperId", String(params.examQuestionPaperId));
@@ -153,30 +178,88 @@ export async function uploadQuestionPaperFiles(params: {
   for (const f of params.modelAnswerPapers ?? []) {
     formData.append("modelAnswerPaper", f, f.name);
   }
-  // Angular target endpoint:
-  //   /cms/uploadquestionpapermodelanswerpapers
-  const res = await fetch(
-    NEXT_API.PROXY("/uploadquestionpapermodelanswerpapers"),
-    {
-      method: "POST",
-      body: formData,
-      credentials: "include",
-    },
-  );
+
+  const res = await fetch(NEXT_API.PROXY(EXAM_EVAL_API.PAPER_PATH_UPLOAD), {
+    method: "POST",
+    body: formData,
+    credentials: "include",
+  });
   const body = (await res.json().catch(() => null)) as {
     success?: boolean;
     message?: string;
     data?: AnyRow;
   } | null;
+
   if (!res.ok) {
     throw new Error(body?.message ?? `Upload failed (${res.status}).`);
   }
-  // Angular parent treats any HTTP body as truthy and still calls getQuestionpapers().
-  // Do not throw on success:false — caller refreshes the list either way.
+
+  let qpPath = pickUploadPath(body.data ?? body, [
+    "questionPaperPath",
+    "questionpaper_path",
+    "questionPaper",
+    "path",
+  ]);
+  let asPath = pickUploadPath(body.data ?? body, [
+    "modelAnswerSheetPath",
+    "modelanswersheet_path",
+    "modelAnswerPaper",
+    "modelAnswerPath",
+  ]);
+
+  // Upload may store files without returning paths. Re-read ExamQuestionPapers
+  // (PK: questionPaperId) so Get List / filter changes can show the eye.
+  try {
+    const details = await domainList<AnyRow>(
+      EXAM_EVAL_API.QUESTION_PAPERS,
+      buildQuery({ questionPaperId: params.examQuestionPaperId }),
+    );
+    const detail = Array.isArray(details) ? details[0] : undefined;
+    if (detail) {
+      qpPath =
+        qpPath ||
+        pickUploadPath(detail, ["questionPaperPath", "questionpaper_path"]);
+      asPath =
+        asPath ||
+        pickUploadPath(detail, [
+          "modelAnswerSheetPath",
+          "modelanswersheet_path",
+        ]);
+    }
+  } catch {
+    /* keep paths from upload response */
+  }
+
+  if (qpPath || asPath) {
+    try {
+      await updateExamQuestionPaper(params.examQuestionPaperId, {
+        ...(qpPath ? { questionPaperPath: qpPath } : {}),
+        ...(asPath ? { modelAnswerSheetPath: asPath } : {}),
+      });
+    } catch {
+      /* Prefer list enrich / client cache even if explicit path update fails */
+    }
+  }
+
+  const persisted = Boolean(qpPath || asPath);
+  // Angular parent treats any HTTP body as truthy and still refreshes the list.
+  // We only claim a durable upload when a stored path is available.
   return {
-    success: body?.success !== false,
-    message: body?.message ?? "Uploaded successfully.",
-    data: body?.data,
+    success: body?.success !== false || persisted,
+    message: persisted
+      ? body?.message && !/no records?/i.test(body.message)
+        ? body.message
+        : "Uploaded successfully."
+      : body?.message?.trim() ||
+        "Upload finished but no file path was saved on the question paper.",
+    persisted,
+    data: {
+      ...(typeof body?.data === "object" && body.data ? body.data : {}),
+      questionPaperPath: qpPath || undefined,
+      questionpaper_path: qpPath || undefined,
+      modelAnswerSheetPath: asPath || undefined,
+      modelanswersheet_path: asPath || undefined,
+    },
   };
 }
 
@@ -707,6 +790,75 @@ export async function getFinalizeSubjectUc(params: {
   });
 }
 
+/** Merge QP / AS file paths from ExamQuestionPapers CRUD (list proc often omits them). */
+export async function enrichQuestionPaperFilePaths(
+  rows: AnyRow[],
+): Promise<AnyRow[]> {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+
+  const pickPath = (row: AnyRow | undefined, keys: string[]) => {
+    if (!row) return "";
+    for (const k of keys) {
+      const v = row[k];
+      if (v != null && String(v).trim() !== "") return String(v).trim();
+    }
+    return "";
+  };
+
+  return Promise.all(
+    rows.map(async (row) => {
+      const id = Number(
+        row.pk_exam_questionpaper_id ??
+          row.questionPaperId ??
+          row.examQuestionPaperId ??
+          0,
+      );
+      const qp = pickPath(row, ["questionpaper_path", "questionPaperPath"]);
+      const as = pickPath(row, [
+        "modelanswersheet_path",
+        "modelAnswerSheetPath",
+      ]);
+      if (!id || (qp && as)) {
+        return {
+          ...row,
+          questionpaper_path: qp || row.questionpaper_path,
+          questionPaperPath: qp || row.questionPaperPath,
+          modelanswersheet_path: as || row.modelanswersheet_path,
+          modelAnswerSheetPath: as || row.modelAnswerSheetPath,
+        };
+      }
+
+      // PK is questionPaperId — examQuestionPaperId query 500s on this entity.
+      let detail: AnyRow | undefined;
+      try {
+        const list = await domainList<AnyRow>(
+          EXAM_EVAL_API.QUESTION_PAPERS,
+          buildQuery({ questionPaperId: id }),
+        );
+        if (Array.isArray(list) && list[0]) detail = list[0];
+      } catch {
+        /* leave detail unset */
+      }
+      if (!detail) return row;
+
+      const qpPath =
+        qp ||
+        pickPath(detail, ["questionPaperPath", "questionpaper_path"]);
+      const asPath =
+        as ||
+        pickPath(detail, ["modelAnswerSheetPath", "modelanswersheet_path"]);
+
+      return {
+        ...row,
+        questionpaper_path: qpPath || null,
+        questionPaperPath: qpPath || null,
+        modelanswersheet_path: asPath || null,
+        modelAnswerSheetPath: asPath || null,
+      };
+    }),
+  );
+}
+
 export async function listFinalizableQuestionPapers(params: {
   employeeId: number;
   examId: number;
@@ -752,7 +904,10 @@ export async function listFinalizableQuestionPapers(params: {
     },
   );
   const groups = data?.result ?? [];
-  return (groups[0] ?? []).filter(Boolean);
+  const list = (groups[0] ?? []).filter(Boolean);
+  // list_questionpaper_list often returns null questionpaper_path even when
+  // ExamQuestionPapers has the file path — enrich so the eye icon survives refresh.
+  return enrichQuestionPaperFilePaths(list);
 }
 
 export async function finalizeOneQuestionPaper(params: {
@@ -826,26 +981,133 @@ function openPdfFromBase64(base64: string): void {
   globalThis.open?.(url, "_blank", "noopener,noreferrer");
 }
 
+export type QpDownloadKind = "questionPaper" | "modelAnswer";
+
+const QP_BASE64_KEYS = [
+  "questionPaperBase64",
+  "questionpaperBase64",
+  "question_paper_base64",
+] as const;
+const AS_BASE64_KEYS = [
+  "modelAnswerSheetBase64",
+  "modelAnswerPaperBase64",
+  "modelanswersheetBase64",
+  "answerSheetBase64",
+  "model_answer_sheet_base64",
+] as const;
+
+function pickBase64Field(data: AnyRow | null | undefined, keys: readonly string[]): string {
+  if (!data || typeof data !== "object") return "";
+  for (const k of keys) {
+    const v = data[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  const nested = data.data;
+  if (typeof nested === "string" && nested.trim()) return nested.trim();
+  if (nested && typeof nested === "object") {
+    for (const k of keys) {
+      const v = (nested as AnyRow)[k];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+  }
+  return "";
+}
+
+/** Soft GET — never throws (API often returns success:false "No Records(s) found."). */
+export async function fetchQuestionPaperDownloadData(
+  questionPaperId: number,
+): Promise<AnyRow | null> {
+  if (!questionPaperId) return null;
+  try {
+    return await fetchDetails<AnyRow>(
+      QUESTION_PAPER_API.DOWNLOAD_QP_AND_ANSWER_SHEET,
+      { id: questionPaperId },
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function getQuestionPaperPdfAvailability(
+  questionPaperId: number,
+): Promise<{ qp: boolean; as: boolean }> {
+  const data = await fetchQuestionPaperDownloadData(questionPaperId);
+  if (!data) return { qp: false, as: false };
+  return {
+    qp: Boolean(pickBase64Field(data, QP_BASE64_KEYS)),
+    as: Boolean(pickBase64Field(data, AS_BASE64_KEYS)),
+  };
+}
+
 /**
- * Angular view-ex-fin-qn-paper openFile() → getPdfPath(pk_exam_questionpaper_id):
+ * Mark list rows where MinIO path is null but downloadQPAndAnswerSheet has PDF
+ * (so the eye icon can show — same preview Angular uses).
+ */
+export async function markQuestionPaperPdfAvailability(
+  rows: AnyRow[],
+): Promise<AnyRow[]> {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+  const limit = rows.slice(0, 25);
+  const rest = rows.slice(25);
+  const marked = await Promise.all(
+    limit.map(async (row) => {
+      const id = Number(
+        row.pk_exam_questionpaper_id ??
+          row.questionPaperId ??
+          row.examQuestionPaperId ??
+          0,
+      );
+      const hasQpPath = Boolean(
+        String(row.questionpaper_path ?? row.questionPaperPath ?? "").trim(),
+      );
+      const hasAsPath = Boolean(
+        String(
+          row.modelanswersheet_path ?? row.modelAnswerSheetPath ?? "",
+        ).trim(),
+      );
+      if (!id || (hasQpPath && hasAsPath)) {
+        return {
+          ...row,
+          _qpPdfAvailable: hasQpPath || Boolean(row._qpPdfAvailable),
+          _asPdfAvailable: hasAsPath || Boolean(row._asPdfAvailable),
+        };
+      }
+      const avail = await getQuestionPaperPdfAvailability(id);
+      return {
+        ...row,
+        // Keep session/cache flags if download probe is empty (list path often null).
+        _qpPdfAvailable: hasQpPath || avail.qp || Boolean(row._qpPdfAvailable),
+        _asPdfAvailable: hasAsPath || avail.as || Boolean(row._asPdfAvailable),
+      };
+    }),
+  );
+  return [...marked, ...rest];
+}
+
+/**
+ * Angular preview via download API (not MinIO direct URL):
  *   GET downloadQPAndAnswerSheet?id={questionPaperId}
- *   → data.questionPaperBase64 → open PDF blob in new tab
+ *   → data.questionPaperBase64 / modelAnswerSheetBase64 → PDF blob in new tab
+ *
+ * Direct MinIO links often 404 (NoSuchKey) when NEXT_PUBLIC_MINIO_URL points at
+ * a different host/bucket than where Spring stored the file.
  */
 export async function downloadAndOpenQuestionPaperPdf(
   questionPaperId: number,
+  kind: QpDownloadKind = "questionPaper",
 ): Promise<void> {
   if (!questionPaperId) {
     throw new Error("Question paper id is required.");
   }
-  const data = await fetchDetails<{
-    questionPaperBase64?: string;
-    questionpaperBase64?: string;
-  }>(QUESTION_PAPER_API.DOWNLOAD_QP_AND_ANSWER_SHEET, {
-    id: questionPaperId,
-  });
-  const base64 = data?.questionPaperBase64 ?? data?.questionpaperBase64 ?? "";
+  const data = await fetchQuestionPaperDownloadData(questionPaperId);
+  const keys = kind === "modelAnswer" ? AS_BASE64_KEYS : QP_BASE64_KEYS;
+  const base64 = pickBase64Field(data, keys);
   if (!base64) {
-    throw new Error("Question paper PDF is not available.");
+    throw new Error(
+      kind === "modelAnswer"
+        ? "Model answer PDF is not available."
+        : "Question paper PDF is not available.",
+    );
   }
   openPdfFromBase64(base64);
 }

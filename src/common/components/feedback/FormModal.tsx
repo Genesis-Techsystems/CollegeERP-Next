@@ -46,6 +46,8 @@ export interface FormModalProps {
   showCloseButton?: boolean
   /** Render a full-width divider under modal header. */
   showHeaderDivider?: boolean
+  /** Render a full-width divider above footer buttons. Defaults to true. */
+  showFooterDivider?: boolean
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -69,6 +71,7 @@ export function FormModal({
   titleClassName,
   showCloseButton = true,
   showHeaderDivider = false,
+  showFooterDivider = true,
 }: Readonly<FormModalProps>) {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
@@ -84,9 +87,12 @@ export function FormModal({
         )}
       >
         <DialogHeader
-          className={cn('shrink-0', showHeaderDivider && 'border-b border-border pb-3')}
+          className={cn(
+            'shrink-0 text-left sm:text-left',
+            showHeaderDivider && 'border-b border-border pb-3',
+          )}
         >
-          <DialogTitle className={titleClassName}>{title}</DialogTitle>
+          <DialogTitle className={cn('text-left', titleClassName)}>{title}</DialogTitle>
           {description ? (
             <DialogDescription>{description}</DialogDescription>
           ) : (
@@ -104,7 +110,12 @@ export function FormModal({
             {children}
           </div>
 
-          <DialogFooter className="shrink-0 gap-2 border-t border-border/60 bg-background pt-3 sm:justify-end">
+          <DialogFooter
+            className={cn(
+              'shrink-0 gap-2 bg-background pt-3 sm:justify-end',
+              showFooterDivider && 'border-t border-border/60',
+            )}
+          >
             <Button
               type="button"
               variant="outline"

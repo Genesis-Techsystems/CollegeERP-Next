@@ -339,7 +339,20 @@ export default function UnivExamCenterCollegesPage() {
           </div>
         </div>
       )}
-      notice={showSections ? (
+      rowData={showSections ? assignedRows : []}
+      columnDefs={assignedColumnDefs}
+      loading={loadingList}
+      pagination
+      toolbar={{ search: true, searchPlaceholder: 'Search…', pdfDocumentTitle: 'Exam Center Colleges' }}
+      toolbarLeading={
+        showSections ? (
+          <span className="text-[12px] font-medium text-[hsl(var(--primary))] truncate max-w-[min(100%,40rem)]">
+            {headerText}
+          </span>
+        ) : null
+      }
+    >
+      {showSections ? (
         <div className="app-card p-3">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <div className="md:col-span-5 border rounded-md p-2">
@@ -402,19 +415,6 @@ export default function UnivExamCenterCollegesPage() {
           </div>
         </div>
       ) : null}
-      rowData={showSections ? assignedRows : []}
-      columnDefs={assignedColumnDefs}
-      loading={loadingList}
-      pagination
-      toolbar={{ search: true, searchPlaceholder: 'Search…', pdfDocumentTitle: 'Exam Center Colleges' }}
-      toolbarLeading={
-        showSections ? (
-          <span className="text-[12px] font-medium text-[hsl(var(--primary))] truncate max-w-[min(100%,40rem)]">
-            {headerText}
-          </span>
-        ) : null
-      }
-    >
       <FormModal open={editOpen} onClose={() => setEditOpen(false)} title="Edit exam center college" onSubmit={onSaveEdit} size="lg">
         <div className="space-y-2">
           <div className="text-sm text-muted-foreground">College: {txt(editRow?.collegeCode ?? editRow?.college_code)}</div>

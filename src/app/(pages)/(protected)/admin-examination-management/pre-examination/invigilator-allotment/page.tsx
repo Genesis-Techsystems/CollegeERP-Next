@@ -605,11 +605,18 @@ export default function InvigilatorAllotmentPage() {
                 const roomId = Number(r.roomId ?? 0);
                 const list = byRoom.get(roomId) ?? [];
                 return (
-                  <button
+                  <div
                     key={`room-${roomId || i}`}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => openRoomModal(r)}
-                    className="rounded-md border p-3 text-left transition-colors hover:bg-muted/40"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        openRoomModal(r)
+                      }
+                    }}
+                    className="cursor-pointer rounded-md border p-3 text-left transition-colors hover:bg-muted/40"
                   >
                     <div className="font-semibold text-[13px]">
                       {r.roomName ?? r.roomCode ?? "-"}
@@ -674,7 +681,7 @@ export default function InvigilatorAllotmentPage() {
                         This room not allocated to timetable
                       </div>
                     )}
-                  </button>
+                  </div>
                 );
               })}
               {rooms.length === 0 && (

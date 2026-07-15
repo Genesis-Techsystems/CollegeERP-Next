@@ -98,6 +98,31 @@ export function normalizeHref(path: string): string {
     // Angular Assessments module folder typo `assissments` → canonical `assessments`.
     .replace(/\/apps\/assissments\//gi, '/assessments/')
     .replace(/\/assissments\//gi, '/assessments/')
+    // Angular Exam Reports underscore slugs → App Router kebab paths (404→dashboard otherwise).
+    .replace(
+      /\/admin-exam-reports\/exam_results_sheets(?=\/|$)/gi,
+      '/admin-exam-reports/exam-results-sheets',
+    )
+    .replace(
+      /\/admin-exam-reports\/exam-result-sheets(?=\/|$)/gi,
+      '/admin-exam-reports/exam-results-sheets',
+    )
+    .replace(
+      /\/admin-exam-reports\/exam-result-sheet(?=\/|$)/gi,
+      '/admin-exam-reports/exam-results-sheets',
+    )
+    .replace(
+      /\/admin-exam-reports\/tabulation_register(?=\/|$)/gi,
+      '/admin-exam-reports/tabulation-register',
+    )
+    .replace(
+      /\/reports\/admin-exam-reports\/exam_results_sheets(?=\/|$)/gi,
+      '/admin-examination-management/admin-exam-reports/exam-results-sheets',
+    )
+    .replace(
+      /\/reports\/admin-exam-reports\/tabulation_register(?=\/|$)/gi,
+      '/admin-examination-management/admin-exam-reports/tabulation-register',
+    )
     // Angular Accounts & Fees module (`accounts-fees` in router) → App Router path.
     .replace(/\/accounts-fees\//gi, '/accounts-and-fees/')
     .replace(/\/apps\/accounts-and-fees\//gi, '/accounts-and-fees/')

@@ -9,11 +9,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
 import {
+  getAnswerPaperPresignedUrl,
   runEvaluationProc,
   uploadExamOmr,
 } from "@/services/evaluation-process-admin";
 import { getUnivExamFiltersByType } from "@/services/pre-examination";
-import { EXAM_EVAL_API, MINIO_URL } from "@/config/constants/api";
+import { EXAM_EVAL_API } from "@/config/constants/api";
 import { dedupeBy, num } from "@/common/utils/data-helpers";
 import { toastError } from "@/lib/toast";
 
@@ -68,12 +69,25 @@ function extractUploadedPath(res: unknown): string {
   return "";
 }
 
-function toMinioUrl(path: string): string {
-  const p = path.trim();
-  if (!p) return "";
-  if (/^https?:\/\//i.test(p)) return p;
-  const base = (MINIO_URL || "").replace(/\/?$/, "/");
-  return `${base}${p.replace(/^\/+/, "")}`;
+async function openAnswerSheetView(path: string): Promise<void> {
+  const storedPath = path.trim();
+  if (!storedPath) {
+    toastError("Answer sheet path is missing.");
+    return;
+  }
+  try {
+    const data = await getAnswerPaperPresignedUrl(storedPath);
+    const url = String(data?.answerPaperUrl ?? "").trim();
+    if (!url) {
+      toastError("Unable to open answer sheet.");
+      return;
+    }
+    globalThis?.open?.(url, "_blank", "noopener,noreferrer");
+  } catch (error: unknown) {
+    const msg =
+      error instanceof Error ? error.message : "Failed to open answer sheet.";
+    toastError(msg);
+  }
 }
 
 /** Angular: getAnswerPaperUploadUrl → getAllRecords/s_get_answerpaperupload_details */
@@ -610,13 +624,7 @@ export default function UploadAnswerSheetsPage() {
                             <button
                               type="button"
                               className="text-blue-700 hover:underline"
-                              onClick={() =>
-                                globalThis?.open?.(
-                                  toMinioUrl(u.view),
-                                  "_blank",
-                                  "width=700,height=600",
-                                )
-                              }
+                              onClick={() => void openAnswerSheetView(u.view)}
                             >
                               View
                             </button>

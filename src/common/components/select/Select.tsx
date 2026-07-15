@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useId, useRef, useEffect, useState, useCallback } from 'react'
+import { useId, useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { ChevronDown, X, Search, Check, Loader2 } from 'lucide-react'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
@@ -45,6 +45,19 @@ export interface SelectProps {
 // ---------------------------------------------------------------------------
 
 const SEARCH_DEBOUNCE_MS = 300
+
+/** Keep first option per value — duplicate values break React keys and selection. */
+export function dedupeSelectOptions(options: SelectOption[]): SelectOption[] {
+  const seen = new Set<string>()
+  const out: SelectOption[] = []
+  for (const o of options) {
+    const v = String(o.value)
+    if (seen.has(v)) continue
+    seen.add(v)
+    out.push(o)
+  }
+  return out
+}
 
 /** Radix Dialog scroll-lock can swallow wheel events on portaled popovers — scroll the list manually. */
 function scrollListOnWheel(
@@ -115,7 +128,8 @@ export function Select({
   const searchInputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
-  const selectedOption = options.find((o) => o.value === value) ?? null
+  const uniqueOptions = useMemo(() => dedupeSelectOptions(options), [options])
+  const selectedOption = uniqueOptions.find((o) => o.value === value) ?? null
 
   const searchNotify = useCallback(
     (term: string) => {
@@ -142,12 +156,12 @@ export function Select({
   // API rows are not hidden when labels use a different shape than the typed term.
   const filteredOptions =
     needle && !onSearch
-      ? options.filter((o) => {
+      ? uniqueOptions.filter((o) => {
           const l = o.label.toLowerCase()
           const v = String(o.value).toLowerCase()
           return l.includes(needle) || v.includes(needle)
         })
-      : options
+      : uniqueOptions
 
   function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     const term = e.target.value
@@ -297,11 +311,11 @@ export function Select({
                 No results found
               </div>
             ) : (
-              filteredOptions.map((opt) => {
+              filteredOptions.map((opt, idx) => {
                 const isSelected = opt.value === value
                 return (
                   <button
-                    key={opt.value}
+                    key={`${String(opt.value)}::${idx}`}
                     type="button"
                     role="option"
                     aria-selected={isSelected}

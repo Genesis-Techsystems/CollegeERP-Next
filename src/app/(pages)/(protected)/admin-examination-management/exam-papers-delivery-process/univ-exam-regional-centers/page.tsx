@@ -7,7 +7,7 @@ import { FilteredListPage } from '@/components/layout'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
-import { ActiveStatusField } from '@/common/components/forms'
+import { ActiveStatusField, FormField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -110,6 +110,10 @@ export default function UnivExamRegionalCentersPage() {
     isActive: true,
     reason: '',
   })
+  const [formErrors, setFormErrors] = useState<{
+    examReionalCenterName?: string
+    cityId?: string
+  }>({})
 
   const universityOptions: SelectOption[] = useMemo(
     () =>
@@ -200,6 +204,7 @@ export default function UnivExamRegionalCentersPage() {
 
   const handleEditRow = useCallback((row: RegionalRow) => {
     setEditing(row)
+    setFormErrors({})
     setForm({
       examReionalCenterName: pickName(row),
       examReionalCenterCode: pickCode(row),
@@ -237,6 +242,7 @@ export default function UnivExamRegionalCentersPage() {
       return
     }
     setEditing(null)
+    setFormErrors({})
     setForm({
       examReionalCenterName: '',
       examReionalCenterCode: '',
@@ -255,14 +261,13 @@ export default function UnivExamRegionalCentersPage() {
   async function onSubmitModal(e: { preventDefault: () => void }) {
     e.preventDefault()
     if (!universityId) return
+    const nextErrors: typeof formErrors = {}
     if (!form.examReionalCenterName.trim()) {
-      toastError('Exam regional center name is required.')
-      return
+      nextErrors.examReionalCenterName = 'Exam Regional Center Name is required.'
     }
-    if (!form.cityId) {
-      toastError('Select city.')
-      return
-    }
+    if (!form.cityId.trim()) nextErrors.cityId = 'City is required.'
+    setFormErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
     if (!form.isActive && !form.reason.trim()) {
       toastError('Reason is required when inactive.')
       return
@@ -353,20 +358,30 @@ export default function UnivExamRegionalCentersPage() {
         onSubmit={onSubmitModal}
         isSubmitting={saving}
         size="xl"
+        showFooterDivider={false}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label>Exam Regional Center Name</Label>
+          <FormField label="Exam Regional Center Name" required error={formErrors.examReionalCenterName}>
             <Input
               value={form.examReionalCenterName}
-              onChange={(e) => setForm((f) => ({ ...f, examReionalCenterName: e.target.value }))}
+              onChange={(e) => {
+                setFormErrors((prev) => {
+                  if (!prev.examReionalCenterName) return prev
+                  const next = { ...prev }
+                  delete next.examReionalCenterName
+                  return next
+                })
+                setForm((f) => ({ ...f, examReionalCenterName: e.target.value }))
+              }}
+              placeholder="Exam Regional Center Name"
             />
-          </div>
+          </FormField>
           <div className="space-y-1">
             <Label>Exam Regional Center Code</Label>
             <Input
               value={form.examReionalCenterCode}
               onChange={(e) => setForm((f) => ({ ...f, examReionalCenterCode: e.target.value }))}
+              placeholder="Exam Regional Center Code"
             />
           </div>
           <div className="space-y-1">
@@ -374,6 +389,7 @@ export default function UnivExamRegionalCentersPage() {
             <Input
               value={form.longitude}
               onChange={(e) => setForm((f) => ({ ...f, longitude: e.target.value }))}
+              placeholder="Longitude"
             />
           </div>
           <div className="space-y-1">
@@ -381,6 +397,7 @@ export default function UnivExamRegionalCentersPage() {
             <Input
               value={form.latitude}
               onChange={(e) => setForm((f) => ({ ...f, latitude: e.target.value }))}
+              placeholder="Latitude"
             />
           </div>
           <div className="space-y-1">
@@ -388,6 +405,7 @@ export default function UnivExamRegionalCentersPage() {
             <Input
               value={form.addressLine1}
               onChange={(e) => setForm((f) => ({ ...f, addressLine1: e.target.value }))}
+              placeholder="Address Line1"
             />
           </div>
           <div className="space-y-1">
@@ -395,22 +413,31 @@ export default function UnivExamRegionalCentersPage() {
             <Input
               value={form.addressLine2}
               onChange={(e) => setForm((f) => ({ ...f, addressLine2: e.target.value }))}
+              placeholder="Address Line2"
             />
           </div>
-          <div className="space-y-1">
-            <Label>City</Label>
+          <FormField label="City" required error={formErrors.cityId}>
             <Select
               options={cityOptions}
-              value={form.cityId}
-              onChange={(v) => setForm((f) => ({ ...f, cityId: v ?? '' }))}
-              placeholder="Select city"
+              value={form.cityId || null}
+              onChange={(v) => {
+                setFormErrors((prev) => {
+                  if (!prev.cityId) return prev
+                  const next = { ...prev }
+                  delete next.cityId
+                  return next
+                })
+                setForm((f) => ({ ...f, cityId: v ?? '' }))
+              }}
+              placeholder="City"
             />
-          </div>
+          </FormField>
           <div className="space-y-1">
             <Label>Pincode</Label>
             <Input
               value={form.pincode}
               onChange={(e) => setForm((f) => ({ ...f, pincode: e.target.value }))}
+              placeholder="Pincode"
             />
           </div>
         </div>

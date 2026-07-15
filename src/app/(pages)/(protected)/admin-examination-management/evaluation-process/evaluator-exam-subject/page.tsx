@@ -53,20 +53,6 @@ const COL_DEFS = {
           p.data?.subjectName,
       ) || '-',
   } as ColDef<AnyRow>,
-  college: {
-    headerName: 'College',
-    minWidth: 120,
-    flex: 1,
-    valueGetter: (p) =>
-      txt(
-        p.data?.college_code ??
-          p.data?.collegeCode ??
-          p.data?.college_name ??
-          p.data?.collegeName ??
-          p.data?.College ??
-          p.data?.college,
-      ) || '-',
-  } as ColDef<AnyRow>,
   examMonthYear: {
     headerName: 'Exam Month Year',
     minWidth: 140,
@@ -143,7 +129,6 @@ export default function EvaluatorExamSubjectPage() {
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       COL_DEFS.siNo,
-      COL_DEFS.college,
       COL_DEFS.evaluatorName,
       COL_DEFS.subject,
       COL_DEFS.examMonthYear,

@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { MINIO_URL } from '@/config/constants/api'
 import { useSessionContext } from '@/context/SessionContext'
 import type { ColDef } from 'ag-grid-community'
 import { Select } from '@/common/components/select'
@@ -10,12 +9,14 @@ import { Eye } from 'lucide-react'
 import { toastError, toastSuccess } from '@/lib/toast'
 import {
   createExamQuestionPaper,
+  downloadAndOpenQuestionPaperPdf,
   getAssignQuestionPaperTemplateList,
   getEvaluationExamFilters,
   getEvaluationExamRestBundle,
   getQuestionPaperTemplateViewRows,
   listEvaluationSubjects,
   listFinalizableQuestionPapers,
+  markQuestionPaperPdfAvailability,
   updateExamQuestionPaper,
   uploadQuestionPaperFiles,
 } from '@/services/evaluation-process'
@@ -46,6 +47,85 @@ const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
   }
   return ''
 }
+
+/** Survives filter changes; never stores blob:/data: URLs (those die on refresh). */
+const QP_PATH_CACHE_KEY = 'examQuestionPaperMarks.filePaths'
+const isDurableFilePath = (path: string) =>
+  Boolean(path) && !/^(blob:|data:)/i.test(path)
+
+type QpPathCacheEntry = { qp?: string; as?: string; qpOk?: boolean; asOk?: boolean }
+function readQpPathCache(): Record<string, QpPathCacheEntry> {
+  if (typeof sessionStorage === 'undefined') return {}
+  try {
+    const raw = sessionStorage.getItem(QP_PATH_CACHE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, QpPathCacheEntry>
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+function writeQpPathCache(
+  id: number,
+  opts: { qp?: string; as?: string; qpOk?: boolean; asOk?: boolean },
+) {
+  if (!id || typeof sessionStorage === 'undefined') return
+  const nextQp = opts.qp && isDurableFilePath(opts.qp) ? opts.qp : ''
+  const nextAs = opts.as && isDurableFilePath(opts.as) ? opts.as : ''
+  if (!nextQp && !nextAs && opts.qpOk == null && opts.asOk == null) return
+  const cache = readQpPathCache()
+  const prev = cache[String(id)] ?? {}
+  cache[String(id)] = {
+    qp: nextQp || prev.qp,
+    as: nextAs || prev.as,
+    qpOk: opts.qpOk ?? prev.qpOk,
+    asOk: opts.asOk ?? prev.asOk,
+  }
+  sessionStorage.setItem(QP_PATH_CACHE_KEY, JSON.stringify(cache))
+}
+function mergeRowFilePaths(row: AnyRow, cache: Record<string, QpPathCacheEntry>): AnyRow {
+  const id = pickNum(row, [
+    'pk_exam_questionpaper_id',
+    'questionPaperId',
+    'examQuestionPaperId',
+    'exam_questionpaper_id',
+    'id',
+  ])
+  const cached = id ? cache[String(id)] : undefined
+  const qp =
+    pickText(row, ['questionPaperPath', 'questionpaper_path']) ||
+    cached?.qp ||
+    ''
+  const as =
+    pickText(row, ['modelAnswerSheetPath', 'modelanswersheet_path']) ||
+    cached?.as ||
+    ''
+  return {
+    ...row,
+    questionpaper_path: qp || row.questionpaper_path,
+    questionPaperPath: qp || row.questionPaperPath,
+    modelanswersheet_path: as || row.modelanswersheet_path,
+    modelAnswerSheetPath: as || row.modelAnswerSheetPath,
+    _qpPdfAvailable: Boolean(row._qpPdfAvailable || qp || cached?.qpOk),
+    _asPdfAvailable: Boolean(row._asPdfAvailable || as || cached?.asOk),
+  }
+}
+
+function rowHasQpPreview(row: AnyRow | undefined): boolean {
+  if (!row) return false
+  return Boolean(
+    row._qpPdfAvailable ||
+      pickText(row, ['questionPaperPath', 'questionpaper_path', 'questionPaper']),
+  )
+}
+function rowHasAsPreview(row: AnyRow | undefined): boolean {
+  if (!row) return false
+  return Boolean(
+    row._asPdfAvailable ||
+      pickText(row, ['modelAnswerSheetPath', 'modelanswersheet_path', 'modelAnswerPaper']),
+  )
+}
+
 const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
   const seen = new Set<string | number>()
   return rows.filter((r) => {
@@ -415,7 +495,30 @@ export default function ExamQuestionPaperMarksPage() {
         regulationId: regulationId ?? 0,
         organizationId,
       }).catch(() => [])
-      setRows(Array.isArray(list) ? list : [])
+      // list_questionpaper_list often nulls path fields; enrich + download probe
+      // so the eye still shows when Angular's downloadQPAndAnswerSheet has a PDF.
+      const cache = readQpPathCache()
+      const merged = (Array.isArray(list) ? list : []).map((r) =>
+        mergeRowFilePaths(r, cache),
+      )
+      const withPdf = await markQuestionPaperPdfAvailability(merged)
+      const finalRows = withPdf.map((row) => {
+        const id = pickNum(row, [
+          'pk_exam_questionpaper_id',
+          'questionPaperId',
+          'examQuestionPaperId',
+          'exam_questionpaper_id',
+          'id',
+        ])
+        writeQpPathCache(id, {
+          qp: pickText(row, ['questionPaperPath', 'questionpaper_path']),
+          as: pickText(row, ['modelAnswerSheetPath', 'modelanswersheet_path']),
+          qpOk: Boolean(row._qpPdfAvailable),
+          asOk: Boolean(row._asPdfAvailable),
+        })
+        return row
+      })
+      setRows(finalRows)
       setHasFetched(true)
       // Angular's getTemplateDetails() runs after subject selection / list —
       // keep templates ready for "+ Exam Question Paper".
@@ -590,32 +693,83 @@ export default function ExamQuestionPaperMarksPage() {
     })
     setOpenAddModal(true)
   }
-  function openFile(path: string | null | undefined) {
-    if (!path) return
-    if (/^https?:\/\//i.test(path)) {
-      globalThis?.open?.(path, '_blank', 'width=900,height=700,noopener,noreferrer')
-      return
-    }
-    // Derive MinIO base from the Spring API URL (Angular: miniopath =
-    // serverUrl + ':9000/cms/'). NEXT_PUBLIC_MINIO_URL is preferred when
-    // explicitly set; otherwise swap the :8443 API port for :9000 on the
-    // same host. If both are missing, fall back to a relative path.
-    let base = MINIO_URL
-    if (!base) {
-      const spring = process.env.NEXT_PUBLIC_SPRING_API_URL ?? ''
-      if (spring) {
-        try {
-          const u = new URL(spring)
-          base = `${u.protocol}//${u.hostname}:9000/cms/`
-        } catch {
-          base = spring.replace(/:8443\/cms\/?$/i, ':9000/cms/')
-          if (!base.endsWith('/')) base += '/'
+  /** Prefer Spring downloadQPAndAnswerSheet (base64) — same as Angular Network preview. */
+  const openQpDownload = useCallback(
+    async (row: AnyRow | undefined, kind: 'questionPaper' | 'modelAnswer') => {
+      const id = rowQuestionPaperId(row ?? {})
+      if (!id) {
+        toastError('Question paper id is missing on this row.')
+        return
+      }
+      try {
+        await downloadAndOpenQuestionPaperPdf(id, kind)
+        writeQpPathCache(id, {
+          qpOk: kind === 'questionPaper' ? true : undefined,
+          asOk: kind === 'modelAnswer' ? true : undefined,
+        })
+      } catch (error: any) {
+        const msg = String(error?.message ?? 'Failed to open document.')
+        if (/no records?/i.test(msg)) {
+          toastError(
+            kind === 'modelAnswer'
+              ? 'Model answer PDF is not available for this paper.'
+              : 'Question paper PDF is not available for this paper.',
+          )
+          return
         }
+        toastError(msg)
+      }
+    },
+    [],
+  )
+
+  /** Pull stored path(s) from upload API payload when list refresh lags. */
+  function extractUploadedPaths(data: unknown): { qp: string; as: string } {
+    const out = { qp: '', as: '' }
+    if (!data) return out
+    if (typeof data === 'string') {
+      out.qp = data
+      return out
+    }
+    if (Array.isArray(data)) {
+      const first = data[0]
+      if (typeof first === 'string') out.qp = first
+      else if (first && typeof first === 'object') {
+        out.qp = pickText(first as AnyRow, [
+          'questionPaperPath',
+          'questionpaper_path',
+          'questionPaper',
+          'path',
+        ])
+        out.as = pickText(first as AnyRow, [
+          'modelAnswerSheetPath',
+          'modelanswersheet_path',
+          'modelAnswerPaper',
+          'modelAnswerPath',
+        ])
+      }
+      return out
+    }
+    if (typeof data === 'object') {
+      const row = data as AnyRow
+      out.qp = pickText(row, [
+        'questionPaperPath',
+        'questionpaper_path',
+        'questionPaper',
+        'path',
+      ])
+      out.as = pickText(row, [
+        'modelAnswerSheetPath',
+        'modelanswersheet_path',
+        'modelAnswerPaper',
+        'modelAnswerPath',
+      ])
+      // Some APIs return [{qpPath}, {asPath}] nested under data.result
+      if (!out.qp && Array.isArray(row.result)) {
+        return extractUploadedPaths(row.result)
       }
     }
-    const clean = path.replace(/^\/+/, '')
-    const url = `${base}${clean}`
-    globalThis?.open?.(url, '_blank', 'width=900,height=700,noopener,noreferrer')
+    return out
   }
   function manageQuestions(row: AnyRow) {
     navigateWithRow(
@@ -653,19 +807,24 @@ export default function ExamQuestionPaperMarksPage() {
         questionPapers: uploadQpFiles,
         modelAnswerPapers: uploadAsFiles,
       })
-      // Server sometimes returns success:false + "No Records(s) found." even when
-      // the upload worked — never surface that as an error toast (Angular refresh path).
+      const fromApi = extractUploadedPaths(result.data)
+      writeQpPathCache(id, {
+        qp: fromApi.qp,
+        as: fromApi.as,
+        qpOk: Boolean(fromApi.qp || uploadQpFiles.length > 0),
+        asOk: Boolean(fromApi.as || uploadAsFiles.length > 0),
+      })
       const msg = (result.message || '').trim()
-      const isNoRecordsMsg = /no records?/i.test(msg)
-      if (result.success || isNoRecordsMsg) {
-        toastSuccess(isNoRecordsMsg ? 'Files uploaded.' : msg || 'Files uploaded.')
+      if (msg && !/no records?/i.test(msg) && result.success === false && !result.persisted) {
+        toastError(msg)
       } else {
-        toastError(msg || 'Upload did not complete.')
+        toastSuccess(msg && !/no records?/i.test(msg) ? msg : 'Files uploaded.')
       }
       setUploadRow(null)
       setUploadQpFiles([])
       setUploadAsFiles([])
       // Angular UploadPapers success path → getQuestionpapers()
+      // Probe downloadQPAndAnswerSheet so eye shows even when list paths stay null.
       await getList()
     } catch (error: any) {
       const msg = String(error?.message ?? 'Failed to upload files.')
@@ -772,15 +931,16 @@ export default function ExamQuestionPaperMarksPage() {
         headerName: 'Question Paper',
         minWidth: 130,
         cellRenderer: (p: { data?: AnyRow }) => {
-          const url = pickText(p.data, ['questionPaperPath', 'questionpaper_path'])
-          if (!url) return <span className="text-[11px] text-muted-foreground">No Docs Uploaded</span>
+          if (!rowHasQpPreview(p.data)) {
+            return <span className="text-[11px] text-muted-foreground">No Docs Uploaded</span>
+          }
           return (
             <Button
               type="button"
               size="sm"
               variant="ghost"
-              className="h-7 w-7 p-0"
-              onClick={() => openFile(url)}
+              className="h-7 w-7 p-0 text-blue-700"
+              onClick={() => void openQpDownload(p.data, 'questionPaper')}
               aria-label="View question paper"
             >
               <Eye className="h-4 w-4" />
@@ -792,15 +952,16 @@ export default function ExamQuestionPaperMarksPage() {
         headerName: 'Answer Sheet',
         minWidth: 120,
         cellRenderer: (p: { data?: AnyRow }) => {
-          const url = pickText(p.data, ['modelAnswerSheetPath', 'modelanswersheet_path'])
-          if (!url) return <span className="text-[11px] text-muted-foreground">No Docs Uploaded</span>
+          if (!rowHasAsPreview(p.data)) {
+            return <span className="text-[11px] text-muted-foreground">No Docs Uploaded</span>
+          }
           return (
             <Button
               type="button"
               size="sm"
               variant="ghost"
-              className="h-7 w-7 p-0"
-              onClick={() => openFile(url)}
+              className="h-7 w-7 p-0 text-blue-700"
+              onClick={() => void openQpDownload(p.data, 'modelAnswer')}
               aria-label="View answer sheet"
             >
               <Eye className="h-4 w-4" />
@@ -896,7 +1057,7 @@ export default function ExamQuestionPaperMarksPage() {
         },
       },
     ],
-    [router],
+    [router, openQpDownload],
   )
 
   return (

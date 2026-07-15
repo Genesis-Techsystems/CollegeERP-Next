@@ -30,6 +30,12 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function txt(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return "";
+}
+
 export type AnyRow = Record<string, unknown>;
 
 function flattenExamFilterRows(
@@ -705,6 +711,48 @@ export async function listExamSeatnoBarcodeDetails(args: {
 }
 
 /**
+ * Exam Center Barcodes — Angular `getCenterStudents()`.
+ * Proc `s_get_exam_center_details` (CONSTANTS.getExamCenterDetailsUrl) with
+ * flag `exam_center_students`. Returns `result[0]` student/barcode rows.
+ */
+export async function listExamCenterBarcodeStudents(args: {
+  univExamcenterId: number;
+  examGroupId: number;
+  academicYearId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  subjectId: number;
+}): Promise<AnyRow[]> {
+  const params = {
+    in_flag: "exam_center_students",
+    in_flag_type: "REGSUP",
+    in_university_id: 0,
+    in_univ_examcenter_id: args.univExamcenterId ?? 0,
+    in_exam_group_id: args.examGroupId ?? 0,
+    in_course_id: 0,
+    in_academic_year_id: args.academicYearId ?? 0,
+    in_exam_id: 0,
+    in_college_id: 0,
+    in_course_group_id: args.courseGroupId ?? 0,
+    in_course_year_id: args.courseYearId ?? 0,
+    in_regulation_id: 0,
+    in_subject_id: args.subjectId ?? 0,
+    in_exam_date: "1900-01-01",
+    in_questionpaper_code: "",
+  };
+  try {
+    const data = await getAllRecords<{ result?: unknown }>(
+      UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTER_DETAILS,
+      params,
+    );
+    return flattenExamCenterDetailsFirstGroup(data);
+  } catch (error: unknown) {
+    if (isNoRecordsProcError(error)) return [];
+    throw error;
+  }
+}
+
+/**
  * Scan-bundle list for the exam-scan-bundles-print page. Mirrors Angular
  * `getScanBundles()` (flag `get_exam_scan_bundle`) on `s_get_exam_center_details`.
  */
@@ -886,7 +934,18 @@ export function pickExamScanBundleId(row: AnyRow): number {
       row.examScanBundleId ??
       row.exam_scan_bundle_id ??
       row.pk_univ_exam_scan_bundle_id ??
-      row.unvExamBundleId,
+      row.unvExamBundleId ??
+      row.scanBundleId,
+  );
+}
+
+export function pickExamScanBundleLabel(row: AnyRow): string {
+  return txt(
+    row.bundleNumber ??
+      row.scanBundleNumber ??
+      row.bundle_number ??
+      row.bundleName ??
+      pickExamScanBundleId(row),
   );
 }
 
@@ -897,7 +956,13 @@ export async function listAllActiveExamScanBundles(): Promise<AnyRow[]> {
   );
 }
 
-/** Angular scan-bundles `getScanBundles()` — list by exam group / course year / regulation / subject. */
+const EXAM_SCAN_BUNDLE_ENTITIES = [
+  UNIV_EXAM_CENTER_API.EXAM_SCAN_BUNDLES,
+  "UnivExamScanbundles",
+  "UnivExamScanbundle",
+] as const;
+
+/** Angular scan-bundle-details `selectedSubject` → `listDetailsByFiveIds(UnivExamScanbundleUrl, …)`. */
 export async function listExamScanBundlesBySubjectFilters(args: {
   examGroupId: number;
   courseYearId: number;
@@ -921,15 +986,22 @@ export async function listExamScanBundlesBySubjectFilters(args: {
       subjectId,
       isActive: true,
     }),
+    buildQuery({
+      "univExamGroup.univExamGroupId": examGroupId,
+      "courseYear.courseYearId": courseYearId,
+      "regulationCat.regulationCatId": regulationId,
+      "subject.subjectId": subjectId,
+      isActive: true,
+    }),
   ];
-  for (const q of queries) {
-    try {
-      return await domainList<AnyRow>(
-        UNIV_EXAM_CENTER_API.EXAM_SCAN_BUNDLES,
-        q,
-      );
-    } catch {
-      /* try next query shape */
+  for (const entity of EXAM_SCAN_BUNDLE_ENTITIES) {
+    for (const q of queries) {
+      try {
+        const rows = await domainList<AnyRow>(entity, q);
+        if (Array.isArray(rows) && rows.length > 0) return rows;
+      } catch {
+        /* try next entity / query shape */
+      }
     }
   }
   return [];

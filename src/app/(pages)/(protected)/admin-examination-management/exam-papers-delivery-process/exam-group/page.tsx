@@ -8,7 +8,8 @@ import { FilteredListPage } from '@/components/layout'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
-import { ActiveStatusField } from '@/common/components/forms'
+import { ActiveStatusField, FormField } from '@/common/components/forms'
+import { MonthYearPicker } from '@/common/components/date-picker'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -117,6 +118,37 @@ function pickExamMonthYr(row: GroupRow): string {
   return String(row.exam_month_yr ?? row.examMonthYr ?? row.examMonthYear ?? '-')
 }
 
+/** Parse API exam month year into a Date for MonthYearPicker (optional field). */
+function parseExamMonthYr(raw: string): Date | null {
+  const s = String(raw ?? '').trim()
+  if (!s || s === '-') return null
+  // YYYY-MM-DD or YYYY-MM
+  const iso = s.match(/^(\d{4})-(\d{2})(?:-(\d{2}))?/)
+  if (iso) {
+    const y = Number(iso[1])
+    const m = Number(iso[2]) - 1
+    if (y > 0 && m >= 0 && m < 12) return new Date(y, m, 1)
+  }
+  // "Mar, 2026" / "Mar 2026"
+  const named = s.match(/^([A-Za-z]{3})\s*,?\s*(\d{4})$/)
+  if (named) {
+    const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
+    const m = months.indexOf(named[1].toLowerCase())
+    const y = Number(named[2])
+    if (m >= 0 && y > 0) return new Date(y, m, 1)
+  }
+  const d = new Date(s)
+  if (!Number.isNaN(d.getTime())) return new Date(d.getFullYear(), d.getMonth(), 1)
+  return null
+}
+
+function toExamMonthYrPayload(date: Date | null): string {
+  if (!date) return ''
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}-01`
+}
+
 function pickCode(row: GroupRow): string {
   return String(row.examGroupCode ?? row.examGroupingCode ?? row.exam_group_code ?? '-')
 }
@@ -184,10 +216,16 @@ export default function ExamGroupPage() {
     examGroupCode: '',
     examGroupName: '',
     academicYearId: '' as string,
-    examMonthYr: '',
+    examMonthYr: null as Date | null,
     isActive: true,
     reason: '',
   })
+  const [formErrors, setFormErrors] = useState<{
+    academicYearId?: string
+    examGroupCode?: string
+    examGroupName?: string
+    reason?: string
+  }>({})
 
   const universityOptions: SelectOption[] = useMemo(
     () =>
@@ -299,11 +337,12 @@ export default function ExamGroupPage() {
         setUniversityId(rowUniversityId)
       }
       setEditing(row)
+      setFormErrors({})
       setForm({
-        examGroupCode: pickCode(row),
-        examGroupName: pickName(row),
+        examGroupCode: pickCode(row) === '-' ? '' : pickCode(row),
+        examGroupName: pickName(row) === '-' ? '' : pickName(row),
         academicYearId: String(pickAcademicYearIdFromRow(row) || ''),
-        examMonthYr: pickExamMonthYr(row),
+        examMonthYr: parseExamMonthYr(pickExamMonthYr(row)),
         isActive: Boolean(row.isActive),
         reason: String(row.reason ?? ''),
       })
@@ -344,39 +383,45 @@ export default function ExamGroupPage() {
       return
     }
     setEditing(null)
+    setFormErrors({})
     setForm({
       examGroupCode: '',
       examGroupName: '',
       academicYearId: academicYearOptions[0]?.value ?? '',
-      examMonthYr: '',
+      examMonthYr: null,
       isActive: true,
       reason: '',
     })
     setModalOpen(true)
   }
 
+  function clearFieldError(key: keyof typeof formErrors) {
+    setFormErrors((prev) => {
+      if (!prev[key]) return prev
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
+
   async function onSubmitModal(e: { preventDefault: () => void }) {
     e.preventDefault()
     if (!universityId) return
-    if (!form.examGroupCode.trim() || !form.examGroupName.trim()) {
-      toastError('Exam group code and name are required.')
-      return
-    }
-    if (!form.academicYearId) {
-      toastError('Select an academic year.')
-      return
-    }
-    if (!form.isActive && !form.reason.trim()) {
-      toastError('Reason is required when inactive.')
-      return
-    }
+
+    const nextErrors: typeof formErrors = {}
+    if (!form.academicYearId.trim()) nextErrors.academicYearId = 'Academic Year is required.'
+    if (!form.examGroupCode.trim()) nextErrors.examGroupCode = 'Exam Group Code is required.'
+    if (!form.examGroupName.trim()) nextErrors.examGroupName = 'Exam Group Name is required.'
+    if (!form.isActive && !form.reason.trim()) nextErrors.reason = 'Reason is required when inactive.'
+    setFormErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
 
     const payload: Record<string, unknown> = {
       universityId,
       examGroupCode: form.examGroupCode.trim(),
       examGroupName: form.examGroupName.trim(),
       academicYearId: Number(form.academicYearId),
-      examMonthYr: form.examMonthYr.trim(),
+      examMonthYr: toExamMonthYrPayload(form.examMonthYr),
       isActive: form.isActive,
       reason: form.isActive ? '' : form.reason.trim(),
     }
@@ -399,6 +444,16 @@ export default function ExamGroupPage() {
       setSaving(false)
     }
   }
+
+  const selectedUniversityCode = useMemo(() => {
+    const row = universities.find((u) => pickUniversityId(u) === universityId)
+    if (!row) return ''
+    return String(row.university_code ?? row.universityCode ?? pickUniversityLabel(row) ?? '')
+  }, [universities, universityId])
+
+  const modalTitle = editing
+    ? `Edit Exam Group${selectedUniversityCode ? ` - ${selectedUniversityCode}` : ''}`
+    : `Add Exam Group${selectedUniversityCode ? ` - ${selectedUniversityCode}` : ''}`
 
   return (
     <FilteredListPage
@@ -441,55 +496,70 @@ export default function ExamGroupPage() {
       <FormModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit exam group' : 'Add exam group'}
+        title={modalTitle}
         onSubmit={onSubmitModal}
         isSubmitting={saving}
         size="xl"
-        titleClassName="text-primary"
-        showCloseButton={false}
+        titleClassName="text-left text-primary"
+        showCloseButton
         showHeaderDivider
+        showFooterDivider={false}
+        cancelLabel="Cancel"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label>Exam group code</Label>
-            <Input
-              value={form.examGroupCode}
-              onChange={(e) => setForm((f) => ({ ...f, examGroupCode: e.target.value }))}
-              required
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Exam group name</Label>
-            <Input
-              value={form.examGroupName}
-              onChange={(e) => setForm((f) => ({ ...f, examGroupName: e.target.value }))}
-              required
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Academic year</Label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField label="Academic Year" required error={formErrors.academicYearId}>
             <Select
               options={academicYearOptions}
-              value={form.academicYearId}
-              onChange={(v) => setForm((f) => ({ ...f, academicYearId: v ?? '' }))}
-              placeholder="Select academic year"
+              value={form.academicYearId || null}
+              onChange={(v) => {
+                clearFieldError('academicYearId')
+                setForm((f) => ({ ...f, academicYearId: v ?? '' }))
+              }}
+              placeholder="Academic Year"
               disabled={academicYearOptions.length === 0}
             />
-          </div>
-          <div className="space-y-1">
-            <Label>Exam month year</Label>
-            <Input
+          </FormField>
+          <FormField label="Exam Month and Year">
+            <MonthYearPicker
               value={form.examMonthYr}
-              onChange={(e) => setForm((f) => ({ ...f, examMonthYr: e.target.value }))}
-              placeholder="e.g. Mar, 2026"
+              onChange={(d) => setForm((f) => ({ ...f, examMonthYr: d }))}
+              placeholder="Exam Month and Year"
             />
-          </div>
+          </FormField>
+          <FormField label="Exam Group Code" required error={formErrors.examGroupCode}>
+            <Input
+              value={form.examGroupCode}
+              onChange={(e) => {
+                clearFieldError('examGroupCode')
+                setForm((f) => ({ ...f, examGroupCode: e.target.value }))
+              }}
+              placeholder="Exam Group Code"
+            />
+          </FormField>
+          <FormField label="Exam Group Name" required error={formErrors.examGroupName}>
+            <Input
+              value={form.examGroupName}
+              onChange={(e) => {
+                clearFieldError('examGroupName')
+                setForm((f) => ({ ...f, examGroupName: e.target.value }))
+              }}
+              placeholder="Exam Group Name"
+            />
+          </FormField>
         </div>
         <ActiveStatusField
           isActive={form.isActive}
           reason={form.reason}
-          onActiveChange={(v) => setForm((f) => ({ ...f, isActive: v === true }))}
-          onReasonChange={(v) => setForm((f) => ({ ...f, reason: v }))}
+          onActiveChange={(v) => {
+            clearFieldError('reason')
+            setForm((f) => ({ ...f, isActive: v === true }))
+          }}
+          onReasonChange={(v) => {
+            clearFieldError('reason')
+            setForm((f) => ({ ...f, reason: v }))
+          }}
+          reasonRequired={!form.isActive}
+          reasonError={formErrors.reason}
         />
       </FormModal>
     </FilteredListPage>

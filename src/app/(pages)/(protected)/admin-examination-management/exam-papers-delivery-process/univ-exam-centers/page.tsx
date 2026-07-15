@@ -7,7 +7,7 @@ import { FilteredListPage } from '@/components/layout'
 import { Select, type SelectOption } from '@/common/components/select'
 import { FormModal } from '@/common/components/feedback'
 import { StatusBadge } from '@/common/components/data-display'
-import { ActiveStatusField } from '@/common/components/forms'
+import { ActiveStatusField, FormField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -133,6 +133,7 @@ export default function UnivExamCentersPage() {
     isActive: true,
     reason: '',
   })
+  const [formErrors, setFormErrors] = useState<{ cityId?: string }>({})
 
   const universityOptions: SelectOption[] = useMemo(
     () =>
@@ -249,6 +250,7 @@ export default function UnivExamCentersPage() {
 
   const handleEditRow = useCallback((row: CenterRow) => {
     setEditing(row)
+    setFormErrors({})
     setForm({
       univExamReionalCenterId: String(pickRegionalCenterId(row) || ''),
       examcenterName: String(row.examcenterName ?? row.examCenterName ?? ''),
@@ -290,6 +292,7 @@ export default function UnivExamCentersPage() {
       return
     }
     setEditing(null)
+    setFormErrors({})
     setForm({
       univExamReionalCenterId: regionalCenterOptions[0]?.value ?? '',
       examcenterName: '',
@@ -319,10 +322,10 @@ export default function UnivExamCentersPage() {
       toastError('Exam center code is required.')
       return
     }
-    if (!form.cityId) {
-      toastError('Select city.')
-      return
-    }
+    const nextErrors: typeof formErrors = {}
+    if (!form.cityId.trim()) nextErrors.cityId = 'City is required.'
+    setFormErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
     if (!form.isActive && !form.reason.trim()) {
       toastError('Reason is required when inactive.')
       return
@@ -416,6 +419,7 @@ export default function UnivExamCentersPage() {
         onSubmit={onSubmitModal}
         isSubmitting={saving}
         size="xl"
+        showFooterDivider={false}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1 md:col-span-2">
@@ -424,9 +428,9 @@ export default function UnivExamCentersPage() {
             </Label>
             <Select
               options={regionalCenterOptions}
-              value={form.univExamReionalCenterId}
+              value={form.univExamReionalCenterId || null}
               onChange={(v) => setForm((f) => ({ ...f, univExamReionalCenterId: v ?? '' }))}
-              placeholder="Select regional center"
+              placeholder="Exam Regional Center"
             />
           </div>
           <div className="space-y-1">
@@ -434,6 +438,7 @@ export default function UnivExamCentersPage() {
             <Input
               value={form.examcenterName}
               onChange={(e) => setForm((f) => ({ ...f, examcenterName: e.target.value }))}
+              placeholder="Exam Center Name"
             />
           </div>
           <div className="space-y-1">
@@ -441,6 +446,7 @@ export default function UnivExamCentersPage() {
             <Input
               value={form.examcenterCode}
               onChange={(e) => setForm((f) => ({ ...f, examcenterCode: e.target.value }))}
+              placeholder="Exam Center Code"
             />
           </div>
           <div className="space-y-1">
@@ -448,6 +454,7 @@ export default function UnivExamCentersPage() {
             <Input
               value={form.longitude}
               onChange={(e) => setForm((f) => ({ ...f, longitude: e.target.value }))}
+              placeholder="Longitude"
             />
           </div>
           <div className="space-y-1">
@@ -455,6 +462,7 @@ export default function UnivExamCentersPage() {
             <Input
               value={form.latitude}
               onChange={(e) => setForm((f) => ({ ...f, latitude: e.target.value }))}
+              placeholder="Latitude"
             />
           </div>
           <div className="space-y-1">
@@ -462,6 +470,7 @@ export default function UnivExamCentersPage() {
             <Input
               value={form.addressLine1}
               onChange={(e) => setForm((f) => ({ ...f, addressLine1: e.target.value }))}
+              placeholder="Address Line1"
             />
           </div>
           <div className="space-y-1">
@@ -469,29 +478,38 @@ export default function UnivExamCentersPage() {
             <Input
               value={form.addressLine2}
               onChange={(e) => setForm((f) => ({ ...f, addressLine2: e.target.value }))}
+              placeholder="Address Line2"
             />
           </div>
-          <div className="space-y-1">
-            <Label>City</Label>
+          <FormField label="City" required error={formErrors.cityId}>
             <Select
               options={cityOptions}
-              value={form.cityId}
-              onChange={(v) => setForm((f) => ({ ...f, cityId: v ?? '' }))}
-              placeholder="Select city"
+              value={form.cityId || null}
+              onChange={(v) => {
+                setFormErrors((prev) => {
+                  if (!prev.cityId) return prev
+                  const next = { ...prev }
+                  delete next.cityId
+                  return next
+                })
+                setForm((f) => ({ ...f, cityId: v ?? '' }))
+              }}
+              placeholder="City"
             />
-          </div>
+          </FormField>
           <div className="space-y-1">
             <Label>Pincode</Label>
             <Input
               value={form.pincode}
               onChange={(e) => setForm((f) => ({ ...f, pincode: e.target.value }))}
+              placeholder="Pincode"
             />
           </div>
           <div className="space-y-1">
             <Label>Qp Scanning Center</Label>
             <Select
               options={qpScanningCenterOptions}
-              value={form.qpScanningCenterId}
+              value={form.qpScanningCenterId || null}
               onChange={(v) => setForm((f) => ({ ...f, qpScanningCenterId: v ?? '' }))}
               placeholder="Select center"
             />

@@ -1093,10 +1093,28 @@ export async function getEvaluatorAssignmentBundleByFlag(
     .catch(() => ({ result: [] }))
 
   const sets = data?.result ?? []
+  const evaluators = Array.isArray(sets[0]) ? sets[0] : []
+  const summary = Array.isArray(sets[1]) ? sets[1] : []
+  // Prefer result[2] (Angular); if empty, use any group that carries OMR serials.
+  let evaluatorStudents = Array.isArray(sets[2]) ? sets[2] : []
+  if (evaluatorStudents.length === 0) {
+    for (const group of sets) {
+      if (!Array.isArray(group) || group.length === 0) continue
+      const sample = group[0] ?? {}
+      if (
+        sample.omr_serial_no != null ||
+        sample.omrSerialNo != null ||
+        sample.pk_exam_evaluationassignment_id != null
+      ) {
+        evaluatorStudents = group
+        break
+      }
+    }
+  }
   return {
-    evaluators: Array.isArray(sets[0]) ? sets[0] : [],
-    summary: Array.isArray(sets[1]) ? sets[1] : [],
-    evaluatorStudents: Array.isArray(sets[2]) ? sets[2] : [],
+    evaluators,
+    summary,
+    evaluatorStudents,
   }
 }
 

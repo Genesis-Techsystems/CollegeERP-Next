@@ -225,6 +225,8 @@ export const EXAM_EVAL_API = {
   UPLOAD_EXAM_OMR: "uploadExamOmr",
   /** GET: `getAllRecords/s_get_answerpaperupload_details` — Angular getAnswerPaperUploadUrl (Check Upload Status) */
   ANSWER_PAPER_UPLOAD_DETAILS: "s_get_answerpaperupload_details",
+  /** GET: generatePresignedUrls?answerPaperPath=… — presigned S3 URL for answer sheet preview */
+  GENERATE_PRESIGNED_URLS: "generatePresignedUrls",
   /** CRUD: ExamStudentAnswerPaper */
   STUDENT_ANSWER_PAPER: "ExamStudentAnswerPaper",
   /** GET: base64 PDF for a student answer paper — Angular: sheetDataUrl = 'sheetData', param: id= */
@@ -233,7 +235,10 @@ export const EXAM_EVAL_API = {
   QUESTION_PAPERS: "ExamQuestionPapers",
   /** CRUD: ExamQuestionPaperMarks */
   QUESTION_PAPER_MARKS: "ExamQuestionPaperMarks",
-  /** POST: upload question paper / model answer papers */
+  /**
+   * POST: upload question paper / model answer papers (Angular PaperPathUploadUrl).
+   * Same as Angular Network: /cms/uploadquestionpapermodelanswerpapers
+   */
   PAPER_PATH_UPLOAD: "uploadquestionpapermodelanswerpapers",
   /** POST: add exam evaluators */
   ADD_EXAM_EVALUATORS: "addexamevaluators",

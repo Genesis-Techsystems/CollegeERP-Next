@@ -119,6 +119,10 @@ export function mapTimetableLabelToRoute(label?: string): string | null {
   if (!label) return null
   const key = normalizeLabelKey(label)
 
+  // Exam Reports — "Exam Timetable Report" (not Time-Table Management)
+  if (key.includes('examtimetable') && key.includes('report')) return null
+  if (key.includes('courseyeartimetable') && key.includes('report')) return null
+
   if (key.includes('timingset') && !key.includes('slot')) return `${TIMETABLE_MGMT_BASE}/timing-sets`
   if (key.includes('timingslot')) return `${TIMETABLE_MGMT_BASE}/timing-slots`
   if (key.includes('weekday') && key.includes('class') && key.includes('timing')) {
@@ -168,6 +172,36 @@ export function mapTimetableNavRoute(href?: string, label?: string): string | nu
   const hrefRaw = (href ?? '').trim()
   const hrefLower = hrefRaw.toLowerCase()
   const labelKey = label ? normalizeLabelKey(label) : ''
+
+  // Keep Exam Reports timetable pages out of Time-Table Management remapping
+  if (
+    hrefLower.includes('exam-timetable-report') ||
+    hrefLower.includes('course-year-timetable-report') ||
+    hrefLower.includes('exam-invigilator-allotment-report') ||
+    hrefLower.includes('exam-student-registration-report') ||
+    hrefLower.includes('student-summary-result-report') ||
+    hrefLower.includes('student-result-details-report') ||
+    hrefLower.includes('student-backlog-report') ||
+    hrefLower.includes('student-backlog-data') ||
+    hrefLower.includes('student-credits-report') ||
+    hrefLower.includes('assignment-pending-list') ||
+    hrefLower.includes('exam-moderation-reports') ||
+    hrefLower.includes('exam-gracemarks-reports') ||
+    hrefLower.includes('tabulation-register') ||
+    hrefLower.includes('tabulation_register') ||
+    hrefLower.includes('exam-results-sheets') ||
+    hrefLower.includes('exam_results_sheets') ||
+    hrefLower.includes('subject-gradewise-result-report') ||
+    hrefLower.includes('final-result-analysis-report') ||
+    hrefLower.includes('final-marks-premoderation') ||
+    hrefLower.includes('subjectwise-result-report') ||
+    hrefLower.includes('group-subjectwise-result-report') ||
+    hrefLower.includes('exam-answer-sheets-report') ||
+    hrefLower.includes('admin-exam-reports') ||
+    (labelKey.includes('examtimetable') && labelKey.includes('report'))
+  ) {
+    return null
+  }
 
   if (labelKey.includes('assign') && labelKey.includes('resource')) {
     return `${TIMETABLE_MGMT_BASE}/create-timetable`

@@ -22,6 +22,49 @@ const formatDate = (value: unknown): string => {
   return `${dd}/${mm}/${yyyy}`
 }
 
+/** Normalize exam_date for compare (ISO datetime vs YYYY-MM-DD). */
+const examDateKey = (value: unknown): string => {
+  const raw = txt(value)
+  if (!raw) return ''
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10)
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return raw
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function sessionIdOf(row: AnyRow): number {
+  return num(
+    row.fk_exam_session_id ??
+      row.examSessionId ??
+      row.exam_session_id ??
+      row.sessionId,
+  )
+}
+
+function sessionLabelOf(row: AnyRow): string {
+  const name = txt(
+    row.exam_session_name ??
+      row.examSessionName ??
+      row.examsessioninCatCode ??
+      row.session_name ??
+      row.session,
+  )
+  const time = txt(row.session_time ?? row.sessionTime ?? row.start_time)
+  return time ? `${name} (${time})` : name || 'Session'
+}
+
+function timetableIdOf(row: AnyRow): number {
+  return num(
+    row.fk_exam_timetable_id ??
+      row.examTimetableId ??
+      row.exam_timetable_id ??
+      row.timetableId,
+  )
+}
+
 async function callExamFilters(params: Record<string, string | number>) {
   const data = await runEvaluationProc<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', params).catch(() => ({ result: [] }))
   return Array.isArray(data?.result) ? data.result : []
@@ -81,10 +124,11 @@ export default function ViewAnswerSheetsPage() {
       ),
     [baseRows, courseId, academicYearId],
   )
+  // Exam dates + sessions come from univ_exam_rest_in_tt (restRows), not baseRows.
   const examDates = useMemo(
     () =>
-      dedupeBy(restRows, (r) => txt(r.exam_date))
-        .map((r) => txt(r.exam_date))
+      dedupeBy(restRows, (r) => examDateKey(r.exam_date ?? r.examDate))
+        .map((r) => examDateKey(r.exam_date ?? r.examDate))
         .filter(Boolean)
         .sort((a, b) => a.localeCompare(b)),
     [restRows],
@@ -92,17 +136,25 @@ export default function ViewAnswerSheetsPage() {
   const sessions = useMemo(
     () =>
       dedupeBy(
-        baseRows.filter((r) => txt(r.exam_date) === examDate),
-        (r) => num(r.fk_exam_session_id),
+        restRows.filter(
+          (r) =>
+            examDateKey(r.exam_date ?? r.examDate) === examDateKey(examDate) &&
+            sessionIdOf(r) > 0,
+        ),
+        (r) => sessionIdOf(r),
       ),
-    [baseRows, examDate],
+    [restRows, examDate],
   )
   const courseOptions = useMemo(() => courses.map((c) => ({ value: String(num(c.fk_course_id)), label: txt(c.course_code) })), [courses])
   const academicYearOptions = useMemo(() => academicYears.map((a) => ({ value: String(num(a.fk_academic_year_id)), label: txt(a.academic_year) })), [academicYears])
   const examOptions = useMemo(() => exams.map((e) => ({ value: String(num(e.fk_exam_id)), label: `${txt(e.exam_name)} ${txt(e.exam_date)}` })), [exams])
   const examDateOptions = useMemo(() => examDates.map((d) => ({ value: d, label: formatDate(d) })), [examDates])
   const sessionOptions = useMemo(
-    () => sessions.map((s) => ({ value: String(num(s.fk_exam_session_id)), label: `${txt(s.exam_session_name)}${txt(s.session_time) ? ` (${txt(s.session_time)})` : ''}` })),
+    () =>
+      sessions.map((s) => ({
+        value: String(sessionIdOf(s)),
+        label: sessionLabelOf(s),
+      })),
     [sessions],
   )
 
@@ -194,8 +246,8 @@ export default function ViewAnswerSheetsPage() {
 
   useEffect(() => {
     const firstSession = sessions[0]
-    setExamSessionId(num(firstSession?.fk_exam_session_id) || null)
-    setExamTimetableId(num(firstSession?.fk_exam_timetable_id) || null)
+    setExamSessionId(sessionIdOf(firstSession ?? {}) || null)
+    setExamTimetableId(timetableIdOf(firstSession ?? {}) || null)
   }, [sessions])
 
   async function getList() {
@@ -255,8 +307,8 @@ export default function ViewAnswerSheetsPage() {
               onChange={(v) => {
                 const id = num(v)
                 setExamSessionId(id || null)
-                const row = sessions.find((s) => num(s.fk_exam_session_id) === id)
-                setExamTimetableId(num(row?.fk_exam_timetable_id) || null)
+                const row = sessions.find((s) => sessionIdOf(s) === id)
+                setExamTimetableId(timetableIdOf(row ?? {}) || null)
               }}
               options={sessionOptions}
               placeholder="Exam Session"

@@ -1,12 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import { useId, useRef, useEffect, useState, useCallback } from 'react'
+import { useId, useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { ChevronDown, X, Search, Loader2 } from 'lucide-react'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
-import type { SelectOption } from './Select'
+import { dedupeSelectOptions, type SelectOption } from './Select'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -112,13 +112,15 @@ export function MultiSelect({
     if (!open) setSearchTerm('')
   }, [open])
 
+  const uniqueOptions = useMemo(() => dedupeSelectOptions(options), [options])
+
   const filteredOptions = searchTerm
-    ? options.filter((o) => o.label.toLowerCase().includes(searchTerm.toLowerCase()))
-    : options
+    ? uniqueOptions.filter((o) => o.label.toLowerCase().includes(searchTerm.toLowerCase()))
+    : uniqueOptions
 
   // Derive select-all state from the full options list (not filtered) so it
   // correctly reflects reality regardless of current search term.
-  const enabledOptions = options.filter((o) => !o.disabled)
+  const enabledOptions = uniqueOptions.filter((o) => !o.disabled)
   const enabledValues = enabledOptions.map((o) => o.value)
   const allSelected =
     enabledValues.length > 0 && enabledValues.every((v) => value.includes(v))
@@ -169,7 +171,7 @@ export function MultiSelect({
 
     // Map selected values to labels (preserve insertion order from `value`)
     const selectedLabels = value
-      .map((v) => options.find((o) => o.value === v)?.label ?? v)
+      .map((v) => uniqueOptions.find((o) => o.value === v)?.label ?? v)
 
     const visible = selectedLabels.slice(0, maxDisplay)
     const overflow = selectedLabels.length - maxDisplay
@@ -342,11 +344,11 @@ export function MultiSelect({
                 No results found
               </div>
             ) : (
-              filteredOptions.map((opt) => {
+              filteredOptions.map((opt, idx) => {
                 const isSelected = value.includes(opt.value)
                 return (
                   <div
-                    key={opt.value}
+                    key={`${String(opt.value)}::${idx}`}
                     role="option"
                     aria-selected={isSelected}
                     aria-disabled={opt.disabled}

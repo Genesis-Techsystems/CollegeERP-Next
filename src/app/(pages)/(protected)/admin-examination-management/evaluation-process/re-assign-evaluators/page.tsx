@@ -14,10 +14,47 @@ import {
   reassignEvaluationAssignment,
   updateReevaluationCount,
 } from '@/services/evaluation'
+import { clearProcGetCache } from '@/services/crud'
 import { dedupeBy, num, txt } from '@/common/utils/data-helpers'
 import { toastSuccess } from '@/lib/toast'
 
 type AnyRow = Record<string, any>
+
+function profileIdOf(row: AnyRow | null | undefined): number {
+  if (!row) return 0
+  return (
+    num(row.pk_exam_evaluator_profile_id) ||
+    num(row.fk_exam_evaluator_profile_id) ||
+    num(row.examEvaluatorProfileId) ||
+    num(row.exam_evaluator_profile_id) ||
+    num(row.pk_examevaluator_profiledet_id)
+  )
+}
+
+function assignmentIdOf(row: AnyRow | null | undefined): number {
+  if (!row) return 0
+  return (
+    num(row.pk_exam_evaluationassignment_id) ||
+    num(row.fk_exam_evaluationassignment_id) ||
+    num(row.examEvaluationAssignmentId)
+  )
+}
+
+/** Match student OMR rows to the selected source evaluator (id and/or name). */
+function omrRowsForEvaluator(
+  students: AnyRow[],
+  profileId: number,
+  evaluatorName = '',
+): AnyRow[] {
+  if (!profileId && !evaluatorName) return []
+  const name = evaluatorName.trim().toLowerCase()
+  return students.filter((r) => {
+    const id = profileIdOf(r)
+    if (profileId > 0 && id === profileId) return true
+    if (name && txt(r.evaluator_name).trim().toLowerCase() === name) return true
+    return false
+  })
+}
 
 export default function ReAssignEvaluatorsPage() {
   const [loading, setLoading] = useState(false)
@@ -97,11 +134,21 @@ export default function ReAssignEvaluatorsPage() {
   }, [targetEvaluators, searchTarget])
 
   const sourceEvaluatorOptions = useMemo(
-    () => filteredSourceEvaluators.map((r) => ({ value: String(num(r.pk_exam_evaluator_profile_id)), label: txt(r.evaluator_name) })),
+    () =>
+      filteredSourceEvaluators.map((r) => ({
+        value: String(profileIdOf(r)),
+        label: txt(r.evaluator_name),
+      })),
     [filteredSourceEvaluators],
   )
   const targetEvaluatorOptions = useMemo(
-    () => [{ value: '0', label: 'UnAssigned' }, ...filteredTargetEvaluators.map((r) => ({ value: String(num(r.pk_exam_evaluator_profile_id)), label: txt(r.evaluator_name) }))],
+    () => [
+      { value: '0', label: 'UnAssigned' },
+      ...filteredTargetEvaluators.map((r) => ({
+        value: String(profileIdOf(r)),
+        label: txt(r.evaluator_name),
+      })),
+    ],
     [filteredTargetEvaluators],
   )
 
@@ -171,11 +218,14 @@ export default function ReAssignEvaluatorsPage() {
 
   async function getList() {
     if (!courseId || !academicYearId || !examId || !courseYearId || !regulationId || !subjectId) return
+    const previousSourceId = sourceEvaluatorId
     setLoading(true)
     setErrorMsg('')
     resetSelectionState()
     setShowPanel(true)
     try {
+      // Always refresh after re-assign — don't reuse a stale proc cache.
+      clearProcGetCache('s_get_examevaluation_bycodes')
       const flag = isReevaluation ? 'list_evaluatorassignment_list_reevaluation' : 'list_evaluatorassignment_list'
       const { evaluators, summary, evaluatorStudents: evaluatorStudentsRows } = await getEvaluatorAssignmentBundleByFlag(
         {
@@ -209,6 +259,24 @@ export default function ReAssignEvaluatorsPage() {
       }
       setAssignedEvaluators(assigned)
       setTargetEvaluators(target)
+
+      // After Assign → Get List, restore the source evaluator serial table so it
+      // doesn't stay blank until the user re-picks the same name.
+      if (previousSourceId && previousSourceId > 0) {
+        const source =
+          assigned.find((r) => profileIdOf(r) === previousSourceId) ??
+          evaluators.find((r) => profileIdOf(r) === previousSourceId)
+        if (source) {
+          const name = txt(source.evaluator_name)
+          const rows = omrRowsForEvaluator(
+            evaluatorStudentsRows,
+            previousSourceId,
+            name,
+          )
+          setSourceEvaluatorId(previousSourceId)
+          setOmrRows(rows)
+        }
+      }
     } finally {
       setLoading(false)
     }
@@ -217,12 +285,23 @@ export default function ReAssignEvaluatorsPage() {
   function onSourceEvaluatorChange(profileId: number) {
     // Angular selectedEvalutor(): the serial list reloads for the evaluator
     // AND the re-assign target list clears until serials are checked.
-    setSourceEvaluatorId(profileId)
+    setSourceEvaluatorId(profileId > 0 ? profileId : null)
     setSelectedAssignmentIds([])
     setCheckAllOmr(false)
     setTargetEvaluators([])
     setSearchTarget('')
-    const rows = evaluatorStudents.filter((r) => num(r.pk_exam_evaluator_profile_id ?? r.fk_exam_evaluator_profile_id) === profileId)
+    if (!profileId) {
+      setOmrRows([])
+      return
+    }
+    const source =
+      assignedEvaluators.find((r) => profileIdOf(r) === profileId) ??
+      evaluatorRows.find((r) => profileIdOf(r) === profileId)
+    const rows = omrRowsForEvaluator(
+      evaluatorStudents,
+      profileId,
+      txt(source?.evaluator_name),
+    )
     setOmrRows(rows)
   }
 
@@ -232,9 +311,14 @@ export default function ReAssignEvaluatorsPage() {
   function updateSecondEvaluatorList(nextSelectedIds: number[], omrList: AnyRow[]) {
     const selectedSerials = new Set(
       omrList
-        .filter((r) => nextSelectedIds.includes(num(r.pk_exam_evaluationassignment_id ?? r.fk_exam_evaluationassignment_id)))
+        .filter((r) => nextSelectedIds.includes(assignmentIdOf(r)))
         .map((r) => txt(r.omr_serial_no)),
     )
+    // Until serials are checked, keep target empty (Angular selectedEvalutor clears UnAssingedList).
+    if (selectedSerials.size === 0) {
+      setTargetEvaluators([])
+      return
+    }
     const owners = new Set(
       evaluatorStudents
         .filter((s) => selectedSerials.has(txt(s.omr_serial_no)))
@@ -250,6 +334,7 @@ export default function ReAssignEvaluatorsPage() {
   }
 
   function toggleOmr(assignmentId: number, checked: boolean) {
+    if (!assignmentId) return
     setSelectedAssignmentIds((prev) => {
       const next = checked ? [...new Set([...prev, assignmentId])] : prev.filter((id) => id !== assignmentId)
       updateSecondEvaluatorList(next, omrRows)
@@ -261,9 +346,7 @@ export default function ReAssignEvaluatorsPage() {
     // Angular markItems() loops the FULL serial list, not the search-filtered view.
     setCheckAllOmr(checked)
     const next = checked
-      ? omrRows
-          .map((r) => num(r.pk_exam_evaluationassignment_id ?? r.fk_exam_evaluationassignment_id))
-          .filter((id) => id > 0)
+      ? omrRows.map((r) => assignmentIdOf(r)).filter((id) => id > 0)
       : []
     setSelectedAssignmentIds(next)
     updateSecondEvaluatorList(next, omrRows)
@@ -272,7 +355,9 @@ export default function ReAssignEvaluatorsPage() {
   async function assign() {
     if (!examId || !courseYearId || !subjectId || selectedAssignmentIds.length === 0) return
     setErrorMsg('')
-    const target = targetEvaluators.find((r) => num(r.pk_exam_evaluator_profile_id) === targetEvaluatorId)
+    const target =
+      targetEvaluators.find((r) => profileIdOf(r) === targetEvaluatorId) ??
+      evaluatorRows.find((r) => profileIdOf(r) === targetEvaluatorId)
     const timeTableIds = txt(target?.pk_exam_timetable_det_ids)
     setLoading(true)
     try {
@@ -371,18 +456,33 @@ export default function ReAssignEvaluatorsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredOmrRows.map((r, i) => {
-                      const assignmentId = num(r.pk_exam_evaluationassignment_id ?? r.fk_exam_evaluationassignment_id)
-                      const checked = selectedAssignmentIds.includes(assignmentId)
-                      return (
-                        <tr key={`${assignmentId}-${txt(r.omr_serial_no)}-${i}`} className="border-t">
-                          <td className="px-2 py-1">
-                            <input type="checkbox" checked={checked} onChange={(e) => toggleOmr(assignmentId, e.target.checked)} />
-                          </td>
-                          <td className="px-2 py-1">{txt(r.omr_serial_no)} ({txt(r.evaluationstatus) || '-'})</td>
-                        </tr>
-                      )
-                    })}
+                    {filteredOmrRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} className="px-2 py-6 text-center text-muted-foreground text-[12px]">
+                          {sourceEvaluatorId
+                            ? 'No OMR serials for this evaluator.'
+                            : 'Select an assigned evaluator to load serials.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredOmrRows.map((r, i) => {
+                        const assignmentId = assignmentIdOf(r)
+                        const checked = selectedAssignmentIds.includes(assignmentId)
+                        return (
+                          <tr key={`${assignmentId}-${txt(r.omr_serial_no)}-${i}`} className="border-t">
+                            <td className="px-2 py-1">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={!assignmentId}
+                                onChange={(e) => toggleOmr(assignmentId, e.target.checked)}
+                              />
+                            </td>
+                            <td className="px-2 py-1">{txt(r.omr_serial_no)} ({txt(r.evaluationstatus) || '-'})</td>
+                          </tr>
+                        )
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
