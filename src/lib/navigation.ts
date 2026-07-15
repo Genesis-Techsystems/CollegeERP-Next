@@ -2,6 +2,35 @@ import type { Module, SubModule, Page, NavItem } from '@/types/navigation'
 import { ensureErpModuleNavChildren, mapErpModuleNavRoute } from './erp-modules-navigation'
 import { ensureTimetableNavChildren, mapTimetableNavRoute } from './timetable-navigation'
 import { mapAdminInstitutionalRoomRoute } from './admin-institutional-navigation'
+import { resolveExaminationReportHref } from './exam-reports-navigation'
+
+export { resolveExaminationReportHref } from './exam-reports-navigation'
+
+/**
+ * Slugs under the Angular Reports → Examination Reports menu that are mounted at
+ * `/admin-examination-management/exam-reports/*` (not `.../admin-exam-reports/*`).
+ */
+export const EXAM_REPORTS_LIVE_UNDER_EXAM_REPORTS = [
+  'evaluators-bank-copy-report',
+  'exam-evaluation-un-assigned-report',
+  'exam-evaluation-report',
+  'daily-evaluated-report',
+  'subject-wise-evaluators-report',
+  'exam-answer-sheets-report',
+  'examcenter-colleges-report',
+  'examcenter-rooms-report',
+  'examcenter-students-report',
+  'examcenter-profiles-report',
+  'curriculum-report',
+  'examcenter-answerpaper-bags-report',
+  'exam-registration-student-report',
+  'exam-student-not-registered-count',
+  'exam-registered-students-count',
+  'group-yearwise-result-report',
+  'subject-wise-result-pass-percent-report',
+  'gender-wise-exam-report',
+  'exam-verification',
+].join('|')
 
 /**
  * Removes any doubled leading segment from a URL path.
@@ -95,6 +124,26 @@ export function normalizeHref(path: string): string {
       /\/admin-examination-management\/post-examination\/internal-exams-avg(?=\/|$)/i,
       '/admin-examination-management/post-examination/internal-exams-average',
     )
+    // DB menu module URL is often `reports` (Angular Reports module), but App Router
+    // pages live under `admin-examination-management/admin-exam-reports`.
+    .replace(
+      /\/reports\/admin-exam-reports(?=\/|$)/gi,
+      '/admin-examination-management/admin-exam-reports',
+    )
+    .replace(
+      /\/apps\/reports\/admin-exam-reports(?=\/|$)/gi,
+      '/admin-examination-management/admin-exam-reports',
+    )
+    // Some exam-report pages live under `/exam-reports/` (not `/admin-exam-reports/`).
+    // After the prefix rewrite above, remap those known slugs so Search + nav hrefs
+    // do not land on a missing route (which falls through to the dashboard).
+    .replace(
+      new RegExp(
+        `/(?:admin-examination-management/)?admin-exam-reports/(${EXAM_REPORTS_LIVE_UNDER_EXAM_REPORTS})(?=/|$)`,
+        'gi',
+      ),
+      '/admin-examination-management/exam-reports/$1',
+    )
     // Angular Assessments module folder typo `assissments` → canonical `assessments`.
     .replace(/\/apps\/assissments\//gi, '/assessments/')
     .replace(/\/assissments\//gi, '/assessments/')
@@ -122,6 +171,159 @@ export function normalizeHref(path: string): string {
     .replace(
       /\/reports\/admin-exam-reports\/tabulation_register(?=\/|$)/gi,
       '/admin-examination-management/admin-exam-reports/tabulation-register',
+    )
+    // Angular Exam Reports (reports/exam-reports|admin-exam-reports) → App Router.
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/evaluators-bank-copy-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/evaluators-bank-copy-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/evaluators-bank-copy-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/evaluators-bank-copy-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-evaluation-un-assigned-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-evaluation-un-assigned-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/exam-evaluation-un-assigned-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-evaluation-un-assigned-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-evaluation-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-evaluation-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/exam-evaluation-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-evaluation-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/daily-evaluated-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/daily-evaluated-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/daily-evaluated-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/daily-evaluated-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/subject-wise-evaluators-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/subject-wise-evaluators-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/subject-wise-evaluators-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/subject-wise-evaluators-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-answer-sheets-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-answer-sheets-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/exam-answer-sheets-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-answer-sheets-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/examcenter-colleges-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/examcenter-colleges-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/examcenter-colleges-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/examcenter-colleges-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/examcenter-rooms-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/examcenter-rooms-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/examcenter-rooms-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/examcenter-rooms-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/examcenter-students-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/examcenter-students-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/examcenter-students-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/examcenter-students-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/examcenter-profiles-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/examcenter-profiles-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/examcenter-profiles-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/examcenter-profiles-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/curriculum-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/curriculum-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/curriculum-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/curriculum-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/examcenter-answerpaper-bags-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/examcenter-answerpaper-bags-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/examcenter-answerpaper-bags-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/examcenter-answerpaper-bags-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-registration-student-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-registration-student-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/exam-registration-student-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-registration-student-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-student-not-registered-count(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-student-not-registered-count',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/exam-student-not-registered-count(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-student-not-registered-count',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-registered-students-count(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-registered-students-count',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/exam-registered-students-count(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-registered-students-count',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/group-yearwise-result-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/group-yearwise-result-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/group-yearwise-result-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/group-yearwise-result-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/subject-wise-result-pass-percent-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/subject-wise-result-pass-percent-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/subject-wise-result-pass-percent-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/subject-wise-result-pass-percent-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/gender-wise-exam-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/gender-wise-exam-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/gender-wise-exam-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/gender-wise-exam-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-verification(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-verification',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/exam-verification(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-verification',
     )
     // Angular Accounts & Fees module (`accounts-fees` in router) → App Router path.
     .replace(/\/accounts-fees\//gi, '/accounts-and-fees/')
@@ -433,6 +635,10 @@ function overrideInstitutionalMastersHref(href: string, pageLabel: string): stri
 }
 
 function normalizePageHref(href: string, pageLabel: string): string {
+  // Label/href pins for Examination Reports — required for Search (404 → dashboard).
+  const examReportHref = resolveExaminationReportHref(href, pageLabel)
+  if (examReportHref) return examReportHref
+
   const withInstitutional = overrideInstitutionalMastersHref(href, pageLabel)
   return normalizeHref(
     overrideErpModuleHref(
@@ -751,7 +957,8 @@ export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
       if (item.href) {
         collected.push({
           displayName: item.label,
-          url: normalizeHref(item.href),
+          // Same rewrite path Search and sidebar hrefs use (incl. exam-reports remaps).
+          url: normalizePageHref(item.href, item.label),
         })
       }
       if (item.children?.length) walk(item.children)
@@ -760,8 +967,19 @@ export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
 
   walk(items)
 
+  // Prefer longer / more specific URLs when the same page appears under multiple
+  // modules (e.g. Reports vs Admin Examination Management) with conflicting hrefs.
+  const byName = new Map<string, NavSearchPage>()
+  for (const page of collected) {
+    const key = page.displayName.trim().toLowerCase()
+    const prev = byName.get(key)
+    if (!prev || page.url.length > prev.url.length) {
+      byName.set(key, page)
+    }
+  }
+
   const seen = new Set<string>()
-  return collected.filter((page) => {
+  return [...byName.values()].filter((page) => {
     if (seen.has(page.url)) return false
     seen.add(page.url)
     return true
@@ -809,6 +1027,34 @@ function resolveNavItemHrefForBreadcrumb(item: NavItem): string | null {
 }
 
 /**
+ * When the same report page exists under both Admin Examination Management and
+ * Reports → Examination Reports, prefer the Reports module chain for breadcrumbs.
+ */
+function breadcrumbChainPreference(chain: NavItem[]): number {
+  const labels = chain.map((item) => (item.label ?? "").toLowerCase())
+  const underReports =
+    labels.some((l) => l === "reports" || l === "report") &&
+    labels.some(
+      (l) =>
+        l.includes("examination report") ||
+        l === "exam reports" ||
+        l.includes("exam report"),
+    )
+  if (underReports) return 50_000
+
+  const underAdminExam =
+    labels.some((l) => l.includes("admin examination")) &&
+    labels.some(
+      (l) =>
+        l.includes("examination report") ||
+        l.includes("exam report"),
+    )
+  if (underAdminExam) return -10_000
+
+  return 0
+}
+
+/**
  * Resolves breadcrumb segments from the sidebar nav tree so labels match the
  * menu (e.g. Master Setup → Organizations) instead of raw URL segments.
  */
@@ -817,7 +1063,7 @@ export function findNavBreadcrumbItems(
   pathname: string,
 ): NavBreadcrumbSegment[] | null {
   const target = normalizeHref(pathname).replace(/\/$/, '') || '/'
-  const match: { chain: NavItem[]; score: number } = { chain: [], score: 0 }
+  const match: { chain: NavItem[]; score: number } = { chain: [], score: Number.NEGATIVE_INFINITY }
 
   function walk(items: NavItem[], chain: NavItem[]) {
     for (const item of items) {
@@ -828,7 +1074,10 @@ export function findNavBreadcrumbItems(
         const exact = target === href
         const prefix = target.startsWith(`${href}/`)
         if (exact || prefix) {
-          const score = href.length + (exact ? 10_000 : 0)
+          const score =
+            href.length +
+            (exact ? 10_000 : 0) +
+            breadcrumbChainPreference(nextChain)
           if (score > match.score) {
             match.score = score
             match.chain = nextChain

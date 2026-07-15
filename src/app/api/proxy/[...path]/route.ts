@@ -54,7 +54,24 @@ async function proxyRequest(request: NextRequest, context: Context): Promise<Nex
     return NextResponse.json({ message: 'Session expired' }, { status: 401 })
   }
 
-  // 4. Return Spring Boot response body as-is — jwt is never in response body
+  // 4. Return Spring Boot response body as-is — jwt is never in response body.
+  // Binary endpoints (PDF/Excel/zip/images) must be forwarded as bytes; parsing as
+  // JSON corrupts the payload (e.g. examResultPDF for Consolidated Exam Report).
+  const upstreamContentType = upstreamRes.headers.get('content-type') ?? ''
+  const isJsonResponse =
+    /json/i.test(upstreamContentType) ||
+    upstreamContentType.startsWith('text/') ||
+    upstreamContentType === ''
+
+  if (!isJsonResponse) {
+    const buffer = await upstreamRes.arrayBuffer()
+    const headers = new Headers()
+    headers.set('Content-Type', upstreamContentType)
+    const disposition = upstreamRes.headers.get('content-disposition')
+    if (disposition) headers.set('Content-Disposition', disposition)
+    return new NextResponse(buffer, { status: upstreamRes.status, headers })
+  }
+
   const data = await upstreamRes.json().catch(() => null)
   return NextResponse.json(data, { status: upstreamRes.status })
 }

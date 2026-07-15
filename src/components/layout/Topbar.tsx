@@ -27,6 +27,7 @@ import { useSessionContext } from '@/context/SessionContext'
 import { useNavigationStore } from '@/store/navigation-store'
 import { cn } from '@/lib/utils'
 import { flattenNavItemsForSearch, normalizeHref } from '@/lib/navigation'
+import { resolveExaminationReportHref } from '@/lib/exam-reports-navigation'
 import { logout } from '@/services/auth'
 import { ThemeSwitcher } from '@/common/components/theme-setting-modal'
 
@@ -110,8 +111,11 @@ export function Topbar() {
     setIsSearchOpen(value.trim().length > 0)
   }, [])
 
-  const navigateTo = useCallback((url: string) => {
-    router.push(normalizeHref(url))
+  const navigateTo = useCallback((url: string, displayName?: string) => {
+    // Prefer label-based exam-report pins — raw DB hrefs often 404 → dashboard.
+    const fromLabel = resolveExaminationReportHref(url, displayName ?? '')
+    const resolved = fromLabel ?? normalizeHref(url)
+    router.push(resolved)
     setSearchTerm('')
     setIsSearchOpen(false)
     setActiveResultIndex(-1)
@@ -151,9 +155,10 @@ export function Topbar() {
       case 'Enter':
         e.preventDefault()
         if (activeResultIndex >= 0 && filteredPages[activeResultIndex]) {
-          navigateTo(filteredPages[activeResultIndex].url)
+          const page = filteredPages[activeResultIndex]
+          navigateTo(page.url, page.displayName)
         } else if (filteredPages[0]) {
-          navigateTo(filteredPages[0].url)
+          navigateTo(filteredPages[0].url, filteredPages[0].displayName)
         }
         break
       case 'Escape':
@@ -257,7 +262,7 @@ export function Topbar() {
                     index === activeResultIndex && 'bg-accent',
                   )}
                   onPointerDown={(e) => { e.preventDefault() }}
-                  onClick={() => navigateTo(page.url)}
+                  onClick={() => navigateTo(page.url, page.displayName)}
                 >
                   {page.displayName}
                 </button>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import { GraduationCap } from 'lucide-react'
 import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -384,14 +385,6 @@ export default function InternalExamAttendanceMarkingPage() {
   return (
     <FilteredListPage
       title="Internal Exam Attendance Marking"
-      notice={hasFetched ? (
-        <div className="app-card overflow-hidden p-3 text-[12px] text-slate-700">
-          <p>{exams.find((e) => Number(e.fk_exam_id) === Number(examId))?.exam_name ?? '-'}</p>
-          <p>{colleges.find((c) => Number(c.fk_college_id) === Number(collegeId))?.college_code ?? '-'} / {courses.find((c) => Number(c.fk_course_id) === Number(courseId))?.course_code ?? '-'}</p>
-          <p>Invigilator: {invigilators.find((x) => Number(x.fk_attendance_taken_emp_id ?? x.fk_invgilator_emp_id ?? 0) === Number(invigilatorEmpId))?.invigilatorName ?? 'All'}</p>
-          <p>Room: {rooms.find((x) => Number(x.fk_room_id ?? 0) === Number(roomId))?.room_name ?? 'All'}</p>
-        </div>
-      ) : null}
       filters={(
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="space-y-1 md:col-span-2"><Label>Course</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))} disabled={loadingFilters}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((x) => <SelectItem key={x.fk_course_id} value={String(x.fk_course_id)}>{x.course_code}</SelectItem>)}</SelectContent></Select></div>
@@ -430,6 +423,24 @@ export default function InternalExamAttendanceMarkingPage() {
           <div className="space-y-1 md:col-span-4"><Label>Invigilator Employee</Label><Select value={invigilatorEmpId === null ? '0' : String(invigilatorEmpId)} onValueChange={(v) => setInvigilatorEmpId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent><SelectItem value="0">All</SelectItem>{invigilators.map((x, i) => <SelectItem key={`inv-${x.fk_attendance_taken_emp_id ?? x.fk_invgilator_emp_id ?? i}`} value={String(x.fk_attendance_taken_emp_id ?? x.fk_invgilator_emp_id)}>{x.invigilatorName ?? x.employeeName ?? x.empName ?? x.empNumber ?? `Employee ${i + 1}`}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-1 md:col-span-3"><Label>Room</Label><Select value={roomId === null ? '0' : String(roomId)} onValueChange={(v) => setRoomId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent><SelectItem value="0">All</SelectItem>{rooms.map((x, i) => <SelectItem key={`room-${x.fk_room_id ?? i}`} value={String(x.fk_room_id)}>{x.room_name ?? x.roomCode ?? x.roomNumber ?? `Room ${i + 1}`}</SelectItem>)}</SelectContent></Select></div>
           <div className="md:col-span-1"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loadingList}>{loadingList ? 'Loading...' : 'Get List'}</Button></div>
+          {hasFetched ? (
+            <div className="app-card overflow-hidden border-2 border-[#c3d9ff] bg-card p-2 md:col-span-12">
+              <div className="flex items-start gap-4">
+                <div className="flex h-20 w-20 items-center justify-center bg-[#c3d9ff] text-slate-700">
+                  <GraduationCap className="h-10 w-10" />
+                </div>
+                <div className="space-y-1 text-[13px] text-slate-600">
+                  <p>{exams.find((e) => Number(e.fk_exam_id) === Number(examId))?.exam_name ?? '-'}</p>
+                  <p>
+                    {colleges.find((c) => Number(c.fk_college_id) === Number(collegeId))?.college_code ?? '-'} / {courses.find((c) => Number(c.fk_course_id) === Number(courseId))?.course_code ?? '-'}{' '}
+                    {examDate ? <span className="text-blue-700">({examDate})</span> : null}
+                  </p>
+                  <p>Invigilator: <span className="text-slate-800">{invigilators.find((x) => Number(x.fk_attendance_taken_emp_id ?? x.fk_invgilator_emp_id ?? 0) === Number(invigilatorEmpId))?.invigilatorName ?? 'All'}</span></p>
+                  <p>Room : <span className="text-slate-800">{rooms.find((x) => Number(x.fk_room_id ?? 0) === Number(roomId))?.room_name ?? 'All'}</span></p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
       rowData={hasFetched ? rows : []}
@@ -452,25 +463,16 @@ export default function InternalExamAttendanceMarkingPage() {
             />
             <span>{allMarkedPresent ? 'Unmark All' : 'Mark All'}</span>
           </label>
-          <Button
-            className="h-[30px] text-[12px]"
-            onClick={onSaveAttendance}
-            disabled={saving || rows.length === 0}
-          >
-            {saving ? 'Saving...' : 'Save Attendance'}
-          </Button>
         </>
       )}
-    >
-      {hasFetched && (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-          <aside className="space-y-3 lg:col-span-3 lg:col-start-10 min-w-0">
+      rightRail={
+        hasFetched ? (
+          <div className="space-y-3">
             <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">
               <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[14px] font-semibold uppercase text-slate-700">
-                Absentees :{' '}
-                <span className="rounded-full bg-cyan-300 px-2 py-0.5">{absentees.length}</span>
+                Absentees : <span className="rounded-full bg-cyan-300 px-2 py-0.5">{absentees.length}</span>
               </h3>
-              <div className="max-h-[320px] overflow-auto p-3 text-[12px]">
+              <div className="max-h-[420px] overflow-auto p-3 text-[12px]">
                 {absentees.length === 0 ? (
                   <p className="text-muted-foreground">No absents found.</p>
                 ) : (
@@ -482,10 +484,19 @@ export default function InternalExamAttendanceMarkingPage() {
                 )}
               </div>
             </div>
-          </aside>
-        </div>
-      )}
-    </FilteredListPage>
+            <div className="flex justify-center">
+              <Button
+                className="h-8 px-5 text-[12px]"
+                onClick={onSaveAttendance}
+                disabled={saving || rows.length === 0}
+              >
+                {saving ? 'Saving...' : 'Save Attendance'}
+              </Button>
+            </div>
+          </div>
+        ) : null
+      }
+    />
   )
 }
 

@@ -7,8 +7,8 @@ import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Select as CommonSelect } from '@/common/components/select'
 import {
   generateMarksEntrySecretCode,
   getMarksEntryStudentsBundle,
@@ -26,24 +26,62 @@ import { toastError, toastSuccess } from '@/lib/toast'
 
 type AnyRow = Record<string, any>
 
-function numFrom(row: AnyRow, ...keys: string[]): number {
+function numFrom(row: AnyRow, keys: string[]): number {
   for (const key of keys) {
-    const value = Number(row?.[key] ?? 0)
-    if (Number.isFinite(value) && value > 0) return value
+    const n = Number(row?.[key])
+    if (Number.isFinite(n) && n > 0) return n
   }
   return 0
 }
 
-function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
-  const seen = new Set<string>()
-  const out: T[] = []
-  for (const row of arr) {
-    const value = String(row?.[key] ?? '')
-    if (!value || seen.has(value)) continue
-    seen.add(value)
+function strFrom(row: AnyRow, keys: string[]): string {
+  for (const key of keys) {
+    const v = String(row?.[key] ?? '').trim()
+    if (v) return v
+  }
+  return ''
+}
+
+function dedupeBy(rows: AnyRow[], keys: string[]): AnyRow[] {
+  const seen = new Set<number>()
+  const out: AnyRow[] = []
+  for (const row of rows) {
+    const id = numFrom(row, keys)
+    if (!id || seen.has(id)) continue
+    seen.add(id)
     out.push(row)
   }
   return out
+}
+
+function asBool(v: unknown): boolean {
+  return v === true || v === 1 || v === '1' || v === 'true'
+}
+
+/** Angular grade-memo / secure-marks exam option: name (from - to) + type badges. */
+function formatExamLabel(row: AnyRow): string {
+  const name = strFrom(row, ['exam_name', 'examName']) || 'Exam'
+  const from = strFrom(row, ['from_date', 'fromDate']).slice(0, 10)
+  const to = strFrom(row, ['to_date', 'toDate']).slice(0, 10)
+  const range = from && to ? ` (${from} - ${to})` : ''
+  const badges: string[] = []
+  if (asBool(row.is_internal_exam ?? row.isInternalExam)) badges.push('Internal')
+  if (asBool(row.is_regular_exam ?? row.isRegularExam)) badges.push('Regular')
+  if (asBool(row.is_supply_exam ?? row.isSupplyExam)) badges.push('Supple')
+  const badgeText = badges.length > 0 ? ` (${badges.join(', ')})` : ''
+  return `${name}${range}${badgeText}`
+}
+
+function formatSubjectLabel(row: AnyRow): string {
+  const name = strFrom(row, ['subject_name', 'subjectName'])
+  const code = strFrom(row, ['subject_code', 'subjectCode'])
+  const reg = strFrom(row, ['regulation_code', 'regulationCode'])
+  const examType = strFrom(row, ['ttd_exam_type', 'ttdExamType', 'exam_type', 'examType', 'subject_type'])
+  let label = name
+  if (code) label += ` - ${code}`
+  if (reg) label += ` (${reg})`
+  if (examType) label += ` (${examType})`
+  return label || code || 'Subject'
 }
 
 function MarksInputRenderer(
@@ -141,9 +179,13 @@ export default function SecureExamMarksEntryPage() {
   if (isExternalEvaluator) saveButtonText = 'Approve'
   if (saving) saveButtonText = 'Saving...'
 
-  const courses = useMemo(() => dedupeBy(allFilters, 'fk_course_id'), [allFilters])
+  const courses = useMemo(() => dedupeBy(allFilters, ['fk_course_id', 'courseId']), [allFilters])
   const academicYears = useMemo(
-    () => dedupeBy(allFilters.filter((x) => Number(x.fk_course_id) === Number(courseId)), 'fk_academic_year_id'),
+    () =>
+      dedupeBy(
+        allFilters.filter((x) => numFrom(x, ['fk_course_id', 'courseId']) === Number(courseId)),
+        ['fk_academic_year_id', 'academicYearId'],
+      ),
     [allFilters, courseId],
   )
   const exams = useMemo(
@@ -151,16 +193,20 @@ export default function SecureExamMarksEntryPage() {
       dedupeBy(
         allFilters.filter(
           (x) =>
-            Number(x.fk_course_id) === Number(courseId) &&
-            Number(x.fk_academic_year_id) === Number(academicYearId),
+            numFrom(x, ['fk_course_id', 'courseId']) === Number(courseId) &&
+            numFrom(x, ['fk_academic_year_id', 'academicYearId']) === Number(academicYearId),
         ),
-        'fk_exam_id',
+        ['fk_exam_id', 'examId'],
       ),
     [allFilters, courseId, academicYearId],
   )
-  const colleges = useMemo(() => dedupeBy(restFilters, 'fk_college_id'), [restFilters])
+  const colleges = useMemo(() => dedupeBy(restFilters, ['fk_college_id', 'collegeId']), [restFilters])
   const courseGroups = useMemo(
-    () => dedupeBy(restFilters.filter((x) => Number(x.fk_college_id) === Number(collegeId)), 'fk_course_group_id'),
+    () =>
+      dedupeBy(
+        restFilters.filter((x) => numFrom(x, ['fk_college_id', 'collegeId']) === Number(collegeId)),
+        ['fk_course_group_id', 'courseGroupId'],
+      ),
     [restFilters, collegeId],
   )
   const courseYears = useMemo(
@@ -168,23 +214,27 @@ export default function SecureExamMarksEntryPage() {
       dedupeBy(
         restFilters.filter(
           (x) =>
-            Number(x.fk_college_id) === Number(collegeId) &&
-            Number(x.fk_course_group_id) === Number(courseGroupId),
+            numFrom(x, ['fk_college_id', 'collegeId']) === Number(collegeId) &&
+            numFrom(x, ['fk_course_group_id', 'courseGroupId']) === Number(courseGroupId),
         ),
-        'fk_course_year_id',
+        ['fk_course_year_id', 'courseYearId'],
       ),
     [restFilters, collegeId, courseGroupId],
   )
   const regulations = useMemo(() => {
-    const direct = dedupeBy(regRows, 'fk_regulation_id')
+    const direct = dedupeBy(regRows, ['fk_regulation_id', 'regulationId'])
     if (direct.length > 0) return direct
     return dedupeBy(
-      restFilters.filter((x) => numFrom(x, 'fk_regulation_id', 'regulationId') > 0),
-      'fk_regulation_id',
+      restFilters.filter((x) => numFrom(x, ['fk_regulation_id', 'regulationId']) > 0),
+      ['fk_regulation_id', 'regulationId'],
     )
   }, [regRows, restFilters])
   const subjectTypes = useMemo(
-    () => dedupeBy(subjectRows.filter((x) => Number(x.fk_regulation_id) === Number(regulationId)), 'fk_subjecttype_catdet_id'),
+    () =>
+      dedupeBy(
+        subjectRows.filter((x) => numFrom(x, ['fk_regulation_id', 'regulationId']) === Number(regulationId)),
+        ['fk_subjecttype_catdet_id', 'subjectTypeId'],
+      ),
     [subjectRows, regulationId],
   )
   const subjects = useMemo(
@@ -192,20 +242,127 @@ export default function SecureExamMarksEntryPage() {
       dedupeBy(
         subjectRows.filter(
           (x) =>
-            Number(x.fk_regulation_id) === Number(regulationId) &&
-            Number(x.fk_subjecttype_catdet_id) === Number(subjectTypeId),
+            numFrom(x, ['fk_regulation_id', 'regulationId']) === Number(regulationId) &&
+            numFrom(x, ['fk_subjecttype_catdet_id', 'subjectTypeId']) === Number(subjectTypeId),
         ),
-        'fk_subject_id',
+        ['fk_subject_id', 'subjectId'],
       ),
     [subjectRows, regulationId, subjectTypeId],
   )
   const labBatches = useMemo(
     () =>
       dedupeBy(
-        subjectRows.filter((x) => numFrom(x, 'fk_subject_id', 'subjectId') === Number(subjectId) && numFrom(x, 'fk_exam_labbatch_id', 'examLabbatchId') > 0),
-        'fk_exam_labbatch_id',
+        subjectRows.filter(
+          (x) =>
+            numFrom(x, ['fk_subject_id', 'subjectId']) === Number(subjectId) &&
+            numFrom(x, ['fk_exam_labbatch_id', 'examLabbatchId']) > 0,
+        ),
+        ['fk_exam_labbatch_id', 'examLabbatchId'],
       ),
     [subjectRows, subjectId],
+  )
+
+  const courseOptions = useMemo(
+    () =>
+      courses
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_course_id', 'courseId'])),
+          label: strFrom(x, ['course_code', 'courseCode']),
+        }))
+        .filter((o) => o.value !== '0' && o.label),
+    [courses],
+  )
+  const yearOptions = useMemo(
+    () =>
+      academicYears
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_academic_year_id', 'academicYearId'])),
+          label: strFrom(x, ['academic_year', 'academicYear']),
+        }))
+        .filter((o) => o.value !== '0' && o.label),
+    [academicYears],
+  )
+  const examOptions = useMemo(
+    () =>
+      exams
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_exam_id', 'examId'])),
+          label: formatExamLabel(x),
+        }))
+        .filter((o) => o.value !== '0'),
+    [exams],
+  )
+  const collegeOptions = useMemo(
+    () =>
+      colleges
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_college_id', 'collegeId'])),
+          label: strFrom(x, ['college_code', 'collegeCode']),
+        }))
+        .filter((o) => o.value !== '0' && o.label),
+    [colleges],
+  )
+  const groupOptions = useMemo(
+    () =>
+      courseGroups
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_course_group_id', 'courseGroupId'])),
+          label: strFrom(x, ['group_code', 'groupCode']),
+        }))
+        .filter((o) => o.value !== '0' && o.label),
+    [courseGroups],
+  )
+  const courseYearOptions = useMemo(
+    () =>
+      courseYears
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_course_year_id', 'courseYearId'])),
+          label: strFrom(x, ['course_year_code', 'courseYearName', 'courseYearCode']),
+        }))
+        .filter((o) => o.value !== '0' && o.label),
+    [courseYears],
+  )
+  const regulationOptions = useMemo(
+    () =>
+      regulations
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_regulation_id', 'regulationId'])),
+          label: strFrom(x, ['regulation_code', 'regulationCode']),
+        }))
+        .filter((o) => o.value !== '0' && o.label),
+    [regulations],
+  )
+  const subjectTypeOptions = useMemo(
+    () =>
+      subjectTypes
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_subjecttype_catdet_id', 'subjectTypeId'])),
+          label: strFrom(x, ['subject_type', 'subjectType']),
+        }))
+        .filter((o) => o.value !== '0' && o.label),
+    [subjectTypes],
+  )
+  const subjectOptions = useMemo(
+    () =>
+      subjects
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_subject_id', 'subjectId'])),
+          label: formatSubjectLabel(x),
+        }))
+        .filter((o) => o.value !== '0'),
+    [subjects],
+  )
+  const labBatchOptions = useMemo(
+    () => [
+      { value: '0', label: 'All' },
+      ...labBatches
+        .map((x) => ({
+          value: String(numFrom(x, ['fk_exam_labbatch_id', 'examLabbatchId'])),
+          label: strFrom(x, ['labbatch_name', 'labBatchName', 'labbatchName']),
+        }))
+        .filter((o) => o.value !== '0' && o.label),
+    ],
+    [labBatches],
   )
   useEffect(() => {
     async function loadFilters() {
@@ -221,13 +378,16 @@ export default function SecureExamMarksEntryPage() {
   }, [employeeId])
 
   useEffect(() => {
-    if (courses[0]?.fk_course_id) setCourseId(Number(courses[0].fk_course_id))
+    const first = courses[0]
+    if (first) setCourseId(numFrom(first, ['fk_course_id', 'courseId']))
   }, [courses])
   useEffect(() => {
-    if (academicYears[0]?.fk_academic_year_id) setAcademicYearId(Number(academicYears[0].fk_academic_year_id))
+    const first = academicYears[0]
+    if (first) setAcademicYearId(numFrom(first, ['fk_academic_year_id', 'academicYearId']))
   }, [academicYears])
   useEffect(() => {
-    if (exams[0]?.fk_exam_id) setExamId(Number(exams[0].fk_exam_id))
+    const first = exams[0]
+    if (first) setExamId(numFrom(first, ['fk_exam_id', 'examId']))
   }, [exams])
 
   useEffect(() => {
@@ -249,16 +409,20 @@ export default function SecureExamMarksEntryPage() {
   }, [courseId, academicYearId, examId, employeeId])
 
   useEffect(() => {
-    if (colleges[0]?.fk_college_id) setCollegeId(Number(colleges[0].fk_college_id))
+    const first = colleges[0]
+    if (first) setCollegeId(numFrom(first, ['fk_college_id', 'collegeId']))
   }, [colleges])
   useEffect(() => {
-    if (courseGroups[0]?.fk_course_group_id) setCourseGroupId(Number(courseGroups[0].fk_course_group_id))
+    const first = courseGroups[0]
+    if (first) setCourseGroupId(numFrom(first, ['fk_course_group_id', 'courseGroupId']))
   }, [courseGroups])
   useEffect(() => {
-    if (courseYears[0]?.fk_course_year_id) setCourseYearId(Number(courseYears[0].fk_course_year_id))
+    const first = courseYears[0]
+    if (first) setCourseYearId(numFrom(first, ['fk_course_year_id', 'courseYearId']))
   }, [courseYears])
   useEffect(() => {
-    if (regulations[0]?.fk_regulation_id) setRegulationId(Number(regulations[0].fk_regulation_id))
+    const first = regulations[0]
+    if (first) setRegulationId(numFrom(first, ['fk_regulation_id', 'regulationId']))
   }, [regulations])
 
   useEffect(() => {
@@ -281,13 +445,15 @@ export default function SecureExamMarksEntryPage() {
   }, [collegeId, courseId, courseGroupId, courseYearId, examId, academicYearId, regulationId, employeeId])
 
   useEffect(() => {
-    if (subjectTypes[0]?.fk_subjecttype_catdet_id) setSubjectTypeId(Number(subjectTypes[0].fk_subjecttype_catdet_id))
+    const first = subjectTypes[0]
+    if (first) setSubjectTypeId(numFrom(first, ['fk_subjecttype_catdet_id', 'subjectTypeId']))
   }, [subjectTypes])
   useEffect(() => {
-    if (subjects[0]?.fk_subject_id) setSubjectId(Number(subjects[0].fk_subject_id))
+    const first = subjects[0]
+    if (first) setSubjectId(numFrom(first, ['fk_subject_id', 'subjectId']))
   }, [subjects])
   useEffect(() => {
-    const nextDate = String(subjects[0]?.exam_date ?? '').slice(0, 10)
+    const nextDate = strFrom(subjects[0] ?? {}, ['exam_date', 'examDate']).slice(0, 10)
     setExamDate(nextDate || '')
   }, [subjects])
 
@@ -415,14 +581,38 @@ export default function SecureExamMarksEntryPage() {
     return Number(first?.maxMarks ?? first?.externalmarks ?? first?.internalmarks ?? 0)
   }, [rows])
 
-  const selectedExam = useMemo(() => exams.find((x) => Number(x.fk_exam_id) === Number(examId)), [exams, examId])
-  const selectedCollege = useMemo(() => colleges.find((x) => Number(x.fk_college_id) === Number(collegeId)), [colleges, collegeId])
-  const selectedCourse = useMemo(() => courses.find((x) => Number(x.fk_course_id) === Number(courseId)), [courses, courseId])
-  const selectedGroup = useMemo(() => courseGroups.find((x) => Number(x.fk_course_group_id) === Number(courseGroupId)), [courseGroups, courseGroupId])
-  const selectedYear = useMemo(() => courseYears.find((x) => Number(x.fk_course_year_id) === Number(courseYearId)), [courseYears, courseYearId])
-  const selectedRegulation = useMemo(() => regulations.find((x) => Number(x.fk_regulation_id) === Number(regulationId)), [regulations, regulationId])
-  const selectedSubject = useMemo(() => subjects.find((x) => Number(x.fk_subject_id) === Number(subjectId)), [subjects, subjectId])
-  const selectedAcademicYear = useMemo(() => academicYears.find((x) => Number(x.fk_academic_year_id) === Number(academicYearId)), [academicYears, academicYearId])
+  const selectedExam = useMemo(
+    () => exams.find((x) => numFrom(x, ['fk_exam_id', 'examId']) === Number(examId)),
+    [exams, examId],
+  )
+  const selectedCollege = useMemo(
+    () => colleges.find((x) => numFrom(x, ['fk_college_id', 'collegeId']) === Number(collegeId)),
+    [colleges, collegeId],
+  )
+  const selectedCourse = useMemo(
+    () => courses.find((x) => numFrom(x, ['fk_course_id', 'courseId']) === Number(courseId)),
+    [courses, courseId],
+  )
+  const selectedGroup = useMemo(
+    () => courseGroups.find((x) => numFrom(x, ['fk_course_group_id', 'courseGroupId']) === Number(courseGroupId)),
+    [courseGroups, courseGroupId],
+  )
+  const selectedYear = useMemo(
+    () => courseYears.find((x) => numFrom(x, ['fk_course_year_id', 'courseYearId']) === Number(courseYearId)),
+    [courseYears, courseYearId],
+  )
+  const selectedRegulation = useMemo(
+    () => regulations.find((x) => numFrom(x, ['fk_regulation_id', 'regulationId']) === Number(regulationId)),
+    [regulations, regulationId],
+  )
+  const selectedSubject = useMemo(
+    () => subjects.find((x) => numFrom(x, ['fk_subject_id', 'subjectId']) === Number(subjectId)),
+    [subjects, subjectId],
+  )
+  const selectedAcademicYear = useMemo(
+    () => academicYears.find((x) => numFrom(x, ['fk_academic_year_id', 'academicYearId']) === Number(academicYearId)),
+    [academicYears, academicYearId],
+  )
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(() => {
     const toAttendanceText = (isPresent: unknown) => {
@@ -472,30 +662,130 @@ export default function SecureExamMarksEntryPage() {
               <GraduationCap className="h-10 w-10" />
             </div>
             <div className="space-y-1 text-[13px]">
-              <p className="text-slate-700">{selectedExam?.exam_name ?? '-'} {examDate ? <span className="text-blue-700">({examDate})</span> : null}</p>
-              <p className="text-muted-foreground">/ {selectedCollege?.college_code ?? '-'} / {selectedCourse?.course_code ?? '-'} / {selectedGroup?.group_code ?? '-'} / {selectedYear?.course_year_code ?? '-'} / <span className="text-blue-700">({selectedAcademicYear?.academic_year ?? '-'})</span></p>
-              <p className="font-semibold text-slate-800">{selectedSubject?.subject_name ?? '-'} ({selectedRegulation?.regulation_code ?? '-'}) - <span className="text-blue-700">{selectedSubject?.subject_type ?? '-'}</span></p>
+              <p className="text-slate-700">{strFrom(selectedExam ?? {}, ['exam_name', 'examName']) || '-'} {examDate ? <span className="text-blue-700">({examDate})</span> : null}</p>
+              <p className="text-muted-foreground">/ {strFrom(selectedCollege ?? {}, ['college_code', 'collegeCode']) || '-'} / {strFrom(selectedCourse ?? {}, ['course_code', 'courseCode']) || '-'} / {strFrom(selectedGroup ?? {}, ['group_code', 'groupCode']) || '-'} / {strFrom(selectedYear ?? {}, ['course_year_code', 'courseYearName']) || '-'} / <span className="text-blue-700">({strFrom(selectedAcademicYear ?? {}, ['academic_year', 'academicYear']) || '-'})</span></p>
+              <p className="font-semibold text-slate-800">{strFrom(selectedSubject ?? {}, ['subject_name', 'subjectName']) || '-'} ({strFrom(selectedRegulation ?? {}, ['regulation_code', 'regulationCode']) || '-'}) - <span className="text-blue-700">{strFrom(selectedSubject ?? {}, ['subject_type', 'subjectType']) || '-'}</span></p>
             </div>
           </div>
         </div>
       ) : null}
       filters={(
         <div className="grid grid-cols-1 gap-2 md:grid-cols-12 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course *</Label><Select value={courseId ? String(courseId) : undefined} onValueChange={(v) => setCourseId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course" /></SelectTrigger><SelectContent>{courses.map((x) => <SelectItem key={x.fk_course_id} value={String(x.fk_course_id)}>{x.course_code}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Year *</Label><Select value={academicYearId ? String(academicYearId) : undefined} onValueChange={(v) => setAcademicYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam Year" /></SelectTrigger><SelectContent>{academicYears.map((x) => <SelectItem key={x.fk_academic_year_id} value={String(x.fk_academic_year_id)}>{x.academic_year}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-8"><Label>Exam *</Label><Select value={examId ? String(examId) : undefined} onValueChange={(v) => setExamId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Exam" /></SelectTrigger><SelectContent>{exams.map((x) => <SelectItem key={x.fk_exam_id} value={String(x.fk_exam_id)}>{x.exam_name}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>College *</Label><Select value={collegeId ? String(collegeId) : undefined} onValueChange={(v) => setCollegeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="College" /></SelectTrigger><SelectContent>{colleges.map((x) => <SelectItem key={x.fk_college_id} value={String(x.fk_college_id)}>{x.college_code}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><Select value={courseGroupId ? String(courseGroupId) : undefined} onValueChange={(v) => setCourseGroupId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Group" /></SelectTrigger><SelectContent>{courseGroups.map((x) => <SelectItem key={x.fk_course_group_id} value={String(x.fk_course_group_id)}>{x.group_code}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><Select value={courseYearId ? String(courseYearId) : undefined} onValueChange={(v) => setCourseYearId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Course Year" /></SelectTrigger><SelectContent>{courseYears.map((x) => <SelectItem key={x.fk_course_year_id} value={String(x.fk_course_year_id)}>{x.course_year_code}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><Select value={regulationId ? String(regulationId) : undefined} onValueChange={(v) => setRegulationId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Regulation" /></SelectTrigger><SelectContent>{regulations.map((x) => <SelectItem key={x.fk_regulation_id} value={String(x.fk_regulation_id)}>{x.regulation_code}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><Select value={subjectTypeId ? String(subjectTypeId) : undefined} onValueChange={(v) => setSubjectTypeId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject Type" /></SelectTrigger><SelectContent>{subjectTypes.map((x) => <SelectItem key={x.fk_subjecttype_catdet_id} value={String(x.fk_subjecttype_catdet_id)}>{x.subject_type}</SelectItem>)}</SelectContent></Select></div>
-          <div className="space-y-1 md:col-span-2"><Label>Subject</Label><Select value={subjectId ? String(subjectId) : undefined} onValueChange={(v) => setSubjectId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="Subject" /></SelectTrigger><SelectContent>{subjects.map((x) => <SelectItem key={x.fk_subject_id} value={String(x.fk_subject_id)}>{x.subject_name} ({x.subject_code})</SelectItem>)}</SelectContent></Select></div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Course *</Label>
+            <CommonSelect
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : null)}
+              options={courseOptions}
+              placeholder="Course"
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Exam Year *</Label>
+            <CommonSelect
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+              options={yearOptions}
+              placeholder="Exam Year"
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-8">
+            <Label>Exam *</Label>
+            <CommonSelect
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(v ? Number(v) : null)}
+              options={examOptions}
+              placeholder="Exam"
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>College *</Label>
+            <CommonSelect
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => setCollegeId(v ? Number(v) : null)}
+              options={collegeOptions}
+              placeholder="College"
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Course Group *</Label>
+            <CommonSelect
+              value={courseGroupId ? String(courseGroupId) : null}
+              onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+              options={groupOptions}
+              placeholder="Course Group"
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Course Year *</Label>
+            <CommonSelect
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+              options={courseYearOptions}
+              placeholder="Course Year"
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Regulation</Label>
+            <CommonSelect
+              value={regulationId ? String(regulationId) : null}
+              onChange={(v) => setRegulationId(v ? Number(v) : null)}
+              options={regulationOptions}
+              placeholder="Regulation"
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Subject Type</Label>
+            <CommonSelect
+              value={subjectTypeId ? String(subjectTypeId) : null}
+              onChange={(v) => setSubjectTypeId(v ? Number(v) : null)}
+              options={subjectTypeOptions}
+              placeholder="Subject Type"
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Subject</Label>
+            <CommonSelect
+              value={subjectId ? String(subjectId) : null}
+              onChange={(v) => setSubjectId(v ? Number(v) : null)}
+              options={subjectOptions}
+              placeholder="Subject"
+              searchable
+            />
+          </div>
           {labBatches.length > 0 && (
-            <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><Select value={String(labBatchId)} onValueChange={(v) => setLabBatchId(Number(v))}><SelectTrigger className="h-8 text-[12px]"><SelectValue placeholder="All" /></SelectTrigger><SelectContent><SelectItem value="0">All</SelectItem>{labBatches.map((x) => <SelectItem key={x.fk_exam_labbatch_id} value={String(x.fk_exam_labbatch_id)}>{x.labbatch_name}</SelectItem>)}</SelectContent></Select></div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Lab Batch</Label>
+              <CommonSelect
+                value={String(labBatchId)}
+                onChange={(v) => setLabBatchId(v ? Number(v) : 0)}
+                options={labBatchOptions}
+                placeholder="All"
+                searchable
+              />
+            </div>
           )}
-          <div className="space-y-1 md:col-span-2"><Label>Employee</Label><Input className="h-8 text-[12px]" value={employeeDisplay} readOnly /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
-          <div className="md:col-span-2"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loading}>{loading ? 'Loading...' : 'Get List'}</Button></div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Employee</Label>
+            <Input className="h-8 text-[12px]" value={employeeDisplay} readOnly />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Exam Date</Label>
+            <Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
+          </div>
+          <div className="md:col-span-2">
+            <Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loading}>
+              {loading ? 'Loading...' : 'Get List'}
+            </Button>
+          </div>
         </div>
       )}
       rowData={hasFetched ? rows : []}

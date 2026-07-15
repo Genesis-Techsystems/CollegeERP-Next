@@ -63,7 +63,12 @@ function splitProcFilterGroups(groups: AnyRow[][]): {
     const first = group[0] ?? {}
     if (first.flag === 'clg_filters') filtersData = group
     if (first.clg_filters_ay === 'clg_filters_ay') academicData = group
-    if (first.clg_filters_batches === 'clg_filters_batches') batchesData = group
+    if (
+      first.clg_filters_batches === 'clg_filters_batches' ||
+      first.flag === 'clg_filters_batches'
+    ) {
+      batchesData = group
+    }
     if (first.clg_filters_regulation === 'clg_filters_regulation') regulationData = group
   }
 
@@ -72,6 +77,20 @@ function splitProcFilterGroups(groups: AnyRow[][]): {
       (g) => Array.isArray(g) && g.length > 0 && String(g[0]?.flag ?? '') === 'clg_filters',
     )
     if (clgGroup?.length) filtersData = clgGroup
+  }
+
+  // Some tenants return batches without the marker row — detect by batch id columns.
+  if (batchesData.length === 0) {
+    const batchGroup = groups.find((g) => {
+      if (!Array.isArray(g) || g.length === 0) return false
+      const sample = g.find(
+        (r) =>
+          Number(r?.fk_batch_id ?? r?.batchId ?? 0) > 0 &&
+          String(r?.batch_name ?? r?.batchName ?? '').trim() !== '',
+      )
+      return Boolean(sample)
+    })
+    if (batchGroup?.length) batchesData = batchGroup
   }
 
   return { filtersData, academicData, batchesData, regulationData }

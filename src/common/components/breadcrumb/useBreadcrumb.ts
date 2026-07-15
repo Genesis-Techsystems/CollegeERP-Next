@@ -34,6 +34,41 @@ function adminSubmoduleLabel(pathname: string): string {
 }
 
 /**
+ * Exam report pages live under the Reports → Examination Reports menu even
+ * though their App Router path is `/admin-examination-management/exam-reports/...`.
+ */
+function examReportsModuleBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const match = pathname.match(
+    /^\/admin-examination-management\/exam-reports\/([^/]+)\/?$/i,
+  )
+  if (!match) return items
+
+  const labels = items.map((i) => i.label.toLowerCase())
+  const alreadyUnderReports =
+    labels.some((l) => l === 'reports' || l === 'report') &&
+    labels.some(
+      (l) =>
+        l.includes('examination report') ||
+        l === 'exam reports' ||
+        l.includes('exam report'),
+    )
+  if (alreadyUnderReports) return items
+
+  const pageLabel =
+    items[items.length - 1]?.label ?? segmentToLabel(match[1])
+
+  return [
+    { label: 'Home', href: '/dashboard' },
+    { label: 'Reports' },
+    { label: 'Examination Reports' },
+    { label: pageLabel },
+  ]
+}
+
+/**
  * Builds breadcrumb items from the current Next.js pathname.
  *
  * When `customItems` are provided they are returned as-is, letting the caller
@@ -100,6 +135,8 @@ export function useBreadcrumb(customItems?: BreadcrumbItem[]): BreadcrumbItem[] 
       }
     })
   }
+
+  items = examReportsModuleBreadcrumb(pathname, items)
 
   if (lastSegmentLabel && items.length > 0) {
     const last = items[items.length - 1]
