@@ -47,7 +47,12 @@ function splitUnivProcGroups(groups: AnyRow[][]): AdmissionUnivFilters {
     const first = group[0] ?? {}
     if (first.flag === 'clg_filters') filtersData = group
     if (first.clg_filters_ay === 'clg_filters_ay') academicData = group
-    if (first.clg_filters_batches === 'clg_filters_batches') batchesData = group
+    if (
+      first.clg_filters_batches === 'clg_filters_batches' ||
+      first.flag === 'clg_filters_batches'
+    ) {
+      batchesData = group
+    }
   }
 
   if (filtersData.length === 0) {
@@ -55,6 +60,18 @@ function splitUnivProcGroups(groups: AnyRow[][]): AdmissionUnivFilters {
       (g) => Array.isArray(g) && g.length > 0 && String(g[0]?.flag ?? '') === 'clg_filters',
     )
     if (clgGroup?.length) filtersData = clgGroup
+  }
+
+  if (batchesData.length === 0) {
+    const batchGroup = groups.find((g) => {
+      if (!Array.isArray(g) || g.length === 0) return false
+      return g.some(
+        (r) =>
+          Number(r?.fk_batch_id ?? r?.batchId ?? 0) > 0 &&
+          String(r?.batch_name ?? r?.batchName ?? '').trim() !== '',
+      )
+    })
+    if (batchGroup?.length) batchesData = batchGroup
   }
 
   return { filtersData, academicData, batchesData }

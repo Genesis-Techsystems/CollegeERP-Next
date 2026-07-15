@@ -14,7 +14,8 @@
 
 import { crud, domainCreate, domainList, domainUpdate, fetchDetails, getAllRecords } from './crud'
 import { buildQuery } from './query'
-import { EXAM_API, EXAM_EVAL_API } from '@/config/constants/api'
+import { EXAM_API, EXAM_EVAL_API, NEXT_API } from '@/config/constants/api'
+import { parseApiError } from '@/lib/errors'
 
 type AnyRow = Record<string, any>
 
@@ -225,4 +226,503 @@ export async function getTSheetResultList(params: {
     in_questionpaper_id: 0,
   })
   return Array.isArray(data?.result?.[0]) ? data.result[0] : []
+}
+
+/**
+ * Angular branch-wise-passes/failed getDetails():
+ * `s_get_exam_final_analysis_bycodes` with `final_results_list` /
+ * `final_reeval_results_list`.
+ */
+export async function getGroupWiseFinalResults(params: {
+  isReevaluation: boolean
+  examId: number
+  collegeId: number
+  courseId: number
+  courseGroupId: number
+  courseYearId: number
+  examTypeCatdetId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_final_analysis_bycodes', {
+    in_flag: params.isReevaluation ? 'final_reeval_results_list' : 'final_results_list',
+    in_exam_id: params.examId,
+    in_college_id: params.collegeId,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId,
+    in_course_year_id: params.courseYearId,
+    in_examtypecate_det_id: params.examTypeCatdetId,
+  })
+  return Array.isArray(data?.result?.[0]) ? data.result[0] : []
+}
+
+/**
+ * Angular moderation-benefited-students-report getDetails():
+ * `s_get_exam_resultprocessing_bycode`, flag `mod_benefited_std_by_subject`.
+ */
+export async function getModerationBenefitedStudents(params: {
+  examId: number
+  examTypeCatdetId: number
+  collegeId: number
+  courseId: number
+  courseGroupId: number
+  courseYearId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_resultprocessing_bycode', {
+    in_flag: 'mod_benefited_std_by_subject',
+    in_exam_id: params.examId,
+    in_examtype: params.examTypeCatdetId,
+    in_college_id: params.collegeId,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId,
+    in_course_year_id: params.courseYearId,
+  })
+  return Array.isArray(data?.result?.[0]) ? data.result[0] : []
+}
+
+/**
+ * Angular grace-benefited-students-report getDetails():
+ * `s_get_exam_resultprocessing_bycode`, flag `exam_gracemark_added_list`.
+ */
+export async function getGraceMarksBenefitedStudents(params: {
+  examId: number
+  examTypeCatdetId: number
+  collegeId: number
+  courseId: number
+  courseGroupId: number
+  courseYearId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_resultprocessing_bycode', {
+    in_flag: 'exam_gracemark_added_list',
+    in_exam_id: params.examId,
+    in_examtype: params.examTypeCatdetId,
+    in_college_id: params.collegeId,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId,
+    in_course_year_id: params.courseYearId,
+  })
+  return Array.isArray(data?.result?.[0]) ? data.result[0] : []
+}
+
+/**
+ * Angular detention-report getDetails():
+ * `s_get_detention_report`, flag `batch_wise_detention_report`.
+ */
+/** Angular detention/backlog procs may return `result: [[...rows]]` or a flat `result: [...rows]`. */
+function unwrapProcResultRows(data: { result?: unknown } | null | undefined): AnyRow[] {
+  const result = data?.result
+  if (!Array.isArray(result) || result.length === 0) return []
+  if (Array.isArray(result[0])) return result[0] as AnyRow[]
+  return result as AnyRow[]
+}
+
+export async function getBatchWiseDetentionReport(params: {
+  collegeId: number
+  courseId: number
+  batchId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>('s_get_detention_report', {
+    in_flag: 'batch_wise_detention_report',
+    in_college_id: params.collegeId,
+    in_course_id: params.courseId || 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_exam_id: 0,
+    in_batch_id: params.batchId,
+  })
+  return unwrapProcResultRows(data)
+}
+
+/**
+ * Angular student-backlog-data getDetails():
+ * `s_generate_exam_reports`, flag `STUDENT_FAILURE_SUMMARY`.
+ */
+export async function getBatchWiseStudentBacklogReport(params: {
+  collegeId: number
+  courseId: number
+  batchId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>('s_generate_exam_reports', {
+    in_flag: 'STUDENT_FAILURE_SUMMARY',
+    in_college_id: params.collegeId,
+    in_course_id: params.courseId || 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_exam_id: 0,
+    in_batch_id: params.batchId,
+  })
+  return unwrapProcResultRows(data)
+}
+
+/**
+ * Angular student-wise-grade-point-report getDetails():
+ * `s_get_exam_results_bycode`, flag `tabulation_register_new` / `tabulation_register_re_evaluation`.
+ */
+export async function getStudentWiseGradePointReport(params: {
+  examId: number
+  collegeId: number
+  courseId: number
+  courseGroupId: number
+  courseYearId: number
+  hallTicketNo?: string
+  isReevaluation?: boolean
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>('s_get_exam_results_bycode', {
+    in_flag: params.isReevaluation ? 'tabulation_register_re_evaluation' : 'tabulation_register_new',
+    in_exam_id: params.examId,
+    in_college_id: params.collegeId,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId,
+    in_course_year_id: params.courseYearId,
+    in_hallticket_no: params.hallTicketNo?.trim() || '',
+    in_examtype: 0,
+  })
+  return unwrapProcResultRows(data)
+}
+
+/**
+ * Angular exam-absentees-report getEvaluationList():
+ * `s_get_exam_std_absentees_report`.
+ */
+export async function getExamAbsenteesReport(params: {
+  collegeId: number
+  courseId: number
+  courseGroupId: number
+  courseYearId: number
+  regulationId: number
+  examId: number
+  subjectId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>('s_get_exam_std_absentees_report', {
+    in_college_id: params.collegeId || 0,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId || 0,
+    in_course_year_id: params.courseYearId || 0,
+    in_regulation_id: params.regulationId || 0,
+    in_exam_id: params.examId,
+    in_exam_date: '1990-01-01',
+    in_subject_id: params.subjectId || 0,
+  })
+  return unwrapProcResultRows(data)
+}
+
+/**
+ * Angular re-evaluation-result-report (route: re-evaluation-exam-report) getDetails():
+ * `s_get_exam_reevaluation_marks_report`, flag `reevaluation_marks_report`.
+ */
+export async function getReEvaluationExamReport(params: {
+  examId: number
+  examTypeCatdetId: number
+  courseId: number
+  courseYearId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>('s_get_exam_reevaluation_marks_report', {
+    in_flag: 'reevaluation_marks_report',
+    in_exam_id: params.examId,
+    in_examtype: params.examTypeCatdetId || 0,
+    in_college_id: 0,
+    in_course_id: params.courseId,
+    in_course_group_id: 0,
+    in_course_year_id: params.courseYearId || 0,
+  })
+  return unwrapProcResultRows(data)
+}
+
+/**
+ * Angular re-evaluation-result-comparision-report getDetails():
+ * `s_get_revaluation_analysis_report`.
+ */
+export async function getReEvaluationComparisionReport(params: {
+  examId: number
+  courseYearId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>('s_get_revaluation_analysis_report', {
+    in_exam_id: params.examId,
+    in_college_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: params.courseYearId || 0,
+  })
+  return unwrapProcResultRows(data)
+}
+
+/**
+ * Angular internal-marks-entry-report (route: internal-marks-report) getDetails():
+ * `s_get_exam_internal_final_marks` with in_final_type=0.
+ */
+export async function getInternalMarksReport(params: {
+  examId: number
+  collegeId: number
+  courseGroupId: number
+  courseYearId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>('s_get_exam_internal_final_marks', {
+    in_exam_ids: String(params.examId),
+    in_college_id: params.collegeId,
+    in_course_group_id: params.courseGroupId || 0,
+    in_course_year_id: params.courseYearId || 0,
+    in_subject_id: 0,
+    in_std_id: 0,
+    in_final_type: 0,
+  })
+  return unwrapProcResultRows(data)
+}
+
+/**
+ * Angular academic-year-curriculum-report getDetails():
+ * `getAllRecords/curriculum_report` with flag `ay_univ_curriculum`.
+ */
+export async function getAcademicYearCurriculumReport(params: {
+  collegeId: number
+  courseId: number
+  courseGroupId: number
+  courseYearId: number
+  regulationId: number
+  academicYearId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>('curriculum_report', {
+    in_flag: 'ay_univ_curriculum',
+    in_university_id: 0,
+    in_college_id: params.collegeId,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId || 0,
+    in_course_year_id: params.courseYearId || 0,
+    in_regulation_id: params.regulationId || 0,
+    in_academic_year_id: params.academicYearId || 0,
+    in_batch_id: 0,
+  })
+  return unwrapProcResultRows(data)
+}
+
+/**
+ * Angular batchwise-sgpa-report getDetails():
+ * `s_get_batchwise_sgpa` with flag `batch_wise`.
+ * result[0] = semester columns, result[1] = student SGPA rows.
+ */
+export async function getBatchWiseSgpaReport(params: {
+  collegeId: number
+  courseId: number
+  courseGroupId: number
+  batchId: number
+}): Promise<{ semesters: AnyRow[]; students: AnyRow[] }> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_batchwise_sgpa', {
+    in_flag: 'batch_wise',
+    in_college_id: params.collegeId,
+    in_course_id: params.courseId || 0,
+    in_course_group_id: params.courseGroupId || 0,
+    in_course_year_id: 0,
+    in_exam_id: 0,
+    in_batch_id: params.batchId,
+    in_regulation_id: 0,
+  })
+  const groups = Array.isArray(data?.result) ? data.result : []
+  return {
+    semesters: Array.isArray(groups[0]) ? groups[0] : [],
+    students: Array.isArray(groups[1]) ? groups[1] : [],
+  }
+}
+
+/**
+ * Angular invigilators-remuneration-report getDetails():
+ * `s_get_evaluators_bank_copy_report` with flag `invigilators_remuneration`.
+ */
+export async function getInvigilatorsRemunerationReport(params: {
+  examId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>('s_get_evaluators_bank_copy_report', {
+    in_flag: 'invigilators_remuneration',
+    in_fdate: '1990-01-01',
+    in_tdate: '1990-01-01',
+    in_exam_id: params.examId,
+    in_subject_id: 0,
+    in_evalutor_profileid: 0,
+    in_exam_date: '1990-01-01',
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: 0,
+    in_academic_year: 0,
+    in_exam_short_name: 0,
+    in_affiliatedto_catdet_id: 1,
+  })
+  return unwrapProcResultRows(data)
+}
+
+/**
+ * Angular lab-remuneration-report selectedExam():
+ * `univ_exam_rest_no_tt` → rest filters + regulations groups.
+ */
+export async function getLabRemunerationRestFilters(params: {
+  courseId: number
+  examId: number
+  academicYearId: number
+  employeeId: number
+}): Promise<{ rest: AnyRow[]; regulations: AnyRow[] }> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
+    in_flag: 'univ_exam_rest_no_tt',
+    in_flag_type: 'ALL',
+    in_university_id: 0,
+    in_college_id: 0,
+    in_course_id: params.courseId,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_exam_id: params.examId,
+    in_academic_year_id: params.academicYearId,
+    in_regulation_id: 0,
+    in_subject_id: 0,
+    in_loginuser_empid: params.employeeId || 0,
+    in_loginuser_roleid: 0,
+    in_sub_flag_type: 'ALL',
+    in_param1: 0,
+    in_param2: 0,
+  })
+  const groups = data?.result ?? []
+  return {
+    rest: groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_rest_filters') ?? [],
+    regulations: groups.find((g) => (g?.[0]?.flag ?? '') === 'regulations') ?? [],
+  }
+}
+
+/**
+ * Angular lab-remuneration-report selectedRegulation(): LAB subjects via
+ * `univ_exam_subject_uc` / `univ_exam_sub_uc`.
+ */
+export async function getLabRemunerationSubjects(params: {
+  collegeId: number
+  courseId: number
+  courseGroupId: number
+  courseYearId: number
+  examId: number
+  academicYearId: number
+  regulationId: number
+  employeeId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_exam_filters_bycode', {
+    in_flag: 'univ_exam_subject_uc',
+    in_flag_type: 'LAB',
+    in_university_id: 0,
+    in_college_id: params.collegeId,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId || 0,
+    in_course_year_id: params.courseYearId || 0,
+    in_exam_id: params.examId,
+    in_academic_year_id: params.academicYearId,
+    in_regulation_id: params.regulationId || 0,
+    in_subject_id: 0,
+    in_loginuser_empid: params.employeeId || 0,
+    in_loginuser_roleid: 0,
+    in_sub_flag_type: 'LAB',
+    in_param1: 0,
+    in_param2: 0,
+  })
+  const groups = data?.result ?? []
+  return groups.find((g) => (g?.[0]?.flag ?? '') === 'univ_exam_sub_uc') ?? []
+}
+
+/**
+ * Angular lab-remuneration-report selectedsubject():
+ * `s_get_examevaluation_bycodes` flag `filter_univexam_evaluator_moderator`.
+ */
+export async function getLabRemunerationEvaluators(params: {
+  organizationId: number
+  employeeId: number
+  examId: number
+  courseYearId: number
+  subjectId: number
+  regulationId: number
+  courseId: number
+  academicYearId: number
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>('s_get_examevaluation_bycodes', {
+    in_flag: 'filter_univexam_evaluator_moderator',
+    in_orgid: params.organizationId || 0,
+    in_fdate: '1990-01-01',
+    in_tdate: '1990-01-01',
+    in_evalutor_profileid: 0,
+    in_exam_date: '1990-01-01',
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: 0,
+    in_academic_year: '',
+    in_exam_short_name: '',
+    in_affiliatedto_catdet_id: 0,
+    in_exam_id: params.examId,
+    in_course_year_id: params.courseYearId || 0,
+    in_subject_id: params.subjectId || 0,
+    in_regulation_id: params.regulationId || 0,
+    in_course_id: params.courseId,
+    in_academic_year_id: params.academicYearId,
+    in_loginuser_empid: params.employeeId || 0,
+  })
+  const groups = data?.result ?? []
+  return groups.find((g) => (g?.[0]?.flag ?? '') === 'evaluator_list') ?? []
+}
+
+/**
+ * Angular lab-remuneration-report getList():
+ * `s_get_evaluators_bank_copy_report` with
+ * `lab_evaluator_remuneration` / `re_lab_evaluator_remuneration`.
+ */
+export async function getLabRemunerationReport(params: {
+  examId: number
+  subjectId: number
+  evaluatorProfileId: number
+  isReevaluation?: boolean
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>('s_get_evaluators_bank_copy_report', {
+    in_flag: params.isReevaluation ? 're_lab_evaluator_remuneration' : 'lab_evaluator_remuneration',
+    in_fdate: '1990-01-01',
+    in_tdate: '1990-01-01',
+    in_exam_month_yr: '1990-01-01',
+    in_exam_id: params.examId,
+    in_subject_id: params.subjectId || 0,
+    in_evalutor_profileid: params.evaluatorProfileId || 0,
+    in_exam_date: '1990-01-01',
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: 0,
+    in_academic_year: '',
+    in_exam_short_name: '',
+    in_affiliatedto_catdet_id: 1,
+  })
+  return unwrapProcResultRows(data)
+}
+
+/**
+ * Angular consolidated-exam-report download():
+ * POST `examResultPDF` with flag `exam_final_std_result_detail` — returns PDF blob.
+ */
+export type ConsolidatedExamReportPayload = {
+  flag: 'exam_final_std_result_detail'
+  examId: number
+  collegeId: number
+  courseId: number
+  courseGroupId: number
+  courseYearId: number
+  academicYearId: number
+  studentId: number
+  regulationId: number
+  subjectId: number
+}
+
+export async function downloadConsolidatedExamReportPdf(
+  payload: ConsolidatedExamReportPayload,
+): Promise<Blob> {
+  // Angular downloadExamResultPDF(): POST examResultPDF with responseType: 'blob'
+  const res = await fetch(NEXT_API.PROXY(EXAM_API.EXAM_RESULT_PDF), {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify([payload]),
+  })
+  const contentType = res.headers.get('content-type') ?? ''
+  if (!res.ok) {
+    throw parseApiError(res, await res.json().catch(() => null))
+  }
+  // Upstream may return JSON success/error instead of a PDF when generation fails
+  if (contentType.includes('application/json') || contentType.includes('text/json')) {
+    const data = (await res.json().catch(() => null)) as { message?: string } | null
+    throw new Error(data?.message || 'Failed to generate PDF')
+  }
+  const blob = await res.blob()
+  if (!blob || blob.size === 0) {
+    throw new Error('Failed to generate PDF')
+  }
+  return blob
 }
