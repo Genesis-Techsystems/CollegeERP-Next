@@ -1301,26 +1301,36 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
 
       // Must run before hostel room mapping — label "Exam Center Rooms" contains "room"
       // and was incorrectly forced to /hostel/rooms.
+      // Skip *report* links — those belong under exam-reports/.
       const deliveryBase =
         "/admin-examination-management/exam-papers-delivery-process";
+      const isExamCenterRoomsReport =
+        hrefLower.includes("examcenter-rooms-report") ||
+        hrefLower.includes("exam-center-rooms-report") ||
+        labelLower.includes("exam center rooms report");
       if (
-        hrefLower.includes("univ-exam-center-rooms") ||
-        labelLower.includes("university exam center room") ||
-        labelLower.includes("univ exam center room") ||
-        (labelLower.includes("exam center room") &&
-          !labelLower.includes("type") &&
-          !labelLower.includes("allot"))
+        !isExamCenterRoomsReport &&
+        (hrefLower.includes("univ-exam-center-rooms") ||
+          labelLower.includes("university exam center room") ||
+          labelLower.includes("univ exam center room") ||
+          (labelLower.includes("exam center room") &&
+            !labelLower.includes("type") &&
+            !labelLower.includes("allot")))
       ) {
         // Angular: exam-papers-delivery-process/univ-exam-center-rooms
         return `${deliveryBase}/univ-exam-center-rooms`;
       }
       if (
+        !isExamCenterRoomsReport &&
         hrefLower.includes("exam-center-rooms") &&
         !hrefLower.includes("univ-exam-center-rooms") &&
         !hrefLower.includes("room-type") &&
         !hrefLower.includes("allotment")
       ) {
         return `${deliveryBase}/exam-center-rooms`;
+      }
+      if (isExamCenterRoomsReport) {
+        return "/admin-examination-management/exam-reports/examcenter-rooms-report";
       }
 
       const hostelRoute = mapHostelNavRoute(item.href, item.label);
@@ -1700,7 +1710,21 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return `${postExamBase}/complete-exam-process`;
     }
-    if (labelLower.includes("answer paper bag")) {
+    // Answer Paper Bags Report (exam-reports — not delivery-process CRUD)
+    if (
+      hrefLower.includes("examcenter-answerpaper-bags-report") ||
+      hrefLower.includes("answerpaper-bags-report") ||
+      hrefLower.includes("answer-paper-bags-report") ||
+      labelLower.includes("answer paper bags report") ||
+      labelLower.includes("answer paper bag report")
+    ) {
+      return "/admin-examination-management/exam-reports/examcenter-answerpaper-bags-report";
+    }
+    if (
+      hrefLower.includes("univ-exam-answer-paper-bags") ||
+      (labelLower.includes("answer paper bag") &&
+        !labelLower.includes("report"))
+    ) {
       return "/admin-examination-management/exam-papers-delivery-process/univ-exam-answer-paper-bags";
     }
     if (labelLower.includes("exam scan profile")) {
@@ -1708,6 +1732,145 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     }
     if (labelLower.includes("scan bundle detail")) {
       return "/admin-examination-management/exam-papers-delivery-process/scan-bundle-details";
+    }
+    // Evaluators Bank Copy Report (Angular exam-reports/evaluators-bank-copy-report)
+    if (
+      hrefLower.includes("evaluators-bank-copy-report") ||
+      hrefLower.includes("evaluator-bank-copy-report") ||
+      labelLower.includes("evaluators bank copy") ||
+      labelLower.includes("evaluator bank copy") ||
+      labelLower.includes("evaluator remuneration report") ||
+      labelLower.includes("evaluators remuneration report")
+    ) {
+      return "/admin-examination-management/exam-reports/evaluators-bank-copy-report";
+    }
+    // Exam Evaluation Report (Angular exam-reports/exam-evaluation-report)
+    if (
+      hrefLower.includes("exam-evaluation-report") ||
+      (labelLower.includes("exam evaluation report") &&
+        !labelLower.includes("daily") &&
+        !labelLower.includes("answer"))
+    ) {
+      return "/admin-examination-management/exam-reports/exam-evaluation-report";
+    }
+    // Daily Evaluated Report (Angular exam-reports/daily-evaluated-report)
+    if (
+      hrefLower.includes("daily-evaluated-report") ||
+      labelLower.includes("daily evaluated report") ||
+      labelLower.includes("daily evaluation report")
+    ) {
+      return "/admin-examination-management/exam-reports/daily-evaluated-report";
+    }
+    // Subject Wise Evaluators List Report
+    if (
+      hrefLower.includes("subject-wise-evaluators-report") ||
+      hrefLower.includes("subject-wise-evaluator") ||
+      labelLower.includes("subject wise evaluators") ||
+      labelLower.includes("subject-wise evaluators")
+    ) {
+      return "/admin-examination-management/exam-reports/subject-wise-evaluators-report";
+    }
+    // Exam Answer Sheets Upload Report
+    if (
+      hrefLower.includes("exam-answer-sheets-report") ||
+      hrefLower.includes("answer-sheets-report") ||
+      labelLower.includes("answer sheets upload") ||
+      labelLower.includes("exam answersheets upload") ||
+      labelLower.includes("exam answer sheets report")
+    ) {
+      return "/admin-examination-management/exam-reports/exam-answer-sheets-report";
+    }
+    // Exam Center Colleges Report
+    if (
+      hrefLower.includes("examcenter-colleges-report") ||
+      hrefLower.includes("exam-center-colleges-report") ||
+      labelLower.includes("exam center colleges report")
+    ) {
+      return "/admin-examination-management/exam-reports/examcenter-colleges-report";
+    }
+    // Exam Center Rooms Report (exam-reports — not delivery-process setup pages)
+    if (
+      hrefLower.includes("examcenter-rooms-report") ||
+      hrefLower.includes("exam-center-rooms-report") ||
+      labelLower.includes("exam center rooms report")
+    ) {
+      return "/admin-examination-management/exam-reports/examcenter-rooms-report";
+    }
+    // Exam Center Students Report (exam-reports — not delivery-process univ-examcenter-students)
+    if (
+      hrefLower.includes("examcenter-students-report") ||
+      hrefLower.includes("exam-center-students-report") ||
+      labelLower.includes("exam center students report")
+    ) {
+      return "/admin-examination-management/exam-reports/examcenter-students-report";
+    }
+    // Exam Center Profiles Report (exam-reports — not delivery university-exam-center-profiles)
+    if (
+      hrefLower.includes("examcenter-profiles-report") ||
+      hrefLower.includes("exam-center-profiles-report") ||
+      labelLower.includes("exam center profiles report")
+    ) {
+      return "/admin-examination-management/exam-reports/examcenter-profiles-report";
+    }
+    // University Curriculum Report (exam-reports — not academics university-curriculum master)
+    if (
+      hrefLower.includes("curriculum-report") ||
+      labelLower.includes("university curriculum report") ||
+      labelLower === "curriculum report"
+    ) {
+      return "/admin-examination-management/exam-reports/curriculum-report";
+    }
+    // Exam Students Not Registered Count — before registered-students-count (labels overlap)
+    if (
+      hrefLower.includes("exam-student-not-registered-count") ||
+      hrefLower.includes("students-not-registered") ||
+      labelLower.includes("exam students not registered") ||
+      labelLower.includes("students not registered count")
+    ) {
+      return "/admin-examination-management/exam-reports/exam-student-not-registered-count";
+    }
+    // Exam Registered Students Count — check BEFORE registration-students (labels overlap)
+    if (
+      (hrefLower.includes("exam-registered-students-count") ||
+        hrefLower.includes("registered-students-count") ||
+        labelLower.includes("exam registered students count") ||
+        labelLower.includes("registered students count")) &&
+      !labelLower.includes("not") &&
+      !hrefLower.includes("not-registered")
+    ) {
+      return "/admin-examination-management/exam-reports/exam-registered-students-count";
+    }
+    // Exam Student Registration Report (sidebar: Exam Registration Students)
+    if (
+      (hrefLower.includes("exam-registration-student-report") ||
+        hrefLower.includes("exam-student-registration-report") ||
+        labelLower.includes("exam student registration report") ||
+        labelLower.includes("exam registration students")) &&
+      !labelLower.includes("count") &&
+      !hrefLower.includes("count")
+    ) {
+      return "/admin-examination-management/exam-reports/exam-registration-student-report";
+    }
+    // Group & Year Wise Result Report (Angular exam-reports/group-yearwise-result-report)
+    if (
+      hrefLower.includes("group-yearwise-result-report") ||
+      hrefLower.includes("group-year-wise-result-report") ||
+      labelLower.includes("group & year wise result") ||
+      labelLower.includes("group and year wise result") ||
+      labelLower.includes("group yearwise result") ||
+      labelLower.includes("group year wise result")
+    ) {
+      return "/admin-examination-management/exam-reports/group-yearwise-result-report";
+    }
+    // Exam Verification Report hub (Angular exam-reports/exam-verification)
+    if (
+      hrefLower.includes("exam-verification") ||
+      labelLower.includes("exam verification report") ||
+      (labelLower.includes("exam verification") &&
+        !labelLower.includes("answer") &&
+        !labelLower.includes("mark"))
+    ) {
+      return "/admin-examination-management/exam-reports/exam-verification";
     }
     // Exam Scan Bundle New / Print — must run before the generic scan-bundles rule
     // (otherwise "Exam Scan Bundle New" also matches `exam scan bundle`).
@@ -1881,7 +2044,8 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/academics/subjects";
     }
     if (
-      labelLower.includes("university curriculum") ||
+      (labelLower.includes("university curriculum") &&
+        !labelLower.includes("report")) ||
       hrefLower.includes("/master/university-currriculum") ||
       hrefLower.includes("/master/university-curriculum")
     ) {
@@ -2449,6 +2613,13 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return normPathname.startsWith(
         `${examBase}/exam-papers-delivery-process/`,
       );
+    }
+    if (
+      label.includes("examination reports") ||
+      label.includes("exam reports") ||
+      label.includes("evaluators bank copy")
+    ) {
+      return normPathname.startsWith(`${examBase}/exam-reports/`);
     }
     if (label.includes("result processing")) {
       return normPathname.startsWith(`${examBase}/result-processing/`);

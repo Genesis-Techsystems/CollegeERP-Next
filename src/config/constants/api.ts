@@ -111,6 +111,12 @@ export const EXAM_API = {
   UPLOAD_EXAM_NOTIFICATION: "examnotificationupload",
   /** POST: save all exam master label details */
   SAVE_EXAM_DETAILS: "addExamMasterDetails",
+  /** GET: university curriculum report (Angular `curriculumReportUrl`) */
+  CURRICULUM_REPORT: "getAllRecords/curriculum_report",
+  /** GET: exam student registration / TT details (Angular examStudentRegistrationDetailsUrl) */
+  EXAM_STD_REG_TT_DETAILS: "getAllRecords/s_get_exam_std_reg_tt_details",
+  /** GET: exam student registration counts (Angular getExamStdRegistrationUrl) */
+  EXAM_STD_REGISTRATION: "getAllRecords/s_get_exam_std_registration",
   /** GET: exam allotment details */
   GET_EXAM_ALLOTMENT_DETAILS: "getAllRecords/s_get_exam_allotment_details",
   /** GET: exam detail status by codes */
@@ -252,6 +258,15 @@ export const EXAM_EVAL_API = {
   GET_EXAM_QP_TEMPLATE_DETAILS: "getExamQpTemplateAndDetails",
   /** GET: exam evaluation reports */
   EXAM_EVAL_REPORTS: "getAllRecords/s_get_examevaluation_reports",
+  /** GET: evaluation detail report (Angular evaluationDetailReportUrl) */
+  EVALUATION_DETAIL_REPORT: "getAllRecords/s_get_evaluation_detail_report",
+  /** GET: exam evaluation by codes (Angular getExamEvaluationCodesUrl) */
+  EVALUATION_BYCODES: "getAllRecords/s_get_examevaluation_bycodes",
+  /** GET: evaluators bank copy / remuneration report (Angular getEvaluatorsBankCopy) */
+  EVALUATORS_BANK_COPY_REPORT: "getAllRecords/s_get_evaluators_bank_copy_report",
+  /** GET: exam pre-moderation reports (Angular ExamPreModerationUrl) */
+  PREMODERATION_REPORTS_BYCODES:
+    "getAllRecords/s_get_exam_premoderation_reports_bycodes",
   /** GET: pre-exam reports */
   PRE_EXAM_REPORTS: "getAllRecords/s_get_preexam_reports",
   /** CRUD: ExamEvaluatorBankDetails */
