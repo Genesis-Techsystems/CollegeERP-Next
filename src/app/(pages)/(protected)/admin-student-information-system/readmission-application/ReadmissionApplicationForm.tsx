@@ -388,9 +388,7 @@ export function ReadmissionApplicationForm() {
     }
 
     const selectedCy = courseYears.find(
-      
       (x) => num(x, ["courseYearId", 'fk_course_year_id']) === courseYearId,
-    ,
     );
     // Resolve the student's current course year by id first (the reliable field the
     // form already relies on); fall back to name matching only if the id is absent.
