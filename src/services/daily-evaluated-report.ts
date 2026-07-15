@@ -8,7 +8,6 @@ import { txt } from "@/common/utils/data-helpers";
 import {
   getEvalReportBaseFilters,
   getEvalReportSubjectRows,
-  type AnyRow,
 } from "@/services/exam-evaluation-report";
 import { getBankCopyEvaluators } from "@/services/evaluators-bank-copy-report";
 
@@ -16,6 +15,7 @@ export { getEvalReportBaseFilters as getDailyEvalBaseFilters };
 export { getEvalReportSubjectRows as getDailyEvalSubjectRows };
 export { getBankCopyEvaluators as getDailyEvalEvaluators };
 
+type AnyRow = Record<string, unknown>;
 type ProcRows = AnyRow[];
 
 /**

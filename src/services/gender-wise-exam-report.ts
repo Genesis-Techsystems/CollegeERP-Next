@@ -1,11 +1,12 @@
 /**
- * Group & Year Wise Result Report
- * (Angular: exam-reports/group-yearwise-result-report).
+ * Gender Wise Exam Result
+ * (Angular: exam-reports/gender-wise-exam-report).
  */
 
 import { crud } from "@/services/crud";
 import { EXAM_EVAL_API } from "@/config/constants/api";
 import { txt } from "@/common/utils/data-helpers";
+import { listExamFeeTypeGeneralDetails } from "@/services/examination";
 
 type AnyRow = Record<string, unknown>;
 type ProcRows = AnyRow[];
@@ -18,7 +19,6 @@ function firstGroupByFlag(groups: ProcRows[], flags: string[]): ProcRows {
   return [];
 }
 
-/** Angular: evaluatedReport = result.data.result[0] */
 function extractResult0(data: unknown): ProcRows {
   if (data == null) return [];
   if (Array.isArray(data)) {
@@ -46,20 +46,8 @@ function extractResult0(data: unknown): ProcRows {
   return [];
 }
 
-/**
- * Angular builds displayedColumns from Object.keys(firstRow), then:
- *   splice(0, 5); splice(1, 2);
- */
-export function buildDisplayColumnKeys(firstRow: AnyRow | undefined): string[] {
-  if (!firstRow) return [];
-  const keys = Object.keys(firstRow);
-  keys.splice(0, 5);
-  keys.splice(1, 2);
-  return keys;
-}
-
-/** Angular getFiltersList: univ_exam_filters + REGSUP */
-export async function getGroupYearwiseBaseFilters(
+/** Angular getFiltersList: univ_exam_filters + REGSUP + ALL */
+export async function getGenderWiseExamBaseFilters(
   employeeId: number,
 ): Promise<ProcRows> {
   const data = await crud
@@ -81,15 +69,15 @@ export async function getGroupYearwiseBaseFilters(
       in_param1: 0,
       in_param2: 0,
     })
-    .catch(() => ({ result: [] }));
+    .catch(() => ({ result: [] as ProcRows[] }));
   return firstGroupByFlag(data?.result ?? [], ["univ_exam_filters"]);
 }
 
 /**
  * Angular selectedExam: univ_exam_rest_in_regexamstd + ALL
- * → flag univ_exam_rest_filters (colleges + course groups).
+ * → flag univ_exam_rest_filters (colleges / groups / years).
  */
-export async function getGroupYearwiseRestFilters(params: {
+export async function getGenderWiseExamRestFilters(params: {
   courseId: number;
   academicYearId: number;
   examId: number;
@@ -114,34 +102,42 @@ export async function getGroupYearwiseRestFilters(params: {
       in_param1: 0,
       in_param2: 0,
     })
-    .catch(() => ({ result: [] }));
+    .catch(() => ({ result: [] as ProcRows[] }));
   return firstGroupByFlag(data?.result ?? [], ["univ_exam_rest_filters"]);
 }
 
+/** Angular getExamTypes → GeneralDetail EXMFEETYP */
+export async function getGenderWiseExamFeeTypes(): Promise<ProcRows> {
+  try {
+    return (await listExamFeeTypeGeneralDetails()) as ProcRows;
+  } catch {
+    return [];
+  }
+}
+
 /**
- * Angular getGradeList → ExamPreModerationUrl
- * flag: exam_pre_mod_ext_int_group
- * Note: Angular sends in_course_id: 0 (selected course is filter-only).
+ * Angular getDetails → s_get_exam_final_analysis_bycodes
+ *   in_flag: final_group_subject_wise_results
  */
-export async function getGroupYearwiseResultReport(params: {
+export async function getGenderWiseExamReport(params: {
   examId: number;
   collegeId: number;
+  courseId: number;
   courseGroupId: number;
-  academicYearId: number;
+  courseYearId: number;
+  examTypeCatdetId: number;
 }): Promise<ProcRows> {
-  const data = await crud.getAllRecords<unknown>(
-    EXAM_EVAL_API.PREMODERATION_REPORTS_BYCODES,
-    {
-      in_flag: "exam_pre_mod_ext_int_group",
+  if (!params.examId || !params.courseId || !params.collegeId) return [];
+  const data = await crud
+    .getAllRecords<unknown>(EXAM_EVAL_API.EXAM_FINAL_ANALYSIS_BYCODES, {
+      in_flag: "final_group_subject_wise_results",
       in_exam_id: params.examId,
       in_college_id: params.collegeId,
-      in_course_id: 0,
-      in_course_group_id: params.courseGroupId,
-      in_course_year_id: 0,
-      in_academic_year_id: params.academicYearId,
-      in_regulation_id: 0,
-      in_subject_id: 0,
-    },
-  );
+      in_course_id: params.courseId,
+      in_course_group_id: params.courseGroupId || 0,
+      in_course_year_id: params.courseYearId || 0,
+      in_examtypecate_det_id: params.examTypeCatdetId || 0,
+    })
+    .catch(() => null);
   return extractResult0(data);
 }

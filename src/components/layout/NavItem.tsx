@@ -1095,14 +1095,16 @@ function navLeafClasses(_examMasters: boolean, isSelfActive: boolean): string {
 export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const {
-    navItems,
-    collapsedItems,
-    toggleCollapsed,
-    isSidebarCollapsed,
-    isSidebarHovered,
-    setSidebarCollapsed,
-  } = useNavigationStore();
+  // Boolean / primitive selectors so only items whose open/collapsed or
+  // sidebar chrome state actually changed re-render (not the whole tree).
+  const isItemCollapsed = useNavigationStore((s) =>
+    s.collapsedItems.has(item.id),
+  );
+  const isSidebarCollapsed = useNavigationStore((s) => s.isSidebarCollapsed);
+  const isSidebarHovered = useNavigationStore((s) => s.isSidebarHovered);
+  const toggleCollapsed = useNavigationStore((s) => s.toggleCollapsed);
+  const setGroupOpen = useNavigationStore((s) => s.setGroupOpen);
+  const setSidebarCollapsed = useNavigationStore((s) => s.setSidebarCollapsed);
 
   const hasChildren = item.children && item.children.length > 0;
   const showLeftIcon = true;
@@ -1744,12 +1746,26 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return "/admin-examination-management/exam-reports/evaluators-bank-copy-report";
     }
+    // Exam Evaluation UnAssigned Report — before exam-evaluation-report (label overlap)
+    if (
+      hrefLower.includes("exam-evaluation-un-assigned-report") ||
+      hrefLower.includes("evaluation-un-assigned") ||
+      hrefLower.includes("evaluation-unassigned") ||
+      labelLower.includes("exam evaluation un-assigned") ||
+      labelLower.includes("exam evaluation unassigned") ||
+      labelLower.includes("evaluation un-assigned report") ||
+      labelLower.includes("evaluation unassigned report")
+    ) {
+      return "/admin-examination-management/exam-reports/exam-evaluation-un-assigned-report";
+    }
     // Exam Evaluation Report (Angular exam-reports/exam-evaluation-report)
     if (
       hrefLower.includes("exam-evaluation-report") ||
       (labelLower.includes("exam evaluation report") &&
         !labelLower.includes("daily") &&
-        !labelLower.includes("answer"))
+        !labelLower.includes("answer") &&
+        !labelLower.includes("un-assigned") &&
+        !labelLower.includes("unassigned"))
     ) {
       return "/admin-examination-management/exam-reports/exam-evaluation-report";
     }
@@ -1861,6 +1877,27 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       labelLower.includes("group year wise result")
     ) {
       return "/admin-examination-management/exam-reports/group-yearwise-result-report";
+    }
+    // Subject Wise Result Percentage Report
+    if (
+      hrefLower.includes("subject-wise-result-pass-percent") ||
+      hrefLower.includes("subject-wise-result-percentage") ||
+      hrefLower.includes("subject-wise-percentage") ||
+      labelLower.includes("subject wise percentage") ||
+      labelLower.includes("subject wise result percentage") ||
+      labelLower.includes("subject wise pass percent")
+    ) {
+      return "/admin-examination-management/exam-reports/subject-wise-result-pass-percent-report";
+    }
+    // Gender Wise Exam Result
+    if (
+      hrefLower.includes("gender-wise-exam-report") ||
+      hrefLower.includes("gender-wise-exam-result") ||
+      hrefLower.includes("gender-wise-result") ||
+      labelLower.includes("gender wise exam result") ||
+      labelLower.includes("gender wise result")
+    ) {
+      return "/admin-examination-management/exam-reports/gender-wise-exam-report";
     }
     // Exam Verification Report hub (Angular exam-reports/exam-verification)
     if (
@@ -2582,8 +2619,14 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return normPathname.startsWith("/email-sms/");
     }
     const examBase = "/admin-examination-management";
+    const examReportsPath = normPathname.startsWith(`${examBase}/exam-reports/`);
     if (label.includes("examination management")) {
+      // Exam report pages belong under Reports → Examination Reports
+      if (examReportsPath) return false;
       return normPathname.startsWith(`${examBase}/`);
+    }
+    if (label.trim() === "reports" || label.trim() === "report") {
+      return examReportsPath;
     }
     if (label.includes("exam masters") || label === "exam master") {
       return normPathname.startsWith(`${examBase}/admin-exam-masters/`);
@@ -2664,9 +2707,27 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const isChildActive =
     (hasChildren ? hasActiveDescendant(item, pathname) : false) ||
     modulePathActive;
-  const isActive = isSelfActive || isChildActive || modulePathActive;
+  // Exam report URLs are mounted under /admin-examination-management/exam-reports
+  // but live in the sidebar under Reports → Examination Reports. Prefer that
+  // top-level module so Examination Management does not steal the active bar
+  // via matching descendant hrefs under Admin Exam → Exam Reports.
+  const examReportsPath = normPathname.startsWith(
+    "/admin-examination-management/exam-reports/",
+  );
+  const labelForActive = (item.label ?? "").toLowerCase().trim();
+  let isActive = isSelfActive || isChildActive || modulePathActive;
+  if (examReportsPath && depth === 0) {
+    if (
+      labelForActive.includes("examination management") &&
+      !labelForActive.includes("report")
+    ) {
+      isActive = false;
+    } else if (labelForActive === "reports" || labelForActive === "report") {
+      isActive = true;
+    }
+  }
 
-  const isOpen = !collapsedItems.has(item.id);
+  const isOpen = !isItemCollapsed;
 
   const examMasters = usesExamMastersDesign(item);
 
@@ -2681,7 +2742,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
 
     function handleCollapsedClick() {
       // Re-open submenu if user had manually closed it
-      if (hasChildren && collapsedItems.has(item.id)) {
+      if (hasChildren && isItemCollapsed) {
         toggleCollapsed(item.id);
       }
       // Permanently expand the sidebar
@@ -2731,27 +2792,20 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   /* ── Expanded: parent items (collapsible groups) ─────────────────── */
   if (hasChildren) {
     const handleOpenChange = (open: boolean) => {
-      // Accordion behavior at every depth:
-      // opening one group closes its sibling groups.
-      if (open) {
-        const siblingIds =
-          depth === 0
-            ? navItems
-                .filter(
-                  (topLevelItem) =>
-                    topLevelItem.id !== item.id &&
-                    topLevelItem.children?.length,
-                )
-                .map((topLevelItem) => topLevelItem.id)
-            : findSiblingCollapsibleIds(navItems, item.id);
-
-        siblingIds.forEach((siblingId) => {
-          if (!collapsedItems.has(siblingId)) {
-            toggleCollapsed(siblingId);
-          }
-        });
-      }
-      toggleCollapsed(item.id);
+      // Accordion: open/close this group and close siblings in one store update.
+      const { navItems } = useNavigationStore.getState();
+      const siblingIds = open
+        ? depth === 0
+          ? navItems
+              .filter(
+                (topLevelItem) =>
+                  topLevelItem.id !== item.id &&
+                  topLevelItem.children?.length,
+              )
+              .map((topLevelItem) => topLevelItem.id)
+          : findSiblingCollapsibleIds(navItems, item.id)
+        : [];
+      setGroupOpen(item.id, open, siblingIds);
     };
 
     return (
@@ -2835,6 +2889,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   return (
     <Link
       href={canonicalHref || rawNavTarget || "#"}
+      prefetch={false}
       onClick={(e) => {
         if (forcedRoute) {
           e.preventDefault();

@@ -108,6 +108,14 @@ export function normalizeHref(path: string): string {
       '/admin-examination-management/exam-reports/evaluators-bank-copy-report',
     )
     .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-evaluation-un-assigned-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-evaluation-un-assigned-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/exam-evaluation-un-assigned-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/exam-evaluation-un-assigned-report',
+    )
+    .replace(
       /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-evaluation-report(?=\/|$)/gi,
       '/admin-examination-management/exam-reports/exam-evaluation-report',
     )
@@ -218,6 +226,22 @@ export function normalizeHref(path: string): string {
     .replace(
       /\/(?:apps\/)?examination\/admin-exam-reports\/group-yearwise-result-report(?=\/|$)/gi,
       '/admin-examination-management/exam-reports/group-yearwise-result-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/subject-wise-result-pass-percent-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/subject-wise-result-pass-percent-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/subject-wise-result-pass-percent-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/subject-wise-result-pass-percent-report',
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/gender-wise-exam-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/gender-wise-exam-report',
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/gender-wise-exam-report(?=\/|$)/gi,
+      '/admin-examination-management/exam-reports/gender-wise-exam-report',
     )
     .replace(
       /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-verification(?=\/|$)/gi,
@@ -913,6 +937,34 @@ function resolveNavItemHrefForBreadcrumb(item: NavItem): string | null {
 }
 
 /**
+ * When the same report page exists under both Admin Examination Management and
+ * Reports → Examination Reports, prefer the Reports module chain for breadcrumbs.
+ */
+function breadcrumbChainPreference(chain: NavItem[]): number {
+  const labels = chain.map((item) => (item.label ?? "").toLowerCase())
+  const underReports =
+    labels.some((l) => l === "reports" || l === "report") &&
+    labels.some(
+      (l) =>
+        l.includes("examination report") ||
+        l === "exam reports" ||
+        l.includes("exam report"),
+    )
+  if (underReports) return 50_000
+
+  const underAdminExam =
+    labels.some((l) => l.includes("admin examination")) &&
+    labels.some(
+      (l) =>
+        l.includes("examination report") ||
+        l.includes("exam report"),
+    )
+  if (underAdminExam) return -10_000
+
+  return 0
+}
+
+/**
  * Resolves breadcrumb segments from the sidebar nav tree so labels match the
  * menu (e.g. Master Setup → Organizations) instead of raw URL segments.
  */
@@ -921,7 +973,7 @@ export function findNavBreadcrumbItems(
   pathname: string,
 ): NavBreadcrumbSegment[] | null {
   const target = normalizeHref(pathname).replace(/\/$/, '') || '/'
-  const match: { chain: NavItem[]; score: number } = { chain: [], score: 0 }
+  const match: { chain: NavItem[]; score: number } = { chain: [], score: Number.NEGATIVE_INFINITY }
 
   function walk(items: NavItem[], chain: NavItem[]) {
     for (const item of items) {
@@ -932,7 +984,10 @@ export function findNavBreadcrumbItems(
         const exact = target === href
         const prefix = target.startsWith(`${href}/`)
         if (exact || prefix) {
-          const score = href.length + (exact ? 10_000 : 0)
+          const score =
+            href.length +
+            (exact ? 10_000 : 0) +
+            breadcrumbChainPreference(nextChain)
           if (score > match.score) {
             match.score = score
             match.chain = nextChain

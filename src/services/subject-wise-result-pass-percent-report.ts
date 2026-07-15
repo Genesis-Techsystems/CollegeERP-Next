@@ -1,6 +1,6 @@
 /**
- * Group & Year Wise Result Report
- * (Angular: exam-reports/group-yearwise-result-report).
+ * Subject Wise Result Pass Percent Report
+ * (Angular: exam-reports/subject-wise-result-pass-percent-report).
  */
 
 import { crud } from "@/services/crud";
@@ -18,7 +18,6 @@ function firstGroupByFlag(groups: ProcRows[], flags: string[]): ProcRows {
   return [];
 }
 
-/** Angular: evaluatedReport = result.data.result[0] */
 function extractResult0(data: unknown): ProcRows {
   if (data == null) return [];
   if (Array.isArray(data)) {
@@ -46,20 +45,8 @@ function extractResult0(data: unknown): ProcRows {
   return [];
 }
 
-/**
- * Angular builds displayedColumns from Object.keys(firstRow), then:
- *   splice(0, 5); splice(1, 2);
- */
-export function buildDisplayColumnKeys(firstRow: AnyRow | undefined): string[] {
-  if (!firstRow) return [];
-  const keys = Object.keys(firstRow);
-  keys.splice(0, 5);
-  keys.splice(1, 2);
-  return keys;
-}
-
 /** Angular getFiltersList: univ_exam_filters + REGSUP */
-export async function getGroupYearwiseBaseFilters(
+export async function getSubjectWisePassPercentBaseFilters(
   employeeId: number,
 ): Promise<ProcRows> {
   const data = await crud
@@ -67,6 +54,7 @@ export async function getGroupYearwiseBaseFilters(
       in_flag: "univ_exam_filters",
       in_flag_type: "REGSUP",
       in_university_id: 0,
+      in_univ_examcenter_id: 0,
       in_college_id: 0,
       in_course_id: 0,
       in_course_group_id: 0,
@@ -75,21 +63,21 @@ export async function getGroupYearwiseBaseFilters(
       in_academic_year_id: 0,
       in_regulation_id: 0,
       in_subject_id: 0,
-      in_loginuser_empid: employeeId || 0,
-      in_loginuser_roleid: 0,
-      in_sub_flag_type: "ALL",
+      in_sub_flag_type: "",
       in_param1: 0,
       in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: employeeId || 0,
     })
-    .catch(() => ({ result: [] }));
+    .catch(() => ({ result: [] as ProcRows[] }));
   return firstGroupByFlag(data?.result ?? [], ["univ_exam_filters"]);
 }
 
 /**
- * Angular selectedExam: univ_exam_rest_in_regexamstd + ALL
- * → flag univ_exam_rest_filters (colleges + course groups).
+ * Angular selectedExam: univ_exam_rest_in_regexamstd + REGSUP
+ * → flag univ_exam_rest_filters (course years).
  */
-export async function getGroupYearwiseRestFilters(params: {
+export async function getSubjectWisePassPercentRestFilters(params: {
   courseId: number;
   academicYearId: number;
   examId: number;
@@ -98,8 +86,9 @@ export async function getGroupYearwiseRestFilters(params: {
   const data = await crud
     .getAllRecords<{ result: ProcRows[] }>("s_get_exam_filters_bycode", {
       in_flag: "univ_exam_rest_in_regexamstd",
-      in_flag_type: "ALL",
+      in_flag_type: "REGSUP",
       in_university_id: 0,
+      in_univ_examcenter_id: 0,
       in_college_id: 0,
       in_course_id: params.courseId,
       in_course_group_id: 0,
@@ -108,40 +97,39 @@ export async function getGroupYearwiseRestFilters(params: {
       in_academic_year_id: params.academicYearId,
       in_regulation_id: 0,
       in_subject_id: 0,
-      in_loginuser_empid: params.employeeId || 0,
-      in_loginuser_roleid: 0,
-      in_sub_flag_type: "ALL",
+      in_sub_flag_type: "",
       in_param1: 0,
       in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: params.employeeId || 0,
     })
-    .catch(() => ({ result: [] }));
+    .catch(() => ({ result: [] as ProcRows[] }));
   return firstGroupByFlag(data?.result ?? [], ["univ_exam_rest_filters"]);
 }
 
 /**
- * Angular getGradeList → ExamPreModerationUrl
- * flag: exam_pre_mod_ext_int_group
- * Note: Angular sends in_course_id: 0 (selected course is filter-only).
+ * Angular getDetails → s_get_exam_moderation_reports
+ *   in_flag: exam_analysis_by_subject | re_val_exam_analysis_by_subject
  */
-export async function getGroupYearwiseResultReport(params: {
+export async function getSubjectWisePassPercentReport(params: {
   examId: number;
-  collegeId: number;
-  courseGroupId: number;
-  academicYearId: number;
+  courseId: number;
+  courseYearId: number;
+  isReevaluation: boolean;
 }): Promise<ProcRows> {
-  const data = await crud.getAllRecords<unknown>(
-    EXAM_EVAL_API.PREMODERATION_REPORTS_BYCODES,
-    {
-      in_flag: "exam_pre_mod_ext_int_group",
+  if (!params.examId || !params.courseId) return [];
+  const data = await crud
+    .getAllRecords<unknown>(EXAM_EVAL_API.EXAM_MODERATION_REPORTS, {
+      in_flag: params.isReevaluation
+        ? "re_val_exam_analysis_by_subject"
+        : "exam_analysis_by_subject",
       in_exam_id: params.examId,
-      in_college_id: params.collegeId,
-      in_course_id: 0,
-      in_course_group_id: params.courseGroupId,
-      in_course_year_id: 0,
-      in_academic_year_id: params.academicYearId,
-      in_regulation_id: 0,
-      in_subject_id: 0,
-    },
-  );
+      in_college_id: 0,
+      in_course_id: params.courseId,
+      in_course_group_id: 0,
+      in_course_year_id: params.courseYearId || 0,
+      in_examtype: 0,
+    })
+    .catch(() => null);
   return extractResult0(data);
 }

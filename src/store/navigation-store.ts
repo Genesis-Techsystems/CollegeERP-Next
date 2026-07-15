@@ -17,6 +17,11 @@ interface NavigationState {
   sidebarPosition: 'left' | 'right'
   setNavItems: (items: NavItem[]) => void
   toggleCollapsed: (id: string) => void
+  /**
+   * Open or close one collapsible group in a single store update.
+   * When opening, siblingIds are closed (accordion) in the same Set mutation.
+   */
+  setGroupOpen: (id: string, open: boolean, siblingIds?: string[]) => void
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
   setSidebarCollapsed: (collapsed: boolean) => void
@@ -66,6 +71,20 @@ export const useNavigationStore = create<NavigationState>()(
         set((state) => {
           const next = new Set(state.collapsedItems)
           if (next.has(id)) {
+            next.delete(id)
+          } else {
+            next.add(id)
+          }
+          return { collapsedItems: next }
+        }),
+
+      setGroupOpen: (id, open, siblingIds = []) =>
+        set((state) => {
+          const next = new Set(state.collapsedItems)
+          if (open) {
+            for (const siblingId of siblingIds) {
+              next.add(siblingId)
+            }
             next.delete(id)
           } else {
             next.add(id)

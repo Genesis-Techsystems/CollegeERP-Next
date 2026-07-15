@@ -260,6 +260,8 @@ export const EXAM_EVAL_API = {
   EXAM_EVAL_REPORTS: "getAllRecords/s_get_examevaluation_reports",
   /** GET: evaluation detail report (Angular evaluationDetailReportUrl) */
   EVALUATION_DETAIL_REPORT: "getAllRecords/s_get_evaluation_detail_report",
+  /** GET: exam evaluation unassigned report (Angular getExamUnassnListUrl) */
+  EVAL_UNASSIGNED: "getAllRecords/s_get_exam_eval_unassigned",
   /** GET: exam evaluation by codes (Angular getExamEvaluationCodesUrl) */
   EVALUATION_BYCODES: "getAllRecords/s_get_examevaluation_bycodes",
   /** GET: evaluators bank copy / remuneration report (Angular getEvaluatorsBankCopy) */
@@ -267,6 +269,11 @@ export const EXAM_EVAL_API = {
   /** GET: exam pre-moderation reports (Angular ExamPreModerationUrl) */
   PREMODERATION_REPORTS_BYCODES:
     "getAllRecords/s_get_exam_premoderation_reports_bycodes",
+  /** GET: exam moderation / pass-percent analysis (Angular getExamModerationReportsUrl) */
+  EXAM_MODERATION_REPORTS: "getAllRecords/s_get_exam_moderation_reports",
+  /** GET: exam final analysis by codes (Angular ResultFinalAnalysisUrl) */
+  EXAM_FINAL_ANALYSIS_BYCODES:
+    "getAllRecords/s_get_exam_final_analysis_bycodes",
   /** GET: pre-exam reports */
   PRE_EXAM_REPORTS: "getAllRecords/s_get_preexam_reports",
   /** CRUD: ExamEvaluatorBankDetails */
