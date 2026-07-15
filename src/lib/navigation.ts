@@ -2,6 +2,35 @@ import type { Module, SubModule, Page, NavItem } from '@/types/navigation'
 import { ensureErpModuleNavChildren, mapErpModuleNavRoute } from './erp-modules-navigation'
 import { ensureTimetableNavChildren, mapTimetableNavRoute } from './timetable-navigation'
 import { mapAdminInstitutionalRoomRoute } from './admin-institutional-navigation'
+import { resolveExaminationReportHref } from './exam-reports-navigation'
+
+export { resolveExaminationReportHref } from './exam-reports-navigation'
+
+/**
+ * Slugs under the Angular Reports → Examination Reports menu that are mounted at
+ * `/admin-examination-management/exam-reports/*` (not `.../admin-exam-reports/*`).
+ */
+export const EXAM_REPORTS_LIVE_UNDER_EXAM_REPORTS = [
+  'evaluators-bank-copy-report',
+  'exam-evaluation-un-assigned-report',
+  'exam-evaluation-report',
+  'daily-evaluated-report',
+  'subject-wise-evaluators-report',
+  'exam-answer-sheets-report',
+  'examcenter-colleges-report',
+  'examcenter-rooms-report',
+  'examcenter-students-report',
+  'examcenter-profiles-report',
+  'curriculum-report',
+  'examcenter-answerpaper-bags-report',
+  'exam-registration-student-report',
+  'exam-student-not-registered-count',
+  'exam-registered-students-count',
+  'group-yearwise-result-report',
+  'subject-wise-result-pass-percent-report',
+  'gender-wise-exam-report',
+  'exam-verification',
+].join('|')
 
 /**
  * Removes any doubled leading segment from a URL path.
@@ -104,6 +133,16 @@ export function normalizeHref(path: string): string {
     .replace(
       /\/apps\/reports\/admin-exam-reports(?=\/|$)/gi,
       '/admin-examination-management/admin-exam-reports',
+    )
+    // Some exam-report pages live under `/exam-reports/` (not `/admin-exam-reports/`).
+    // After the prefix rewrite above, remap those known slugs so Search + nav hrefs
+    // do not land on a missing route (which falls through to the dashboard).
+    .replace(
+      new RegExp(
+        `/(?:admin-examination-management/)?admin-exam-reports/(${EXAM_REPORTS_LIVE_UNDER_EXAM_REPORTS})(?=/|$)`,
+        'gi',
+      ),
+      '/admin-examination-management/exam-reports/$1',
     )
     // Angular Assessments module folder typo `assissments` → canonical `assessments`.
     .replace(/\/apps\/assissments\//gi, '/assessments/')
@@ -571,6 +610,10 @@ function overrideInstitutionalMastersHref(href: string, pageLabel: string): stri
 }
 
 function normalizePageHref(href: string, pageLabel: string): string {
+  // Label/href pins for Examination Reports — required for Search (404 → dashboard).
+  const examReportHref = resolveExaminationReportHref(href, pageLabel)
+  if (examReportHref) return examReportHref
+
   const withInstitutional = overrideInstitutionalMastersHref(href, pageLabel)
   return normalizeHref(
     overrideErpModuleHref(
@@ -889,7 +932,8 @@ export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
       if (item.href) {
         collected.push({
           displayName: item.label,
-          url: normalizeHref(item.href),
+          // Same rewrite path Search and sidebar hrefs use (incl. exam-reports remaps).
+          url: normalizePageHref(item.href, item.label),
         })
       }
       if (item.children?.length) walk(item.children)
@@ -898,8 +942,19 @@ export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
 
   walk(items)
 
+  // Prefer longer / more specific URLs when the same page appears under multiple
+  // modules (e.g. Reports vs Admin Examination Management) with conflicting hrefs.
+  const byName = new Map<string, NavSearchPage>()
+  for (const page of collected) {
+    const key = page.displayName.trim().toLowerCase()
+    const prev = byName.get(key)
+    if (!prev || page.url.length > prev.url.length) {
+      byName.set(key, page)
+    }
+  }
+
   const seen = new Set<string>()
-  return collected.filter((page) => {
+  return [...byName.values()].filter((page) => {
     if (seen.has(page.url)) return false
     seen.add(page.url)
     return true

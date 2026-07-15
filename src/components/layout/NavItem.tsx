@@ -160,7 +160,7 @@ import {
   CollapsibleTrigger,
   CollapsibleContent,
 } from "@/components/ui/collapsible";
-import { normalizeHref } from "@/lib/navigation";
+import { EXAM_REPORTS_LIVE_UNDER_EXAM_REPORTS, normalizeHref } from "@/lib/navigation";
 import {
   mapErpModuleLabelToRoute,
   mapErpModuleNavRoute,
@@ -1137,10 +1137,20 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     // App Router pages are under `/admin-examination-management/admin-exam-reports`.
     // Resolve BEFORE ERP mappers so the wrong prefix never wins.
     const examReportsBase = "/admin-examination-management/admin-exam-reports";
-    if (hrefLower.includes("admin-exam-reports/")) {
-      const after = hrefLower.split("admin-exam-reports/")[1] ?? "";
-      const slug = after.split(/[?#]/)[0].replace(/\/+$/, "");
-      // Angular folder aliases → App Router folder names.
+    const examReportsAltBase = "/admin-examination-management/exam-reports";
+    if (hrefLower.includes("admin-exam-reports/") || hrefLower.includes("/exam-reports/")) {
+      const afterAdmin = hrefLower.includes("admin-exam-reports/")
+        ? (hrefLower.split("admin-exam-reports/")[1] ?? "")
+        : "";
+      const afterExam = hrefLower.includes("/exam-reports/")
+        ? (hrefLower.split("/exam-reports/")[1] ?? "")
+        : "";
+      const slug = (afterAdmin || afterExam).split(/[?#]/)[0].replace(/\/+$/, "");
+      // Pages that live under /exam-reports/ (Search + sidebar must not use admin-exam-reports).
+      if (slug && new RegExp(`^(?:${EXAM_REPORTS_LIVE_UNDER_EXAM_REPORTS})$`, "i").test(slug)) {
+        return `${examReportsAltBase}/${slug}`;
+      }
+      // Angular folder aliases → App Router folder names (admin-exam-reports).
       if (slug === "grace-benefited-students-report" || slug === "exam-gracemarks-reports") {
         return `${examReportsBase}/grace-marks-benefited-students-report`;
       }
@@ -1159,7 +1169,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       ) {
         return `${examReportsBase}/invigilators-remuneration-report`;
       }
-      if (slug) return `${examReportsBase}/${slug}`;
+      if (slug && hrefLower.includes("admin-exam-reports/")) {
+        return `${examReportsBase}/${slug}`;
+      }
+      if (slug && hrefLower.includes("/exam-reports/")) {
+        return `${examReportsAltBase}/${slug}`;
+      }
     }
     if (
       hrefLower.includes("moderation-benefited") ||
