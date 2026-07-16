@@ -7,5 +7,6 @@
   "/admin-examination-management/pre-examination/student-exam-lab-batches": "Student Exam Lab Batches",
   "/admin-examination-management/exam-reports/evaluators-bank-copy-report": "Evaluators Bank Copy Report",
   "/admin-student-information-system/students-list": "Student Details",
-  "/admin-student-information-system/generate-student-rollno": "Generate Student Roll No."
+  "/admin-student-information-system/generate-student-rollno": "Generate Student Roll No.",
+  "/admin-examination-section/student-exam-results": "Exam Results"
 }

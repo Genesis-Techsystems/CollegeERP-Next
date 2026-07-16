@@ -56,14 +56,18 @@ const SIDEBAR_LABEL_OVERRIDES = {
   "admin-student-information-system/students-list": "Student Details",
   "admin-student-information-system/generate-student-rollno":
     "Generate Student Roll No.",
+  "admin-examination-section/student-exam-results": "Exam Results",
 };
 
 /** Sidebar menu label → real App Router route (when DB href/title slug is wrong). */
 const SIDEBAR_ROUTE_PIN_OVERRIDES = {
   "student details": "/admin-student-information-system/students-list",
-  "generate student roll no": "/admin-student-information-system/generate-student-rollno",
-  "generate student roll no.": "/admin-student-information-system/generate-student-rollno",
-  "assign student roll number": "/admin-student-information-system/generate-student-rollno",
+  "generate student roll no":
+    "/admin-student-information-system/generate-student-rollno",
+  "generate student roll no.":
+    "/admin-student-information-system/generate-student-rollno",
+  "assign student roll number":
+    "/admin-student-information-system/generate-student-rollno",
 };
 
 function normalizeLabelKey(label) {
@@ -218,10 +222,12 @@ const routeDisplayLabels = buildRouteDisplayLabels();
 const routeCanonicalAliases = buildRouteCanonicalAliases(summary);
 
 /** Internal rewrites: label-derived paths → real App Router folders (no browser URL change). */
-const rewrites = Object.entries(routeCanonicalAliases).map(([source, destination]) => ({
-  source,
-  destination,
-}));
+const rewrites = Object.entries(routeCanonicalAliases).map(
+  ([source, destination]) => ({
+    source,
+    destination,
+  }),
+);
 
 const outDir = "src/lib/generated";
 fs.mkdirSync(outDir, { recursive: true });
@@ -263,8 +269,12 @@ fs.writeFileSync(
 
 console.log(`Renames planned: ${renames.length}`);
 console.log(`Sidebar route pins: ${sidebarRoutePins.length}`);
-console.log(`Route canonical aliases: ${Object.keys(routeCanonicalAliases).length}`);
-console.log(`Redirects planned: ${redirects.length} (disabled — use sidebar-route-pins.json)`);
+console.log(
+  `Route canonical aliases: ${Object.keys(routeCanonicalAliases).length}`,
+);
+console.log(
+  `Redirects planned: ${redirects.length} (disabled — use sidebar-route-pins.json)`,
+);
 console.log(`Rewrites planned: ${rewrites.length} (label slug → real folder)`);
 
 // Execute renames when --apply is passed
