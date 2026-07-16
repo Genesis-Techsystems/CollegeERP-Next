@@ -3,11 +3,12 @@
 import type { ReactNode } from 'react'
 import { PageContainer } from './PageContainer'
 import { DataTable, type DataTableProps } from '@/common/components/table'
+import { usePageNavLabel } from '@/common/components/breadcrumb'
 import { cn } from '@/lib/utils'
 
 export interface ListPageProps<T> extends Omit<DataTableProps<T>, 'title' | 'subtitle' | 'bordered'> {
-  /** Page / table card title (shown above the toolbar). */
-  title: string
+  /** Page / table card title — defaults to the sidebar menu label when omitted. */
+  title?: string
   /** Optional notice / alert above the table card. */
   notice?: ReactNode
   /** Empty-state UI when there is no data and not loading (replaces the table). */
@@ -31,6 +32,8 @@ export function ListPage<T>({
   rowData,
   ...tableProps
 }: ListPageProps<T>) {
+  const navLabel = usePageNavLabel()
+  const displayTitle = navLabel ?? title ?? 'Page'
   const showEmpty = Boolean(emptyState) && !loading && (!rowData || rowData.length === 0)
 
   return (
@@ -40,7 +43,7 @@ export function ListPage<T>({
         emptyState
       ) : (
         <DataTable
-          title={title}
+          title={displayTitle}
           subtitle=""
           bordered
           loading={loading}

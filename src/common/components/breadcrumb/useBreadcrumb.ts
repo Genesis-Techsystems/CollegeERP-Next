@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import type { BreadcrumbItem } from "./Breadcrumb";
 import { useBreadcrumbStore } from "@/store/breadcrumb-store";
 import { useNavigationStore } from "@/store/navigation-store";
-import { findNavBreadcrumbItems } from "@/lib/navigation";
+import { findNavBreadcrumbItems, findNavPageLabel } from "@/lib/navigation";
+import { findSidebarLabelForRoute } from "@/lib/sidebar-route-pins";
 
 /**
  * Converts a URL path segment into a human-readable label.
@@ -89,7 +90,15 @@ function examReportsModuleBreadcrumb(
     );
   if (alreadyUnderReports) return items;
 
-  const pageLabel = items[items.length - 1]?.label ?? segmentToLabel(match[1]);
+  const pageLabel = (() => {
+    const fromNav = items[items.length - 1]?.label;
+    if (fromNav && alreadyUnderReports) return fromNav;
+    return (
+      findSidebarLabelForRoute(pathname) ??
+      items[items.length - 1]?.label ??
+      segmentToLabel(match[1])
+    );
+  })();
 
   return [
     { label: "Home", href: "/dashboard" },
@@ -194,4 +203,19 @@ export function useBreadcrumbLabel(label: string | null): void {
       useBreadcrumbStore.getState().setLastSegmentLabel(null);
     };
   }, [label]);
+}
+
+/**
+ * Sidebar menu label for the current page (source of truth for page headings).
+ * Returns null until nav items are loaded or when no nav match exists.
+ */
+export function usePageNavLabel(): string | null {
+  const pathname = usePathname();
+  const navItems = useNavigationStore((s) => s.navItems);
+
+  return useMemo(
+    () =>
+      navItems.length > 0 ? findNavPageLabel(navItems, pathname) : null,
+    [navItems, pathname],
+  );
 }

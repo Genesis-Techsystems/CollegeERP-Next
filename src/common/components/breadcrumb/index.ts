@@ -1,3 +1,3 @@
 export { Breadcrumb } from './Breadcrumb'
-export { useBreadcrumb, useBreadcrumbLabel } from './useBreadcrumb'
+export { useBreadcrumb, useBreadcrumbLabel, usePageNavLabel } from './useBreadcrumb'
 export type { BreadcrumbItem, BreadcrumbProps } from './Breadcrumb'

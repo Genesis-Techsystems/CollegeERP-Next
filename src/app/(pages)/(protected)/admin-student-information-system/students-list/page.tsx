@@ -695,7 +695,7 @@ export default function StudentDetailsPage() {
 
   return (
     <FilteredPage
-      title={mode === "section" ? "Student Details" : "Students Search"}
+      title="Student Details"
       notice={
         <div className="px-1">
           <Tabs

@@ -3,11 +3,12 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronDown, Filter } from 'lucide-react'
 import { PageContainer } from './PageContainer'
+import { usePageNavLabel } from '@/common/components/breadcrumb'
 import { cn } from '@/lib/utils'
 
 export interface FilteredPageProps {
-  /** Single page title (shown in the filter card; no separate PageHeader). */
-  title: string
+  /** Single page title — defaults to the sidebar menu label when omitted. */
+  title?: string
   /** Filter fields rendered inside the card under the title. */
   filters: ReactNode
   /** Optional notice / alert above the card. */
@@ -38,6 +39,8 @@ export function FilteredPage({
   filtersDefaultOpen = true,
   className,
 }: FilteredPageProps) {
+  const navLabel = usePageNavLabel()
+  const displayTitle = navLabel ?? title ?? 'Page'
   const [filtersOpen, setFiltersOpen] = useState(filtersDefaultOpen)
 
   return (
@@ -61,7 +64,7 @@ export function FilteredPage({
                   aria-label="Toggle filters"
                 >
                   <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                    {title}
+                    {displayTitle}
                   </h2>
                   <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
                     <Filter className="h-3.5 w-3.5" aria-hidden />
@@ -76,7 +79,7 @@ export function FilteredPage({
                 </button>
               ) : (
                 <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                  {title}
+                  {displayTitle}
                 </h2>
               )}
             </div>

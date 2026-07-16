@@ -8,7 +8,7 @@ export default function PreExaminationIndexPage() {
     "student-exam-fee-registration",
     "exam-scheduling-forms",
     "exam-register-subjects",
-    "online-exam-fee-registration",
+    "online-exam-fee-registrations",
     "internal-exam-registration-multiple",
     "exam-hallticket",
     "exam-subject-barcode-generation",

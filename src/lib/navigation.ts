@@ -8,9 +8,23 @@ import {
   mapTimetableNavRoute,
 } from "./timetable-navigation";
 import { mapAdminInstitutionalRoomRoute } from "./admin-institutional-navigation";
-import { resolveExaminationReportHref } from "./exam-reports-navigation";
+import { applyExamReportSlugAliases, resolveExaminationReportHref } from "./exam-reports-navigation";
+import { resolveSidebarLabelPin, findSidebarLabelForRoute } from "./sidebar-route-pins";
+import routeCanonicalAliases from "./generated/route-canonical-aliases.json";
 
-export { resolveExaminationReportHref } from "./exam-reports-navigation";
+export {
+  applyExamReportSlugAliases,
+  resolveExaminationReportHref,
+} from "./exam-reports-navigation";
+
+/** Map label-derived URL slugs to real App Router folders (sidebar active state). */
+function applyRouteCanonicalAliases(path: string): string {
+  const [pathname, suffix = ""] = path.split(/([?#])/);
+  const base = (pathname ?? path).replace(/\/$/, "") || "/";
+  const canonical = (routeCanonicalAliases as Record<string, string>)[base];
+  if (!canonical) return path;
+  return `${canonical}${suffix}`;
+}
 
 /**
  * Slugs under the Angular Reports → Examination Reports menu that are mounted at
@@ -85,6 +99,14 @@ export function normalizeHref(path: string): string {
       /\/admin-student-information-system\/readmission-application$/i,
       "/admin-student-information-system/readmission-application",
     )
+    .replace(
+      /\/admin-student-information-system\/student-details(?=\/|$)/i,
+      "/admin-student-information-system/students-list",
+    )
+    .replace(
+      /\/admin-student-information-system\/assign-student-roll-number(?=\/|$)/i,
+      "/admin-student-information-system/generate-student-rollno",
+    )
     // Legacy short page slugs used in old pre-examination sidebar.
     .replace(
       /\/admin-examination-management\/pre-examination\/subject-barcode$/i,
@@ -98,10 +120,9 @@ export function normalizeHref(path: string): string {
       /\/admin-examination-management\/pre-examination\/exam-hall-ticket$/i,
       "/admin-examination-management/pre-examination/exam-hallticket",
     )
-    // Legacy Angular slug; real Next page is exam-register-subjects.
     .replace(
-      /\/admin-examination-management\/pre-examination\/exam-register-subjects-update(?=\/|$)/i,
-      "/admin-examination-management/pre-examination/exam-register-subjects",
+      /\/admin-examination-management\/pre-examination\/online-exam-fee-registration(?=\/|$)/i,
+      "/admin-examination-management/pre-examination/online-exam-fee-registrations",
     )
     // Legacy post-examination module segment (singular + typo plural) → post-examination.
     .replace(
@@ -643,6 +664,9 @@ export function normalizeHref(path: string): string {
       "/placements-achievements/placements/placement-registered-list",
     );
 
+  raw = applyExamReportSlugAliases(raw);
+  raw = applyRouteCanonicalAliases(raw);
+
   // Normalize slashes and trim trailing slash.
   raw = raw.replace(/\/{2,}/g, "/").replace(/\/$/, "");
 
@@ -693,7 +717,7 @@ function overrideLegacyPreExamHref(href: string, label: string): string {
     return `${base}/student-exam-fee-registration`;
   if (lower.includes("exam scheduling")) return `${base}/exam-scheduling-forms`;
   if (lower.includes("online exam fee"))
-    return `${base}/online-exam-fee-registration`;
+    return `${base}/${toNavSlug(label)}`;
   if (lower.includes("internal exam registr"))
     return `${base}/internal-exam-registration-multiple`;
   if (lower.includes("exam hallticket") || lower.includes("exam hall ticket"))
@@ -778,12 +802,19 @@ function overrideInstitutionalMastersHref(
 
 /** Resolve DB/sidebar/search href + label to the live Next.js route. */
 export function normalizePageHref(href: string, pageLabel: string): string {
+  const sidebarPin = resolveSidebarLabelPin(href, pageLabel);
+  if (sidebarPin) return normalizeHref(sidebarPin);
+
   // Label/href pins for Examination Reports — required for Search (404 → dashboard).
+  // These are exact, verified real routes; do NOT re-run canonicalizePageSlug on
+  // them — it rewrites the last segment to match toNavSlug(label), which mangles
+  // pins whose slug intentionally differs from the label wording (e.g. label
+  // "Gender Wise Exam Result" → real page folder "gender-wise-exam-report").
   const examReportHref = resolveExaminationReportHref(href, pageLabel);
-  if (examReportHref) return examReportHref;
+  if (examReportHref) return normalizeHref(examReportHref);
 
   const withInstitutional = overrideInstitutionalMastersHref(href, pageLabel);
-  return normalizeHref(
+  const resolved = normalizeHref(
     overrideErpModuleHref(
       overrideTimetableHref(
         overrideLegacyPostExamHref(
@@ -795,6 +826,10 @@ export function normalizePageHref(href: string, pageLabel: string): string {
       pageLabel,
     ),
   );
+  // Do not auto-rewrite the final slug from label text. That behavior can map
+  // real routes to non-existent folders and causes sidebar/search 404s.
+  // Explicit mappers/pins above are the source of truth.
+  return resolved;
 }
 
 /**
@@ -1113,34 +1148,101 @@ export function toNavSlug(name: string): string {
     .trim();
 }
 
+/** Path suffixes that are action/sub-routes, not the page list slug. */
+const ROUTE_ACTION_SUFFIXES = new Set([
+  "create",
+  "edit",
+  "add",
+  "new",
+  "view",
+  "details",
+  "marking",
+  "room-allotment",
+  "copy-existing-seating",
+  "existing-allotment",
+  "add-exam-timetables",
+  "add-exam-scheduling-forms",
+  "scan-bundle-details",
+  "evaluator-subject-roles",
+  "generate-payslip",
+  "emp-payroll",
+  "add-employee",
+  "add-question",
+  "add-meeting",
+  "view-subjects-data",
+  "view-std-fee",
+  "profile-view",
+]);
+
+/**
+ * Replaces the leaf list-page segment with a slug derived from the sidebar label.
+ * Skips action sub-routes (create/edit/…) so nested forms keep their path shape.
+ */
+export function canonicalizePageSlug(href: string, label: string): string {
+  const path = normalizeHref(href).replace(/\/$/, "") || "/";
+  if (!label?.trim() || path === "/") return path;
+
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length === 0) return `/${toNavSlug(label)}`;
+
+  const last = parts[parts.length - 1].toLowerCase();
+  if (ROUTE_ACTION_SUFFIXES.has(last)) return path;
+
+  const canonical = toNavSlug(label);
+  if (!canonical) return path;
+
+  if (parts[parts.length - 1] !== canonical) {
+    parts[parts.length - 1] = canonical;
+  }
+
+  return `/${parts.join("/")}`;
+}
+
 export interface NavBreadcrumbSegment {
   label: string;
   href?: string;
 }
 
 export interface NavSearchPage {
+  /** Sidebar menu label (source of truth). */
   displayName: string;
+  /** Canonical App Router href (same as sidebar click). */
   url: string;
+  /** Sidebar hierarchy, e.g. "Examination Management › Pre Examination". */
+  breadcrumbPath?: string;
+  /** Backend page id — lets resolveForcedNavRoute pin routes by id. */
+  id: string;
 }
 
-/** Flattens the sidebar nav tree into searchable leaf pages with normalized hrefs. */
+/**
+ * Flattens the sidebar nav tree into searchable leaf pages.
+ * Labels come from sidebar `item.label`; URLs use {@link normalizePageHref}.
+ * Callers that navigate (Topbar Search) should re-resolve via `resolveNavHref`
+ * so forced-route pins match sidebar clicks.
+ */
 export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
   const collected: NavSearchPage[] = [];
 
-  function walk(nodes: NavItem[]) {
+  function walk(nodes: NavItem[], ancestors: string[]) {
     for (const item of nodes) {
-      if (item.href) {
+      const chain = [...ancestors, item.label];
+      // Leaf pages only — folders with children are not searchable destinations.
+      const isLeaf =
+        Boolean(item.href) && !(item.children && item.children.length > 0);
+      if (isLeaf && item.href) {
         collected.push({
           displayName: item.label,
-          // Same rewrite path Search and sidebar hrefs use (incl. exam-reports remaps).
           url: normalizePageHref(item.href, item.label),
+          breadcrumbPath:
+            ancestors.length > 0 ? ancestors.join(" › ") : undefined,
+          id: item.id,
         });
       }
-      if (item.children?.length) walk(item.children);
+      if (item.children?.length) walk(item.children, chain);
     }
   }
 
-  walk(items);
+  walk(items, []);
 
   // Prefer longer / more specific URLs when the same page appears under multiple
   // modules (e.g. Reports vs Admin Examination Management) with conflicting hrefs.
@@ -1164,6 +1266,9 @@ export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
 /** Same href pins NavItem uses so breadcrumbs match sidebar links. */
 function resolveNavItemHrefForBreadcrumb(item: NavItem): string | null {
   const labelLower = (item.label ?? "").toLowerCase();
+
+  const sidebarPin = resolveSidebarLabelPin(item.href, item.label);
+  if (sidebarPin) return sidebarPin.replace(/\/$/, "");
 
   if (labelLower.includes("room detail")) return "/admin/room-details";
   if (
@@ -1278,4 +1383,15 @@ export function findNavBreadcrumbItems(
   });
 
   return [{ label: "Home", href: "/dashboard" }, ...segments];
+}
+
+/** Leaf sidebar label for the current pathname (null when nav metadata is unavailable). */
+export function findNavPageLabel(
+  navItems: NavItem[],
+  pathname: string,
+): string | null {
+  const crumbs = findNavBreadcrumbItems(navItems, pathname);
+  if (crumbs?.length) return crumbs[crumbs.length - 1]?.label ?? null;
+
+  return findSidebarLabelForRoute(pathname);
 }

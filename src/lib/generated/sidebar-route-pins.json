@@ -1,0 +1,516 @@
+[
+  {
+    "label": "academic batches of student",
+    "route": "/academics/academic-batches"
+  },
+  {
+    "label": "account types",
+    "route": "/finance/acoounts-types"
+  },
+  {
+    "label": "admission allotment & details",
+    "route": "/admission/counselling/admission-allotment-ndetails"
+  },
+  {
+    "label": "affiliated college bulk uploads",
+    "route": "/affiliated-colleges/college-bulk-uploads"
+  },
+  {
+    "label": "allocate student subjects",
+    "route": "/academics/subject-mapping/allocate-student-subject"
+  },
+  {
+    "label": "assign course year subjects",
+    "route": "/academics/college-curriculum/subject-allocation"
+  },
+  {
+    "label": "assign evaluator",
+    "route": "/admin-examination-management/evaluation-process/assign-evaluators"
+  },
+  {
+    "label": "assign multi evaluator",
+    "route": "/admin-examination-management/evaluation-process/multi-evaluator-assign"
+  },
+  {
+    "label": "assign re-evaluator",
+    "route": "/admin-examination-management/evaluation-process/assign-reevaluator"
+  },
+  {
+    "label": "assign regulation to student",
+    "route": "/academics/subject-mapping/assign-regulation-to-students"
+  },
+  {
+    "label": "assign student roll number",
+    "route": "/admin-student-information-system/generate-student-rollno"
+  },
+  {
+    "label": "assign students to lab",
+    "route": "/academics/subject-mapping/assign-students-to-lab-batches"
+  },
+  {
+    "label": "assign template",
+    "route": "/admin-examination-management/evaluation-process/assign-questionpaper-template"
+  },
+  {
+    "label": "assignment pending list",
+    "route": "/admin-examination-management/admin-exam-reports/assignment-pending-list-report"
+  },
+  {
+    "label": "auto number configuration",
+    "route": "/admin/configure-auto-numbers"
+  },
+  {
+    "label": "batch wise sgpa report",
+    "route": "/admin-examination-management/admin-exam-reports/batchwise-sgpa-report"
+  },
+  {
+    "label": "blocks",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-blocks"
+  },
+  {
+    "label": "book return",
+    "route": "/library/bookReturn"
+  },
+  {
+    "label": "broadcast messages",
+    "route": "/placements-achievements/placements/placement-broadcast"
+  },
+  {
+    "label": "budget estimation report",
+    "route": "/finance/budget-estimations"
+  },
+  {
+    "label": "budget mid year estimation",
+    "route": "/finance/budget"
+  },
+  {
+    "label": "buildings",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-buildings"
+  },
+  {
+    "label": "caste",
+    "route": "/admin/caste-master"
+  },
+  {
+    "label": "certificates issued",
+    "route": "/tc-no-due-approval/certificates-issued-list"
+  },
+  {
+    "label": "cheque book",
+    "route": "/finance/check-book"
+  },
+  {
+    "label": "committee members",
+    "route": "/committees/add-committee-members"
+  },
+  {
+    "label": "company placement requirements",
+    "route": "/placements-achievements/placements/placement-companies"
+  },
+  {
+    "label": "configure section, group, and question marks structure",
+    "route": "/admin-examination-management/evaluation-process/create-questionpaper-template"
+  },
+  {
+    "label": "course year subject association",
+    "route": "/academics/college-curriculum/subject-allocation-sem-regulation"
+  },
+  {
+    "label": "create exam notification",
+    "route": "/admin-examination-management/admin-exam-masters/exam-master"
+  },
+  {
+    "label": "create exam session",
+    "route": "/admin-examination-management/admin-exam-masters/exam-session"
+  },
+  {
+    "label": "document repository settings",
+    "route": "/admin/document-repository"
+  },
+  {
+    "label": "dost upload",
+    "route": "/admin/bulk-uploads/student-dost-upload"
+  },
+  {
+    "label": "edit exam group details",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-group/group-details"
+  },
+  {
+    "label": "employee bulk upload",
+    "route": "/admin/bulk-uploads/employee-upload"
+  },
+  {
+    "label": "evaluation status tracking",
+    "route": "/admin-examination-management/evaluation-process/update-evaluator-answer-papers-status"
+  },
+  {
+    "label": "evaluator",
+    "route": "/admin-examination-management/evaluation-process/create-evaluators"
+  },
+  {
+    "label": "evaluator exam subjects",
+    "route": "/admin-examination-management/evaluation-process/evaluator-exam-subject"
+  },
+  {
+    "label": "exam answer paper bags",
+    "route": "/admin-examination-management/exam-papers-delivery-process/univ-exam-answer-paper-bags"
+  },
+  {
+    "label": "exam attendance-wise subject barcode",
+    "route": "/admin-examination-management/pre-examination/exam-attendancewise-subject-barcode"
+  },
+  {
+    "label": "exam bag collection",
+    "route": "/admin-examination-management/exam-papers-delivery-process/univ-exam-bag-collection"
+  },
+  {
+    "label": "exam bag transportation",
+    "route": "/admin-examination-management/exam-papers-delivery-process/univ-exam-bag-transportation"
+  },
+  {
+    "label": "exam bags",
+    "route": "/admin-examination-management/exam-papers-delivery-process/univ-exam-bags"
+  },
+  {
+    "label": "exam bundles",
+    "route": "/admin-examination-management/exam-papers-delivery-process/univ-exam-bundles"
+  },
+  {
+    "label": "exam center colleges",
+    "route": "/admin-examination-management/exam-papers-delivery-process/univ-examcenter-colleges"
+  },
+  {
+    "label": "exam center profiles",
+    "route": "/admin-examination-management/exam-papers-delivery-process/university-exam-center-profiles"
+  },
+  {
+    "label": "exam center rooms",
+    "route": "/admin-examination-management/exam-papers-delivery-process/univ-exam-center-rooms"
+  },
+  {
+    "label": "exam centers",
+    "route": "/admin-examination-management/exam-papers-delivery-process/univ-exam-centers"
+  },
+  {
+    "label": "exam evaluation unassigned report",
+    "route": "/admin-examination-management/exam-reports/exam-evaluation-un-assigned-report"
+  },
+  {
+    "label": "exam fee structures",
+    "route": "/admin-examination-management/admin-exam-masters/exam-fee-setup"
+  },
+  {
+    "label": "exam invigilator allotment",
+    "route": "/admin-examination-management/pre-examination/invigilator-allotment"
+  },
+  {
+    "label": "exam invigilator remuneration",
+    "route": "/admin-examination-management/admin-exam-masters/invigilator-remuneration"
+  },
+  {
+    "label": "exam marks setup",
+    "route": "/admin-examination-management/admin-exam-masters/exam-max-marks-setup"
+  },
+  {
+    "label": "exam question paper",
+    "route": "/admin-examination-management/evaluation-process/exam-question-paper-marks"
+  },
+  {
+    "label": "exam re-valuation fee setup",
+    "route": "/admin-examination-management/admin-exam-masters/re-valuation-fee-setup"
+  },
+  {
+    "label": "exam regional centers",
+    "route": "/admin-examination-management/exam-papers-delivery-process/univ-exam-regional-centers"
+  },
+  {
+    "label": "exam register subjects update",
+    "route": "/admin-examination-management/pre-examination/exam-register-subjects"
+  },
+  {
+    "label": "exam revised marks",
+    "route": "/admin-examination-management/post-examination/re-evaluation-marks-entry"
+  },
+  {
+    "label": "exam revision master",
+    "route": "/admin-examination-management/admin-exam-masters/revision-master"
+  },
+  {
+    "label": "exam room seating plan",
+    "route": "/admin-examination-management/admin-exam-masters/seating-plan-setup",
+    "hrefIncludes": "admin-examination-management"
+  },
+  {
+    "label": "exam room seating plan",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-room-allotment",
+    "hrefIncludes": "admin-examination-management"
+  },
+  {
+    "label": "exam setup master",
+    "route": "/admin-examination-management/admin-exam-masters/setup-master"
+  },
+  {
+    "label": "exam timetable notification",
+    "route": "/admin-examination-management/admin-exam-masters/exam-tt-notification"
+  },
+  {
+    "label": "exam university timetable",
+    "route": "/admin-examination-management/admin-exam-masters/exam-timetable"
+  },
+  {
+    "label": "exam verification report",
+    "route": "/admin-examination-management/exam-reports/exam-verification"
+  },
+  {
+    "label": "examcenter question paper config",
+    "route": "/admin-examination-management/exam-papers-delivery-process/univ-examcenter-question-paper-config"
+  },
+  {
+    "label": "examination dashboard",
+    "route": "/admin-examination-management/exam-dashboard"
+  },
+  {
+    "label": "fee paid applications",
+    "route": "/admission/counselling/fee-paid-applications-list"
+  },
+  {
+    "label": "final marks pre moderation report",
+    "route": "/admin-examination-management/admin-exam-reports/final-marks-premoderation"
+  },
+  {
+    "label": "finalize exam question paper",
+    "route": "/admin-examination-management/evaluation-process/exam-final-question-paper"
+  },
+  {
+    "label": "finance sub category",
+    "route": "/finance/finance-subcategory"
+  },
+  {
+    "label": "floors",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-floors"
+  },
+  {
+    "label": "generate student roll no.",
+    "route": "/admin-student-information-system/generate-student-rollno"
+  },
+  {
+    "label": "grace marks benefited students data",
+    "route": "/admin-examination-management/admin-exam-reports/grace-marks-benefited-students-report"
+  },
+  {
+    "label": "grade and grade points report",
+    "route": "/admin-examination-management/admin-exam-reports/student-wise-grade-point-report"
+  },
+  {
+    "label": "group & year wise result report",
+    "route": "/admin-examination-management/exam-reports/group-yearwise-result-report"
+  },
+  {
+    "label": "hostel room allocation",
+    "route": "/hostel/rooms-list"
+  },
+  {
+    "label": "internal exam average",
+    "route": "/admin-examination-management/post-examination/internal-exams-average"
+  },
+  {
+    "label": "internal exam registration multiple students",
+    "route": "/admin-examination-management/pre-examination/internal-exam-registration-multiple"
+  },
+  {
+    "label": "internal requisitions",
+    "route": "/e-office/item-request"
+  },
+  {
+    "label": "internal return",
+    "route": "/inventory-management/internal-item-return"
+  },
+  {
+    "label": "invigilator allotment report",
+    "route": "/admin-examination-management/admin-exam-reports/exam-invigilator-allotment-report"
+  },
+  {
+    "label": "invigilator remuneration report",
+    "route": "/admin-examination-management/admin-exam-reports/invigilators-remuneration-report"
+  },
+  {
+    "label": "letter format",
+    "route": "/e-office/letter-formats"
+  },
+  {
+    "label": "manual assign evaluator",
+    "route": "/admin-examination-management/evaluation-process/assign-evaluators-manual"
+  },
+  {
+    "label": "map vehicle driver",
+    "route": "/transport/vehicle-drivers"
+  },
+  {
+    "label": "map vehicle route",
+    "route": "/transport/vehicle-map"
+  },
+  {
+    "label": "moderation benefited students data",
+    "route": "/admin-examination-management/admin-exam-reports/moderation-benefited-students-report"
+  },
+  {
+    "label": "moderator approvals",
+    "route": "/admin-examination-management/evaluation-process/evaluation-approvals"
+  },
+  {
+    "label": "moderator evaluator",
+    "route": "/admin-examination-management/evaluation-process/moderator-evaluators"
+  },
+  {
+    "label": "modify student batches",
+    "route": "/academics/modify-academic-batch"
+  },
+  {
+    "label": "my complaints",
+    "route": "/campus-maintenance/new-complaints"
+  },
+  {
+    "label": "no due approval request",
+    "route": "/tc-no-due-approval/send-no-due-approval-request"
+  },
+  {
+    "label": "online exam fee registrations",
+    "route": "/admin-examination-management/pre-examination/online-exam-fee-registration"
+  },
+  {
+    "label": "opening stock",
+    "route": "/inventory-management/item-opening-stock"
+  },
+  {
+    "label": "paper evaluation",
+    "route": "/admin-examination-management/evaluation-process/evaluator-subjects/paper"
+  },
+  {
+    "label": "parent account",
+    "route": "/user-management/parent-accounts/manage"
+  },
+  {
+    "label": "placed students",
+    "route": "/placements-achievements/placements/placed-students-list"
+  },
+  {
+    "label": "placement students list",
+    "route": "/placements-achievements/placements/placement-registered-list"
+  },
+  {
+    "label": "placement trainings",
+    "route": "/trainings/training"
+  },
+  {
+    "label": "principal and staff to admin — email",
+    "route": "/email-sms/principal-staff-to-admin-email"
+  },
+  {
+    "label": "publish exam question paper",
+    "route": "/admin-examination-management/evaluation-process/view-ex-fin-qn-paper"
+  },
+  {
+    "label": "purchase order",
+    "route": "/e-office/payment-note-request"
+  },
+  {
+    "label": "re-assign evaluator",
+    "route": "/admin-examination-management/evaluation-process/re-assign-evaluators"
+  },
+  {
+    "label": "re-evaluation comparision result report",
+    "route": "/admin-examination-management/admin-exam-reports/re-evaluation-comparision-report"
+  },
+  {
+    "label": "re-valuation fee",
+    "route": "/admin-examination-management/re-evaluation/re-evaluation-fee"
+  },
+  {
+    "label": "room types",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-room-types"
+  },
+  {
+    "label": "rooms",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-rooms"
+  },
+  {
+    "label": "scan bundles",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-scan-bundles-print"
+  },
+  {
+    "label": "section",
+    "route": "/admin/group-sections"
+  },
+  {
+    "label": "secure marks entry",
+    "route": "/admin-examination-management/post-examination/secure-exam-marks-entry"
+  },
+  {
+    "label": "semester",
+    "route": "/admin/course-years"
+  },
+  {
+    "label": "send email to department wise",
+    "route": "/email-sms/department-wise-email"
+  },
+  {
+    "label": "send email to departments",
+    "route": "/email-sms/principal-to-dept-email"
+  },
+  {
+    "label": "send email to students",
+    "route": "/email-sms/staff-to-student-email"
+  },
+  {
+    "label": "staff subject mapping",
+    "route": "/academics/subject-mapping/course-group-subjects-list"
+  },
+  {
+    "label": "student bulk upload",
+    "route": "/admin/bulk-uploads/students-upload"
+  },
+  {
+    "label": "student co-curriculum activities",
+    "route": "/admin-student-information-system/student-cc-activities"
+  },
+  {
+    "label": "student details",
+    "route": "/admin-student-information-system/students-list"
+  },
+  {
+    "label": "student exam certificates",
+    "route": "/admin-examination-management/post-examination/grade-memo-issue"
+  },
+  {
+    "label": "student exam fee collection",
+    "route": "/admin-examination-management/pre-examination/student-exam-fee-registration"
+  },
+  {
+    "label": "subject wise result report",
+    "route": "/admin-examination-management/admin-exam-reports/subjectwise-result-report"
+  },
+  {
+    "label": "subjects syllabus plan",
+    "route": "/academics/subject-mapping/subject-syllabus-plan"
+  },
+  {
+    "label": "subjects units",
+    "route": "/academics/subject-mapping/add-subject-units"
+  },
+  {
+    "label": "test list",
+    "route": "/assessments/test"
+  },
+  {
+    "label": "transactions",
+    "route": "/finance/transaction"
+  },
+  {
+    "label": "university curriculum regulation subjects",
+    "route": "/academics/college-curriculum/course-group-year-regulation-subject"
+  },
+  {
+    "label": "upload scanned answer papers",
+    "route": "/admin-examination-management/evaluation-process/scan-upload-process"
+  }
+]

@@ -1,6 +1,5 @@
 /**
  * Evaluators Bank Copy Report (Angular: exam-reports/evaluators-bank-copy-report).
- * Title in UI: Evaluator Remuneration Report.
  */
 
 import { crud } from "@/services/crud";

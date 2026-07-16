@@ -1,0 +1,128 @@
+{
+  "missingRoutes": [],
+  "titleMismatches": [
+    {
+      "route": "/admin-examination-management/evaluation-process/assign-reevaluator",
+      "pinLabel": "Assign Re-evaluator",
+      "pageTitle": "Assign Re-Evaluator",
+      "expectedSidebarLabel": "Assign Re-evaluator"
+    },
+    {
+      "route": "/academics/subject-mapping/assign-regulation-to-students",
+      "pinLabel": "Assign Regulation To Student",
+      "pageTitle": "Assign Regulation to Student",
+      "expectedSidebarLabel": "Assign Regulation To Student"
+    },
+    {
+      "route": "/admin-examination-management/admin-exam-reports/batchwise-sgpa-report",
+      "pinLabel": "Batch Wise Sgpa Report",
+      "pageTitle": "Batch Wise SGPA Report",
+      "expectedSidebarLabel": "Batch Wise Sgpa Report"
+    },
+    {
+      "route": "/admin-examination-management/evaluation-process/create-questionpaper-template",
+      "pinLabel": "Configure Section, Group, And Question Marks Structure",
+      "pageTitle": "Configure section, group, and question marks structure",
+      "expectedSidebarLabel": "Configure Section, Group, And Question Marks Structure"
+    },
+    {
+      "route": "/admin-examination-management/exam-papers-delivery-process/exam-group/group-details",
+      "pinLabel": "Edit Exam Group Details",
+      "pageTitle": "Edit exam group details",
+      "expectedSidebarLabel": "Edit Exam Group Details"
+    },
+    {
+      "route": "/admin-examination-management/evaluation-process/update-evaluator-answer-papers-status",
+      "pinLabel": "Evaluation Status Tracking",
+      "pageTitle": "Evaluation status tracking",
+      "expectedSidebarLabel": "Evaluation Status Tracking"
+    },
+    {
+      "route": "/admin-examination-management/exam-reports/exam-evaluation-un-assigned-report",
+      "pinLabel": "Exam Evaluation Unassigned Report",
+      "pageTitle": "Exam Evaluation UnAssigned Report",
+      "expectedSidebarLabel": "Exam Evaluation Unassigned Report"
+    },
+    {
+      "route": "/admin-examination-management/pre-examination/invigilator-allotment",
+      "pinLabel": "Exam Invigilator Allotment",
+      "pageTitle": "Invigilation Allotment",
+      "expectedSidebarLabel": "Exam Invigilator Allotment"
+    },
+    {
+      "route": "/admin-examination-management/admin-exam-masters/re-valuation-fee-setup",
+      "pinLabel": "Exam Re-valuation Fee Setup",
+      "pageTitle": "Exam Re-Valuation Fee Setup",
+      "expectedSidebarLabel": "Exam Re-valuation Fee Setup"
+    },
+    {
+      "route": "/admin-examination-management/post-examination/re-evaluation-marks-entry",
+      "pinLabel": "Exam Revised Marks",
+      "pageTitle": "Exam revised marks",
+      "expectedSidebarLabel": "Exam Revised Marks"
+    },
+    {
+      "route": "/hostel/rooms-list",
+      "pinLabel": "Hostel Room Allocation",
+      "pageTitle": "Hostel room allocation",
+      "expectedSidebarLabel": "Hostel Room Allocation"
+    },
+    {
+      "route": "/admin-examination-management/pre-examination/online-exam-fee-registration",
+      "pinLabel": "Online Exam Fee Registrations",
+      "pageTitle": "Exam Fee Registrations",
+      "expectedSidebarLabel": "Online Exam Fee Registrations"
+    },
+    {
+      "route": "/email-sms/principal-staff-to-admin-email",
+      "pinLabel": "Principal And Staff To Admin — Email",
+      "pageTitle": "Principal and staff to admin — email",
+      "expectedSidebarLabel": "Principal And Staff To Admin — Email"
+    },
+    {
+      "route": "/admin-examination-management/evaluation-process/re-assign-evaluators",
+      "pinLabel": "Re-assign Evaluator",
+      "pageTitle": "Re-Assign Evaluator",
+      "expectedSidebarLabel": "Re-assign Evaluator"
+    },
+    {
+      "route": "/admin-examination-management/admin-exam-reports/re-evaluation-comparision-report",
+      "pinLabel": "Re-evaluation Comparision Result Report",
+      "pageTitle": "Re-Evaluation Comparision Result Report",
+      "expectedSidebarLabel": "Re-evaluation Comparision Result Report"
+    },
+    {
+      "route": "/admin-examination-management/re-evaluation/re-evaluation-fee",
+      "pinLabel": "Re-valuation Fee",
+      "pageTitle": "Re-Valuation Fee",
+      "expectedSidebarLabel": "Re-valuation Fee"
+    },
+    {
+      "route": "/email-sms/principal-to-dept-email",
+      "pinLabel": "Send Email To Departments",
+      "pageTitle": "Send email to departments",
+      "expectedSidebarLabel": "Send Email To Departments"
+    },
+    {
+      "route": "/admin-student-information-system/student-cc-activities",
+      "pinLabel": "Student Co-curriculum Activities",
+      "pageTitle": "Student Co-Curriculum Activities",
+      "expectedSidebarLabel": "Student Co-curriculum Activities"
+    },
+    {
+      "route": "/admin-examination-management/pre-examination/student-exam-fee-registration",
+      "pinLabel": "Student Exam Fee Collection",
+      "pageTitle": "Exam Fee Collection",
+      "expectedSidebarLabel": "Student Exam Fee Collection"
+    }
+  ],
+  "duplicateLabels": [
+    {
+      "label": "exam room seating plan",
+      "routes": [
+        "/admin-examination-management/admin-exam-masters/seating-plan-setup",
+        "/admin-examination-management/exam-papers-delivery-process/exam-center-room-allotment"
+      ]
+    }
+  ]
+}

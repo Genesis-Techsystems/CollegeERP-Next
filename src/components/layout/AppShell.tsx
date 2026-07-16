@@ -18,6 +18,7 @@ import { IS_DEBUG_MODE, DebugPanel } from "@/debug";
 import { useTheme } from "@/common/components/theme-setting-modal";
 import { Breadcrumb, useBreadcrumb } from "@/common/components/breadcrumb";
 import { Toaster } from "sonner";
+import { APP_CONFIG } from "@/config/constants/app";
 
 interface AppShellProps {
   children: ReactNode;
@@ -46,6 +47,14 @@ export function AppShell({
   const breadcrumbItems = useBreadcrumb();
   const pageTitle = breadcrumbItems[breadcrumbItems.length - 1]?.label ?? "";
   const showBreadcrumb = pathname !== "/dashboard";
+
+  useEffect(() => {
+    if (!pageTitle) return;
+    document.title = `${pageTitle} | ${APP_CONFIG.APP_NAME}`;
+    return () => {
+      document.title = APP_CONFIG.APP_NAME;
+    };
+  }, [pageTitle]);
 
   // The page's first card renders this as its header row (globals.css
   // `[data-page-first-card] … ::before`) — page name + accent underline inside

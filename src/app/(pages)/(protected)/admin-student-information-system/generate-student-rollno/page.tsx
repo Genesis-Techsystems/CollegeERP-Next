@@ -450,7 +450,7 @@ export default function GenerateStudentRollnoPage() {
 
   return (
     <FilteredPage
-      title="Assign Student Roll Number"
+      title="Generate Student Roll No."
       className="print:space-y-2"
       filters={
         <>
