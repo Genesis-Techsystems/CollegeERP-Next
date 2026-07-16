@@ -1,25 +1,25 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
+import Link from "next/link";
 
 export default function PreExaminationIndexPage() {
   const pages = [
-    'complete-exam-fee-registration',
-    'student-exam-fee-registration',
-    'exam-scheduling-forms',
-    'exam-register-subjects',
-    'online-exam-fee-registration',
-    'internal-exam-registration-multiple',
-    'exam-hallticket',
-    'exam-subject-barcode-generation',
-    'exam-forms',
-    'invigilator-allotment',
-    'additional-exam-fees',
-    'exam-attendancewise-subject-barcode',
-    'student-exam-lab-batches',
-    'exam-registration-manual-feeless',
-    'college-exam-timetable-view',
-  ]
+    "complete-exam-fee-registration",
+    "student-exam-fee-registration",
+    "exam-scheduling-forms",
+    "exam-register-subjects",
+    "online-exam-fee-registration",
+    "internal-exam-registration-multiple",
+    "exam-hallticket",
+    "exam-subject-barcode-generation",
+    "exam-forms",
+    "invigilator-allotment",
+    "additional-exam-fees",
+    "exam-attendancewise-subject-barcode",
+    "student-exam-lab-batches",
+    "exam-registration-manual-feeless",
+    "college-exam-timetable-view",
+  ];
 
   return (
     <div className="p-6">
@@ -43,6 +43,5 @@ export default function PreExaminationIndexPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
-

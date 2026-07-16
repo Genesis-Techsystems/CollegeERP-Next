@@ -1,23 +1,33 @@
-'use client'
+"use client";
 
-import { type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useEffect, useRef, useState } from 'react'
-import { usePathname } from 'next/navigation'
-import { Sidebar } from '@/components/layout/Sidebar'
-import { Topbar } from '@/components/layout/Topbar'
-import { useNavigationStore } from '@/store/navigation-store'
-import { cn } from '@/lib/utils'
-import type { NavItem } from '@/types/navigation'
-import { IS_DEBUG_MODE, DebugPanel } from '@/debug'
-import { useTheme } from '@/common/components/theme-setting-modal'
-import { Breadcrumb, useBreadcrumb } from '@/common/components/breadcrumb'
-import { Toaster } from 'sonner'
+import {
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { usePathname } from "next/navigation";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Topbar } from "@/components/layout/Topbar";
+import { useNavigationStore } from "@/store/navigation-store";
+import { cn } from "@/lib/utils";
+import type { NavItem } from "@/types/navigation";
+import { IS_DEBUG_MODE, DebugPanel } from "@/debug";
+import { useTheme } from "@/common/components/theme-setting-modal";
+import { Breadcrumb, useBreadcrumb } from "@/common/components/breadcrumb";
+import { Toaster } from "sonner";
 
 interface AppShellProps {
-  children: ReactNode
-  initialNavItems: NavItem[]
+  children: ReactNode;
+  initialNavItems: NavItem[];
 }
 
-export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>) {
+export function AppShell({
+  children,
+  initialNavItems,
+}: Readonly<AppShellProps>) {
   const {
     isSidebarOpen,
     isSidebarCollapsed,
@@ -25,78 +35,78 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
     autoCollapse,
     setNavItems,
     setSidebarCollapsed,
-  } = useNavigationStore()
+  } = useNavigationStore();
 
-  const pathname = usePathname()
-  const prevPathname = useRef(pathname)
+  const pathname = usePathname();
+  const prevPathname = useRef(pathname);
 
   // Global page-header card — page name + breadcrumb trail, rendered above
   // each page's filter card. The dashboard renders its own breadcrumb, so it
   // is skipped here.
-  const breadcrumbItems = useBreadcrumb()
-  const pageTitle = breadcrumbItems[breadcrumbItems.length - 1]?.label ?? ''
-  const showBreadcrumb = pathname !== '/dashboard'
+  const breadcrumbItems = useBreadcrumb();
+  const pageTitle = breadcrumbItems[breadcrumbItems.length - 1]?.label ?? "";
+  const showBreadcrumb = pathname !== "/dashboard";
 
   // The page's first card renders this as its header row (globals.css
   // `[data-page-first-card] … ::before`) — page name + accent underline inside
   // the filters card without touching every page. Named --page-name because
   // --page-title is an existing color token in the design system.
-  const cssPageName = `"${pageTitle.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+  const cssPageName = `"${pageTitle.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 
   // Prevents hydration mismatch: Zustand persist reads localStorage on client but
   // server has no access to it. Render with default (expanded) state until mounted,
   // then apply real persisted value — the CSS transition handles the visual change.
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Tag the page's first card-looking element so the CSS above has a simple,
   // reliable hook. Done in JS because Lightning CSS mis-compiles the
   // `:not(.app-card ~ .app-card)` first-of-class selector chain, and cards
   // often mount after async data loads (hence the MutationObserver).
-  const pageContentRef = useRef<HTMLDivElement>(null)
+  const pageContentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // Before `mounted`, AppShell renders the placeholder frame — the ref is
     // null on the first pass, so this effect must re-run when `mounted` flips.
-    const root = pageContentRef.current
-    if (!root) return
+    const root = pageContentRef.current;
+    if (!root) return;
 
     const isCardShell = (el: Element) => {
-      const cls = typeof el.className === 'string' ? el.className : ''
-      if (el.classList.contains('app-card')) return true
+      const cls = typeof el.className === "string" ? el.className : "";
+      if (el.classList.contains("app-card")) return true;
       return (
         /rounded/.test(cls) &&
         /border/.test(cls) &&
         /bg-card|bg-white/.test(cls) &&
         !/animate-pulse|print/.test(cls)
-      )
-    }
+      );
+    };
 
     const tag = () => {
       const candidates = root.querySelectorAll(
-        ':scope > *:not([data-breadcrumb-card]) > div, :scope > *:not([data-breadcrumb-card]) > * > div',
-      )
+        ":scope > *:not([data-breadcrumb-card]) > div, :scope > *:not([data-breadcrumb-card]) > * > div",
+      );
       const first =
         Array.from(candidates).find(
-          (el) => isCardShell(el) && !el.hasAttribute('data-no-page-name'),
-        ) ?? null
-      if (first && !first.hasAttribute('data-page-first-card')) {
+          (el) => isCardShell(el) && !el.hasAttribute("data-no-page-name"),
+        ) ?? null;
+      if (first && !first.hasAttribute("data-page-first-card")) {
         root
-          .querySelectorAll('[data-page-first-card]')
-          .forEach((el) => el.removeAttribute('data-page-first-card'))
-        first.setAttribute('data-page-first-card', '')
+          .querySelectorAll("[data-page-first-card]")
+          .forEach((el) => el.removeAttribute("data-page-first-card"));
+        first.setAttribute("data-page-first-card", "");
       } else if (!first) {
         root
-          .querySelectorAll('[data-page-first-card]')
-          .forEach((el) => el.removeAttribute('data-page-first-card'))
+          .querySelectorAll("[data-page-first-card]")
+          .forEach((el) => el.removeAttribute("data-page-first-card"));
       }
-    }
+    };
 
-    tag()
+    tag();
     // Cards frequently mount after data fetches; keep the tag on the first one.
-    const observer = new MutationObserver(tag)
-    observer.observe(root, { childList: true, subtree: true })
-    return () => observer.disconnect()
-  }, [pathname, mounted])
+    const observer = new MutationObserver(tag);
+    observer.observe(root, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [pathname, mounted]);
 
   // Accordion behavior for filters cards: clicking anywhere on a card header
   // row that hosts an `.app-card-title` forwards the click to the page's own
@@ -104,53 +114,75 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
   // lucide-react aliases Filter → Funnel, so the svg class is `lucide-funnel`).
   // Pages keep owning the open/close state — no per-page changes needed.
   function handlePageContentClick(e: ReactMouseEvent<HTMLDivElement>) {
-    const target = e.target as HTMLElement
+    const target = e.target as HTMLElement;
     // Direct interactions (links, inputs, other buttons) work natively. The
     // filter button itself has pointer-events: none, so it never matches here.
-    if (target.closest('button, a, input, select, textarea, label, [role="combobox"]')) return
-    const headerRow = target.closest<HTMLElement>('.app-card > div')
-    if (!headerRow || !headerRow.querySelector('.app-card-title')) return
+    if (
+      target.closest(
+        'button, a, input, select, textarea, label, [role="combobox"]',
+      )
+    )
+      return;
+    const headerRow = target.closest<HTMLElement>(".app-card > div");
+    if (!headerRow || !headerRow.querySelector(".app-card-title")) return;
     const toggle = headerRow.querySelector<HTMLButtonElement>(
       'button:has(svg[class*="lucide-funnel"]), button:has(svg[class*="lucide-filter"]), button:has(svg[class*="lucide-chevron-down"])',
-    )
+    );
     if (!toggle) {
-      const card = headerRow.closest<HTMLElement>('.app-card')
-      if (!card) return
+      const card = headerRow.closest<HTMLElement>(".app-card");
+      if (!card) return;
       // Only treat it like a filter card when it contains dropdowns and does not contain a table.
-      if (!card.querySelector('[role="combobox"], button[data-slot="popover-trigger"]')) return
-      if (card.querySelector('.app-data-table, .app-data-table-card, [role="grid"]')) return
-      const isCollapsed = card.getAttribute('data-filters-collapsed') === 'true'
-      const next = !isCollapsed
-      card.setAttribute('data-filters-collapsed', next ? 'true' : 'false')
-      return
+      if (
+        !card.querySelector(
+          '[role="combobox"], button[data-slot="popover-trigger"]',
+        )
+      )
+        return;
+      if (
+        card.querySelector(
+          '.app-data-table, .app-data-table-card, [role="grid"]',
+        )
+      )
+        return;
+      const isCollapsed =
+        card.getAttribute("data-filters-collapsed") === "true";
+      const next = !isCollapsed;
+      card.setAttribute("data-filters-collapsed", next ? "true" : "false");
+      return;
     }
     // Pages unmount the panel conditionally, so closing can't be CSS-animated.
     // A View Transition snapshots before/after and cross-fades the change
     // (no-op in browsers without support).
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => void }
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => void) => void;
+    };
     if (doc.startViewTransition) {
-      doc.startViewTransition(() => toggle.click())
+      doc.startViewTransition(() => toggle.click());
     } else {
-      toggle.click()
+      toggle.click();
     }
   }
 
   // Apply the persisted theme (primary + sidebar palette) on every app load.
-  useTheme()
+  useTheme();
 
   useEffect(() => {
-    if (initialNavItems.length > 0) setNavItems(initialNavItems)
+    if (initialNavItems.length > 0) setNavItems(initialNavItems);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   // Auto-collapse only fires when sidebar was manually expanded and user opted in.
   // Hover-expanded state is excluded — hover collapse happens naturally on mouse-leave.
   useEffect(() => {
-    if (prevPathname.current !== pathname && autoCollapse && !isSidebarHovered) {
-      setSidebarCollapsed(true)
+    if (
+      prevPathname.current !== pathname &&
+      autoCollapse &&
+      !isSidebarHovered
+    ) {
+      setSidebarCollapsed(true);
     }
-    prevPathname.current = pathname
-  }, [pathname, autoCollapse, isSidebarHovered, setSidebarCollapsed])
+    prevPathname.current = pathname;
+  }, [pathname, autoCollapse, isSidebarHovered, setSidebarCollapsed]);
 
   // Prevent full-tree hydration drift in protected pages (sidebar/topbar are highly
   // interactive and depend on client-only persisted state and browser environment).
@@ -158,7 +190,10 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
   if (!mounted) {
     return (
       <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
-        <div className="relative z-30 w-[248px] shrink-0" style={{ height: '100vh', position: 'sticky', top: 0 }} />
+        <div
+          className="relative z-30 w-[248px] shrink-0"
+          style={{ height: "100vh", position: "sticky", top: 0 }}
+        />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="sticky top-0 z-20 h-14 border-b border-border bg-card" />
           <main className="flex-1 overflow-y-auto bg-[hsl(var(--background))]">
@@ -168,10 +203,10 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
           </main>
         </div>
       </div>
-    )
+    );
   }
 
-  const sidebarIsExpanded = !isSidebarCollapsed || isSidebarHovered
+  const sidebarIsExpanded = !isSidebarCollapsed || isSidebarHovered;
 
   return (
     <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
@@ -191,12 +226,14 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
       <div
         data-print-hide
         className={cn(
-          'relative z-30 shrink-0 overflow-hidden transition-all duration-200 ease-in-out',
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+          "relative z-30 shrink-0 overflow-hidden transition-all duration-200 ease-in-out",
+          isSidebarOpen
+            ? "translate-x-0"
+            : "-translate-x-full md:translate-x-0",
           // Match reference UI widths (tighter)
-          sidebarIsExpanded ? 'w-[248px]' : 'w-[56px]',
+          sidebarIsExpanded ? "w-[248px]" : "w-[56px]",
         )}
-        style={{ height: '100vh', position: 'sticky', top: 0 }}
+        style={{ height: "100vh", position: "sticky", top: 0 }}
       >
         <Sidebar />
       </div>
@@ -219,13 +256,17 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
             onClick={handlePageContentClick}
             style={
               showBreadcrumb && pageTitle
-                ? ({ '--page-name': cssPageName } as CSSProperties)
+                ? ({ "--page-name": cssPageName } as CSSProperties)
                 : undefined
             }
           >
             {/* ── Breadcrumb card — page location, above the filters card ── */}
             {showBreadcrumb && (
-              <div data-print-hide data-breadcrumb-card className="border-b border-border/60 bg-muted/20 px-[var(--spacing-page-x)] py-2.5">
+              <div
+                data-print-hide
+                data-breadcrumb-card
+                className="border-b border-border/60 bg-muted/20 px-[var(--spacing-page-x)] py-2.5"
+              >
                 <Breadcrumb items={breadcrumbItems} maxItems={5} />
               </div>
             )}
@@ -234,7 +275,7 @@ export function AppShell({ children, initialNavItems }: Readonly<AppShellProps>)
         </main>
       </div>
 
-      <Toaster richColors closeButton position="top-center" />
+      <Toaster richColors closeButton position="top-right" />
     </div>
-  )
+  );
 }

@@ -1,14 +1,16 @@
-import { redirect } from 'next/navigation'
+import { redirect } from "next/navigation";
 
 type LegacyPostExamAliasProps = {
-  params: {
-    slug?: string[]
-  }
-}
+  params: Promise<{
+    slug?: string[];
+  }>;
+};
 
-export default function LegacyPostExamAliasPage({ params }: LegacyPostExamAliasProps) {
-  const slug = params.slug ?? []
-  const tail = slug.length > 0 ? `/${slug.join('/')}` : ''
-  redirect(`/admin-examination-management/post-examination${tail}`)
+export default async function LegacyPostExamAliasPage({
+  params,
+}: LegacyPostExamAliasProps) {
+  const { slug: slugParam } = await params;
+  const slug = slugParam ?? [];
+  const tail = slug.length > 0 ? `/${slug.join("/")}` : "";
+  redirect(`/admin-examination-management/post-examination${tail}`);
 }
-

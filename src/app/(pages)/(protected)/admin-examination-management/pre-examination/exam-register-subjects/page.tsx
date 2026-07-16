@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { Trash2 } from "lucide-react";
+import { BookOpen, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/common/components/select";
 import { DataTable } from "@/common/components/table";
+import { ConfirmDialog } from "@/common/components/feedback";
 import { StudentSearchSelect } from "@/common/components/student-search";
 import {
   deactivateRegisteredExamSubject,
@@ -195,6 +197,10 @@ export default function ExamRegisterSubjectsPage() {
   const [courseYearId, setCourseYearId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [photoError, setPhotoError] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AnyRow | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteReasonTouched, setDeleteReasonTouched] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const selectedStudent =
     selectedStudentRow ??
@@ -562,24 +568,59 @@ export default function ExamRegisterSubjectsPage() {
     }
   }
 
-  async function onDeleteRegistered(row: AnyRow) {
+  /** Angular deleteExamSubject — open confirmation with reason before deactivate */
+  function openDeleteConfirmation(row: AnyRow) {
+    setDeleteTarget(row);
+    setDeleteReason("");
+    setDeleteReasonTouched(false);
+  }
+
+  function closeDeleteConfirmation() {
+    if (deleting) return;
+    setDeleteTarget(null);
+    setDeleteReason("");
+    setDeleteReasonTouched(false);
+  }
+
+  async function confirmDeleteRegistered() {
+    setDeleteReasonTouched(true);
+    const reason = deleteReason.trim();
+    if (!reason) return;
+
+    const row = deleteTarget;
+    if (!row || !selectedStudent || !examId) return;
+
+    // Angular: item.examStdDetId
     const detailId = num(
-      row.examStudentDetailId ??
+      row.examStdDetId ??
+        row.examStudentDetailId ??
         row.examStdDetailId ??
         row.exam_student_detail_id ??
         row.id,
     );
-    if (!detailId || !selectedStudent || !examId) return;
+    if (!detailId) {
+      toastError("Missing exam subject detail id");
+      return;
+    }
+
+    setDeleting(true);
     try {
-      await deactivateRegisteredExamSubject(detailId);
+      await deactivateRegisteredExamSubject(detailId, reason);
       toastSuccess("Subject removed");
+      setDeleteTarget(null);
+      setDeleteReason("");
+      setDeleteReasonTouched(false);
       const reg = await listRegisteredExamSubjects(
         num(selectedStudent.studentId ?? selectedStudent.id),
         num(examId),
       ).catch(() => []);
-      setRegisteredSubjects(Array.isArray(reg) ? reg : []);
+      const registered = Array.isArray(reg) ? reg : [];
+      setRegisteredSubjects(registered);
+      applyChecks(subjects, registered);
     } catch (e: unknown) {
       toastError(e, "Failed to delete subject");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -646,13 +687,46 @@ export default function ExamRegisterSubjectsPage() {
         width: 90,
         flex: 0,
         sortable: false,
-        cellRenderer: makeDeleteRenderer(onDeleteRegistered),
+        cellRenderer: makeDeleteRenderer(openDeleteConfirmation),
       },
     ],
-    // onDeleteRegistered closes over selectedStudent / examId
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedStudent, examId],
+    [],
   );
+
+  const deleteCourseLabel = deleteTarget
+    ? [
+        text(
+          deleteTarget.collegeCode,
+          deleteTarget.college_code,
+          selectedStudent?.collegeCode,
+        ),
+        text(deleteTarget.courseYearName, deleteTarget.course_year_name),
+      ]
+        .filter(Boolean)
+        .join(" / ")
+    : "";
+
+  const deleteSubjectName =
+    text(
+      deleteTarget?.subjectName,
+      deleteTarget?.subject_name,
+      deleteTarget?.Subject_name,
+    ) || "-";
+  const deleteSubjectCode = text(
+    deleteTarget?.subjectCode,
+    deleteTarget?.subject_code,
+    deleteTarget?.Subject_code,
+  );
+  const deleteSubjectType =
+    subjectTypeCode(deleteTarget ?? {}) ||
+    text(deleteTarget?.subjecttypeCode) ||
+    "-";
+  const deleteCredits = text(
+    deleteTarget?.credits,
+    deleteTarget?.subCredits,
+    deleteTarget?.creditPoints,
+  );
+  const deleteReasonInvalid = deleteReasonTouched && !deleteReason.trim();
 
   return (
     <FilteredPage
@@ -865,6 +939,7 @@ export default function ExamRegisterSubjectsPage() {
           {registeredSubjects.length > 0 && (
             <div className="space-y-2">
               <DataTable
+                title=""
                 rowData={registeredSubjects}
                 columnDefs={registeredColumnDefs}
                 pagination
@@ -874,6 +949,82 @@ export default function ExamRegisterSubjectsPage() {
           )}
         </>
       )}
+
+      {/* Angular ConfirmationComponent — Delete Subject Confirmation */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Subject Confirmation"
+        headerIcon={<BookOpen className="h-5 w-5 shrink-0 text-primary" />}
+        contentClassName="sm:max-w-[700px]"
+        confirmLabel="Yes"
+        cancelLabel="No"
+        confirmVariant="default"
+        showCloseButton={false}
+        isLoading={deleting}
+        onConfirm={() => void confirmDeleteRegistered()}
+        onCancel={closeDeleteConfirmation}
+      >
+        <div className="space-y-4">
+          <div className="rounded border-2 border-[#c3d9ff] p-3 text-[13px] leading-6">
+            <div className="grid grid-cols-[110px_1fr] gap-x-2 gap-y-1">
+              <span className="font-medium">Course</span>
+              <span>
+                :{" "}
+                <span className="text-[#0d29ff]">
+                  {deleteCourseLabel || "-"}
+                </span>
+              </span>
+
+              <span className="font-medium">Subject</span>
+              <span>
+                :{" "}
+                <span className="text-[#0d29ff]">
+                  {deleteSubjectName}
+                  {deleteSubjectCode ? (
+                    <span className="text-gray-500">
+                      {" "}
+                      ({deleteSubjectCode})
+                    </span>
+                  ) : null}
+                </span>
+              </span>
+
+              <span className="font-medium">Subject Type</span>
+              <span>
+                : <span className="text-[#0d29ff]">{deleteSubjectType}</span>
+              </span>
+
+              <span className="font-medium">Credits</span>
+              <span>
+                : <span className="text-[#0d29ff]">{deleteCredits}</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="delete-subject-reason">
+              Reason <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="delete-subject-reason"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              onBlur={() => setDeleteReasonTouched(true)}
+              placeholder="Reason"
+              disabled={deleting}
+              aria-invalid={deleteReasonInvalid}
+              className={
+                deleteReasonInvalid
+                  ? "border-destructive focus:border-destructive"
+                  : undefined
+              }
+            />
+            {deleteReasonInvalid ? (
+              <p className="text-xs text-destructive">Reason is required</p>
+            ) : null}
+          </div>
+        </div>
+      </ConfirmDialog>
     </FilteredPage>
   );
 }
