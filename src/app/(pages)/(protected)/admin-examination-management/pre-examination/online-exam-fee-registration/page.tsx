@@ -361,7 +361,7 @@ export default function OnlineExamFeeRegistrationPage() {
   return (
     <FilteredListPage
       title="Exam Fee Registrations"
-      filters={(
+      filters={
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="md:col-span-2 space-y-1">
             <Label>Course *</Label>
@@ -431,7 +431,7 @@ export default function OnlineExamFeeRegistrationPage() {
             </Button>
           </div>
         </div>
-      )}
+      }
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={tableLoading}
@@ -443,18 +443,6 @@ export default function OnlineExamFeeRegistrationPage() {
         searchPlaceholder: "Search registrations…",
         pdfDocumentTitle: "Exam Fee Registrations",
       }}
-      toolbarTrailing={(
-        <Button
-          type="button"
-          size="sm"
-          onClick={onRegister}
-          disabled={!collegeId || !examId}
-          className="h-[30px] px-3 text-[12px]"
-        >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
-          Register
-        </Button>
-      )}
     >
       <Dialog open={subjectsOpen} onOpenChange={setSubjectsOpen}>
         <DialogContent className="max-w-3xl">
