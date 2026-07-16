@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -11,17 +12,40 @@ import { format, parseISO } from "date-fns";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import {
   getExamHalltickets,
+  getStudentExamHallticketDetail,
   listExamMastersByCourse,
+  listStudentPortalExams,
+  resolveStudentPortalProfile,
   getUnivExamFiltersRegSup,
   getUnivExamRestNoTt,
-  listStudents,
-} from "@/services/pre-examination";
+  STUDENT_HALLTICKET_PRINT_STORAGE_KEY,
+  searchStudentsByKeyword,
+} from "@/services";
 import { FilteredListPage } from "@/components/layout";
 import { useSessionContext } from "@/context/SessionContext";
 import { useHallticketPrint } from "./_print/useHallticketPrint";
 import { Printer } from "lucide-react";
+import { MINIO_URL } from "@/config/constants/api";
 
 type AnyRow = Record<string, any>;
+
+function studentPhotoUrl(path: unknown): string {
+  const p = String(path ?? "").trim();
+  if (!p) return defaultStudent.src;
+  if (/^(https?:\/\/|data:)/i.test(p)) return p;
+  const base =
+    MINIO_URL ||
+    (typeof globalThis !== "undefined"
+      ? String(globalThis.localStorage?.getItem("MINIO") ?? "")
+      : "");
+  if (!base) return defaultStudent.src;
+  return `${base.replace(/\/?$/, "/")}${p.replace(/^\/+/, "")}`;
+}
+
+type ExamHallticketPageProps = {
+  /** Angular `examination-section/student-exam-hallticket` — logged-in student only. */
+  variant?: "admin" | "studentPortal";
+};
 
 // ── Column shape ─────────────────────────────────────────────────────────────
 function formatExamDateDisplay(value: unknown): string {
@@ -74,7 +98,6 @@ const STUDENT_HALLTICKET_COL_DEFS: ColDef[] = [
   },
   { field: "subject_code", headerName: "Subject Code", minWidth: 130 },
   { field: "subject_name", headerName: "Subject Name", flex: 1, minWidth: 160 },
-  { field: "subjecttype", headerName: " Subject Type", width: 90, flex: 0 },
 ];
 
 function makeSectionPrintRenderer(onPrint: (rows: AnyRow[]) => void) {
@@ -267,7 +290,79 @@ function filterAmsLabRows(rows: AnyRow[], orgCode: string): AnyRow[] {
   );
 }
 
-export default function ExamHallticketPage() {
+/**
+ * Flatten Angular examhallticket subjectDTOList into table rows.
+ * Must strip nested subjectDTOList from the header — otherwise
+ * normalizeHallticketRows re-expands each row (7 subjects → 49 rows).
+ */
+function mapStudentPortalSubjectRows(
+  detail: AnyRow,
+  subjects: AnyRow[],
+): AnyRow[] {
+  const {
+    subjectDTOList: _subjectDTOList,
+    subjects: _subjects,
+    examStudentDetailDTOs: _examStudentDetailDTOs,
+    examStudentDetails: _examStudentDetails,
+    examStudentDetailList: _examStudentDetailList,
+    examSessionDTOList: _examSessionDTOList,
+    ...header
+  } = detail;
+
+  return subjects.map((s) => {
+    const {
+      subjectDTOList: _nestedList,
+      subjects: _nestedSubjects,
+      omrBarcode: _omrBarcode,
+      ...subject
+    } = s;
+    return {
+      ...header,
+      ...subject,
+      exam_date:
+        subject.examDate ??
+        subject.exam_date ??
+        header.exam_date ??
+        header.examDate,
+      subject_code: subject.subjectCode ?? subject.subject_code,
+      subject_name: subject.subjectName ?? subject.subject_name,
+      session_start_time:
+        subject.sessionStartTime ??
+        subject.session_start_time ??
+        subject.start_time,
+      session_end_time:
+        subject.sessionEndTime ?? subject.session_end_time ?? subject.end_time,
+      subjecttype: subject.subjectType ?? subject.subjecttype,
+    };
+  });
+}
+
+export function ExamHallticketPage({
+  variant = "admin",
+}: ExamHallticketPageProps) {
+  const isStudentPortal = variant === "studentPortal";
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, isLoading: sessionLoading } = useSessionContext();
+  const urlStudentId = searchParams.get("studentId") ?? "";
+  const urlExamId = searchParams.get("examId") ?? "";
+  const sessionStudentId = user?.studentId ?? null;
+  const sessionCollegeId = user?.collegeId ?? null;
+  const sessionUserId = user?.userId ?? null;
+  const sessionFirstName = user?.firstName ?? "";
+  const sessionUserName = user?.userName ?? "";
+  // Single key keeps useEffect deps length fixed across Fast Refresh edits.
+  const studentPortalInitKey = [
+    isStudentPortal ? "1" : "0",
+    sessionLoading ? "1" : "0",
+    urlStudentId,
+    urlExamId,
+    String(sessionStudentId ?? ""),
+    String(sessionCollegeId ?? ""),
+    String(sessionUserId ?? ""),
+    sessionFirstName,
+    sessionUserName,
+  ].join("\0");
   const [mode, setMode] = useState<"student" | "section">("student");
   const [loading, setLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
@@ -288,6 +383,9 @@ export default function ExamHallticketPage() {
   const [courseYearId, setCourseYearId] = useState<number | null>(null);
 
   const [rows, setRows] = useState<AnyRow[]>([]);
+  const [hallticketPrintData, setHallticketPrintData] = useState<AnyRow | null>(
+    null,
+  );
 
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
@@ -349,19 +447,26 @@ export default function ExamHallticketPage() {
   );
   const studentExamOptions = useMemo(
     () =>
-      dedupeBy(studentExams, (r) => Number(r.fk_exam_id ?? r.examId ?? r.id))
-        .filter((r) => Number(r.fk_exam_id ?? r.examId ?? r.id) > 0)
-        .map((r) => ({
-          id: Number(r.fk_exam_id ?? r.examId ?? r.id),
-          label: `${String(r.exam_name ?? r.examName ?? `Exam ${r.fk_exam_id ?? r.examId ?? r.id}`)}${
-            formatRangeDate(r.from_date ?? r.fromDate) &&
-            formatRangeDate(r.to_date ?? r.toDate)
-              ? ` (${formatRangeDate(r.from_date ?? r.fromDate)} - ${formatRangeDate(r.to_date ?? r.toDate)})`
-              : ""
-          }${r.is_regular_exam || r.isRegularExam ? " (Regular)" : ""}${
-            r.is_supply_exam || r.isSupplyExam ? " (Supple)" : ""
-          }`,
-        })),
+      dedupeBy(studentExams, (r) =>
+        Number(r.examId ?? r.exam_id ?? r.fk_exam_id ?? r.id),
+      )
+        .filter(
+          (r) => Number(r.examId ?? r.exam_id ?? r.fk_exam_id ?? r.id) > 0,
+        )
+        .map((r) => {
+          const id = Number(r.examId ?? r.exam_id ?? r.fk_exam_id ?? r.id);
+          return {
+            id,
+            label: `${String(r.examName ?? r.exam_name ?? `Exam ${id}`)}${
+              formatRangeDate(r.from_date ?? r.fromDate) &&
+              formatRangeDate(r.to_date ?? r.toDate)
+                ? ` (${formatRangeDate(r.from_date ?? r.fromDate)} - ${formatRangeDate(r.to_date ?? r.toDate)})`
+                : ""
+            }${r.is_regular_exam || r.isRegularExam ? " (Regular)" : ""}${
+              r.is_supply_exam || r.isSupplyExam ? " (Supple)" : ""
+            }`,
+          };
+        }),
     [studentExams],
   );
   const selectedStudent = useMemo(
@@ -407,9 +512,44 @@ export default function ExamHallticketPage() {
     mode === "section" ? sectionSubjectRows : studentDisplayRows;
 
   // Printable HALL TICKET documents (Angular print section) — grouped per student.
-  const { user } = useSessionContext();
   const { printMode, printButton, printStudent, printView } =
-    useHallticketPrint(rowsForPrint, user?.universityCode ?? "");
+    useHallticketPrint(
+      isStudentPortal ? [] : rowsForPrint,
+      user?.universityCode ?? "",
+    );
+
+  function handleStudentPortalPrint() {
+    if (!studentId || !studentExamId) return;
+    // Never put hall-ticket JSON in the URL — subject omrBarcode base64 blobs
+    // make the query string huge and Next.js returns HTTP 431.
+    // Print page loads via sessionStorage and/or GET examhallticket?examId&studentId.
+    if (hallticketPrintData && typeof globalThis !== "undefined") {
+      const subjects = (
+        (hallticketPrintData.subjectDTOList ??
+          hallticketPrintData.subjects ??
+          studentDisplayRows) as AnyRow[]
+      ).map((s) => {
+        const { omrBarcode: _omit, ...rest } = s;
+        return rest;
+      });
+      const payload = {
+        ...hallticketPrintData,
+        subjectDTOList: subjects,
+      };
+      delete (payload as AnyRow).omrBarcode;
+      globalThis.sessionStorage.setItem(
+        STUDENT_HALLTICKET_PRINT_STORAGE_KEY,
+        JSON.stringify(payload),
+      );
+    }
+    const qs = new URLSearchParams({
+      examId: String(studentExamId),
+      studentId: String(studentId),
+    });
+    router.push(
+      `/examination-section/student-exam-hallticket/print-hallticket?${qs.toString()}`,
+    );
+  }
 
   const sectionColumnDefs = useMemo<ColDef[]>(
     () => [
@@ -501,7 +641,7 @@ export default function ExamHallticketPage() {
     if (q.length < 5) return;
     setStudentSearchLoading(true);
     try {
-      const data = await listStudents(q).catch(() => []);
+      const data = await searchStudentsByKeyword(q).catch(() => []);
       setStudents(Array.isArray(data) ? data : []);
     } finally {
       setStudentSearchLoading(false);
@@ -565,6 +705,23 @@ export default function ExamHallticketPage() {
       setLoading(true);
       setHasFetched(true);
       try {
+        if (isStudentPortal) {
+          const result = await getStudentExamHallticketDetail(
+            studentExamId,
+            studentId,
+          );
+          if (result) {
+            setHallticketPrintData(result.detail);
+            setRows(
+              mapStudentPortalSubjectRows(result.detail, result.subjects),
+            );
+          } else {
+            setHallticketPrintData(null);
+            setRows([]);
+          }
+          return;
+        }
+
         const data = await getExamHalltickets({
           examId: studentExamId,
           studentId,
@@ -574,15 +731,91 @@ export default function ExamHallticketPage() {
           courseGroupId: 0,
           courseYearId: 0,
         });
+        setHallticketPrintData(null);
         setRows(Array.isArray(data) ? data : []);
       } catch {
+        setHallticketPrintData(null);
         setRows([]);
       } finally {
         setLoading(false);
       }
     }
     void autoLoadStudentHallticket();
-  }, [mode, studentId, studentExamId]);
+  }, [mode, studentId, studentExamId, isStudentPortal]);
+
+  useEffect(() => {
+    if (!isStudentPortal || sessionLoading) return;
+
+    async function initStudentPortal() {
+      setMode("student");
+      setLoading(true);
+      try {
+        const profile = await resolveStudentPortalProfile({
+          userId: sessionUserId,
+          studentId:
+            Number(
+              urlStudentId ||
+                sessionStudentId ||
+                globalThis?.localStorage?.getItem("studentId") ||
+                0,
+            ) || null,
+          userName: sessionUserName,
+        });
+        if (!profile) return;
+
+        const sid = Number(profile.studentId ?? profile.id ?? 0);
+        if (!sid) return;
+
+        const cid = Number(
+          profile.collegeId ??
+            profile.college_id ??
+            sessionCollegeId ??
+            globalThis?.localStorage?.getItem("collegeId") ??
+            0,
+        );
+        const courseId = Number(
+          profile.courseId ?? profile.course_id ?? profile.fk_course_id ?? 0,
+        );
+
+        if (typeof globalThis !== "undefined") {
+          globalThis.localStorage.setItem("studentId", String(sid));
+          if (cid > 0)
+            globalThis.localStorage.setItem("collegeId", String(cid));
+          if (courseId > 0)
+            globalThis.localStorage.setItem("courseId", String(courseId));
+          const roll = String(
+            profile.rollNumber ?? profile.hallticketNumber ?? "",
+          ).trim();
+          if (roll) globalThis.localStorage.setItem("rollNumber", roll);
+        }
+
+        setStudentId(sid);
+        setStudents([profile]);
+
+        const exams = await listStudentPortalExams(cid, sid, courseId);
+        setStudentExams(exams);
+
+        const examFromUrl = Number(urlExamId || 0);
+        if (examFromUrl > 0) {
+          setStudentExamId(examFromUrl);
+        } else if (exams.length === 1) {
+          setStudentExamId(
+            Number(
+              exams[0]?.examId ??
+                exams[0]?.exam_id ??
+                exams[0]?.fk_exam_id ??
+                0,
+            ) || null,
+          );
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void initStudentPortal();
+    // Single fixed-length dep — multi-value arrays change size under Fast Refresh.
+  }, [studentPortalInitKey]);
 
   const showTable =
     hasFetched ||
@@ -592,108 +825,139 @@ export default function ExamHallticketPage() {
 
   // While the print dialog is open, replace the page with the hall-ticket
   // documents (AppShell @media print rules hide the app chrome).
-  if (printMode) return <>{printView}</>;
+  if (printMode && !isStudentPortal) return <>{printView}</>;
 
   return (
     <FilteredListPage
       title="Exam Hallticket"
-      notice={
-        mode === "student" && !!selectedStudent && !!studentExamId ? (
-          <div className="rounded border border-blue-200 bg-blue-50/40 p-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
-              <div className="md:col-span-2 flex justify-center">
-                <img
-                  src={selectedStudent?.studentPhotoPath || defaultStudent.src}
-                  alt="Student"
-                  className="h-24 w-24 rounded object-cover border"
-                  onError={(e) => {
-                    e.currentTarget.src = defaultStudent.src;
-                  }}
-                />
-              </div>
-              <div className="md:col-span-7 text-[12px] leading-6">
-                <div className="font-semibold">
-                  {selectedStudent.firstName ?? selectedStudent.studentName ?? "-"}{" "}
-                  (
-                  <span className="text-blue-700">
-                    {selectedStudent.isLateral ? "LATERAL" : "REGULAR"}
-                  </span>
-                  )
-                </div>
-                <div className="text-muted-foreground">
-                  {selectedStudent.hallticketNumber ?? selectedStudent.rollNumber ?? "-"}
-                </div>
-                <div className="text-muted-foreground">
-                  {selectedStudent.collegeCode ?? "-"} / {selectedStudent.academicYear ?? "-"} /{" "}
-                  {selectedStudent.courseCode ?? "-"} / {selectedStudent.groupCode ?? "-"} /{" "}
-                  {selectedStudent.courseYearName ?? "-"} / Section {selectedStudent.section ?? "-"}
-                </div>
-                <div className="text-muted-foreground">{selectedStudent.mobile ?? "-"}</div>
-              </div>
-              <div className="md:col-span-3 text-[12px] leading-7">
-                <div>
-                  Quota :{" "}
-                  <span className="text-blue-700">{selectedStudent.quotaDisplayName ?? "-"}</span>
-                </div>
-                <div>
-                  Student Status :{" "}
-                  <span className="text-green-700 font-medium">
-                    {selectedStudent.studentStatusDisplayName ?? "-"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null
-      }
-      filters={(
+      filters={
         <div className="space-y-2">
-          <RadioGroup
-            value={mode}
-            onValueChange={(v) => {
-              const next = (v as "student" | "section") || "student";
-              setMode(next);
-              setRows([]);
-              setHasFetched(false);
-              if (next === "section") initSectionFilters();
-            }}
-            className="flex gap-6"
-          >
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="student" id="by-student" />
-              <Label htmlFor="by-student">Hallticket By Student</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="section" id="by-section" />
-              <Label htmlFor="by-section">Hallticket By Section</Label>
-            </div>
-          </RadioGroup>
+          {!isStudentPortal && (
+            <RadioGroup
+              value={mode}
+              onValueChange={(v) => {
+                const next = (v as "student" | "section") || "student";
+                setMode(next);
+                setRows([]);
+                setHasFetched(false);
+                if (next === "section") initSectionFilters();
+              }}
+              className="flex gap-6"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="student" id="by-student" />
+                <Label htmlFor="by-student">Hallticket By Student</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="section" id="by-section" />
+                <Label htmlFor="by-section">Hallticket By Section</Label>
+              </div>
+            </RadioGroup>
+          )}
 
           {mode === "student" && (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
-              <div className="md:col-span-4 space-y-1">
-                <StudentSearchSelect
-                  label="Student"
-                  value={studentId}
-                  students={students}
-                  selectedStudent={selectedStudent}
-                  isLoading={studentSearchLoading}
-                  onSearch={(term) => void searchStudents(term)}
-                  onChange={(id, row) => void onStudentSelect(id, row)}
-                />
-              </div>
-              <div className="md:col-span-7 space-y-1">
-                <Label>Exam</Label>
-                <Select
-                  value={studentExamId ? String(studentExamId) : null}
-                  onChange={(v) => setStudentExamId(v ? Number(v) : null)}
-                  options={studentExamOptions.map((e) => ({
-                    value: String(e.id),
-                    label: e.label,
-                  }))}
-                  placeholder="Exam"
-                />
-              </div>
+            <div className="space-y-2">
+              {!isStudentPortal ? (
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+                  <div className="md:col-span-4 space-y-1">
+                    <StudentSearchSelect
+                      label="Student"
+                      value={studentId}
+                      students={students}
+                      selectedStudent={selectedStudent}
+                      isLoading={studentSearchLoading}
+                      onSearch={(term) => void searchStudents(term)}
+                      onChange={(id, row) => void onStudentSelect(id, row)}
+                    />
+                  </div>
+                  <div className="md:col-span-7 space-y-1">
+                    <Label>Exam</Label>
+                    <Select
+                      value={studentExamId ? String(studentExamId) : null}
+                      onChange={(v) => setStudentExamId(v ? Number(v) : null)}
+                      options={studentExamOptions.map((e) => ({
+                        value: String(e.id),
+                        label: e.label,
+                      }))}
+                      placeholder="Exam"
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* Angular: mat-form-field fxFlex.gt-xs="60" fxFlex.gt-md="60" */
+                <div className="w-full sm:w-[60%] space-y-1">
+                  <Label>Exam</Label>
+                  <Select
+                    value={studentExamId ? String(studentExamId) : null}
+                    onChange={(v) => setStudentExamId(v ? Number(v) : null)}
+                    options={studentExamOptions.map((e) => ({
+                      value: String(e.id),
+                      label: e.label,
+                    }))}
+                    placeholder="Exam"
+                  />
+                </div>
+              )}
+
+              {/* Angular: student card sits below the Exam dropdown after selection */}
+              {!!selectedStudent && !!studentExamId && (
+                <div className="rounded border border-blue-200 bg-blue-50/40 p-3">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+                    <div className="md:col-span-2 flex justify-center">
+                      <img
+                        src={studentPhotoUrl(selectedStudent?.studentPhotoPath)}
+                        alt="Student"
+                        className="h-24 w-24 rounded object-cover border"
+                        onError={(e) => {
+                          e.currentTarget.src = defaultStudent.src;
+                        }}
+                      />
+                    </div>
+                    <div className="md:col-span-7 text-[12px] leading-6">
+                      <div className="font-semibold">
+                        {selectedStudent.firstName ??
+                          selectedStudent.studentName ??
+                          "-"}{" "}
+                        (
+                        <span className="text-blue-700">
+                          {selectedStudent.isLateral ? "LATERAL" : "REGULAR"}
+                        </span>
+                        )
+                      </div>
+                      <div className="text-muted-foreground">
+                        {selectedStudent.hallticketNumber ??
+                          selectedStudent.rollNumber ??
+                          "-"}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {selectedStudent.collegeCode ?? "-"} /{" "}
+                        {selectedStudent.academicYear ?? "-"} /{" "}
+                        {selectedStudent.courseCode ?? "-"} /{" "}
+                        {selectedStudent.groupCode ?? "-"} /{" "}
+                        {selectedStudent.courseYearName ?? "-"} / Section{" "}
+                        {selectedStudent.section ?? "-"}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {selectedStudent.mobile ?? "-"}
+                      </div>
+                    </div>
+                    <div className="md:col-span-3 text-[12px] leading-7">
+                      <div>
+                        Quota :{" "}
+                        <span className="text-blue-700">
+                          {selectedStudent.quotaDisplayName ?? "-"}
+                        </span>
+                      </div>
+                      <div>
+                        Student Status :{" "}
+                        <span className="text-green-700 font-medium">
+                          {selectedStudent.studentStatusDisplayName ?? "-"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -799,7 +1063,7 @@ export default function ExamHallticketPage() {
             </div>
           )}
         </div>
-      )}
+      }
       rowData={
         showTable
           ? mode === "student"
@@ -807,18 +1071,40 @@ export default function ExamHallticketPage() {
             : sectionTableRows
           : []
       }
-      columnDefs={mode === "student" ? STUDENT_HALLTICKET_COL_DEFS : sectionColumnDefs}
+      columnDefs={
+        mode === "student" ? STUDENT_HALLTICKET_COL_DEFS : sectionColumnDefs
+      }
       loading={loading}
       pagination
       toolbar={{ pdfDocumentTitle: "Exam hallticket list" }}
-      toolbarLeading={(
+      toolbarLeading={
         <span className="text-[12px] text-muted-foreground whitespace-nowrap">
           {mode === "student"
             ? `${studentDisplayRows.length} records`
             : `${sectionTableRows.length} students`}
         </span>
-      )}
-      toolbarTrailing={printButton(mode === "student" ? "Print" : "Print All")}
+      }
+      toolbarTrailing={
+        isStudentPortal && mode === "student" ? (
+          studentDisplayRows.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 px-3 text-[12px]"
+              onClick={handleStudentPortalPrint}
+            >
+              <Printer className="mr-1 h-3.5 w-3.5" />
+              Print
+            </Button>
+          ) : null
+        ) : (
+          printButton(mode === "student" ? "Print" : "Print All")
+        )
+      }
     />
   );
+}
+
+export default function ExamHallticketAdminPage() {
+  return <ExamHallticketPage />;
 }

@@ -1,4 +1,6 @@
 import type { NextConfig } from "next";
+import navRouteRedirects from "./src/lib/generated/nav-route-redirects.json";
+import navRouteRewrites from "./src/lib/generated/nav-route-rewrites.json";
 
 const nextConfig: NextConfig = {
   // Emit a self-contained deployable at .next/standalone (server.js + minimal
@@ -10,6 +12,12 @@ const nextConfig: NextConfig = {
   },
   turbopack: {
     root: __dirname,
+  },
+  async redirects() {
+    return navRouteRedirects;
+  },
+  async rewrites() {
+    return navRouteRewrites;
   },
   async headers() {
     return [

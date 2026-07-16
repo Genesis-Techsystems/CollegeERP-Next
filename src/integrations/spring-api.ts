@@ -108,3 +108,34 @@ export async function springGetEmployeeByUserId(
   if (!body?.success || !body.data) return null
   return body.data
 }
+
+/**
+ * Resolve the student record for a user — Angular login getStudent():
+ * GET studentdetail?userId=<id>. The /api/authorization response often omits
+ * studentId; this endpoint provides it for student/parent portal users.
+ */
+export async function springGetStudentByUserId(
+  jwt: string,
+  userId: number,
+): Promise<Record<string, unknown> | null> {
+  if (!userId) return null
+  const url = `${process.env.SPRING_API_URL}/studentdetail?userId=${userId}`
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+    })
+  } catch {
+    return null
+  }
+  if (!res.ok) return null
+  const body = (await res.json().catch(() => null)) as
+    | { success?: boolean; data?: Record<string, unknown> | Record<string, unknown>[] }
+    | null
+  if (!body?.success || !body.data) return null
+  if (Array.isArray(body.data)) {
+    return (body.data[0] as Record<string, unknown> | undefined) ?? null
+  }
+  return body.data as Record<string, unknown>
+}

@@ -1,21 +1,21 @@
-'use client'
+"use client";
 
-import { createContext, useContext, type ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { SessionUser } from '@/types/user'
-import { useSession } from '@/hooks/useSession'
+import { createContext, useContext, type ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { SessionUser } from "@/types/user";
+import { useSession } from "@/hooks/useSession";
 
 interface SessionContextValue {
-  user: SessionUser | null
-  isLoading: boolean
-  refetch: () => void
+  user: SessionUser | null;
+  isLoading: boolean;
+  refetch: () => void;
 }
 
 const SessionContext = createContext<SessionContextValue>({
   user: null,
   isLoading: true,
   refetch: () => {},
-})
+});
 
 // Mirror the logged-in user's key fields into localStorage so the many pages
 // that read localStorage.getItem('employeeId'/'organizationId'/…) (Angular
@@ -23,23 +23,26 @@ const SessionContext = createContext<SessionContextValue>({
 // Done in render (idempotent, only writes when changed) so the values are set
 // before child pages' effects fire.
 function syncUserToLocalStorage(user: SessionUser): void {
-  if (typeof window === 'undefined') return
+  if (typeof window === "undefined") return;
   const pairs: Array<[string, unknown]> = [
-    ['employeeId', user.employeeId],
-    ['organizationId', user.organizationId],
+    ["employeeId", user.employeeId],
+    ["organizationId", user.organizationId],
     // Angular login: localStorage.orgCode = organizationCode
-    ['orgCode', user.organizationCode],
-    ['universityCode', user.universityCode],
-    ['collegeId', user.collegeId],
-    ['academicYearId', user.academicYearId],
-    ['userId', user.userId],
-    ['userName', user.userName],
-    ['userRole', user.userRole],
-  ]
+    ["orgCode", user.organizationCode],
+    ["universityCode", user.universityCode],
+    ["collegeId", user.collegeId],
+    ["academicYearId", user.academicYearId],
+    ["userId", user.userId],
+    ["userName", user.userName],
+    ["userRole", user.userRole],
+    ["studentId", user.studentId],
+    ["rollNumber", user.userName],
+  ];
   for (const [key, value] of pairs) {
-    if (value == null || value === '') continue
-    const next = String(value)
-    if (window.localStorage.getItem(key) !== next) window.localStorage.setItem(key, next)
+    if (value == null || value === "") continue;
+    const next = String(value);
+    if (window.localStorage.getItem(key) !== next)
+      window.localStorage.setItem(key, next);
   }
 }
 
@@ -48,22 +51,24 @@ function SessionProviderInner({
   children,
   initialUser,
 }: {
-  children: ReactNode
-  initialUser?: SessionUser | null
+  children: ReactNode;
+  initialUser?: SessionUser | null;
 }) {
-  const session = useSession()
+  const session = useSession();
 
   // Use initialUser from server-side props to avoid loading flash
-  const user = session.user ?? initialUser ?? null
-  const isLoading = session.isLoading && !initialUser
+  const user = session.user ?? initialUser ?? null;
+  const isLoading = session.isLoading && !initialUser;
 
-  if (user) syncUserToLocalStorage(user)
+  if (user) syncUserToLocalStorage(user);
 
   return (
-    <SessionContext.Provider value={{ user, isLoading, refetch: session.refetch }}>
+    <SessionContext.Provider
+      value={{ user, isLoading, refetch: session.refetch }}
+    >
       {children}
     </SessionContext.Provider>
-  )
+  );
 }
 
 const queryClient = new QueryClient({
@@ -73,22 +78,24 @@ const queryClient = new QueryClient({
       retry: false,
     },
   },
-})
+});
 
 export function SessionProvider({
   children,
   initialUser,
 }: {
-  children: ReactNode
-  initialUser?: SessionUser | null
+  children: ReactNode;
+  initialUser?: SessionUser | null;
 }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <SessionProviderInner initialUser={initialUser}>{children}</SessionProviderInner>
+      <SessionProviderInner initialUser={initialUser}>
+        {children}
+      </SessionProviderInner>
     </QueryClientProvider>
-  )
+  );
 }
 
 export function useSessionContext() {
-  return useContext(SessionContext)
+  return useContext(SessionContext);
 }

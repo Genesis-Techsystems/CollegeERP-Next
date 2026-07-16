@@ -1,0 +1,11 @@
+{
+  "/admin-examination-management/pre-examination/online-exam-fee-registration": "Online Exam Fee Registrations",
+  "/admin-examination-management/pre-examination/student-exam-fee-registration": "Student Exam Fee Collection",
+  "/admin-examination-management/pre-examination/additional-exam-fees": "Additional Exam Fees",
+  "/admin-examination-management/pre-examination/invigilator-allotment": "Exam Invigilator Allotment",
+  "/admin-examination-management/pre-examination/exam-subject-barcode-generation": "Exam Subject Barcode Generation",
+  "/admin-examination-management/pre-examination/student-exam-lab-batches": "Student Exam Lab Batches",
+  "/admin-examination-management/exam-reports/evaluators-bank-copy-report": "Evaluators Bank Copy Report",
+  "/admin-student-information-system/students-list": "Student Details",
+  "/admin-student-information-system/generate-student-rollno": "Generate Student Roll No."
+}

@@ -1428,17 +1428,38 @@ export async function listCollegesByOrganization(organizationId: number): Promis
   return []
 }
 
+function pickStudentDetailRow(data: unknown): AnyRow | null {
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const obj = data as AnyRow
+    if (Array.isArray(obj.resultList) && obj.resultList.length > 0) {
+      return obj.resultList[0] as AnyRow
+    }
+    return obj
+  }
+  if (Array.isArray(data) && data.length > 0) return data[0] as AnyRow
+  return null
+}
+
 /** Legacy GET: /studentdetail?studentId= */
 export async function fetchStudentDetail(studentId: number): Promise<AnyRow | null> {
   if (!studentId) return null
   try {
     const data = await fetchDetails<any>('studentdetail', { studentId })
-    if (data && typeof data === 'object' && !Array.isArray(data)) return data as AnyRow
-    if (Array.isArray(data) && data.length > 0) return data[0] as AnyRow
+    return pickStudentDetailRow(data)
   } catch {
     return null
   }
-  return null
+}
+
+/** Angular login getStudent(userId) — GET /studentdetail?userId= */
+export async function fetchStudentDetailByUserId(userId: number): Promise<AnyRow | null> {
+  if (!userId) return null
+  try {
+    const data = await fetchDetails<any>('studentdetail', { userId })
+    return pickStudentDetailRow(data)
+  } catch {
+    return null
+  }
 }
 
 export async function listStudentRegulationsByCourse(courseId: number): Promise<AnyRow[]> {

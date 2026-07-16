@@ -102,7 +102,7 @@ function printProfileReports(
         <div class="page-align page-break">
           ${banner}
           <div>
-            <p class="collegeName">Evaluator Remuneration Report </p>
+            <p class="collegeName">Evaluators Bank Copy Report </p>
             <p class="title">${escapeHtml(examName)} </p>
           </div>
           <div>
@@ -149,7 +149,7 @@ function printProfileReports(
     .join("");
 
   // Styles mirror Angular evaluators-bank-copy-report.component.scss @media print
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Evaluator Remuneration Report</title>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Evaluators Bank Copy Report</title>
 <style>
   @page { size: A4 portrait; margin: 10mm; }
   * { box-sizing: border-box; }
@@ -709,9 +709,9 @@ export default function EvaluatorsBankCopyReportPage() {
       finalAmount: payableAmount(report.total_final_amount),
     }));
     exportHtmlTableAsExcel(
-      "Evaluator_Remuneration_Report",
+      "Evaluators_Bank_Copy_Report",
       buildHtmlTable(columns, data),
-      "<h3>Evaluator Remuneration Report</h3>",
+      "<h3>Evaluators Bank Copy Report</h3>",
     );
   }
 
@@ -936,10 +936,10 @@ export default function EvaluatorsBankCopyReportPage() {
   );
 
   return (
-    <FilteredPage title="Evaluator Remuneration Report" filters={filters}>
+    <FilteredPage title="Evaluators Bank Copy Report" filters={filters}>
       {rows.length > 0 && (
         <DataTable
-          title="Evaluator Remuneration Report"
+          title="Evaluators Bank Copy Report"
           rowData={rows}
           columnDefs={columnDefs}
           loading={loadingList}

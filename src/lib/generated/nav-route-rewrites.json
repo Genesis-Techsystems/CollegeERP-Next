@@ -1,0 +1,510 @@
+[
+  {
+    "source": "/academics/academic-batches-of-student",
+    "destination": "/academics/academic-batches"
+  },
+  {
+    "source": "/academics/college-curriculum/university-curriculum-regulation-subjects",
+    "destination": "/academics/college-curriculum/course-group-year-regulation-subject"
+  },
+  {
+    "source": "/academics/college-curriculum/assign-course-year-subjects",
+    "destination": "/academics/college-curriculum/subject-allocation"
+  },
+  {
+    "source": "/academics/college-curriculum/course-year-subject-association",
+    "destination": "/academics/college-curriculum/subject-allocation-sem-regulation"
+  },
+  {
+    "source": "/academics/modify-student-batches",
+    "destination": "/academics/modify-academic-batch"
+  },
+  {
+    "source": "/academics/subject-mapping/subjects-units",
+    "destination": "/academics/subject-mapping/add-subject-units"
+  },
+  {
+    "source": "/academics/subject-mapping/allocate-student-subjects",
+    "destination": "/academics/subject-mapping/allocate-student-subject"
+  },
+  {
+    "source": "/academics/subject-mapping/assign-regulation-to-student",
+    "destination": "/academics/subject-mapping/assign-regulation-to-students"
+  },
+  {
+    "source": "/academics/subject-mapping/assign-students-to-lab",
+    "destination": "/academics/subject-mapping/assign-students-to-lab-batches"
+  },
+  {
+    "source": "/academics/subject-mapping/staff-subject-mapping",
+    "destination": "/academics/subject-mapping/course-group-subjects-list"
+  },
+  {
+    "source": "/academics/subject-mapping/subjects-syllabus-plan",
+    "destination": "/academics/subject-mapping/subject-syllabus-plan"
+  },
+  {
+    "source": "/admin/bulk-uploads/employee-bulk-upload",
+    "destination": "/admin/bulk-uploads/employee-upload"
+  },
+  {
+    "source": "/admin/bulk-uploads/dost-upload",
+    "destination": "/admin/bulk-uploads/student-dost-upload"
+  },
+  {
+    "source": "/admin/bulk-uploads/student-bulk-upload",
+    "destination": "/admin/bulk-uploads/students-upload"
+  },
+  {
+    "source": "/admin/caste",
+    "destination": "/admin/caste-master"
+  },
+  {
+    "source": "/admin/auto-number-configuration",
+    "destination": "/admin/configure-auto-numbers"
+  },
+  {
+    "source": "/admin/semester",
+    "destination": "/admin/course-years"
+  },
+  {
+    "source": "/admin/document-repository-settings",
+    "destination": "/admin/document-repository"
+  },
+  {
+    "source": "/admin/section",
+    "destination": "/admin/group-sections"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-masters/exam-fee-structures",
+    "destination": "/admin-examination-management/admin-exam-masters/exam-fee-setup"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-masters/create-exam-notification",
+    "destination": "/admin-examination-management/admin-exam-masters/exam-master"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-masters/exam-marks-setup",
+    "destination": "/admin-examination-management/admin-exam-masters/exam-max-marks-setup"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-masters/create-exam-session",
+    "destination": "/admin-examination-management/admin-exam-masters/exam-session"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-masters/exam-university-timetable",
+    "destination": "/admin-examination-management/admin-exam-masters/exam-timetable"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-masters/exam-timetable-notification",
+    "destination": "/admin-examination-management/admin-exam-masters/exam-tt-notification"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-masters/exam-invigilator-remuneration",
+    "destination": "/admin-examination-management/admin-exam-masters/invigilator-remuneration"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-masters/exam-re-valuation-fee-setup",
+    "destination": "/admin-examination-management/admin-exam-masters/re-valuation-fee-setup"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-masters/exam-revision-master",
+    "destination": "/admin-examination-management/admin-exam-masters/revision-master"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-masters/exam-room-seating-plan",
+    "destination": "/admin-examination-management/admin-exam-masters/seating-plan-setup"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-masters/exam-setup-master",
+    "destination": "/admin-examination-management/admin-exam-masters/setup-master"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-reports/assignment-pending-list",
+    "destination": "/admin-examination-management/admin-exam-reports/assignment-pending-list-report"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-reports/batch-wise-sgpa-report",
+    "destination": "/admin-examination-management/admin-exam-reports/batchwise-sgpa-report"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-reports/invigilator-allotment-report",
+    "destination": "/admin-examination-management/admin-exam-reports/exam-invigilator-allotment-report"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-reports/final-marks-pre-moderation-report",
+    "destination": "/admin-examination-management/admin-exam-reports/final-marks-premoderation"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-reports/grace-marks-benefited-students-data",
+    "destination": "/admin-examination-management/admin-exam-reports/grace-marks-benefited-students-report"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-reports/invigilator-remuneration-report",
+    "destination": "/admin-examination-management/admin-exam-reports/invigilators-remuneration-report"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-reports/moderation-benefited-students-data",
+    "destination": "/admin-examination-management/admin-exam-reports/moderation-benefited-students-report"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-reports/re-evaluation-comparision-result-report",
+    "destination": "/admin-examination-management/admin-exam-reports/re-evaluation-comparision-report"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-reports/grade-and-grade-points-report",
+    "destination": "/admin-examination-management/admin-exam-reports/student-wise-grade-point-report"
+  },
+  {
+    "source": "/admin-examination-management/admin-exam-reports/subject-wise-result-report",
+    "destination": "/admin-examination-management/admin-exam-reports/subjectwise-result-report"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/assign-evaluator",
+    "destination": "/admin-examination-management/evaluation-process/assign-evaluators"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/manual-assign-evaluator",
+    "destination": "/admin-examination-management/evaluation-process/assign-evaluators-manual"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/assign-template",
+    "destination": "/admin-examination-management/evaluation-process/assign-questionpaper-template"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/assign-re-evaluator",
+    "destination": "/admin-examination-management/evaluation-process/assign-reevaluator"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/evaluator",
+    "destination": "/admin-examination-management/evaluation-process/create-evaluators"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/configure-section-group-and-question-marks-structure",
+    "destination": "/admin-examination-management/evaluation-process/create-questionpaper-template"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/moderator-approvals",
+    "destination": "/admin-examination-management/evaluation-process/evaluation-approvals"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/evaluator-exam-subjects",
+    "destination": "/admin-examination-management/evaluation-process/evaluator-exam-subject"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/evaluator-subjects/paper-evaluation",
+    "destination": "/admin-examination-management/evaluation-process/evaluator-subjects/paper"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/finalize-exam-question-paper",
+    "destination": "/admin-examination-management/evaluation-process/exam-final-question-paper"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/exam-question-paper",
+    "destination": "/admin-examination-management/evaluation-process/exam-question-paper-marks"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/moderator-evaluator",
+    "destination": "/admin-examination-management/evaluation-process/moderator-evaluators"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/assign-multi-evaluator",
+    "destination": "/admin-examination-management/evaluation-process/multi-evaluator-assign"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/re-assign-evaluator",
+    "destination": "/admin-examination-management/evaluation-process/re-assign-evaluators"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/upload-scanned-answer-papers",
+    "destination": "/admin-examination-management/evaluation-process/scan-upload-process"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/evaluation-status-tracking",
+    "destination": "/admin-examination-management/evaluation-process/update-evaluator-answer-papers-status"
+  },
+  {
+    "source": "/admin-examination-management/evaluation-process/publish-exam-question-paper",
+    "destination": "/admin-examination-management/evaluation-process/view-ex-fin-qn-paper"
+  },
+  {
+    "source": "/admin-examination-management/examination-dashboard",
+    "destination": "/admin-examination-management/exam-dashboard"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/blocks",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/exam-center-blocks"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/buildings",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/exam-center-buildings"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/floors",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/exam-center-floors"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/exam-room-seating-plan",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/exam-center-room-allotment"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/room-types",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/exam-center-room-types"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/rooms",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/exam-center-rooms"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/exam-group/edit-exam-group-details",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/exam-group/group-details"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/scan-bundles",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/exam-scan-bundles-print"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/exam-answer-paper-bags",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/univ-exam-answer-paper-bags"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/exam-bag-collection",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/univ-exam-bag-collection"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/exam-bag-transportation",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/univ-exam-bag-transportation"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/exam-bags",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/univ-exam-bags"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/exam-bundles",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/univ-exam-bundles"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/exam-center-rooms",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/univ-exam-center-rooms"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/exam-centers",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/univ-exam-centers"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/exam-regional-centers",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/univ-exam-regional-centers"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/exam-center-colleges",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/univ-examcenter-colleges"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/examcenter-question-paper-config",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/univ-examcenter-question-paper-config"
+  },
+  {
+    "source": "/admin-examination-management/exam-papers-delivery-process/exam-center-profiles",
+    "destination": "/admin-examination-management/exam-papers-delivery-process/university-exam-center-profiles"
+  },
+  {
+    "source": "/admin-examination-management/exam-reports/exam-evaluation-unassigned-report",
+    "destination": "/admin-examination-management/exam-reports/exam-evaluation-un-assigned-report"
+  },
+  {
+    "source": "/admin-examination-management/exam-reports/exam-verification-report",
+    "destination": "/admin-examination-management/exam-reports/exam-verification"
+  },
+  {
+    "source": "/admin-examination-management/exam-reports/group-year-wise-result-report",
+    "destination": "/admin-examination-management/exam-reports/group-yearwise-result-report"
+  },
+  {
+    "source": "/admin-examination-management/post-examination/student-exam-certificates",
+    "destination": "/admin-examination-management/post-examination/grade-memo-issue"
+  },
+  {
+    "source": "/admin-examination-management/post-examination/internal-exam-average",
+    "destination": "/admin-examination-management/post-examination/internal-exams-average"
+  },
+  {
+    "source": "/admin-examination-management/post-examination/exam-revised-marks",
+    "destination": "/admin-examination-management/post-examination/re-evaluation-marks-entry"
+  },
+  {
+    "source": "/admin-examination-management/post-examination/secure-marks-entry",
+    "destination": "/admin-examination-management/post-examination/secure-exam-marks-entry"
+  },
+  {
+    "source": "/admin-examination-management/pre-examination/exam-attendance-wise-subject-barcode",
+    "destination": "/admin-examination-management/pre-examination/exam-attendancewise-subject-barcode"
+  },
+  {
+    "source": "/admin-examination-management/pre-examination/exam-register-subjects-update",
+    "destination": "/admin-examination-management/pre-examination/exam-register-subjects"
+  },
+  {
+    "source": "/admin-examination-management/pre-examination/internal-exam-registration-multiple-students",
+    "destination": "/admin-examination-management/pre-examination/internal-exam-registration-multiple"
+  },
+  {
+    "source": "/admin-examination-management/pre-examination/exam-invigilator-allotment",
+    "destination": "/admin-examination-management/pre-examination/invigilator-allotment"
+  },
+  {
+    "source": "/admin-examination-management/pre-examination/online-exam-fee-registrations",
+    "destination": "/admin-examination-management/pre-examination/online-exam-fee-registration"
+  },
+  {
+    "source": "/admin-examination-management/pre-examination/student-exam-fee-collection",
+    "destination": "/admin-examination-management/pre-examination/student-exam-fee-registration"
+  },
+  {
+    "source": "/admin-examination-management/re-evaluation/re-valuation-fee",
+    "destination": "/admin-examination-management/re-evaluation/re-evaluation-fee"
+  },
+  {
+    "source": "/admin-student-information-system/generate-student-roll-no",
+    "destination": "/admin-student-information-system/generate-student-rollno"
+  },
+  {
+    "source": "/admin-student-information-system/student-co-curriculum-activities",
+    "destination": "/admin-student-information-system/student-cc-activities"
+  },
+  {
+    "source": "/admin-student-information-system/student-details",
+    "destination": "/admin-student-information-system/students-profile"
+  },
+  {
+    "source": "/admission/counselling/admission-allotment-details",
+    "destination": "/admission/counselling/admission-allotment-ndetails"
+  },
+  {
+    "source": "/admission/counselling/fee-paid-applications",
+    "destination": "/admission/counselling/fee-paid-applications-list"
+  },
+  {
+    "source": "/affiliated-colleges/affiliated-college-bulk-uploads",
+    "destination": "/affiliated-colleges/college-bulk-uploads"
+  },
+  {
+    "source": "/assessments/test-list",
+    "destination": "/assessments/test"
+  },
+  {
+    "source": "/campus-maintenance/my-complaints",
+    "destination": "/campus-maintenance/new-complaints"
+  },
+  {
+    "source": "/committees/committee-members",
+    "destination": "/committees/add-committee-members"
+  },
+  {
+    "source": "/e-office/internal-requisitions",
+    "destination": "/e-office/item-request"
+  },
+  {
+    "source": "/e-office/letter-format",
+    "destination": "/e-office/letter-formats"
+  },
+  {
+    "source": "/e-office/purchase-order",
+    "destination": "/e-office/payment-note-request"
+  },
+  {
+    "source": "/email-sms/send-email-to-department-wise",
+    "destination": "/email-sms/department-wise-email"
+  },
+  {
+    "source": "/email-sms/principal-and-staff-to-admin-email",
+    "destination": "/email-sms/principal-staff-to-admin-email"
+  },
+  {
+    "source": "/email-sms/send-email-to-departments",
+    "destination": "/email-sms/principal-to-dept-email"
+  },
+  {
+    "source": "/email-sms/send-email-to-students",
+    "destination": "/email-sms/staff-to-student-email"
+  },
+  {
+    "source": "/finance/account-types",
+    "destination": "/finance/acoounts-types"
+  },
+  {
+    "source": "/finance/budget-mid-year-estimation",
+    "destination": "/finance/budget"
+  },
+  {
+    "source": "/finance/budget-estimation-report",
+    "destination": "/finance/budget-estimations"
+  },
+  {
+    "source": "/finance/cheque-book",
+    "destination": "/finance/check-book"
+  },
+  {
+    "source": "/finance/finance-sub-category",
+    "destination": "/finance/finance-subcategory"
+  },
+  {
+    "source": "/finance/transactions",
+    "destination": "/finance/transaction"
+  },
+  {
+    "source": "/hostel/hostel-room-allocation",
+    "destination": "/hostel/rooms-list"
+  },
+  {
+    "source": "/inventory-management/internal-return",
+    "destination": "/inventory-management/internal-item-return"
+  },
+  {
+    "source": "/inventory-management/opening-stock",
+    "destination": "/inventory-management/item-opening-stock"
+  },
+  {
+    "source": "/library/book-return",
+    "destination": "/library/bookReturn"
+  },
+  {
+    "source": "/placements-achievements/placements/placed-students",
+    "destination": "/placements-achievements/placements/placed-students-list"
+  },
+  {
+    "source": "/placements-achievements/placements/broadcast-messages",
+    "destination": "/placements-achievements/placements/placement-broadcast"
+  },
+  {
+    "source": "/placements-achievements/placements/company-placement-requirements",
+    "destination": "/placements-achievements/placements/placement-companies"
+  },
+  {
+    "source": "/placements-achievements/placements/placement-students-list",
+    "destination": "/placements-achievements/placements/placement-registered-list"
+  },
+  {
+    "source": "/tc-no-due-approval/certificates-issued",
+    "destination": "/tc-no-due-approval/certificates-issued-list"
+  },
+  {
+    "source": "/tc-no-due-approval/no-due-approval-request",
+    "destination": "/tc-no-due-approval/send-no-due-approval-request"
+  },
+  {
+    "source": "/trainings/placement-trainings",
+    "destination": "/trainings/training"
+  },
+  {
+    "source": "/transport/map-vehicle-driver",
+    "destination": "/transport/vehicle-drivers"
+  },
+  {
+    "source": "/transport/map-vehicle-route",
+    "destination": "/transport/vehicle-map"
+  },
+  {
+    "source": "/user-management/parent-accounts/parent-account",
+    "destination": "/user-management/parent-accounts/manage"
+  }
+]

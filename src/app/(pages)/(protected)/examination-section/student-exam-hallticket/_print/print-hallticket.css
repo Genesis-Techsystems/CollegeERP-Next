@@ -1,0 +1,249 @@
+/* Ported 1:1 from Angular print-hallticket.component.scss */
+
+.student-print-hallticket .sheet {
+  text-align: center !important;
+}
+
+.student-print-hallticket .main-card {
+  margin-left: 10px !important;
+  border-radius: 0px;
+  border-style: solid;
+  border-width: 1px;
+  border-color: #d87093;
+  margin-right: 2px !important;
+  margin-top: 20px;
+}
+
+.student-print-hallticket #table1 {
+  font-family: arial, sans-serif;
+  font-size: 11px !important;
+}
+
+.student-print-hallticket #table1 td {
+  border: none !important;
+  padding: 5px;
+  font-size: 14px;
+}
+
+.student-print-hallticket .td1 {
+  text-align: right !important;
+}
+
+.student-print-hallticket .printbtn {
+  display: flex;
+  justify-content: end;
+  margin: 10px;
+}
+
+.student-print-hallticket .printbtn button {
+  margin-left: 15px;
+}
+
+.student-print-hallticket .layout {
+  margin: auto !important;
+  margin-top: 0px !important;
+  width: 990px !important;
+}
+
+.student-print-hallticket .STDIMG {
+  align-items: end;
+}
+
+.student-print-hallticket .layout p {
+  text-align: center;
+  font-weight: bold;
+  /* Angular uses -10px; that overlaps in modern browsers — keep tight but readable */
+  margin-top: 0;
+  margin-bottom: 2px;
+}
+
+.student-print-hallticket .ht-header-text p {
+  display: block;
+  width: 100%;
+  clear: both;
+}
+
+.student-print-hallticket .layout img {
+  margin: 10px 20px !important;
+}
+
+.student-print-hallticket .firstborder {
+  border-collapse: collapse;
+  border-style: solid !important;
+  border-width: 2px !important;
+  border-color: #c5bec0 !important;
+  margin-bottom: 10px !important;
+}
+
+.student-print-hallticket .lastborder {
+  border-collapse: collapse;
+  border-style: solid !important;
+  border-width: 2px !important;
+  border-color: #c5bec0 !important;
+  margin-top: 5px !important;
+}
+
+.student-print-hallticket #table2 {
+  font-family: arial, sans-serif;
+  font-size: 14px !important;
+  border-collapse: collapse;
+  border-style: solid !important;
+  border-width: 2px !important;
+  border-color: #c5bec0 !important;
+  width: 100%;
+}
+
+.student-print-hallticket #table2 th {
+  font-family: arial, sans-serif;
+  font-size: 14px !important;
+  border-style: solid !important;
+  border-width: 2px !important;
+  border-color: #c5bec0 !important;
+  padding: 10px !important;
+}
+
+.student-print-hallticket #table2 td {
+  font-family: arial, sans-serif;
+  font-size: 14px !important;
+  border-style: solid !important;
+  border-width: 2px !important;
+  border-color: #c5bec0 !important;
+  padding: 10px !important;
+  text-align: center;
+}
+
+/* Angular uses id="table" on multiple info tables */
+.student-print-hallticket .ht-info-table {
+  font-family: arial, sans-serif;
+  font-size: 15px !important;
+  border: none !important;
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.student-print-hallticket .ht-info-table th {
+  font-family: arial, sans-serif;
+  font-size: 15px !important;
+  border: none !important;
+  width: 22% !important;
+  text-align: right;
+  vertical-align: middle;
+  padding: 6px 10px 6px 0 !important;
+  line-height: 1.45;
+  white-space: nowrap;
+  font-weight: bold;
+}
+
+.student-print-hallticket .ht-info-table td {
+  font-family: arial, sans-serif;
+  font-size: 15px !important;
+  text-align: left !important;
+  border: none !important;
+  vertical-align: middle;
+  padding: 6px 0 6px 12px !important;
+  line-height: 1.45;
+}
+
+.student-print-hallticket .ht-student-fields {
+  justify-content: center;
+  padding: 10px 8px 10px 0;
+  gap: 0;
+}
+
+.student-print-hallticket .ht-student-photo {
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+}
+
+.student-print-hallticket .layout span {
+  padding: 10px;
+}
+
+/* Flex helpers matching Angular fxLayout / fxFlex */
+.student-print-hallticket .fx-row {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+.student-print-hallticket .fx-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.student-print-hallticket .fx-15 {
+  flex: 0 0 15%;
+  max-width: 15%;
+}
+
+.student-print-hallticket .fx-20 {
+  flex: 0 0 20%;
+  max-width: 20%;
+}
+
+.student-print-hallticket .fx-80 {
+  flex: 0 0 80%;
+  max-width: 80%;
+}
+
+.student-print-hallticket .fx-85 {
+  flex: 0 0 85%;
+  max-width: 85%;
+}
+
+.student-print-hallticket .fx-100 {
+  flex: 0 0 100%;
+  max-width: 100%;
+  width: 100%;
+}
+
+.student-print-hallticket .fx-center {
+  justify-content: center;
+}
+
+@media print {
+  .student-print-hallticket #printPageButton {
+    display: none !important;
+  }
+
+  .student-print-hallticket .printbtn {
+    display: none !important;
+  }
+
+  /* Isolate print content (AppShell otherwise blank-prints) */
+  body * {
+    visibility: hidden !important;
+  }
+
+  .student-print-hallticket #printsection,
+  .student-print-hallticket #printsection * {
+    visibility: visible !important;
+  }
+
+  .student-print-hallticket .layout {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 990px !important;
+    margin: 0 auto !important;
+    background: #fff !important;
+    color: #000 !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .student-print-hallticket #printsection {
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  .animate-fade-up,
+  .animate-fade-in,
+  [class*="animate-fade"] {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}

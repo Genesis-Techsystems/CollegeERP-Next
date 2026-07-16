@@ -1,0 +1,1154 @@
+[
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\academics\\academic-batches",
+    "toDir": "src\\app\\(pages)\\(protected)\\academics\\academic-batches-of-student",
+    "routePath": "academics/academic-batches",
+    "newRoutePath": "academics/academic-batches-of-student",
+    "label": "Academic Batches Of Student",
+    "oldSlug": "academic-batches",
+    "newSlug": "academic-batches-of-student"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\academics\\college-curriculum\\course-group-year-regulation-subject",
+    "toDir": "src\\app\\(pages)\\(protected)\\academics\\college-curriculum\\university-curriculum-regulation-subjects",
+    "routePath": "academics/college-curriculum/course-group-year-regulation-subject",
+    "newRoutePath": "academics/college-curriculum/university-curriculum-regulation-subjects",
+    "label": "University Curriculum Regulation Subjects",
+    "oldSlug": "course-group-year-regulation-subject",
+    "newSlug": "university-curriculum-regulation-subjects"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\academics\\college-curriculum\\subject-allocation",
+    "toDir": "src\\app\\(pages)\\(protected)\\academics\\college-curriculum\\assign-course-year-subjects",
+    "routePath": "academics/college-curriculum/subject-allocation",
+    "newRoutePath": "academics/college-curriculum/assign-course-year-subjects",
+    "label": "Assign Course Year Subjects",
+    "oldSlug": "subject-allocation",
+    "newSlug": "assign-course-year-subjects"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\academics\\college-curriculum\\subject-allocation-sem-regulation",
+    "toDir": "src\\app\\(pages)\\(protected)\\academics\\college-curriculum\\course-year-subject-association",
+    "routePath": "academics/college-curriculum/subject-allocation-sem-regulation",
+    "newRoutePath": "academics/college-curriculum/course-year-subject-association",
+    "label": "Course Year Subject Association",
+    "oldSlug": "subject-allocation-sem-regulation",
+    "newSlug": "course-year-subject-association"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\academics\\modify-academic-batch",
+    "toDir": "src\\app\\(pages)\\(protected)\\academics\\modify-student-batches",
+    "routePath": "academics/modify-academic-batch",
+    "newRoutePath": "academics/modify-student-batches",
+    "label": "Modify Student Batches",
+    "oldSlug": "modify-academic-batch",
+    "newSlug": "modify-student-batches"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\academics\\subject-mapping\\add-subject-units",
+    "toDir": "src\\app\\(pages)\\(protected)\\academics\\subject-mapping\\subjects-units",
+    "routePath": "academics/subject-mapping/add-subject-units",
+    "newRoutePath": "academics/subject-mapping/subjects-units",
+    "label": "Subjects Units",
+    "oldSlug": "add-subject-units",
+    "newSlug": "subjects-units"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\academics\\subject-mapping\\allocate-student-subject",
+    "toDir": "src\\app\\(pages)\\(protected)\\academics\\subject-mapping\\allocate-student-subjects",
+    "routePath": "academics/subject-mapping/allocate-student-subject",
+    "newRoutePath": "academics/subject-mapping/allocate-student-subjects",
+    "label": "Allocate Student Subjects",
+    "oldSlug": "allocate-student-subject",
+    "newSlug": "allocate-student-subjects"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\academics\\subject-mapping\\assign-regulation-to-students",
+    "toDir": "src\\app\\(pages)\\(protected)\\academics\\subject-mapping\\assign-regulation-to-student",
+    "routePath": "academics/subject-mapping/assign-regulation-to-students",
+    "newRoutePath": "academics/subject-mapping/assign-regulation-to-student",
+    "label": "Assign Regulation to Student",
+    "oldSlug": "assign-regulation-to-students",
+    "newSlug": "assign-regulation-to-student"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\academics\\subject-mapping\\assign-students-to-lab-batches",
+    "toDir": "src\\app\\(pages)\\(protected)\\academics\\subject-mapping\\assign-students-to-lab",
+    "routePath": "academics/subject-mapping/assign-students-to-lab-batches",
+    "newRoutePath": "academics/subject-mapping/assign-students-to-lab",
+    "label": "Assign Students To Lab",
+    "oldSlug": "assign-students-to-lab-batches",
+    "newSlug": "assign-students-to-lab"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\academics\\subject-mapping\\course-group-subjects-list",
+    "toDir": "src\\app\\(pages)\\(protected)\\academics\\subject-mapping\\staff-subject-mapping",
+    "routePath": "academics/subject-mapping/course-group-subjects-list",
+    "newRoutePath": "academics/subject-mapping/staff-subject-mapping",
+    "label": "Staff Subject Mapping",
+    "oldSlug": "course-group-subjects-list",
+    "newSlug": "staff-subject-mapping"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\academics\\subject-mapping\\subject-syllabus-plan",
+    "toDir": "src\\app\\(pages)\\(protected)\\academics\\subject-mapping\\subjects-syllabus-plan",
+    "routePath": "academics/subject-mapping/subject-syllabus-plan",
+    "newRoutePath": "academics/subject-mapping/subjects-syllabus-plan",
+    "label": "Subjects Syllabus Plan",
+    "oldSlug": "subject-syllabus-plan",
+    "newSlug": "subjects-syllabus-plan"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin\\bulk-uploads\\employee-upload",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin\\bulk-uploads\\employee-bulk-upload",
+    "routePath": "admin/bulk-uploads/employee-upload",
+    "newRoutePath": "admin/bulk-uploads/employee-bulk-upload",
+    "label": "Employee Bulk Upload",
+    "oldSlug": "employee-upload",
+    "newSlug": "employee-bulk-upload"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin\\bulk-uploads\\student-dost-upload",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin\\bulk-uploads\\dost-upload",
+    "routePath": "admin/bulk-uploads/student-dost-upload",
+    "newRoutePath": "admin/bulk-uploads/dost-upload",
+    "label": "Dost Upload",
+    "oldSlug": "student-dost-upload",
+    "newSlug": "dost-upload"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin\\bulk-uploads\\students-upload",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin\\bulk-uploads\\student-bulk-upload",
+    "routePath": "admin/bulk-uploads/students-upload",
+    "newRoutePath": "admin/bulk-uploads/student-bulk-upload",
+    "label": "Student Bulk Upload",
+    "oldSlug": "students-upload",
+    "newSlug": "student-bulk-upload"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin\\caste-master",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin\\caste",
+    "routePath": "admin/caste-master",
+    "newRoutePath": "admin/caste",
+    "label": "Caste",
+    "oldSlug": "caste-master",
+    "newSlug": "caste"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin\\configure-auto-numbers",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin\\auto-number-configuration",
+    "routePath": "admin/configure-auto-numbers",
+    "newRoutePath": "admin/auto-number-configuration",
+    "label": "Auto Number Configuration",
+    "oldSlug": "configure-auto-numbers",
+    "newSlug": "auto-number-configuration"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin\\course-years",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin\\semester",
+    "routePath": "admin/course-years",
+    "newRoutePath": "admin/semester",
+    "label": "Semester",
+    "oldSlug": "course-years",
+    "newSlug": "semester"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin\\document-repository",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin\\document-repository-settings",
+    "routePath": "admin/document-repository",
+    "newRoutePath": "admin/document-repository-settings",
+    "label": "Document Repository Settings",
+    "oldSlug": "document-repository",
+    "newSlug": "document-repository-settings"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin\\group-sections",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin\\section",
+    "routePath": "admin/group-sections",
+    "newRoutePath": "admin/section",
+    "label": "Section",
+    "oldSlug": "group-sections",
+    "newSlug": "section"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-fee-setup",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-fee-structures",
+    "routePath": "admin-examination-management/admin-exam-masters/exam-fee-setup",
+    "newRoutePath": "admin-examination-management/admin-exam-masters/exam-fee-structures",
+    "label": "Exam Fee Structures",
+    "oldSlug": "exam-fee-setup",
+    "newSlug": "exam-fee-structures"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-master",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\create-exam-notification",
+    "routePath": "admin-examination-management/admin-exam-masters/exam-master",
+    "newRoutePath": "admin-examination-management/admin-exam-masters/create-exam-notification",
+    "label": "Create Exam Notification",
+    "oldSlug": "exam-master",
+    "newSlug": "create-exam-notification"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-max-marks-setup",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-marks-setup",
+    "routePath": "admin-examination-management/admin-exam-masters/exam-max-marks-setup",
+    "newRoutePath": "admin-examination-management/admin-exam-masters/exam-marks-setup",
+    "label": "Exam Marks Setup",
+    "oldSlug": "exam-max-marks-setup",
+    "newSlug": "exam-marks-setup"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-session",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\create-exam-session",
+    "routePath": "admin-examination-management/admin-exam-masters/exam-session",
+    "newRoutePath": "admin-examination-management/admin-exam-masters/create-exam-session",
+    "label": "Create Exam Session",
+    "oldSlug": "exam-session",
+    "newSlug": "create-exam-session"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-timetable",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-university-timetable",
+    "routePath": "admin-examination-management/admin-exam-masters/exam-timetable",
+    "newRoutePath": "admin-examination-management/admin-exam-masters/exam-university-timetable",
+    "label": "Exam University Timetable",
+    "oldSlug": "exam-timetable",
+    "newSlug": "exam-university-timetable"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-tt-notification",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-timetable-notification",
+    "routePath": "admin-examination-management/admin-exam-masters/exam-tt-notification",
+    "newRoutePath": "admin-examination-management/admin-exam-masters/exam-timetable-notification",
+    "label": "Exam Timetable Notification",
+    "oldSlug": "exam-tt-notification",
+    "newSlug": "exam-timetable-notification"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\invigilator-remuneration",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-invigilator-remuneration",
+    "routePath": "admin-examination-management/admin-exam-masters/invigilator-remuneration",
+    "newRoutePath": "admin-examination-management/admin-exam-masters/exam-invigilator-remuneration",
+    "label": "Exam Invigilator Remuneration",
+    "oldSlug": "invigilator-remuneration",
+    "newSlug": "exam-invigilator-remuneration"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\re-valuation-fee-setup",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-re-valuation-fee-setup",
+    "routePath": "admin-examination-management/admin-exam-masters/re-valuation-fee-setup",
+    "newRoutePath": "admin-examination-management/admin-exam-masters/exam-re-valuation-fee-setup",
+    "label": "Exam Re-Valuation Fee Setup",
+    "oldSlug": "re-valuation-fee-setup",
+    "newSlug": "exam-re-valuation-fee-setup"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\revision-master",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-revision-master",
+    "routePath": "admin-examination-management/admin-exam-masters/revision-master",
+    "newRoutePath": "admin-examination-management/admin-exam-masters/exam-revision-master",
+    "label": "Exam Revision Master",
+    "oldSlug": "revision-master",
+    "newSlug": "exam-revision-master"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\seating-plan-setup",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-room-seating-plan",
+    "routePath": "admin-examination-management/admin-exam-masters/seating-plan-setup",
+    "newRoutePath": "admin-examination-management/admin-exam-masters/exam-room-seating-plan",
+    "label": "Exam Room Seating Plan",
+    "oldSlug": "seating-plan-setup",
+    "newSlug": "exam-room-seating-plan"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\setup-master",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-masters\\exam-setup-master",
+    "routePath": "admin-examination-management/admin-exam-masters/setup-master",
+    "newRoutePath": "admin-examination-management/admin-exam-masters/exam-setup-master",
+    "label": "Exam Setup Master",
+    "oldSlug": "setup-master",
+    "newSlug": "exam-setup-master"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\assignment-pending-list-report",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\assignment-pending-list",
+    "routePath": "admin-examination-management/admin-exam-reports/assignment-pending-list-report",
+    "newRoutePath": "admin-examination-management/admin-exam-reports/assignment-pending-list",
+    "label": "Assignment Pending List",
+    "oldSlug": "assignment-pending-list-report",
+    "newSlug": "assignment-pending-list"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\batchwise-sgpa-report",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\batch-wise-sgpa-report",
+    "routePath": "admin-examination-management/admin-exam-reports/batchwise-sgpa-report",
+    "newRoutePath": "admin-examination-management/admin-exam-reports/batch-wise-sgpa-report",
+    "label": "Batch Wise SGPA Report",
+    "oldSlug": "batchwise-sgpa-report",
+    "newSlug": "batch-wise-sgpa-report"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\exam-invigilator-allotment-report",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\invigilator-allotment-report",
+    "routePath": "admin-examination-management/admin-exam-reports/exam-invigilator-allotment-report",
+    "newRoutePath": "admin-examination-management/admin-exam-reports/invigilator-allotment-report",
+    "label": "Invigilator Allotment Report",
+    "oldSlug": "exam-invigilator-allotment-report",
+    "newSlug": "invigilator-allotment-report"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\final-marks-premoderation",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\final-marks-pre-moderation-report",
+    "routePath": "admin-examination-management/admin-exam-reports/final-marks-premoderation",
+    "newRoutePath": "admin-examination-management/admin-exam-reports/final-marks-pre-moderation-report",
+    "label": "Final Marks Pre Moderation Report",
+    "oldSlug": "final-marks-premoderation",
+    "newSlug": "final-marks-pre-moderation-report"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\grace-marks-benefited-students-report",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\grace-marks-benefited-students-data",
+    "routePath": "admin-examination-management/admin-exam-reports/grace-marks-benefited-students-report",
+    "newRoutePath": "admin-examination-management/admin-exam-reports/grace-marks-benefited-students-data",
+    "label": "Grace Marks Benefited Students Data",
+    "oldSlug": "grace-marks-benefited-students-report",
+    "newSlug": "grace-marks-benefited-students-data"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\invigilators-remuneration-report",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\invigilator-remuneration-report",
+    "routePath": "admin-examination-management/admin-exam-reports/invigilators-remuneration-report",
+    "newRoutePath": "admin-examination-management/admin-exam-reports/invigilator-remuneration-report",
+    "label": "Invigilator Remuneration Report",
+    "oldSlug": "invigilators-remuneration-report",
+    "newSlug": "invigilator-remuneration-report"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\moderation-benefited-students-report",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\moderation-benefited-students-data",
+    "routePath": "admin-examination-management/admin-exam-reports/moderation-benefited-students-report",
+    "newRoutePath": "admin-examination-management/admin-exam-reports/moderation-benefited-students-data",
+    "label": "Moderation Benefited Students Data",
+    "oldSlug": "moderation-benefited-students-report",
+    "newSlug": "moderation-benefited-students-data"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\re-evaluation-comparision-report",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\re-evaluation-comparision-result-report",
+    "routePath": "admin-examination-management/admin-exam-reports/re-evaluation-comparision-report",
+    "newRoutePath": "admin-examination-management/admin-exam-reports/re-evaluation-comparision-result-report",
+    "label": "Re-Evaluation Comparision Result Report",
+    "oldSlug": "re-evaluation-comparision-report",
+    "newSlug": "re-evaluation-comparision-result-report"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\student-wise-grade-point-report",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\grade-and-grade-points-report",
+    "routePath": "admin-examination-management/admin-exam-reports/student-wise-grade-point-report",
+    "newRoutePath": "admin-examination-management/admin-exam-reports/grade-and-grade-points-report",
+    "label": "Grade And Grade Points Report",
+    "oldSlug": "student-wise-grade-point-report",
+    "newSlug": "grade-and-grade-points-report"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\subjectwise-result-report",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\admin-exam-reports\\subject-wise-result-report",
+    "routePath": "admin-examination-management/admin-exam-reports/subjectwise-result-report",
+    "newRoutePath": "admin-examination-management/admin-exam-reports/subject-wise-result-report",
+    "label": "Subject Wise Result Report",
+    "oldSlug": "subjectwise-result-report",
+    "newSlug": "subject-wise-result-report"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\assign-evaluators",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\assign-evaluator",
+    "routePath": "admin-examination-management/evaluation-process/assign-evaluators",
+    "newRoutePath": "admin-examination-management/evaluation-process/assign-evaluator",
+    "label": "Assign Evaluator",
+    "oldSlug": "assign-evaluators",
+    "newSlug": "assign-evaluator"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\assign-evaluators-manual",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\manual-assign-evaluator",
+    "routePath": "admin-examination-management/evaluation-process/assign-evaluators-manual",
+    "newRoutePath": "admin-examination-management/evaluation-process/manual-assign-evaluator",
+    "label": "Manual Assign Evaluator",
+    "oldSlug": "assign-evaluators-manual",
+    "newSlug": "manual-assign-evaluator"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\assign-questionpaper-template",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\assign-template",
+    "routePath": "admin-examination-management/evaluation-process/assign-questionpaper-template",
+    "newRoutePath": "admin-examination-management/evaluation-process/assign-template",
+    "label": "Assign Template",
+    "oldSlug": "assign-questionpaper-template",
+    "newSlug": "assign-template"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\assign-reevaluator",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\assign-re-evaluator",
+    "routePath": "admin-examination-management/evaluation-process/assign-reevaluator",
+    "newRoutePath": "admin-examination-management/evaluation-process/assign-re-evaluator",
+    "label": "Assign Re-Evaluator",
+    "oldSlug": "assign-reevaluator",
+    "newSlug": "assign-re-evaluator"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\create-evaluators",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\evaluator",
+    "routePath": "admin-examination-management/evaluation-process/create-evaluators",
+    "newRoutePath": "admin-examination-management/evaluation-process/evaluator",
+    "label": "Evaluator",
+    "oldSlug": "create-evaluators",
+    "newSlug": "evaluator"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\create-questionpaper-template",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\configure-section-group-and-question-marks-structure",
+    "routePath": "admin-examination-management/evaluation-process/create-questionpaper-template",
+    "newRoutePath": "admin-examination-management/evaluation-process/configure-section-group-and-question-marks-structure",
+    "label": "Configure section, group, and question marks structure",
+    "oldSlug": "create-questionpaper-template",
+    "newSlug": "configure-section-group-and-question-marks-structure"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\evaluation-approvals",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\moderator-approvals",
+    "routePath": "admin-examination-management/evaluation-process/evaluation-approvals",
+    "newRoutePath": "admin-examination-management/evaluation-process/moderator-approvals",
+    "label": "Moderator Approvals",
+    "oldSlug": "evaluation-approvals",
+    "newSlug": "moderator-approvals"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\evaluator-exam-subject",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\evaluator-exam-subjects",
+    "routePath": "admin-examination-management/evaluation-process/evaluator-exam-subject",
+    "newRoutePath": "admin-examination-management/evaluation-process/evaluator-exam-subjects",
+    "label": "Evaluator Exam Subjects",
+    "oldSlug": "evaluator-exam-subject",
+    "newSlug": "evaluator-exam-subjects"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\evaluator-subjects\\paper",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\evaluator-subjects\\paper-evaluation",
+    "routePath": "admin-examination-management/evaluation-process/evaluator-subjects/paper",
+    "newRoutePath": "admin-examination-management/evaluation-process/evaluator-subjects/paper-evaluation",
+    "label": "Paper Evaluation",
+    "oldSlug": "paper",
+    "newSlug": "paper-evaluation"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\exam-final-question-paper",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\finalize-exam-question-paper",
+    "routePath": "admin-examination-management/evaluation-process/exam-final-question-paper",
+    "newRoutePath": "admin-examination-management/evaluation-process/finalize-exam-question-paper",
+    "label": "Finalize Exam Question Paper",
+    "oldSlug": "exam-final-question-paper",
+    "newSlug": "finalize-exam-question-paper"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\exam-question-paper-marks",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\exam-question-paper",
+    "routePath": "admin-examination-management/evaluation-process/exam-question-paper-marks",
+    "newRoutePath": "admin-examination-management/evaluation-process/exam-question-paper",
+    "label": "Exam Question Paper",
+    "oldSlug": "exam-question-paper-marks",
+    "newSlug": "exam-question-paper"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\moderator-evaluators",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\moderator-evaluator",
+    "routePath": "admin-examination-management/evaluation-process/moderator-evaluators",
+    "newRoutePath": "admin-examination-management/evaluation-process/moderator-evaluator",
+    "label": "Moderator Evaluator",
+    "oldSlug": "moderator-evaluators",
+    "newSlug": "moderator-evaluator"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\multi-evaluator-assign",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\assign-multi-evaluator",
+    "routePath": "admin-examination-management/evaluation-process/multi-evaluator-assign",
+    "newRoutePath": "admin-examination-management/evaluation-process/assign-multi-evaluator",
+    "label": "Assign Multi Evaluator",
+    "oldSlug": "multi-evaluator-assign",
+    "newSlug": "assign-multi-evaluator"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\re-assign-evaluators",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\re-assign-evaluator",
+    "routePath": "admin-examination-management/evaluation-process/re-assign-evaluators",
+    "newRoutePath": "admin-examination-management/evaluation-process/re-assign-evaluator",
+    "label": "Re-Assign Evaluator",
+    "oldSlug": "re-assign-evaluators",
+    "newSlug": "re-assign-evaluator"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\scan-upload-process",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\upload-scanned-answer-papers",
+    "routePath": "admin-examination-management/evaluation-process/scan-upload-process",
+    "newRoutePath": "admin-examination-management/evaluation-process/upload-scanned-answer-papers",
+    "label": "Upload Scanned Answer Papers",
+    "oldSlug": "scan-upload-process",
+    "newSlug": "upload-scanned-answer-papers"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\update-evaluator-answer-papers-status",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\evaluation-status-tracking",
+    "routePath": "admin-examination-management/evaluation-process/update-evaluator-answer-papers-status",
+    "newRoutePath": "admin-examination-management/evaluation-process/evaluation-status-tracking",
+    "label": "Evaluation status tracking",
+    "oldSlug": "update-evaluator-answer-papers-status",
+    "newSlug": "evaluation-status-tracking"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\view-ex-fin-qn-paper",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\evaluation-process\\publish-exam-question-paper",
+    "routePath": "admin-examination-management/evaluation-process/view-ex-fin-qn-paper",
+    "newRoutePath": "admin-examination-management/evaluation-process/publish-exam-question-paper",
+    "label": "Publish Exam Question Paper",
+    "oldSlug": "view-ex-fin-qn-paper",
+    "newSlug": "publish-exam-question-paper"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-dashboard",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\examination-dashboard",
+    "routePath": "admin-examination-management/exam-dashboard",
+    "newRoutePath": "admin-examination-management/examination-dashboard",
+    "label": "Examination Dashboard",
+    "oldSlug": "exam-dashboard",
+    "newSlug": "examination-dashboard"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-center-blocks",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\blocks",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/exam-center-blocks",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/blocks",
+    "label": "Blocks",
+    "oldSlug": "exam-center-blocks",
+    "newSlug": "blocks"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-center-buildings",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\buildings",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/exam-center-buildings",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/buildings",
+    "label": "Buildings",
+    "oldSlug": "exam-center-buildings",
+    "newSlug": "buildings"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-center-floors",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\floors",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/exam-center-floors",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/floors",
+    "label": "Floors",
+    "oldSlug": "exam-center-floors",
+    "newSlug": "floors"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-center-room-allotment",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-room-seating-plan",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/exam-center-room-allotment",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/exam-room-seating-plan",
+    "label": "Exam Room Seating Plan",
+    "oldSlug": "exam-center-room-allotment",
+    "newSlug": "exam-room-seating-plan"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-center-room-types",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\room-types",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/exam-center-room-types",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/room-types",
+    "label": "Room Types",
+    "oldSlug": "exam-center-room-types",
+    "newSlug": "room-types"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-center-rooms",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\rooms",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/exam-center-rooms",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/rooms",
+    "label": "Rooms",
+    "oldSlug": "exam-center-rooms",
+    "newSlug": "rooms"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-group\\group-details",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-group\\edit-exam-group-details",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/exam-group/group-details",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/exam-group/edit-exam-group-details",
+    "label": "Edit exam group details",
+    "oldSlug": "group-details",
+    "newSlug": "edit-exam-group-details"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-scan-bundles-print",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\scan-bundles",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/exam-scan-bundles-print",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/scan-bundles",
+    "label": "Scan Bundles",
+    "oldSlug": "exam-scan-bundles-print",
+    "newSlug": "scan-bundles"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\univ-exam-answer-paper-bags",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-answer-paper-bags",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/univ-exam-answer-paper-bags",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/exam-answer-paper-bags",
+    "label": "Exam Answer Paper Bags",
+    "oldSlug": "univ-exam-answer-paper-bags",
+    "newSlug": "exam-answer-paper-bags"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\univ-exam-bag-collection",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-bag-collection",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/univ-exam-bag-collection",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/exam-bag-collection",
+    "label": "Exam Bag Collection",
+    "oldSlug": "univ-exam-bag-collection",
+    "newSlug": "exam-bag-collection"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\univ-exam-bag-transportation",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-bag-transportation",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/univ-exam-bag-transportation",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/exam-bag-transportation",
+    "label": "Exam Bag Transportation",
+    "oldSlug": "univ-exam-bag-transportation",
+    "newSlug": "exam-bag-transportation"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\univ-exam-bags",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-bags",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/univ-exam-bags",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/exam-bags",
+    "label": "Exam Bags",
+    "oldSlug": "univ-exam-bags",
+    "newSlug": "exam-bags"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\univ-exam-bundles",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-bundles",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/univ-exam-bundles",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/exam-bundles",
+    "label": "Exam Bundles",
+    "oldSlug": "univ-exam-bundles",
+    "newSlug": "exam-bundles"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\univ-exam-center-rooms",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-center-rooms",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/univ-exam-center-rooms",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/exam-center-rooms",
+    "label": "Exam Center Rooms",
+    "oldSlug": "univ-exam-center-rooms",
+    "newSlug": "exam-center-rooms"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\univ-exam-centers",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-centers",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/univ-exam-centers",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/exam-centers",
+    "label": "Exam Centers",
+    "oldSlug": "univ-exam-centers",
+    "newSlug": "exam-centers"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\univ-exam-regional-centers",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-regional-centers",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/univ-exam-regional-centers",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/exam-regional-centers",
+    "label": "Exam Regional Centers",
+    "oldSlug": "univ-exam-regional-centers",
+    "newSlug": "exam-regional-centers"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\univ-examcenter-colleges",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-center-colleges",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/univ-examcenter-colleges",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/exam-center-colleges",
+    "label": "Exam Center Colleges",
+    "oldSlug": "univ-examcenter-colleges",
+    "newSlug": "exam-center-colleges"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\univ-examcenter-question-paper-config",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\examcenter-question-paper-config",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/univ-examcenter-question-paper-config",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/examcenter-question-paper-config",
+    "label": "Examcenter Question Paper Config",
+    "oldSlug": "univ-examcenter-question-paper-config",
+    "newSlug": "examcenter-question-paper-config"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\university-exam-center-profiles",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-papers-delivery-process\\exam-center-profiles",
+    "routePath": "admin-examination-management/exam-papers-delivery-process/university-exam-center-profiles",
+    "newRoutePath": "admin-examination-management/exam-papers-delivery-process/exam-center-profiles",
+    "label": "Exam Center Profiles",
+    "oldSlug": "university-exam-center-profiles",
+    "newSlug": "exam-center-profiles"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-reports\\exam-evaluation-un-assigned-report",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-reports\\exam-evaluation-unassigned-report",
+    "routePath": "admin-examination-management/exam-reports/exam-evaluation-un-assigned-report",
+    "newRoutePath": "admin-examination-management/exam-reports/exam-evaluation-unassigned-report",
+    "label": "Exam Evaluation UnAssigned Report",
+    "oldSlug": "exam-evaluation-un-assigned-report",
+    "newSlug": "exam-evaluation-unassigned-report"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-reports\\exam-verification",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-reports\\exam-verification-report",
+    "routePath": "admin-examination-management/exam-reports/exam-verification",
+    "newRoutePath": "admin-examination-management/exam-reports/exam-verification-report",
+    "label": "Exam Verification Report",
+    "oldSlug": "exam-verification",
+    "newSlug": "exam-verification-report"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-reports\\group-yearwise-result-report",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\exam-reports\\group-year-wise-result-report",
+    "routePath": "admin-examination-management/exam-reports/group-yearwise-result-report",
+    "newRoutePath": "admin-examination-management/exam-reports/group-year-wise-result-report",
+    "label": "Group & Year Wise Result Report",
+    "oldSlug": "group-yearwise-result-report",
+    "newSlug": "group-year-wise-result-report"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\post-examination\\grade-memo-issue",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\post-examination\\student-exam-certificates",
+    "routePath": "admin-examination-management/post-examination/grade-memo-issue",
+    "newRoutePath": "admin-examination-management/post-examination/student-exam-certificates",
+    "label": "Student Exam Certificates",
+    "oldSlug": "grade-memo-issue",
+    "newSlug": "student-exam-certificates"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\post-examination\\internal-exams-average",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\post-examination\\internal-exam-average",
+    "routePath": "admin-examination-management/post-examination/internal-exams-average",
+    "newRoutePath": "admin-examination-management/post-examination/internal-exam-average",
+    "label": "Internal Exam Average",
+    "oldSlug": "internal-exams-average",
+    "newSlug": "internal-exam-average"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\post-examination\\re-evaluation-marks-entry",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\post-examination\\exam-revised-marks",
+    "routePath": "admin-examination-management/post-examination/re-evaluation-marks-entry",
+    "newRoutePath": "admin-examination-management/post-examination/exam-revised-marks",
+    "label": "Exam revised marks",
+    "oldSlug": "re-evaluation-marks-entry",
+    "newSlug": "exam-revised-marks"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\post-examination\\secure-exam-marks-entry",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\post-examination\\secure-marks-entry",
+    "routePath": "admin-examination-management/post-examination/secure-exam-marks-entry",
+    "newRoutePath": "admin-examination-management/post-examination/secure-marks-entry",
+    "label": "Secure Marks Entry",
+    "oldSlug": "secure-exam-marks-entry",
+    "newSlug": "secure-marks-entry"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\pre-examination\\exam-attendancewise-subject-barcode",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\pre-examination\\exam-attendance-wise-subject-barcode",
+    "routePath": "admin-examination-management/pre-examination/exam-attendancewise-subject-barcode",
+    "newRoutePath": "admin-examination-management/pre-examination/exam-attendance-wise-subject-barcode",
+    "label": "Exam Attendance-wise Subject Barcode",
+    "oldSlug": "exam-attendancewise-subject-barcode",
+    "newSlug": "exam-attendance-wise-subject-barcode"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\pre-examination\\exam-register-subjects",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\pre-examination\\exam-register-subjects-update",
+    "routePath": "admin-examination-management/pre-examination/exam-register-subjects",
+    "newRoutePath": "admin-examination-management/pre-examination/exam-register-subjects-update",
+    "label": "Exam Register Subjects Update",
+    "oldSlug": "exam-register-subjects",
+    "newSlug": "exam-register-subjects-update"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\pre-examination\\internal-exam-registration-multiple",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\pre-examination\\internal-exam-registration-multiple-students",
+    "routePath": "admin-examination-management/pre-examination/internal-exam-registration-multiple",
+    "newRoutePath": "admin-examination-management/pre-examination/internal-exam-registration-multiple-students",
+    "label": "Internal Exam Registration Multiple Students",
+    "oldSlug": "internal-exam-registration-multiple",
+    "newSlug": "internal-exam-registration-multiple-students"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\pre-examination\\invigilator-allotment",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\pre-examination\\exam-invigilator-allotment",
+    "routePath": "admin-examination-management/pre-examination/invigilator-allotment",
+    "newRoutePath": "admin-examination-management/pre-examination/exam-invigilator-allotment",
+    "label": "Exam Invigilator Allotment",
+    "oldSlug": "invigilator-allotment",
+    "newSlug": "exam-invigilator-allotment"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\pre-examination\\online-exam-fee-registration",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\pre-examination\\online-exam-fee-registrations",
+    "routePath": "admin-examination-management/pre-examination/online-exam-fee-registration",
+    "newRoutePath": "admin-examination-management/pre-examination/online-exam-fee-registrations",
+    "label": "Online Exam Fee Registrations",
+    "oldSlug": "online-exam-fee-registration",
+    "newSlug": "online-exam-fee-registrations"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\pre-examination\\student-exam-fee-registration",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\pre-examination\\student-exam-fee-collection",
+    "routePath": "admin-examination-management/pre-examination/student-exam-fee-registration",
+    "newRoutePath": "admin-examination-management/pre-examination/student-exam-fee-collection",
+    "label": "Student Exam Fee Collection",
+    "oldSlug": "student-exam-fee-registration",
+    "newSlug": "student-exam-fee-collection"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\re-evaluation\\re-evaluation-fee",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-examination-management\\re-evaluation\\re-valuation-fee",
+    "routePath": "admin-examination-management/re-evaluation/re-evaluation-fee",
+    "newRoutePath": "admin-examination-management/re-evaluation/re-valuation-fee",
+    "label": "Re-Valuation Fee",
+    "oldSlug": "re-evaluation-fee",
+    "newSlug": "re-valuation-fee"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-student-information-system\\generate-student-rollno",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-student-information-system\\generate-student-roll-no",
+    "routePath": "admin-student-information-system/generate-student-rollno",
+    "newRoutePath": "admin-student-information-system/generate-student-roll-no",
+    "label": "Generate Student Roll No.",
+    "oldSlug": "generate-student-rollno",
+    "newSlug": "generate-student-roll-no"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-student-information-system\\student-cc-activities",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-student-information-system\\student-co-curriculum-activities",
+    "routePath": "admin-student-information-system/student-cc-activities",
+    "newRoutePath": "admin-student-information-system/student-co-curriculum-activities",
+    "label": "Student Co-Curriculum Activities",
+    "oldSlug": "student-cc-activities",
+    "newSlug": "student-co-curriculum-activities"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-student-information-system\\students-list",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-student-information-system\\student-details",
+    "routePath": "admin-student-information-system/students-list",
+    "newRoutePath": "admin-student-information-system/student-details",
+    "label": "Student Details",
+    "oldSlug": "students-list",
+    "newSlug": "student-details"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admin-student-information-system\\students-profile",
+    "toDir": "src\\app\\(pages)\\(protected)\\admin-student-information-system\\student-details",
+    "routePath": "admin-student-information-system/students-profile",
+    "newRoutePath": "admin-student-information-system/student-details",
+    "label": "Student Details",
+    "oldSlug": "students-profile",
+    "newSlug": "student-details"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admission\\counselling\\admission-allotment-ndetails",
+    "toDir": "src\\app\\(pages)\\(protected)\\admission\\counselling\\admission-allotment-details",
+    "routePath": "admission/counselling/admission-allotment-ndetails",
+    "newRoutePath": "admission/counselling/admission-allotment-details",
+    "label": "Admission Allotment & Details",
+    "oldSlug": "admission-allotment-ndetails",
+    "newSlug": "admission-allotment-details"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\admission\\counselling\\fee-paid-applications-list",
+    "toDir": "src\\app\\(pages)\\(protected)\\admission\\counselling\\fee-paid-applications",
+    "routePath": "admission/counselling/fee-paid-applications-list",
+    "newRoutePath": "admission/counselling/fee-paid-applications",
+    "label": "Fee Paid Applications",
+    "oldSlug": "fee-paid-applications-list",
+    "newSlug": "fee-paid-applications"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\affiliated-colleges\\college-bulk-uploads",
+    "toDir": "src\\app\\(pages)\\(protected)\\affiliated-colleges\\affiliated-college-bulk-uploads",
+    "routePath": "affiliated-colleges/college-bulk-uploads",
+    "newRoutePath": "affiliated-colleges/affiliated-college-bulk-uploads",
+    "label": "Affiliated College Bulk Uploads",
+    "oldSlug": "college-bulk-uploads",
+    "newSlug": "affiliated-college-bulk-uploads"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\assessments\\test",
+    "toDir": "src\\app\\(pages)\\(protected)\\assessments\\test-list",
+    "routePath": "assessments/test",
+    "newRoutePath": "assessments/test-list",
+    "label": "Test List",
+    "oldSlug": "test",
+    "newSlug": "test-list"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\campus-maintenance\\new-complaints",
+    "toDir": "src\\app\\(pages)\\(protected)\\campus-maintenance\\my-complaints",
+    "routePath": "campus-maintenance/new-complaints",
+    "newRoutePath": "campus-maintenance/my-complaints",
+    "label": "My Complaints",
+    "oldSlug": "new-complaints",
+    "newSlug": "my-complaints"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\committees\\add-committee-members",
+    "toDir": "src\\app\\(pages)\\(protected)\\committees\\committee-members",
+    "routePath": "committees/add-committee-members",
+    "newRoutePath": "committees/committee-members",
+    "label": "Committee Members",
+    "oldSlug": "add-committee-members",
+    "newSlug": "committee-members"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\e-office\\item-request",
+    "toDir": "src\\app\\(pages)\\(protected)\\e-office\\internal-requisitions",
+    "routePath": "e-office/item-request",
+    "newRoutePath": "e-office/internal-requisitions",
+    "label": "Internal Requisitions",
+    "oldSlug": "item-request",
+    "newSlug": "internal-requisitions"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\e-office\\letter-formats",
+    "toDir": "src\\app\\(pages)\\(protected)\\e-office\\letter-format",
+    "routePath": "e-office/letter-formats",
+    "newRoutePath": "e-office/letter-format",
+    "label": "Letter Format",
+    "oldSlug": "letter-formats",
+    "newSlug": "letter-format"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\e-office\\payment-note-request",
+    "toDir": "src\\app\\(pages)\\(protected)\\e-office\\purchase-order",
+    "routePath": "e-office/payment-note-request",
+    "newRoutePath": "e-office/purchase-order",
+    "label": "Purchase Order",
+    "oldSlug": "payment-note-request",
+    "newSlug": "purchase-order"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\email-sms\\department-wise-email",
+    "toDir": "src\\app\\(pages)\\(protected)\\email-sms\\send-email-to-department-wise",
+    "routePath": "email-sms/department-wise-email",
+    "newRoutePath": "email-sms/send-email-to-department-wise",
+    "label": "Send Email To Department Wise",
+    "oldSlug": "department-wise-email",
+    "newSlug": "send-email-to-department-wise"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\email-sms\\principal-staff-to-admin-email",
+    "toDir": "src\\app\\(pages)\\(protected)\\email-sms\\principal-and-staff-to-admin-email",
+    "routePath": "email-sms/principal-staff-to-admin-email",
+    "newRoutePath": "email-sms/principal-and-staff-to-admin-email",
+    "label": "Principal and staff to admin — email",
+    "oldSlug": "principal-staff-to-admin-email",
+    "newSlug": "principal-and-staff-to-admin-email"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\email-sms\\principal-to-dept-email",
+    "toDir": "src\\app\\(pages)\\(protected)\\email-sms\\send-email-to-departments",
+    "routePath": "email-sms/principal-to-dept-email",
+    "newRoutePath": "email-sms/send-email-to-departments",
+    "label": "Send email to departments",
+    "oldSlug": "principal-to-dept-email",
+    "newSlug": "send-email-to-departments"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\email-sms\\staff-to-student-email",
+    "toDir": "src\\app\\(pages)\\(protected)\\email-sms\\send-email-to-students",
+    "routePath": "email-sms/staff-to-student-email",
+    "newRoutePath": "email-sms/send-email-to-students",
+    "label": "Send Email To Students",
+    "oldSlug": "staff-to-student-email",
+    "newSlug": "send-email-to-students"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\finance\\acoounts-types",
+    "toDir": "src\\app\\(pages)\\(protected)\\finance\\account-types",
+    "routePath": "finance/acoounts-types",
+    "newRoutePath": "finance/account-types",
+    "label": "Account Types",
+    "oldSlug": "acoounts-types",
+    "newSlug": "account-types"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\finance\\budget",
+    "toDir": "src\\app\\(pages)\\(protected)\\finance\\budget-mid-year-estimation",
+    "routePath": "finance/budget",
+    "newRoutePath": "finance/budget-mid-year-estimation",
+    "label": "Budget Mid Year Estimation",
+    "oldSlug": "budget",
+    "newSlug": "budget-mid-year-estimation"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\finance\\budget-estimations",
+    "toDir": "src\\app\\(pages)\\(protected)\\finance\\budget-estimation-report",
+    "routePath": "finance/budget-estimations",
+    "newRoutePath": "finance/budget-estimation-report",
+    "label": "Budget Estimation Report",
+    "oldSlug": "budget-estimations",
+    "newSlug": "budget-estimation-report"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\finance\\check-book",
+    "toDir": "src\\app\\(pages)\\(protected)\\finance\\cheque-book",
+    "routePath": "finance/check-book",
+    "newRoutePath": "finance/cheque-book",
+    "label": "Cheque Book",
+    "oldSlug": "check-book",
+    "newSlug": "cheque-book"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\finance\\finance-subcategory",
+    "toDir": "src\\app\\(pages)\\(protected)\\finance\\finance-sub-category",
+    "routePath": "finance/finance-subcategory",
+    "newRoutePath": "finance/finance-sub-category",
+    "label": "Finance Sub Category",
+    "oldSlug": "finance-subcategory",
+    "newSlug": "finance-sub-category"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\finance\\transaction",
+    "toDir": "src\\app\\(pages)\\(protected)\\finance\\transactions",
+    "routePath": "finance/transaction",
+    "newRoutePath": "finance/transactions",
+    "label": "Transactions",
+    "oldSlug": "transaction",
+    "newSlug": "transactions"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\hostel\\rooms-list",
+    "toDir": "src\\app\\(pages)\\(protected)\\hostel\\hostel-room-allocation",
+    "routePath": "hostel/rooms-list",
+    "newRoutePath": "hostel/hostel-room-allocation",
+    "label": "Hostel room allocation",
+    "oldSlug": "rooms-list",
+    "newSlug": "hostel-room-allocation"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\inventory-management\\internal-item-return",
+    "toDir": "src\\app\\(pages)\\(protected)\\inventory-management\\internal-return",
+    "routePath": "inventory-management/internal-item-return",
+    "newRoutePath": "inventory-management/internal-return",
+    "label": "Internal Return",
+    "oldSlug": "internal-item-return",
+    "newSlug": "internal-return"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\inventory-management\\item-opening-stock",
+    "toDir": "src\\app\\(pages)\\(protected)\\inventory-management\\opening-stock",
+    "routePath": "inventory-management/item-opening-stock",
+    "newRoutePath": "inventory-management/opening-stock",
+    "label": "Opening Stock",
+    "oldSlug": "item-opening-stock",
+    "newSlug": "opening-stock"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\library\\bookReturn",
+    "toDir": "src\\app\\(pages)\\(protected)\\library\\book-return",
+    "routePath": "library/bookReturn",
+    "newRoutePath": "library/book-return",
+    "label": "Book Return",
+    "oldSlug": "bookReturn",
+    "newSlug": "book-return"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\placements-achievements\\placements\\placed-students-list",
+    "toDir": "src\\app\\(pages)\\(protected)\\placements-achievements\\placements\\placed-students",
+    "routePath": "placements-achievements/placements/placed-students-list",
+    "newRoutePath": "placements-achievements/placements/placed-students",
+    "label": "Placed Students",
+    "oldSlug": "placed-students-list",
+    "newSlug": "placed-students"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\placements-achievements\\placements\\placement-broadcast",
+    "toDir": "src\\app\\(pages)\\(protected)\\placements-achievements\\placements\\broadcast-messages",
+    "routePath": "placements-achievements/placements/placement-broadcast",
+    "newRoutePath": "placements-achievements/placements/broadcast-messages",
+    "label": "Broadcast Messages",
+    "oldSlug": "placement-broadcast",
+    "newSlug": "broadcast-messages"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\placements-achievements\\placements\\placement-companies",
+    "toDir": "src\\app\\(pages)\\(protected)\\placements-achievements\\placements\\company-placement-requirements",
+    "routePath": "placements-achievements/placements/placement-companies",
+    "newRoutePath": "placements-achievements/placements/company-placement-requirements",
+    "label": "Company Placement Requirements",
+    "oldSlug": "placement-companies",
+    "newSlug": "company-placement-requirements"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\placements-achievements\\placements\\placement-registered-list",
+    "toDir": "src\\app\\(pages)\\(protected)\\placements-achievements\\placements\\placement-students-list",
+    "routePath": "placements-achievements/placements/placement-registered-list",
+    "newRoutePath": "placements-achievements/placements/placement-students-list",
+    "label": "Placement Students List",
+    "oldSlug": "placement-registered-list",
+    "newSlug": "placement-students-list"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\tc-no-due-approval\\certificates-issued-list",
+    "toDir": "src\\app\\(pages)\\(protected)\\tc-no-due-approval\\certificates-issued",
+    "routePath": "tc-no-due-approval/certificates-issued-list",
+    "newRoutePath": "tc-no-due-approval/certificates-issued",
+    "label": "Certificates Issued",
+    "oldSlug": "certificates-issued-list",
+    "newSlug": "certificates-issued"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\tc-no-due-approval\\send-no-due-approval-request",
+    "toDir": "src\\app\\(pages)\\(protected)\\tc-no-due-approval\\no-due-approval-request",
+    "routePath": "tc-no-due-approval/send-no-due-approval-request",
+    "newRoutePath": "tc-no-due-approval/no-due-approval-request",
+    "label": "No Due Approval Request",
+    "oldSlug": "send-no-due-approval-request",
+    "newSlug": "no-due-approval-request"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\trainings\\training",
+    "toDir": "src\\app\\(pages)\\(protected)\\trainings\\placement-trainings",
+    "routePath": "trainings/training",
+    "newRoutePath": "trainings/placement-trainings",
+    "label": "Placement Trainings",
+    "oldSlug": "training",
+    "newSlug": "placement-trainings"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\transport\\vehicle-drivers",
+    "toDir": "src\\app\\(pages)\\(protected)\\transport\\map-vehicle-driver",
+    "routePath": "transport/vehicle-drivers",
+    "newRoutePath": "transport/map-vehicle-driver",
+    "label": "Map Vehicle Driver",
+    "oldSlug": "vehicle-drivers",
+    "newSlug": "map-vehicle-driver"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\transport\\vehicle-map",
+    "toDir": "src\\app\\(pages)\\(protected)\\transport\\map-vehicle-route",
+    "routePath": "transport/vehicle-map",
+    "newRoutePath": "transport/map-vehicle-route",
+    "label": "Map Vehicle Route",
+    "oldSlug": "vehicle-map",
+    "newSlug": "map-vehicle-route"
+  },
+  {
+    "fromDir": "src\\app\\(pages)\\(protected)\\user-management\\parent-accounts\\manage",
+    "toDir": "src\\app\\(pages)\\(protected)\\user-management\\parent-accounts\\parent-account",
+    "routePath": "user-management/parent-accounts/manage",
+    "newRoutePath": "user-management/parent-accounts/parent-account",
+    "label": "Parent Account",
+    "oldSlug": "manage",
+    "newSlug": "parent-account"
+  }
+]

@@ -1,0 +1,1026 @@
+[
+  {
+    "module": "academics",
+    "sidebarName": "Academic Batches Of Student",
+    "oldUrl": "/academics/academic-batches",
+    "newUrl": "/academics/academic-batches-of-student",
+    "oldPageTitle": "Academic Batches Of Student",
+    "newPageTitle": "Academic Batches Of Student"
+  },
+  {
+    "module": "academics",
+    "sidebarName": "University Curriculum Regulation Subjects",
+    "oldUrl": "/academics/college-curriculum/course-group-year-regulation-subject",
+    "newUrl": "/academics/college-curriculum/university-curriculum-regulation-subjects",
+    "oldPageTitle": "University Curriculum Regulation Subjects",
+    "newPageTitle": "University Curriculum Regulation Subjects"
+  },
+  {
+    "module": "academics",
+    "sidebarName": "Assign Course Year Subjects",
+    "oldUrl": "/academics/college-curriculum/subject-allocation",
+    "newUrl": "/academics/college-curriculum/assign-course-year-subjects",
+    "oldPageTitle": "Assign Course Year Subjects",
+    "newPageTitle": "Assign Course Year Subjects"
+  },
+  {
+    "module": "academics",
+    "sidebarName": "Course Year Subject Association",
+    "oldUrl": "/academics/college-curriculum/subject-allocation-sem-regulation",
+    "newUrl": "/academics/college-curriculum/course-year-subject-association",
+    "oldPageTitle": "Course Year Subject Association",
+    "newPageTitle": "Course Year Subject Association"
+  },
+  {
+    "module": "academics",
+    "sidebarName": "Modify Student Batches",
+    "oldUrl": "/academics/modify-academic-batch",
+    "newUrl": "/academics/modify-student-batches",
+    "oldPageTitle": "Modify Student Batches",
+    "newPageTitle": "Modify Student Batches"
+  },
+  {
+    "module": "academics",
+    "sidebarName": "Subjects Units",
+    "oldUrl": "/academics/subject-mapping/add-subject-units",
+    "newUrl": "/academics/subject-mapping/subjects-units",
+    "oldPageTitle": "Subjects Units",
+    "newPageTitle": "Subjects Units"
+  },
+  {
+    "module": "academics",
+    "sidebarName": "Allocate Student Subjects",
+    "oldUrl": "/academics/subject-mapping/allocate-student-subject",
+    "newUrl": "/academics/subject-mapping/allocate-student-subjects",
+    "oldPageTitle": "Allocate Student Subjects",
+    "newPageTitle": "Allocate Student Subjects"
+  },
+  {
+    "module": "academics",
+    "sidebarName": "Assign Regulation to Student",
+    "oldUrl": "/academics/subject-mapping/assign-regulation-to-students",
+    "newUrl": "/academics/subject-mapping/assign-regulation-to-student",
+    "oldPageTitle": "Assign Regulation to Student",
+    "newPageTitle": "Assign Regulation to Student"
+  },
+  {
+    "module": "academics",
+    "sidebarName": "Assign Students To Lab",
+    "oldUrl": "/academics/subject-mapping/assign-students-to-lab-batches",
+    "newUrl": "/academics/subject-mapping/assign-students-to-lab",
+    "oldPageTitle": "Assign Students To Lab",
+    "newPageTitle": "Assign Students To Lab"
+  },
+  {
+    "module": "academics",
+    "sidebarName": "Staff Subject Mapping",
+    "oldUrl": "/academics/subject-mapping/course-group-subjects-list",
+    "newUrl": "/academics/subject-mapping/staff-subject-mapping",
+    "oldPageTitle": "Staff Subject Mapping",
+    "newPageTitle": "Staff Subject Mapping"
+  },
+  {
+    "module": "academics",
+    "sidebarName": "Subjects Syllabus Plan",
+    "oldUrl": "/academics/subject-mapping/subject-syllabus-plan",
+    "newUrl": "/academics/subject-mapping/subjects-syllabus-plan",
+    "oldPageTitle": "Subjects Syllabus Plan",
+    "newPageTitle": "Subjects Syllabus Plan"
+  },
+  {
+    "module": "admin",
+    "sidebarName": "Employee Bulk Upload",
+    "oldUrl": "/admin/bulk-uploads/employee-upload",
+    "newUrl": "/admin/bulk-uploads/employee-bulk-upload",
+    "oldPageTitle": "Employee Bulk Upload",
+    "newPageTitle": "Employee Bulk Upload"
+  },
+  {
+    "module": "admin",
+    "sidebarName": "Dost Upload",
+    "oldUrl": "/admin/bulk-uploads/student-dost-upload",
+    "newUrl": "/admin/bulk-uploads/dost-upload",
+    "oldPageTitle": "Dost Upload",
+    "newPageTitle": "Dost Upload"
+  },
+  {
+    "module": "admin",
+    "sidebarName": "Student Bulk Upload",
+    "oldUrl": "/admin/bulk-uploads/students-upload",
+    "newUrl": "/admin/bulk-uploads/student-bulk-upload",
+    "oldPageTitle": "Student Bulk Upload",
+    "newPageTitle": "Student Bulk Upload"
+  },
+  {
+    "module": "admin",
+    "sidebarName": "Caste",
+    "oldUrl": "/admin/caste-master",
+    "newUrl": "/admin/caste",
+    "oldPageTitle": "Caste",
+    "newPageTitle": "Caste"
+  },
+  {
+    "module": "admin",
+    "sidebarName": "Auto Number Configuration",
+    "oldUrl": "/admin/configure-auto-numbers",
+    "newUrl": "/admin/auto-number-configuration",
+    "oldPageTitle": "Auto Number Configuration",
+    "newPageTitle": "Auto Number Configuration"
+  },
+  {
+    "module": "admin",
+    "sidebarName": "Semester",
+    "oldUrl": "/admin/course-years",
+    "newUrl": "/admin/semester",
+    "oldPageTitle": "Semester",
+    "newPageTitle": "Semester"
+  },
+  {
+    "module": "admin",
+    "sidebarName": "Document Repository Settings",
+    "oldUrl": "/admin/document-repository",
+    "newUrl": "/admin/document-repository-settings",
+    "oldPageTitle": "Document Repository Settings",
+    "newPageTitle": "Document Repository Settings"
+  },
+  {
+    "module": "admin",
+    "sidebarName": "Section",
+    "oldUrl": "/admin/group-sections",
+    "newUrl": "/admin/section",
+    "oldPageTitle": "Section",
+    "newPageTitle": "Section"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Fee Structures",
+    "oldUrl": "/admin-examination-management/admin-exam-masters/exam-fee-setup",
+    "newUrl": "/admin-examination-management/admin-exam-masters/exam-fee-structures",
+    "oldPageTitle": "Exam Fee Structures",
+    "newPageTitle": "Exam Fee Structures"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Create Exam Notification",
+    "oldUrl": "/admin-examination-management/admin-exam-masters/exam-master",
+    "newUrl": "/admin-examination-management/admin-exam-masters/create-exam-notification",
+    "oldPageTitle": "Create Exam Notification",
+    "newPageTitle": "Create Exam Notification"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Marks Setup",
+    "oldUrl": "/admin-examination-management/admin-exam-masters/exam-max-marks-setup",
+    "newUrl": "/admin-examination-management/admin-exam-masters/exam-marks-setup",
+    "oldPageTitle": "Exam Marks Setup",
+    "newPageTitle": "Exam Marks Setup"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Create Exam Session",
+    "oldUrl": "/admin-examination-management/admin-exam-masters/exam-session",
+    "newUrl": "/admin-examination-management/admin-exam-masters/create-exam-session",
+    "oldPageTitle": "Create Exam Session",
+    "newPageTitle": "Create Exam Session"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam University Timetable",
+    "oldUrl": "/admin-examination-management/admin-exam-masters/exam-timetable",
+    "newUrl": "/admin-examination-management/admin-exam-masters/exam-university-timetable",
+    "oldPageTitle": "Exam University Timetable",
+    "newPageTitle": "Exam University Timetable"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Timetable Notification",
+    "oldUrl": "/admin-examination-management/admin-exam-masters/exam-tt-notification",
+    "newUrl": "/admin-examination-management/admin-exam-masters/exam-timetable-notification",
+    "oldPageTitle": "Exam Timetable Notification",
+    "newPageTitle": "Exam Timetable Notification"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Invigilator Remuneration",
+    "oldUrl": "/admin-examination-management/admin-exam-masters/invigilator-remuneration",
+    "newUrl": "/admin-examination-management/admin-exam-masters/exam-invigilator-remuneration",
+    "oldPageTitle": "Exam Invigilator Remuneration",
+    "newPageTitle": "Exam Invigilator Remuneration"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Re-Valuation Fee Setup",
+    "oldUrl": "/admin-examination-management/admin-exam-masters/re-valuation-fee-setup",
+    "newUrl": "/admin-examination-management/admin-exam-masters/exam-re-valuation-fee-setup",
+    "oldPageTitle": "Exam Re-Valuation Fee Setup",
+    "newPageTitle": "Exam Re-Valuation Fee Setup"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Revision Master",
+    "oldUrl": "/admin-examination-management/admin-exam-masters/revision-master",
+    "newUrl": "/admin-examination-management/admin-exam-masters/exam-revision-master",
+    "oldPageTitle": "Exam Revision Master",
+    "newPageTitle": "Exam Revision Master"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Room Seating Plan",
+    "oldUrl": "/admin-examination-management/admin-exam-masters/seating-plan-setup",
+    "newUrl": "/admin-examination-management/admin-exam-masters/exam-room-seating-plan",
+    "oldPageTitle": "Exam Room Seating Plan",
+    "newPageTitle": "Exam Room Seating Plan"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Setup Master",
+    "oldUrl": "/admin-examination-management/admin-exam-masters/setup-master",
+    "newUrl": "/admin-examination-management/admin-exam-masters/exam-setup-master",
+    "oldPageTitle": "Exam Setup Master",
+    "newPageTitle": "Exam Setup Master"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Assignment Pending List",
+    "oldUrl": "/admin-examination-management/admin-exam-reports/assignment-pending-list-report",
+    "newUrl": "/admin-examination-management/admin-exam-reports/assignment-pending-list",
+    "oldPageTitle": "Assignment Pending List",
+    "newPageTitle": "Assignment Pending List"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Batch Wise SGPA Report",
+    "oldUrl": "/admin-examination-management/admin-exam-reports/batchwise-sgpa-report",
+    "newUrl": "/admin-examination-management/admin-exam-reports/batch-wise-sgpa-report",
+    "oldPageTitle": "Batch Wise SGPA Report",
+    "newPageTitle": "Batch Wise SGPA Report"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Invigilator Allotment Report",
+    "oldUrl": "/admin-examination-management/admin-exam-reports/exam-invigilator-allotment-report",
+    "newUrl": "/admin-examination-management/admin-exam-reports/invigilator-allotment-report",
+    "oldPageTitle": "Invigilator Allotment Report",
+    "newPageTitle": "Invigilator Allotment Report"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Final Marks Pre Moderation Report",
+    "oldUrl": "/admin-examination-management/admin-exam-reports/final-marks-premoderation",
+    "newUrl": "/admin-examination-management/admin-exam-reports/final-marks-pre-moderation-report",
+    "oldPageTitle": "Final Marks Pre Moderation Report",
+    "newPageTitle": "Final Marks Pre Moderation Report"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Grace Marks Benefited Students Data",
+    "oldUrl": "/admin-examination-management/admin-exam-reports/grace-marks-benefited-students-report",
+    "newUrl": "/admin-examination-management/admin-exam-reports/grace-marks-benefited-students-data",
+    "oldPageTitle": "Grace Marks Benefited Students Data",
+    "newPageTitle": "Grace Marks Benefited Students Data"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Invigilator Remuneration Report",
+    "oldUrl": "/admin-examination-management/admin-exam-reports/invigilators-remuneration-report",
+    "newUrl": "/admin-examination-management/admin-exam-reports/invigilator-remuneration-report",
+    "oldPageTitle": "Invigilator Remuneration Report",
+    "newPageTitle": "Invigilator Remuneration Report"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Moderation Benefited Students Data",
+    "oldUrl": "/admin-examination-management/admin-exam-reports/moderation-benefited-students-report",
+    "newUrl": "/admin-examination-management/admin-exam-reports/moderation-benefited-students-data",
+    "oldPageTitle": "Moderation Benefited Students Data",
+    "newPageTitle": "Moderation Benefited Students Data"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Re-Evaluation Comparision Result Report",
+    "oldUrl": "/admin-examination-management/admin-exam-reports/re-evaluation-comparision-report",
+    "newUrl": "/admin-examination-management/admin-exam-reports/re-evaluation-comparision-result-report",
+    "oldPageTitle": "Re-Evaluation Comparision Result Report",
+    "newPageTitle": "Re-Evaluation Comparision Result Report"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Grade And Grade Points Report",
+    "oldUrl": "/admin-examination-management/admin-exam-reports/student-wise-grade-point-report",
+    "newUrl": "/admin-examination-management/admin-exam-reports/grade-and-grade-points-report",
+    "oldPageTitle": "Grade And Grade Points Report",
+    "newPageTitle": "Grade And Grade Points Report"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Subject Wise Result Report",
+    "oldUrl": "/admin-examination-management/admin-exam-reports/subjectwise-result-report",
+    "newUrl": "/admin-examination-management/admin-exam-reports/subject-wise-result-report",
+    "oldPageTitle": "Subject Wise Result Report",
+    "newPageTitle": "Subject Wise Result Report"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Assign Evaluator",
+    "oldUrl": "/admin-examination-management/evaluation-process/assign-evaluators",
+    "newUrl": "/admin-examination-management/evaluation-process/assign-evaluator",
+    "oldPageTitle": "Assign Evaluator",
+    "newPageTitle": "Assign Evaluator"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Manual Assign Evaluator",
+    "oldUrl": "/admin-examination-management/evaluation-process/assign-evaluators-manual",
+    "newUrl": "/admin-examination-management/evaluation-process/manual-assign-evaluator",
+    "oldPageTitle": "Manual Assign Evaluator",
+    "newPageTitle": "Manual Assign Evaluator"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Assign Template",
+    "oldUrl": "/admin-examination-management/evaluation-process/assign-questionpaper-template",
+    "newUrl": "/admin-examination-management/evaluation-process/assign-template",
+    "oldPageTitle": "Assign Template",
+    "newPageTitle": "Assign Template"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Assign Re-Evaluator",
+    "oldUrl": "/admin-examination-management/evaluation-process/assign-reevaluator",
+    "newUrl": "/admin-examination-management/evaluation-process/assign-re-evaluator",
+    "oldPageTitle": "Assign Re-Evaluator",
+    "newPageTitle": "Assign Re-Evaluator"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Evaluator",
+    "oldUrl": "/admin-examination-management/evaluation-process/create-evaluators",
+    "newUrl": "/admin-examination-management/evaluation-process/evaluator",
+    "oldPageTitle": "Evaluator",
+    "newPageTitle": "Evaluator"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Configure section, group, and question marks structure",
+    "oldUrl": "/admin-examination-management/evaluation-process/create-questionpaper-template",
+    "newUrl": "/admin-examination-management/evaluation-process/configure-section-group-and-question-marks-structure",
+    "oldPageTitle": "Configure section, group, and question marks structure",
+    "newPageTitle": "Configure section, group, and question marks structure"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Moderator Approvals",
+    "oldUrl": "/admin-examination-management/evaluation-process/evaluation-approvals",
+    "newUrl": "/admin-examination-management/evaluation-process/moderator-approvals",
+    "oldPageTitle": "Moderator Approvals",
+    "newPageTitle": "Moderator Approvals"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Evaluator Exam Subjects",
+    "oldUrl": "/admin-examination-management/evaluation-process/evaluator-exam-subject",
+    "newUrl": "/admin-examination-management/evaluation-process/evaluator-exam-subjects",
+    "oldPageTitle": "Evaluator Exam Subjects",
+    "newPageTitle": "Evaluator Exam Subjects"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Paper Evaluation",
+    "oldUrl": "/admin-examination-management/evaluation-process/evaluator-subjects/paper",
+    "newUrl": "/admin-examination-management/evaluation-process/evaluator-subjects/paper-evaluation",
+    "oldPageTitle": "Paper Evaluation",
+    "newPageTitle": "Paper Evaluation"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Finalize Exam Question Paper",
+    "oldUrl": "/admin-examination-management/evaluation-process/exam-final-question-paper",
+    "newUrl": "/admin-examination-management/evaluation-process/finalize-exam-question-paper",
+    "oldPageTitle": "Finalize Exam Question Paper",
+    "newPageTitle": "Finalize Exam Question Paper"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Question Paper",
+    "oldUrl": "/admin-examination-management/evaluation-process/exam-question-paper-marks",
+    "newUrl": "/admin-examination-management/evaluation-process/exam-question-paper",
+    "oldPageTitle": "Exam Question Paper",
+    "newPageTitle": "Exam Question Paper"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Moderator Evaluator",
+    "oldUrl": "/admin-examination-management/evaluation-process/moderator-evaluators",
+    "newUrl": "/admin-examination-management/evaluation-process/moderator-evaluator",
+    "oldPageTitle": "Moderator Evaluator",
+    "newPageTitle": "Moderator Evaluator"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Assign Multi Evaluator",
+    "oldUrl": "/admin-examination-management/evaluation-process/multi-evaluator-assign",
+    "newUrl": "/admin-examination-management/evaluation-process/assign-multi-evaluator",
+    "oldPageTitle": "Assign Multi Evaluator",
+    "newPageTitle": "Assign Multi Evaluator"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Re-Assign Evaluator",
+    "oldUrl": "/admin-examination-management/evaluation-process/re-assign-evaluators",
+    "newUrl": "/admin-examination-management/evaluation-process/re-assign-evaluator",
+    "oldPageTitle": "Re-Assign Evaluator",
+    "newPageTitle": "Re-Assign Evaluator"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Upload Scanned Answer Papers",
+    "oldUrl": "/admin-examination-management/evaluation-process/scan-upload-process",
+    "newUrl": "/admin-examination-management/evaluation-process/upload-scanned-answer-papers",
+    "oldPageTitle": "Upload Scanned Answer Papers",
+    "newPageTitle": "Upload Scanned Answer Papers"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Evaluation status tracking",
+    "oldUrl": "/admin-examination-management/evaluation-process/update-evaluator-answer-papers-status",
+    "newUrl": "/admin-examination-management/evaluation-process/evaluation-status-tracking",
+    "oldPageTitle": "Evaluation status tracking",
+    "newPageTitle": "Evaluation status tracking"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Publish Exam Question Paper",
+    "oldUrl": "/admin-examination-management/evaluation-process/view-ex-fin-qn-paper",
+    "newUrl": "/admin-examination-management/evaluation-process/publish-exam-question-paper",
+    "oldPageTitle": "Publish Exam Question Paper",
+    "newPageTitle": "Publish Exam Question Paper"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Examination Dashboard",
+    "oldUrl": "/admin-examination-management/exam-dashboard",
+    "newUrl": "/admin-examination-management/examination-dashboard",
+    "oldPageTitle": "Examination Dashboard",
+    "newPageTitle": "Examination Dashboard"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Blocks",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/exam-center-blocks",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/blocks",
+    "oldPageTitle": "Blocks",
+    "newPageTitle": "Blocks"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Buildings",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/exam-center-buildings",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/buildings",
+    "oldPageTitle": "Buildings",
+    "newPageTitle": "Buildings"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Floors",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/exam-center-floors",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/floors",
+    "oldPageTitle": "Floors",
+    "newPageTitle": "Floors"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Room Seating Plan",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/exam-center-room-allotment",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/exam-room-seating-plan",
+    "oldPageTitle": "Exam Room Seating Plan",
+    "newPageTitle": "Exam Room Seating Plan"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Room Types",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/exam-center-room-types",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/room-types",
+    "oldPageTitle": "Room Types",
+    "newPageTitle": "Room Types"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Rooms",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/exam-center-rooms",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/rooms",
+    "oldPageTitle": "Rooms",
+    "newPageTitle": "Rooms"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Edit exam group details",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/exam-group/group-details",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/exam-group/edit-exam-group-details",
+    "oldPageTitle": "Edit exam group details",
+    "newPageTitle": "Edit exam group details"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Scan Bundles",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/exam-scan-bundles-print",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/scan-bundles",
+    "oldPageTitle": "Scan Bundles",
+    "newPageTitle": "Scan Bundles"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Answer Paper Bags",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/univ-exam-answer-paper-bags",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/exam-answer-paper-bags",
+    "oldPageTitle": "Exam Answer Paper Bags",
+    "newPageTitle": "Exam Answer Paper Bags"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Bag Collection",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/univ-exam-bag-collection",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/exam-bag-collection",
+    "oldPageTitle": "Exam Bag Collection",
+    "newPageTitle": "Exam Bag Collection"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Bag Transportation",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/univ-exam-bag-transportation",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/exam-bag-transportation",
+    "oldPageTitle": "Exam Bag Transportation",
+    "newPageTitle": "Exam Bag Transportation"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Bags",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/univ-exam-bags",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/exam-bags",
+    "oldPageTitle": "Exam Bags",
+    "newPageTitle": "Exam Bags"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Bundles",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/univ-exam-bundles",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/exam-bundles",
+    "oldPageTitle": "Exam Bundles",
+    "newPageTitle": "Exam Bundles"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Center Rooms",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/univ-exam-center-rooms",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/exam-center-rooms",
+    "oldPageTitle": "Exam Center Rooms",
+    "newPageTitle": "Exam Center Rooms"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Centers",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/univ-exam-centers",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/exam-centers",
+    "oldPageTitle": "Exam Centers",
+    "newPageTitle": "Exam Centers"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Regional Centers",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/univ-exam-regional-centers",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/exam-regional-centers",
+    "oldPageTitle": "Exam Regional Centers",
+    "newPageTitle": "Exam Regional Centers"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Center Colleges",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/univ-examcenter-colleges",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/exam-center-colleges",
+    "oldPageTitle": "Exam Center Colleges",
+    "newPageTitle": "Exam Center Colleges"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Examcenter Question Paper Config",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/univ-examcenter-question-paper-config",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/examcenter-question-paper-config",
+    "oldPageTitle": "Examcenter Question Paper Config",
+    "newPageTitle": "Examcenter Question Paper Config"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Center Profiles",
+    "oldUrl": "/admin-examination-management/exam-papers-delivery-process/university-exam-center-profiles",
+    "newUrl": "/admin-examination-management/exam-papers-delivery-process/exam-center-profiles",
+    "oldPageTitle": "Exam Center Profiles",
+    "newPageTitle": "Exam Center Profiles"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Evaluation UnAssigned Report",
+    "oldUrl": "/admin-examination-management/exam-reports/exam-evaluation-un-assigned-report",
+    "newUrl": "/admin-examination-management/exam-reports/exam-evaluation-unassigned-report",
+    "oldPageTitle": "Exam Evaluation UnAssigned Report",
+    "newPageTitle": "Exam Evaluation UnAssigned Report"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Verification Report",
+    "oldUrl": "/admin-examination-management/exam-reports/exam-verification",
+    "newUrl": "/admin-examination-management/exam-reports/exam-verification-report",
+    "oldPageTitle": "Exam Verification Report",
+    "newPageTitle": "Exam Verification Report"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Group & Year Wise Result Report",
+    "oldUrl": "/admin-examination-management/exam-reports/group-yearwise-result-report",
+    "newUrl": "/admin-examination-management/exam-reports/group-year-wise-result-report",
+    "oldPageTitle": "Group & Year Wise Result Report",
+    "newPageTitle": "Group & Year Wise Result Report"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Student Exam Certificates",
+    "oldUrl": "/admin-examination-management/post-examination/grade-memo-issue",
+    "newUrl": "/admin-examination-management/post-examination/student-exam-certificates",
+    "oldPageTitle": "Student Exam Certificates",
+    "newPageTitle": "Student Exam Certificates"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Internal Exam Average",
+    "oldUrl": "/admin-examination-management/post-examination/internal-exams-average",
+    "newUrl": "/admin-examination-management/post-examination/internal-exam-average",
+    "oldPageTitle": "Internal Exam Average",
+    "newPageTitle": "Internal Exam Average"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam revised marks",
+    "oldUrl": "/admin-examination-management/post-examination/re-evaluation-marks-entry",
+    "newUrl": "/admin-examination-management/post-examination/exam-revised-marks",
+    "oldPageTitle": "Exam revised marks",
+    "newPageTitle": "Exam revised marks"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Secure Marks Entry",
+    "oldUrl": "/admin-examination-management/post-examination/secure-exam-marks-entry",
+    "newUrl": "/admin-examination-management/post-examination/secure-marks-entry",
+    "oldPageTitle": "Secure Marks Entry",
+    "newPageTitle": "Secure Marks Entry"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Attendance-wise Subject Barcode",
+    "oldUrl": "/admin-examination-management/pre-examination/exam-attendancewise-subject-barcode",
+    "newUrl": "/admin-examination-management/pre-examination/exam-attendance-wise-subject-barcode",
+    "oldPageTitle": "Exam Attendance-wise Subject Barcode",
+    "newPageTitle": "Exam Attendance-wise Subject Barcode"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Register Subjects Update",
+    "oldUrl": "/admin-examination-management/pre-examination/exam-register-subjects",
+    "newUrl": "/admin-examination-management/pre-examination/exam-register-subjects-update",
+    "oldPageTitle": "Exam Register Subjects Update",
+    "newPageTitle": "Exam Register Subjects Update"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Internal Exam Registration Multiple Students",
+    "oldUrl": "/admin-examination-management/pre-examination/internal-exam-registration-multiple",
+    "newUrl": "/admin-examination-management/pre-examination/internal-exam-registration-multiple-students",
+    "oldPageTitle": "Internal Exam Registration Multiple Students",
+    "newPageTitle": "Internal Exam Registration Multiple Students"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Exam Invigilator Allotment",
+    "oldUrl": "/admin-examination-management/pre-examination/invigilator-allotment",
+    "newUrl": "/admin-examination-management/pre-examination/exam-invigilator-allotment",
+    "oldPageTitle": "Invigilation Allotment",
+    "newPageTitle": "Exam Invigilator Allotment"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Online Exam Fee Registrations",
+    "oldUrl": "/admin-examination-management/pre-examination/online-exam-fee-registration",
+    "newUrl": "/admin-examination-management/pre-examination/online-exam-fee-registrations",
+    "oldPageTitle": "Exam Fee Registrations",
+    "newPageTitle": "Online Exam Fee Registrations"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Student Exam Fee Collection",
+    "oldUrl": "/admin-examination-management/pre-examination/student-exam-fee-registration",
+    "newUrl": "/admin-examination-management/pre-examination/student-exam-fee-collection",
+    "oldPageTitle": "Exam Fee Collection",
+    "newPageTitle": "Student Exam Fee Collection"
+  },
+  {
+    "module": "admin-examination-management",
+    "sidebarName": "Re-Valuation Fee",
+    "oldUrl": "/admin-examination-management/re-evaluation/re-evaluation-fee",
+    "newUrl": "/admin-examination-management/re-evaluation/re-valuation-fee",
+    "oldPageTitle": "Re-Valuation Fee",
+    "newPageTitle": "Re-Valuation Fee"
+  },
+  {
+    "module": "admin-student-information-system",
+    "sidebarName": "Generate Student Roll No.",
+    "oldUrl": "/admin-student-information-system/generate-student-rollno",
+    "newUrl": "/admin-student-information-system/generate-student-roll-no",
+    "oldPageTitle": "Generate Student Roll No.",
+    "newPageTitle": "Generate Student Roll No."
+  },
+  {
+    "module": "admin-student-information-system",
+    "sidebarName": "Student Co-Curriculum Activities",
+    "oldUrl": "/admin-student-information-system/student-cc-activities",
+    "newUrl": "/admin-student-information-system/student-co-curriculum-activities",
+    "oldPageTitle": "Student Co-Curriculum Activities",
+    "newPageTitle": "Student Co-Curriculum Activities"
+  },
+  {
+    "module": "admin-student-information-system",
+    "sidebarName": "Student Details",
+    "oldUrl": "/admin-student-information-system/students-list",
+    "newUrl": "/admin-student-information-system/student-details",
+    "oldPageTitle": "Student Details",
+    "newPageTitle": "Student Details"
+  },
+  {
+    "module": "admin-student-information-system",
+    "sidebarName": "Student Details",
+    "oldUrl": "/admin-student-information-system/students-profile",
+    "newUrl": "/admin-student-information-system/student-details",
+    "oldPageTitle": "Student Details",
+    "newPageTitle": "Student Details"
+  },
+  {
+    "module": "admission",
+    "sidebarName": "Admission Allotment & Details",
+    "oldUrl": "/admission/counselling/admission-allotment-ndetails",
+    "newUrl": "/admission/counselling/admission-allotment-details",
+    "oldPageTitle": "Admission Allotment & Details",
+    "newPageTitle": "Admission Allotment & Details"
+  },
+  {
+    "module": "admission",
+    "sidebarName": "Fee Paid Applications",
+    "oldUrl": "/admission/counselling/fee-paid-applications-list",
+    "newUrl": "/admission/counselling/fee-paid-applications",
+    "oldPageTitle": "Fee Paid Applications",
+    "newPageTitle": "Fee Paid Applications"
+  },
+  {
+    "module": "affiliated-colleges",
+    "sidebarName": "Affiliated College Bulk Uploads",
+    "oldUrl": "/affiliated-colleges/college-bulk-uploads",
+    "newUrl": "/affiliated-colleges/affiliated-college-bulk-uploads",
+    "oldPageTitle": "Affiliated College Bulk Uploads",
+    "newPageTitle": "Affiliated College Bulk Uploads"
+  },
+  {
+    "module": "assessments",
+    "sidebarName": "Test List",
+    "oldUrl": "/assessments/test",
+    "newUrl": "/assessments/test-list",
+    "oldPageTitle": "Test List",
+    "newPageTitle": "Test List"
+  },
+  {
+    "module": "campus-maintenance",
+    "sidebarName": "My Complaints",
+    "oldUrl": "/campus-maintenance/new-complaints",
+    "newUrl": "/campus-maintenance/my-complaints",
+    "oldPageTitle": "My Complaints",
+    "newPageTitle": "My Complaints"
+  },
+  {
+    "module": "committees",
+    "sidebarName": "Committee Members",
+    "oldUrl": "/committees/add-committee-members",
+    "newUrl": "/committees/committee-members",
+    "oldPageTitle": "Committee Members",
+    "newPageTitle": "Committee Members"
+  },
+  {
+    "module": "e-office",
+    "sidebarName": "Internal Requisitions",
+    "oldUrl": "/e-office/item-request",
+    "newUrl": "/e-office/internal-requisitions",
+    "oldPageTitle": "Internal Requisitions",
+    "newPageTitle": "Internal Requisitions"
+  },
+  {
+    "module": "e-office",
+    "sidebarName": "Letter Format",
+    "oldUrl": "/e-office/letter-formats",
+    "newUrl": "/e-office/letter-format",
+    "oldPageTitle": "Letter Format",
+    "newPageTitle": "Letter Format"
+  },
+  {
+    "module": "e-office",
+    "sidebarName": "Purchase Order",
+    "oldUrl": "/e-office/payment-note-request",
+    "newUrl": "/e-office/purchase-order",
+    "oldPageTitle": "Purchase Order",
+    "newPageTitle": "Purchase Order"
+  },
+  {
+    "module": "email-sms",
+    "sidebarName": "Send Email To Department Wise",
+    "oldUrl": "/email-sms/department-wise-email",
+    "newUrl": "/email-sms/send-email-to-department-wise",
+    "oldPageTitle": "Send Email To Department Wise",
+    "newPageTitle": "Send Email To Department Wise"
+  },
+  {
+    "module": "email-sms",
+    "sidebarName": "Principal and staff to admin — email",
+    "oldUrl": "/email-sms/principal-staff-to-admin-email",
+    "newUrl": "/email-sms/principal-and-staff-to-admin-email",
+    "oldPageTitle": "Principal and staff to admin — email",
+    "newPageTitle": "Principal and staff to admin — email"
+  },
+  {
+    "module": "email-sms",
+    "sidebarName": "Send email to departments",
+    "oldUrl": "/email-sms/principal-to-dept-email",
+    "newUrl": "/email-sms/send-email-to-departments",
+    "oldPageTitle": "Send email to departments",
+    "newPageTitle": "Send email to departments"
+  },
+  {
+    "module": "email-sms",
+    "sidebarName": "Send Email To Students",
+    "oldUrl": "/email-sms/staff-to-student-email",
+    "newUrl": "/email-sms/send-email-to-students",
+    "oldPageTitle": "Send Email To Students",
+    "newPageTitle": "Send Email To Students"
+  },
+  {
+    "module": "finance",
+    "sidebarName": "Account Types",
+    "oldUrl": "/finance/acoounts-types",
+    "newUrl": "/finance/account-types",
+    "oldPageTitle": "Account Types",
+    "newPageTitle": "Account Types"
+  },
+  {
+    "module": "finance",
+    "sidebarName": "Budget Mid Year Estimation",
+    "oldUrl": "/finance/budget",
+    "newUrl": "/finance/budget-mid-year-estimation",
+    "oldPageTitle": "Budget Mid Year Estimation",
+    "newPageTitle": "Budget Mid Year Estimation"
+  },
+  {
+    "module": "finance",
+    "sidebarName": "Budget Estimation Report",
+    "oldUrl": "/finance/budget-estimations",
+    "newUrl": "/finance/budget-estimation-report",
+    "oldPageTitle": "Budget Estimation Report",
+    "newPageTitle": "Budget Estimation Report"
+  },
+  {
+    "module": "finance",
+    "sidebarName": "Cheque Book",
+    "oldUrl": "/finance/check-book",
+    "newUrl": "/finance/cheque-book",
+    "oldPageTitle": "Cheque Book",
+    "newPageTitle": "Cheque Book"
+  },
+  {
+    "module": "finance",
+    "sidebarName": "Finance Sub Category",
+    "oldUrl": "/finance/finance-subcategory",
+    "newUrl": "/finance/finance-sub-category",
+    "oldPageTitle": "Finance Sub Category",
+    "newPageTitle": "Finance Sub Category"
+  },
+  {
+    "module": "finance",
+    "sidebarName": "Transactions",
+    "oldUrl": "/finance/transaction",
+    "newUrl": "/finance/transactions",
+    "oldPageTitle": "Transactions",
+    "newPageTitle": "Transactions"
+  },
+  {
+    "module": "hostel",
+    "sidebarName": "Hostel room allocation",
+    "oldUrl": "/hostel/rooms-list",
+    "newUrl": "/hostel/hostel-room-allocation",
+    "oldPageTitle": "Hostel room allocation",
+    "newPageTitle": "Hostel room allocation"
+  },
+  {
+    "module": "inventory-management",
+    "sidebarName": "Internal Return",
+    "oldUrl": "/inventory-management/internal-item-return",
+    "newUrl": "/inventory-management/internal-return",
+    "oldPageTitle": "Internal Return",
+    "newPageTitle": "Internal Return"
+  },
+  {
+    "module": "inventory-management",
+    "sidebarName": "Opening Stock",
+    "oldUrl": "/inventory-management/item-opening-stock",
+    "newUrl": "/inventory-management/opening-stock",
+    "oldPageTitle": "Opening Stock",
+    "newPageTitle": "Opening Stock"
+  },
+  {
+    "module": "library",
+    "sidebarName": "Book Return",
+    "oldUrl": "/library/bookReturn",
+    "newUrl": "/library/book-return",
+    "oldPageTitle": "Book Return",
+    "newPageTitle": "Book Return"
+  },
+  {
+    "module": "placements-achievements",
+    "sidebarName": "Placed Students",
+    "oldUrl": "/placements-achievements/placements/placed-students-list",
+    "newUrl": "/placements-achievements/placements/placed-students",
+    "oldPageTitle": "Placed Students",
+    "newPageTitle": "Placed Students"
+  },
+  {
+    "module": "placements-achievements",
+    "sidebarName": "Broadcast Messages",
+    "oldUrl": "/placements-achievements/placements/placement-broadcast",
+    "newUrl": "/placements-achievements/placements/broadcast-messages",
+    "oldPageTitle": "Broadcast Messages",
+    "newPageTitle": "Broadcast Messages"
+  },
+  {
+    "module": "placements-achievements",
+    "sidebarName": "Company Placement Requirements",
+    "oldUrl": "/placements-achievements/placements/placement-companies",
+    "newUrl": "/placements-achievements/placements/company-placement-requirements",
+    "oldPageTitle": "Company Placement Requirements",
+    "newPageTitle": "Company Placement Requirements"
+  },
+  {
+    "module": "placements-achievements",
+    "sidebarName": "Placement Students List",
+    "oldUrl": "/placements-achievements/placements/placement-registered-list",
+    "newUrl": "/placements-achievements/placements/placement-students-list",
+    "oldPageTitle": "Placement Students List",
+    "newPageTitle": "Placement Students List"
+  },
+  {
+    "module": "tc-no-due-approval",
+    "sidebarName": "Certificates Issued",
+    "oldUrl": "/tc-no-due-approval/certificates-issued-list",
+    "newUrl": "/tc-no-due-approval/certificates-issued",
+    "oldPageTitle": "Certificates Issued",
+    "newPageTitle": "Certificates Issued"
+  },
+  {
+    "module": "tc-no-due-approval",
+    "sidebarName": "No Due Approval Request",
+    "oldUrl": "/tc-no-due-approval/send-no-due-approval-request",
+    "newUrl": "/tc-no-due-approval/no-due-approval-request",
+    "oldPageTitle": "No Due Approval Request",
+    "newPageTitle": "No Due Approval Request"
+  },
+  {
+    "module": "trainings",
+    "sidebarName": "Placement Trainings",
+    "oldUrl": "/trainings/training",
+    "newUrl": "/trainings/placement-trainings",
+    "oldPageTitle": "Placement Trainings",
+    "newPageTitle": "Placement Trainings"
+  },
+  {
+    "module": "transport",
+    "sidebarName": "Map Vehicle Driver",
+    "oldUrl": "/transport/vehicle-drivers",
+    "newUrl": "/transport/map-vehicle-driver",
+    "oldPageTitle": "Map Vehicle Driver",
+    "newPageTitle": "Map Vehicle Driver"
+  },
+  {
+    "module": "transport",
+    "sidebarName": "Map Vehicle Route",
+    "oldUrl": "/transport/vehicle-map",
+    "newUrl": "/transport/map-vehicle-route",
+    "oldPageTitle": "Map Vehicle Route",
+    "newPageTitle": "Map Vehicle Route"
+  },
+  {
+    "module": "user-management",
+    "sidebarName": "Parent Account",
+    "oldUrl": "/user-management/parent-accounts/manage",
+    "newUrl": "/user-management/parent-accounts/parent-account",
+    "oldPageTitle": "Parent Account",
+    "newPageTitle": "Parent Account"
+  }
+]

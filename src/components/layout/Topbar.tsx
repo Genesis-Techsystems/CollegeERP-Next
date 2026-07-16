@@ -26,7 +26,8 @@ import {
 import { useSessionContext } from "@/context/SessionContext";
 import { useNavigationStore } from "@/store/navigation-store";
 import { cn } from "@/lib/utils";
-import { flattenNavItemsForSearch, normalizePageHref } from "@/lib/navigation";
+import { flattenNavItemsForSearch } from "@/lib/navigation";
+import { resolveNavHref } from "@/lib/resolve-nav-href";
 import { logout } from "@/services/auth";
 import { ThemeSwitcher } from "@/common/components/theme-setting-modal";
 
@@ -53,7 +54,13 @@ export function Topbar() {
   const { user } = useSessionContext();
   const { toggleSidebar, navItems } = useNavigationStore();
 
-  const pages = useMemo(() => flattenNavItemsForSearch(navItems), [navItems]);
+  const pages = useMemo(() => {
+    // Resolve with the same forced-route + slug rules as sidebar clicks.
+    return flattenNavItemsForSearch(navItems).map((page) => ({
+      ...page,
+      url: resolveNavHref(page.url, page.displayName, page.id) || page.url,
+    }));
+  }, [navItems]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -97,7 +104,16 @@ export function Topbar() {
     if (term.length === 0) return [];
 
     return pages
-      .filter((page) => page.displayName.toLowerCase().includes(term))
+      .filter((page) => {
+        const name = page.displayName.toLowerCase();
+        const path = (page.breadcrumbPath ?? "").toLowerCase();
+        const url = page.url.toLowerCase();
+        return (
+          name.includes(term) ||
+          path.includes(term) ||
+          url.includes(term.replace(/\s+/g, "-"))
+        );
+      })
       .slice(0, MAX_SEARCH_RESULTS);
   }, [pages, searchTerm]);
 
@@ -114,10 +130,9 @@ export function Topbar() {
   );
 
   const navigateTo = useCallback(
-    (url: string, displayName?: string) => {
-      // Re-resolve on click: search list may still hold stale DB hrefs;
-      // label pins + legacy slug rewrites live in normalizePageHref.
-      const resolved = normalizePageHref(url, displayName ?? "");
+    (url: string, displayName?: string, id?: string) => {
+      // Same resolver as sidebar NavItem clicks (forced routes + canonical slugs).
+      const resolved = resolveNavHref(url, displayName ?? "", id) || url;
       router.push(resolved);
       setSearchTerm("");
       setIsSearchOpen(false);
@@ -162,9 +177,13 @@ export function Topbar() {
           e.preventDefault();
           if (activeResultIndex >= 0 && filteredPages[activeResultIndex]) {
             const page = filteredPages[activeResultIndex];
-            navigateTo(page.url, page.displayName);
+            navigateTo(page.url, page.displayName, page.id);
           } else if (filteredPages[0]) {
-            navigateTo(filteredPages[0].url, filteredPages[0].displayName);
+            navigateTo(
+              filteredPages[0].url,
+              filteredPages[0].displayName,
+              filteredPages[0].id,
+            );
           }
           break;
         case "Escape":
@@ -273,9 +292,16 @@ export function Topbar() {
                   onPointerDown={(e) => {
                     e.preventDefault();
                   }}
-                  onClick={() => navigateTo(page.url, page.displayName)}
+                  onClick={() => navigateTo(page.url, page.displayName, page.id)}
                 >
-                  {page.displayName}
+                  <span className="block font-medium text-foreground">
+                    {page.displayName}
+                  </span>
+                  {page.breadcrumbPath ? (
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                      {page.breadcrumbPath}
+                    </span>
+                  ) : null}
                 </button>
               ))
             ) : (

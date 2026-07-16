@@ -8,6 +8,65 @@ const EXAM_REPORTS = '/admin-examination-management/exam-reports'
 const ADMIN_EXAM_REPORTS = '/admin-examination-management/admin-exam-reports'
 
 /**
+ * DB / Angular menu slugs that differ from the real App Router folder name.
+ * Used when the sidebar href segment is passed through before label pins run.
+ */
+export const EXAM_REPORTS_DB_SLUG_ALIASES: Record<string, string> = {
+  'subject-wise-percentage-report': 'subject-wise-result-pass-percent-report',
+  'subject-wise-result-percentage-report': 'subject-wise-result-pass-percent-report',
+  'gender-wise-exam-result': 'gender-wise-exam-report',
+  'gender-wise-result': 'gender-wise-exam-report',
+  'group-year-wise-result-report': 'group-yearwise-result-report',
+  'exam-verification-report': 'exam-verification',
+  'evaluator-remuneration-report': 'evaluators-bank-copy-report',
+}
+
+/** DB / Angular admin-exam-reports slugs → real App Router folder names. */
+export const ADMIN_EXAM_REPORTS_DB_SLUG_ALIASES: Record<string, string> = {
+  'grace-benefited-students-report': 'grace-marks-benefited-students-report',
+  'exam-gracemarks-reports': 'grace-marks-benefited-students-report',
+  're-evaluation-comparison-report': 're-evaluation-comparision-report',
+  'internal-marks-entry-report': 'internal-marks-report',
+  'lab-external-remuneration-report': 'lab-remuneration-report',
+  'invigilator-remuneration-report': 'invigilators-remuneration-report',
+  'invigilators-remuneration': 'invigilators-remuneration-report',
+}
+
+export function resolveExamReportDbSlug(slug: string): string {
+  const key = slug.toLowerCase().replace(/\/+$/, '')
+  return EXAM_REPORTS_DB_SLUG_ALIASES[key] ?? slug
+}
+
+export function resolveAdminExamReportDbSlug(slug: string): string {
+  const key = slug.toLowerCase().replace(/\/+$/, '')
+  return ADMIN_EXAM_REPORTS_DB_SLUG_ALIASES[key] ?? slug
+}
+
+/** Rewrite wrong DB exam-report path segments anywhere in a href string. */
+export function applyExamReportSlugAliases(path: string): string {
+  let out = path
+  for (const [wrong, right] of Object.entries(EXAM_REPORTS_DB_SLUG_ALIASES)) {
+    out = out.replace(
+      new RegExp(
+        `/(?:admin-examination-management/)?(?:admin-exam-reports|exam-reports)/${wrong}(?=/|$)`,
+        'gi',
+      ),
+      `/admin-examination-management/exam-reports/${right}`,
+    )
+  }
+  for (const [wrong, right] of Object.entries(ADMIN_EXAM_REPORTS_DB_SLUG_ALIASES)) {
+    out = out.replace(
+      new RegExp(
+        `/(?:admin-examination-management/)?admin-exam-reports/${wrong}(?=/|$)`,
+        'gi',
+      ),
+      `/admin-examination-management/admin-exam-reports/${right}`,
+    )
+  }
+  return out
+}
+
+/**
  * Resolve a Reports / Examination Reports page by menu label (and optional href).
  * Returns null when the label is not an examination report page.
  */
@@ -108,6 +167,7 @@ export function resolveExaminationReportHref(
   if (
     hrefLower.includes('evaluators-bank-copy-report') ||
     hrefLower.includes('evaluator-bank-copy-report') ||
+    hrefLower.includes('evaluator-remuneration-report') ||
     labelLower.includes('evaluators bank copy') ||
     labelLower.includes('evaluator bank copy') ||
     labelLower.includes('evaluator remuneration report') ||
