@@ -785,12 +785,15 @@ export async function getAssignmentPendingListRows(args: {
   sectionId?: number;
 }): Promise<AnyRow[]> {
   try {
-    const data = await getAllRecords<{ result?: unknown }>("s_get_assignment_pending_list", {
-      in_clg_id: args.collegeId ?? 0,
-      in_course_year_id: args.courseYearId ?? 0,
-      in_section_id: args.sectionId ?? 0,
-      in_emp_id: 0,
-    });
+    const data = await getAllRecords<{ result?: unknown }>(
+      "s_get_assignment_pending_list",
+      {
+        in_clg_id: args.collegeId ?? 0,
+        in_course_year_id: args.courseYearId ?? 0,
+        in_section_id: args.sectionId ?? 0,
+        in_emp_id: 0,
+      },
+    );
     const raw = data?.result;
     if (!Array.isArray(raw)) return [];
     const first = raw[0];
@@ -820,15 +823,18 @@ export async function getExamResultProcessingReport(args: {
   courseYearId: number;
 }): Promise<AnyRow[]> {
   try {
-    const data = await getAllRecords<{ result?: unknown }>("s_get_exam_resultprocessing_bycode", {
-      in_flag: args.flag,
-      in_exam_id: args.examId ?? 0,
-      in_examtype: args.examType ?? 0,
-      in_college_id: args.collegeId ?? 0,
-      in_course_id: args.courseId ?? 0,
-      in_course_group_id: args.courseGroupId ?? 0,
-      in_course_year_id: args.courseYearId ?? 0,
-    });
+    const data = await getAllRecords<{ result?: unknown }>(
+      "s_get_exam_resultprocessing_bycode",
+      {
+        in_flag: args.flag,
+        in_exam_id: args.examId ?? 0,
+        in_examtype: args.examType ?? 0,
+        in_college_id: args.collegeId ?? 0,
+        in_course_id: args.courseId ?? 0,
+        in_course_group_id: args.courseGroupId ?? 0,
+        in_course_year_id: args.courseYearId ?? 0,
+      },
+    );
     const raw = data?.result;
     if (!Array.isArray(raw)) return [];
     const first = raw[0];
@@ -857,19 +863,22 @@ export async function getTabulationRegisterRows(args: {
 }): Promise<AnyRow[]> {
   try {
     const ht = String(args.hallticketNo ?? "").trim();
-    const data = await getAllRecords<{ result?: unknown }>("s_get_exam_results_bycode", {
-      in_flag: args.isReEvaluation
-        ? "tabulation_register_re_evaluation"
-        : "tabulation_register",
-      in_exam_id: args.examId ?? 0,
-      in_college_id: args.collegeId ?? 0,
-      in_course_id: args.courseId ?? 0,
-      in_course_group_id: args.courseGroupId ?? 0,
-      in_course_year_id: args.courseYearId ?? 0,
-      // Angular sends empty string for "All", not 0
-      in_hallticket_no: !ht || ht === "0" ? "" : ht,
-      in_examtype: args.examType ?? 0,
-    });
+    const data = await getAllRecords<{ result?: unknown }>(
+      "s_get_exam_results_bycode",
+      {
+        in_flag: args.isReEvaluation
+          ? "tabulation_register_re_evaluation"
+          : "tabulation_register",
+        in_exam_id: args.examId ?? 0,
+        in_college_id: args.collegeId ?? 0,
+        in_course_id: args.courseId ?? 0,
+        in_course_group_id: args.courseGroupId ?? 0,
+        in_course_year_id: args.courseYearId ?? 0,
+        // Angular sends empty string for "All", not 0
+        in_hallticket_no: !ht || ht === "0" ? "" : ht,
+        in_examtype: args.examType ?? 0,
+      },
+    );
     const raw = data?.result;
     if (!Array.isArray(raw)) return [];
     const first = raw[0];
@@ -885,7 +894,9 @@ export async function getTabulationRegisterRows(args: {
   }
 }
 
-function unwrapProcResult(data: { result?: unknown } | null | undefined): AnyRow[] {
+function unwrapProcResult(
+  data: { result?: unknown } | null | undefined,
+): AnyRow[] {
   const raw = data?.result;
   if (!Array.isArray(raw)) return [];
   const first = raw[0];
@@ -895,7 +906,11 @@ function unwrapProcResult(data: { result?: unknown } | null | undefined): AnyRow
   if (first && typeof first === "object") return [first as AnyRow];
   // Some procs put the list at result[0], others at a later index (e.g. answer sheets → [2])
   for (const group of raw) {
-    if (Array.isArray(group) && group.length > 0 && typeof group[0] === "object") {
+    if (
+      Array.isArray(group) &&
+      group.length > 0 &&
+      typeof group[0] === "object"
+    ) {
       return group.filter((r): r is AnyRow => !!r && typeof r === "object");
     }
   }
@@ -937,15 +952,16 @@ export async function getExamFinalAnalysisReport(args: {
   ];
   let lastMessage = "";
   for (const proc of procs) {
-    const envelope = await getAllRecordsEnvelope<{ result?: unknown; errorDetails?: string }>(
-      proc,
-      payload,
-    );
+    const envelope = await getAllRecordsEnvelope<{
+      result?: unknown;
+      errorDetails?: string;
+    }>(proc, payload);
     if (envelope.success) {
       return unwrapProcResult(envelope.data);
     }
     const details = String(
-      (envelope.data as { errorDetails?: string } | null | undefined)?.errorDetails ??
+      (envelope.data as { errorDetails?: string } | null | undefined)
+        ?.errorDetails ??
         envelope.message ??
         "",
     ).toLowerCase();
@@ -990,15 +1006,16 @@ export async function getExamPreModerationReport(args: {
   ];
   let lastMessage = "";
   for (const proc of procs) {
-    const envelope = await getAllRecordsEnvelope<{ result?: unknown; errorDetails?: string }>(
-      proc,
-      payload,
-    );
+    const envelope = await getAllRecordsEnvelope<{
+      result?: unknown;
+      errorDetails?: string;
+    }>(proc, payload);
     if (envelope.success) {
       return unwrapProcResult(envelope.data);
     }
     const details = String(
-      (envelope.data as { errorDetails?: string } | null | undefined)?.errorDetails ??
+      (envelope.data as { errorDetails?: string } | null | undefined)
+        ?.errorDetails ??
         envelope.message ??
         "",
     ).toLowerCase();
@@ -1014,51 +1031,6 @@ export async function getExamPreModerationReport(args: {
     throw new Error(envelope.message || `Failed to call ${proc}`);
   }
   throw new Error(lastMessage || "Failed to load pre-moderation report");
-}
-
-/**
- * Angular exam-answer-sheets-report —
- * `s_get_answerpaperupload_details` flag `exam_timetable_answerpaper_details` (result[2]).
- */
-export async function getExamAnswerSheetsReport(args: {
-  orgId?: number;
-  examId: number;
-  timetableId?: number;
-  examDate?: string;
-}): Promise<AnyRow[]> {
-  try {
-    const orgId =
-      args.orgId ??
-      Number(
-        globalThis?.localStorage?.getItem("organizationId") ??
-          globalThis?.localStorage?.getItem("orgId") ??
-          0,
-      );
-    const data = await getAllRecords<{ result?: unknown }>("s_get_answerpaperupload_details", {
-      in_flag: "exam_timetable_answerpaper_details",
-      in_org_id: orgId,
-      in_college_id: 0,
-      in_academic_year_id: 0,
-      in_isadmin: 0,
-      in_exam_id: args.examId ?? 0,
-      in_timetable_id: args.timetableId ?? 0,
-      in_exam_date: args.examDate || 0,
-      in_subject_id: 0,
-      in_loginuser_empid: 0,
-      in_loginuser_roleid: 0,
-    });
-    const raw = data?.result;
-    if (!Array.isArray(raw)) return [];
-    const group = (Array.isArray(raw[2]) ? raw[2] : Array.isArray(raw[0]) ? raw[0] : null) as unknown;
-    if (Array.isArray(group)) {
-      return group.filter((r): r is AnyRow => !!r && typeof r === "object");
-    }
-    return unwrapProcResult(data);
-  } catch (error: unknown) {
-    const msg = String(error instanceof Error ? error.message : (error ?? ""));
-    if (msg.toLowerCase().includes("no record")) return [];
-    throw error;
-  }
 }
 
 /** Angular subjectwise-result-report — `listByEightIds` on `exammarksentrystddetails`. */
@@ -1091,13 +1063,19 @@ export async function getSubjectWiseResultReport(args: {
   ].join("&");
 
   try {
-    const res = await fetch(`${NEXT_API.PROXY(EXAM_API.EXAM_MARKS_ENTRY_STUDENTS)}?${query}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const body = (await res.json().catch(() => null)) as
-      | { success?: boolean; message?: string; data?: unknown; statusCode?: number }
-      | null;
+    const res = await fetch(
+      `${NEXT_API.PROXY(EXAM_API.EXAM_MARKS_ENTRY_STUDENTS)}?${query}`,
+      {
+        credentials: "include",
+        cache: "no-store",
+      },
+    );
+    const body = (await res.json().catch(() => null)) as {
+      success?: boolean;
+      message?: string;
+      data?: unknown;
+      statusCode?: number;
+    } | null;
     if (!res.ok || !body?.success) {
       const msg = body?.message ?? `GET exammarksentrystddetails failed`;
       if (msg.toLowerCase().includes("no record")) return [];
@@ -1111,10 +1089,14 @@ export async function getSubjectWiseResultReport(args: {
       const d = data as Record<string, unknown>;
       for (const key of ["resultList", "data", "result", "students"]) {
         const v = d[key];
-        if (Array.isArray(v)) return v.filter((r): r is AnyRow => !!r && typeof r === "object");
+        if (Array.isArray(v))
+          return v.filter((r): r is AnyRow => !!r && typeof r === "object");
         if (Array.isArray((v as { result?: unknown })?.result)) {
           const inner = (v as { result: unknown[] }).result[0];
-          if (Array.isArray(inner)) return inner.filter((r): r is AnyRow => !!r && typeof r === "object");
+          if (Array.isArray(inner))
+            return inner.filter(
+              (r): r is AnyRow => !!r && typeof r === "object",
+            );
         }
       }
     }
@@ -1127,24 +1109,33 @@ export async function getSubjectWiseResultReport(args: {
 }
 
 /** Angular `buildingdetails?q=` room typeahead (min ~2 chars). */
-export async function searchBuildingDetailsRooms(term: string): Promise<AnyRow[]> {
+export async function searchBuildingDetailsRooms(
+  term: string,
+): Promise<AnyRow[]> {
   const q = term.trim();
   if (q.length < 2) return [];
   try {
-    const data = await fetchDetails<unknown>(SETUP_API.BUILDING_DETAILS_SEARCH, { q });
+    const data = await fetchDetails<unknown>(
+      SETUP_API.BUILDING_DETAILS_SEARCH,
+      { q },
+    );
     if (Array.isArray(data)) {
       return data.filter((r): r is AnyRow => !!r && typeof r === "object");
     }
     if (data && typeof data === "object") {
       const d = data as Record<string, unknown>;
       if (Array.isArray(d.resultList)) {
-        return d.resultList.filter((r): r is AnyRow => !!r && typeof r === "object");
+        return d.resultList.filter(
+          (r): r is AnyRow => !!r && typeof r === "object",
+        );
       }
       if (Array.isArray(d.data)) {
         return d.data.filter((r): r is AnyRow => !!r && typeof r === "object");
       }
       if (Array.isArray(d.result)) {
-        return d.result.filter((r): r is AnyRow => !!r && typeof r === "object");
+        return d.result.filter(
+          (r): r is AnyRow => !!r && typeof r === "object",
+        );
       }
     }
     return [];

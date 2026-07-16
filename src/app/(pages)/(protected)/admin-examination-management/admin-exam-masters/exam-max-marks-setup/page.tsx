@@ -5,7 +5,10 @@ import { Building2, GraduationCap, ScrollText } from "lucide-react";
 import { useSessionContext } from "@/context/SessionContext";
 import { NoticeAlert } from "@/common/components/feedback";
 import { Select } from "@/common/components/select";
-import { GlobalFilterBarRow, GlobalFilterField } from "@/common/components/forms";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -162,54 +165,87 @@ export default function ExamMaxMarksSetupPage() {
     const byCat = new Map<number, AnyRow>();
     for (const r of existing as AnyRow[]) {
       const key = Number(
-        r.subjectCategoryCatDetId ?? r.subjectCategory?.generalDetailId ?? 0,
+        r.subjectCategoryCatDetId ??
+          r.generalDetailId ??
+          r.subjectCategory?.generalDetailId ??
+          0,
       );
-      if (key) byCat.set(key, r);
+      if (!key) continue;
+      // Prefer the row that already has a PK (existing setup) over empty shells
+      const prev = byCat.get(key);
+      const id = Number(r.markssetupId ?? r.marksSetupId ?? 0);
+      const prevId = Number(prev?.markssetupId ?? prev?.marksSetupId ?? 0);
+      if (!prev || (id > 0 && prevId === 0) || id >= prevId) {
+        byCat.set(key, r);
+      }
     }
 
     const merged = subjectCats.map((cat) => {
       const key = Number(cat.generalDetailId);
       const r = byCat.get(key);
+      // Entity PK is markssetupId (lowercase s) — must preserve for POST update
+      const markssetupId =
+        Number(r?.markssetupId ?? r?.marksSetupId ?? 0) || null;
       return {
-        marksSetupId: r?.marksSetupId ?? null,
+        ...r,
+        markssetupId,
         subjectCategoryCatDetId: key,
+        generalDetailId: key,
         subjectCategoryCode:
-          r?.subjectCategoryCode ?? cat.generalDetailCode ?? "",
+          r?.subjectCategoryCode ??
+          r?.subjectCategoryCatCode ??
+          cat.generalDetailCode ??
+          "",
         marksSetupName:
           r?.marksSetupName ??
           cat.generalDetailDisplayName ??
           cat.generalDetailCode ??
           "",
-        internalMarks: Number(r?.internalMarks ?? 0),
-        externalMarks: Number(r?.externalMarks ?? 0),
-        passPercentage: Number(r?.passPercentage ?? 0),
-        externalPassPercentage: Number(r?.externalPassPercentage ?? 0),
-        finalIntPercentage: Number(r?.finalIntPercentage ?? 0),
-        finalExtPercentage: Number(r?.finalExtPercentage ?? 0),
+        internalMarks: r?.internalMarks ?? null,
+        externalMarks: r?.externalMarks ?? null,
+        passPercentage: r?.passPercentage ?? null,
+        externalPassPercentage: r?.externalPassPercentage ?? null,
+        finalIntPercentage: r?.finalIntPercentage ?? null,
+        finalExtPercentage: r?.finalExtPercentage ?? null,
         isActive: r?.isActive ?? true,
+        disabled: Boolean(r?.disabled ?? isForDisabled),
+        isForDisabled,
+        courseId,
+        regulationId,
+        universityId,
       };
     });
     setRows(merged);
     setLoading(false);
   }
 
-  function updateRow(idx: number, field: string, value: number) {
+  function updateRow(catId: number, field: string, value: number | null) {
     setRows((prev) =>
-      prev.map((r, i) =>
-        i === idx ? { ...r, [field]: Number.isFinite(value) ? value : 0 } : r,
+      prev.map((r) =>
+        Number(r.subjectCategoryCatDetId) === catId
+          ? { ...r, [field]: Number.isFinite(value as number) ? value : null }
+          : r,
       ),
     );
   }
 
-  function updateRowText(idx: number, field: string, value: string) {
+  function updateRowText(catId: number, field: string, value: string) {
     setRows((prev) =>
-      prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)),
+      prev.map((r) =>
+        Number(r.subjectCategoryCatDetId) === catId
+          ? { ...r, [field]: value }
+          : r,
+      ),
     );
   }
 
-  function updateRowBool(idx: number, field: string, value: boolean) {
+  function updateRowBool(catId: number, field: string, value: boolean) {
     setRows((prev) =>
-      prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)),
+      prev.map((r) =>
+        Number(r.subjectCategoryCatDetId) === catId
+          ? { ...r, [field]: value }
+          : r,
+      ),
     );
   }
 
@@ -227,22 +263,41 @@ export default function ExamMaxMarksSetupPage() {
     if (!universityId || !courseId || !regulationId || rows.length === 0)
       return;
     setNotice(null);
-    const payload = rows.map((r) => ({
-      marksSetupId: r.marksSetupId ?? undefined,
-      subjectCategoryCatDetId: r.subjectCategoryCatDetId,
-      marksSetupName: r.marksSetupName,
-      internalMarks: Number(r.internalMarks ?? 0),
-      externalMarks: Number(r.externalMarks ?? 0),
-      passPercentage: Number(r.passPercentage ?? 0),
-      externalPassPercentage: Number(r.externalPassPercentage ?? 0),
-      finalIntPercentage: Number(r.finalIntPercentage ?? 0),
-      finalExtPercentage: Number(r.finalExtPercentage ?? 0),
-      disabled: isForDisabled,
-      isActive: r.isActive ?? true,
-      courseId,
-      regulationId,
-    }));
-    const res = await saveExamMarksSetup(payload).catch(() => ({
+    // Angular submit: keep full list rows, stamp course/regulation/university/isForDisabled
+    const payload = rows.map((r) => {
+      const markssetupId =
+        Number(r.markssetupId ?? r.marksSetupId ?? 0) || undefined;
+      return {
+        ...r,
+        ...(markssetupId ? { markssetupId } : {}),
+        marksSetupId: undefined,
+        subjectCategoryCatDetId: r.subjectCategoryCatDetId,
+        generalDetailId: r.subjectCategoryCatDetId,
+        marksSetupName: r.marksSetupName,
+        internalMarks: r.internalMarks ?? null,
+        externalMarks: r.externalMarks ?? null,
+        passPercentage: r.passPercentage ?? null,
+        externalPassPercentage: r.externalPassPercentage ?? null,
+        finalIntPercentage: r.finalIntPercentage ?? null,
+        finalExtPercentage: r.finalExtPercentage ?? null,
+        disabled: false,
+        isForDisabled,
+        isActive: r.isActive ?? true,
+        courseId,
+        regulationId,
+        universityId,
+      };
+    });
+    // Strip UI-only / undefined keys that confuse Jackson
+    const cleaned = payload.map((row) => {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(row)) {
+        if (v === undefined || k === "marksSetupId") continue;
+        out[k] = v;
+      }
+      return out;
+    });
+    const res = await saveExamMarksSetup(cleaned).catch(() => ({
       success: false,
       message: "Save failed",
     }));
@@ -282,9 +337,13 @@ export default function ExamMaxMarksSetupPage() {
       }
       filters={
         <GlobalFilterBarRow>
-          <GlobalFilterField label="University" icon={Building2}>
+          <GlobalFilterField
+            label="University"
+            icon={Building2}
+            className="global-filter-field--shrink min-w-[10rem]"
+          >
             <Select
-              className="[&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px]"
+              className="[&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px] min-w-[10rem]"
               value={universityId ? String(universityId) : null}
               onChange={(v) => setUniversityId(v ? Number(v) : null)}
               options={universities.map((u, i) => ({
@@ -295,9 +354,13 @@ export default function ExamMaxMarksSetupPage() {
               searchable
             />
           </GlobalFilterField>
-          <GlobalFilterField label="Course" icon={GraduationCap}>
+          <GlobalFilterField
+            label="Course"
+            icon={GraduationCap}
+            className="global-filter-field--shrink min-w-[10rem]"
+          >
             <Select
-              className="[&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px]"
+              className="[&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px] min-w-[10rem]"
               value={courseId ? String(courseId) : null}
               onChange={(v) => setCourseId(v ? Number(v) : null)}
               options={courses.map((c, i) => ({
@@ -309,9 +372,13 @@ export default function ExamMaxMarksSetupPage() {
               disabled={courses.length === 0}
             />
           </GlobalFilterField>
-          <GlobalFilterField label="Regulation" icon={ScrollText}>
+          <GlobalFilterField
+            label="Regulation"
+            icon={ScrollText}
+            className="global-filter-field--shrink min-w-[10rem]"
+          >
             <Select
-              className="[&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px]"
+              className="[&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px] min-w-[10rem]"
               value={regulationId ? String(regulationId) : null}
               onChange={(v) => setRegulationId(v ? Number(v) : null)}
               options={regulations.map((r, i) => ({
@@ -323,7 +390,10 @@ export default function ExamMaxMarksSetupPage() {
               disabled={regulations.length === 0}
             />
           </GlobalFilterField>
-          <GlobalFilterField label="Disability">
+          <GlobalFilterField
+            label="Disability"
+            className="global-filter-field--shrink"
+          >
             <div className="flex h-9 items-center gap-2">
               <Checkbox
                 id="disabled"
@@ -339,7 +409,7 @@ export default function ExamMaxMarksSetupPage() {
               </Label>
             </div>
           </GlobalFilterField>
-          <div className="global-filter-field flex items-end">
+          <div className="global-filter-field global-filter-field--action flex items-end self-end">
             <Button
               type="button"
               size="sm"
@@ -370,118 +440,151 @@ export default function ExamMaxMarksSetupPage() {
                   No data found matching the selected filters.
                 </div>
               ) : null}
-              {filteredRows.map((r, i) => (
-                <div
-                  key={`m-${r.subjectCategoryCatDetId}-${i}`}
-                  className="rounded-xl border border-[#dde3ec] overflow-hidden bg-card"
-                >
-                  <div className="px-4 py-2 border-b border-[#e8ecf2] bg-[#f8f8f4]">
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full px-3 py-0.5 text-[12px] font-semibold",
-                        categoryChipClass(
-                          String(r.subjectCategoryCode || r.marksSetupName || ""),
-                        ),
-                      )}
-                    >
-                      {r.subjectCategoryCode || r.marksSetupName}
-                    </span>
-                  </div>
-                  <div className="px-4 py-3 overflow-x-auto">
-                    <div className="min-w-[920px]">
-                      <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_80px] gap-2 text-[11px] font-semibold uppercase tracking-[0.02em] text-[hsl(var(--foreground))]">
-                        <span>Marks Setup Name</span>
-                        <span>Internal</span>
-                        <span>External</span>
-                        <span>Ext. Pass %</span>
-                        <span>Pass %</span>
-                        <span>Final Int. %</span>
-                        <span>Final Ext. %</span>
-                        <span>Active</span>
-                      </div>
-                      <div className="mt-2 grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_80px] gap-2 items-center">
-                        <Input
-                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                          value={r.marksSetupName}
-                          onChange={(e) =>
-                            updateRowText(i, "marksSetupName", e.target.value)
-                          }
-                        />
-                        <Input
-                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                          type="number"
-                          value={r.internalMarks}
-                          onChange={(e) =>
-                            updateRow(i, "internalMarks", Number(e.target.value))
-                          }
-                        />
-                        <Input
-                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                          type="number"
-                          value={r.externalMarks}
-                          onChange={(e) =>
-                            updateRow(i, "externalMarks", Number(e.target.value))
-                          }
-                        />
-                        <Input
-                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                          type="number"
-                          value={r.externalPassPercentage}
-                          onChange={(e) =>
-                            updateRow(
-                              i,
-                              "externalPassPercentage",
-                              Number(e.target.value),
-                            )
-                          }
-                        />
-                        <Input
-                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                          type="number"
-                          value={r.passPercentage}
-                          onChange={(e) =>
-                            updateRow(i, "passPercentage", Number(e.target.value))
-                          }
-                        />
-                        <Input
-                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                          type="number"
-                          value={r.finalIntPercentage}
-                          onChange={(e) =>
-                            updateRow(
-                              i,
-                              "finalIntPercentage",
-                              Number(e.target.value),
-                            )
-                          }
-                        />
-                        <Input
-                          className={cn(FIELD_INPUT, FIELD_OUTLINE)}
-                          type="number"
-                          value={r.finalExtPercentage}
-                          onChange={(e) =>
-                            updateRow(
-                              i,
-                              "finalExtPercentage",
-                              Number(e.target.value),
-                            )
-                          }
-                        />
-                        <div className="h-10 flex items-center justify-center">
-                          <Checkbox
-                            id={`active-${i}`}
-                            className={CHECKBOX_STYLE}
-                            checked={!!r.isActive}
-                            onCheckedChange={(v) =>
-                              updateRowBool(i, "isActive", Boolean(v))
+              {filteredRows.map((r, i) => {
+                const catId = Number(r.subjectCategoryCatDetId);
+                return (
+                  <div
+                    key={`m-${catId}-${r.markssetupId ?? i}`}
+                    className="rounded-xl border border-[#dde3ec] overflow-hidden bg-card"
+                  >
+                    <div className="px-4 py-2 border-b border-[#e8ecf2] bg-[#f8f8f4]">
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-3 py-0.5 text-[12px] font-semibold",
+                          categoryChipClass(
+                            String(
+                              r.subjectCategoryCode || r.marksSetupName || "",
+                            ),
+                          ),
+                        )}
+                      >
+                        {r.subjectCategoryCode || r.marksSetupName}
+                      </span>
+                    </div>
+                    <div className="px-4 py-3 overflow-x-auto">
+                      <div className="min-w-[920px]">
+                        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_80px] gap-2 text-[11px] font-semibold uppercase tracking-[0.02em] text-[hsl(var(--foreground))]">
+                          <span>Marks Setup Name</span>
+                          <span>Internal</span>
+                          <span>External</span>
+                          <span>Ext. Pass %</span>
+                          <span>Pass %</span>
+                          <span>Final Int. %</span>
+                          <span>Final Ext. %</span>
+                          <span>Active</span>
+                        </div>
+                        <div className="mt-2 grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_80px] gap-2 items-center">
+                          <Input
+                            className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                            value={r.marksSetupName ?? ""}
+                            onChange={(e) =>
+                              updateRowText(
+                                catId,
+                                "marksSetupName",
+                                e.target.value,
+                              )
                             }
                           />
+                          <Input
+                            className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                            type="number"
+                            value={r.internalMarks ?? ""}
+                            onChange={(e) =>
+                              updateRow(
+                                catId,
+                                "internalMarks",
+                                e.target.value === ""
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
+                          />
+                          <Input
+                            className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                            type="number"
+                            value={r.externalMarks ?? ""}
+                            onChange={(e) =>
+                              updateRow(
+                                catId,
+                                "externalMarks",
+                                e.target.value === ""
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
+                          />
+                          <Input
+                            className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                            type="number"
+                            value={r.externalPassPercentage ?? ""}
+                            onChange={(e) =>
+                              updateRow(
+                                catId,
+                                "externalPassPercentage",
+                                e.target.value === ""
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
+                          />
+                          <Input
+                            className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                            type="number"
+                            value={r.passPercentage ?? ""}
+                            onChange={(e) =>
+                              updateRow(
+                                catId,
+                                "passPercentage",
+                                e.target.value === ""
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
+                          />
+                          <Input
+                            className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                            type="number"
+                            value={r.finalIntPercentage ?? ""}
+                            onChange={(e) =>
+                              updateRow(
+                                catId,
+                                "finalIntPercentage",
+                                e.target.value === ""
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
+                          />
+                          <Input
+                            className={cn(FIELD_INPUT, FIELD_OUTLINE)}
+                            type="number"
+                            value={r.finalExtPercentage ?? ""}
+                            onChange={(e) =>
+                              updateRow(
+                                catId,
+                                "finalExtPercentage",
+                                e.target.value === ""
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
+                          />
+                          <div className="h-10 flex items-center justify-center">
+                            <Checkbox
+                              id={`active-${catId}`}
+                              className={CHECKBOX_STYLE}
+                              checked={!!r.isActive}
+                              onCheckedChange={(v) =>
+                                updateRowBool(catId, "isActive", Boolean(v))
+                              }
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="flex justify-end">
               <Button
