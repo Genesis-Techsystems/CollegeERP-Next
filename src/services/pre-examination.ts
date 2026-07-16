@@ -9,9 +9,9 @@ import {
   postDetails,
   uploadFile,
 } from "@/services/crud";
-import { EXAM_API, SETUP_API } from "@/config/constants/api";
+import { EXAM_API, NEXT_API, SETUP_API } from "@/config/constants/api";
 import { GM_CODES } from "@/config/constants/ui";
-import { toDateStr } from "@/common/generic-functions";
+import { toDateStr, toExamApiDate } from "@/common/generic-functions";
 
 export type AnyRow = Record<string, any>;
 
@@ -1061,7 +1061,7 @@ export async function getExamAnswerSheetsReport(args: {
   }
 }
 
-/** Angular subjectwise-result-report — `exammarksentrystddetails`. */
+/** Angular subjectwise-result-report — `listByEightIds` on `exammarksentrystddetails`. */
 export async function getSubjectWiseResultReport(args: {
   examId: number;
   collegeId: number;
@@ -1069,21 +1069,41 @@ export async function getSubjectWiseResultReport(args: {
   courseGroupId: number;
   courseYearId: number;
   subjectId: number;
-  regulationId?: number;
-  examDate?: string;
+  examDate: string;
+  examTypeId?: number;
 }): Promise<AnyRow[]> {
+  // Angular `momentFormatYMD` → YYYY/MM/DD. ISO (YYYY-MM-DD) causes Spring 500.
+  const examDate = toExamApiDate(args.examDate);
+  if (!examDate) {
+    throw new Error("Exam date is required");
+  }
+
+  // Build query like Angular listByEightIds / seating-plan (do not URL-encode `/` in date).
+  const query = [
+    `collegeId=${args.collegeId}`,
+    `courseId=${args.courseId}`,
+    `examId=${args.examId}`,
+    `examDate=${examDate}`,
+    `courseGroupId=${args.courseGroupId}`,
+    `courseYearId=${args.courseYearId}`,
+    `subjectId=${args.subjectId}`,
+    `examTypeId=${args.examTypeId ?? 0}`,
+  ].join("&");
+
   try {
-    const data = await fetchDetails<unknown>("exammarksentrystddetails", {
-      examId: args.examId,
-      collegeId: args.collegeId,
-      courseId: args.courseId,
-      courseGroupId: args.courseGroupId,
-      courseYearId: args.courseYearId,
-      subjectId: args.subjectId,
-      regulationId: args.regulationId ?? 0,
-      examDate: args.examDate || "",
-      isActive: "true",
+    const res = await fetch(`${NEXT_API.PROXY(EXAM_API.EXAM_MARKS_ENTRY_STUDENTS)}?${query}`, {
+      credentials: "include",
+      cache: "no-store",
     });
+    const body = (await res.json().catch(() => null)) as
+      | { success?: boolean; message?: string; data?: unknown; statusCode?: number }
+      | null;
+    if (!res.ok || !body?.success) {
+      const msg = body?.message ?? `GET exammarksentrystddetails failed`;
+      if (msg.toLowerCase().includes("no record")) return [];
+      throw new Error(msg);
+    }
+    const data = body.data;
     if (Array.isArray(data)) {
       return data.filter((r): r is AnyRow => !!r && typeof r === "object");
     }

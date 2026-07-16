@@ -2,6 +2,7 @@
 
 /**
  * Exam Answer Sheets Report — Angular `exam-answer-sheets-report`.
+ * Filters: Course, Exam Year, Exam Master, Exam Timetable (incl. All).
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -14,7 +15,12 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { toastError } from '@/lib/toast'
 import { toast } from 'sonner'
-import { getExamAnswerSheetsReport, getUnivExamFiltersRegSup, type AnyRow } from '@/services'
+import {
+  getExamAnswerSheetsReport,
+  getUnivExamFiltersRegSup,
+  listExamTimetablesByExam,
+  type AnyRow,
+} from '@/services'
 
 type Row = AnyRow
 
@@ -65,31 +71,78 @@ function examMasterLabel(r: Row): string {
   return `${name}${range}`
 }
 
+function timetableLabel(r: Row): string {
+  const date = txt(r.examDate)
+  const session = txt(r.examSessionName)
+  return session ? `${date} (${session})` : date || '—'
+}
+
+/** Angular displayedColumns metrics */
+function rowMetrics(row: Row) {
+  const present = num(row.presented_Students ?? row.present)
+  const attendance = num(row.attendance_marked)
+  const uploaded = num(row.no_oof_answerpaper_uploaded ?? row.scriptsUploaded)
+  return {
+    present,
+    absent: attendance > 0 ? attendance - present : num(row.absent),
+    expected: present,
+    uploaded,
+    notUploaded: present - uploaded,
+  }
+}
+
 const COL_DEFS: ColDef<Row>[] = [
-  { headerName: 'S.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70, flex: 0 },
+  { headerName: 'Sl.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70, flex: 0 },
   { headerName: 'Exam Date', minWidth: 110, flex: 0, valueGetter: (p) => dash(p.data?.exam_date ?? p.data?.examdate) },
-  { headerName: 'College Code', minWidth: 110, flex: 0, valueGetter: (p) => dash(p.data?.college_code) },
-  { headerName: 'Course Year', minWidth: 110, flex: 0, valueGetter: (p) => dash(p.data?.course_year_code) },
-  { headerName: 'Group Code', minWidth: 110, flex: 0, valueGetter: (p) => dash(p.data?.group_code) },
-  { headerName: 'Subject', minWidth: 200, flex: 1, valueGetter: (p) => dash(p.data?.subject_name ?? p.data?.subject) },
-  { headerName: 'Total Students', minWidth: 110, flex: 0, valueGetter: (p) => dash(p.data?.total_students ?? p.data?.registeredstudents) },
+  { headerName: 'Faculty', minWidth: 100, flex: 0, valueGetter: (p) => dash(p.data?.college_code ?? p.data?.faculty) },
   {
-    headerName: 'Presented',
-    minWidth: 100,
+    headerName: 'Program',
+    minWidth: 120,
     flex: 0,
-    valueGetter: (p) => dash(p.data?.presented_Students ?? p.data?.present),
+    valueGetter: (p) => dash(p.data?.course_year_code ?? p.data?.programme),
+  },
+  { headerName: 'Branch', minWidth: 90, flex: 0, valueGetter: (p) => dash(p.data?.group_code ?? p.data?.branch) },
+  {
+    headerName: 'Course',
+    minWidth: 200,
+    flex: 1,
+    valueGetter: (p) => dash(p.data?.subject_name ?? p.data?.subject),
   },
   {
-    headerName: 'Attendance Marked',
+    headerName: 'Registered Students',
+    minWidth: 140,
+    flex: 0,
+    valueGetter: (p) => dash(p.data?.total_students ?? p.data?.registeredstudents),
+  },
+  {
+    headerName: 'Present Students',
     minWidth: 130,
     flex: 0,
-    valueGetter: (p) => dash(p.data?.attendance_marked ?? p.data?.absent),
+    valueGetter: (p) => rowMetrics(p.data ?? {}).present,
   },
   {
-    headerName: 'Answer Papers Uploaded',
+    headerName: 'Absent Students',
+    minWidth: 130,
+    flex: 0,
+    valueGetter: (p) => rowMetrics(p.data ?? {}).absent,
+  },
+  {
+    headerName: 'Scripts Expected',
+    minWidth: 130,
+    flex: 0,
+    valueGetter: (p) => rowMetrics(p.data ?? {}).expected,
+  },
+  {
+    headerName: 'Scripts Uploaded',
+    minWidth: 130,
+    flex: 0,
+    valueGetter: (p) => rowMetrics(p.data ?? {}).uploaded,
+  },
+  {
+    headerName: 'Scripts Not Uploaded',
     minWidth: 150,
     flex: 0,
-    valueGetter: (p) => dash(p.data?.no_oof_answerpaper_uploaded ?? p.data?.scriptsUploaded),
+    valueGetter: (p) => rowMetrics(p.data ?? {}).notUploaded,
   },
 ]
 
@@ -99,10 +152,12 @@ export default function ExamAnswerSheetsReportPage() {
   const [hasFetched, setHasFetched] = useState(false)
   const [employeeId, setEmployeeId] = useState(0)
   const [baseRows, setBaseRows] = useState<Row[]>([])
+  const [timetables, setTimetables] = useState<Row[]>([])
   const [rows, setRows] = useState<Row[]>([])
   const [courseId, setCourseId] = useState('')
   const [academicYearId, setAcademicYearId] = useState('')
   const [examId, setExamId] = useState('')
+  const [examTimetableId, setExamTimetableId] = useState('0')
 
   useEffect(() => {
     setEmployeeId(Number(globalThis?.localStorage?.getItem('employeeId') ?? 0))
@@ -149,6 +204,11 @@ export default function ExamAnswerSheetsReportPage() {
     [baseRows, courseId, academicYearId],
   )
 
+  const selectedTimetable = useMemo(
+    () => timetables.find((t) => num(t.examTimetableId) === Number(examTimetableId)),
+    [timetables, examTimetableId],
+  )
+
   useEffect(() => {
     if (!courseId || !academicYears.length) return
     if (!academicYears.some((r) => num(r.fk_academic_year_id) === Number(academicYearId))) {
@@ -163,15 +223,46 @@ export default function ExamAnswerSheetsReportPage() {
     }
   }, [academicYearId, exams, examId])
 
+  useEffect(() => {
+    async function loadTimetables() {
+      setExamTimetableId('0')
+      setRows([])
+      setHasFetched(false)
+      if (!examId) {
+        setTimetables([])
+        return
+      }
+      setLoadingFilters(true)
+      try {
+        const list = await listExamTimetablesByExam(Number(examId))
+        setTimetables(Array.isArray(list) ? list : [])
+        setExamTimetableId('0') // Angular "All"
+      } catch (e) {
+        toastError(e, 'Failed to load exam timetables')
+        setTimetables([])
+      } finally {
+        setLoadingFilters(false)
+      }
+    }
+    void loadTimetables()
+  }, [examId])
+
   async function onGetList() {
-    if (!courseId || !examId) {
+    if (!courseId || !examId || examTimetableId === '') {
       toast.info('Please Select Valid Filters')
       return
     }
     setLoading(true)
     setHasFetched(true)
     try {
-      const list = await getExamAnswerSheetsReport({ examId: Number(examId), timetableId: 0 })
+      const ttId = Number(examTimetableId)
+      // Angular: All → examDate '1991-01-01'; else selected timetable date
+      const examDate = ttId === 0 ? '1991-01-01' : txt(selectedTimetable?.examDate) || '1991-01-01'
+      const list = await getExamAnswerSheetsReport({
+        examId: Number(examId),
+        timetableId: ttId,
+        examDate,
+      })
       setRows(Array.isArray(list) ? list : [])
       if (!list?.length) toast.info('No Records Found.')
     } catch (e) {
@@ -184,7 +275,7 @@ export default function ExamAnswerSheetsReportPage() {
 
   const getRowId = useCallback(
     (p: { data?: Row; node?: { rowIndex?: number | null } }) =>
-      `row-${p.node?.rowIndex ?? 0}-${txt(p.data?.subject_name)}-${txt(p.data?.exam_date)}`,
+      `row-${p.node?.rowIndex ?? 0}-${txt(p.data?.subject_name)}-${txt(p.data?.exam_date)}-${txt(p.data?.group_code)}`,
     [],
   )
 
@@ -201,6 +292,7 @@ export default function ExamAnswerSheetsReportPage() {
                 setCourseId(v ?? '')
                 setAcademicYearId('')
                 setExamId('')
+                setExamTimetableId('0')
               }}
               options={courses.map((r) => ({
                 value: String(num(r.fk_course_id)),
@@ -216,6 +308,7 @@ export default function ExamAnswerSheetsReportPage() {
               onChange={(v) => {
                 setAcademicYearId(v ?? '')
                 setExamId('')
+                setExamTimetableId('0')
               }}
               options={academicYears.map((r) => ({
                 value: String(num(r.fk_academic_year_id)),
@@ -224,7 +317,7 @@ export default function ExamAnswerSheetsReportPage() {
               disabled={!courseId}
             />
           </div>
-          <div className="space-y-1 md:col-span-4">
+          <div className="space-y-1 md:col-span-3">
             <Label>Exam Master *</Label>
             <Select
               value={examId || null}
@@ -236,6 +329,27 @@ export default function ExamAnswerSheetsReportPage() {
               searchable
               wrapOptionLabels
               disabled={!academicYearId}
+            />
+          </div>
+          <div className="space-y-1 md:col-span-3">
+            <Label>Exam Timetable *</Label>
+            <Select
+              value={examTimetableId || null}
+              onChange={(v) => {
+                setExamTimetableId(v ?? '0')
+                setRows([])
+                setHasFetched(false)
+              }}
+              options={[
+                { value: '0', label: 'All' },
+                ...timetables.map((t) => ({
+                  value: String(num(t.examTimetableId)),
+                  label: timetableLabel(t),
+                })),
+              ]}
+              searchable
+              disabled={!examId}
+              isLoading={loadingFilters}
             />
           </div>
           <div className="flex items-end gap-2 md:col-span-2">
@@ -251,6 +365,7 @@ export default function ExamAnswerSheetsReportPage() {
               onClick={() => {
                 setRows([])
                 setHasFetched(false)
+                setExamTimetableId('0')
                 const c = courses[0]
                 if (c) setCourseId(String(num(c.fk_course_id)))
               }}
@@ -264,6 +379,7 @@ export default function ExamAnswerSheetsReportPage() {
       columnDefs={COL_DEFS}
       loading={loading}
       pagination
+      fitColumnsToWidth={false}
       getRowId={getRowId}
       toolbar={{ search: true, searchPlaceholder: 'Search…', exportPdf: false }}
       toolbarTrailing={

@@ -134,7 +134,6 @@ const resultSheetsCols: ColDef<Row>[] = [
 
 const groupSubjectwiseCols: ColDef<Row>[] = [
   { headerName: 'S.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70, flex: 0 },
-  { headerName: 'Course Group', minWidth: 120, flex: 0, valueGetter: (p) => dash(p.data?.course_group) },
   { headerName: 'Subject', minWidth: 200, flex: 1, valueGetter: (p) => dash(p.data?.SUBJECT ?? p.data?.subject_name ?? p.data?.subject) },
   { headerName: 'Registered', minWidth: 100, flex: 0, valueGetter: (p) => dash(p.data?.registered) },
   { headerName: 'Appeared', minWidth: 90, flex: 0, valueGetter: (p) => dash(p.data?.Appeared ?? p.data?.appeared) },
@@ -142,6 +141,122 @@ const groupSubjectwiseCols: ColDef<Row>[] = [
   { headerName: 'Failed', minWidth: 90, flex: 0, valueGetter: (p) => dash(p.data?.failed) },
   { headerName: 'Pass %', minWidth: 90, flex: 0, valueGetter: (p) => dash(p.data?.Pass_percentage ?? p.data?.Passed_percent) },
 ]
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/** Angular print layout — Branch & Subject-Wise Result Analysis (table only). */
+function printGroupSubjectwiseReport(args: {
+  collegeName: string
+  academicYear: string
+  courseGroup: string
+  examLabel: string
+  rows: Row[]
+}): void {
+  if (!args.rows.length) return
+
+  // Angular groups by course_group; print Course Group in header, not as a column
+  const byGroup = new Map<string, Row[]>()
+  for (const r of args.rows) {
+    const g = txt(r.course_group) || args.courseGroup || '—'
+    const list = byGroup.get(g) ?? []
+    list.push(r)
+    byGroup.set(g, list)
+  }
+
+  const sections = [...byGroup.entries()]
+    .map(([groupCode, subjects]) => {
+      const body = subjects
+        .map((r, i) => {
+          const subject = dash(r.SUBJECT ?? r.subject_name ?? r.subject)
+          return `<tr>
+            <td style="text-align:center">${i + 1}</td>
+            <td style="text-align:left">${escapeHtml(subject)}</td>
+            <td style="text-align:left">${escapeHtml(dash(r.registered))}</td>
+            <td style="text-align:left">${escapeHtml(dash(r.Appeared ?? r.appeared))}</td>
+            <td style="text-align:center">${escapeHtml(dash(r.Passed ?? r.passed))}</td>
+            <td style="text-align:center">${escapeHtml(dash(r.failed))}</td>
+            <td style="text-align:center">${escapeHtml(dash(r.Pass_percentage ?? r.Passed_percent))}</td>
+          </tr>`
+        })
+        .join('')
+
+      const first = subjects[0] ?? {}
+      const totalsRow =
+        first.total_registered != null || first.total_appeared != null
+          ? `<tr>
+              <td colspan="2" style="text-align:left;font-weight:600">Branch Wise Result</td>
+              <td style="text-align:left;font-weight:600">${escapeHtml(dash(first.total_registered))}</td>
+              <td style="text-align:left;font-weight:600">${escapeHtml(dash(first.total_appeared))}</td>
+              <td style="text-align:center;font-weight:600">${escapeHtml(dash(first.total_passed))}</td>
+              <td style="text-align:center;font-weight:600">${escapeHtml(dash(first.total_failed))}</td>
+              <td style="text-align:center;font-weight:600">${escapeHtml(dash(first.total_pass_percentage))}</td>
+            </tr>`
+          : ''
+
+      return `
+        <p class="meta">Academic Year : ${escapeHtml(args.academicYear || '—')}</p>
+        <p class="meta">Course Group : ${escapeHtml(groupCode)}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>S.No</th>
+              <th>Subject</th>
+              <th>Registered</th>
+              <th>Appeared</th>
+              <th>Passed</th>
+              <th>Failed</th>
+              <th>Pass Percentage</th>
+            </tr>
+          </thead>
+          <tbody>${body}${totalsRow}</tbody>
+        </table>`
+    })
+    .join('<div style="height:16px"></div>')
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Branch & Subject-Wise Result Analysis</title>
+<style>
+@page { size: A4 portrait; margin: 12mm; }
+body { font: 12px/1.4 Arial, Helvetica, sans-serif; color: #000; margin: 0; }
+.collegeName { font-size: 16px; font-weight: 700; margin: 0 0 4px; text-align: center; }
+.title { font-size: 14px; font-weight: 700; margin: 0 0 4px; text-align: center; }
+.details { margin: 0 0 12px; text-align: center; color: #222; }
+.meta { margin: 0 0 4px; color: #000; }
+table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+th, td { border: 1px solid #000; padding: 5px 6px; }
+th { background: #f2f2f2; font-weight: 700; text-align: center; }
+tr { break-inside: avoid; }
+</style></head><body>
+  ${args.collegeName ? `<p class="collegeName">${escapeHtml(args.collegeName)}</p>` : ''}
+  <p class="title">Branch & Subject-Wise Result Analysis</p>
+  ${args.examLabel ? `<p class="details">${escapeHtml(args.examLabel)}</p>` : ''}
+  ${sections}
+</body></html>`
+
+  const frame = document.createElement('iframe')
+  frame.setAttribute('aria-hidden', 'true')
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;'
+  document.body.appendChild(frame)
+  const fdoc = frame.contentDocument
+  const win = frame.contentWindow
+  if (!fdoc || !win) {
+    frame.remove()
+    return
+  }
+  fdoc.open()
+  fdoc.write(html)
+  fdoc.close()
+  win.addEventListener('afterprint', () => frame.remove())
+  setTimeout(() => {
+    win.focus()
+    win.print()
+  }, 50)
+}
 
 export function ExamFinalAnalysisReportPage({ kind }: { kind: ExamFinalAnalysisKind }) {
   const title = TITLES[kind]
@@ -457,7 +572,7 @@ export function ExamFinalAnalysisReportPage({ kind }: { kind: ExamFinalAnalysisK
       ) : null}
       <div className="flex items-end gap-2 md:col-span-2">
         <Button type="button" className="h-8 text-[12px]" onClick={() => void onGetList()} disabled={loading}>
-          {kind === 'final-analysis' ? 'Get Report' : 'Get List'}
+          {kind === 'final-analysis' || kind === 'group-subjectwise' ? 'Get Report' : 'Get List'}
         </Button>
         <Button
           type="button"
@@ -631,7 +746,40 @@ export function ExamFinalAnalysisReportPage({ kind }: { kind: ExamFinalAnalysisK
       toolbar={{ search: true, searchPlaceholder: 'Search…', exportPdf: false }}
       toolbarTrailing={
         hasFetched && rows.length > 0 ? (
-          <Button type="button" size="sm" className="h-9 text-[12px]" onClick={() => window.print()}>
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 text-[12px]"
+            onClick={() => {
+              if (kind === 'group-subjectwise') {
+                const college =
+                  colleges.find((r) => num(r.fk_college_id) === Number(collegeId)) ?? null
+                const year =
+                  academicYears.find((r) => num(r.fk_academic_year_id) === Number(academicYearId)) ??
+                  null
+                const group =
+                  courseGroups.find((r) => num(r.fk_course_group_id) === Number(courseGroupId)) ??
+                  null
+                const exam = exams.find((r) => num(r.fk_exam_id) === Number(examId)) ?? null
+                printGroupSubjectwiseReport({
+                  collegeName:
+                    txt(college?.college_name) ||
+                    txt(college?.college_code) ||
+                    txt(rows[0]?.college_name) ||
+                    '',
+                  academicYear: txt(year?.academic_year) || '',
+                  courseGroup: txt(group?.group_code) || txt(rows[0]?.course_group) || '',
+                  examLabel:
+                    txt(rows[0]?.exam_label_name) ||
+                    (exam ? examMasterLabel(exam) : '') ||
+                    '',
+                  rows,
+                })
+                return
+              }
+              window.print()
+            }}
+          >
             <Printer className="mr-1.5 h-3.5 w-3.5" />
             Print Report
           </Button>
