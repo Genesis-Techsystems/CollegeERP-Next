@@ -1,101 +1,109 @@
-'use client'
+"use client";
 
-import * as React from 'react'
-import { useId, useRef, useEffect, useState, useCallback, useMemo } from 'react'
-import { ChevronDown, X, Search, Check, Loader2 } from 'lucide-react'
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
-import { cn } from '@/lib/utils'
+import * as React from "react";
+import {
+  useId,
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
+import { ChevronDown, X, Search, Check, Loader2 } from "lucide-react";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export interface SelectOption {
-  value: string
-  label: string
-  disabled?: boolean
+  value: string;
+  label: string;
+  disabled?: boolean;
 }
 
 export interface SelectProps {
-  value: string | null
-  onChange: (value: string | null) => void
-  options: SelectOption[]
-  placeholder?: string
-  label?: string
-  required?: boolean
-  error?: string
-  disabled?: boolean
-  /** Show a search input inside the dropdown. Never auto-shown — must be explicit. */
-  searchable?: boolean
+  value: string | null;
+  onChange: (value: string | null) => void;
+  options: SelectOption[];
+  placeholder?: string;
+  label?: string;
+  required?: boolean;
+  error?: string;
+  disabled?: boolean;
+  /** Show a search input inside the dropdown. Enabled by default app-wide. */
+  searchable?: boolean;
   /** Called with the (debounced) search term; also called with '' when the dropdown closes. */
-  onSearch?: (term: string) => void
+  onSearch?: (term: string) => void;
   /** Fires when the popover opens or closes (after internal state updates). */
-  onOpenChange?: (open: boolean) => void
+  onOpenChange?: (open: boolean) => void;
   /** Shows a centred spinner in the list area instead of options. */
-  isLoading?: boolean
+  isLoading?: boolean;
   /** Render a × button in the trigger to clear the current value. */
-  clearable?: boolean
+  clearable?: boolean;
   /** When true, dropdown options wrap to multiple lines; the trigger always shows ellipsis. */
-  wrapOptionLabels?: boolean
-  className?: string
+  wrapOptionLabels?: boolean;
+  className?: string;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const SEARCH_DEBOUNCE_MS = 300
+const SEARCH_DEBOUNCE_MS = 300;
 
 /** Keep first option per value — duplicate values break React keys and selection. */
 export function dedupeSelectOptions(options: SelectOption[]): SelectOption[] {
-  const seen = new Set<string>()
-  const out: SelectOption[] = []
+  const seen = new Set<string>();
+  const out: SelectOption[] = [];
   for (const o of options) {
-    const v = String(o.value)
-    if (seen.has(v)) continue
-    seen.add(v)
-    out.push(o)
+    const v = String(o.value);
+    if (seen.has(v)) continue;
+    seen.add(v);
+    out.push(o);
   }
-  return out
+  return out;
 }
 
 /** Radix Dialog scroll-lock can swallow wheel events on portaled popovers — scroll the list manually. */
-function scrollListOnWheel(
-  e: React.WheelEvent,
-  list: HTMLDivElement | null,
-) {
-  if (!list) return
+function scrollListOnWheel(e: React.WheelEvent, list: HTMLDivElement | null) {
+  if (!list) return;
 
-  e.stopPropagation()
+  e.stopPropagation();
 
-  const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight)
-  const next = Math.min(maxScroll, Math.max(0, list.scrollTop + e.deltaY))
+  const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight);
+  const next = Math.min(maxScroll, Math.max(0, list.scrollTop + e.deltaY));
 
   if (next !== list.scrollTop) {
-    list.scrollTop = next
-    e.preventDefault()
+    list.scrollTop = next;
+    e.preventDefault();
   }
 }
 
 function useDebouncedCallback(fn: (v: string) => void, delay: number) {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancel = useCallback(() => {
     if (timer.current !== null) {
-      clearTimeout(timer.current)
-      timer.current = null
+      clearTimeout(timer.current);
+      timer.current = null;
     }
-  }, [])
+  }, []);
   const run = useCallback(
     (v: string) => {
-      cancel()
+      cancel();
       timer.current = setTimeout(() => {
-        timer.current = null
-        fn(v)
-      }, delay)
+        timer.current = null;
+        fn(v);
+      }, delay);
     },
     [fn, delay, cancel],
-  )
-  return { run, cancel }
+  );
+  return { run, cancel };
 }
 
 // ---------------------------------------------------------------------------
@@ -106,12 +114,12 @@ export function Select({
   value,
   onChange,
   options,
-  placeholder = 'Select an option',
+  placeholder = "Select an option",
   label,
   required = false,
   error,
   disabled = false,
-  searchable = false,
+  searchable = true,
   onSearch,
   onOpenChange,
   isLoading = false,
@@ -119,78 +127,76 @@ export function Select({
   wrapOptionLabels = false,
   className,
 }: SelectProps) {
-  const id = useId()
-  const triggerId = `select-trigger-${id}`
-  const searchId = `select-search-${id}`
+  const id = useId();
+  const triggerId = `select-trigger-${id}`;
+  const searchId = `select-search-${id}`;
 
-  const [open, setOpen] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const searchInputRef = useRef<HTMLInputElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  const uniqueOptions = useMemo(() => dedupeSelectOptions(options), [options])
-  const selectedOption = uniqueOptions.find((o) => o.value === value) ?? null
+  const uniqueOptions = useMemo(() => dedupeSelectOptions(options), [options]);
+  const selectedOption = uniqueOptions.find((o) => o.value === value) ?? null;
 
   const searchNotify = useCallback(
     (term: string) => {
-      onSearch?.(term)
+      onSearch?.(term);
     },
     [onSearch],
-  )
-  const { run: scheduleSearchNotify, cancel: cancelSearchNotify } = useDebouncedCallback(
-    searchNotify,
-    SEARCH_DEBOUNCE_MS,
-  )
+  );
+  const { run: scheduleSearchNotify, cancel: cancelSearchNotify } =
+    useDebouncedCallback(searchNotify, SEARCH_DEBOUNCE_MS);
 
   // Focus search input when popover opens
   useEffect(() => {
     if (open && searchable) {
       // Let the popover finish its open animation before focusing
-      const t = setTimeout(() => searchInputRef.current?.focus(), 50)
-      return () => clearTimeout(t)
+      const t = setTimeout(() => searchInputRef.current?.focus(), 50);
+      return () => clearTimeout(t);
     }
-  }, [open, searchable])
+  }, [open, searchable]);
 
-  const needle = searchTerm.trim().toLowerCase()
+  const needle = searchTerm.trim().toLowerCase();
   // When `onSearch` loads options from the server, skip client-side filtering so
   // API rows are not hidden when labels use a different shape than the typed term.
   const filteredOptions =
     needle && !onSearch
       ? uniqueOptions.filter((o) => {
-          const l = o.label.toLowerCase()
-          const v = String(o.value).toLowerCase()
-          return l.includes(needle) || v.includes(needle)
+          const l = o.label.toLowerCase();
+          const v = String(o.value).toLowerCase();
+          return l.includes(needle) || v.includes(needle);
         })
-      : uniqueOptions
+      : uniqueOptions;
 
   function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const term = e.target.value
-    setSearchTerm(term)
-    if (onSearch) scheduleSearchNotify(term)
+    const term = e.target.value;
+    setSearchTerm(term);
+    if (onSearch) scheduleSearchNotify(term);
   }
 
   function handlePopoverOpenChange(next: boolean) {
     if (!next) {
-      cancelSearchNotify()
-      setSearchTerm('')
-      onSearch?.('')
+      cancelSearchNotify();
+      setSearchTerm("");
+      onSearch?.("");
     }
-    setOpen(next)
-    onOpenChange?.(next)
+    setOpen(next);
+    onOpenChange?.(next);
   }
 
   function handleSelect(optValue: string) {
-    onChange(optValue)
-    setOpen(false)
+    onChange(optValue);
+    setOpen(false);
   }
 
   function handleClear(e: React.MouseEvent) {
-    e.stopPropagation()
-    onChange(null)
+    e.stopPropagation();
+    onChange(null);
   }
 
   return (
-    <div className={cn('flex min-w-0 flex-col gap-1', className)}>
+    <div className={cn("flex min-w-0 flex-col gap-1", className)}>
       {/* Label */}
       {label && (
         <label
@@ -200,14 +206,18 @@ export function Select({
           {label}
           {required && (
             <span className="ml-0.5 text-destructive" aria-hidden="true">
-              {' '}*
+              {" "}
+              *
             </span>
           )}
         </label>
       )}
 
       {/* Popover wrapper */}
-      <Popover open={open} onOpenChange={disabled ? undefined : handlePopoverOpenChange}>
+      <Popover
+        open={open}
+        onOpenChange={disabled ? undefined : handlePopoverOpenChange}
+      >
         <PopoverTrigger asChild>
           {/* Trigger button */}
           <button
@@ -220,21 +230,21 @@ export function Select({
             aria-haspopup="listbox"
             disabled={disabled}
             className={cn(
-              'app-control flex min-w-0 w-full items-center justify-between rounded-md border bg-white px-3 py-1.5 text-[length:var(--app-control-font-size)] text-slate-900 shadow-sm transition-colors',
-              'focus-visible:outline-none focus:ring-0 focus-visible:ring-0',
-              'disabled:cursor-not-allowed disabled:opacity-50',
-              open && 'border-[hsl(var(--ring))]',
+              "app-control flex min-w-0 w-full items-center justify-between rounded-md border bg-white px-3 py-1.5 text-[length:var(--app-control-font-size)] text-slate-900 shadow-sm transition-colors",
+              "focus-visible:outline-none focus:ring-0 focus-visible:ring-0",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              open && "border-[hsl(var(--ring))]",
               error
-                ? 'border-destructive focus-visible:border-destructive'
-                : 'border-slate-300',
-              !error && 'focus-visible:border-[hsl(var(--ring))]',
+                ? "border-destructive focus-visible:border-destructive"
+                : "border-slate-300",
+              !error && "focus-visible:border-[hsl(var(--ring))]",
             )}
           >
             {/* Label / placeholder */}
             <span
               className={cn(
-                'min-w-0 truncate',
-                !selectedOption && 'text-slate-400',
+                "min-w-0 truncate",
+                !selectedOption && "text-slate-400",
               )}
             >
               {selectedOption ? selectedOption.label : placeholder}
@@ -249,7 +259,8 @@ export function Select({
                   tabIndex={0}
                   onClick={handleClear}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') handleClear(e as unknown as React.MouseEvent)
+                    if (e.key === "Enter" || e.key === " ")
+                      handleClear(e as unknown as React.MouseEvent);
                   }}
                   className="rounded p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-1 focus:ring-ring"
                 >
@@ -258,8 +269,8 @@ export function Select({
               )}
               <ChevronDown
                 className={cn(
-                  'h-4 w-4 text-slate-400 transition-transform duration-200',
-                  open && 'rotate-180',
+                  "h-4 w-4 text-slate-400 transition-transform duration-200",
+                  open && "rotate-180",
                 )}
               />
             </span>
@@ -275,7 +286,7 @@ export function Select({
           // Prevent closing when clicking the search input
           onInteractOutside={(e) => {
             if (searchInputRef.current?.contains(e.target as Node)) {
-              e.preventDefault()
+              e.preventDefault();
             }
           }}
         >
@@ -300,7 +311,11 @@ export function Select({
           )}
 
           {/* Options list */}
-          <div ref={listRef} role="listbox" className="max-h-60 overflow-y-auto overscroll-contain py-1 touch-pan-y">
+          <div
+            ref={listRef}
+            role="listbox"
+            className="max-h-60 overflow-y-auto overscroll-contain py-1 touch-pan-y"
+          >
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -312,7 +327,7 @@ export function Select({
               </div>
             ) : (
               filteredOptions.map((opt, idx) => {
-                const isSelected = opt.value === value
+                const isSelected = opt.value === value;
                 return (
                   <button
                     key={`${String(opt.value)}::${idx}`}
@@ -322,28 +337,32 @@ export function Select({
                     disabled={opt.disabled}
                     onClick={() => !opt.disabled && handleSelect(opt.value)}
                     className={cn(
-                      'flex w-full gap-2 px-3 py-2 text-sm transition-colors',
-                      wrapOptionLabels ? 'items-start' : 'items-center',
-                      'hover:bg-accent hover:text-accent-foreground',
-                      'focus:bg-accent focus:text-accent-foreground focus:outline-none',
-                      'disabled:cursor-not-allowed disabled:opacity-50',
-                      isSelected && 'bg-accent/50 font-medium',
+                      "flex w-full gap-2 px-3 py-2 text-sm transition-colors",
+                      wrapOptionLabels ? "items-start" : "items-center",
+                      "hover:bg-accent hover:text-accent-foreground",
+                      "focus:bg-accent focus:text-accent-foreground focus:outline-none",
+                      "disabled:cursor-not-allowed disabled:opacity-50",
+                      isSelected && "bg-accent/50 font-medium",
                     )}
                   >
                     {/* Checkmark slot — keeps label alignment consistent */}
                     <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                      {isSelected && <Check className="h-3.5 w-3.5 text-primary" />}
+                      {isSelected && (
+                        <Check className="h-3.5 w-3.5 text-primary" />
+                      )}
                     </span>
                     <span
                       className={cn(
-                        'min-w-0 flex-1 text-left',
-                        wrapOptionLabels ? 'whitespace-normal leading-snug' : 'truncate',
+                        "min-w-0 flex-1 text-left",
+                        wrapOptionLabels
+                          ? "whitespace-normal leading-snug"
+                          : "truncate",
                       )}
                     >
                       {opt.label}
                     </span>
                   </button>
-                )
+                );
               })
             )}
           </div>
@@ -357,5 +376,5 @@ export function Select({
         </p>
       )}
     </div>
-  )
+  );
 }
