@@ -1,5 +1,5 @@
 import { ENTITIES } from '@/config/constants/entities'
-import { EMPLOYEE_API, FEE_API, NEXT_API } from '@/config/constants/api'
+import { EMPLOYEE_API, FEE_API, NEXT_API, TRANSPORT_API } from '@/config/constants/api'
 import type {
   EmployeeProfileRow,
   EmployeeSearchRow,
@@ -8,7 +8,9 @@ import type {
   FeeStudentWiseDiscountPayload,
   FeeReceiptPaymentPayload,
   FeeReceiptRow,
+  FeeParticularWiseReceiptRow,
   FeeStudentData,
+  FeeStudentParticularRow,
   FinancialYearRow,
   StudentFeeDueRow,
   FeeManagementSavePayload,
@@ -26,6 +28,7 @@ import { GM_CODES } from '@/config/constants/ui'
 import {
   buildQuery,
   domainList,
+  domainUpdate,
   fetchDetails,
   getAllRecords,
   postDetails,
@@ -98,12 +101,14 @@ export async function listStudentFeeDue(params: {
 
 export async function listStudentFeeStructuresByStudent(
   studentId: number,
+  options?: { /** Pass `null` to omit status (Angular allocate-structure-to-student). */ status?: string | null },
 ): Promise<StudentFeeStructureRow[]> {
   if (!studentId) return []
-  const data = await fetchDetails<StudentFeeStructureRow[]>(FEE_API.STUDENT_FEE_LIST, {
-    studentId,
-    status: 'true',
-  })
+  const params: Record<string, string | number> = { studentId }
+  if (options?.status !== null) {
+    params.status = options?.status ?? 'true'
+  }
+  const data = await fetchDetails<StudentFeeStructureRow[]>(FEE_API.STUDENT_FEE_LIST, params)
   const rows = Array.isArray(data) ? data : []
   return [...rows].sort(
     (a, b) => Number(a.courseYearNo ?? 0) - Number(b.courseYearNo ?? 0),
@@ -222,6 +227,129 @@ export async function submitFeeReceipt(payload: FeeReceiptPaymentPayload): Promi
   return postDetails<unknown>(FEE_API.FEE_RECEIPTS, payload)
 }
 
+/** Angular `feeparticularwisepayments` — receipts for one student particular. */
+export async function listParticularWiseReceipts(params: {
+  feeStructureId: number
+  collegeId: number
+  studentId: number
+  feeParticularsId: number
+  feeStdDataParticularsId: number
+}): Promise<FeeParticularWiseReceiptRow[]> {
+  const {
+    feeStructureId,
+    collegeId,
+    studentId,
+    feeParticularsId,
+    feeStdDataParticularsId,
+  } = params
+  if (
+    !feeStructureId ||
+    !collegeId ||
+    !studentId ||
+    !feeParticularsId ||
+    !feeStdDataParticularsId
+  ) {
+    return []
+  }
+  const data = await fetchDetails<FeeParticularWiseReceiptRow[]>(
+    FEE_API.FEE_PARTICULAR_WISE_PAYMENTS,
+    {
+      feeStructureId,
+      collegeId,
+      studentId,
+      feeParticularsId,
+      feeStdDataParticularsId,
+    },
+  )
+  return Array.isArray(data) ? data : []
+}
+
+/** Angular `feestudentwiseparticularlists` — create category particular before first pay. */
+export async function createStudentWiseParticulars(
+  payload: FeeStudentParticularRow[],
+): Promise<FeeStudentParticularRow[]> {
+  if (payload.length === 0) {
+    throw new AppError('VALIDATION', 'Particular details are required')
+  }
+  const data = await postDetails<FeeStudentParticularRow[] | FeeStudentParticularRow>(
+    FEE_API.FEE_STUDENT_WISE_PARTICULARS,
+    payload,
+  )
+  if (Array.isArray(data)) return data
+  return data ? [data] : []
+}
+
+/** Angular `transportallocationforstudent` — bus pay screen route info. */
+export async function listTransportAllocationForStudent(params: {
+  studentId: number
+  academicYearId: number
+  date: string
+}): Promise<TransportAllocationRow[]> {
+  const { studentId, academicYearId, date } = params
+  if (!studentId || !academicYearId || !date) return []
+  const data = await fetchDetails<TransportAllocationRow[] | TransportAllocationRow>(
+    TRANSPORT_API.TRANSPORT_ALLOCATION,
+    { studentId, academicYearId, date },
+  )
+  if (Array.isArray(data)) return data
+  return data ? [data] : []
+}
+
+export async function deleteFeeStudentWiseDiscount(feeStdDiscountId: number): Promise<void> {
+  if (!feeStdDiscountId) return
+  const res = await fetch(
+    NEXT_API.PROXY(FEE_API.FEE_STUDENT_WISE_DISCOUNT) + `/${feeStdDiscountId}`,
+    { method: 'DELETE', credentials: 'include' },
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw parseApiError(res, body)
+  }
+  const body = (await res.json()) as ApiResponse<unknown>
+  if (!body.success) {
+    throw new AppError('API_ERROR', body.message ?? 'Failed to delete fee discount')
+  }
+}
+
+async function openPdfBlobPrint(blob: Blob): Promise<void> {
+  const blobUrl = URL.createObjectURL(blob)
+  const iframe = document.createElement('iframe')
+  iframe.style.display = 'none'
+  iframe.src = blobUrl
+  document.body.appendChild(iframe)
+  iframe.onload = () => {
+    iframe.contentWindow?.print()
+  }
+}
+
+/** Open fee receipt PDF print dialog (`feeReceiptDownload?receiptId=`). */
+export async function printFeeReceiptById(receiptId: number): Promise<void> {
+  if (!receiptId) return
+  const res = await fetch(
+    NEXT_API.PROXY(FEE_API.FEE_RECEIPT_DOWNLOAD) + `?receiptId=${receiptId}`,
+    { credentials: 'include' },
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw parseApiError(res, body)
+  }
+  await openPdfBlobPrint(await res.blob())
+}
+
+/** Angular fee-receipt-update download: `studentFeeReceiptDownload?studentId=`. */
+export async function printStudentFeeReceiptDownload(studentId: number): Promise<void> {
+  if (!studentId) return
+  const res = await fetch(
+    NEXT_API.PROXY(FEE_API.STUDENT_FEE_RECEIPT_DOWNLOAD) + `?studentId=${studentId}`,
+    { credentials: 'include' },
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw parseApiError(res, body)
+  }
+  await openPdfBlobPrint(await res.blob())
+}
+
 export async function searchStudentsInCollege(
   collegeId: number,
   term: string,
@@ -333,9 +461,17 @@ export async function listStudentFeeReceiptDetails(params: {
   return Array.isArray(rows) ? rows : []
 }
 
-export async function deleteFeeReceipt(feeReceiptsId: number): Promise<void> {
+/**
+ * Angular fee-receipt-update: `DELETE feereceipts/{feeReceiptsId}/{reason}`.
+ * When reason is omitted, deletes by id only (legacy callers).
+ */
+export async function deleteFeeReceipt(feeReceiptsId: number, reason?: string): Promise<void> {
   if (!feeReceiptsId) return
-  const res = await fetch(NEXT_API.PROXY(FEE_API.FEE_RECEIPTS) + `/${feeReceiptsId}`, {
+  const path =
+    reason != null && reason.trim() !== ''
+      ? `${FEE_API.FEE_RECEIPTS}/${feeReceiptsId}/${encodeURIComponent(reason.trim())}`
+      : `${FEE_API.FEE_RECEIPTS}/${feeReceiptsId}`
+  const res = await fetch(NEXT_API.PROXY(path), {
     method: 'DELETE',
     credentials: 'include',
   })
@@ -372,7 +508,7 @@ export async function syncAdmissionInitiatedPayments(): Promise<string> {
 }
 
 export async function saveFeeStudentWiseDiscount(
-  payload: FeeStudentWiseDiscountPayload[],
+  payload: FeeStudentWiseDiscountPayload[] | FeeStudentParticularRow[],
 ): Promise<unknown> {
   if (payload.length === 0) {
     throw new AppError('VALIDATION', 'Discount details are required')
@@ -380,23 +516,27 @@ export async function saveFeeStudentWiseDiscount(
   return postDetails(FEE_API.FEE_STUDENT_WISE_DISCOUNT, payload)
 }
 
+/** Angular fee-reports/concession-list: `feeconsessionlist?collegeId=&academicYearId=&page=&size=&status=`. */
 export async function listFeeConcessions(params: {
   collegeId: number
-  academicYearId: number
-  employeeId: number
+  academicYearId?: number | null
+  employeeId?: number
   page?: number
   size?: number
+  status?: boolean | string
 }): Promise<{ rows: FeeConcessionRow[]; totalCount: number; totalValue: number }> {
   const page = params.page ?? 0
-  const size = params.size ?? 50
+  const size = params.size ?? 1000
   const query = new URLSearchParams({
     collegeId: String(params.collegeId),
-    academicYearId: String(params.academicYearId),
-    employeeId: String(params.employeeId || 0),
+    academicYearId: String(params.academicYearId ?? 0),
     page: String(page),
     size: String(size),
-    status: 'true',
+    status: String(params.status ?? true),
   })
+  if (params.employeeId != null && params.employeeId > 0) {
+    query.set('employeeId', String(params.employeeId))
+  }
 
   const res = await fetch(NEXT_API.PROXY(FEE_API.FEE_CONCESSION_LIST) + `?${query}`, {
     cache: 'no-store',
@@ -491,6 +631,17 @@ export async function listFeeStructuresForAllocation(params: {
 
 export async function mapFeeStructureToStudents(payload: unknown): Promise<unknown> {
   return postDetails(FEE_API.MAP_FEE_STRUCTURE, payload)
+}
+
+/** Angular allocate-structure-to-student: domain update `FeeStudentData` status/reason. */
+export async function updateFeeStudentDataStatus(
+  feeStdDataId: number,
+  payload: Record<string, unknown>,
+): Promise<unknown> {
+  if (!feeStdDataId) {
+    throw new AppError('VALIDATION', 'Fee student data id is required')
+  }
+  return domainUpdate('FeeStudentData', 'feeStdDataId', feeStdDataId, payload)
 }
 
 /** Angular allocate-fee: `s_pop_student_fee_Structure` with batch_fee_load / ay_fee_load. */

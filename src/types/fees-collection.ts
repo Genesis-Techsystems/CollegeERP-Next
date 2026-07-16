@@ -51,6 +51,7 @@ export type StudentFeeStructureRow = {
   groupName?: string
   courseYearName?: string
   courseYearNo?: number
+  courseYearId?: number
   section?: string
   firstName?: string
   feeStudentDataDTO?: { isActive?: boolean }
@@ -63,6 +64,9 @@ export type FeeStudentParticularRow = {
   feeParticularsId?: number
   feeStructureId?: number
   feeStructureParticularId?: number
+  feeStdDataParticularsId?: number
+  feeStdParticularId?: number
+  feeCategoryCode?: string
   categoryName?: string
   particularsName?: string
   grossAmount?: number
@@ -71,9 +75,34 @@ export type FeeStudentParticularRow = {
   fineAmount?: number
   paidAmount?: number
   balanceAmount?: number
+  /** Amount to collect on this payment (Angular `amt`). */
+  amt?: number
   amount?: number
+  value?: number
+  isPaid?: boolean
+  isDiscounted?: boolean
+  isActive?: boolean
   isFromStructure?: boolean
   isFromStdwise?: boolean
+  collegeId?: number
+  studentId?: number
+  feeStdDataId?: number
+  financialYearId?: number
+  payerName?: string
+  [key: string]: unknown
+}
+
+/** Receipt row from `feeparticularwisepayments` (bus/hostel pay screen). */
+export type FeeParticularWiseReceiptRow = {
+  paymentReceiptsNo?: string
+  receiptDt?: string
+  paymentFor?: string
+  paymentMode?: string
+  paymentType?: string
+  referenceNumber?: string
+  receiptAmount?: number
+  feeReceipts?: { feeReceiptsId?: number }
+  paymentTypeCode?: string
   [key: string]: unknown
 }
 
@@ -111,7 +140,7 @@ export type FeeReceiptPaymentPayload = {
   paymentFor?: string
   fineReason?: string
   receiptDt: string | Date
-  amount: number
+  amount?: number
   paymentTypeId: number
   paymentModeId: number
   transactionNo?: string
@@ -129,6 +158,14 @@ export type FeeReceiptPaymentPayload = {
   revertbByEmployeeId?: number | string
   feeParticularwisePayments: FeeStudentParticularRow[]
   payerTypeId?: number
+  payerName?: string
+  firstName?: string
+  collegeCode?: string
+  academicYear?: string
+  courseCode?: string
+  groupCode?: string
+  courseYearName?: string
+  section?: string
 }
 
 export type StudentFeeSearchRow = {

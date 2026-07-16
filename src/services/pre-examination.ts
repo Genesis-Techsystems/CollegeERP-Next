@@ -12,6 +12,11 @@ import {
 import { EXAM_API, NEXT_API, SETUP_API } from "@/config/constants/api";
 import { GM_CODES } from "@/config/constants/ui";
 import { toDateStr, toExamApiDate } from "@/common/generic-functions";
+import {
+  fetchStudentDetail,
+  fetchStudentDetailByUserId,
+  searchStudentsByKeyword,
+} from "./student-information";
 
 export type AnyRow = Record<string, any>;
 
@@ -375,6 +380,39 @@ export async function listStudents(q: string): Promise<AnyRow[]> {
     return [];
   }
 }
+
+/** Angular student-exam-section getExamFeeReceipts(): GET examhallticket?examId=&studentId= */
+export async function getStudentExamHallticketDetail(
+  examId: number,
+  studentId: number,
+): Promise<{ detail: AnyRow; subjects: AnyRow[] } | null> {
+  if (!examId || !studentId) return null;
+  try {
+    const data = await fetchDetails<any>("examhallticket", { examId, studentId });
+    const row = (Array.isArray(data) ? data[0] : data) as AnyRow | undefined;
+    if (!row || typeof row !== "object") return null;
+    const rawSubjects = row.subjectDTOList ?? row.subjects ?? [];
+    // Drop omrBarcode base64 — unused on student print layout and blows up storage/URL size.
+    const subjects = (Array.isArray(rawSubjects) ? rawSubjects : [])
+      .map((s: AnyRow) => {
+        const { omrBarcode: _omit, ...rest } = s;
+        return rest;
+      })
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(a.examDate ?? a.exam_date ?? 0).getTime() -
+          new Date(b.examDate ?? b.exam_date ?? 0).getTime(),
+      );
+    const detail: AnyRow = { ...row, subjectDTOList: subjects };
+    delete detail.omrBarcode;
+    return { detail, subjects };
+  } catch {
+    return null;
+  }
+}
+
+export const STUDENT_HALLTICKET_PRINT_STORAGE_KEY = "student-hallticket-print-data";
 
 export async function getExamHalltickets(params: {
   examId: number;
@@ -1891,6 +1929,228 @@ export async function listPaymentModes(): Promise<AnyRow[]> {
 export async function payExamFeeReceipts(payload: AnyRow[]): Promise<any> {
   return postDetails<any>("examFeeReceipt", payload);
 }
+
+function pickExamMasterFromExamStudentRow(row: AnyRow): AnyRow | null {
+  const nested =
+    (row.examMaster as AnyRow | undefined) ??
+    (row.ExamMaster as AnyRow | undefined) ??
+    (row.exam as AnyRow | undefined);
+
+  const examStudentId = Number(row.examStudentId ?? row.exam_student_id ?? 0);
+  const examId = Number(
+    nested?.examId ??
+      nested?.exam_id ??
+      row.examId ??
+      row.exam_id ??
+      row.fk_exam_id ??
+      0,
+  );
+  // Avoid treating ExamStudent PK as exam id when examMaster is not hydrated.
+  if (!examId || (examStudentId > 0 && examId === examStudentId && !nested)) {
+    return null;
+  }
+
+  const isInternal =
+    nested?.isInternalExam ??
+    nested?.is_internal_exam ??
+    row.isInternalExam ??
+    row.is_internal_exam;
+  if (isInternal) return null;
+
+  const source = nested ?? row;
+  return {
+    ...row,
+    ...source,
+    examId,
+    examName:
+      source.examName ??
+      source.exam_name ??
+      row.examName ??
+      row.exam_name,
+    fromDate:
+      source.fromDate ??
+      source.from_date ??
+      source.examFromDate ??
+      source.exam_from_date ??
+      row.fromDate ??
+      row.from_date ??
+      row.examFromDate ??
+      row.exam_from_date,
+    toDate:
+      source.toDate ??
+      source.to_date ??
+      source.examToDate ??
+      source.exam_to_date ??
+      row.toDate ??
+      row.to_date ??
+      row.examToDate ??
+      row.exam_to_date,
+    isRegularExam:
+      source.isRegularExam ??
+      source.is_regular_exam ??
+      row.isRegularExam ??
+      row.is_regular_exam,
+    isSupplyExam:
+      source.isSupplyExam ??
+      source.is_supply_exam ??
+      row.isSupplyExam ??
+      row.is_supply_exam,
+  };
+}
+
+/** Angular login + student-exam-hallticket enteredStudent() profile resolution. */
+export async function resolveStudentPortalProfile(args: {
+  userId?: number | null;
+  studentId?: number | null;
+  userName?: string | null;
+}): Promise<AnyRow | null> {
+  const normalize = (row: AnyRow, fallbackId?: number): AnyRow => {
+    const sid = Number(row.studentId ?? row.id ?? fallbackId ?? 0);
+    return {
+      ...row,
+      studentId: sid,
+      id: sid,
+      collegeId: Number(row.collegeId ?? row.college_id ?? row.fk_college_id ?? 0),
+      courseId: Number(row.courseId ?? row.course_id ?? row.fk_course_id ?? 0),
+      rollNumber:
+        row.rollNumber ??
+        row.roll_number ??
+        row.hallticketNumber ??
+        row.hallticket_number,
+      hallticketNumber:
+        row.hallticketNumber ??
+        row.rollNumber ??
+        row.hallticket_number ??
+        row.roll_number,
+    };
+  };
+
+  const sessionStudentId = Number(
+    args.studentId ??
+      globalThis?.localStorage?.getItem("studentId") ??
+      0,
+  );
+  if (sessionStudentId > 0) {
+    const detail = await fetchStudentDetail(sessionStudentId).catch(() => null);
+    if (detail) return normalize(detail, sessionStudentId);
+  }
+
+  const userId = Number(args.userId ?? 0);
+  if (userId > 0) {
+    const byUser = await fetchStudentDetailByUserId(userId).catch(() => null);
+    if (byUser) return normalize(byUser);
+  }
+
+  const roll = String(
+    globalThis?.localStorage?.getItem("rollNumber") ?? args.userName ?? "",
+  ).trim();
+  if (roll.length > 4) {
+    const hits = await searchStudentsByKeyword(roll).catch(() => []);
+    const exact =
+      hits.find(
+        (h) =>
+          String(h.rollNumber ?? h.hallticketNumber ?? "")
+            .trim()
+            .toLowerCase() === roll.toLowerCase(),
+      ) ?? hits[0];
+    if (exact) {
+      return normalize(exact, Number(exact.studentId ?? exact.id ?? 0));
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Angular student-exam-section exam-hallticket getExamsList():
+ * listDetailsByThreeIdsWithSort(ExamStudent, collegeId, studentId, true, DESC,
+ *   College.collegeId, studentDetail.studentId, isActive, createdDt)
+ */
+export async function listStudentPortalExams(
+  collegeId: number,
+  studentId: number,
+  courseId?: number,
+): Promise<AnyRow[]> {
+  if (!studentId) return [];
+
+  const order = { field: "createdDt", direction: "DESC" as const };
+  const queryStrings: string[] = [];
+  const cid = Number(collegeId);
+
+  if (cid > 0) {
+    queryStrings.push(
+      buildQuery(
+        {
+          "College.collegeId": cid,
+          "studentDetail.studentId": studentId,
+          isActive: true,
+        },
+        order,
+      ),
+      buildQuery(
+        {
+          "College.collegeId": cid,
+          "StudentDetail.studentId": studentId,
+          isActive: true,
+        },
+        order,
+      ),
+      buildQuery(
+        {
+          "college.collegeId": cid,
+          "studentDetail.studentId": studentId,
+          isActive: true,
+        },
+        order,
+      ),
+      buildQuery({ collegeId: cid, studentId, isActive: true }, order),
+    );
+  }
+
+  queryStrings.push(
+    buildQuery({ "studentDetail.studentId": studentId, isActive: true }, order),
+    buildQuery({ "StudentDetail.studentId": studentId, isActive: true }, order),
+    buildQuery({ studentId, isActive: true }, order),
+  );
+
+  const seenQueries = new Set<string>();
+  const rows: AnyRow[] = [];
+  for (const q of queryStrings) {
+    if (seenQueries.has(q)) continue;
+    seenQueries.add(q);
+    try {
+      const batch = await domainList<AnyRow>("ExamStudent", q);
+      if (Array.isArray(batch) && batch.length > 0) {
+        rows.push(...batch);
+        break;
+      }
+    } catch {
+      // try next query shape
+    }
+  }
+
+  const exams: AnyRow[] = [];
+  const examIds = new Set<number>();
+  for (const row of rows) {
+    const exam = pickExamMasterFromExamStudentRow(row);
+    if (!exam || examIds.has(Number(exam.examId))) continue;
+    examIds.add(Number(exam.examId));
+    exams.push(exam);
+  }
+
+  if (exams.length > 0) return exams;
+
+  const resolvedCourseId = Number(courseId ?? 0);
+  if (resolvedCourseId > 0) {
+    const masters = await listExamMastersByCourse(resolvedCourseId).catch(() => []);
+    return (Array.isArray(masters) ? masters : []).filter(
+      (e) => !(e.isInternalExam ?? e.is_internal_exam),
+    );
+  }
+
+  return [];
+}
+
 
 /**
  * Exams for a student's course — Angular getExamsList():

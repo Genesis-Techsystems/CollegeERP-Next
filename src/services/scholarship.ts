@@ -299,13 +299,37 @@ export async function updateSchAccountsPreceeding(
   )
 }
 
+/** Angular fee-reports: `schPreceedingsByAccPrecedingId?accPrecedingId=`. */
 export async function listPreceedingsByAccountId(
   schAccountsPreceedingId: number,
 ): Promise<SchPreceeding[]> {
+  if (!schAccountsPreceedingId) return []
   const data = await fetchDetails<SchPreceeding[]>(SCHOLARSHIP_API.SCH_PRECEEDINGS_BY_ACC, {
-    schAccountsPreceedingId,
+    accPrecedingId: schAccountsPreceedingId,
   })
   return Array.isArray(data) ? data : []
+}
+
+/** Angular view-std-preceedings: domain list SchPreceeding by id (includes `stdPreceedings`). */
+export async function getSchPreceedingById(
+  schPreceedingId: number,
+): Promise<(SchPreceeding & { stdPreceedings?: Record<string, unknown>[]; collegeCode?: string; academicYear?: string }) | null> {
+  if (!schPreceedingId) return null
+  const queries = [
+    buildQuery({ schPreceedingId, isActive: true }),
+    buildQuery({ 'SchPreceeding.schPreceedingId': schPreceedingId, isActive: true }),
+  ]
+  for (const query of queries) {
+    try {
+      const rows = await domainList<
+        SchPreceeding & { stdPreceedings?: Record<string, unknown>[]; collegeCode?: string; academicYear?: string }
+      >(ENTITIES.SCH_PRECEEDING.name, query)
+      if (rows[0]) return rows[0]
+    } catch {
+      // try next query shape
+    }
+  }
+  return null
 }
 
 export async function listNullPreceedings(collegeId: number): Promise<SchPreceeding[]> {

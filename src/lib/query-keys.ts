@@ -231,6 +231,21 @@ export const QK = {
       ['FeesCollection', 'feeMgmtFilters', orgId, employeeId] as const,
     allocateStructures: (filters: Record<string, unknown>) =>
       ['FeesCollection', 'allocateStructures', filters] as const,
+    payStudentData: (filters: Record<string, unknown>) =>
+      ['FeesCollection', 'payStudentData', filters] as const,
+    payLookups: () => ['FeesCollection', 'payLookups'] as const,
+    payCategories: (collegeId: number, code: string) =>
+      ['FeesCollection', 'payCategories', collegeId, code] as const,
+    payParticulars: (collegeId: number, code: string) =>
+      ['FeesCollection', 'payParticulars', collegeId, code] as const,
+    payStructureParticulars: (feeStructureId: number) =>
+      ['FeesCollection', 'payStructureParticulars', feeStructureId] as const,
+    payFinancialYear: (collegeId: number, date: string) =>
+      ['FeesCollection', 'payFinancialYear', collegeId, date] as const,
+    payTransport: (studentId: number, academicYearId: number, date: string) =>
+      ['FeesCollection', 'payTransport', studentId, academicYearId, date] as const,
+    particularWiseReceipts: (filters: Record<string, unknown>) =>
+      ['FeesCollection', 'particularWiseReceipts', filters] as const,
   },
 
   // ── Floors ─────────────────────────────────────────────────────────────

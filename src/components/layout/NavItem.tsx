@@ -1362,6 +1362,72 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         "/accounts-and-fees/fees-collection/hostel-payment",
       );
     }
+    if (
+      label.includes("bus") &&
+      label.includes("fee") &&
+      label.includes("payment") &&
+      !label.includes("faculty")
+    ) {
+      return normPathname.startsWith(
+        "/accounts-and-fees/fees-collection/bus-payment",
+      );
+    }
+    if (
+      label.includes("library") &&
+      label.includes("fee") &&
+      label.includes("payment") &&
+      !label.includes("fine")
+    ) {
+      return normPathname.startsWith(
+        "/accounts-and-fees/fees-collection/library-payment",
+      );
+    }
+    if (
+      (label.includes("allocate") &&
+        label.includes("student") &&
+        label.includes("fee") &&
+        !label.includes("subject")) ||
+      label.includes("allocate student fee")
+    ) {
+      return normPathname.startsWith(
+        "/accounts-and-fees/fees-collection/allocate-student-fee",
+      );
+    }
+    if (
+      (label.includes("fee") &&
+        label.includes("receipt") &&
+        (label.includes("delete") || label.includes("update"))) ||
+      label.includes("fee receipts delete")
+    ) {
+      return normPathname.startsWith(
+        "/accounts-and-fees/fees-collection/fee-receipt-update",
+      );
+    }
+    if (
+      label.includes("allocate") &&
+      label.includes("structure") &&
+      label.includes("student")
+    ) {
+      return normPathname.startsWith(
+        "/accounts-and-fees/fees-collection/allocate-structure-to-student",
+      );
+    }
+    if (
+      label.includes("scholarship") &&
+      (label.includes("preceeding") || label.includes("proceeding"))
+    ) {
+      return normPathname.startsWith(
+        "/accounts-and-fees/fee-reports/scholarship-preceedings",
+      );
+    }
+    if (
+      (label.includes("institutional") && label.includes("scholarship")) ||
+      (label.includes("concession") && label.includes("list"))
+    ) {
+      return normPathname.startsWith(
+        "/accounts-and-fees/fee-reports/concession-list",
+      );
+    }
     if (hasChildren && label.trim() === "hostel") {
       return isHostelModulePath(normPathname);
     }

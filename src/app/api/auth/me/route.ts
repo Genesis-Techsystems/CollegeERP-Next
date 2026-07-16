@@ -5,7 +5,7 @@ import { cookies } from 'next/headers'
 import { sessionOptions } from '@/lib/session'
 import type { IronSessionData } from '@/types/user'
 import { APP_CONFIG } from '@/config/constants/app'
-import { springGetEmployeeByUserId } from '@/integrations/spring-api'
+import { springGetEmployeeByUserId, springGetStudentByUserId } from '@/integrations/spring-api'
 
 export async function GET() {
   const session = await getIronSession<IronSessionData>(await cookies(), sessionOptions)
@@ -28,6 +28,16 @@ export async function GET() {
     const empId = Number(emp?.employeeId ?? 0)
     if (empId > 0) {
       session.user.employeeId = empId
+      await session.save()
+    }
+  }
+
+  // Backfill studentId for student portal sessions — Angular login getStudent().
+  if (studentLike && !session.user.studentId && session.user.userId) {
+    const student = await springGetStudentByUserId(session.jwt, Number(session.user.userId)).catch(() => null)
+    const sid = Number(student?.studentId ?? 0)
+    if (sid > 0) {
+      session.user.studentId = sid
       await session.save()
     }
   }
