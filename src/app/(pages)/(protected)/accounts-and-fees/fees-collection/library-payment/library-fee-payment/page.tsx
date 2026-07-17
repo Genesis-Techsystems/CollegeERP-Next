@@ -13,6 +13,7 @@ function LibraryFeePaymentContent() {
       title="Library Fee Payment"
       payPage="library-fee"
       payColumnHeader="Pay Details"
+      filteredShell
     />
   );
 }

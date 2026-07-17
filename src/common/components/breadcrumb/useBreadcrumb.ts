@@ -6,7 +6,6 @@ import type { BreadcrumbItem } from "./Breadcrumb";
 import { useBreadcrumbStore } from "@/store/breadcrumb-store";
 import { useNavigationStore } from "@/store/navigation-store";
 import { findNavBreadcrumbItems, findNavPageLabel } from "@/lib/navigation";
-import { findSidebarLabelForRoute } from "@/lib/sidebar-route-pins";
 
 /**
  * Converts a URL path segment into a human-readable label.
@@ -90,15 +89,7 @@ function examReportsModuleBreadcrumb(
     );
   if (alreadyUnderReports) return items;
 
-  const pageLabel = (() => {
-    const fromNav = items[items.length - 1]?.label;
-    if (fromNav && alreadyUnderReports) return fromNav;
-    return (
-      findSidebarLabelForRoute(pathname) ??
-      items[items.length - 1]?.label ??
-      segmentToLabel(match[1])
-    );
-  })();
+  const pageLabel = items[items.length - 1]?.label ?? segmentToLabel(match[1]);
 
   return [
     { label: "Home", href: "/dashboard" },
@@ -106,6 +97,107 @@ function examReportsModuleBreadcrumb(
     { label: "Examination Reports" },
     { label: pageLabel },
   ];
+}
+
+const FEE_PAYMENT_HREF =
+  "/accounts-and-fees/fees-collection/payment/fee-payment";
+const FEE_RECEIPTS_HREF = "/accounts-and-fees/fees-collection/fee-receipts";
+
+/**
+ * Angular Accounts & Fees payment crumbs omit the raw `/payment` URL folder
+ * and use explicit Fee Payment / Fee-Receipt labels.
+ *
+ * - Fee Payment: Home → Accounts and Fees → Fees Collection → Fee Payment
+ * - Pay Fees: Home → Accounts and Fees → Fees Collection → Fee Payment
+ * - Print receipt: Home → Accounts and Fees → Fee Payment → Fee-Receipt
+ * - Fee Receipts: Home → Accounts and Fees → Fee Collection → Fee Receipts
+ */
+function accountsFeesPaymentBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+
+  if (
+    /\/accounts-and-fees\/fees-collection\/fee-receipts\/print-reciept$/i.test(
+      path,
+    )
+  ) {
+    return [
+      { label: "Home", href: "/dashboard" },
+      { label: "Accounts and Fees" },
+      { label: "Fee Collection", href: FEE_RECEIPTS_HREF },
+      { label: "Fee-Receipt" },
+    ];
+  }
+
+  if (/\/accounts-and-fees\/fees-collection\/fee-receipts$/i.test(path)) {
+    return [
+      { label: "Home", href: "/dashboard" },
+      { label: "Accounts and Fees" },
+      { label: "Fee Collection" },
+      { label: "Fee Receipts" },
+    ];
+  }
+
+  if (
+    /\/accounts-and-fees\/fees-collection\/payment\/pay-fees\/print-fee-receipt$/i.test(
+      path,
+    )
+  ) {
+    return [
+      { label: "Home", href: "/dashboard" },
+      { label: "Accounts and Fees" },
+      { label: "Fee Payment", href: FEE_PAYMENT_HREF },
+      { label: "Fee-Receipt" },
+    ];
+  }
+
+  if (
+    /\/accounts-and-fees\/fees-collection\/payment\/student-fee-collection$/i.test(
+      path,
+    )
+  ) {
+    return [
+      { label: "Home", href: "/dashboard" },
+      { label: "Accounts and Fees" },
+      { label: "Fee Collection" },
+      { label: "Student Fee Collection" },
+    ];
+  }
+
+  if (
+    /\/accounts-and-fees\/fees-collection\/payment\/pay-fees$/i.test(path) ||
+    /\/accounts-and-fees\/fees-collection\/payment\/fee-payment$/i.test(path)
+  ) {
+    // Drop the intermediate "Payment" segment from URL/nav chain.
+    const home =
+      items[0]?.label.toLowerCase() === "home"
+        ? items[0]
+        : { label: "Home", href: "/dashboard" };
+
+    const accounts =
+      items.find((i) => /accounts?\s*and\s*fees/i.test(i.label)) ??
+      items.find((i) => /accounts/i.test(i.label));
+    const collection =
+      items.find((i) => /fee[s]?\s*collection/i.test(i.label)) ??
+      items.find((i) => /collection/i.test(i.label));
+
+    return [
+      home,
+      {
+        label: accounts?.label ?? "Accounts and Fees",
+        href: accounts?.href,
+      },
+      {
+        label: collection?.label ?? "Fees Collection",
+        href: collection?.href ?? "/accounts-and-fees/fees-collection",
+      },
+      { label: "Fee Payment" },
+    ];
+  }
+
+  return items;
 }
 
 /**
@@ -178,6 +270,7 @@ export function useBreadcrumb(
   }
 
   items = examReportsModuleBreadcrumb(pathname, items);
+  items = accountsFeesPaymentBreadcrumb(pathname, items);
   items = simplifyAdminDirectLeafBreadcrumb(pathname, items);
 
   if (lastSegmentLabel && items.length > 0) {
@@ -214,8 +307,7 @@ export function usePageNavLabel(): string | null {
   const navItems = useNavigationStore((s) => s.navItems);
 
   return useMemo(
-    () =>
-      navItems.length > 0 ? findNavPageLabel(navItems, pathname) : null,
+    () => (navItems.length > 0 ? findNavPageLabel(navItems, pathname) : null),
     [navItems, pathname],
   );
 }

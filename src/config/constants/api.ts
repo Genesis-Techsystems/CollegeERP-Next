@@ -853,6 +853,16 @@ export const FEE_API = {
   FEE_CONCESSION_LIST: "feeconsessionlist",
   /** POST: add institutional scholarship / student-wise fee discount. */
   FEE_STUDENT_WISE_DISCOUNT: "feestudentwisediscounts",
+  /** POST: add student-wise fee particulars list. */
+  FEE_STUDENT_WISE_PARTICULAR_LIST: "feestudentwiseparticularlists",
+  /** POST: add student-wise fines. */
+  FEE_STUDENT_WISE_FINES: "feestudentwisefines",
+  /** POST: add student-wise RTF / scholarship hold. */
+  FEE_STUDENT_WISE_SCHOLARSHIP: "addFeeStudentwiseScholorship",
+  /** DELETE: student-wise RTF / scholarship by id. */
+  FEE_STUDENT_WISE_SCHOLARSHIP_DELETE: "deleteFeeStudentwiseScholorship",
+  /** PUT/POST: update min fee percent on fee student data. */
+  UPDATE_MIN_FEE_PERCENT: "updateMinFeePerfeestudentdata",
   /** POST: map fee structure to students. */
   MAP_FEE_STRUCTURE: "mapfeestructure",
   /** GET: pop-up student fee structures proc. */
@@ -1134,6 +1144,8 @@ export const PAYMENT_GATEWAY_API = {
   RAZORPAY_CHARGE: "RazorPay/charge",
   /** Generic: initiate payment */
   INITIATE_PAYMENT: "paymentGateway/initiatePayment",
+  /** BillDesk / PayPhi — exam fee & student portal payments (Angular initiatePaymentUrl) */
+  BILLDESK_INITIATE: "BillDesk/initiatePayment",
   /** Generic: encrypt form data */
   ENCRYPT_FORM_DATA: "paymentGateway/encryptFormData",
   /** Generic: decrypt response */

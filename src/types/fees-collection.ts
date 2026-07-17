@@ -42,6 +42,7 @@ export type StudentFeeStructureRow = {
   structureName?: string;
   grossAmount?: number;
   discountAmount?: number;
+  fineAmount?: number;
   netAmount?: number;
   paidAmount?: number;
   balanceAmount?: number;
@@ -50,8 +51,8 @@ export type StudentFeeStructureRow = {
   courseName?: string;
   groupName?: string;
   courseYearName?: string;
-  courseYearNo?: number;
   courseYearId?: number;
+  courseYearNo?: number;
   section?: string;
   firstName?: string;
   feeStudentDataDTO?: { isActive?: boolean };
@@ -117,11 +118,15 @@ export type FeeStudentData = {
   studentSection?: string;
   mobile?: string;
   academicYear?: string;
+  grossAmount?: number;
+  discountAmount?: number;
+  fineAmount?: number;
   netAmount?: number;
   paidAmount?: number;
   balanceAmount?: number;
   scholarshipHoldAmount?: number;
   scholarshipAmount?: number;
+  minFeePercent?: number | null;
   feeStudentDataParticulars?: FeeStudentParticularRow[];
   feeStudentWiseParticulars?: FeeStudentParticularRow[];
   feeStudentwiseDiscounts?: unknown[];

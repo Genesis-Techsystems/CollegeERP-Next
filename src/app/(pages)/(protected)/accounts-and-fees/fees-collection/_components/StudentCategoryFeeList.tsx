@@ -1,53 +1,41 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { FilteredListPage } from "@/components/layout";
+import { DataTable, TableCard } from "@/common/components/table";
+import {
+  FilterCard,
+  FILTER_CARD_SELECT_CLASS,
+} from "@/common/components/feedback";
+import { Select } from "@/common/components/select";
+import { FilteredListPage, PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
-import { toastInfo } from "@/lib/toast";
-import { listStudentFeeStructuresByStudent } from "@/services";
+import { toastError } from "@/lib/toast";
+import {
+  listStudentFeeStructuresByStudent,
+  searchStudentsForFeeCollection,
+} from "@/services";
 import type {
   StudentFeeSearchRow,
   StudentFeeStructureRow,
 } from "@/types/fees-collection";
-import {
-  buildPayFeesSearchParams,
-  studentFromPayQueryParams,
-} from "../_lib/pay-fees-params";
+import { buildPayFeesSearchParams } from "../_lib/pay-fees-params";
+import { FeeDetailsModal, type FeeDetailsModalTarget } from "./FeeDetailsModal";
 import { FeeStudentProfileCard } from "./FeeStudentProfileCard";
-import { FeeStudentSearchSelect } from "./FeeStudentSearchSelect";
 
-function enrichStudentFromStructure(
-  student: StudentFeeSearchRow,
-  row?: StudentFeeStructureRow | null,
-): StudentFeeSearchRow {
-  if (!row) return student;
-  return {
-    ...student,
-    collegeId:
-      student.collegeId || Number(row.collegeId ?? 0) || student.collegeId,
-    firstName: student.firstName ?? row.firstName,
-    academicYear: student.academicYear ?? row.academicYear,
-    courseCode:
-      student.courseCode ??
-      (row.courseName as string | undefined) ??
-      (row.courseCode as string | undefined),
-    groupCode:
-      student.groupCode ??
-      row.groupName ??
-      (row.groupCode as string | undefined),
-    courseYearName: student.courseYearName ?? row.courseYearName,
-    section: student.section ?? row.section,
-    rollNumber: student.rollNumber ?? (row.rollNumber as string | undefined),
-    hallticketNumber:
-      student.hallticketNumber ??
-      (row.hallticketNumber as string | undefined) ??
-      (row.hallTicketNo as string | undefined),
-  };
+const YELLOW_BTN =
+  "h-[30px] bg-[#f0c040] px-4 text-[12px] font-medium text-slate-900 hover:bg-[#e5b535]";
+const VIEW_BTN =
+  "h-[30px] bg-[#00b8ff] px-4 text-[12px] font-medium text-white hover:bg-[#00a6e6]";
+
+function studentOptionLabel(s: StudentFeeSearchRow): string {
+  const name = s.firstName ?? "Student";
+  const id = s.hallticketNumber ?? s.rollNumber ?? s.studentId;
+  return id ? `${name} (${id})` : name;
 }
 
 function statusRenderer(p: ICellRendererParams<StudentFeeStructureRow>) {
@@ -63,15 +51,44 @@ function statusRenderer(p: ICellRendererParams<StudentFeeStructureRow>) {
   );
 }
 
+function courseYearRenderer(p: ICellRendererParams<StudentFeeStructureRow>) {
+  const row = p.data;
+  if (!row) return null;
+  const yearNo = row.courseYearNo;
+  const yearLabel =
+    yearNo != null && Number(yearNo) > 0
+      ? `${yearNo} year`
+      : (row.courseYearName ?? "—");
+  return (
+    <span>
+      <span className="text-[15px] font-medium">{yearLabel}</span>
+      {row.academicYear ? (
+        <>
+          {" "}
+          (<span className="font-medium text-blue-600">{row.academicYear}</span>
+          )
+        </>
+      ) : null}
+    </span>
+  );
+}
+
+function amtValue(v: unknown): string {
+  if (v == null || v === "") return "0";
+  const n = Number(v);
+  return Number.isFinite(n) ? String(n) : String(v);
+}
+
 function makePayRenderer(
   onPay: (row: StudentFeeStructureRow) => void,
   label: string,
+  yellow = false,
 ) {
   return (p: ICellRendererParams<StudentFeeStructureRow>) => (
     <Button
       type="button"
       size="sm"
-      variant="default"
+      className={yellow ? YELLOW_BTN : undefined}
       onClick={() => p.data && onPay(p.data)}
     >
       {label}
@@ -79,102 +96,230 @@ function makePayRenderer(
   );
 }
 
-export type StudentCategoryFeeListProps = {
-  title: string;
-  payPage: string;
-  payColumnHeader?: string;
-  backHref?: string;
-};
+function makeViewRenderer(onView: (row: StudentFeeStructureRow) => void) {
+  return (p: ICellRendererParams<StudentFeeStructureRow>) => (
+    <Button
+      type="button"
+      size="sm"
+      className={VIEW_BTN}
+      onClick={() => p.data && onView(p.data)}
+    >
+      View
+    </Button>
+  );
+}
 
-/**
- * Reusable fee-collection list via FilteredListPage (filters + table in one card).
- * Used by bus-fee-payment and hostel-fee-payment.
- */
 export function StudentCategoryFeeList({
   title,
   payPage,
   payColumnHeader = "Pay Details",
   backHref,
-}: StudentCategoryFeeListProps) {
+  /** Angular Fee Payment table (amounts + View + yellow Payment). */
+  layout = "compact",
+  /** Use FilteredListPage shell (bus fee payment only). */
+  filteredShell = false,
+}: {
+  title: string;
+  payPage: string;
+  payColumnHeader?: string;
+  backHref?: string;
+  layout?: "compact" | "fee-payment";
+  filteredShell?: boolean;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const qs = useMemo(
-    () => new URLSearchParams(searchParams.toString()),
-    [searchParams],
-  );
+  const appliedQueryKey = useRef<string | null>(null);
+  const isFeePayment = layout === "fee-payment";
+  const useFilteredShell = isFeePayment || filteredShell;
 
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false);
+  const [studentRows, setStudentRows] = useState<StudentFeeSearchRow[]>([]);
   const [studentId, setStudentId] = useState<string | null>(
     searchParams.get("studentId"),
   );
   const [selectedStudent, setSelectedStudent] =
-    useState<StudentFeeSearchRow | null>(() => studentFromPayQueryParams(qs));
+    useState<StudentFeeSearchRow | null>(null);
+  const [detailsTarget, setDetailsTarget] =
+    useState<FeeDetailsModalTarget | null>(null);
 
   const studentNum = Number(studentId ?? 0);
 
   const { data: feeRows = [], isLoading } = useQuery({
     queryKey: QK.feesCollection.studentStructures(studentNum),
-    queryFn: async () => {
-      const rows = await listStudentFeeStructuresByStudent(studentNum);
-      return rows.map((r) => ({
-        ...r,
-        isActive: r.isActive ?? r.feeStudentDataDTO?.isActive ?? true,
-      }));
-    },
+    queryFn: () => listStudentFeeStructuresByStudent(studentNum),
     enabled: studentNum > 0,
   });
 
-  const handleStudentChange = useCallback(
-    (id: string | null, student: StudentFeeSearchRow | null) => {
-      setStudentId(id);
-      setSelectedStudent(student);
-    },
-    [],
-  );
+  const onStudentSearch = useCallback(async (term: string) => {
+    const q = term.trim();
+    if (q.length < 5) {
+      setStudentRows([]);
+      return;
+    }
+    setStudentSearchLoading(true);
+    try {
+      const rows = await searchStudentsForFeeCollection(q);
+      setStudentRows(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      toastError(e, "Student search failed");
+      setStudentRows([]);
+    } finally {
+      setStudentSearchLoading(false);
+    }
+  }, []);
 
-  const enrichedStudent = useMemo(() => {
-    if (!selectedStudent || feeRows.length === 0) return selectedStudent;
-    return enrichStudentFromStructure(selectedStudent, feeRows[0]);
-  }, [selectedStudent, feeRows]);
+  const studentOptions = useMemo(() => {
+    const base = studentRows.map((s) => ({
+      value: String(s.studentId),
+      label: studentOptionLabel(s),
+    }));
+    const sid = studentId;
+    if (sid && selectedStudent && !base.some((o) => o.value === sid)) {
+      return [
+        { value: sid, label: studentOptionLabel(selectedStudent) },
+        ...base,
+      ];
+    }
+    return base;
+  }, [studentRows, studentId, selectedStudent]);
 
-  const handlePay = useCallback(
+  useEffect(() => {
+    const roll = searchParams.get("rollNumber");
+    const sid = searchParams.get("studentId");
+    if (!roll && !sid) return;
+
+    const key = searchParams.toString();
+    if (appliedQueryKey.current === key) return;
+    appliedQueryKey.current = key;
+
+    void (async () => {
+      const q = roll?.trim() ?? "";
+      if (q.length < 5 && !sid) return;
+
+      setStudentSearchLoading(true);
+      try {
+        const rows =
+          q.length >= 5 ? await searchStudentsForFeeCollection(q) : [];
+        setStudentRows(rows);
+        const pick = sid
+          ? (rows.find((r) => String(r.studentId) === sid) ?? null)
+          : (rows[0] ?? null);
+        if (pick) {
+          setStudentId(String(pick.studentId));
+          setSelectedStudent(pick);
+        }
+      } catch (e) {
+        toastError(e, "Student search failed");
+      } finally {
+        setStudentSearchLoading(false);
+      }
+    })();
+  }, [searchParams]);
+
+  function handleStudentChange(v: string | null) {
+    setStudentId(v);
+    if (!v) {
+      setSelectedStudent(null);
+      return;
+    }
+    const row =
+      studentRows.find((s) => String(s.studentId) === v) ??
+      (selectedStudent && String(selectedStudent.studentId) === v
+        ? selectedStudent
+        : null);
+    setSelectedStudent(row);
+  }
+
+  function clearSelection() {
+    setStudentId(null);
+    setSelectedStudent(null);
+    setStudentRows([]);
+  }
+
+  const goPay = useCallback(
     (row: StudentFeeStructureRow) => {
-      const student =
-        enrichedStudent ??
-        selectedStudent ??
-        studentFromPayQueryParams(new URLSearchParams(searchParams.toString()));
-      if (!student) {
-        toastInfo("Select a student before paying.");
-        return;
-      }
-      const enriched = enrichStudentFromStructure(student, row);
-      if (!enriched.collegeId) {
-        toastInfo(
-          "College is missing for this student. Re-search and select the student again.",
-        );
-        return;
-      }
-      if (!row.academicYearId || !row.feeStructureId) {
-        toastInfo("Fee structure details are incomplete for this row.");
-        return;
-      }
-      const params = buildPayFeesSearchParams(enriched, row, payPage);
+      if (!selectedStudent) return;
+      const params = buildPayFeesSearchParams(selectedStudent, row, payPage);
       router.push(
         `/accounts-and-fees/fees-collection/payment/pay-fees?${params}`,
       );
     },
-    [enrichedStudent, selectedStudent, searchParams, payPage, router],
+    [selectedStudent, payPage, router],
   );
 
-  const columnDefs = useMemo<ColDef<StudentFeeStructureRow>[]>(
-    () => [
+  const goView = useCallback(
+    (row: StudentFeeStructureRow) => {
+      if (!selectedStudent) return;
+      setDetailsTarget({
+        row: {
+          ...row,
+          section: row.section ?? selectedStudent.section,
+        },
+        student: selectedStudent,
+      });
+    },
+    [selectedStudent],
+  );
+
+  const columnDefs = useMemo<ColDef<StudentFeeStructureRow>[]>(() => {
+    if (isFeePayment) {
+      return [
+        {
+          headerName: "Course Year",
+          minWidth: 180,
+          cellRenderer: courseYearRenderer,
+        },
+        {
+          headerName: "Gross Amt",
+          width: 110,
+          valueGetter: (p) => amtValue(p.data?.grossAmount),
+        },
+        {
+          headerName: "Discount Amt",
+          width: 120,
+          valueGetter: (p) => amtValue(p.data?.discountAmount),
+        },
+        {
+          headerName: "LateFee",
+          width: 100,
+          valueGetter: (p) => amtValue(p.data?.fineAmount),
+        },
+        {
+          headerName: "Net Amt",
+          width: 100,
+          valueGetter: (p) => amtValue(p.data?.netAmount),
+        },
+        {
+          headerName: "Paid Amt",
+          width: 100,
+          valueGetter: (p) => amtValue(p.data?.paidAmount),
+        },
+        {
+          headerName: "Balance Due",
+          width: 120,
+          valueGetter: (p) => amtValue(p.data?.balanceAmount),
+          cellClass: "font-medium",
+        },
+        {
+          headerName: "Fee Details",
+          minWidth: 110,
+          flex: 0,
+          width: 120,
+          cellRenderer: makeViewRenderer(goView),
+        },
+        {
+          headerName: "Payment",
+          minWidth: 110,
+          flex: 0,
+          width: 120,
+          cellRenderer: makePayRenderer(goPay, "Payment", true),
+        },
+      ];
+    }
+
+    return [
       { headerName: "SI.No", valueGetter: rowIndexGetter, width: 70, flex: 0 },
-      {
-        field: "structureName",
-        headerName: "Structure",
-        minWidth: 160,
-        valueGetter: (p) =>
-          p.data?.structureName ?? p.data?.classGroupName ?? "",
-      },
+      { field: "structureName", headerName: "Structure", minWidth: 160 },
       {
         headerName: "Course",
         minWidth: 180,
@@ -192,47 +337,141 @@ export function StudentCategoryFeeList({
         minWidth: 120,
         flex: 0,
         width: 130,
-        cellRenderer: makePayRenderer(handlePay, payColumnHeader),
+        cellRenderer: makePayRenderer(goPay, payColumnHeader, false),
       },
-    ],
-    [handlePay, payColumnHeader],
+    ];
+  }, [isFeePayment, payColumnHeader, goPay, goView]);
+
+  const showBack =
+    Boolean(backHref) ||
+    (isFeePayment && Boolean(selectedStudent) && feeRows.length > 0);
+
+  const studentFilter = (
+    <div className="grid max-w-xl grid-cols-1 gap-4">
+      <Select
+        className={FILTER_CARD_SELECT_CLASS}
+        label="Student"
+        required
+        value={studentId}
+        onChange={handleStudentChange}
+        options={studentOptions}
+        placeholder="Search by student name or roll no."
+        searchable
+        onSearch={(t) => void onStudentSearch(t)}
+        isLoading={studentSearchLoading}
+        clearable
+      />
+    </div>
   );
 
-  return (
-    <FilteredListPage
-      title={title}
-      filters={
-        <div className="space-y-4">
-          <div className="grid max-w-xl grid-cols-1 gap-4">
-            <FeeStudentSearchSelect
-              value={studentId}
-              selectedStudent={selectedStudent}
-              onChange={handleStudentChange}
-              searchParams={qs}
-            />
+  if (useFilteredShell) {
+    return (
+      <FilteredListPage
+        title={title}
+        filters={
+          <div className="space-y-4">
+            {studentFilter}
+            {selectedStudent && studentNum > 0 ? (
+              <FeeStudentProfileCard student={selectedStudent} />
+            ) : null}
           </div>
-          {enrichedStudent && studentNum > 0 ? (
-            <FeeStudentProfileCard student={enrichedStudent} />
+        }
+        columnDefs={columnDefs}
+        rowData={selectedStudent && studentNum > 0 ? feeRows : []}
+        loading={isLoading && studentNum > 0}
+        height="auto"
+        pagination
+        toolbar={{
+          search: true,
+          searchPlaceholder: isFeePayment ? "Search fee data…" : "Search…",
+          exportExcel: true,
+          exportPdf: true,
+        }}
+      >
+        {showBack ? (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              className="h-9 min-w-[88px] bg-[#f0c040] px-5 text-[13px] font-medium text-slate-900 hover:bg-[#e5b535]"
+              onClick={() => {
+                if (backHref) {
+                  router.push(backHref);
+                  return;
+                }
+                clearSelection();
+              }}
+            >
+              Back
+            </Button>
+          </div>
+        ) : null}
+
+        <FeeDetailsModal
+          open={detailsTarget != null}
+          onClose={() => setDetailsTarget(null)}
+          target={detailsTarget}
+        />
+      </FilteredListPage>
+    );
+  }
+
+  return (
+    <PageContainer className="space-y-5">
+      <FilterCard title={title} fieldMaxWidth="32rem">
+        {studentFilter}
+      </FilterCard>
+
+      {selectedStudent && studentNum > 0 ? (
+        <>
+          <FeeStudentProfileCard student={selectedStudent} />
+
+          {feeRows.length > 0 || isLoading ? (
+            <TableCard
+              headerLeft={
+                <span className="text-sm font-medium">Student Fee Data</span>
+              }
+            >
+              <DataTable
+                columnDefs={columnDefs}
+                rowData={feeRows}
+                loading={isLoading}
+                height="auto"
+                pagination
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: "Search…",
+                  exportExcel: true,
+                  exportPdf: true,
+                }}
+              />
+            </TableCard>
           ) : null}
-        </div>
-      }
-      rowData={studentNum > 0 ? feeRows : []}
-      columnDefs={columnDefs}
-      loading={isLoading}
-      height="auto"
-      pagination
-      toolbar={{ search: true, searchPlaceholder: "Search fee structures…" }}
-      toolbarTrailing={
-        backHref ? (
+        </>
+      ) : null}
+
+      {showBack ? (
+        <div className="flex justify-end pt-2">
           <Button
             type="button"
             className="h-9 min-w-[88px] bg-[#f0c040] px-5 text-[13px] font-medium text-slate-900 hover:bg-[#e5b535]"
-            onClick={() => router.push(backHref)}
+            onClick={() => {
+              if (backHref) {
+                router.push(backHref);
+                return;
+              }
+              clearSelection();
+            }}
           >
             Back
           </Button>
-        ) : undefined
-      }
-    />
+        </div>
+      ) : null}
+
+      <FeeDetailsModal
+        open={detailsTarget != null}
+        onClose={() => setDetailsTarget(null)}
+        target={detailsTarget}
+      />
+    </PageContainer>
   );
 }

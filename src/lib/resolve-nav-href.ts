@@ -878,6 +878,45 @@ export function resolveForcedNavRoute(
       return "/accounts-and-fees/fee-reports/concession-list";
     }
     if (
+      hrefLower.includes("fee-masters/fee-categor") ||
+      (labelLower.includes("fee categor") &&
+        !labelLower.includes("particular") &&
+        !labelLower.includes("structure"))
+    ) {
+      return "/accounts-and-fees/fee-masters/fee-categories";
+    }
+    if (
+      hrefLower.includes("fee-masters/fee-particular") ||
+      (labelLower.includes("fee particular") &&
+        !labelLower.includes("structure"))
+    ) {
+      return "/accounts-and-fees/fee-masters/fee-particular";
+    }
+    if (
+      hrefLower.includes("fee-masters/fee-structure") ||
+      (labelLower.includes("fee structure") &&
+        !labelLower.includes("university") &&
+        !labelLower.includes("detail"))
+    ) {
+      return "/accounts-and-fees/fee-masters/fee-structure";
+    }
+    if (
+      hrefLower.includes("fee-masters/university-fee-structure-details") ||
+      (labelLower.includes("university") &&
+        labelLower.includes("fee structure") &&
+        labelLower.includes("detail"))
+    ) {
+      return "/accounts-and-fees/fee-masters/university-fee-structure/details";
+    }
+    if (
+      hrefLower.includes("fee-masters/university-fee-structure") ||
+      (labelLower.includes("university") &&
+        labelLower.includes("fee structure") &&
+        !labelLower.includes("detail"))
+    ) {
+      return "/accounts-and-fees/fee-masters/university-fee-structure";
+    }
+    if (
       hrefLower.includes("university-payment-wallet-transactions") ||
       hrefLower.includes("university-wallet-transactions") ||
       (labelLower.includes("university") &&

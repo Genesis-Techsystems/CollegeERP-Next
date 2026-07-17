@@ -1,39 +1,40 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CategoryFeePayForm } from "../../_components/CategoryFeePayForm";
+import { PayFeesPage } from "../../_components/PayFeesPage";
 import { resolveFeePayConfig } from "../../_lib/pay-fees-mode";
 
-function PayFeesContent() {
+/**
+ * Angular `payment/pay-fees` → `FeePaymentComponent`.
+ * Bus / library fee use CategoryFeePayForm (Angular category payment screens).
+ */
+function PayFeesRouteContent() {
   const searchParams = useSearchParams();
-  const qs = useMemo(
-    () => new URLSearchParams(searchParams.toString()),
-    [searchParams],
-  );
-  const config = resolveFeePayConfig(searchParams.get("page"));
+  const page = searchParams.get("page");
 
-  const collegeId = Number(searchParams.get("collegeId") ?? 0);
-  const academicYearId = Number(searchParams.get("academicYearId") ?? 0);
-  const studentId = Number(searchParams.get("studentId") ?? 0);
-  const feeStructureId = Number(searchParams.get("feeStructureId") ?? 0);
+  if (page === "bus-fee" || page === "library-fee") {
+    const config = resolveFeePayConfig(page);
+    return (
+      <CategoryFeePayForm
+        config={config}
+        collegeId={Number(searchParams.get("collegeId") ?? 0)}
+        academicYearId={Number(searchParams.get("academicYearId") ?? 0)}
+        studentId={Number(searchParams.get("studentId") ?? 0)}
+        feeStructureId={Number(searchParams.get("feeStructureId") ?? 0)}
+        queryParams={new URLSearchParams(searchParams.toString())}
+      />
+    );
+  }
 
-  return (
-    <CategoryFeePayForm
-      config={config}
-      collegeId={collegeId}
-      academicYearId={academicYearId}
-      studentId={studentId}
-      feeStructureId={feeStructureId}
-      queryParams={qs}
-    />
-  );
+  return <PayFeesPage />;
 }
 
-export default function PayFeesPage() {
+export default function PayFeesRoutePage() {
   return (
     <Suspense fallback={null}>
-      <PayFeesContent />
+      <PayFeesRouteContent />
     </Suspense>
   );
 }

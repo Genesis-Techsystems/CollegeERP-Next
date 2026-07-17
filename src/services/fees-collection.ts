@@ -13,9 +13,7 @@ import type {
   FeeStudentWiseDiscountPayload,
   FeeReceiptPaymentPayload,
   FeeReceiptRow,
-  FeeParticularWiseReceiptRow,
   FeeStudentData,
-  FeeStudentParticularRow,
   FinancialYearRow,
   StudentFeeDueRow,
   FeeManagementSavePayload,
@@ -24,6 +22,8 @@ import type {
   StudentFeeSearchRow,
   StudentFeeStructureRow,
   TransportAllocationRow,
+  FeeParticularWiseReceiptRow,
+  FeeStudentParticularRow,
 } from "@/types/fees-collection";
 import type { GeneralDetail } from "@/types/exam-master";
 import type { ApiResponse } from "@/types/api";
@@ -591,7 +591,7 @@ export async function syncAdmissionInitiatedPayments(): Promise<string> {
 }
 
 export async function saveFeeStudentWiseDiscount(
-  payload: FeeStudentWiseDiscountPayload[] | FeeStudentParticularRow[],
+  payload: FeeStudentWiseDiscountPayload[],
 ): Promise<unknown> {
   if (payload.length === 0) {
     throw new AppError("VALIDATION", "Discount details are required");
@@ -599,7 +599,103 @@ export async function saveFeeStudentWiseDiscount(
   return postDetails(FEE_API.FEE_STUDENT_WISE_DISCOUNT, payload);
 }
 
-/** Angular fee-reports/concession-list: `feeconsessionlist?collegeId=&academicYearId=&page=&size=&status=`. */
+export async function saveFeeStudentWiseParticulars(
+  payload: Record<string, unknown>[],
+): Promise<unknown> {
+  if (payload.length === 0) {
+    throw new AppError("VALIDATION", "Particular details are required");
+  }
+  return postDetails(FEE_API.FEE_STUDENT_WISE_PARTICULAR_LIST, payload);
+}
+
+export async function deleteFeeStudentWiseParticular(
+  feeStdParticularId: number,
+): Promise<void> {
+  if (!feeStdParticularId) return;
+  const res = await fetch(
+    NEXT_API.PROXY(FEE_API.FEE_STUDENT_WISE_PARTICULARS) +
+      `/${feeStdParticularId}`,
+    { method: "DELETE", credentials: "include" },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw parseApiError(res, body);
+  }
+  const body = (await res.json()) as ApiResponse<unknown>;
+  if (!body.success) {
+    throw new AppError(
+      "API_ERROR",
+      body.message ?? "Failed to delete particular",
+    );
+  }
+}
+
+export async function saveFeeStudentWiseFines(
+  payload: Record<string, unknown>[],
+): Promise<unknown> {
+  if (payload.length === 0) {
+    throw new AppError("VALIDATION", "Fine details are required");
+  }
+  return postDetails(FEE_API.FEE_STUDENT_WISE_FINES, payload);
+}
+
+export async function deleteFeeStudentWiseFine(
+  feeStdFineId: number,
+): Promise<void> {
+  if (!feeStdFineId) return;
+  const res = await fetch(
+    NEXT_API.PROXY(FEE_API.FEE_STUDENT_WISE_FINES) + `/${feeStdFineId}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw parseApiError(res, body);
+  }
+  const body = (await res.json()) as ApiResponse<unknown>;
+  if (!body.success) {
+    throw new AppError("API_ERROR", body.message ?? "Failed to delete fine");
+  }
+}
+
+export async function saveFeeStudentWiseScholarship(
+  payload: Record<string, unknown>[],
+): Promise<unknown> {
+  if (payload.length === 0) {
+    throw new AppError("VALIDATION", "RTF details are required");
+  }
+  return postDetails(FEE_API.FEE_STUDENT_WISE_SCHOLARSHIP, payload);
+}
+
+export async function deleteFeeStudentWiseScholarship(
+  feeStdScholorshipId: number,
+): Promise<void> {
+  if (!feeStdScholorshipId) return;
+  const res = await fetch(
+    NEXT_API.PROXY(FEE_API.FEE_STUDENT_WISE_SCHOLARSHIP_DELETE) +
+      `/${feeStdScholorshipId}`,
+    { method: "DELETE", credentials: "include" },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw parseApiError(res, body);
+  }
+  const body = (await res.json()) as ApiResponse<unknown>;
+  if (!body.success) {
+    throw new AppError("API_ERROR", body.message ?? "Failed to delete RTF");
+  }
+}
+
+export async function updateMinFeePercent(payload: {
+  studentId: number;
+  academicYearId: number;
+  minFeePercent: number;
+}): Promise<unknown> {
+  return putDetails(FEE_API.UPDATE_MIN_FEE_PERCENT, payload);
+}
+
 export async function listFeeConcessions(params: {
   collegeId: number;
   academicYearId?: number | null;
@@ -616,7 +712,8 @@ export async function listFeeConcessions(params: {
   const size = params.size ?? 1000;
   const query = new URLSearchParams({
     collegeId: String(params.collegeId),
-    academicYearId: String(params.academicYearId ?? 0),
+    academicYearId: String(params.academicYearId),
+    employeeId: String(params.employeeId || 0),
     page: String(page),
     size: String(size),
     status: String(params.status ?? true),

@@ -535,7 +535,19 @@ export async function listQuotaOptions() {
 }
 
 export async function createCollegeFeeStructure(
-  payload: CollegeFeeStructureCreatePayload,
+  payload: CollegeFeeStructureCreatePayload & { feeStructureId?: number },
 ): Promise<unknown> {
   return postDetails<unknown>(FEE_API.FEE_STRUCTURES_LIST, payload);
+}
+
+/** Angular `listDetailsById(FeeStructureCrudUrl, id, FeeStructureByIdUrl)`. */
+export async function getCollegeFeeStructureById(
+  feeStructureId: number,
+): Promise<CollegeFeeStructureRow | null> {
+  if (!feeStructureId) return null;
+  const rows = await domainList<CollegeFeeStructureRow>(
+    "FeeStructure",
+    buildQuery({ feeStructureId }),
+  );
+  return rows[0] ?? null;
 }

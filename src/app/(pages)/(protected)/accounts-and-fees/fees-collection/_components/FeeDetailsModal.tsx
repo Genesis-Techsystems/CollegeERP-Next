@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { format, parseISO } from "date-fns";
-import { ClipboardList, Printer } from "lucide-react";
+import { useMemo } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { useQuery } from "@tanstack/react-query";
+import { Printer } from "lucide-react";
+import { DataTable } from "@/common/components/table";
 import {
   Dialog,
   DialogContent,
@@ -12,191 +14,285 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { toastError } from "@/lib/toast";
-import {
-  getFeeStudentData,
-  listStudentFeeReceiptDetails,
-  printFeeReceiptById,
-} from "@/services";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { getFeeStudentData, listStudentFeeReceiptDetails } from "@/services";
 import type {
-  FeeReceiptRow,
   FeeStudentParticularRow,
   StudentFeeSearchRow,
   StudentFeeStructureRow,
 } from "@/types/fees-collection";
+import {
+  FEE_RECEIPT_PRINT_PATH,
+  storeFeeReceiptPrint,
+} from "../_lib/fee-receipt-print";
 
-export type FeeDetailsModalProps = {
-  open: boolean;
-  onClose: () => void;
-  row: StudentFeeStructureRow | null;
-  student: StudentFeeSearchRow | null;
-  collegeCode?: string;
-  collegeId: number;
+export type FeeDetailsModalTarget = {
+  row: StudentFeeStructureRow;
+  student: StudentFeeSearchRow;
 };
+
+/** Stored-proc receipt row (Angular `fee_student_receipt_details`). */
+type StudentFeeReceiptDetailRow = {
+  payment_receipts_no?: string;
+  paymentReceiptsNo?: string;
+  receipt_date?: string;
+  receiptDate?: string;
+  createdDt?: string;
+  payment_mode?: string;
+  paymentMode?: string;
+  payment_type?: string;
+  paymentType?: string;
+  transaction_no?: string;
+  transactionNo?: string;
+  referenceNumber?: string;
+  receipt_amount?: number | string;
+  receiptAmount?: number | string;
+  [key: string]: unknown;
+};
+
+function amt(v: unknown): string {
+  if (v == null || v === "") return "0";
+  const n = Number(v);
+  return Number.isFinite(n) ? String(n) : String(v);
+}
 
 function pick(
   row: Record<string, unknown> | null | undefined,
-  keys: string[],
+  ...keys: string[]
 ): string {
   if (!row) return "";
-  for (const k of keys) {
-    const v = row[k];
+  for (const key of keys) {
+    const v = row[key];
     if (v != null && String(v).trim() !== "") return String(v);
   }
   return "";
 }
 
-function formatReceiptDateTime(value: unknown): string {
-  if (value == null || value === "") return "—";
-  const raw = String(value);
-  try {
-    const d = raw.includes("T") ? parseISO(raw) : new Date(raw);
-    if (Number.isNaN(d.getTime())) return raw;
-    return format(d, "dd/MM/yyyy, hh:mm:ss a");
-  } catch {
-    return raw;
-  }
+function formatReceiptDate(value?: string): string {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  return `${dd}/${mm}/${yyyy}, ${hh}:${min}:${ss}`;
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid grid-cols-[120px_1fr] gap-2 text-sm sm:grid-cols-[140px_1fr]">
-      <p className="text-muted-foreground">{label} :</p>
-      <p className="font-medium text-blue-700">{value || "—"}</p>
-    </div>
-  );
-}
+const PARTICULAR_COLS: ColDef<FeeStudentParticularRow>[] = [
+  { headerName: "SI.No", valueGetter: rowIndexGetter, width: 70, flex: 0 },
+  {
+    headerName: "Particular",
+    minWidth: 200,
+    valueGetter: (p) => {
+      const row = p.data;
+      if (!row) return "";
+      const cat = row.categoryName ?? "";
+      const name = row.particularsName ?? "";
+      return cat && name ? `${cat} - ${name}` : cat || name;
+    },
+  },
+  {
+    headerName: "Gross Amt",
+    width: 100,
+    valueGetter: (p) => amt(p.data?.grossAmount),
+  },
+  {
+    headerName: "Dis Amt",
+    width: 90,
+    valueGetter: (p) => amt(p.data?.discountAmount),
+  },
+  {
+    headerName: "LateFee",
+    width: 90,
+    valueGetter: (p) => amt(p.data?.fineAmount),
+  },
+  {
+    headerName: "RTF Hold Amt",
+    width: 110,
+    valueGetter: (p) => amt(p.data?.scholarshipHoldAmount),
+  },
+  {
+    headerName: "RTF Amt",
+    width: 90,
+    valueGetter: (p) => amt(p.data?.scholarshipAmount),
+  },
+  {
+    headerName: "Net Amt",
+    width: 90,
+    valueGetter: (p) => amt(p.data?.netAmount),
+  },
+  {
+    headerName: "Paid Amt",
+    width: 90,
+    valueGetter: (p) => amt(p.data?.paidAmount),
+  },
+  {
+    headerName: "Bal Amt",
+    width: 90,
+    valueGetter: (p) => amt(p.data?.balanceAmount),
+  },
+];
 
-/**
- * Angular `FeeDetailsModalComponent` parity — header + particulars + fee receipts.
- */
 export function FeeDetailsModal({
   open,
   onClose,
-  row,
-  student,
-  collegeCode,
-  collegeId,
-}: FeeDetailsModalProps) {
-  const [loading, setLoading] = useState(false);
-  const [particulars, setParticulars] = useState<FeeStudentParticularRow[]>([]);
-  const [receipts, setReceipts] = useState<FeeReceiptRow[]>([]);
-  const [printingId, setPrintingId] = useState<number | null>(null);
+  target,
+}: {
+  open: boolean;
+  onClose: () => void;
+  target: FeeDetailsModalTarget | null;
+}) {
+  const router = useRouter();
+  const student = target?.student;
+  const row = target?.row;
+  const collegeId = Number(student?.collegeId ?? 0);
+  const academicYearId = Number(row?.academicYearId ?? 0);
+  const studentId = Number(row?.studentId ?? student?.studentId ?? 0);
+  const feeStructureId = Number(row?.feeStructureId ?? 0);
+  const courseYearId = Number(row?.courseYearId ?? 0);
 
-  useEffect(() => {
-    if (!open || !row) return;
+  const { data: feeData, isLoading } = useQuery({
+    queryKey: QK.feesCollection.studentData(
+      collegeId,
+      academicYearId,
+      studentId,
+      feeStructureId,
+    ),
+    queryFn: () =>
+      getFeeStudentData({
+        collegeId,
+        academicYearId,
+        studentId,
+        feeStructureId,
+      }),
+    enabled:
+      open &&
+      collegeId > 0 &&
+      academicYearId > 0 &&
+      studentId > 0 &&
+      feeStructureId > 0,
+  });
 
-    const sid = Number(row.studentId ?? student?.studentId ?? 0);
-    const cid = Number(row.collegeId ?? student?.collegeId ?? collegeId ?? 0);
-    const ay = Number(row.academicYearId ?? 0);
-    const fs = Number(row.feeStructureId ?? 0);
-    const courseYearId = Number(row.courseYearId ?? 0);
+  const { data: receipts = [], isLoading: loadingReceipts } = useQuery({
+    queryKey: [
+      ...QK.feesCollection.receipts(studentId, collegeId, academicYearId),
+      courseYearId,
+      "fee-details-modal",
+    ],
+    queryFn: () =>
+      listStudentFeeReceiptDetails({
+        collegeId,
+        academicYearId,
+        studentId,
+        courseYearId,
+      }),
+    enabled: open && collegeId > 0 && academicYearId > 0 && studentId > 0,
+  });
 
-    if (!sid || !cid || !ay || !fs) {
-      setParticulars([]);
-      setReceipts([]);
-      return;
-    }
+  const receiptRows = receipts as StudentFeeReceiptDetailRow[];
 
-    let cancelled = false;
-    setLoading(true);
-    setParticulars([]);
-    setReceipts([]);
+  const particulars = useMemo<FeeStudentParticularRow[]>(() => {
+    const list =
+      feeData?.feeStudentDataParticulars ?? feeData?.feeStudentWiseParticulars;
+    return Array.isArray(list) ? list : [];
+  }, [feeData]);
 
-    void (async () => {
-      try {
-        const [data, receiptRows] = await Promise.all([
-          getFeeStudentData({
-            collegeId: cid,
-            academicYearId: ay,
-            studentId: sid,
-            feeStructureId: fs,
-          }),
-          listStudentFeeReceiptDetails({
-            collegeId: cid,
-            academicYearId: ay,
-            studentId: sid,
-            courseYearId,
-          }),
-        ]);
-        if (cancelled) return;
-        setParticulars(data?.feeStudentDataParticulars ?? []);
-        setReceipts(Array.isArray(receiptRows) ? receiptRows : []);
-      } catch (e) {
-        if (!cancelled) toastError(e, "Failed to load fee details");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, row, student, collegeId]);
-
-  async function onPrint(receipt: FeeReceiptRow) {
-    const id = Number(
-      receipt.feeReceiptsId ??
-        receipt.fee_receipts_id ??
-        receipt.pk_fee_receipts_id ??
-        0,
-    );
-    if (!id) {
-      toastError(new Error("Receipt id missing"), "Unable to print receipt");
-      return;
-    }
-    setPrintingId(id);
-    try {
-      await printFeeReceiptById(id);
-    } catch (e) {
-      toastError(e, "Unable to print receipt");
-    } finally {
-      setPrintingId(null);
-    }
-  }
+  const receiptCols = useMemo<ColDef<StudentFeeReceiptDetailRow>[]>(
+    () => [
+      { headerName: "SI No.", valueGetter: rowIndexGetter, width: 70, flex: 0 },
+      {
+        headerName: "Receipt No.",
+        minWidth: 110,
+        valueGetter: (p) =>
+          pick(p.data, "payment_receipts_no", "paymentReceiptsNo") || "—",
+      },
+      {
+        headerName: "Payment Date",
+        minWidth: 160,
+        valueGetter: (p) =>
+          formatReceiptDate(
+            pick(p.data, "receipt_date", "receiptDate", "createdDt") ||
+              undefined,
+          ),
+      },
+      {
+        headerName: "Payment Mode",
+        minWidth: 110,
+        valueGetter: (p) => pick(p.data, "payment_mode", "paymentMode") || "—",
+      },
+      {
+        headerName: "Payment Type",
+        minWidth: 110,
+        valueGetter: (p) => pick(p.data, "payment_type", "paymentType") || "—",
+      },
+      {
+        headerName: "Merchant Ref No.",
+        minWidth: 130,
+        valueGetter: (p) =>
+          pick(p.data, "transaction_no", "transactionNo", "referenceNumber"),
+      },
+      {
+        headerName: "Amount (₹)",
+        width: 110,
+        type: "rightAligned",
+        valueGetter: (p) =>
+          amt(pick(p.data, "receipt_amount", "receiptAmount") || 0),
+      },
+      {
+        headerName: "Print",
+        width: 80,
+        flex: 0,
+        cellRenderer: (p: ICellRendererParams<StudentFeeReceiptDetailRow>) => (
+          <button
+            type="button"
+            className="inline-flex items-center justify-center text-[#e91e63] hover:text-[#c2185b]"
+            title="Print Receipt"
+            onClick={() => {
+              if (!p.data) return;
+              storeFeeReceiptPrint({ ...p.data, collegeId });
+              onClose();
+              router.push(FEE_RECEIPT_PRINT_PATH);
+            }}
+          >
+            <Printer className="h-4 w-4" />
+          </button>
+        ),
+      },
+    ],
+    [collegeId, onClose, router],
+  );
 
   const collegeLine = [
-    collegeCode ||
-      pick(row as Record<string, unknown>, ["collegeCode"]) ||
-      pick(student as Record<string, unknown> | null, ["collegeCode"]),
-    pick(row as Record<string, unknown>, ["academicYear"]) ||
-      student?.academicYear,
+    student?.collegeCode,
+    row?.academicYear ?? feeData?.studentAcademicYear ?? feeData?.academicYear,
   ]
     .filter(Boolean)
     .join(" / ");
 
   const courseLine = [
-    pick(row as Record<string, unknown>, ["courseName", "courseCode"]) ||
-      student?.courseCode,
-    pick(row as Record<string, unknown>, ["groupName", "groupCode"]) ||
-      student?.groupCode,
-    pick(row as Record<string, unknown>, ["courseYearName"]) ||
-      student?.courseYearName,
+    row?.courseName,
+    row?.groupName ?? feeData?.studentGroupCode,
+    row?.courseYearName ?? feeData?.studentCourseYearName,
     (() => {
-      const sec =
-        pick(row as Record<string, unknown>, ["section"]) || student?.section;
-      return sec ? `section - ${sec}` : "";
+      const section =
+        row?.section ?? student?.section ?? feeData?.studentSection;
+      return section ? `section - ${section}` : "";
     })(),
   ]
     .filter(Boolean)
     .join(" / ");
 
-  const structureName = pick(row as Record<string, unknown>, [
-    "structureName",
-    "classGroupName",
-  ]);
   const studentName =
-    pick(row as Record<string, unknown>, ["firstName"]) ||
-    student?.firstName ||
-    "";
-  const rollNo =
-    pick(row as Record<string, unknown>, [
-      "rollNo",
-      "rollNumber",
-      "hallticketNumber",
-    ]) ||
+    student?.firstName ?? feeData?.firstName ?? row?.firstName ?? "";
+  const studentIdLabel =
     student?.rollNumber ||
     student?.hallticketNumber ||
+    String(row?.rollNumber ?? "") ||
     "";
 
   return (
@@ -206,206 +302,66 @@ export function FeeDetailsModal({
         if (!v) onClose();
       }}
     >
-      <DialogContent
-        className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-5xl"
-        closeOnOutsideClick={false}
-        hasDescription
-      >
-        <DialogHeader className="shrink-0 border-b border-border pb-3">
-          <div className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" aria-hidden />
-            <DialogTitle>Fee Details</DialogTitle>
-          </div>
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden rounded-sm sm:max-w-5xl sm:rounded-sm">
+        <DialogHeader>
+          <DialogTitle>Fee Details</DialogTitle>
           <DialogDescription className="sr-only">
-            Fee particulars and receipts
+            Fee structure particulars and receipts
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-2">
-          <div className="space-y-2 rounded-md border p-3">
-            <DetailRow label="College" value={collegeLine} />
-            <DetailRow label="Course" value={courseLine} />
-            <DetailRow label="Fee Structure" value={structureName} />
-            <DetailRow
-              label="Student"
-              value={
-                studentName
-                  ? `${studentName}${rollNo ? ` (${rollNo})` : ""}`
-                  : "—"
-              }
-            />
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-1 text-sm [&_.app-data-table-card]:rounded-none">
+          <div className="space-y-1.5 rounded-sm border bg-muted/30 px-3 py-2 text-[13px]">
+            <p>
+              <span className="text-muted-foreground">College : </span>
+              <span className="font-medium text-blue-700">
+                {collegeLine || "—"}
+              </span>
+            </p>
+            <p>
+              <span className="text-muted-foreground">Course : </span>
+              <span className="font-medium text-blue-700">
+                {courseLine || "—"}
+              </span>
+            </p>
+            <p>
+              <span className="text-muted-foreground">Fee Structure : </span>
+              <span className="font-medium text-blue-700">
+                {row?.structureName ?? row?.classGroupName ?? "—"}
+              </span>
+            </p>
+            <p>
+              <span className="text-muted-foreground">Student : </span>
+              <span className="font-medium text-blue-700">
+                {studentName}
+                {studentIdLabel ? ` (${studentIdLabel})` : ""}
+              </span>
+            </p>
           </div>
 
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : (
-            <>
-              <div className="overflow-auto rounded-md border">
-                <table className="w-full min-w-[900px] text-left text-xs">
-                  <thead className="bg-muted/40">
-                    <tr className="border-b">
-                      <th className="px-2 py-2">SI.No</th>
-                      <th className="px-2 py-2">Particular</th>
-                      <th className="px-2 py-2">Gross Amt</th>
-                      <th className="px-2 py-2">Dis Amt</th>
-                      <th className="px-2 py-2">LateFee</th>
-                      <th className="px-2 py-2">RTF Hold Amt</th>
-                      <th className="px-2 py-2">RTF Amt</th>
-                      <th className="px-2 py-2">Net Amt</th>
-                      <th className="px-2 py-2">Paid Amt</th>
-                      <th className="px-2 py-2">Bal Amt</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {particulars.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={10}
-                          className="px-2 py-3 text-muted-foreground"
-                        >
-                          No particulars found.
-                        </td>
-                      </tr>
-                    ) : (
-                      particulars.map((r, i) => (
-                        <tr
-                          key={String(
-                            r.feeStdDataParticularsId ??
-                              r.feeParticularsId ??
-                              i,
-                          )}
-                          className="border-b border-muted/40"
-                        >
-                          <td className="px-2 py-1.5 text-center">{i + 1}</td>
-                          <td className="px-2 py-1.5">
-                            {[r.categoryName, r.particularsName]
-                              .filter(Boolean)
-                              .join(" - ") || "—"}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {String(r.grossAmount ?? "—")}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {String(r.discountAmount ?? "—")}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {String(r.fineAmount ?? "—")}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {String(r.scholarshipHoldAmount ?? "—")}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {String(r.scholarshipAmount ?? "—")}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {String(r.netAmount ?? "—")}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {String(r.paidAmount ?? "—")}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {String(r.balanceAmount ?? "—")}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+          <DataTable
+            columnDefs={PARTICULAR_COLS}
+            rowData={particulars}
+            loading={isLoading}
+            height="auto"
+            toolbar={false}
+            pagination={false}
+          />
 
-              {receipts.length > 0 ? (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold">Fee Receipts</h3>
-                  <div className="overflow-auto rounded-md border">
-                    <table className="w-full min-w-[800px] text-left text-xs">
-                      <thead className="bg-muted/40">
-                        <tr className="border-b">
-                          <th className="px-2 py-2">SI No.</th>
-                          <th className="px-2 py-2">Receipt No.</th>
-                          <th className="px-2 py-2">Payment Date</th>
-                          <th className="px-2 py-2">Payment Mode</th>
-                          <th className="px-2 py-2">Payment Type</th>
-                          <th className="px-2 py-2">Merchant Ref No.</th>
-                          <th className="px-2 py-2 text-right">Amount (₹)</th>
-                          <th className="px-2 py-2">Print</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {receipts.map((feeReceipt, i) => {
-                          const rec = feeReceipt as Record<string, unknown>;
-                          const receiptId = Number(
-                            feeReceipt.feeReceiptsId ??
-                              rec.fee_receipts_id ??
-                              rec.pk_fee_receipts_id ??
-                              0,
-                          );
-                          return (
-                            <tr
-                              key={String(receiptId || i)}
-                              className="border-b border-muted/40"
-                            >
-                              <td className="px-2 py-1.5">{i + 1}</td>
-                              <td className="px-2 py-1.5">
-                                {pick(rec, [
-                                  "payment_receipts_no",
-                                  "paymentReceiptsNo",
-                                ]) || "—"}
-                              </td>
-                              <td className="px-2 py-1.5">
-                                {formatReceiptDateTime(
-                                  rec.receipt_date ??
-                                    rec.receiptDt ??
-                                    feeReceipt.createdDt,
-                                )}
-                              </td>
-                              <td className="px-2 py-1.5">
-                                {pick(rec, ["payment_mode", "paymentMode"]) ||
-                                  "—"}
-                              </td>
-                              <td className="px-2 py-1.5">
-                                {pick(rec, ["payment_type", "paymentType"]) ||
-                                  "—"}
-                              </td>
-                              <td className="px-2 py-1.5">
-                                {pick(rec, [
-                                  "transaction_no",
-                                  "transactionNo",
-                                ]) || "—"}
-                              </td>
-                              <td className="px-2 py-1.5 text-right">
-                                {pick(rec, [
-                                  "receipt_amount",
-                                  "receiptAmount",
-                                ]) || "—"}
-                              </td>
-                              <td className="px-2 py-1.5">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 w-8 p-0"
-                                  title="Print Receipt"
-                                  disabled={
-                                    !receiptId || printingId === receiptId
-                                  }
-                                  onClick={() => void onPrint(feeReceipt)}
-                                >
-                                  <Printer className="h-4 w-4" />
-                                </Button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : null}
-            </>
-          )}
+          <div className="space-y-2">
+            <h3 className="text-base font-semibold">Fee Receipts</h3>
+            <DataTable
+              columnDefs={receiptCols}
+              rowData={receiptRows}
+              loading={loadingReceipts}
+              height="auto"
+              toolbar={false}
+              pagination={false}
+            />
+          </div>
         </div>
 
-        <DialogFooter className="shrink-0 border-t border-border/60 pt-3">
+        <DialogFooter>
           <Button
             type="button"
             variant="outline"

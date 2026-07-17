@@ -238,6 +238,28 @@ export const QK = {
       ["FeesCollection", "studentDue", filters] as const,
     studentStructures: (studentId: number) =>
       ["FeesCollection", "studentStructures", studentId] as const,
+    studentData: (
+      collegeId: number,
+      academicYearId: number,
+      studentId: number,
+      feeStructureId: number,
+    ) =>
+      [
+        "FeesCollection",
+        "studentData",
+        collegeId,
+        academicYearId,
+        studentId,
+        feeStructureId,
+      ] as const,
+    receipts: (studentId: number, collegeId: number, academicYearId: number) =>
+      [
+        "FeesCollection",
+        "receipts",
+        studentId,
+        collegeId,
+        academicYearId,
+      ] as const,
     studentSearch: (term: string) =>
       ["FeesCollection", "studentSearch", term] as const,
     studentSearchCollege: (collegeId: number, term: string) =>
@@ -1054,6 +1076,18 @@ export const QK = {
   // ── Fee Masters ───────────────────────────────────────────────────────────
   feeMasters: {
     all: ["FeeMasters"] as const,
+    feeCategories: {
+      list: () => ["FeeMasters", "feeCategories", "list"] as const,
+    },
+    feeParticulars: {
+      list: () => ["FeeMasters", "feeParticulars", "list"] as const,
+    },
+    collegeFeeStructures: (filters: {
+      collegeId: number;
+      isAcademicFee: boolean;
+      batchId?: number;
+      academicYearId?: number;
+    }) => ["FeeMasters", "collegeFeeStructures", filters] as const,
     univFilters: (orgId: number, empId: number) =>
       ["FeeMasters", "univFilters", orgId, empId] as const,
     univFeeStructures: (filters: {

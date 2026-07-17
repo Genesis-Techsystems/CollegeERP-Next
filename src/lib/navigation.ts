@@ -8,29 +8,16 @@ import {
   mapTimetableNavRoute,
 } from "./timetable-navigation";
 import { mapAdminInstitutionalRoomRoute } from "./admin-institutional-navigation";
-import {
-  applyExamReportSlugAliases,
-  resolveExaminationReportHref,
-} from "./exam-reports-navigation";
-import {
-  resolveSidebarLabelPin,
-  findSidebarLabelForRoute,
-} from "./sidebar-route-pins";
-import routeCanonicalAliases from "./generated/route-canonical-aliases.json";
+import { resolveExaminationReportHref } from "./exam-reports-navigation";
+import { mapExaminationSectionNavRoute } from "./examination-section-navigation";
+import { findSidebarLabelForRoute } from "./sidebar-route-pins";
 
+export { resolveExaminationReportHref } from "./exam-reports-navigation";
 export {
-  applyExamReportSlugAliases,
-  resolveExaminationReportHref,
-} from "./exam-reports-navigation";
-
-/** Map label-derived URL slugs to real App Router folders (sidebar active state). */
-function applyRouteCanonicalAliases(path: string): string {
-  const [pathname, suffix = ""] = path.split(/([?#])/);
-  const base = (pathname ?? path).replace(/\/$/, "") || "/";
-  const canonical = (routeCanonicalAliases as Record<string, string>)[base];
-  if (!canonical) return path;
-  return `${canonical}${suffix}`;
-}
+  EXAMINATION_SECTION_BASE,
+  isExaminationSectionPath,
+  mapExaminationSectionNavRoute,
+} from "./examination-section-navigation";
 
 /**
  * Slugs under the Angular Reports → Examination Reports menu that are mounted at
@@ -105,14 +92,6 @@ export function normalizeHref(path: string): string {
       /\/admin-student-information-system\/readmission-application$/i,
       "/admin-student-information-system/readmission-application",
     )
-    .replace(
-      /\/admin-student-information-system\/student-details(?=\/|$)/i,
-      "/admin-student-information-system/students-list",
-    )
-    .replace(
-      /\/admin-student-information-system\/assign-student-roll-number(?=\/|$)/i,
-      "/admin-student-information-system/generate-student-rollno",
-    )
     // Legacy short page slugs used in old pre-examination sidebar.
     .replace(
       /\/admin-examination-management\/pre-examination\/subject-barcode$/i,
@@ -126,15 +105,10 @@ export function normalizeHref(path: string): string {
       /\/admin-examination-management\/pre-examination\/exam-hall-ticket$/i,
       "/admin-examination-management/pre-examination/exam-hallticket",
     )
+    // Legacy Angular slug; real Next page is exam-register-subjects.
     .replace(
-      /\/admin-examination-management\/pre-examination\/online-exam-fee-registration(?=\/|$)/i,
-      "/admin-examination-management/pre-examination/online-exam-fee-registrations",
-    )
-    // Student Examination section — Angular `examination-section/student-exam-hallticket`.
-    // Preserve `print-hallticket` sub-route; collapse other legacy subpaths only.
-    .replace(
-      /\/examination-section\/student-exam-hallticket\/(?!print-hallticket)[^/?#]+/gi,
-      '/examination-section/student-exam-hallticket',
+      /\/admin-examination-management\/pre-examination\/exam-register-subjects-update(?=\/|$)/i,
+      "/admin-examination-management/pre-examination/exam-register-subjects",
     )
     // Legacy post-examination module segment (singular + typo plural) → post-examination.
     .replace(
@@ -378,6 +352,28 @@ export function normalizeHref(path: string): string {
     // Angular Admission module → App Router path (`enquiry-form` folder routes as `enquiries`).
     .replace(/\/apps\/admission\//gi, "/admission/")
     .replace(/\/admission\/enquiry-form\//gi, "/admission/enquiries/")
+    // Angular Accounts & Fees — fee payment (StudentDataList).
+    .replace(
+      /\/fees-collection\/payment\/fee-payment(?=\/|$)/gi,
+      "/accounts-and-fees/fees-collection/payment/fee-payment",
+    )
+    .replace(
+      /\/fees-collection\/payment\/student-fee-collection(?=\/|$)/gi,
+      "/accounts-and-fees/fees-collection/payment/student-fee-collection",
+    )
+    .replace(
+      /\/fees-collection\/payment\/pay-fees(?=\/|$)/gi,
+      "/accounts-and-fees/fees-collection/payment/pay-fees",
+    )
+    // Angular Accounts & Fees — fee receipts list + print.
+    .replace(
+      /\/fees-collection\/fee-receipts\/print-reciept(?=\/|$)/gi,
+      "/accounts-and-fees/fees-collection/fee-receipts/print-reciept",
+    )
+    .replace(
+      /\/fees-collection\/fee-receipts(?=\/|$)/gi,
+      "/accounts-and-fees/fees-collection/fee-receipts",
+    )
     // Angular Accounts & Fees — hostel payment (Student Fee Collection).
     .replace(
       /\/fees-collection\/hostel-payment(?=\/|$)/gi,
@@ -391,91 +387,43 @@ export function normalizeHref(path: string): string {
       /\/fees-collection\/hostel-payment\/hostel-fee-list/gi,
       "/accounts-and-fees/fees-collection/hostel-payment/hostel-fee-payment",
     )
-    // Angular Accounts & Fees — hostel / bus payment (Student Fee Collection).
-    // Use negative lookbehind so paths already under `/accounts-and-fees/` are not
-    // re-prefixed (normalizeHref runs on forced routes + built nav hrefs).
+    // Angular Fee Masters — folder `fee-category` vs route `fee-categories`.
     .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/hostel-payment\/hostel-fee-list/gi,
-      '/accounts-and-fees/fees-collection/hostel-payment/hostel-fee-payment',
+      /\/fee-masters\/fee-category(?=\/|$)/gi,
+      "/accounts-and-fees/fee-masters/fee-categories",
     )
     .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/hostel-payment\/hostel-fee-payment/gi,
-      '/accounts-and-fees/fees-collection/hostel-payment/hostel-fee-payment',
+      /\/fee-masters\/fee-categories(?=\/|$)/gi,
+      "/accounts-and-fees/fee-masters/fee-categories",
     )
     .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/hostel-payment(?=\/|$)/gi,
-      '/accounts-and-fees/fees-collection/hostel-payment',
+      /\/fee-masters\/fee-particulars(?=\/|$)/gi,
+      "/accounts-and-fees/fee-masters/fee-particular",
     )
     .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/bus-payment\/bus-fee-payment/gi,
-      '/accounts-and-fees/fees-collection/bus-payment/bus-fee-payment',
+      /\/fee-masters\/fee-particular(?=\/|$)/gi,
+      "/accounts-and-fees/fee-masters/fee-particular",
     )
     .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/bus-payment\/bus-fee(?=\/|$)/gi,
-      '/accounts-and-fees/fees-collection/bus-payment/bus-fee',
+      /\/fee-masters\/fee-structure(?=\/|$)/gi,
+      "/accounts-and-fees/fee-masters/fee-structure",
     )
     .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/bus-payment(?=\/|$)/gi,
-      '/accounts-and-fees/fees-collection/bus-payment',
-    )
-    // Angular Accounts & Fees — library payment (Student Fee Collection).
-    .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/library-payment\/library-fee-payment/gi,
-      '/accounts-and-fees/fees-collection/library-payment/library-fee-payment',
+      /\/fee-masters\/add-feeStructure(?=\/|$)/gi,
+      "/accounts-and-fees/fee-masters/add-fee-structure",
     )
     .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/library-payment\/library-fee(?=\/|$)/gi,
-      '/accounts-and-fees/fees-collection/library-payment/library-fee',
+      /\/fee-masters\/edit-feeStructure(?=\/|$)/gi,
+      "/accounts-and-fees/fee-masters/edit-fee-structure",
     )
     .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/library-payment(?=\/|$)/gi,
-      '/accounts-and-fees/fees-collection/library-payment',
+      /\/fee-masters\/university-fee-structure-details(?=\/|$)/gi,
+      "/accounts-and-fees/fee-masters/university-fee-structure/details",
     )
     .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/payment\/pay-fees/gi,
-      '/accounts-and-fees/fees-collection/payment/pay-fees',
+      /\/fee-masters\/university-fee-structure(?=\/|$)/gi,
+      "/accounts-and-fees/fee-masters/university-fee-structure",
     )
-    .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/payment\/fee-payment/gi,
-      '/accounts-and-fees/fees-collection/payment/pay-fees',
-    )
-    // Angular Accounts & Fees — allocate student fee structure.
-    // Folder slug `allocate-fee` → route `allocate-student-fee` (even when already prefixed).
-    .replace(
-      /\/fees-collection\/allocate-fee(?=\/|$)/gi,
-      '/fees-collection/allocate-student-fee',
-    )
-    .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/allocate-student-fee(?=\/|$)/gi,
-      '/accounts-and-fees/fees-collection/allocate-student-fee',
-    )
-    // Angular Accounts & Fees — fee receipt update / delete.
-    .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/fee-receipt-update(?=\/|$)/gi,
-      '/accounts-and-fees/fees-collection/fee-receipt-update',
-    )
-    // Angular Accounts & Fees — allocate structure to student.
-    .replace(
-      /(?<!\/accounts-and-fees)\/fees-collection\/allocate-structure-to-student(?=\/|$)/gi,
-      '/accounts-and-fees/fees-collection/allocate-structure-to-student',
-    )
-    // Angular Accounts & Fees — scholarship preceding report.
-    .replace(
-      /(?<!\/accounts-and-fees)\/fee-reports\/scholarship-preceedings(?=\/|$)/gi,
-      '/accounts-and-fees/fee-reports/scholarship-preceedings',
-    )
-    .replace(
-      /(?<!\/accounts-and-fees)\/fee-reports\/scholarship-proceedings(?=\/|$)/gi,
-      '/accounts-and-fees/fee-reports/scholarship-preceedings',
-    )
-    // Angular Accounts & Fees — institutional scholarship / concession list.
-    .replace(
-      /(?<!\/accounts-and-fees)\/fee-reports\/concession-list(?=\/|$)/gi,
-      '/accounts-and-fees/fee-reports/concession-list',
-    )
-    // Collapse accidental repeated module prefixes from older nav hrefs.
-    .replace(/(\/accounts-and-fees)+/gi, '/accounts-and-fees')
-
     // Angular Wallet module — legacy slugs map to Angular-parity App Router paths.
     .replace(
       /\/wallet\/university-wallet-transactions(?=\/|$)/gi,
@@ -759,10 +707,11 @@ export function normalizeHref(path: string): string {
     .replace(
       /\/placements-achievements\/placement-registered-studentslist(?=\/|$)/gi,
       "/placements-achievements/placements/placement-registered-list",
-    );
-
-  raw = applyExamReportSlugAliases(raw);
-  raw = applyRouteCanonicalAliases(raw);
+    )
+    // Student portal — Angular `student-exam-section` / `examination-section` module.
+    .replace(/\/apps\/examination-section\//gi, "/examination-section/")
+    .replace(/\/apps\/student-exam-section\//gi, "/examination-section/")
+    .replace(/\/student-exam-section\//gi, "/examination-section/");
 
   // Normalize slashes and trim trailing slash.
   raw = raw.replace(/\/{2,}/g, "/").replace(/\/$/, "");
@@ -813,15 +762,12 @@ function overrideLegacyPreExamHref(href: string, label: string): string {
   if (lower.includes("student exam fee"))
     return `${base}/student-exam-fee-registration`;
   if (lower.includes("exam scheduling")) return `${base}/exam-scheduling-forms`;
-  if (lower.includes("online exam fee")) return `${base}/${toNavSlug(label)}`;
+  if (lower.includes("online exam fee"))
+    return `${base}/online-exam-fee-registration`;
   if (lower.includes("internal exam registr"))
     return `${base}/internal-exam-registration-multiple`;
-  if (lower.includes('exam hallticket')) {
-    if (href.toLowerCase().includes('examination-section')) {
-      return '/examination-section/student-exam-hallticket'
-    }
-    return `${base}/exam-hallticket`
-  }
+  if (lower.includes("exam hallticket") || lower.includes("exam hall ticket"))
+    return `${base}/exam-hallticket`;
   if (lower.includes("exam subject barcode"))
     return `${base}/exam-subject-barcode-generation`;
   if (lower.includes("exam forms")) return `${base}/exam-forms`;
@@ -900,45 +846,42 @@ function overrideInstitutionalMastersHref(
   return mapAdminInstitutionalRoomRoute(href, pageLabel) ?? href;
 }
 
-function overrideExaminationSectionHref(href: string, label: string): string {
-  const lower = (label ?? '').toLowerCase()
-  const hrefLower = href.toLowerCase()
-  if (hrefLower.includes('print-hallticket')) {
-    return '/examination-section/student-exam-hallticket/print-hallticket'
-  }
-  if (
-    hrefLower.includes('student-exam-hallticket') ||
-    hrefLower.includes('examination-section/student-exam-hallticket') ||
-    (lower.includes('hallticket') && hrefLower.includes('examination-section'))
-  ) {
-    return '/examination-section/student-exam-hallticket'
-  }
-  return href
+function overrideExaminationSectionHref(
+  href: string,
+  pageLabel: string,
+): string {
+  const mapped = mapExaminationSectionNavRoute(href, pageLabel);
+  return mapped ?? href;
 }
 
-
-
-
-
-
+/** Resolve DB/sidebar/search href + label to the live Next.js route. */
 export function normalizePageHref(href: string, pageLabel: string): string {
   // Label/href pins for Examination Reports — required for Search (404 → dashboard).
-  const examReportHref = resolveExaminationReportHref(href, pageLabel)
-  if (examReportHref) return examReportHref
+  const examReportHref = resolveExaminationReportHref(href, pageLabel);
+  if (examReportHref) return examReportHref;
 
-  const withExaminationSection = overrideExaminationSectionHref(href, pageLabel)
-  const withInstitutional = overrideInstitutionalMastersHref(withExaminationSection, pageLabel)
+  const withExaminationSection = overrideExaminationSectionHref(
+    href,
+    pageLabel,
+  );
+
+  const withInstitutional = overrideInstitutionalMastersHref(
+    withExaminationSection,
+    pageLabel,
+  );
   return normalizeHref(
-  overrideErpModuleHref(
+    overrideErpModuleHref(
       overrideTimetableHref(
-        overrideLegacyPostExamHref(overrideLegacyPreExamHref(withInstitutional, pageLabel), pageLabel),
+        overrideLegacyPostExamHref(
+          overrideLegacyPreExamHref(withInstitutional, pageLabel),
+          pageLabel,
+        ),
         pageLabel,
       ),
       pageLabel,
     ),
-  )
+  );
 }
-
 
 /**
  * Replicates Angular's addModuleToNavigation + addPagesToNavigation logic.
@@ -1256,101 +1199,34 @@ export function toNavSlug(name: string): string {
     .trim();
 }
 
-/** Path suffixes that are action/sub-routes, not the page list slug. */
-const ROUTE_ACTION_SUFFIXES = new Set([
-  "create",
-  "edit",
-  "add",
-  "new",
-  "view",
-  "details",
-  "marking",
-  "room-allotment",
-  "copy-existing-seating",
-  "existing-allotment",
-  "add-exam-timetables",
-  "add-exam-scheduling-forms",
-  "scan-bundle-details",
-  "evaluator-subject-roles",
-  "generate-payslip",
-  "emp-payroll",
-  "add-employee",
-  "add-question",
-  "add-meeting",
-  "view-subjects-data",
-  "view-std-fee",
-  "profile-view",
-]);
-
-/**
- * Replaces the leaf list-page segment with a slug derived from the sidebar label.
- * Skips action sub-routes (create/edit/…) so nested forms keep their path shape.
- */
-export function canonicalizePageSlug(href: string, label: string): string {
-  const path = normalizeHref(href).replace(/\/$/, "") || "/";
-  if (!label?.trim() || path === "/") return path;
-
-  const parts = path.split("/").filter(Boolean);
-  if (parts.length === 0) return `/${toNavSlug(label)}`;
-
-  const last = parts[parts.length - 1].toLowerCase();
-  if (ROUTE_ACTION_SUFFIXES.has(last)) return path;
-
-  const canonical = toNavSlug(label);
-  if (!canonical) return path;
-
-  if (parts[parts.length - 1] !== canonical) {
-    parts[parts.length - 1] = canonical;
-  }
-
-  return `/${parts.join("/")}`;
-}
-
 export interface NavBreadcrumbSegment {
   label: string;
   href?: string;
 }
 
 export interface NavSearchPage {
-  /** Sidebar menu label (source of truth). */
   displayName: string;
-  /** Canonical App Router href (same as sidebar click). */
   url: string;
-  /** Sidebar hierarchy, e.g. "Examination Management › Pre Examination". */
-  breadcrumbPath?: string;
-  /** Backend page id — lets resolveForcedNavRoute pin routes by id. */
-  id: string;
 }
 
-/**
- * Flattens the sidebar nav tree into searchable leaf pages.
- * Labels come from sidebar `item.label`; URLs use {@link normalizePageHref}.
- * Callers that navigate (Topbar Search) should re-resolve via `resolveNavHref`
- * so forced-route pins match sidebar clicks.
- */
+/** Flattens the sidebar nav tree into searchable leaf pages with normalized hrefs. */
 export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
   const collected: NavSearchPage[] = [];
 
-  function walk(nodes: NavItem[], ancestors: string[]) {
+  function walk(nodes: NavItem[]) {
     for (const item of nodes) {
-      const chain = [...ancestors, item.label];
-      // Leaf pages only — folders with children are not searchable destinations.
-      const isLeaf =
-        Boolean(item.href) && !(item.children && item.children.length > 0);
-      if (isLeaf && item.href) {
+      if (item.href) {
         collected.push({
           displayName: item.label,
+          // Same rewrite path Search and sidebar hrefs use (incl. exam-reports remaps).
           url: normalizePageHref(item.href, item.label),
-          breadcrumbPath:
-            ancestors.length > 0 ? ancestors.join(" › ") : undefined,
-          id: item.id,
         });
       }
-      if (item.children?.length) walk(item.children, chain);
+      if (item.children?.length) walk(item.children);
     }
   }
 
-  walk(items, []);
+  walk(items);
 
   // Prefer longer / more specific URLs when the same page appears under multiple
   // modules (e.g. Reports vs Admin Examination Management) with conflicting hrefs.
@@ -1374,9 +1250,6 @@ export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
 /** Same href pins NavItem uses so breadcrumbs match sidebar links. */
 function resolveNavItemHrefForBreadcrumb(item: NavItem): string | null {
   const labelLower = (item.label ?? "").toLowerCase();
-
-  const sidebarPin = resolveSidebarLabelPin(item.href, item.label);
-  if (sidebarPin) return sidebarPin.replace(/\/$/, "");
 
   if (labelLower.includes("room detail")) return "/admin/room-details";
   if (

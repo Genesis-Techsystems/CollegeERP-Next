@@ -879,12 +879,35 @@ export default function AllocateStructureToStudentPage() {
       </FormModal>
 
       <FeeDetailsModal
-        open={Boolean(feeDetailsRow)}
+        open={Boolean(feeDetailsRow && selectedStudent)}
         onClose={() => setFeeDetailsRow(null)}
-        row={feeDetailsRow}
-        student={selectedStudent}
-        collegeCode={selectedCollege?.collegeCode}
-        collegeId={collegeNum}
+        target={
+          feeDetailsRow && selectedStudent
+            ? {
+                row: feeDetailsRow,
+                student: {
+                  ...selectedStudent,
+                  collegeId: selectedStudent.collegeId ?? collegeNum,
+                  collegeCode:
+                    selectedStudent.collegeCode ??
+                    selectedCollege?.collegeCode ??
+                    undefined,
+                  section:
+                    selectedStudent.section ??
+                    feeDetailsRow.section ??
+                    undefined,
+                  firstName:
+                    selectedStudent.firstName ??
+                    feeDetailsRow.firstName ??
+                    undefined,
+                  rollNumber:
+                    selectedStudent.rollNumber ??
+                    feeDetailsRow.rollNumber ??
+                    undefined,
+                },
+              }
+            : null
+        }
       />
 
       <FormModal

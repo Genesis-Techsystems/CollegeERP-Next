@@ -7,16 +7,17 @@ import {
   getAllRecords,
   getAllRecordsEnvelope,
   postDetails,
+  postDetailsEnvelope,
   uploadFile,
 } from "@/services/crud";
-import { EXAM_API, NEXT_API, SETUP_API } from "@/config/constants/api";
+import { EXAM_API, FEE_API, NEXT_API, SETUP_API } from "@/config/constants/api";
 import { GM_CODES } from "@/config/constants/ui";
 import { toDateStr, toExamApiDate } from "@/common/generic-functions";
 import {
   fetchStudentDetail,
   fetchStudentDetailByUserId,
   searchStudentsByKeyword,
-} from "./student-information";
+} from "@/services/student-information";
 
 export type AnyRow = Record<string, any>;
 
@@ -381,14 +382,16 @@ export async function listStudents(q: string): Promise<AnyRow[]> {
   }
 }
 
-/** Angular student-exam-section getExamFeeReceipts(): GET examhallticket?examId=&studentId= */
 export async function getStudentExamHallticketDetail(
   examId: number,
   studentId: number,
 ): Promise<{ detail: AnyRow; subjects: AnyRow[] } | null> {
   if (!examId || !studentId) return null;
   try {
-    const data = await fetchDetails<any>("examhallticket", { examId, studentId });
+    const data = await fetchDetails<any>("examhallticket", {
+      examId,
+      studentId,
+    });
     const row = (Array.isArray(data) ? data[0] : data) as AnyRow | undefined;
     if (!row || typeof row !== "object") return null;
     const rawSubjects = row.subjectDTOList ?? row.subjects ?? [];
@@ -412,7 +415,8 @@ export async function getStudentExamHallticketDetail(
   }
 }
 
-export const STUDENT_HALLTICKET_PRINT_STORAGE_KEY = "student-hallticket-print-data";
+export const STUDENT_HALLTICKET_PRINT_STORAGE_KEY =
+  "student-hallticket-print-data";
 
 export async function getExamHalltickets(params: {
   examId: number;
@@ -1930,75 +1934,24 @@ export async function payExamFeeReceipts(payload: AnyRow[]): Promise<any> {
   return postDetails<any>("examFeeReceipt", payload);
 }
 
-function pickExamMasterFromExamStudentRow(row: AnyRow): AnyRow | null {
-  const nested =
-    (row.examMaster as AnyRow | undefined) ??
-    (row.ExamMaster as AnyRow | undefined) ??
-    (row.exam as AnyRow | undefined);
-
-  const examStudentId = Number(row.examStudentId ?? row.exam_student_id ?? 0);
-  const examId = Number(
-    nested?.examId ??
-      nested?.exam_id ??
-      row.examId ??
-      row.exam_id ??
-      row.fk_exam_id ??
-      0,
+/**
+ * Exams for a student's course — Angular getExamsList():
+ * ExamMaster where Course.courseId == courseId, ordered by createdDt DESC.
+ * (The page filters out isInternalExam rows.)
+ */
+export async function listExamMastersByCourse(
+  courseId: number,
+): Promise<AnyRow[]> {
+  if (!courseId) return [];
+  return domainList<AnyRow>(
+    "ExamMaster",
+    buildQuery(
+      { "Course.courseId": courseId, isActive: true },
+      { field: "createdDt", direction: "DESC" },
+    ),
   );
-  // Avoid treating ExamStudent PK as exam id when examMaster is not hydrated.
-  if (!examId || (examStudentId > 0 && examId === examStudentId && !nested)) {
-    return null;
-  }
-
-  const isInternal =
-    nested?.isInternalExam ??
-    nested?.is_internal_exam ??
-    row.isInternalExam ??
-    row.is_internal_exam;
-  if (isInternal) return null;
-
-  const source = nested ?? row;
-  return {
-    ...row,
-    ...source,
-    examId,
-    examName:
-      source.examName ??
-      source.exam_name ??
-      row.examName ??
-      row.exam_name,
-    fromDate:
-      source.fromDate ??
-      source.from_date ??
-      source.examFromDate ??
-      source.exam_from_date ??
-      row.fromDate ??
-      row.from_date ??
-      row.examFromDate ??
-      row.exam_from_date,
-    toDate:
-      source.toDate ??
-      source.to_date ??
-      source.examToDate ??
-      source.exam_to_date ??
-      row.toDate ??
-      row.to_date ??
-      row.examToDate ??
-      row.exam_to_date,
-    isRegularExam:
-      source.isRegularExam ??
-      source.is_regular_exam ??
-      row.isRegularExam ??
-      row.is_regular_exam,
-    isSupplyExam:
-      source.isSupplyExam ??
-      source.is_supply_exam ??
-      row.isSupplyExam ??
-      row.is_supply_exam,
-  };
 }
 
-/** Angular login + student-exam-hallticket enteredStudent() profile resolution. */
 export async function resolveStudentPortalProfile(args: {
   userId?: number | null;
   studentId?: number | null;
@@ -2010,7 +1963,9 @@ export async function resolveStudentPortalProfile(args: {
       ...row,
       studentId: sid,
       id: sid,
-      collegeId: Number(row.collegeId ?? row.college_id ?? row.fk_college_id ?? 0),
+      collegeId: Number(
+        row.collegeId ?? row.college_id ?? row.fk_college_id ?? 0,
+      ),
       courseId: Number(row.courseId ?? row.course_id ?? row.fk_course_id ?? 0),
       rollNumber:
         row.rollNumber ??
@@ -2027,7 +1982,9 @@ export async function resolveStudentPortalProfile(args: {
 
   const sessionStudentId = Number(
     args.studentId ??
-      globalThis?.localStorage?.getItem("studentId") ??
+      (typeof globalThis !== "undefined" && "localStorage" in globalThis
+        ? globalThis.localStorage?.getItem("studentId")
+        : null) ??
       0,
   );
   if (sessionStudentId > 0) {
@@ -2042,7 +1999,11 @@ export async function resolveStudentPortalProfile(args: {
   }
 
   const roll = String(
-    globalThis?.localStorage?.getItem("rollNumber") ?? args.userName ?? "",
+    (typeof globalThis !== "undefined" && "localStorage" in globalThis
+      ? globalThis.localStorage?.getItem("rollNumber")
+      : null) ??
+      args.userName ??
+      "",
   ).trim();
   if (roll.length > 4) {
     const hits = await searchStudentsByKeyword(roll).catch(() => []);
@@ -2062,112 +2023,228 @@ export async function resolveStudentPortalProfile(args: {
 }
 
 /**
- * Angular student-exam-section exam-hallticket getExamsList():
- * listDetailsByThreeIdsWithSort(ExamStudent, collegeId, studentId, true, DESC,
- *   College.collegeId, studentDetail.studentId, isActive, createdDt)
+ * Angular student-exam-fee-collection getExamsList(): external exams only,
+ * excluding those with result processing started and published together.
  */
 export async function listStudentPortalExams(
-  collegeId: number,
-  studentId: number,
-  courseId?: number,
+  courseId: number,
 ): Promise<AnyRow[]> {
-  if (!studentId) return [];
+  const rows = await listExamMastersByCourse(courseId);
+  return rows.filter((exam) => {
+    const internal = Boolean(exam.isInternalExam);
+    const resultStarted = Boolean(exam.isResultprocessStarted);
+    const published = Boolean(exam.isPublished);
+    return !internal && (!resultStarted || !published);
+  });
+}
 
-  const order = { field: "createdDt", direction: "DESC" as const };
-  const queryStrings: string[] = [];
-  const cid = Number(collegeId);
-
-  if (cid > 0) {
-    queryStrings.push(
-      buildQuery(
-        {
-          "College.collegeId": cid,
-          "studentDetail.studentId": studentId,
-          isActive: true,
-        },
-        order,
-      ),
-      buildQuery(
-        {
-          "College.collegeId": cid,
-          "StudentDetail.studentId": studentId,
-          isActive: true,
-        },
-        order,
-      ),
-      buildQuery(
-        {
-          "college.collegeId": cid,
-          "studentDetail.studentId": studentId,
-          isActive: true,
-        },
-        order,
-      ),
-      buildQuery({ collegeId: cid, studentId, isActive: true }, order),
-    );
-  }
-
-  queryStrings.push(
-    buildQuery({ "studentDetail.studentId": studentId, isActive: true }, order),
-    buildQuery({ "StudentDetail.studentId": studentId, isActive: true }, order),
-    buildQuery({ studentId, isActive: true }, order),
+/**
+ * Angular saveExamFeeDetails(): POST flat `examFeePayload` to stgOnlineExamFeeReceipts.
+ */
+export async function saveStgOnlineExamFeeReceipt(
+  payload: AnyRow,
+): Promise<AnyRow> {
+  return postDetailsEnvelope<AnyRow>(
+    FEE_API.STG_ONLINE_EXAM_FEE_RECEIPTS,
+    payload,
   );
+}
 
-  const seenQueries = new Set<string>();
-  const rows: AnyRow[] = [];
-  for (const q of queryStrings) {
-    if (seenQueries.has(q)) continue;
-    seenQueries.add(q);
-    try {
-      const batch = await domainList<AnyRow>("ExamStudent", q);
-      if (Array.isArray(batch) && batch.length > 0) {
-        rows.push(...batch);
-        break;
-      }
-    } catch {
-      // try next query shape
+/** Resolve exam fee type GeneralDetail id — Angular payExamFees() examtypeCatId lookup. */
+export function resolveExamTypeCategoryId(
+  examFeeTypes: AnyRow[],
+  examTypeLabel: string,
+): number | null {
+  const label = String(examTypeLabel ?? "");
+  const strict = examFeeTypes.find(
+    (row) => String(row.generalDetailCode ?? "") === label,
+  );
+  if (strict) return Number(strict.generalDetailId);
+
+  const want = label.toLowerCase();
+  const wantsRegular = want.includes("reg");
+  const wantsSupple = want.includes("sup");
+  const match = examFeeTypes.find((row) => {
+    const code = String(
+      row.generalDetailCode ??
+        row.generalDetailName ??
+        row.generalDetailDisplayName ??
+        "",
+    ).toLowerCase();
+    if (wantsRegular) return code.includes("reg");
+    if (wantsSupple) return code.includes("sup");
+    return code === want;
+  });
+  return match ? Number(match.generalDetailId) : null;
+}
+
+/** Angular ngOnInit getGeneralDetails(): default ONLINE payment mode. */
+export function resolveOnlinePaymentModeId(
+  paymentModes: AnyRow[],
+): number | null {
+  const online = paymentModes.find(
+    (row) => String(row.generalDetailCode ?? "").toUpperCase() === "ONLINE",
+  );
+  return online ? Number(online.generalDetailId) : null;
+}
+
+/**
+ * Build staging receipt body — Angular student-exam-fee-collection saveExamFeeDetails()
+ * posts `examFeePayload` (not the simplified wrapper the first React draft used).
+ */
+export function buildStudentExamFeeStagingPayload(input: {
+  student: AnyRow;
+  exam: AnyRow;
+  row: AnyRow;
+  paymentModeCatId: number;
+  receiptDate: string;
+  feeComments?: string;
+}): AnyRow {
+  const {
+    student,
+    exam,
+    row,
+    paymentModeCatId,
+    receiptDate,
+    feeComments = "",
+  } = input;
+
+  const addTFee: AnyRow[] = [];
+  let addFeeAmt = 0;
+  for (const a of row.examAdditionalFeeReceiptDTOs ?? []) {
+    if (Number(a.fee) > 0) {
+      addTFee.push({
+        ...a,
+        collegeId: student.collegeId,
+        addtFeeAmount: a.fee,
+        isActive: true,
+        addtExamFeeTypeCatId: a.adtExamfeetypeCatId,
+        collectedEmpId: null,
+        addtReceiptDate: receiptDate,
+      });
+      addFeeAmt += Number(a.fee);
     }
   }
 
-  const exams: AnyRow[] = [];
-  const examIds = new Set<number>();
-  for (const row of rows) {
-    const exam = pickExamMasterFromExamStudentRow(row);
-    if (!exam || examIds.has(Number(exam.examId))) continue;
-    examIds.add(Number(exam.examId));
-    exams.push(exam);
-  }
+  const subjects: AnyRow[] = Array.isArray(row.subjects) ? row.subjects : [];
+  const subjectIdsList = subjects
+    .map((s) => Number(s.subjectId))
+    .filter((id) => id > 0);
+  const stgOnlineExamStudentDetailsDTO = subjects.map((s) => ({
+    orderId: null,
+    collegeId: student.collegeId,
+    subjectId: Number(s.subjectId),
+    isPresent: false,
+    marks: null,
+    marksEnteredEmpId: null,
+    marksComments: null,
+    isMarksPublished: null,
+    isReevaluationApplied: null,
+    reevaluationMarks: null,
+    reEvaluationEnteredEmpId: null,
+    attendanceTakenEmpId: null,
+    reevaluationMarksComments: null,
+    attendanceTakenDate: null,
+    isReevaluationMarksPublished: null,
+    grade: null,
+    gradePoints: null,
+    credits: 3,
+    isPass: null,
+    isActive: null,
+  }));
 
-  if (exams.length > 0) return exams;
+  const examFeeAmount = Number(row.examFeeAmount ?? 0);
+  const examFineAmount = Number(row.examFineAmount ?? 0);
+  const examTotalAmount = examFeeAmount + examFineAmount + addFeeAmt;
 
-  const resolvedCourseId = Number(courseId ?? 0);
-  if (resolvedCourseId > 0) {
-    const masters = await listExamMastersByCourse(resolvedCourseId).catch(() => []);
-    return (Array.isArray(masters) ? masters : []).filter(
-      (e) => !(e.isInternalExam ?? e.is_internal_exam),
-    );
-  }
-
-  return [];
-}
-
-
-/**
- * Exams for a student's course — Angular getExamsList():
- * ExamMaster where Course.courseId == courseId, ordered by createdDt DESC.
- * (The page filters out isInternalExam rows.)
- */
-export async function listExamMastersByCourse(
-  courseId: number,
-): Promise<AnyRow[]> {
-  if (!courseId) return [];
-  return domainList<AnyRow>(
-    "ExamMaster",
-    buildQuery(
-      { "Course.courseId": courseId, isActive: true },
-      { field: "createdDt", direction: "DESC" },
-    ),
-  );
+  return {
+    tranCatDetailsId: 686,
+    addtFee: null,
+    chequeNo: null,
+    ddno: null,
+    examFeeAmount,
+    examFineAmount,
+    examAddtFee: addFeeAmt,
+    examTotalAmount,
+    collegeCode: row.collegeCode,
+    examName: exam.examName,
+    courseName: row.courseName,
+    courseYearName: row.courseYearName,
+    examType: row.examType,
+    examFromDate: exam.fromDate,
+    examToDate: exam.toDate,
+    courseGroupName: student.groupCode,
+    academicYear: row.academicYear,
+    studentName: student.firstName,
+    rollno: student.rollNumber ?? student.hallticketNumber,
+    feeComments,
+    employeeId: null,
+    collegeId: student.collegeId,
+    courseYearId: row.courseYearId,
+    examFeeFineId: row.examFeeFineId ?? null,
+    examFeeStructureId: row.examFeeStructureId,
+    examMasterId: Number(exam.examId),
+    examtypeCatDetailId: row.examtypeCatId,
+    paymentModeCatId,
+    studentDetailId: student.studentId,
+    isActive: true,
+    otherPaymentNumber: null,
+    receiptDate,
+    referenceNumber: null,
+    transactionNo: null,
+    studentHallticketNumber: null,
+    orderId: null,
+    examFeefineName: null,
+    feeReceiptNo: null,
+    subjectIds: subjectIdsList.join(","),
+    paymentModeCatDetId: 132,
+    collectedEmpDetailsId: null,
+    receiptDt: receiptDate,
+    examStdRegPaymentIds: null,
+    examStdRegTxnIds: null,
+    isRefund: false,
+    refundEmpDetailsId: null,
+    refundDate: null,
+    refundReason: null,
+    reason: null,
+    stgOnlineExamAdditionalFeeReceipts: addTFee,
+    stgOnlineExamStudentsDTO: [
+      {
+        feeComments,
+        collegeId: student.collegeId,
+        courseYearId: row.courseYearId,
+        examFeeAmount,
+        examtypeCatId: row.examtypeCatId,
+        regulationId: student.regulationId,
+        studentDetailId: student.studentId,
+        isActive: true,
+        isFeePaid: true,
+        registrationDate: receiptDate,
+        examMasterId: Number(exam.examId),
+        orderId: null,
+        hallticketNo: null,
+        barCode: null,
+        barcodeImage: null,
+        qrCode: null,
+        qrcodeImage: null,
+        isHallticketIssued: false,
+        hallticketIssuedOn: null,
+        examReceiptId: null,
+        subRegistered: null,
+        subAppeared: null,
+        subPassed: null,
+        totalCredits: null,
+        totalExternal: null,
+        totalInternal: null,
+        totalMarks: null,
+        memoDate: null,
+        memoNo: null,
+        memoSerialNo: null,
+        reason: null,
+        stgOnlineExamStudentDetailsDTO,
+      },
+    ],
+  };
 }
 
 /**

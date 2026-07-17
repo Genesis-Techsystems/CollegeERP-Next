@@ -13,6 +13,7 @@ function BusFeePaymentContent() {
       title="Bus Fee Payment"
       payPage="bus-fee"
       payColumnHeader="Pay Details"
+      filteredShell
     />
   );
 }
