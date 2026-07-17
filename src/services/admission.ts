@@ -278,7 +278,8 @@ export async function listFeePaidApplications(params: {
 }
 
 export async function listAdmissionAllotments(collegeId: number): Promise<AdmissionAllotmentRow[]> {
-  const query = buildQuery({ 'college.collegeId': collegeId, isActive: true })
+  // Include inactive rows so Status can show Inactive in the grid.
+  const query = buildQuery({ 'college.collegeId': collegeId })
   return domainList<AdmissionAllotmentRow>(UNIVERSITY_API.ADMISSION_ALLOTMENT, query)
 }
 
@@ -325,6 +326,19 @@ export async function updateAdmissionAllotment(
     ENTITIES.UNIV_ADMISSION_ALLOTMENT.pk,
     id,
     payload,
+  )
+}
+
+/** List details for an allotment (active and inactive). */
+export async function listAdmissionAllotmentDetails(
+  univAdmissionAllotmentId: number,
+): Promise<AdmissionAllotmentDetailRow[]> {
+  const query = buildQuery({
+    'UnivAdmissionAllotment.univAdmissionAllotmentId': univAdmissionAllotmentId,
+  })
+  return domainList<AdmissionAllotmentDetailRow>(
+    UNIVERSITY_API.ADMISSION_ALLOTMENT_DETAILS,
+    query,
   )
 }
 

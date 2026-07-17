@@ -1,14 +1,16 @@
 /**
- * Elective Group Mapping — Add ("Add Elective Group") create flow.
+ * Elective Group Mapping — Angular `ElectiveGroupMappingComponent` + add dialog.
  *
- * Ports the Angular `AddElectiveGroupComponent` service calls:
+ * Ports:
  *   - elective subjects   → CrudService.getElectiveSubjects1('subjectregulations', ...)
  *   - staff (employees)   → CrudService.listBySevenIds('staffcourseyrsubjects', ...)
  *   - sections            → CrudService.listBySevenIds('staffSections', ...)
- *   - create mapping      → CrudService.add('electivegroupyrmapping', rows)  (parent postMapping)
+ *   - create mapping      → CrudService.add('electivegroupyrmapping', rows)
+ *   - view / delete list  → CrudService.listByTwoIds('electivegroupyrmapping', isActive, code)
+ *   - delete mapping      → domain soft-delete ElectiveGroupyrMapping (Angular deleteItem)
  */
 
-import { fetchDetails, postDetails } from '@/services/crud'
+import { domainSoftDelete, fetchDetails, postDetails } from '@/services/crud'
 
 type AnyRow = Record<string, any>
 
@@ -106,4 +108,33 @@ export async function listElectiveGroupSections(params: {
  */
 export async function createElectiveGroupMapping(rows: AnyRow[]): Promise<unknown> {
   return postDetails<unknown>('electivegroupyrmapping', rows)
+}
+
+/**
+ * Mappings for one elective group code (view dialog + delete guard).
+ * Angular: listByTwoIds('electivegroupyrmapping', 'true', electiveGroupCode, 'isActive', 'electiveGroupCode')
+ * GET electivegroupyrmapping?isActive=true&electiveGroupCode={code}
+ */
+export async function listElectiveGroupMappingsByCode(electiveGroupCode: string): Promise<AnyRow[]> {
+  const code = String(electiveGroupCode ?? '').trim()
+  if (!code) return []
+
+  const data = await fetchDetails<AnyRow[] | AnyRow>('electivegroupyrmapping', {
+    isActive: 'true',
+    electiveGroupCode: code,
+  }).catch(() => [])
+
+  if (Array.isArray(data)) return data
+  if (data && typeof data === 'object') return [data as AnyRow]
+  return []
+}
+
+/**
+ * Soft-delete one ElectiveGroupyrMapping row.
+ * Angular: deleteItem('ElectiveGroupyrMapping', electiveGroupyrMappingId, 'electiveGroupyrMappingId')
+ */
+export async function deleteElectiveGroupMapping(electiveGroupyrMappingId: number): Promise<void> {
+  const id = Number(electiveGroupyrMappingId) || 0
+  if (!id) return
+  await domainSoftDelete('ElectiveGroupyrMapping', 'electiveGroupyrMappingId', id)
 }

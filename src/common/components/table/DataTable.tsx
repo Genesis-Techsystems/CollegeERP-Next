@@ -138,6 +138,10 @@ export interface DataTableProps<T> {
   /** Controlled open state when collapsible. */
   filtersOpen?: boolean;
   onFiltersOpenChange?: (open: boolean) => void;
+  /** Allow the entire card body to be collapsed from its title. */
+  contentCollapsible?: boolean;
+  /** Uncontrolled default open state for a collapsible card body. */
+  contentDefaultOpen?: boolean;
   rowData: T[];
   columnDefs: ColDef<T>[];
   loading?: boolean;
@@ -364,6 +368,8 @@ export function DataTable<T>({
   filtersDefaultOpen = true,
   filtersOpen: filtersOpenProp,
   onFiltersOpenChange,
+  contentCollapsible = false,
+  contentDefaultOpen = true,
   rowData,
   columnDefs,
   loading = false,
@@ -411,7 +417,9 @@ export function DataTable<T>({
   const resolvedTitle = title ?? inferredTitle;
 
   const [filtersInternalOpen, setFiltersInternalOpen] =
+   
     useState(filtersDefaultOpen);
+  const [contentOpen, setContentOpen] = useState(contentDefaultOpen);
   const filtersOpen = filters
     ? filtersCollapsible
       ? (filtersOpenProp ?? filtersInternalOpen)
@@ -620,7 +628,26 @@ export function DataTable<T>({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               {resolvedTitle ? (
-                filters && filtersCollapsible ? (
+                contentCollapsible ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-2 text-left"
+                    onClick={() => setContentOpen((open) => !open)}
+                    aria-expanded={contentOpen}
+                    aria-label={`Toggle ${resolvedTitle}`}
+                  >
+                    <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                      {resolvedTitle}
+                    </h2>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300",
+                        contentOpen && "rotate-180",
+                      )}
+                      aria-hidden
+                    />
+                  </button>
+                ) : filters && filtersCollapsible ? (
                   <button
                     type="button"
                     className="flex w-full items-center justify-between gap-2 text-left"
@@ -676,60 +703,69 @@ export function DataTable<T>({
         </div>
       )}
 
-      {filters ? (
-        <div
-          className={cn(
-            "grid transition-[grid-template-rows] duration-300 ease-in-out",
-            filtersOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-          )}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <div className="global-filter-bar__inner px-5 pb-1 [&_.global-filter-bar__inner]:!pt-0">
-              {filters}
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-300 ease-in-out",
+          !contentCollapsible || contentOpen
+            ? "grid-rows-[1fr]"
+            : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          {filters ? (
+            <div
+              className={cn(
+                "grid transition-[grid-template-rows] duration-300 ease-in-out",
+                filtersOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+              )}
+            >
+              <div className="min-h-0 overflow-hidden">
+                <div className="global-filter-bar__inner px-5 pb-1 [&_.global-filter-bar__inner]:!pt-0">
+                  {filters}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+          ) : null}
 
-      {(showMainToolbar || (!showMainToolbar && exportCsv)) && (
-        <div className="app-data-table-toolbar-wrap bg-card px-5 pb-3 pt-2">
-          {showMainToolbar ? (
-            <DataTableToolbar
-              leading={toolbarLeading}
-              searchEnabled={tb.search}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              searchPlaceholder={tb.searchPlaceholder}
-              rowCount={filteredRowData.length}
-              showInactiveToggle={Boolean(showInactiveToggle)}
-              showInactive={showInactive}
-              onShowInactiveChange={setShowInactive}
-              columnPickerEnabled={tb.columnPicker}
-              exportExcelEnabled={exportExcelEnabled}
-              onExportExcel={handleExportCsv}
-              exportPdfEnabled={tb.exportPdf}
-              onExportPdf={handleExportPdf}
-              lockColumnIds={tb.lockColumnIds}
-              getColumns={getColumns}
-              applyColumnVisible={applyColumnVisible}
-              endActions={toolbarTrailing}
-            />
-          ) : (
-            <div className="flex items-center justify-end gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
-                onClick={handleExportCsv}
-                aria-label="Export to Excel"
-              >
-                <Download className="mr-1.5 h-3.5 w-3.5" />
-                Excel
-              </Button>
+          {(showMainToolbar || (!showMainToolbar && exportCsv)) && (
+            <div className="app-data-table-toolbar-wrap bg-card px-5 pb-3 pt-2">
+              {showMainToolbar ? (
+                <DataTableToolbar
+                  leading={toolbarLeading}
+                  searchEnabled={tb.search}
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  searchPlaceholder={tb.searchPlaceholder}
+                  rowCount={filteredRowData.length}
+                  showInactiveToggle={Boolean(showInactiveToggle)}
+                  showInactive={showInactive}
+                  onShowInactiveChange={setShowInactive}
+                  columnPickerEnabled={tb.columnPicker}
+                  exportExcelEnabled={exportExcelEnabled}
+                  onExportExcel={handleExportCsv}
+                  exportPdfEnabled={tb.exportPdf}
+                  onExportPdf={handleExportPdf}
+                  lockColumnIds={tb.lockColumnIds}
+                  getColumns={getColumns}
+                  applyColumnVisible={applyColumnVisible}
+                  endActions={toolbarTrailing}
+                />
+              ) : (
+                <div className="flex items-center justify-end gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
+                    onClick={handleExportCsv}
+                    aria-label="Export to Excel"
+                  >
+                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                    Excel
+                  </Button>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
       <div
         className={cn(
@@ -774,27 +810,29 @@ export function DataTable<T>({
         ) : null}
       </div>
 
-      {clientPaginationEnabled && (
-        <DataTableFooter
-          totalRows={clientTotalRows}
-          page={safePage}
-          pageSize={clientPageSize}
-          totalPages={clientTotalPages}
-          onPageChange={setClientPage}
-          onPageSizeChange={handleClientPageSizeChange}
-        />
-      )}
+          {clientPaginationEnabled && (
+            <DataTableFooter
+              totalRows={clientTotalRows}
+              page={safePage}
+              pageSize={clientPageSize}
+              totalPages={clientTotalPages}
+              onPageChange={setClientPage}
+              onPageSizeChange={handleClientPageSizeChange}
+            />
+          )}
 
-      {serverSide && (
-        <DataTableFooter
-          totalRows={totalCount}
-          page={currentPage}
-          pageSize={serverPageSize}
-          totalPages={totalPages}
-          onPageChange={(page) => onPageChange?.(page, serverPageSize)}
-          onPageSizeChange={handleServerPageSizeChange}
-        />
-      )}
+          {serverSide && (
+            <DataTableFooter
+              totalRows={totalCount}
+              page={currentPage}
+              pageSize={serverPageSize}
+              totalPages={totalPages}
+              onPageChange={(page) => onPageChange?.(page, serverPageSize)}
+              onPageSizeChange={handleServerPageSizeChange}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

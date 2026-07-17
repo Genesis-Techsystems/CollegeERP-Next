@@ -1,11 +1,17 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Select } from '@/common/components/select'
 import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { getDigitalOnlineSyncFilters, listRegulationsByCourse, listStaffMappingSections, listStudentsForPromotionPreview, submitAssignedStudentRegulations } from '@/services'
+import {
+  getDigitalOnlineSyncFilters,
+  listRegulationsByCourse,
+  listStaffMappingSections,
+  listStudentsForPromotionPreview,
+  submitAssignedStudentRegulations,
+} from '@/services'
 import { toastError, toastSuccess } from '@/lib/toast'
 
 type AnyRow = Record<string, any>
@@ -35,6 +41,7 @@ export default function AssignRegulationToStudentsPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [tableEnabled, setTableEnabled] = useState(false)
+  const [bulkRegulationId, setBulkRegulationId] = useState<number | null>(null)
 
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [courseId, setCourseId] = useState<number | null>(null)
@@ -76,8 +83,19 @@ export default function AssignRegulationToStudentsPage() {
   useEffect(() => { if (!courseYearId && courseYears.length) setCourseYearId(n(courseYears[0].fk_course_year_id)) }, [courseYears, courseYearId])
   useEffect(() => { setAcademicYearId(null); setGroupSectionId(null) }, [courseYearId])
   useEffect(() => { if (!academicYearId && academicYears.length) setAcademicYearId(n([...academicYears].sort((a, b) => n(b.is_curr_ay) - n(a.is_curr_ay))[0]?.fk_academic_year_id)) }, [academicYears, academicYearId])
-  useEffect(() => { setGroupSectionId(null); setSections([]); setRegulations([]) }, [academicYearId])
-  useEffect(() => { if (!groupSectionId && sections.length) setGroupSectionId(n(sections[0].pk_group_section_id ?? sections[0].groupSectionId)) }, [sections, groupSectionId])
+  useEffect(() => {
+    setGroupSectionId(null)
+    setSections([])
+    setRegulations([])
+    setBulkRegulationId(null)
+    setRows([])
+    setTableEnabled(false)
+  }, [academicYearId])
+  useEffect(() => {
+    if (!groupSectionId && sections.length) {
+      setGroupSectionId(n(sections[0].pk_group_section_id ?? sections[0].groupSectionId))
+    }
+  }, [sections, groupSectionId])
 
   useEffect(() => {
     async function loadSections() {
@@ -101,40 +119,74 @@ export default function AssignRegulationToStudentsPage() {
     void loadSections()
   }, [collegeId, courseId, courseGroupId, courseYearId, academicYearId])
 
+  const loadStudents = useCallback(async () => {
+    if (!collegeId || !courseGroupId || !groupSectionId) {
+      setRows([])
+      setTableEnabled(false)
+      return
+    }
+    setLoading(true)
+    setTableEnabled(true)
+    setBulkRegulationId(null)
+    try {
+      const [list, regs] = await Promise.all([
+        listStudentsForPromotionPreview({ collegeId, courseGroupId, groupSectionId }),
+        courseId ? listRegulationsByCourse(courseId) : Promise.resolve([] as AnyRow[]),
+      ])
+      setRegulations(Array.isArray(regs) ? regs : [])
+      const normalizedRows = (Array.isArray(list) ? list : []).map((row, idx) => ({
+        ...row,
+        __rowKey: `${n(row.studentId ?? row.fk_student_id) || idx + 1}`,
+        isStudentModification: false,
+        assignedRegulationId: n(row.regulationId ?? row.assignedRegulationId ?? row.fk_regulation_id) || null,
+      }))
+      setRows(normalizedRows)
+    } catch {
+      setRows([])
+      setRegulations([])
+      toastError('Failed to load students')
+    } finally {
+      setLoading(false)
+    }
+  }, [collegeId, courseGroupId, groupSectionId, courseId])
+
   useEffect(() => {
-    if (!courseId) return setRegulations([])
-    listRegulationsByCourse(courseId).then(setRegulations).catch(() => setRegulations([]))
-  }, [courseId])
+    void loadStudents()
+  }, [loadStudents])
 
   const regulationOptions = useMemo(
     () => regulations.map((reg) => ({
       value: String(n(reg.regulationId ?? reg.pk_regulation_id)),
-      label: s(reg.regulationCode) || s(reg.regulationName) || String(n(reg.regulationId ?? reg.pk_regulation_id)),
+      label: s(reg.regulationName) || s(reg.regulationCode) || String(n(reg.regulationId ?? reg.pk_regulation_id)),
     })),
     [regulations],
   )
 
   function updateRowRegulation(rowKey: string, nextId: number | null) {
-    setRows((prev) => prev.map((r) => (r.__rowKey === rowKey ? { ...r, assignedRegulationId: nextId } : r)))
+    setRows((prev) => prev.map((r) => (r.__rowKey === rowKey ? { ...r, assignedRegulationId: nextId, regulationId: nextId } : r)))
+  }
+
+  /** Angular `selectedRegulation` — apply one regulation to every loaded student. */
+  function applyBulkRegulation(regulationId: number | null) {
+    setBulkRegulationId(regulationId)
+    if (regulationId == null) return
+    setRows((prev) => prev.map((r) => ({ ...r, assignedRegulationId: regulationId, regulationId })))
   }
 
   async function onSave() {
     if (rows.length === 0) return
-    const payload = rows
-      .filter((row) => n(row.assignedRegulationId) > 0)
-      .map((row) => ({
-        ...row,
-        regulationId: n(row.assignedRegulationId),
-      }))
-    if (payload.length === 0) {
-      toastError('Select regulation for at least one student')
-      return
-    }
+    // Angular posts the full students array via addStudentslist
+    const payload = rows.map((row) => ({
+      ...row,
+      regulationId: n(row.assignedRegulationId) || null,
+      isStudentModification: false,
+    }))
 
     setSaving(true)
     try {
       await submitAssignedStudentRegulations(payload)
       toastSuccess('Student regulations saved successfully')
+      await loadStudents()
     } catch {
       toastError('Failed to save student regulations')
     } finally {
@@ -142,69 +194,53 @@ export default function AssignRegulationToStudentsPage() {
     }
   }
 
-  useEffect(() => {
-    async function loadStudentsBySection() {
-      if (!collegeId || !courseGroupId || !groupSectionId) {
-        setRows([])
-        setTableEnabled(false)
-        return
-      }
-      setLoading(true)
-      setTableEnabled(true)
-      const list = await listStudentsForPromotionPreview({
-        collegeId,
-        courseGroupId,
-        groupSectionId,
-      }).catch(() => [])
-      const normalizedRows = (Array.isArray(list) ? list : []).map((row, idx) => ({
-        ...row,
-        __rowKey: `${n(row.studentId ?? row.fk_student_id) || idx + 1}`,
-        assignedRegulationId: n(row.assignedRegulationId ?? row.regulationId ?? row.fk_regulation_id) || null,
-      }))
-      setRows(normalizedRows)
-      setLoading(false)
-    }
-    void loadStudentsBySection()
-  }, [collegeId, courseGroupId, groupSectionId])
-
   function regulationRenderer(p: ICellRendererParams<AnyRow>) {
     const row = p.data
     if (!row) return null
     const selected = n(row.assignedRegulationId)
     return (
-      <select
-        className="h-8 min-w-[120px] rounded border border-input bg-background px-2 text-sm"
-        value={selected > 0 ? String(selected) : ''}
-        onChange={(e) => {
-          const nextId = Number(e.target.value) || null
-          updateRowRegulation(s(row.__rowKey), nextId)
-        }}
-      >
-        <option value="">Select</option>
-        {regulationOptions.map((reg) => <option key={reg.value} value={reg.value}>{reg.label}</option>)}
-      </select>
+      <Select
+        value={selected > 0 ? String(selected) : null}
+        onChange={(v) => updateRowRegulation(s(row.__rowKey), v ? Number(v) : null)}
+        options={regulationOptions}
+        placeholder="Regulation"
+        className="min-w-[140px]"
+      />
     )
   }
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(() => [
-    { headerName: 'SI.No', valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1, minWidth: 70, maxWidth: 85, flex: 0 },
     {
-      headerName: 'Student Name',
-      minWidth: 220,
-      flex: 1.3,
-      valueGetter: (p) => s(p.data?.studentName ?? p.data?.student_name ?? p.data?.firstName ?? '-'),
+      headerName: 'No.',
+      valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1,
+      minWidth: 70,
+      maxWidth: 85,
+      flex: 0,
     },
     {
-      headerName: 'Register No',
-      minWidth: 150,
+      headerName: 'Admission No',
+      minWidth: 140,
       flex: 1,
-      valueGetter: (p) => s(p.data?.registerNo ?? p.data?.register_number ?? p.data?.rollNumber ?? p.data?.hallticketNumber ?? '-'),
+      valueGetter: (p) => s(p.data?.admissionNumber ?? p.data?.admission_no ?? p.data?.admissionNo) || '',
+    },
+    {
+      headerName: 'Student Name',
+      minWidth: 240,
+      flex: 1.4,
+      valueGetter: (p) => {
+        const name = s(p.data?.firstName ?? p.data?.studentName ?? p.data?.student_name ?? '-')
+        const roll = s(p.data?.rollNumber ?? p.data?.roll_number ?? p.data?.hallticketNumber ?? p.data?.registerNo)
+        return roll ? `${name} (${roll})` : name
+      },
+      cellStyle: { color: 'hsl(var(--primary))' },
     },
     {
       headerName: 'Regulation',
-      minWidth: 140,
-      flex: 0.8,
+      minWidth: 180,
+      flex: 1,
       cellRenderer: regulationRenderer,
+      sortable: false,
+      filter: false,
     },
   ], [regulationOptions])
 
@@ -231,14 +267,25 @@ export default function AssignRegulationToStudentsPage() {
       rowData={tableEnabled ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
-      toolbar={{ search: true, searchPlaceholder: 'Search students' }}
+      toolbar={{ search: true, searchPlaceholder: 'Search' }}
+      toolbarLeading={
+        tableEnabled && rows.length > 0 ? (
+          <Select
+            value={bulkRegulationId ? String(bulkRegulationId) : null}
+            onChange={(v) => applyBulkRegulation(v ? Number(v) : null)}
+            options={regulationOptions}
+            placeholder="Regulation"
+            className="min-w-[180px]"
+          />
+        ) : null
+      }
       getRowId={(p) => s((p.data as AnyRow)?.__rowKey)}
       pagination
       paginationPageSize={10}
     >
-      {tableEnabled ? (
+      {tableEnabled && rows.length > 0 ? (
         <div className="mt-3 flex items-end justify-end gap-2">
-          <Button type="button" className="h-9" disabled={rows.length === 0 || saving} onClick={() => { void onSave() }}>
+          <Button type="button" className="h-9" disabled={saving} onClick={() => { void onSave() }}>
             Save
           </Button>
         </div>
@@ -246,4 +293,3 @@ export default function AssignRegulationToStudentsPage() {
     </FilteredListPage>
   )
 }
-

@@ -516,6 +516,8 @@ export const QK = {
       ["Admission", "allotments", "list", collegeId] as const,
     admissionAllotmentConsolidate: (collegeId: number) =>
       ["Admission", "allotments", "consolidate", collegeId] as const,
+    admissionAllotmentDetails: (univAdmissionAllotmentId: number) =>
+      ["Admission", "allotments", "details", univAdmissionAllotmentId] as const,
   },
 
   // ── Affiliated Colleges ───────────────────────────────────────────────────

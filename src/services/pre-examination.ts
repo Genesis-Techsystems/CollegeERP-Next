@@ -1793,8 +1793,9 @@ export async function listExamFeeReceipts(params: {
   studentId: number;
   examId: number;
 }): Promise<AnyRow[]> {
-  // Exact Angular query parity:
-  // /domain/list/ExamFeeReceipt?size=99999&query=exam.examId==<id>.and.studentDetail.studentId==<id>.and.isActive==true
+  // Exact Angular getExamFeeReceipts():
+  // /domain/list/ExamFeeReceipt?size=99999&query=exam.examId==X.and.studentDetail.studentId==Y.and.isActive==true
+  if (!params.studentId || !params.examId) return [];
   try {
     const { NEXT_API } = await import("@/config/constants/api");
     const rawQuery = `exam.examId==${params.examId}.and.studentDetail.studentId==${params.studentId}.and.isActive==true`;
@@ -1808,59 +1809,11 @@ export async function listExamFeeReceipts(params: {
       body?.resultList ??
       body?.data ??
       body?.result ??
-      body ??
       []) as AnyRow[];
-    if (Array.isArray(rows)) {
-      if (rows.length > 0) return rows;
-      // Successful empty list — do not fan out through every fallback query.
-      if (res.ok && body?.success !== false) return [];
-    }
+    return Array.isArray(rows) ? rows : [];
   } catch {
-    // continue to fallback variants
+    return [];
   }
-
-  const queries = [
-    buildQuery({
-      "studentDetail.studentId": params.studentId,
-      "exam.examId": params.examId,
-      isActive: true,
-    }),
-    buildQuery({
-      "StudentDetail.studentId": params.studentId,
-      "Exam.examId": params.examId,
-      isActive: true,
-    }),
-    buildQuery({
-      "examMaster.examId": params.examId,
-      studentId: params.studentId,
-      isActive: true,
-    }),
-  ];
-
-  for (const q of queries) {
-    try {
-      const rows = await domainList<AnyRow>("ExamFeeReceipt", q);
-      if (Array.isArray(rows)) return rows;
-    } catch {
-      // fallback query shape
-    }
-  }
-
-  // Legacy endpoint fallback used by old Angular flow
-  try {
-    const data = await fetchDetails<any>("examFeeReceipt", {
-      examId: params.examId,
-      studentId: params.studentId,
-      isActive: "true",
-    });
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.resultList)) return data.resultList;
-    if (Array.isArray(data?.result)) return data.result;
-    if (Array.isArray(data?.data)) return data.data;
-  } catch {
-    // ignore
-  }
-  return [];
 }
 
 /**
@@ -1928,10 +1881,11 @@ export async function listPaymentModes(): Promise<AnyRow[]> {
 
 /**
  * Exam fee receipt save — Angular payExamFees(): crudService.add(examFeeReceiptUrl, examFeeReceipt[]).
- * POSTs the array of receipt objects (one per course-year) to the legacy save endpoint.
+ * POSTs the array of receipt objects (one per course-year) to `/cms/examfeereceipt`
+ * (browser: `/api/proxy/examfeereceipt`).
  */
 export async function payExamFeeReceipts(payload: AnyRow[]): Promise<any> {
-  return postDetails<any>("examFeeReceipt", payload);
+  return postDetails<any>(EXAM_API.EXAM_FEE_RECEIPT, payload);
 }
 
 /**
@@ -2263,22 +2217,30 @@ export async function getStudentAcademicBatches(
 
 /**
  * Exam master details — Angular getExamDetails():
- * ExamMasterDetails by exam + courseGroup + regulation. Used to derive Regular/Supple course-years.
+ * ExamMasterDetails?query=examMaster.examId==X.and.CourseGroup.courseGroupId==Y.and.Regulation.regulationId==Z.and.isActive==true
+ *
+ * One request only (no fallback fan-out) so network parity matches Angular.
  */
 export async function getExamMasterDetailsByGroup(params: {
   examId: number;
   courseGroupId: number;
   regulationId: number;
 }): Promise<AnyRow[]> {
-  return domainList<AnyRow>(
-    "ExamMasterDetails",
-    buildQuery({
-      "examMaster.examId": params.examId,
-      "courseGroup.courseGroupId": params.courseGroupId,
-      "regulation.regulationId": params.regulationId,
-      isActive: true,
-    }),
-  );
+  const { examId, courseGroupId, regulationId } = params;
+  if (!examId || !courseGroupId) return [];
+
+  const q = buildQuery({
+    "examMaster.examId": examId,
+    "CourseGroup.courseGroupId": courseGroupId,
+    "Regulation.regulationId": regulationId || 0,
+    isActive: true,
+  });
+  try {
+    const rows = await domainList<AnyRow>("ExamMasterDetails", q);
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -2507,7 +2469,7 @@ export async function getStudentExamFeeStructure(params: {
   courseGroupId: number;
   courseYearId: number;
 }): Promise<AnyRow | null> {
-  // Exact legacy endpoint parity:
+  // Exact Angular getExamFeeStructure():
   // /getStudentExamFeeStructure?collegeId=&examId=&courseGroupId=&courseYearId=
   try {
     const { NEXT_API } = await import("@/config/constants/api");
@@ -2523,39 +2485,7 @@ export async function getStudentExamFeeStructure(params: {
     const body = await res.json().catch(() => null);
     const row = body?.data ?? body?.result ?? body;
     if (row && typeof row === "object" && !Array.isArray(row)) return row;
-  } catch {
-    // fall through
-  }
-
-  // Legacy API used by Angular: getStudentExamFeeStructure?collegeId=&examId=&courseGroupId=&courseYearId=
-  try {
-    const data = await fetchDetails<any>("getStudentExamFeeStructure", {
-      collegeId: params.collegeId,
-      examId: params.examId,
-      courseGroupId: params.courseGroupId,
-      courseYearId: params.courseYearId,
-    });
-    if (data && typeof data === "object") return data;
-  } catch {
-    // fall through
-  }
-  // Fallback to domain shape if available
-  try {
-    const rows = await domainList<AnyRow>(
-      "ExamFeeStructure",
-      buildQuery(
-        {
-          "College.collegeId": params.collegeId,
-          "ExamMaster.examId": params.examId,
-          "CourseGroup.courseGroupId": params.courseGroupId,
-          "CourseYear.courseYearId": params.courseYearId,
-          isActive: true,
-        },
-        { field: "createdDt", direction: "DESC" },
-      ),
-    );
-    const one = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
-    return one ?? null;
+    return null;
   } catch {
     return null;
   }

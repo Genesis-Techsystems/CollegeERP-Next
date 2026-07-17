@@ -1,6 +1,14 @@
 import { SUBJECT_API } from '@/config/constants/api'
 import { buildQuery } from '@/services/query'
-import { domainCreate, domainList, domainUpdate, fetchDetails, postDetails } from '@/services/crud'
+import {
+  domainCreate,
+  domainList,
+  domainUpdate,
+  fetchDetails,
+  getAllRecords,
+  postDetails,
+  putDetails,
+} from '@/services/crud'
 import { listSubjectRegulationsByRegulation } from './semester-subject-allocation'
 
 type AnyRow = Record<string, any>
@@ -18,14 +26,46 @@ function unwrapGroupYearListPayload(data: unknown): AnyRow[] {
   return []
 }
 
-function isListPayload(data: unknown): boolean {
-  if (Array.isArray(data)) return true
-  if (data && typeof data === 'object') {
-    const o = data as AnyRow
-    if (Array.isArray(o.resultList)) return true
-    if (Array.isArray(o.content)) return true
+/**
+ * Angular assign-subject-unit `getfilterDetails`:
+ * `s_get_collegewisedetails_bycode` with `in_flag: univ_curr_filters`
+ * (includes `fk_regulation_id` / `regulation_code` on cascade rows).
+ */
+export async function getUnivCurrFilters(
+  organizationId: number,
+  employeeId: number,
+): Promise<{ filtersData: AnyRow[] }> {
+  const data = await getAllRecords<{ result?: AnyRow[][] }>('s_get_collegewisedetails_bycode', {
+    in_flag: 'univ_curr_filters',
+    in_org_id: organizationId || 0,
+    in_college_id: 0,
+    in_course_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_group_section_id: 0,
+    in_academic_year_id: 0,
+    in_dept_id: 0,
+    in_isadmin: 0,
+    in_loginuser_empid: employeeId || 0,
+    in_loginuser_roleid: 0,
+    in_subject: '',
+    in_employee: '',
+    in_gm_codes: '',
+  }).catch(() => ({ result: [] as AnyRow[][] }))
+
+  const groups = Array.isArray(data?.result) ? data.result : []
+  let filtersData: AnyRow[] = []
+  for (const arr of groups) {
+    if (Array.isArray(arr) && arr.length > 0 && arr[0]?.flag === 'univ_curr_filters') {
+      filtersData = arr
+      break
+    }
   }
-  return false
+  if (filtersData.length === 0) {
+    const first = groups.find((g) => Array.isArray(g) && g.length > 0)
+    if (first) filtersData = first
+  }
+  return { filtersData }
 }
 
 export async function listSubjectUnitTopics(params: {
@@ -36,23 +76,16 @@ export async function listSubjectUnitTopics(params: {
   const { collegeId, academicYearId, groupSectionId } = params
   if (!collegeId || !academicYearId || !groupSectionId) return []
 
-  const paths = ['subjectunittopics', 'subjectunitdetails', 'subjectunit']
-  const queries: Array<Record<string, string | number>> = [
-    { collegeId, academicYearId, groupSectionId },
-    { college_id: collegeId, academic_year_id: academicYearId, group_section_id: groupSectionId },
-  ]
-
-  for (const path of paths) {
-    for (const query of queries) {
-      try {
-        const rows = await fetchDetails<AnyRow[]>(path, query)
-        if (Array.isArray(rows)) return rows
-      } catch {
-        // try next path/query
-      }
-    }
+  try {
+    const rows = await fetchDetails<AnyRow[]>('subjectunittopics', {
+      collegeId,
+      academicYearId,
+      groupSectionId,
+    })
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
   }
-  return []
 }
 
 export async function saveSubjectUnitTopic(payload: AnyRow): Promise<void> {
@@ -84,7 +117,6 @@ function subjectUnitPk(row: AnyRow): number {
 }
 
 export type ListSubjectUnitsParams = {
-  /** Angular/CMS-only: compound filter on SubjectUnit — no Subjectregulation/subjectunit GET probes */
   courseYearId?: number
   regulationId?: number
   subjectId?: number
@@ -107,8 +139,8 @@ function buildSubjectUnitCyRegSubjectQuery(
 }
 
 /**
- * Matches CMS: `/domain/list/SubjectUnit?query=CourseYear...and.Regulation...and.Subject...and.isActive==true.order(sortOrder=ASC)`
- * At most two HTTP calls (`SubjectUnit` then legacy-cased entity name).
+ * Angular `listDetailsByFourIds(SubjectUnit, courseYearId, regulationId, subjectId, true,
+ * CourseYear.courseYearId, Regulation.regulationId, Subject.subjectId, isActive)`.
  */
 export async function listSubjectUnits(params: ListSubjectUnitsParams): Promise<AnyRow[]> {
   const courseYearId = n(params.courseYearId)
@@ -118,17 +150,50 @@ export async function listSubjectUnits(params: ListSubjectUnitsParams): Promise<
 
   const query = buildSubjectUnitCyRegSubjectQuery(courseYearId, regulationId, subjectId)
   try {
-    return await domainList<AnyRow>('SubjectUnit', query)
+    const rows = await domainList<AnyRow>('SubjectUnit', query)
+    return sortSubjectUnits(rows)
   } catch {
     try {
-      return await domainList<AnyRow>('Subjectunit', query)
+      return sortSubjectUnits(await domainList<AnyRow>('Subjectunit', query))
     } catch {
       return []
     }
   }
 }
 
-/** Unused: listing no longer filters by regulation id alone (avoid extra domain/GET spam). */
+function sortSubjectUnits(rows: AnyRow[]): AnyRow[] {
+  return [...rows].sort((a, b) => {
+    const ao = a.sortOrder
+    const bo = b.sortOrder
+    if (ao == null && bo == null) return 0
+    if (ao == null) return 1
+    if (bo == null) return -1
+    return Number(ao) - Number(bo)
+  })
+}
+
+/**
+ * Angular `addSubjectUnits` → `crudService.add('subjectunits', units)`.
+ */
+export async function saveSubjectUnitsBatch(units: AnyRow[]): Promise<void> {
+  if (!Array.isArray(units) || units.length === 0) {
+    throw new Error('No subject units to save')
+  }
+  await postDetails(SUBJECT_API.SUBJECT_UNITS, units)
+}
+
+/**
+ * Angular lesson planning → `crudService.update('updateSubjectUnitTopic', payload)`.
+ */
+export async function updateSubjectUnitTopics(
+  rows: Array<{ subjectUnitTopicId: number; fromPeriod: number; toPeriod: number }>,
+): Promise<void> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error('No session numbers entered.')
+  }
+  await putDetails(SUBJECT_API.UPDATE_SUBJECT_UNIT_TOPIC, rows)
+}
+
 export async function listSubjectUnitsBySubjectRegulation(_subjectRegulationId: number): Promise<AnyRow[]> {
   return []
 }
@@ -151,10 +216,6 @@ function finalizeSavedUnitRow(
   }
 }
 
-/**
- * Create or update a subject unit via domain API, with Angular-style POST fallback.
- * Returns a row shape suitable for the grid (IDs from server when present).
- */
 export async function saveSubjectUnit(payload: AnyRow): Promise<AnyRow> {
   const subjectRegulationId = Number(
     payload.subjectRegulationId
@@ -216,6 +277,10 @@ export async function saveSubjectUnit(payload: AnyRow): Promise<AnyRow> {
   return finalizeSavedUnitRow(subjectRegulationId, core, subjectUnitId, payload)
 }
 
+/**
+ * Angular `getSubjectsByRegulation`:
+ * GET groupyrregulationdetails?coursegroupId=&courseyearId=&regulationId=
+ */
 export async function listGroupYearRegulationDetails(params: {
   coursegroupId: number
   courseyearId: number
@@ -224,36 +289,18 @@ export async function listGroupYearRegulationDetails(params: {
   const { coursegroupId, courseyearId, regulationId } = params
   if (!coursegroupId || !courseyearId || !regulationId) return []
 
-  const paths = [
-    SUBJECT_API.GROUP_YR_REGULATION_DETAILS,
-    'groupyrregulationdetails',
-    'groupYrRegulationDetails',
-  ]
-  const queries: Array<Record<string, string | number>> = [
-    { coursegroupId, courseyearId, regulationId },
-    { courseGroupId: coursegroupId, courseYearId: courseyearId, regulationId },
-    { course_group_id: coursegroupId, course_year_id: courseyearId, regulation_id: regulationId },
-    { courseGroupId: coursegroupId, courseYearId: courseyearId, regulationid: regulationId },
-  ]
-
-  for (const path of paths) {
-    for (const query of queries) {
-      try {
-        const raw = await fetchDetails<unknown>(path, query)
-        if (isListPayload(raw)) return unwrapGroupYearListPayload(raw)
-      } catch {
-        // try next variant
-      }
-    }
+  try {
+    const raw = await fetchDetails<unknown>(SUBJECT_API.GROUP_YR_REGULATION_DETAILS, {
+      coursegroupId,
+      courseyearId,
+      regulationId,
+    })
+    return unwrapGroupYearListPayload(raw)
+  } catch {
+    return []
   }
-
-  return []
 }
 
-/**
- * Angular "Assign Units" needs `subjectRegulationId`. The group-year-regulation DTO often only
- * carries `subjectId` + regulation context — match the university curriculum screen (`subjecttypeCode`).
- */
 export async function findSubjectRegulationIdBySubjectAndRegulation(
   subjectId: number,
   regulationId: number,
@@ -315,11 +362,6 @@ function subjectRegulationIdFromSubjectRegulationApiRow(sr: AnyRow): number {
   )
 }
 
-/**
- * Fill `subjectRegulationId` for Assign Units links.
- * Prefer GET `subjectregulations` (same as semester allocation) — it returns ids per subject for the college/AY/group/year/regulation.
- * Fallback: domain list `Subjectregulation` by subject + regulation.
- */
 export async function enrichGroupYearRegulationRows(
   rows: AnyRow[],
   params: EnrichGroupYearRegulationRowsParams,
@@ -385,7 +427,6 @@ export async function enrichGroupYearRegulationRows(
   return out
 }
 
-/** Resolve `subjectRegulationId` for Add Subject Units when the URL only has subject + filter context. */
 export async function resolveSubjectRegulationForAssignUnits(params: {
   subjectRegulationId?: number
   subjectId?: number
@@ -428,4 +469,3 @@ export async function resolveSubjectRegulationForAssignUnits(params: {
   }
   return findSubjectRegulationIdBySubjectAndRegulation(subjectId, regulationId)
 }
-

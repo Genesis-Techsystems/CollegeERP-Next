@@ -524,6 +524,42 @@ class CrudService {
   }
 
   /**
+   * PUT JSON to a non-domain API endpoint, returning the FULL response envelope
+   * without throwing on `success: false`. Use when the caller must inspect a
+   * soft-failure payload (e.g. modify-student-section attendance conflicts).
+   */
+  async putDetailsEnvelope<T = unknown>(
+    path: string,
+    data: unknown,
+    params?: Record<string, string | number>,
+  ): Promise<ApiResponse<T>> {
+    let url = `${this.base}/${path}`
+    if (params && Object.keys(params).length > 0) {
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+      )
+      url += `?${qs}`
+    }
+
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      throw parseApiError(res, body)
+    }
+
+    const text = await res.text()
+    if (!text) {
+      return { statusCode: 200, success: true, message: '', data: null }
+    }
+    return JSON.parse(text) as ApiResponse<T>
+  }
+
+  /**
    * PUT JSON to a non-domain API endpoint.
    * Use this for custom PUT paths that are NOT the standard domain/update/{Entity} pattern.
    *
@@ -658,6 +694,12 @@ export const postDetails = <T = void>(path: string, data: unknown): Promise<T> =
 
 export const postDetailsEnvelope = <T = unknown>(path: string, data: unknown): Promise<ApiResponse<T>> =>
   crud.postDetailsEnvelope<T>(path, data)
+
+export const putDetailsEnvelope = <T = unknown>(
+  path: string,
+  data: unknown,
+  params?: Record<string, string | number>,
+): Promise<ApiResponse<T>> => crud.putDetailsEnvelope<T>(path, data, params)
 
 export const putDetails = <T = void>(
   path: string,

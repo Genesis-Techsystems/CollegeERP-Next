@@ -218,17 +218,23 @@ export type AdmissionAllotmentPayload = {
 }
 
 export type AdmissionAllotmentDetailRow = {
+  univAdmissionAllotmentDetailsId?: number
+  /** Legacy/alias PK some API payloads still return */
   univAdmissionAllotmentDetId?: number
   univAdmissionAllotmentId?: number
+  collegeId?: number
   collegeCode?: string
   courseCode?: string
   courseGroup?: string
   courseGroupCode?: string
   batchName?: string
+  quotaCatdetId?: number
   quotaCatdetName?: string
   quotaCatdetCode?: string
   allocatedSeats?: number
   filledSeats?: number
   lastdayOfCounselling?: string
+  isCounselling?: boolean
   isActive?: boolean
+  reason?: string
 }

@@ -7,45 +7,13 @@ import {
   postDetails,
 } from "@/services/crud";
 
-type AnyRow = Record<string, any>;
+type AnyRow = Record<string, any>
 
-function asSubjectCourseYearRows(data: unknown): AnyRow[] {
-  if (Array.isArray(data)) return data as AnyRow[];
-  if (data && typeof data === "object") {
-    const obj = data as Record<string, unknown>;
-    if (Array.isArray(obj.result)) return obj.result as AnyRow[];
-    if (Array.isArray(obj.resultList)) return obj.resultList as AnyRow[];
-    if (Array.isArray(obj.data)) return obj.data as AnyRow[];
-  }
-  return [];
-}
-
-/** Flatten Angular `subjectcourseyrs` row — pull subjectTypeId from staff mapping when needed. */
-function normalizeSubjectCourseYearRow(row: AnyRow): AnyRow {
-  const staff = Array.isArray(row.staffCourseyrSubjects)
-    ? row.staffCourseyrSubjects[0]
-    : null;
-  return {
-    ...row,
-    subjectId: Number(row.subjectId ?? staff?.subjectId ?? 0) || 0,
-    subjectCode: row.subjectCode ?? staff?.subjectCode ?? "",
-    subjectName: row.subjectName ?? staff?.subjectName ?? "",
-    subjectType: row.subjectType ?? staff?.subjectType ?? "",
-    subjecttypeId:
-      Number(
-        row.subjecttypeId ?? row.subjectTypeId ?? staff?.subjectTypeId ?? 0,
-      ) || 0,
-    subjectTypeId:
-      Number(
-        row.subjectTypeId ?? row.subjecttypeId ?? staff?.subjectTypeId ?? 0,
-      ) || 0,
-    credits:
-      Number(row.subCredits ?? row.credits ?? staff?.subCredits ?? 0) || 0,
-    subCredits:
-      Number(row.subCredits ?? row.credits ?? staff?.subCredits ?? 0) || 0,
-  };
-}
-
+/**
+ * Angular getSubjectCourseYears / Staff Subject Mapping list:
+ * GET subjectcourseyrs/?collegeid=&academicYearId=&groupSectionid=
+ * Browser: /api/proxy/subjectcourseyrs?... → upstream …/cms/subjectcourseyrs?...
+ */
 export async function listStaffSubjectRows(params: {
   collegeId: number;
   academicYearId: number;
@@ -54,28 +22,15 @@ export async function listStaffSubjectRows(params: {
   const { collegeId, academicYearId, groupSectionId } = params;
   if (!collegeId || !academicYearId || !groupSectionId) return [];
 
-  const paramVariants: Array<Record<string, string | number>> = [
-    { collegeId, academicYearId, groupSectionId },
-    { collegeId, academicYearId, groupsectionId: groupSectionId },
-    { collegeId, academicYearId, group_section_id: groupSectionId },
-  ];
-  const paths = [
-    SUBJECT_API.SUBJECT_COURSE_YEARS,
-    "subjectcourseyears",
-    "subjectCourseYears",
-  ];
-
-  for (const path of paths) {
-    for (const query of paramVariants) {
-      try {
-        const raw = await fetchDetails<unknown>(path, query);
-        const rows = asSubjectCourseYearRows(raw);
-        // Only accept non-empty — empty may be a wrong path/param variant.
-        if (rows.length > 0) return rows.map(normalizeSubjectCourseYearRow);
-      } catch {
-        // try next combination
-      }
-    }
+  try {
+    const rows = await fetchDetails<AnyRow[]>(SUBJECT_API.SUBJECT_COURSE_YEARS, {
+      collegeid: collegeId,
+      academicYearId,
+      groupSectionid: groupSectionId,
+    })
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
   }
 
   return [];
@@ -193,12 +148,60 @@ export async function listStaffMappingSections(params: {
   return [];
 }
 
+/** Angular course cell: collegeCode / academicYear / courseCode / groupCode / courseYearName / section */
+function buildStaffSubjectCourseDisplay(row: AnyRow): string {
+  const existing = String(row?.courseDisplay ?? '').trim()
+  if (existing) return existing
+  const parts = [
+    row?.collegeCode,
+    row?.academicYear,
+    row?.courseCode,
+    row?.groupCode,
+    row?.courseYearName,
+    row?.section,
+  ]
+    .map((v) => (v == null ? '' : String(v).trim()))
+    .filter((v) => v !== '')
+  if (parts.length > 0) return parts.join(' / ')
+  const fallback = String(row?.courseName ?? '').trim()
+  return fallback || '-'
+}
+
+function normalizeStaffSubjectMappingRows(rows: AnyRow[]): AnyRow[] {
+  return rows.map((r) => ({
+    ...r,
+    courseDisplay: buildStaffSubjectCourseDisplay(r),
+    subjectName: r.subjectName ?? '-',
+    subjectCode: r.subjectCode ?? '',
+    subjectType: r.subjectType ?? '-',
+    fromDate: r.fromDate ?? '',
+    toDate: r.toDate ?? '',
+    status: r.isActive === false ? 'inactive' : 'active',
+  }))
+}
+
+/**
+ * Angular `selectedEmployee` →
+ * `listDetailsById(StaffCourseyrSubject, employeeId, 'employeeDetail.employeeId')`
+ * → `result.data.resultList` (active + inactive; no college filter).
+ */
 export async function listEmployeeMappedSubjects(params: {
   collegeId: number;
   employeeId: number;
 }): Promise<AnyRow[]> {
   const { collegeId, employeeId } = params;
-  if (!collegeId || !employeeId) return [];
+  if (!employeeId) return [];
+
+  // Primary path — matches Angular staff-subject-unmapping list
+  try {
+    const rows = await domainList<AnyRow>(
+      EMPLOYEE_API.STAFF_COURSE_YR_SUBJECT,
+      buildQuery({ 'employeeDetail.employeeId': employeeId }),
+    )
+    return normalizeStaffSubjectMappingRows(rows)
+  } catch {
+    // fall through to legacy paths only if domain list fails
+  }
 
   const flattenFromSubjectRows = (rows: AnyRow[]) => {
     const flattened: AnyRow[] = [];
@@ -207,46 +210,29 @@ export async function listEmployeeMappedSubjects(params: {
         ? row.staffCourseyrSubjects
         : [];
       for (const map of mappings) {
-        const mappedEmpId = Number(map?.employeeId) || 0;
-        const active = map?.isActive !== false;
-        if (mappedEmpId !== employeeId || !active) continue;
+        const mappedEmpId = Number(map?.employeeId ?? map?.employeeDetail?.employeeId) || 0
+        if (mappedEmpId && mappedEmpId !== employeeId) continue
+        const active = map?.isActive !== false
         flattened.push({
           ...map,
-          courseDisplay:
-            String(row?.courseDisplay ?? "").trim() ||
-            [
-              row?.collegeCode,
-              row?.academicYear,
-              row?.courseCode,
-              row?.groupCode,
-              row?.courseYearName,
-              row?.section,
-            ]
-              .filter((v) => v != null && String(v).trim() !== "")
-              .join(" / "),
-          subjectName: row?.subjectName ?? map?.subjectName ?? "",
-          subjectCode: row?.subjectCode ?? map?.subjectCode ?? "",
-          subjectType: row?.subjectType ?? map?.subjectType ?? "",
-          fromDate: map?.fromDate ?? "",
-          toDate: map?.toDate ?? "",
-          status: active ? "active" : "inactive",
-        });
+          collegeCode: map?.collegeCode ?? row?.collegeCode,
+          academicYear: map?.academicYear ?? row?.academicYear,
+          courseCode: map?.courseCode ?? row?.courseCode,
+          groupCode: map?.groupCode ?? row?.groupCode,
+          courseYearName: map?.courseYearName ?? row?.courseYearName,
+          section: map?.section ?? row?.section,
+          courseDisplay: buildStaffSubjectCourseDisplay({ ...row, ...map }),
+          subjectName: row?.subjectName ?? map?.subjectName ?? '',
+          subjectCode: row?.subjectCode ?? map?.subjectCode ?? '',
+          subjectType: row?.subjectType ?? map?.subjectType ?? '',
+          fromDate: map?.fromDate ?? '',
+          toDate: map?.toDate ?? '',
+          status: active ? 'active' : 'inactive',
+        })
       }
     }
-    return flattened;
-  };
-
-  const normalizeDirectMappingRows = (rows: AnyRow[]) =>
-    rows.map((r) => ({
-      ...r,
-      courseDisplay: String(r.courseDisplay ?? r.courseName ?? "-"),
-      subjectName: r.subjectName ?? "-",
-      subjectCode: r.subjectCode ?? "",
-      subjectType: r.subjectType ?? "-",
-      fromDate: r.fromDate ?? "",
-      toDate: r.toDate ?? "",
-      status: r.isActive === false ? "inactive" : "active",
-    }));
+    return flattened
+  }
 
   const tryFetchFirstSuccess = async <T extends AnyRow>(
     paths: string[],
@@ -274,9 +260,10 @@ export async function listEmployeeMappedSubjects(params: {
     "subjectCourseYears",
   ];
   const subjectQueryVariants: Array<Record<string, string | number>> = [
-    { collegeId, employeeId },
-    { collegeId, employeeid: employeeId },
-    { college_id: collegeId, employee_id: employeeId },
+    ...(collegeId ? [{ collegeId, employeeId }] : []),
+    ...(collegeId ? [{ collegeId, employeeid: employeeId }] : []),
+    ...(collegeId ? [{ college_id: collegeId, employee_id: employeeId }] : []),
+    { employeeId },
   ];
   const subjectRows = await tryFetchFirstSuccess(
     subjectPathVariants,
@@ -288,20 +275,17 @@ export async function listEmployeeMappedSubjects(params: {
   }
 
   const mappingPathVariants = [
-    "staffcourseyrsubjects",
-    "staffCourseyrSubjects",
-  ];
-  const mappingQueryVariants: Array<Record<string, string | number | boolean>> =
-    [
-      { employeeId, collegeId, isActive: true },
-      { employeeId, collegeId },
-      { employeeid: employeeId, college_id: collegeId, is_active: true },
-    ];
-  const mappingRows = await tryFetchFirstSuccess(
-    mappingPathVariants,
-    mappingQueryVariants,
-  );
-  if (mappingRows.length > 0) return normalizeDirectMappingRows(mappingRows);
+    EMPLOYEE_API.STAFFCOURSEYRSUBJECTS,
+    'staffcourseyrsubjects',
+    'staffCourseyrSubjects',
+  ]
+  const mappingQueryVariants: Array<Record<string, string | number | boolean>> = [
+    { employeeId },
+    ...(collegeId ? [{ employeeId, collegeId }] : []),
+    ...(collegeId ? [{ employeeid: employeeId, college_id: collegeId }] : []),
+  ]
+  const mappingRows = await tryFetchFirstSuccess(mappingPathVariants, mappingQueryVariants)
+  if (mappingRows.length > 0) return normalizeStaffSubjectMappingRows(mappingRows)
 
   return [];
 }

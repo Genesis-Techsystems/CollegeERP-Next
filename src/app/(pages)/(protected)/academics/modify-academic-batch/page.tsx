@@ -37,6 +37,68 @@ function pickText(row: AnyRow | null | undefined, keys: string[]): string {
   return "";
 }
 
+/** Mirrors Angular `genericFunctions.momentWithTime()`. */
+const toDateTime = (d: Date | null): string => {
+  if (!d) return "";
+  const p = (x: number) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+};
+
+/** Mirrors Angular `genericFunctions.momentBeforeDayWithDate()`. */
+const dayBefore = (d: Date | null): string => {
+  if (!d) return "";
+  const prev = new Date(d);
+  prev.setDate(prev.getDate() - 1);
+  return toDateTime(prev);
+};
+
+function formatBatchDate(value: unknown): string {
+  if (!value) return "";
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatDateRange(from: unknown, to: unknown): string {
+  if (!from) return "-";
+  const start = formatBatchDate(from);
+  const end = to ? formatBatchDate(to) : "";
+  return end ? `${start} - ${end}` : start;
+}
+
+function studentDisplayName(row: AnyRow | undefined): string {
+  return (
+    s(
+      row?.studentFirstName ??
+        row?.studentName ??
+        row?.student_name ??
+        row?.firstName ??
+        row?.fullName,
+    ) || "-"
+  );
+}
+
+type MarkAllHeaderParams = IHeaderParams & {
+  checked: boolean;
+  onToggle: (checked: boolean) => void;
+};
+
+function MarkAllHeader(props: MarkAllHeaderParams) {
+  return (
+    <label className="flex h-full w-full cursor-pointer items-center gap-1.5 px-1 text-[12px] font-medium leading-none">
+      <input
+        type="checkbox"
+        checked={props.checked}
+        onChange={(e) => props.onToggle(e.target.checked)}
+      />
+      <span>{props.checked ? "UnMark All" : "Mark All"}</span>
+    </label>
+  );
+
 export default function ModifyAcademicBatchPage() {
   const [searchRows, setSearchRows] = useState<AnyRow[]>([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
@@ -94,6 +156,26 @@ export default function ModifyAcademicBatchPage() {
           pickText(p.data, ["firstName", "studentName"]) || "-",
       },
       {
+        headerName: "",
+        minWidth: 130,
+        width: 130,
+        flex: 0,
+        sortable: false,
+        filter: false,
+        headerComponent: MarkAllHeader,
+        headerComponentParams: {
+          checked: allSelected,
+          onToggle: (checked: boolean) => toggleAllRef.current(checked),
+        },
+        cellRenderer: (p: ICellRendererParams<AnyRow>) => (
+          <div className="flex h-full items-center px-1">
+            <input
+              type="checkbox"
+              checked={selectedIds.has(s(p.data?.__rowKey))}
+              onChange={(e) => toggleRow(s(p.data?.__rowKey), e.target.checked)}
+            />
+          </div>
+        ),
         headerName: "Course Name",
         minWidth: 180,
         valueGetter: (p) =>

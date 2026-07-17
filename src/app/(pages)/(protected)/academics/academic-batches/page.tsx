@@ -1,375 +1,518 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { List, Pencil } from 'lucide-react'
-import { StatusBadge } from '@/common/components/data-display'
-import { FormModal } from '@/common/components/feedback'
-import { DatePicker } from '@/common/components/date-picker'
-import { Select } from '@/common/components/select'
-import { FilteredListPage } from '@/components/layout'
-import { Input } from '@/components/ui/input'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { listAcademicBatchesOfStudent, listStudents, updateAcademicBatchRecord } from '@/services'
+import { useEffect, useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { Pencil } from "lucide-react";
+import { StatusBadge } from "@/common/components/data-display";
+import { FormModal } from "@/common/components/feedback";
+import { DatePicker } from "@/common/components/date-picker";
+import { Select } from "@/common/components/select";
+import { FilteredListPage } from "@/components/layout";
+import { Input } from "@/components/ui/input";
+import { GM_CODES } from "@/config/constants/ui";
+import { toastError, toastSuccess } from "@/lib/toast";
+import {
+  getGeneralDetails,
+  listAcademicBatchesOfStudent,
+  listAcademicYears,
+  listCourseGroupsByCourse,
+  listCourseYearsByCourse,
+  listGroupSections,
+  listRegulationsByCourse,
+  listStudents,
+  updateAcademicBatchRecord,
+} from "@/services";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, any>;
 
-const n = (v: unknown) => Number(v) || 0
+const n = (v: unknown) => Number(v) || 0;
 const s = (v: unknown) => {
-  if (typeof v === 'string') return v
-  if (typeof v === 'number') return String(v)
-  return ''
+  if (typeof v === "string") return v;
+  if (typeof v === "number") return String(v);
+  return "";
+};
+
+/** Mirrors Angular `genericFunctions.momentWithTime()`. */
+function toDateTime(d: Date | null): string | null {
+  if (!d || Number.isNaN(d.getTime())) return null;
+  const p = (x: number) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-function pickText(obj: AnyRow | null | undefined, keys: string[]): string {
-  if (!obj) return ''
-  for (const key of keys) {
-    const parts = key.split('.')
-    let cur: any = obj
-    for (const p of parts) {
-      cur = cur?.[p]
-    }
-    const out = s(cur).trim()
-    if (out) return out
-  }
-  return ''
+function formatDateText(v: unknown) {
+  if (!v) return "-";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return s(v);
+  return d.toLocaleString();
 }
 
-function pickIdText(obj: AnyRow | null | undefined, keys: string[]): string {
-  if (!obj) return ''
-  for (const key of keys) {
-    const parts = key.split('.')
-    let cur: any = obj
-    for (const p of parts) cur = cur?.[p]
-    const raw = cur ?? ''
-    const out = String(raw).trim()
-    if (out && out !== '0' && out !== 'null' && out !== 'undefined') return out
-  }
-  return ''
+function sectionText(row: AnyRow, kind: "from" | "to") {
+  return kind === "from"
+    ? s(
+        row.fromGroupSectionName ??
+          row.fromSectionName ??
+          row.from_section_name ??
+          row.fromSection,
+      )
+    : s(
+        row.toGroupSectionName ??
+          row.toSectionName ??
+          row.to_section_name ??
+          row.toSection,
+      );
+}
+
+function idStr(v: unknown): string | null {
+  const num = n(v);
+  return num > 0 ? String(num) : null;
+}
+
+function makeActionsRenderer(onEdit: (row: AnyRow) => void) {
+  return (p: ICellRendererParams<AnyRow>) => (
+    <button
+      type="button"
+      className="text-primary"
+      aria-label="Edit record"
+      onClick={() => onEdit((p.data ?? {}) as AnyRow)}
+    >
+      <Pencil className="h-3.5 w-3.5" />
+    </button>
+  );
 }
 
 export default function AcademicBatchesPage() {
-  const [searchRows, setSearchRows] = useState<AnyRow[]>([])
-  const [loadingSearch, setLoadingSearch] = useState(false)
-  const [studentId, setStudentId] = useState<number | null>(null)
-  const [studentHistoryRows, setStudentHistoryRows] = useState<AnyRow[]>([])
-  const [loadingHistory, setLoadingHistory] = useState(false)
-  const [tableSearch, setTableSearch] = useState('')
-  const [editOpen, setEditOpen] = useState(false)
-  const [editRow, setEditRow] = useState<AnyRow | null>(null)
-  const [editAcademicYear, setEditAcademicYear] = useState<string | null>(null)
-  const [editRegulation, setEditRegulation] = useState<string | null>(null)
-  const [editCourseGroup, setEditCourseGroup] = useState<string | null>(null)
-  const [editFromCourseYear, setEditFromCourseYear] = useState<string | null>(null)
-  const [editFromSection, setEditFromSection] = useState<string | null>(null)
-  const [editFromDate, setEditFromDate] = useState<Date | null>(null)
-  const [editToCourseYear, setEditToCourseYear] = useState<string | null>(null)
-  const [editToSection, setEditToSection] = useState<string | null>(null)
-  const [editToDate, setEditToDate] = useState<Date | null>(null)
-  const [editStudentStatus, setEditStudentStatus] = useState<string | null>(null)
-  const [editIsActive, setEditIsActive] = useState(true)
-  const [editReason, setEditReason] = useState('')
-  const [savingEdit, setSavingEdit] = useState(false)
+  const [searchRows, setSearchRows] = useState<AnyRow[]>([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [studentId, setStudentId] = useState<number | null>(null);
+  const [studentHistoryRows, setStudentHistoryRows] = useState<AnyRow[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState<AnyRow | null>(null);
+  const [editAcademicYearId, setEditAcademicYearId] = useState<string | null>(
+    null,
+  );
+  const [editRegulationId, setEditRegulationId] = useState<string | null>(null);
+  const [editCourseGroupId, setEditCourseGroupId] = useState<string | null>(
+    null,
+  );
+  const [editFromCourseYearId, setEditFromCourseYearId] = useState<
+    string | null
+  >(null);
+  const [editFromSectionId, setEditFromSectionId] = useState<string | null>(
+    null,
+  );
+  const [editFromDate, setEditFromDate] = useState<Date | null>(null);
+  const [editToCourseYearId, setEditToCourseYearId] = useState<string | null>(
+    null,
+  );
+  const [editToSectionId, setEditToSectionId] = useState<string | null>(null);
+  const [editToDate, setEditToDate] = useState<Date | null>(null);
+  const [editStudentStatusId, setEditStudentStatusId] = useState<string | null>(
+    null,
+  );
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [editNewReason, setEditNewReason] = useState("");
+  const [toDateDisabled, setToDateDisabled] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [loadingEditOptions, setLoadingEditOptions] = useState(false);
+
+  const [academicYearOptions, setAcademicYearOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [regulationOptions, setRegulationOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [groupOptions, setGroupOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [yearOptions, setYearOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [fromSectionOptions, setFromSectionOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [toSectionOptions, setToSectionOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [studentStatusOptions, setStudentStatusOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
 
   const studentOptions = useMemo(
     () =>
       searchRows.map((row) => ({
-        value: String(n(row.studentId ?? row.fk_student_id ?? row.student_id ?? row.id)),
-        label: `${s(row.firstName ?? row.studentName ?? '-')} (${s(row.rollNumber ?? row.hallticketNumber ?? '-')})`,
+        value: String(
+          n(row.studentId ?? row.fk_student_id ?? row.student_id ?? row.id),
+        ),
+        label: `${s(row.rollNumber ?? row.hallticketNumber ?? "-")} (${s(row.firstName ?? row.studentName ?? "-")})`,
       })),
     [searchRows],
-  )
+  );
 
   async function onSearchStudents(term: string) {
-    const q = term.trim()
-    if (q.length < 3) return
-    setLoadingSearch(true)
+    const q = term.trim();
+    if (q.length < 3) return;
+    setLoadingSearch(true);
     try {
-      const rows = await listStudents(q)
-      setSearchRows(Array.isArray(rows) ? rows : [])
+      const rows = await listStudents(q);
+      setSearchRows(Array.isArray(rows) ? rows : []);
     } catch {
-      setSearchRows([])
+      setSearchRows([]);
     } finally {
-      setLoadingSearch(false)
+      setLoadingSearch(false);
+    }
+  }
+
+  async function reloadHistory(id: number) {
+    setLoadingHistory(true);
+    try {
+      const rows = await listAcademicBatchesOfStudent(id).catch(() => []);
+      setStudentHistoryRows(Array.isArray(rows) ? rows : []);
+    } finally {
+      setLoadingHistory(false);
     }
   }
 
   useEffect(() => {
-    async function loadHistory() {
-      if (!studentId) {
-        setStudentHistoryRows([])
-        return
-      }
-      setLoadingHistory(true)
-      const rows = await listAcademicBatchesOfStudent(studentId).catch(() => [])
-      setStudentHistoryRows(Array.isArray(rows) ? rows : [])
-      setLoadingHistory(false)
+    if (!studentId) {
+      setStudentHistoryRows([]);
+      return;
     }
-    void loadHistory()
-  }, [studentId])
+    void reloadHistory(studentId);
+  }, [studentId]);
 
   const selectedStudent = useMemo(
-    () => searchRows.find((r) => n(r.studentId ?? r.fk_student_id ?? r.student_id ?? r.id) === (studentId ?? 0)) ?? null,
+    () =>
+      searchRows.find(
+        (r) =>
+          n(r.studentId ?? r.fk_student_id ?? r.student_id ?? r.id) ===
+          (studentId ?? 0),
+      ) ?? null,
     [searchRows, studentId],
-  )
+  );
+
   const modalStudentText = useMemo(() => {
-    const name = s(selectedStudent?.firstName ?? selectedStudent?.studentName)
-      || pickText(editRow, ['studentName', 'student_name', 'studentDetail.firstName', 'StudentDetail.firstName'])
-    const roll = s(selectedStudent?.rollNumber ?? selectedStudent?.hallticketNumber)
-      || pickText(editRow, ['rollNumber', 'hallticketNumber', 'studentDetail.rollNumber', 'StudentDetail.rollNumber'])
-    return `${name || '-'} (${roll || '-'})`
-  }, [selectedStudent, editRow])
-  const filteredHistoryRows = useMemo(() => {
-    const q = tableSearch.trim().toLowerCase()
-    if (!q) return studentHistoryRows
-    return studentHistoryRows.filter((row) => {
-      const course = s(row.courseName ?? row.course_name ?? row.courseCode ?? row.course_code).toLowerCase()
-      const fromYear = s(row.fromCourseYearName ?? row.from_course_year_name ?? row.courseYearName).toLowerCase()
-      const toYear = s(row.toCourseYearName ?? row.to_course_year_name ?? row.courseYearName).toLowerCase()
-      const reason = s(row.reason ?? row.changeReason).toLowerCase()
-      return course.includes(q) || fromYear.includes(q) || toYear.includes(q) || reason.includes(q)
-    })
-  }, [studentHistoryRows, tableSearch])
+    const name =
+      s(selectedStudent?.firstName ?? selectedStudent?.studentName) ||
+      s(editRow?.firstName ?? editRow?.studentName);
+    const roll =
+      s(selectedStudent?.rollNumber ?? selectedStudent?.hallticketNumber) ||
+      s(editRow?.rollNo ?? editRow?.rollNumber ?? editRow?.hallticketNumber);
+    return `${name || "-"} (${roll || "-"})`;
+  }, [selectedStudent, editRow]);
+
   const historyColumnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
-      { headerName: 'SI.No', width: 70, flex: 0, valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1 },
-      { headerName: 'Course', minWidth: 170, valueGetter: (p) => s(p.data?.courseName ?? p.data?.course_name ?? p.data?.courseCode ?? p.data?.course_code) || '-' },
-      { headerName: 'From Course Year', minWidth: 150, valueGetter: (p) => s(p.data?.fromCourseYearName ?? p.data?.from_course_year_name ?? p.data?.courseYearName) || '-' },
-      { headerName: 'From Section', minWidth: 120, valueGetter: (p) => sectionText((p.data ?? {}) as AnyRow, 'from') || '-' },
-      { headerName: 'To Course Year', minWidth: 150, valueGetter: (p) => s(p.data?.toCourseYearName ?? p.data?.to_course_year_name ?? p.data?.courseYearName) || '-' },
-      { headerName: 'To Section', minWidth: 120, valueGetter: (p) => sectionText((p.data ?? {}) as AnyRow, 'to') || '-' },
-      { headerName: 'From Date', minWidth: 170, valueGetter: (p) => formatDateText(p.data?.fromDate ?? p.data?.from_date) },
-      { headerName: 'To Date', minWidth: 170, valueGetter: (p) => formatDateText(p.data?.toDate ?? p.data?.to_date) },
       {
-        headerName: 'Student Status',
+        headerName: "SI.No",
+        width: 70,
+        flex: 0,
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+      },
+      {
+        headerName: "Course",
+        minWidth: 220,
+        valueGetter: (p) => {
+          const row = (p.data ?? {}) as AnyRow;
+          return (
+            [
+              s(row.collegeCode),
+              s(row.courseName ?? row.courseCode),
+              s(row.groupCode),
+              s(row.academicYear),
+            ]
+              .filter(Boolean)
+              .join(" / ") || "-"
+          );
+        },
+      },
+      {
+        headerName: "From Course Year",
+        minWidth: 150,
+        valueGetter: (p) =>
+          s(p.data?.fromCourseYearName ?? p.data?.courseYearName) || "-",
+      },
+      {
+        headerName: "From Section",
+        minWidth: 120,
+        valueGetter: (p) =>
+          sectionText((p.data ?? {}) as AnyRow, "from") || "-",
+      },
+      {
+        headerName: "To Course Year",
+        minWidth: 150,
+        valueGetter: (p) =>
+          s(p.data?.toCourseYearName ?? p.data?.courseYearName) || "-",
+      },
+      {
+        headerName: "To Section",
+        minWidth: 120,
+        valueGetter: (p) => sectionText((p.data ?? {}) as AnyRow, "to") || "-",
+      },
+      {
+        headerName: "From Date",
+        minWidth: 170,
+        valueGetter: (p) =>
+          formatDateText(p.data?.fromDate ?? p.data?.from_date),
+      },
+      {
+        headerName: "To Date",
+        minWidth: 170,
+        valueGetter: (p) => formatDateText(p.data?.toDate ?? p.data?.to_date),
+      },
+      {
+        headerName: "Student Status",
         minWidth: 130,
         cellRenderer: (p: ICellRendererParams<AnyRow>) => (
           <span className="font-semibold text-green-700">
-            {s(p.data?.studentStatusCode ?? p.data?.student_status_code ?? p.data?.studentStatus) || '-'}
+            {s(
+              p.data?.studentStatusName ??
+                p.data?.studentStatusCode ??
+                p.data?.student_status_code ??
+                p.data?.studentStatus,
+            ) || "-"}
           </span>
         ),
       },
       {
-        headerName: 'Status',
+        headerName: "Status",
         width: 100,
         flex: 0,
         cellRenderer: (p: ICellRendererParams<AnyRow>) => (
           <StatusBadge status={p.data?.isActive !== false} />
         ),
       },
-      { headerName: 'Reason', minWidth: 130, valueGetter: (p) => s(p.data?.reason ?? p.data?.changeReason) || '-' },
       {
-        headerName: 'Actions',
+        headerName: "Reason",
+        minWidth: 130,
+        valueGetter: (p) => s(p.data?.reason ?? p.data?.changeReason) || "-",
+      },
+      {
+        headerName: "Actions",
         width: 80,
         flex: 0,
-        cellRenderer: (p: ICellRendererParams<AnyRow>) => (
-          <button type="button" className="text-primary" aria-label="Edit record" onClick={() => openEdit((p.data ?? {}) as AnyRow)}>
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-        ),
+        cellRenderer: makeActionsRenderer((row) => {
+          void openEdit(row);
+        }),
       },
     ],
-    [],
-  )
+    // openEdit is stable enough for this page; recreate when history changes so rows stay fresh
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [studentHistoryRows],
+  );
 
-  function sectionText(row: AnyRow, kind: 'from' | 'to') {
-    return kind === 'from'
-      ? s(row.fromSectionName ?? row.from_section_name ?? row.fromSection ?? '-')
-      : s(row.toSectionName ?? row.to_section_name ?? row.toSection ?? '-')
+  function sectionOptionsFromRows(rows: AnyRow[]) {
+    return rows
+      .map((r) => {
+        const id = idStr(r.groupSectionId ?? r.group_section_id);
+        if (!id) return null;
+        const section =
+          s(r.section ?? r.groupSectionName ?? r.group_section_name) || id;
+        const ay = s(r.academicYear ?? r.academic_year);
+        return { value: id, label: ay ? `${section} - (${ay})` : section };
+      })
+      .filter(Boolean) as { value: string; label: string }[];
   }
-  function formatDateText(v: unknown) {
-    if (!v) return '-'
-    const d = new Date(String(v))
-    if (Number.isNaN(d.getTime())) return s(v)
-    return d.toLocaleString()
+
+  async function loadFromSections(
+    courseYearId: string | null,
+    academicYearId: string | null,
+    courseGroupId: string | null,
+  ) {
+    const cy = n(courseYearId);
+    const ay = n(academicYearId);
+    const cg = n(courseGroupId);
+    if (!cy || !ay || !cg) {
+      setFromSectionOptions([]);
+      return;
+    }
+    const rows = await listGroupSections(cy, ay, cg).catch(() => []);
+    setFromSectionOptions(sectionOptionsFromRows(rows));
   }
 
-  const academicYearOptions = useMemo(
-    () => Array.from(new Set(studentHistoryRows.map((r) => s(r.academicYear ?? r.academic_year)).filter(Boolean))).map((x) => ({ value: x, label: x })),
-    [studentHistoryRows],
-  )
-  const regulationOptions = useMemo(() => {
-    const vals = new Set<string>()
-    for (const r of studentHistoryRows) {
-      const label = pickText(r, [
-        'regulationName',
-        'regulation',
-        'regulationCode',
-        'Regulation.regulationCode',
-        'Regulation.regulationName',
-        'regulation.regulationCode',
-        'regulation.regulationName',
-      ])
-      if (label) vals.add(label)
-      const idLabel = pickIdText(r, ['regulationId', 'fk_regulation_id', 'Regulation.regulationId', 'regulation.regulationId'])
-      if (idLabel) vals.add(idLabel)
+  async function loadToSections(
+    courseYearId: string | null,
+    academicYearId: string | null,
+    courseGroupId: string | null,
+  ) {
+    const cy = n(courseYearId);
+    const ay = n(academicYearId);
+    const cg = n(courseGroupId);
+    if (!cy || !ay || !cg) {
+      setToSectionOptions([]);
+      return;
     }
-    const editLabel = pickText(editRow, [
-      'regulationName',
-      'regulation',
-      'regulationCode',
-      'Regulation.regulationCode',
-      'Regulation.regulationName',
-      'regulation.regulationCode',
-      'regulation.regulationName',
-    ])
-    if (editLabel) vals.add(editLabel)
-    const editIdLabel = pickIdText(editRow, ['regulationId', 'fk_regulation_id', 'Regulation.regulationId', 'regulation.regulationId'])
-    if (editIdLabel) vals.add(editIdLabel)
-    return Array.from(vals).map((x) => ({ value: x, label: x }))
-  }, [studentHistoryRows, editRow])
-  const groupOptions = useMemo(() => {
-    const vals = new Set<string>()
-    for (const r of studentHistoryRows) {
-      const label = pickText(r, [
-        'groupCode',
-        'groupName',
-        'courseGroupName',
-        'CourseGroup.groupCode',
-        'CourseGroup.groupName',
-        'courseGroup.groupCode',
-        'courseGroup.groupName',
-      ])
-      if (label) vals.add(label)
-      const idLabel = pickIdText(r, ['courseGroupId', 'fk_course_group_id', 'CourseGroup.courseGroupId', 'courseGroup.courseGroupId'])
-      if (idLabel) vals.add(idLabel)
-    }
-    const editLabel = pickText(editRow, [
-      'groupCode',
-      'groupName',
-      'courseGroupName',
-      'CourseGroup.groupCode',
-      'CourseGroup.groupName',
-      'courseGroup.groupCode',
-      'courseGroup.groupName',
-    ])
-    if (editLabel) vals.add(editLabel)
-    const editIdLabel = pickIdText(editRow, ['courseGroupId', 'fk_course_group_id', 'CourseGroup.courseGroupId', 'courseGroup.courseGroupId'])
-    if (editIdLabel) vals.add(editIdLabel)
-    return Array.from(vals).map((x) => ({ value: x, label: x }))
-  }, [studentHistoryRows, editRow])
-  const yearOptions = useMemo(
-    () => Array.from(new Set(studentHistoryRows.flatMap((r) => [s(r.fromCourseYearName ?? r.courseYearName), s(r.toCourseYearName ?? r.courseYearName)]).filter(Boolean))).map((x) => ({ value: x, label: x })),
-    [studentHistoryRows],
-  )
-  const sectionOptions = useMemo(() => {
-    const vals = new Set<string>()
-    for (const r of studentHistoryRows) {
-      const from = sectionText(r, 'from')
-      const to = sectionText(r, 'to')
-      if (from && from !== '-') vals.add(from)
-      if (to && to !== '-') vals.add(to)
-      const direct = pickText(r, ['section', 'sectionName', 'groupSectionName'])
-      if (direct && direct !== '-') vals.add(direct)
-      const fromId = pickIdText(r, ['fromSectionId', 'from_group_section_id', 'fromGroupSectionId'])
-      const toId = pickIdText(r, ['toSectionId', 'to_group_section_id', 'toGroupSectionId'])
-      if (fromId) vals.add(fromId)
-      if (toId) vals.add(toId)
-    }
-    const current = s(selectedStudent?.section)
-    if (current) vals.add(current)
-    const editFrom = sectionText(editRow ?? {}, 'from')
-    const editTo = sectionText(editRow ?? {}, 'to')
-    if (editFrom && editFrom !== '-') vals.add(editFrom)
-    if (editTo && editTo !== '-') vals.add(editTo)
-    return Array.from(vals).map((x) => ({ value: x, label: x }))
-  }, [studentHistoryRows, selectedStudent, editRow])
-  const studentStatusOptions = useMemo(
-    () => Array.from(new Set(studentHistoryRows.map((r) => s(r.studentStatusCode ?? r.studentStatus)).filter(Boolean))).map((x) => ({ value: x, label: x })),
-    [studentHistoryRows],
-  )
-  const regulationOptionsWithCurrent = useMemo(() => {
-    const base = [...regulationOptions]
-    if (editRegulation && !base.some((o) => o.value === editRegulation)) {
-      base.unshift({ value: editRegulation, label: editRegulation })
-    }
-    return base
-  }, [regulationOptions, editRegulation])
-  const groupOptionsWithCurrent = useMemo(() => {
-    const base = [...groupOptions]
-    if (editCourseGroup && !base.some((o) => o.value === editCourseGroup)) {
-      base.unshift({ value: editCourseGroup, label: editCourseGroup })
-    }
-    return base
-  }, [groupOptions, editCourseGroup])
-  const sectionOptionsWithCurrent = useMemo(() => {
-    const base = [...sectionOptions]
-    if (editFromSection && !base.some((o) => o.value === editFromSection)) {
-      base.unshift({ value: editFromSection, label: editFromSection })
-    }
-    if (editToSection && !base.some((o) => o.value === editToSection)) {
-      base.unshift({ value: editToSection, label: editToSection })
-    }
-    return base
-  }, [sectionOptions, editFromSection, editToSection])
+    const rows = await listGroupSections(cy, ay, cg).catch(() => []);
+    setToSectionOptions(sectionOptionsFromRows(rows));
+  }
 
-  function openEdit(row: AnyRow) {
-    setEditRow(row)
-    setEditAcademicYear(s(row.academicYear ?? row.academic_year) || null)
-    setEditRegulation(
-      pickText(row, [
-        'regulationName',
-        'regulation',
-        'regulationCode',
-        'Regulation.regulationCode',
-        'Regulation.regulationName',
-        'regulation.regulationCode',
-        'regulation.regulationName',
-      ]) || pickIdText(row, ['regulationId', 'fk_regulation_id', 'Regulation.regulationId', 'regulation.regulationId']) || s(selectedStudent?.regulationCode ?? selectedStudent?.regulationName) || null,
-    )
-    setEditCourseGroup(
-      pickText(row, [
-        'groupCode',
-        'groupName',
-        'courseGroupName',
-        'CourseGroup.groupCode',
-        'CourseGroup.groupName',
-        'courseGroup.groupCode',
-        'courseGroup.groupName',
-      ]) || pickIdText(row, ['courseGroupId', 'fk_course_group_id', 'CourseGroup.courseGroupId', 'courseGroup.courseGroupId']) || s(selectedStudent?.groupCode ?? selectedStudent?.groupName) || null,
-    )
-    setEditFromCourseYear(s(row.fromCourseYearName ?? row.courseYearName) || null)
-    setEditFromSection(sectionText(row, 'from') || pickIdText(row, ['fromSectionId', 'from_group_section_id', 'fromGroupSectionId']) || s(selectedStudent?.section) || null)
-    setEditFromDate(row?.fromDate ? new Date(String(row.fromDate)) : null)
-    setEditToCourseYear(s(row.toCourseYearName ?? row.courseYearName) || null)
-    setEditToSection(sectionText(row, 'to') || pickIdText(row, ['toSectionId', 'to_group_section_id', 'toGroupSectionId']) || s(selectedStudent?.section) || null)
-    setEditToDate(row?.toDate ? new Date(String(row.toDate)) : null)
-    setEditStudentStatus(s(row.studentStatusCode ?? row.studentStatus) || s(selectedStudent?.studentStatusCode ?? selectedStudent?.studentStatus) || null)
-    setEditIsActive(row?.isActive !== false)
-    setEditReason(s(row.reason ?? row.changeReason))
-    setEditOpen(true)
+  async function openEdit(row: AnyRow) {
+    setEditRow(row);
+    setEditAcademicYearId(idStr(row.academicYearId));
+    setEditRegulationId(idStr(row.regulationId));
+    setEditCourseGroupId(idStr(row.courseGroupId));
+    setEditFromCourseYearId(idStr(row.fromCourseYearId));
+    setEditFromSectionId(idStr(row.fromGroupSectionId ?? row.fromSectionId));
+    setEditFromDate(row?.fromDate ? new Date(String(row.fromDate)) : null);
+    setEditToCourseYearId(idStr(row.toCourseYearId));
+    setEditToSectionId(idStr(row.toGroupSectionId ?? row.toSectionId));
+    const hadToDate = row?.toDate != null && s(row.toDate) !== "";
+    setToDateDisabled(!hadToDate);
+    setEditToDate(hadToDate ? new Date(String(row.toDate)) : null);
+    setEditStudentStatusId(idStr(row.studentStatusId));
+    setEditIsActive(row?.isActive !== false);
+    setEditNewReason("");
+    setEditOpen(true);
+
+    const courseId = n(row.courseId);
+    setLoadingEditOptions(true);
+    try {
+      const [years, regulations, groups, courseYears, statuses] =
+        await Promise.all([
+          listAcademicYears().catch(() => []),
+          courseId
+            ? listRegulationsByCourse(courseId).catch(() => [])
+            : Promise.resolve([]),
+          courseId
+            ? listCourseGroupsByCourse(courseId).catch(() => [])
+            : Promise.resolve([]),
+          courseId
+            ? listCourseYearsByCourse(courseId).catch(() => [])
+            : Promise.resolve([]),
+          getGeneralDetails(GM_CODES.STUDENT_STATUS).catch(() => []),
+        ]);
+
+      setAcademicYearOptions(
+        years
+          .map((r: AnyRow) => ({
+            value: String(n(r.academicYearId)),
+            label:
+              s(r.academicYear ?? r.academicYearName) ||
+              String(n(r.academicYearId)),
+          }))
+          .filter((o) => n(o.value) > 0),
+      );
+      setRegulationOptions(
+        regulations
+          .map((r: AnyRow) => ({
+            value: String(n(r.regulationId)),
+            label:
+              s(r.regulationName ?? r.regulationCode) ||
+              String(n(r.regulationId)),
+          }))
+          .filter((o) => n(o.value) > 0),
+      );
+      setGroupOptions(
+        groups
+          .map((r: AnyRow) => ({
+            value: String(n(r.courseGroupId)),
+            label: s(r.groupCode ?? r.groupName) || String(n(r.courseGroupId)),
+          }))
+          .filter((o) => n(o.value) > 0),
+      );
+      setYearOptions(
+        courseYears
+          .map((r: AnyRow) => ({
+            value: String(n(r.courseYearId)),
+            label: s(r.courseYearName) || String(n(r.courseYearId)),
+          }))
+          .filter((o) => n(o.value) > 0),
+      );
+      setStudentStatusOptions(
+        statuses
+          .map((r: AnyRow) => ({
+            value: String(n(r.generalDetailId)),
+            label:
+              s(r.generalDetailDisplayName ?? r.generalDetailCode) ||
+              String(n(r.generalDetailId)),
+          }))
+          .filter((o) => n(o.value) > 0),
+      );
+
+      await Promise.all([
+        loadFromSections(
+          idStr(row.fromCourseYearId),
+          idStr(row.academicYearId),
+          idStr(row.courseGroupId),
+        ),
+        loadToSections(
+          idStr(row.toCourseYearId ?? row.fromCourseYearId),
+          idStr(row.academicYearId),
+          idStr(row.courseGroupId),
+        ),
+      ]);
+    } finally {
+      setLoadingEditOptions(false);
+    }
   }
 
   async function onSaveEdit() {
-    if (!editRow) return
-    setSavingEdit(true)
+    if (!editRow) return;
+    if (
+      !editAcademicYearId ||
+      !editRegulationId ||
+      !editCourseGroupId ||
+      !editFromCourseYearId ||
+      !editStudentStatusId
+    ) {
+      toastError("Please fill all required fields");
+      return;
+    }
+    if (!editFromDate) {
+      toastError("From date is required");
+      return;
+    }
+    if (!toDateDisabled && !editToDate) {
+      toastError("To date is required");
+      return;
+    }
+    if (!editNewReason.trim()) {
+      toastError("Reason is required");
+      return;
+    }
+    if (editToDate && editFromDate.getTime() > editToDate.getTime()) {
+      toastError("From date should be less than To date");
+      return;
+    }
+
+    setSavingEdit(true);
     try {
-      const payload = {
+      const existingReason = s(editRow.reason);
+      const payload: AnyRow = {
         ...editRow,
-        academicYear: editAcademicYear,
-        regulationName: editRegulation,
-        groupCode: editCourseGroup,
-        fromCourseYearName: editFromCourseYear,
-        fromSectionName: editFromSection,
-        fromDate: editFromDate,
-        toCourseYearName: editToCourseYear,
-        toSectionName: editToSection,
-        toDate: editToDate,
-        studentStatusCode: editStudentStatus,
+        courseGroupId: n(editCourseGroupId),
+        fromCourseYearId: n(editFromCourseYearId),
+        toCourseYearId: editToCourseYearId ? n(editToCourseYearId) : null,
+        fromGroupSectionId: editFromSectionId ? n(editFromSectionId) : null,
+        toGroupSectionId: editToSectionId ? n(editToSectionId) : null,
+        fromBatchId: editRow.fromBatchId,
+        toBatchId: editRow.fromBatchId,
+        academicYearId: n(editAcademicYearId),
+        regulationId: n(editRegulationId),
+        fromDate: toDateTime(editFromDate),
+        toDate:
+          toDateDisabled || editRow.toDate == null
+            ? null
+            : toDateTime(editToDate),
+        studentStatusId: n(editStudentStatusId),
         isActive: editIsActive,
-        reason: editReason,
-      }
-      await updateAcademicBatchRecord(payload)
-      toastSuccess('Academic batch record updated successfully')
-      setEditOpen(false)
-      if (studentId) {
-        const rows = await listAcademicBatchesOfStudent(studentId).catch(() => [])
-        setStudentHistoryRows(Array.isArray(rows) ? rows : [])
-      }
-    } catch {
-      toastError('Failed to update academic batch record')
+        reason: existingReason
+          ? `${existingReason} - ${editNewReason.trim()}`
+          : editNewReason.trim(),
+        isPromoted: editRow.isPromoted ?? false,
+      };
+      await updateAcademicBatchRecord(payload);
+      toastSuccess("Academic batch record updated successfully");
+      setEditOpen(false);
+      if (studentId) await reloadHistory(studentId);
+    } catch (err) {
+      toastError(
+        err instanceof Error
+          ? err.message
+          : "Failed to update academic batch record",
+      );
     } finally {
-      setSavingEdit(false)
+      setSavingEdit(false);
     }
   }
 
@@ -377,7 +520,7 @@ export default function AcademicBatchesPage() {
     <>
       <FilteredListPage
         title="Academic Batches Of Student"
-        filters={(
+        filters={
           <Select
             label="Student"
             value={studentId ? String(studentId) : null}
@@ -386,27 +529,29 @@ export default function AcademicBatchesPage() {
             placeholder="Student"
             searchable
             clearable
-            onSearch={(term) => { void onSearchStudents(term) }}
+            onSearch={(term) => {
+              void onSearchStudents(term);
+            }}
             isLoading={loadingSearch}
+            className="w-full max-w-md"
+            listClassName="max-h-40"
           />
-        )}
-        notice={studentId ? (
-          <div className="text-sm font-semibold text-primary">
-            {s(selectedStudent?.collegeCode)} {s(selectedStudent?.academicYear ? `| ${selectedStudent.academicYear}` : '')} {s(selectedStudent?.courseCode ? `| ${selectedStudent.courseCode}` : '')} {s(selectedStudent?.groupCode ? `| ${selectedStudent.groupCode}` : '')} {s(selectedStudent?.courseYearName ? `| ${selectedStudent.courseYearName}` : '')} {s(selectedStudent?.section ? `| ${selectedStudent.section}` : '')}
-          </div>
-        ) : undefined}
+        }
         rowData={studentId ? studentHistoryRows : []}
         columnDefs={historyColumnDefs}
         loading={loadingHistory}
         pagination
-        toolbar={{ search: true, searchPlaceholder: 'Search' }}
+        toolbar={{ search: true, searchPlaceholder: "Search" }}
       />
       <FormModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
         title="Edit Academic Batch"
-        onSubmit={() => { void onSaveEdit() }}
-        submitLabel={savingEdit ? 'Saving...' : 'Save'}
+        onSubmit={() => {
+          void onSaveEdit();
+        }}
+        submitLabel={savingEdit ? "Saving..." : "Save"}
+        isSubmitting={savingEdit || loadingEditOptions}
         size="xl"
         contentClassName="sm:max-w-5xl"
         titleClassName="text-teal-600"
@@ -415,40 +560,171 @@ export default function AcademicBatchesPage() {
         <div className="space-y-4">
           <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm">
             <div className="grid grid-cols-2 gap-y-2">
-              <div>College :</div><div className="font-semibold text-primary">{s(editRow?.collegeCode)} / {s(editRow?.academicYear)}</div>
-              <div>Course :</div><div className="font-semibold text-primary">{s(editRow?.courseName ?? editRow?.courseCode)}</div>
-              <div>Student :</div><div className="font-semibold text-primary">{modalStudentText}</div>
-              <div>Batch :</div><div className="font-semibold text-primary">{s(editRow?.batchName ?? editRow?.batch)}</div>
-              <div>Reason :</div><div className="font-semibold text-primary">{editReason || '-'}</div>
+              <div>College :</div>
+              <div className="font-semibold text-primary">
+                {s(editRow?.collegeCode)} / {s(editRow?.academicYear)}
+              </div>
+              <div>Course :</div>
+              <div className="font-semibold text-primary">
+                {s(editRow?.courseName ?? editRow?.courseCode)}
+              </div>
+              <div>Student :</div>
+              <div className="font-semibold text-primary">
+                {modalStudentText}
+              </div>
+              <div>Batch :</div>
+              <div className="font-semibold text-primary">
+                {s(
+                  editRow?.fromBatchName ??
+                    editRow?.batchName ??
+                    editRow?.batch,
+                ) || "-"}
+              </div>
+              <div>Reason :</div>
+              <div className="font-semibold text-primary">
+                {s(editRow?.reason) || "-"}
+              </div>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Select label="Academic Year *" value={editAcademicYear} onChange={setEditAcademicYear} options={academicYearOptions} searchable className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl" />
-            <Select label="Regulation *" value={editRegulation} onChange={setEditRegulation} options={regulationOptionsWithCurrent} searchable className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl" />
-            <Select label="Course Group *" value={editCourseGroup} onChange={setEditCourseGroup} options={groupOptionsWithCurrent} searchable className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl" />
+            <Select
+              label="Academic Year *"
+              value={editAcademicYearId}
+              onChange={(v) => {
+                setEditAcademicYearId(v);
+                void loadFromSections(
+                  editFromCourseYearId,
+                  v,
+                  editCourseGroupId,
+                );
+                void loadToSections(
+                  editToCourseYearId ?? editFromCourseYearId,
+                  v,
+                  editCourseGroupId,
+                );
+              }}
+              options={academicYearOptions}
+              searchable
+              isLoading={loadingEditOptions}
+              className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl"
+            />
+            <Select
+              label="Regulation *"
+              value={editRegulationId}
+              onChange={setEditRegulationId}
+              options={regulationOptions}
+              searchable
+              isLoading={loadingEditOptions}
+              className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl"
+            />
+            <Select
+              label="Course Group *"
+              value={editCourseGroupId}
+              onChange={(v) => {
+                setEditCourseGroupId(v);
+                void loadFromSections(
+                  editFromCourseYearId,
+                  editAcademicYearId,
+                  v,
+                );
+                void loadToSections(
+                  editToCourseYearId ?? editFromCourseYearId,
+                  editAcademicYearId,
+                  v,
+                );
+              }}
+              options={groupOptions}
+              searchable
+              isLoading={loadingEditOptions}
+              className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl"
+            />
             <div />
-            <Select label="From Course Year *" value={editFromCourseYear} onChange={setEditFromCourseYear} options={yearOptions} searchable className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl" />
-            <Select label="From Section" value={editFromSection} onChange={setEditFromSection} options={sectionOptionsWithCurrent} searchable className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl" />
-            <DatePicker label="From Date *" value={editFromDate} onChange={setEditFromDate} placeholder="Select date" />
-            <Select label="To Course Year" value={editToCourseYear} onChange={setEditToCourseYear} options={yearOptions} searchable className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl" />
-            <Select label="To Section" value={editToSection} onChange={setEditToSection} options={sectionOptionsWithCurrent} searchable className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl" />
-            <DatePicker label="To Date *" value={editToDate} onChange={setEditToDate} placeholder="Select date" />
-            <Select label="Student Status *" value={editStudentStatus} onChange={setEditStudentStatus} options={studentStatusOptions} searchable className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl" />
+            <Select
+              label="From Course Year *"
+              value={editFromCourseYearId}
+              onChange={(v) => {
+                setEditFromCourseYearId(v);
+                setEditFromSectionId(null);
+                void loadFromSections(v, editAcademicYearId, editCourseGroupId);
+              }}
+              options={yearOptions}
+              searchable
+              isLoading={loadingEditOptions}
+              className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl"
+            />
+            <Select
+              label="From Section"
+              value={editFromSectionId}
+              onChange={setEditFromSectionId}
+              options={fromSectionOptions}
+              searchable
+              clearable
+              className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl"
+            />
+            <DatePicker
+              label="From Date *"
+              value={editFromDate}
+              onChange={setEditFromDate}
+              placeholder="Select date"
+            />
+            <Select
+              label="To Course Year"
+              value={editToCourseYearId}
+              onChange={(v) => {
+                setEditToCourseYearId(v);
+                setEditToSectionId(null);
+                void loadToSections(v, editAcademicYearId, editCourseGroupId);
+              }}
+              options={yearOptions}
+              searchable
+              clearable
+              className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl"
+            />
+            <Select
+              label="To Section"
+              value={editToSectionId}
+              onChange={setEditToSectionId}
+              options={toSectionOptions}
+              searchable
+              clearable
+              className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl"
+            />
+            <DatePicker
+              label="To Date *"
+              value={editToDate}
+              onChange={setEditToDate}
+              placeholder="Select date"
+              disabled={toDateDisabled}
+            />
+            <Select
+              label="Student Status *"
+              value={editStudentStatusId}
+              onChange={setEditStudentStatusId}
+              options={studentStatusOptions}
+              searchable
+              isLoading={loadingEditOptions}
+              className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-xl"
+            />
             <div className="flex items-end pb-2">
               <label className="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={editIsActive} onChange={(e) => setEditIsActive(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={editIsActive}
+                  onChange={(e) => setEditIsActive(e.target.checked)}
+                />
                 Active
               </label>
             </div>
           </div>
           <Input
-            value={editReason}
-            onChange={(e) => setEditReason(e.target.value)}
-            placeholder="Reason"
+            value={editNewReason}
+            onChange={(e) => setEditNewReason(e.target.value)}
+            placeholder="Reason *"
             className="h-11 rounded-xl"
+            required
           />
         </div>
       </FormModal>
     </>
-  )
+  );
 }
