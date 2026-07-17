@@ -43,6 +43,8 @@ export const AUTH_API = {
   USER_ACCESS: "useraccess",
   /** GET: user pages */
   USER_PAGES: "userpages",
+  /** Angular `resetStdPassword` */
+  RESET_STD_PASSWORD: "api/auth/updatePassword",
 } as const;
 
 // ─── User management (non-domain helpers) ────────────────────────────────────
@@ -63,6 +65,18 @@ export const USER_MANAGEMENT_API = {
    * Proxied as `/api/proxy/cms/api/createuser`.
    */
   CREATE_USER_CMS: "cms/api/createuser",
+  /** Angular `roleCrudUrl` */
+  ROLE: "Role",
+  /** Angular `rolePrivilegeCrudUrl` */
+  ROLE_PRIVILEGE: "RolePrivilege",
+  /** Angular `rolePrivilegeListUrl` */
+  ROLE_PRIVILEGE_2: "roleprivilegelist",
+  /** Angular `userTypeCrudUrl` */
+  USER_TYPE: "Usertype",
+  /** Angular `creatingUserForStudentsUrl` */
+  CREATING_USER_FOR_STUDENTS: "creatinguserforstudents",
+  /** Angular `UserRoleUrl` */
+  USER_ROLE: "UserRole",
 } as const;
 
 // ─── Email / SMS (legacy Spring paths — proxied via `NEXT_API.PROXY`) ────────
@@ -102,6 +116,20 @@ export const COMMUNICATION_API = {
    * POST body mirrors department-wise employee email with `userIds[]` instead of `departmentIds[]`.
    */
   SEND_BULK_EMAIL_TO_ADMIN: "sendBulkEmailtoAdmin",
+  /** Angular `smsToStudentsUrl` */
+  SMS_TO_STUDENTS: "sendsmstostudents",
+  /** Angular `smsPatternCrudUrl` */
+  SMS_PATTERN: "SmsPattern",
+  /** Angular `smsstaffUrl` */
+  SMSSTAFF: "smsstaff",
+  /** Angular `sendBulkSmsMaaUrl` */
+  SEND_BULK_SMS_MAA: "sendBulkSmsMaa",
+  /** Angular `SmsReportConfigUrl` */
+  SMS_REPORT_CONFIG: "SmsReportConfig",
+  /** Angular `sendEmailToAdminurl` */
+  SEND_EMAIL_TO_ADMIN: "sendEmailToAdmin",
+  /** Angular `emailsentlistbydateUrl` */
+  EMAILSENTLISTBYDATE: "emailsentlistbydate",
 } as const;
 
 // ─── Examination Management ──────────────────────────────────────────────────
@@ -174,6 +202,146 @@ export const EXAM_API = {
   SAVE_EXAM_FEE_STRUCTURE: "examfeestructure",
   /** GET: exam course-year subjects (Angular examCourseYearSubjectUrl) — params collegeId, academicYearId, courseyearId, courseGroupId */
   EXAM_COURSE_YEAR_SUBJECT: "examCourseYearSubject",
+  /** Angular `examFeeAdditionalStructureUrl` */
+  EXAM_FEE_ADDITIONAL_STRUCTURE: "ExamFeeAdditionalStructure",
+  /** Angular `addExamStudentAttendanceAndInternalMarksUrl` */
+  ADD_EXAM_STUDENT_ATTENDANCE_AND_INTERNAL_MARKS: "addExamStudentAttendanceAndInternalMarks",
+  /** Angular `validateExamRegFormsurl` */
+  VALIDATE_EXAM_REG_FORMS: "validateExamRegForms",
+  /** Angular `getExamRegFormsUrl` */
+  GET_EXAM_REG_FORMS: "getExamRegForms",
+  /** Angular `notificationUploadUrl` */
+  NOTIFICATION_2: "notificationupload",
+  /** Angular `studentSubjectsForRegularExamUrl` */
+  STUDENT_SUBJECTS_FOR_REGULAR_EXAM: "studentsubjectsforregularexam",
+  /** Angular `studentSubjectsForSupplyExamUrl` */
+  STUDENT_SUBJECTS_FOR_SUPPLY_EXAM: "studentSubjectsForSupplyExam",
+  /** Angular `uploadExamRegFormsUrl` */
+  UPLOAD_EXAM_REG_FORMS: "uploadExamRegForms",
+  /** Angular `examLabBatchesCrudUrl` */
+  EXAM_LAB_BATCHES: "ExamLabBatches",
+  /** Angular `getExamLabBatchesStudentsUrl` */
+  GET_EXAM_LAB_BATCHES_STUDENTS: "getExamLabBatchesStudents",
+  /** Angular `addExamLabBatchesStudentsListUrl` */
+  ADD_EXAM_LAB_BATCHES_STUDENTS: "addExamLabBatchesStudentsList",
+  /** Angular `updateExamLabBatchesStudentsUrl` */
+  UPDATE_EXAM_LAB_BATCHES_STUDENTS: "updateExamLabBatchesStudents",
+  /** Angular `examStudentRegistrationCrudUrl` */
+  EXAM_STUDENT_REGISTRATION: "ExamStudentRegistration",
+  /** Angular `examStudentRegistrationPaymentCrudUrl` */
+  EXAM_STUDENT_REGISTRATION_PAYMENT: "ExamStudentRegistrationPayment",
+  /** Angular `examStudentRegistrationTransactionCrudUrl` */
+  EXAM_STUDENT_REGISTRATION_TRANSACTION: "ExamStudentRegistrationTransaction",
+  /** Angular `examStudentRegPaymentUrl` */
+  EXAM_STUDENT_REG_PAYMENT: "examstudentregpayment",
+  /** Angular `examMasterUrl` */
+  EXAM_MASTER_2: "ExamMaster",
+  /** Angular `ExamMasterDetailsUrl` */
+  EXAM_MASTER_DETAILS: "ExamMasterDetails",
+  /** Angular `studentHallTicketUrl` */
+  STUDENT_HALL_TICKET: "studenthallticket",
+  /** Angular `getBulkExamHallticketsUrl` */
+  GET_BULK_EXAM_HALLTICKETS: "getBulkExamHalltickets",
+  /** Angular `examMarksMemoDownloadUrl` */
+  EXAM_MARKS_MEMO: "exammarksmemodownload",
+  /** Angular `examRevisionSubjectCrudUrl` */
+  EXAM_REVISION_SUBJECT: "ExamRevisionSubject",
+  /** Angular `internalExternalMarksUrl` */
+  INTERNAL_EXTERNAL_MARKS: "getInternalAndExternamMarks",
+  /** Angular `WorkflowMemberAuthorizationsUrl` */
+  WORKFLOW_MEMBER_AUTHORIZATIONS: "WorkflowMemberAuthorizations",
+  /** Angular `examFCARSetupMasterCrudUrl` */
+  EXAM_FCAR_SETUP_MASTER: "ExamFCARSetupMaster",
+  /** Angular `examFCARSetupDetailCrudUrl` */
+  EXAM_FCAR_SETUP_DETAIL: "ExamFCARSetupDetail",
+  /** Angular `examFCARStudentSubMarkCrudUrl` */
+  EXAM_FCAR_STUDENT_SUB_MARK: "ExamFCARStudentSubMark",
+  /** Angular `examFCARSubjectSyllabusCrudUrl` */
+  EXAM_FCAR_SUBJECT_SYLLABUS: "ExamFCARSubjectSyllabus",
+  /** Angular `examGradeUrl` */
+  EXAM_GRADE: "ExamGrade",
+  /** Angular `examTypeCrudUrl` */
+  EXAM_TYPE: "ExamTypes",
+  /** Angular `examGroupingCrudUrl` */
+  EXAM_GROUPING: "ExamGrouping",
+  /** Angular `examSubjectwiseEvaluationCrudUrl` */
+  EXAM_SUBJECTWISE_EVALUATION: "ExamSubjectwiseEvaluation",
+  /** Angular `examSubjectwiseMarksetupCrudUrl` */
+  EXAM_SUBJECTWISE_MARKSETUP: "ExamSubjectwiseMarksetup",
+  /** Angular `examSessionUrl` */
+  EXAM_SESSION: "ExamSession",
+  /** Angular `examStudentUrl` */
+  EXAM_STUDENT: "ExamStudent",
+  /** Angular `examStudentDetailUrl` */
+  EXAM_STUDENT_DETAIL: "ExamStudentDetail",
+  /** Angular `studentExamFeeReceiptDownloadUrl` */
+  STUDENT_EXAM_FEE_RECEIPT: "studentExamFeeReceiptDownload",
+  /** Angular `uploadInvigilatorAttendanceSheetUrl` */
+  UPLOAD_INVIGILATOR_ATTENDANCE_SHEET: "uploadInvigilatorAttendanceSheet",
+  /** Angular `getExamAllotInvigilatorUrl` */
+  GET_EXAM_ALLOT_INVIGILATOR: "getExamAllotInvigilator",
+  /** Angular `examFeeStructureCourseyrUrl` */
+  EXAM_FEE_STRUCTURE_COURSEYR: "ExamFeeStructureCourseyr",
+  /** Angular `getStudentExamFeeStructureUrl` */
+  GET_STUDENT_EXAM_FEE_STRUCTURE: "getStudentExamFeeStructure",
+  /** Angular `examDetailsByStudentCourseYearUrl` */
+  EXAM_DETAILS_BY_STUDENT_COURSE_YEAR: "examdetailsbystudentcourseyear",
+  /** Angular `getExamtimeTableDetailsUrl` */
+  GET_EXAMTIME_TABLE_DETAILS: "getExamtimeTableDetails",
+  /** Angular `examTimetableLabBatchesUrl` */
+  EXAM_TIMETABLE_LAB_BATCHES: "ExamTimetableLabBatches",
+  /** Angular `examTimetableDetailUrl` */
+  EXAM_TIMETABLE_DETAIL: "ExamTimetableDetail",
+  /** Angular `examStdCourseyrSubjecturl` */
+  EXAM_STD_COURSEYR_SUBJECT: "ExamStdCourseyrSubject",
+  /** Angular `examStdCourseyrSubUrl` */
+  EXAM_STD_COURSEYR_SUB: "examstdcourseyrsub",
+  /** Angular `examstdcourseyrsubjectsUrl` */
+  EXAMSTDCOURSEYRSUBJECTS: "examstdcourseyrsubjects?",
+  /** Angular `examFeeReceiptUrl` */
+  EXAM_FEE_RECEIPT: "examfeereceipt",
+  /** Angular `examMarksMemoUrl` */
+  EXAM_MARKS_MEMO_2: "exammarksmemo",
+  /** Angular `examMemoMasterCrudUrl` */
+  EXAM_MEMO_MASTER: "ExamMemoMaster",
+  /** Angular `subjectsforexamUrl` */
+  SUBJECTSFOREXAM: "subjectsforexam",
+  /** Angular `examInvigilatorRoomsUrl` */
+  EXAM_INVIGILATOR_ROOMS: "examinvigilatorrooms",
+  /** Angular `examStudentDetailsUrl` */
+  EXAM_STUDENT_DETAILS: "examstudentdetails",
+  /** Angular `examStudentInternalMarksUrl` */
+  EXAM_STUDENT_INTERNAL_MARKS: "examstudentinternalmarks",
+  /** Angular `examStudentInternalMarkCrudUrl` */
+  EXAM_STUDENT_INTERNAL_MARK: "ExamStudentInternalMark",
+  /** Angular `examStudentMemoSubjectUrl` */
+  EXAM_STUDENT_MEMO_SUBJECT: "examStudentMemoSubject",
+  /** Angular `examSubjectStudentsUrl` */
+  EXAM_SUBJECT_STUDENTS: "examsubjectstudents",
+  /** Angular `registeredStudentForExamUrl` */
+  REGISTERED_STUDENT_FOR_EXAM: "registeredstudentforexam",
+  /** Angular `examroomtudentdetailsUrl` */
+  EXAMROOMTUDENTDETAILS: "examroomstudentdetails",
+  /** Angular `exammarksdownloadUrl` */
+  EXAMMARKSDOWNLOAD: "exammarksdownload",
+  /** Angular `uploadexammarksUrl` */
+  UPLOADEXAMMARKS: "uploadexammarks",
+  /** Angular `uploadBulkExamMarksUrl` */
+  UPLOAD_BULK_EXAM_MARKS: "uploadbulkexammarks",
+  /** Angular `examHallTicketUrl` */
+  EXAM_HALL_TICKET: "examhallticket",
+  /** Angular `finalInternalMarksListUrl` */
+  FINAL_INTERNAL_MARKS_2: "finalinternalmarks",
+  /** Angular `updateExamStudentRegistrationDetailsUrl` */
+  UPDATE_EXAM_STUDENT_REGISTRATION_DETAILS: "updateExamStudentRegistrationDetails",
+  /** Angular `getUnivStgExamRegUrl` */
+  GET_UNIV_STG_EXAM_REG: "api/tables/getUnivStgExamReg",
+  /** Angular `getUnivStgExamStdFeeUrl` */
+  GET_UNIV_STG_EXAM_STD_FEE: "api/tables/getUnivStgExamStdFee",
+  /** Angular `examFeeRevisionMasterCrudUrl` */
+  EXAM_FEE_REVISION_MASTER: "ExamFeeRevisionMaster",
+  /** Angular `examResultProcessingSettingsCrudUrl` */
+  EXAM_RESULT_PROCESSING_SETTINGS: "ExamResultProcessingSettings",
 } as const;
 
 // ─── Question Bank / Assessments ─────────────────────────────────────────────
@@ -185,6 +353,40 @@ export const ASSESSMENT_API = {
   BULK_IMPORT: "assessment/importQuestionsDetails",
   /** GET (domain/list): searchable course-lesson hierarchy for modal dropdown */
   COURSE_SEARCH: "CourseLessonSearch",
+  /** Angular `onlineCoursesCrudUrl` */
+  ONLINE_COURSES: "OnlineCourses",
+  /** Angular `digitalLibraryMemberUrl` */
+  DIGITAL_LIBRARY_MEMBER: "DigitalLibraryMember",
+  /** Angular `courseLessonCrudUrl` */
+  COURSE_LESSON: "CourseLesson",
+  /** Angular `courseLessonsTopicCrudUrl` */
+  COURSE_LESSONS_TOPIC: "CourseLessonsTopic",
+  /** Angular `courseMemberCrudUrl` */
+  COURSE_MEMBER: "CourseMember",
+  /** Angular `memberAssessmentCrudUrl` */
+  MEMBER_ASSESSMENT: "MemberAssessment",
+  /** Angular `memberAssessmentDetailsUrl` */
+  MEMBER_ASSESSMENT_DETAILS: "assessment/memberAssessmentDetails",
+  /** Angular `onlineCourseAcademicMapUrl` */
+  ONLINE_COURSE_ACADEMIC_MAP: "onlinecourseacademicmap",
+  /** Angular `assessmentCrudUrl` */
+  ASSESSMENT: "Assessment",
+  /** Angular `getLessonstatus` */
+  GET_LESSONSTATUS: "getLessonstatus",
+  /** Angular `lessonstatusurl` */
+  LESSONSTATUS: "Lessonstatus",
+  /** Angular `assessmentQuestionCrudUrl` */
+  ASSESSMENT_QUESTION: "AssessmentQuestion",
+  /** Angular `courseLessonsTopicVideoCrudUrl` */
+  COURSE_LESSONS_TOPIC_VIDEO: "CourseLessonsTopicVideo",
+  /** Angular `addLessonstatusListUrl` */
+  ADD_LESSONSTATUS: "addLessonstatusList",
+  /** Angular `empPerfAssessmentQuestionsurl` */
+  EMP_PERF_ASSESSMENT_QUESTIONS: "EmpPerfAssessmentQuestions",
+  /** Angular `empPerfAssessmentFeedbackCrudUrl` */
+  EMP_PERF_ASSESSMENT_FEEDBACK: "EmpPerfAssessmentFeedback",
+  /** Angular `membersSyncUrl` */
+  MEMBERS_SYNC: "membersSync",
 } as const;
 
 // ─── Exam Online Paper ───────────────────────────────────────────────────────
@@ -328,6 +530,22 @@ export const EXAM_EVAL_API = {
   GENERATE_SECRET_CODE: "generateSecretCodeForPublishedQp",
   /** GET: validate secret code for published QP */
   VALIDATE_SECRET_CODE: "validateSecretCodeForPublishedQp",
+  /** Angular `saveExamEvaluatorProfileDetailsUrl` */
+  SAVE_EXAM_EVALUATOR_PROFILE_DETAILS: "saveExamEvaluatorProfileDetails",
+  /** Angular `ExamScanProfileDetailsUrl` */
+  EXAM_SCAN_PROFILE_DETAILS: "saveExamScanProfileDetails",
+  /** Angular `ExamScanProfileDetails` */
+  EXAM_SCAN_PROFILE_DETAILS_2: "ExamScanProfileDetails",
+  /** Angular `ExamEvaluatorPreferencesUrl` */
+  EXAM_EVALUATOR_PREFERENCES: "ExamEvaluatorPreferences",
+  /** Angular `addExamEvaluatorProfileBankDetailsUrl` */
+  ADD_EXAM_EVALUATOR_PROFILE_BANK_DETAILS: "addExamEvaluatorProfileBankDetails",
+  /** Angular `getExamEvaluatorProfileDetailsUrl` */
+  GET_EXAM_EVALUATOR_PROFILE_DETAILS: "getExamEvaluatorProfileDetails",
+  /** Angular `ExamEvaluationAssignmentsCrudUrl` */
+  EXAM_EVALUATION_ASSIGNMENTS: "ExamEvaluationAssignments",
+  /** Angular `ExamQuestionPaperCollegesUrl` */
+  EXAM_QUESTION_PAPER_COLLEGES: "ExamQuestionPaperColleges",
 } as const;
 
 // ─── Invigilator Remuneration ─────────────────────────────────────────────────
@@ -368,6 +586,8 @@ export const EXAM_REVAL_API = {
   ADD_FINAL_EVAL_PAPERS: "addfinalevaluationpapers",
   /** GET/POST: sheet data */
   SHEET_DATA: "sheetData",
+  /** Angular `revaluationUrl` */
+  REVALUATION: "revaluation",
 } as const;
 
 // ─── Question Paper ──────────────────────────────────────────────────────────
@@ -432,6 +652,62 @@ export const STUDENT_API = {
   UPLOAD_MARKS: "uploadStudentMarks",
   /** GET: bulk students upload */
   GET_BULK_STUDENTS: "getAllRecords/s_get_bulk_student_upload",
+  /** Angular `studentSubjectUrl` */
+  STUDENT_SUBJECT: "StudentSubject",
+  /** Angular `studentListUrl` */
+  STUDENT: "studentsList",
+  /** Angular `addStudentsListUrl` */
+  ADD_STUDENTS: "addStudentslist",
+  /** Angular `updateRollnoUrl` */
+  UPDATE_ROLLNO: "updateRollno",
+  /** Angular `addStudentBatchesUrl` */
+  ADD_STUDENT_BATCHES: "addStudentBatches",
+  /** Angular `studentsubjectsattendancelistUrl` */
+  STUDENTSUBJECTSATTENDANCELIST: "studentsubjectsattendancelist",
+  /** Angular `studentBatchCrudUrl` */
+  STUDENT_BATCH: "Studentbatch",
+  /** Angular `studentdetailUrl` */
+  STUDENTDETAIL: "studentdetail",
+  /** Angular `studentBatchesUrl` */
+  STUDENT_BATCHES: "studentbatches",
+  /** Angular `sendStudentMailsUrl` */
+  SEND_STUDENT_MAILS: "sendStudentMails",
+  /** Angular `batchWiseStudentsUrl` */
+  BATCH_WISE_STUDENTS: "batchwisestudents",
+  /** Angular `batchwiseStudentsElectiveUrl` */
+  BATCHWISE_STUDENTS_ELECTIVE: "batchwisestudentselective",
+  /** Angular `batchWiseStudentUrl` */
+  BATCH_WISE_STUDENT: "BatchwiseStudent",
+  /** Angular `batchwiseStudentSecUrl` */
+  BATCHWISE_STUDENT_SEC: "batchwiseStudentSec",
+  /** Angular `batchwiseElectiveUrl` */
+  BATCHWISE_ELECTIVE: "batchwiseElective",
+  /** Angular `promoteStudentUrl` */
+  PROMOTE_STUDENT: "promotestudent",
+  /** Angular `studentListByStructureUrl` */
+  STUDENT_LIST_BY_STRUCTURE: "studentsListByStructure",
+  /** Angular `detainUrl` */
+  DETAIN: "detain",
+  /** Angular `detainstudentslistUrl` */
+  DETAINSTUDENTSLIST: "detainstudentslist",
+  /** Angular `detainrecommendedUrl` */
+  DETAINRECOMMENDED: "detainrecommended",
+  /** Angular `discontinueUrl` */
+  DISCONTINUE: "discontinue",
+  /** Angular `passedoutUrl` */
+  PASSEDOUT: "passedout",
+  /** Angular `studentSubjectsStagingUrl` */
+  STUDENT_SUBJECTS_STAGING: "api/tables/uploadStudentSubjects",
+  /** Angular `uploadStudentSignaturePathUrl` */
+  UPLOAD_STUDENT_SIGNATURE_PATH: "uploadStudentSignaturePath",
+  /** Angular `bulkUploadStudentSignaturesUrl` */
+  BULK_UPLOAD_STUDENT_SIGNATURES: "bulkUploadStudentSignatures",
+  /** Angular `validateStudentSignatureUrl` */
+  VALIDATE_STUDENT_SIGNATURE: "validateStudentSignature",
+  /** Angular `uploadPhotosAndSignaturesUrl` */
+  UPLOAD_PHOTOS_AND_SIGNATURES: "uploadPhotosAndSignatures",
+  /** Angular `StdCCActivitiesDetailsUrl` */
+  STD_CC_ACTIVITIES_DETAILS: "StdCCActivitiesDetails",
 } as const;
 
 // ─── Employee / Staff Management ───────────────────────────   ─────────────────
@@ -463,6 +739,52 @@ export const EMPLOYEE_API = {
   EMPLOYEE_SEARCH: "cms/employeesearch",
   /** GET: employee details by user id — `employeedetailsbyid?userId=` */
   DETAILS_BY_USER_ID: "employeedetailsbyid",
+  /** Angular `employeeapplicationUrl` */
+  EMPLOYEEAPPLICATION: "employeedetails",
+  /** Angular `employeeapplicationListUrl` */
+  EMPLOYEEAPPLICATION_2: "employeeList",
+  /** Angular `staffCourseYrSubjectUrl` */
+  STAFF_COURSE_YR_SUBJECT: "StaffCourseyrSubject",
+  /** Angular `staffcourseyrsubjectsUrl` */
+  STAFFCOURSEYRSUBJECTS: "staffcourseyrsubjects",
+  /** Angular `staffsyllabusplandetailsUrl` */
+  STAFFSYLLABUSPLANDETAILS: "staffsyllabusplandetails",
+  /** Angular `staffsyllabusplanUrl` */
+  STAFFSYLLABUSPLAN: "staffsyllabusplan",
+  /** Angular `deleteStaffsUrl` */
+  DELETE_STAFFS: "deletestaffs",
+  /** Angular `empAttendanceEmployeeCrudUrl` */
+  EMP_ATTENDANCE_EMPLOYEE: "EmpAttendanceEmployee",
+  /** Angular `shiftUrl` */
+  SHIFT: "Shift",
+  /** Angular `employeeShiftUrl` */
+  EMPLOYEE_SHIFT: "EmployeeShift",
+  /** Angular `staffGroupSectionUrl` */
+  STAFF_GROUP_SECTION: "staffGroupSection",
+  /** Angular `staffProxyCrudUrl` */
+  STAFF_PROXY: "StaffProxy",
+  /** Angular `staffProxiesUrl` */
+  STAFF_PROXIES: "staffproxies",
+  /** Angular `staffProxiesbyEmpDeptUrl` */
+  STAFF_PROXIESBY_EMP_DEPT: "staffproxiesbyempdept",
+  /** Angular `staffProxiesListUrl` */
+  STAFF_PROXIES_2: "staffproxieslist",
+  /** Angular `empProxyDetailsUrl` */
+  EMP_PROXY_DETAILS: "empproxydetails",
+  /** Angular `proxySubjectUrl` */
+  PROXY_SUBJECT: "proxysubject",
+  /** Angular `staffSubjectsUrl` */
+  STAFF_SUBJECTS: "staffSubjects",
+  /** Angular `staffSectionsUrl` */
+  STAFF_SECTIONS: "staffSections",
+  /** Angular `employeePayslipGenerationUrl` */
+  EMPLOYEE_PAYSLIP_GENERATION: "employeepayslipgenerations",
+  /** Angular `employeePayslipGenerationCrudUrl` */
+  EMPLOYEE_PAYSLIP_GENERATION_2: "EmployeePayslipGeneration",
+  /** Angular `employeeWisePayslipGenerationsUrl` */
+  EMPLOYEE_WISE_PAYSLIP_GENERATIONS: "employeewisepayslipgenerations",
+  /** Angular `employeePayslipDetailCrudUrl` */
+  EMPLOYEE_PAYSLIP_DETAIL: "EmployeePayslipDetail",
 } as const;
 
 // ─── Fee / Payment Management ────────────────────────────────────────────────
@@ -582,6 +904,80 @@ export const FEE_API = {
   STG_ONLINE_FEE_RECEIPTS: "stgOnlineFeereceipts",
   /** POST: staging online exam fee receipts */
   STG_ONLINE_EXAM_FEE_RECEIPTS: "stgOnlineExamFeeReceipts",
+  /** Angular `getUnivFeeReceiptDetailsUrl` */
+  GET_UNIV_FEE_RECEIPT_DETAILS: "getUnivFeeReceiptDetails",
+  /** Angular `feeCategoryUrl` */
+  FEE_CATEGORY: "FeeCategory",
+  /** Angular `feeParticularUrl` */
+  FEE_PARTICULAR: "FeeParticular",
+  /** Angular `FeeStructureCrudUrl` */
+  FEE_STRUCTURE_2: "FeeStructure",
+  /** Angular `feeStructureParticularCrudUrl` */
+  FEE_STRUCTURE_PARTICULAR: "FeeStructureParticular",
+  /** Angular `studentfeelistDownloadUrl` */
+  STUDENTFEELIST: "studentfeelistDownload",
+  /** Angular `studentfeeDueDownloadUrl` */
+  STUDENTFEE_DUE: "studentfeeDueDownload",
+  /** Angular `feeDueDownloadUrl` */
+  FEE_DUE: "feeDueListDownload",
+  /** Angular `busFeeCollectionsUrl` */
+  BUS_FEE_COLLECTIONS: "busfeecollections",
+  /** Angular `empBusFeeCollectionsUrl` */
+  EMP_BUS_FEE_COLLECTIONS: "empbusfeecollections",
+  /** Angular `empBusFeeCollectionsDownloadUrl` */
+  EMP_BUS_FEE_COLLECTIONS_2: "empbusfeecollectionsdownload",
+  /** Angular `busFeeCollectionsDownloadUrl` */
+  BUS_FEE_COLLECTIONS_2: "busfeecollectionsDownload",
+  /** Angular `libraryFeeCollectionsUrl` */
+  LIBRARY_FEE_COLLECTIONS: "libraryfeecollections",
+  /** Angular `libraryFeeCollectionsDownloadUrl` */
+  LIBRARY_FEE_COLLECTIONS_2: "libraryfeecollectionsDownload",
+  /** Angular `managementStdFeeCollectionsUrl` */
+  MANAGEMENT_STD_FEE_COLLECTIONS: "managementstdfeecollections",
+  /** Angular `managementStdFeeCollectionsDownloadUrl` */
+  MANAGEMENT_STD_FEE_COLLECTIONS_2: "managementstdfeecollectionsDownload",
+  /** Angular `feeConsessionListDownloadUrl` */
+  FEE_CONSESSION_LIST: "feeconsessionlistDownload",
+  /** Angular `feeLedgerUrl` */
+  FEE_LEDGER: "feeLedger",
+  /** Angular `feeLedgerDownloadUrl` */
+  FEE_LEDGER_2: "feeLedgerDownload",
+  /** Angular `dayWiseReceiptsNewReportUrl` */
+  DAY_WISE_RECEIPTS_NEW_REPORT: "daywisereceiptsNewReport",
+  /** Angular `feeStudentWiseParticularsCrudUrl` */
+  FEE_STUDENT_WISE_PARTICULARS_2: "feestudentwiseparticulars",
+  /** Angular `feeStudentDataParticularCrudUrl` */
+  FEE_STUDENT_DATA_PARTICULAR: "FeeStudentDataParticular",
+  /** Angular `feeParticularwisePaymentCrudUrl` */
+  FEE_PARTICULARWISE_PAYMENT: "FeeParticularwisePayment",
+  /** Angular `feeStudentWiseParticularUrl` */
+  FEE_STUDENT_WISE_PARTICULAR: "FeeStudentWiseParticular",
+  /** Angular `feeStudentwiseDiscountCrudUrl` */
+  FEE_STUDENTWISE_DISCOUNT: "FeeStudentwiseDiscount",
+  /** Angular `updateMinFeePerfeestudentdataUrl` */
+  UPDATE_MIN_FEE_PERFEESTUDENTDATA: "updateMinFeePerfeestudentdata",
+  /** Angular `feeStudentWiseFinesUrl` */
+  FEE_STUDENT_WISE_FINES: "feestudentwisefines",
+  /** Angular `feeParticularwisePaymentsforStudentRefundUrl` */
+  FEE_PARTICULARWISE_PAYMENTSFOR_STUDENT_REFUND: "feeparticularwisepaymentsforstudentrefund",
+  /** Angular `daywisereceiptsPdfDownloadUrl` */
+  DAYWISERECEIPTS_PDF: "daywisereceiptsPdfDownload",
+  /** Angular `uploadFeeStgMerchantPaymentFileDetailsUrl` */
+  UPLOAD_FEE_STG_MERCHANT_PAYMENT_FILE_DETAILS: "uploadFeeStgMerchantPaymentFileDetails",
+  /** Angular `feeReceiptsListUrl` */
+  FEE_RECEIPTS_2: "feereceiptsList",
+  /** Angular `libFineCollectionUrl` */
+  LIB_FINE_COLLECTION: "LibFineCollection",
+  /** Angular `transportFeePaymentCrudUrl` */
+  TRANSPORT_FEE_PAYMENT: "TransportFeePayment",
+  /** Angular `distanceFeerUrl` */
+  DISTANCE_FEER: "DistanceFee",
+  /** Angular `hostelDiscountsUrl` */
+  HOSTEL_DISCOUNTS: "HostelDiscount",
+  /** Angular `invStockledgerCrudUrl` */
+  INV_STOCKLEDGER: "InvStockledger",
+  /** Angular `uploadUnivStgStdFeeUrl` */
+  UPLOAD_UNIV_STG_STD_FEE: "api/tables/uploadUnivStgStdFee",
 } as const;
 
 // ─── Scholarship Management ────────────────────────────────────────────────────
@@ -626,6 +1022,26 @@ export const SCHOLARSHIP_API = {
   UPDATE_STD_STUDENT_SCHOLARSHIP: "updateStdStudentScholarship",
   /** GET: college-wise filter proc (same as fee masters). */
   COLLEGE_WISE_DETAILS: "collegeWiseDetails",
+  /** Angular `addFeeSchStructuresUrl` */
+  ADD_FEE_SCH_STRUCTURES: "addFeeSchStructures",
+  /** Angular `updateFeeSchStructuresUrl` */
+  UPDATE_FEE_SCH_STRUCTURES: "updateFeeSchStructures",
+  /** Angular `academicyearwiseScholarshipDueListUrl` */
+  ACADEMICYEARWISE_SCHOLARSHIP_DUE: "academicyearwisescholarshipduelist",
+  /** Angular `academicyearwiseScholarshipDueListDownloadUrl` */
+  ACADEMICYEARWISE_SCHOLARSHIP_DUE_LIST: "academicyearwisescholarshipduelistDownload",
+  /** Angular `scholarshipStdPrecedingsUrl` */
+  SCHOLARSHIP_STD_PRECEDINGS: "scholarshipStdPrecedings",
+  /** Angular `scholarshipStdPrecedingsDownloadUrl` */
+  SCHOLARSHIP_STD_PRECEDINGS_2: "scholarshipStdPrecedingsDownload",
+  /** Angular `scholarshipduelistDownloadUrl` */
+  SCHOLARSHIPDUELIST: "scholarshipduelistDownload",
+  /** Angular `addFeeStudentwiseScholorshiUrl` */
+  ADD_FEE_STUDENTWISE_SCHOLORSHI: "addFeeStudentwiseScholorship",
+  /** Angular `deleteFeeStudentwiseScholorshipUrl` */
+  DELETE_FEE_STUDENTWISE_SCHOLORSHIP: "deleteFeeStudentwiseScholorship",
+  /** Angular `name` */
+  NAME_4: "Scholarship",
 } as const;
 
 // ─── Library ─────────────────────────────────────────────────────────────────
@@ -679,6 +1095,30 @@ export const LIBRARY_API = {
   GENERATE_MEMBER_BARCODE: "generateLibMemebrBarcode",
   FINE_COLLECTION: "getAllRecords/s_rep_lib_fee_collection",
   BOOK: "Book",
+  /** Angular `subjectBookCrudUrl` */
+  SUBJECT_BOOK: "SubjectBook",
+  /** Angular `subjectBookUrl` */
+  SUBJECT_BOOK_2: "subjectbooks",
+  /** Angular `checkaccessionnumberUrl` */
+  CHECKACCESSIONNUMBER: "checkaccessionnumber",
+  /** Angular `importBookDetailsUrl` */
+  IMPORT_BOOK_DETAILS: "importBookDetails",
+  /** Angular `processStgBookDetailsUrl` */
+  PROCESS_STG_BOOK_DETAILS: "processStgBookDetails",
+  /** Angular `importBookIssueDetailUrl` */
+  IMPORT_BOOK_ISSUE_DETAIL: "importBookIssueDetail",
+  /** Angular `processStgBookIssueDetailUrl` */
+  PROCESS_STG_BOOK_ISSUE_DETAIL: "processStgBookIssueDetail",
+  /** Angular `LibStudentVisitUrl` */
+  LIB_STUDENT_VISIT: "LibStudentVisit",
+  /** Angular `totalBookReportUrl` */
+  TOTAL_BOOK_REPORT: "totalbookreport",
+  /** Angular `bookWiseReportUrl` */
+  BOOK_WISE_REPORT: "bookwisecountreport",
+  /** Angular `libStudentVisitsUrl` */
+  LIB_STUDENT_VISITS: "libStudentVisits",
+  /** Angular `finChequeBooksUrl` */
+  FIN_CHEQUE_BOOKS: "FinChequeBooks",
 } as const;
 
 // ─── Payment Gateways ────────────────────────────────────────────────────────
@@ -714,6 +1154,12 @@ export const PAYMENT_GATEWAY_API = {
   PG_PAYTM_REQUEST: "pgpaytmrequest",
   /** Paytm: PG redirect */
   PG_REDIRECT: "pgredirect",
+  /** Angular `initiatePaymentUrl` */
+  INITIATE_PAYMENT_2: "BillDesk/initiatePayment",
+  /** Angular `admissionInitiatePaymentUrl` */
+  ADMISSION_INITIATE_PAYMENT: "PayPhi/admissionInitiatePayment",
+  /** Angular `getAdmissionStdPaymentOrderDetails` */
+  GET_ADMISSION_STD_PAYMENT_ORDER_DETAILS: "PayPhi/getAdmissionStdPaymentOrderDetails",
 } as const;
 
 // ─── University Wallet ───────────────────────────────────────────────────────
@@ -820,6 +1266,48 @@ export const SETUP_API = {
   DEPT_WISE_COUNSELOR: "departmentwisecounselor",
   /** CRUD: CollegeCertificate */
   COLLEGE_CERTIFICATE: "CollegeCertificate",
+  /** Angular `banksCrudUrl` */
+  BANKS: "Bank",
+  /** Angular `documentRepositoryCrudUrl` */
+  DOCUMENT_REPOSITORY: "DocumentRepository",
+  /** Angular `configautonumbersCrudUrl` */
+  CONFIGAUTONUMBERS: "configautonumbers",
+  /** Angular `configautonumberslistCrudUrl` */
+  CONFIGAUTONUMBERSLIST: "configautonumberslist",
+  /** Angular `ConfigAutonumberUrl` */
+  CONFIG_AUTONUMBER: "ConfigAutonumber",
+  /** Angular `userLoginOtpVerificationUrl` */
+  USER_LOGIN_OTP_VERIFICATION: "userLoginOtpVerification",
+  /** Angular `addStudentCourseGroupsUrl` */
+  ADD_STUDENT_COURSE_GROUPS: "addStudentCourseGroups",
+  /** Angular `studentSearchInMultipleCollegesUrl` */
+  STUDENT_SEARCH_IN_MULTIPLE_COLLEGES: "studentSearchInMultipleColleges",
+  /** Angular `moduleCrudUrl` */
+  MODULE: "Module",
+  /** Angular `subModuleCrudUrl` */
+  SUB_MODULE: "Submodule",
+  /** Angular `userCrudUrl` */
+  USER: "User",
+  /** Angular `QuotaUrl` */
+  QUOTA: "Quota",
+  /** Angular `coursecompletionUrl` */
+  COURSECOMPLETION: "coursecompletion",
+  /** Angular `collegeSuggestionUrl` */
+  COLLEGE_SUGGESTION: "CollegeSuggestion",
+  /** Angular `courseCategoryUrl` */
+  COURSE_CATEGORY: "CourseCategory",
+  /** Angular `courseOutcomeUrl` */
+  COURSE_OUTCOME: "CmCourseOutcome",
+  /** Angular `courseOutcomeMasterUrl` */
+  COURSE_OUTCOME_MASTER: "cmCourseOutcomes",
+  /** Angular `departmentCode` */
+  DEPARTMENT_CODE: "Civil",
+  /** Angular `departmentCode` */
+  DEPARTMENT_CODE_2: "H&S",
+  /** Angular `JobsUrl` */
+  JOBS: "Jobs",
+  /** Angular `TableListUrl` */
+  TABLE: "TableList",
 } as const;
 
 // ─── Room Details / Devices ────────────────────────────────────────────────
@@ -833,6 +1321,8 @@ export const ROOM_DETAILS_API = {
   UPDATE_ROOM_DETAILS: "updateRoomDetails",
   /** CRUD/list: EttlDevices */
   ETTL_DEVICES: "EttlDevices",
+  /** Angular `roomUrl` */
+  ROOM_2: "RoomDetails",
 } as const;
 
 // ─── Data Security ───────────────────────────────────────────────────────────
@@ -925,6 +1415,12 @@ export const HR_PAYROLL_API = {
   PAYSLIP_GENERATIONS: "payslipgenerations",
   /** POST: email payslips for college/department */
   PAYSLIP_EMAIL: "payslipgenerationmails",
+  /** Angular `PayrollGroupCrudUrl` */
+  PAYROLL_GROUP: "PayrollGroup",
+  /** Angular `payslipBranchSettingCrudUrl` */
+  PAYSLIP_BRANCH_SETTING: "PayslipBranchSetting",
+  /** Angular `payslipbrSettingUrl` */
+  PAYSLIPBR_SETTING: "payslipbrsetting",
 } as const;
 
 // ─── Affiliated Colleges ───────────────────────────────────────────────────────
@@ -942,6 +1438,14 @@ export const AFFILIATED_COLLEGES_API = {
   UNIV_STG_EXAM_STD_FEE: "getUnivStgExamStdFee",
   UNIVERSITY_APPROVAL: "getUniversitieApproval",
   UNIV_UPLOADS_APPROVAL: "getAllRecords/s_get_univ_uploads_approval",
+  /** Angular `studentAttendenceStageingUrl` */
+  STUDENT_ATTENDENCE_STAGEING: "api/tables/uploadStudentAttendance",
+  /** Angular `uploadStudentMarksUrl` */
+  UPLOAD_STUDENT_MARKS: "api/tables/uploadStudentMarks",
+  /** Angular `getStudentAttendanceUrl` */
+  GET_STUDENT_ATTENDANCE: "api/tables/getStudentAttendance",
+  /** Angular `getStudentMarksUrl` */
+  GET_STUDENT_MARKS: "api/tables/getStudentMarks",
 } as const;
 
 // ─── E-Office (inventory / letter formats) ───────────────────────────────────
@@ -954,6 +1458,40 @@ export const FINANCE_API = {
   ADD_MULTIPLE_FIN_BUDGET_MIDYEAR: "addMultipleFinBudgetMidyearEstimations",
   UPDATE_FIN_BUDGET_ALLOC: "updatefinbudgetalloc",
   ADD_FIN_BUDGET_ALLOC_LIST: "addFinBudgetAllocationList",
+  /** Angular `studentmediumofinstructionsUrl` */
+  STUDENTMEDIUMOFINSTRUCTIONS: "studentmediumofinstructions",
+  /** Angular `getLiveClassSchedulesUrl` */
+  GET_LIVE_CLASS_SCHEDULES: "liveClassSchedule/findDetails",
+  /** Angular `codissLiveClassSchedulesUrl` */
+  CODISS_LIVE_CLASS_SCHEDULES: "codissLiveClassSchedule/findDetails",
+  /** Angular `teamMeetingLiveClassSchedulesUrl` */
+  TEAM_MEETING_LIVE_CLASS_SCHEDULES: "teamMeetingSchedule/findDetails",
+  /** Angular `financeAccountTypeurl` */
+  FINANCE_ACCOUNT_TYPE: "FinAccountType",
+  /** Angular `updateFinBudgetAllocationUrl` */
+  UPDATE_FIN_BUDGET_ALLOCATION: "updateFinBudgetAllocation",
+  /** Angular `accountEntityUrl` */
+  ACCOUNT_ENTITY: "AccountEntity",
+  /** Angular `finCategoryUrl` */
+  FIN_CATEGORY: "FinCategory",
+  /** Angular `finSubCategoryUrl` */
+  FIN_SUB_CATEGORY: "FinSubCategory",
+  /** Angular `finMasterSubCategoryUrl` */
+  FIN_MASTER_SUB_CATEGORY: "finSubCategories",
+  /** Angular `finTransactionUrl` */
+  FIN_TRANSACTION: "FinTransaction",
+  /** Angular `FinBudgetAllocationUrl` */
+  FIN_BUDGET_ALLOCATION: "FinBudgetAllocation",
+  /** Angular `finBankAccountsUrl` */
+  FIN_BANK_ACCOUNTS: "FinBankAccounts",
+  /** Angular `finChequeIssueUrl` */
+  FIN_CHEQUE_ISSUE: "FinChequeIssue",
+  /** Angular `getAccountEntityDetailUrl` */
+  GET_ACCOUNT_ENTITY_DETAIL: "getAccountEntityDetail",
+  /** Angular `addFinChequeIssueListUrl` */
+  ADD_FIN_CHEQUE_ISSUE: "addFinChequeIssueList",
+  /** Angular `getFinChequeIssueDetailUrl` */
+  GET_FIN_CHEQUE_ISSUE_DETAIL: "getFinChequeIssueDetail",
 } as const;
 
 export const E_OFFICE_API = {
@@ -967,6 +1505,34 @@ export const E_OFFICE_API = {
   INV_INTERNAL_RETURN: "invinternalreturn",
   FIN_BUDGET_DETAILS: "s_get_fin_budgetdetails_bycode",
   FIN_DETAILS: "s_get_financialdetails_bycode",
+  /** Angular `invStoreItemCrudUrl` */
+  INV_STORE_ITEM: "InvStoreItem",
+  /** Angular `invStoresMasterCrudUrl` */
+  INV_STORES_MASTER: "InvStoresmaster",
+  /** Angular `invUommasterCrudUrl` */
+  INV_UOMMASTER: "InvUommaster",
+  /** Angular `invSuppliermasterCrudUrl` */
+  INV_SUPPLIERMASTER: "InvSuppliermaster",
+  /** Angular `invBrandMasterCrudUrl` */
+  INV_BRAND_MASTER: "InvBrandmaster",
+  /** Angular `invItemCategoryCrudUrl` */
+  INV_ITEM_CATEGORY: "InvItemcategory",
+  /** Angular `invItemSubCategoryCrudUrl` */
+  INV_ITEM_SUB_CATEGORY: "InvItemsubcategory",
+  /** Angular `invItemmasterCrudUrl` */
+  INV_ITEMMASTER: "InvItemmaster",
+  /** Angular `invItemopeningStockCrudUrl` */
+  INV_ITEMOPENING_STOCK: "InvItemopeningStock",
+  /** Angular `invPurchaseOrderDomainUrl` */
+  INV_PURCHASE_ORDER_DOMAIN: "InvPurchaseOrder",
+  /** Angular `invInternalReturnItemCrudUrl` */
+  INV_INTERNAL_RETURN_ITEM: "InvInternalReturnItem",
+  /** Angular `invPurchasereturnCrudUrl` */
+  INV_PURCHASERETURN: "InvPurchasereturn",
+  /** Angular `searchTrakableItems` */
+  SEARCH_TRAKABLE_ITEMS: "searchTrakableItems",
+  /** Angular `OfficeLetterFormatsUrl` */
+  OFFICE_LETTER_FORMATS: "OfficeLetterFormats",
 } as const;
 
 // ─── Subject / Regulation ────────────────────────────────────────────────────
@@ -999,6 +1565,54 @@ export const SUBJECT_API = {
   IMPORT_SUBJECT_DETAILS: "importSubjectDetails",
   /** POST: process staged subject bulk details */
   PROCESS_STG_SUBJECT_DETAILS: "processStgsubjectDetails",
+  /** Angular `subjectCrudUrl` */
+  SUBJECT: "Subject",
+  /** Angular `addSubjectAndUploadFileUrl` */
+  ADD_SUBJECT_AND_UPLOAD_FILE: "addSubjectAndUploadFile",
+  /** Angular `addSubjectsUrl` */
+  ADD_SUBJECTS: "addSubjects",
+  /** Angular `subjectsearchUrl` */
+  SUBJECTSEARCH: "subjectsearch",
+  /** Angular `subjectTypeModificationUrl` */
+  SUBJECT_TYPE_MODIFICATION: "subjecttypemodification",
+  /** Angular `updateSubjectAndUploadFileUrl` */
+  UPDATE_SUBJECT_AND_UPLOAD_FILE: "updateSubjectAndUploadFile",
+  /** Angular `updateStudnetSubjectsUrl` */
+  UPDATE_STUDNET_SUBJECTS: "updateStudnetSubjects",
+  /** Angular `subjectRegulationForCourseUrl` */
+  SUBJECT_REGULATION_FOR_COURSE: "subjectregulationsforcoursegroup",
+  /** Angular `subjectsCrudUrl` */
+  SUBJECTS_2: "subjects",
+  /** Angular `electiveSubjectsRequestUrl` */
+  ELECTIVE_SUBJECTS_REQUEST: "electivesubjectrequests",
+  /** Angular `updateSubjectUnitTopicUrl` */
+  UPDATE_SUBJECT_UNIT_TOPIC: "updateSubjectUnitTopic",
+  /** Angular `getSubjectUnitUrl` */
+  GET_SUBJECT_UNIT: "SubjectUnit",
+  /** Angular `subjectUnitsCrudUrl` */
+  SUBJECT_UNITS: "subjectunits",
+  /** Angular `getSubjectUnitTopicUrl` */
+  GET_SUBJECT_UNIT_TOPIC: "SubjectUnitTopic",
+  /** Angular `subjectResourceUrl` */
+  SUBJECT_RESOURCE: "subjectresources",
+  /** Angular `subjectResourcesSchedulesUrl` */
+  SUBJECT_RESOURCES_SCHEDULES: "subjectresourcesschedules",
+  /** Angular `subjectResourceEntityUrl` */
+  SUBJECT_RESOURCE_ENTITY: "SubjectResource",
+  /** Angular `courseyrsubjectsUrl` */
+  COURSEYRSUBJECTS: "courseyrsubjects",
+  /** Angular `electiveGroupyrMappingUrl` */
+  ELECTIVE_GROUPYR_MAPPING: "ElectiveGroupyrMapping",
+  /** Angular `electiveGroupYrMappingNamesUrl` */
+  ELECTIVE_GROUP_YR_MAPPING_NAMES: "electivegroupyrmappingnames",
+  /** Angular `SubjectCategoryUrl` */
+  SUBJECT_CATEGORY: "SubjectCategory",
+  /** Angular `SubjectTypesUrlL` */
+  SUBJECT_TYPES_URL_L: "SubjectTypes",
+  /** Angular `uploadStgUnitTopicExcelUrl` */
+  UPLOAD_STG_UNIT_TOPIC_EXCEL: "uploadStgUnitTopicExcel",
+  /** Angular `uploadUnitTopicUrl` */
+  UPLOAD_UNIT_TOPIC: "storage/uploadUnitTopic",
 } as const;
 
 // ─── Assignments ─────────────────────────────────────────────────────────────
@@ -1090,6 +1704,22 @@ export const ATTENDANCE_API = {
   /** GET: class wise student attendance summary */
   GET_CLASSWISE_STD_ATTENDANCE:
     "getAllRecords/s_get_classwise_std_attendance_summary",
+  /** Angular `schedulesforattendanceUrl` */
+  SCHEDULESFORATTENDANCE: "schedulesforattendance",
+  /** Angular `studentAttendanceListUrl` */
+  STUDENT_ATTENDANCE: "studentabsentlist",
+  /** Angular `actualClassesScheduleListUrl` */
+  ACTUAL_CLASSES_SCHEDULE: "actualclassesschedulelist",
+  /** Angular `actualClassesScheduleCrudUrl` */
+  ACTUAL_CLASSES_SCHEDULE_2: "ActualClassesSchedule",
+  /** Angular `studentSttendanceDetailsUrl` */
+  STUDENT_STTENDANCE_DETAILS: "studentattendancedetails",
+  /** Angular `studentAttendanceSummaryUrl` */
+  STUDENT_ATTENDANCE_SUMMARY: "studentattendancesummary",
+  /** Angular `counselormappingswithotabsentiesUrl` */
+  COUNSELORMAPPINGSWITHOTABSENTIES: "counselormappingswithotabsenties",
+  /** Angular `trainingAttendenceDetailsUrl` */
+  TRAINING_ATTENDENCE_DETAILS: "TrainingStudentAttendence",
 } as const;
 
 /** Angular `timetable` app — timing sets, class timings, timetables, schedules. */
@@ -1107,6 +1737,24 @@ export const TIMETABLE_MGMT_API = {
   TIMETABLES_POST: "timetables",
   TIMETABLES_CURR: "timetablescurr",
   SCHEDULE_LIST_BY_TIMING_SET: "schedulelistbytimingset",
+  /** Angular `timingSetListUrl` */
+  TIMING_SET: "timingsetslist",
+  /** Angular `classWeekdaysUrl` */
+  CLASS_WEEKDAYS: "classweekdays",
+  /** Angular `scheduleCrudUrl` */
+  SCHEDULE: "schedules",
+  /** Angular `scheduleEntityUrl` */
+  SCHEDULE_ENTITY: "Schedule",
+  /** Angular `scheduleSectionUrl` */
+  SCHEDULE_SECTION: "schedulesections",
+  /** Angular `liveClassScheduleUrl` */
+  LIVE_CLASS_SCHEDULE: "liveClassSchedule",
+  /** Angular `meetingCheckInUrl` */
+  MEETING_CHECK_IN: "liveClassSchedule/meetingCheckIn",
+  /** Angular `codissLiveClassScheduleUrl` */
+  CODISS_LIVE_CLASS_SCHEDULE: "codissLiveClassSchedule",
+  /** Angular `teamMeetingScheduleUrl` */
+  TEAM_MEETING_SCHEDULE: "teamMeetingSchedule",
 } as const;
 
 export const TIMETABLE_REPORT_API = {
@@ -1155,6 +1803,52 @@ export const ADMISSION_API = {
   STD_APPLICATIONS_SEARCH: "univStdApplicationsSearch",
   /** GET/POST: student admission report by admission number */
   STUDENT_ADMISSION_REPORT: "studentadmissionreport",
+  /** Angular `getStdApplicationFormDetailsUrl` */
+  GET_STD_APPLICATION_FORM_DETAILS: "getStdApplicationFormDetails",
+  /** Angular `addAdmissionFeeReceiptUrl` */
+  ADD_ADMISSION_FEE_RECEIPT: "addAdmissionFeeReceipt",
+  /** Angular `studentApplicationFormUrl` */
+  STUDENT_APPLICATION_FORM: "studentapplicationform",
+  /** Angular `univStudentApplicationUrl` */
+  UNIV_STUDENT_APPLICATION: "univStudentApplication",
+  /** Angular `studentApplicationUrl` */
+  STUDENT_APPLICATION: "StudentApplication",
+  /** Angular `univStdApplicationFormSearchUrl` */
+  UNIV_STD_APPLICATION_FORM_SEARCH: "univStdApplicationFormSearch",
+  /** Angular `getUnivStdApplicationsAndEducationDetailsUrl` */
+  GET_UNIV_STD_APPLICATIONS_AND_EDUCATION_DETAILS: "getUnivStdApplicationsAndEducationDetails",
+  /** Angular `getAdmissionStdApplicationsAndEducationDetailsUrl` */
+  GET_ADMISSION_STD_APPLICATIONS_AND_EDUCATION_DETAILS: "getAdmissionStdApplicationsAndEducationDetails",
+  /** Angular `getStudentApplicationDetailsByUrl` */
+  GET_STUDENT_APPLICATION_DETAILS_BY: "getStudentApplicationDetailsBy",
+  /** Angular `univStdApplicationFormPhotosUrl` */
+  UNIV_STD_APPLICATION_FORM_PHOTOS: "univStdApplicationFormPhotos",
+  /** Angular `stdRegisterUrl` */
+  STD_REGISTER: "register",
+  /** Angular `univUserLoginurl` */
+  UNIV_USER_LOGIN: "univUserLogin",
+  /** Angular `stdLoginUrl` */
+  STD_LOGIN: "stdLogin",
+  /** Angular `uploadUnivStdApplicationFormDocumentsUrl` */
+  UPLOAD_UNIV_STD_APPLICATION_FORM_DOCUMENTS: "uploadUnivStdApplicationFormDocuments",
+  /** Angular `stdLoginOtpVerificationUrl` */
+  STD_LOGIN_OTP_VERIFICATION: "stdLoginOtpVerification",
+  /** Angular `addStdApplicationFormDetailsUrl` */
+  ADD_STD_APPLICATION_FORM_DETAILS: "addStdApplicationFormDetails",
+  /** Angular `getAdmissionFeeReceiptDetailsUrl` */
+  GET_ADMISSION_FEE_RECEIPT_DETAILS: "getAdmissionFeeReceiptDetails",
+  /** Angular `updateStdApplicationFormDetailsUrl` */
+  UPDATE_STD_APPLICATION_FORM_DETAILS: "updateStdApplicationFormDetails",
+  /** Angular `uploadStdApplicationFormPhotosUrl` */
+  UPLOAD_STD_APPLICATION_FORM_PHOTOS: "uploadStdApplicationFormPhotos",
+  /** Angular `getAdmissionFeeStructureDetailsUrl` */
+  GET_ADMISSION_FEE_STRUCTURE_DETAILS: "getAdmissionFeeStructureDetails",
+  /** Angular `readmissionUrl` */
+  READMISSION: "readmission",
+  /** Angular `hostelRegisterUrl` */
+  HOSTEL_REGISTER: "HostelRegister",
+  /** Angular `courseRegisteredStdForDeptUrl` */
+  COURSE_REGISTERED_STD_FOR_DEPT: "courseregisteredstdfordept",
 } as const;
 
 // ─── University Management ───────────────────────────────────────────────────
@@ -1271,6 +1965,28 @@ export const UNIV_EXAM_CENTER_API = {
   POP_EXAM_CENTER_SCAN_DETAILS: "s_pop_exam_center_scan_details",
   /** GET: `getAllRecords/s_get_barcode_details` — exam seatno barcode list (Angular getBarcodeDetailsUrl) */
   BARCODE_DETAILS: "s_get_barcode_details",
+  /** Angular `UnivExamScanbundleUrl` */
+  UNIV_EXAM_SCANBUNDLE: "UnivExamScanbundle",
+  /** Angular `saveUnivExamScanbundleDetailsUrl` */
+  SAVE_UNIV_EXAM_SCANBUNDLE_DETAILS: "saveUnivExamScanbundleDetails",
+  /** Angular `saveUnivExamGroupDetailsUrl` */
+  SAVE_UNIV_EXAM_GROUP_DETAILS: "saveUnivExamGroupDetails",
+  /** Angular `UnivExamScanbundleDetailsUrl` */
+  UNIV_EXAM_SCANBUNDLE_DETAILS: "UnivExamScanbundleDetails",
+  /** Angular `searchExamOmrSerialNoUrl` */
+  SEARCH_EXAM_OMR_SERIAL_NO: "searchExamOmrSerialNo",
+  /** Angular `UnivEvaluationCenterUrl` */
+  UNIV_EVALUATION_CENTER: "UnivEvaluationCenter",
+  /** Angular `getBooksBarcodeNotGeneratedRecordsUrl` */
+  GET_BOOKS_BARCODE_NOT_GENERATED_RECORDS: "getBooksBarcodeNotGeneratedRecords",
+  /** Angular `getLibMemberBarcodeNotGeneratedRecordsUrl` */
+  GET_LIB_MEMBER_BARCODE_NOT_GENERATED_RECORDS: "getLibMemberBarcodeNotGeneratedRecords",
+  /** Angular `updateOmrSerialnoAndOmrBarcodeUrl` */
+  UPDATE_OMR_SERIALNO_AND_OMR_BARCODE: "updateOmrSerialnoAndOmrBarcode",
+  /** Angular `generateBarCodeUrl` */
+  GENERATE_BAR_CODE: "generate-barcode/examstudents",
+  /** Angular `updateRejectProcessedReasonUrl` */
+  UPDATE_REJECT_PROCESSED_REASON: "updateRejectProcessedReason",
 } as const;
 
 // ─── University Committees ───────────────────────────────────────────────────
@@ -1329,6 +2045,24 @@ export const TRANSPORT_API = {
   GET_STUDENT_TRANSPORT: "getAllRecords/s_get_std_transport",
   /** POST: transport allocation for student */
   TRANSPORT_ALLOCATION: "transportallocationforstudent",
+  /** Angular `transportDetailUrl` */
+  TRANSPORT_DETAIL: "TransportDetail",
+  /** Angular `vehicleDetailCrudUrl` */
+  VEHICLE_DETAIL: "VehicleDetail",
+  /** Angular `driverUrl` */
+  DRIVER: "Driver",
+  /** Angular `helperUrl` */
+  HELPER: "Helper",
+  /** Angular `routeUrl` */
+  ROUTE: "Route",
+  /** Angular `routeStopUrl` */
+  ROUTE_STOP: "RouteStop",
+  /** Angular `vehicleDriverUrl` */
+  VEHICLE_DRIVER: "VehicleDriver",
+  /** Angular `vechicleRouterUrl` */
+  VECHICLE_ROUTER: "VechicleRoute",
+  /** Angular `transportPaymentUrl` */
+  TRANSPORT_PAYMENT: "transportpayment",
 } as const;
 
 // ─── Hostel ──────────────────────────────────────────────────────────────────
@@ -1344,6 +2078,16 @@ export const HOSTEL_API = {
   ROOM_ALLOCATION_SEARCH: "roomAllocationSearch",
   /** GET: monthly visitors summary */
   GET_VISITORS_REPORT: "getAllRecords/s_get_visitors_report",
+  /** Angular `hostelTypeUrl` */
+  HOSTEL_TYPE: "HostelType",
+  /** Angular `hostelUrl` */
+  HOSTEL: "HostelDetail",
+  /** Angular `hostelRoomChargesIdUrl` */
+  HOSTEL_ROOM_CHARGES_ID: "HostelRoomCharge",
+  /** Angular `hostelRoomUrl` */
+  HOSTEL_ROOM: "HostelRoom",
+  /** Angular `hostelVisitorUrl` */
+  HOSTEL_VISITOR: "HostelVisitor",
 } as const;
 
 // ─── Certificates & Reports ──────────────────────────────────────────────────
@@ -1369,6 +2113,14 @@ export const CERTIFICATE_API = {
   BOOK_DETAIL_SEARCH_REPORT: "bookdetailsearchreport",
   /** POST: emp payslip generations PDF download */
   EMP_PAYSLIP_PDF_DOWNLOAD: "empPayslipGenerationsPDFDownload",
+  /** Angular `generateAllStdCertificatesUrl` */
+  GENERATE_ALL_STD_CERTIFICATES: "generateAllStdCertificates",
+  /** Angular `generateTcCertificateUrl` */
+  GENERATE_TC_CERTIFICATE: "generateTcCertificate",
+  /** Angular `titlesReportUrl` */
+  TITLES_REPORT: "titlesreport",
+  /** Angular `noobjectionUrl` */
+  NOOBJECTION: "noobjection",
 } as const;
 
 // ─── Syllabus ────────────────────────────────────────────────────────────────
@@ -1390,6 +2142,20 @@ export const EVENTS_API = {
   EVENTS_BY_AUDIENCE: "eventsByAudience",
   DEPARTMENT_EVENT: "departmentEvent",
   DEPARTMENT_EVENT_UPLOAD: "departmentEvent/uploadFiles",
+  /** Angular `eventTypeUrl` */
+  EVENT_TYPE: "EventType",
+  /** Angular `eventAudienceUrl` */
+  EVENT_AUDIENCE: "eventaudience",
+  /** Angular `eventsByDateUrl` */
+  EVENTS_BY_DATE: "eventsbydate",
+  /** Angular `notificationUrl` */
+  NOTIFICATION: "Notification",
+  /** Angular `notificationsUrl` */
+  NOTIFICATIONS: "notifications",
+  /** Angular `notificationbyaudienceUrl` */
+  NOTIFICATIONBYAUDIENCE: "notificationbyaudience",
+  /** Angular `eventCrudUrl` */
+  EVENT: "Event",
 } as const;
 
 // ─── Mentorship / counseling (Angular staff-mentorship + admin-counseling) ───
@@ -1401,6 +2167,8 @@ export const MENTORSHIP_API = {
   COUNSELOR_ACTIVITIES: "counseloractivitys",
   COUNSELOR_ACTIVITY_ENTITY: "CounselorActivity",
   COUNSELOR_ACTIVITY_TYPE_ENTITY: "CounselorActivityType",
+  /** Angular `counselorMappingUrl` */
+  COUNSELOR_MAPPING: "CounselorMapping",
 } as const;
 
 // ─── Counselor ───────────────────────────────────────────────────────────────
@@ -1455,6 +2223,8 @@ export const ALUMNI_API = {
   COMMITTEE_ROLE: "AmsCommitteeRole",
   /** CRUD: AmsIndustry */
   INDUSTRY: "AmsIndustry",
+  /** Angular `teamSessionUrl` */
+  TEAM_SESSION: "teamSession",
 } as const;
 
 // ─── Budget ──────────────────────────────────────────────────────────────────
@@ -1520,6 +2290,8 @@ export const MISC_REPORT_API = {
 export const WORKFLOW_API = {
   /** CRUD: WorkflowStage */
   WORKFLOW_STAGE: "WorkflowStage",
+  /** Angular `stdSubRegWorkflowUrl` */
+  STD_SUB_REG_WORKFLOW: "StdSubRegWorkflow",
 } as const;
 
 // ─── Exam Masters (simple CRUD entities) ─────────────────────────────────────
@@ -1547,6 +2319,104 @@ export const EXAM_MASTERS_API = {
 export const ORG_API = {
   /** POST: upload / replace organization logo (multipart/form-data) */
   LOGO_UPLOAD: "organizationlogoupload",
+} as const;
+
+// ─── Feedback / Survey ───────────────────────────────────────────────
+export const FEEDBACK_API = {
+  /** Angular `fbOptionGroupUrl` */
+  FB_OPTION_GROUP: "FbOptionGroup",
+  /** Angular `FbOptionchoiceUrl` */
+  FB_OPTIONCHOICE: "FbOptionchoice",
+  /** Angular `surveyformUrl` */
+  SURVEYFORM: "surveyform",
+  /** Angular `getSurveyFormUrl` */
+  GET_SURVEY_FORM: "surveyformdetailsbyenddate",
+  /** Angular `feedbackQuestionUrl` */
+  FEEDBACK_QUESTION: "FeedbackQuestion",
+  /** Angular `surveyFeedbackUrl` */
+  SURVEY_FEEDBACK: "surveyfeedback",
+  /** Angular `surveyFeedbackDetailCrudUrl` */
+  SURVEY_FEEDBACK_DETAIL: "SurveyFeedbackDetail",
+  /** Angular `surveyfeedbackEmpUrl` */
+  SURVEYFEEDBACK_EMP: "surveyfeedbackEmp",
+} as const;
+
+// ─── Campus Maintenance ───────────────────────────────────────────────
+export const CAMPUS_MAINTENANCE_API = {
+  /** Angular `clgManagementIssueUrl` */
+  CLG_MANAGEMENT_ISSUE: "ClgManagementIssue",
+  /** Angular `uploadIssueImageUrl` */
+  UPLOAD_ISSUE_IMAGE: "uploadissueimage",
+} as const;
+
+// ─── Placements & Achievements ───────────────────────────────────────────────
+export const PLACEMENT_API = {
+  /** Angular `trainingUrl` */
+  TRAINING: "Training",
+  /** Angular `trainingDetailUrl` */
+  TRAINING_DETAIL: "TrainingDetail",
+  /** Angular `trainingStudentUrl` */
+  TRAINING_STUDENT: "TrainingStudent",
+  /** Angular `trainingSessionUrl` */
+  TRAINING_SESSION: "TrainingSession",
+  /** Angular `trainingAttendenceUrl` */
+  TRAINING_ATTENDENCE: "trainingstdattend",
+  /** Angular `companyContactUrl` */
+  COMPANY_CONTACT: "CompanyContact",
+  /** Angular `achivementCategoryUrl` */
+  ACHIVEMENT_CATEGORY: "Category",
+  /** Angular `achivementsubcategory` */
+  ACHIVEMENTSUBCATEGORY: "SubCategory",
+  /** Angular `achivementCrudUrl` */
+  ACHIVEMENT: "Achievement",
+  /** Angular `companyUrl` */
+  COMPANY: "Company",
+  /** Angular `companyMeetingUrl` */
+  COMPANY_MEETING: "CompanyMeeting",
+  /** Angular `placementUrl` */
+  PLACEMENT: "Placement",
+  /** Angular `placementDetailsUrl` */
+  PLACEMENT_DETAILS: "placementdetails",
+  /** Angular `placementCompanyUrl` */
+  PLACEMENT_COMPANY: "PlacementCompany",
+  /** Angular `placementBroadcastUrl` */
+  PLACEMENT_BROADCAST: "PlacementBroadcast",
+  /** Angular `placementStudentRegistrationUrl` */
+  PLACEMENT_STUDENT_REGISTRATION: "PlacementStudentRegistration",
+  /** Angular `stdregdetailsUrl` */
+  STDREGDETAILS: "stdregdetails",
+} as const;
+
+// ─── Student Subject Registration ───────────────────────────────────────────────
+export const SUBJECT_REGISTRATION_API = {
+  /** Angular `stdSubRegistrationSetupUrl` */
+  STD_SUB_REGISTRATION_SETUP: "StdSubRegistrationSetup",
+  /** Angular `stdSubRegistrationUrl` */
+  STD_SUB_REGISTRATION: "StdSubRegistration",
+  /** Angular `stdsubregUrl` */
+  STDSUBREG: "stdsubreg",
+} as const;
+
+// ─── Live Classes / Digital Library storage ───────────────────────────────────────────────
+export const LIVE_CLASS_API = {
+  /** Angular `zoomSessionUrl` */
+  ZOOM_SESSION: "zoomSession",
+  /** Angular `presignedUriUrl` */
+  PRESIGNED_URI: "storage/presignedUri",
+} as const;
+
+// ─── CO-PO (Course / Program Outcomes) ───────────────────────────────────────────────
+export const COPO_API = {
+  /** Angular `programOutcomeUrl` */
+  PROGRAM_OUTCOME: "CmProgramOutcome",
+  /** Angular `cmLessonPlanUrl` */
+  CM_LESSON_PLAN: "CmLessonPlan",
+  /** Angular `cmLessonPlanningUrl` */
+  CM_LESSON_PLANNING: "cmLessonPlans",
+  /** Angular `cmOutcomeMappingsUrl` */
+  CM_OUTCOME_MAPPINGS: "cmOutcomeMappings",
+  /** Angular `cmOutcomeMappingCrudUrl` */
+  CM_OUTCOME_MAPPING: "CmOutcomeMapping",
 } as const;
 
 // ─── Next.js Internal API Routes ─────────────────────────────────────────────
