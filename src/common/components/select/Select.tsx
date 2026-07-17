@@ -48,6 +48,8 @@ export interface SelectProps {
   clearable?: boolean;
   /** When true, dropdown options wrap to multiple lines; the trigger always shows ellipsis. */
   wrapOptionLabels?: boolean;
+  /** Extra classes for the scrollable options list (e.g. `max-h-40` to shorten the panel). */
+  listClassName?: string;
   className?: string;
 }
 
@@ -125,6 +127,7 @@ export function Select({
   isLoading = false,
   clearable = false,
   wrapOptionLabels = false,
+  listClassName,
   className,
 }: SelectProps) {
   const id = useId();
@@ -314,7 +317,10 @@ export function Select({
           <div
             ref={listRef}
             role="listbox"
-            className="max-h-60 overflow-y-auto overscroll-contain py-1 touch-pan-y"
+            className={cn(
+              "overflow-y-auto overscroll-contain py-1 touch-pan-y",
+              listClassName ?? "max-h-60",
+            )}
           >
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">

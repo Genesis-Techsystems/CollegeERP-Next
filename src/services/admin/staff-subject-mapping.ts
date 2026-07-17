@@ -111,28 +111,78 @@ export async function listStaffMappingSections(params: {
   return []
 }
 
+/** Angular course cell: collegeCode / academicYear / courseCode / groupCode / courseYearName / section */
+function buildStaffSubjectCourseDisplay(row: AnyRow): string {
+  const existing = String(row?.courseDisplay ?? '').trim()
+  if (existing) return existing
+  const parts = [
+    row?.collegeCode,
+    row?.academicYear,
+    row?.courseCode,
+    row?.groupCode,
+    row?.courseYearName,
+    row?.section,
+  ]
+    .map((v) => (v == null ? '' : String(v).trim()))
+    .filter((v) => v !== '')
+  if (parts.length > 0) return parts.join(' / ')
+  const fallback = String(row?.courseName ?? '').trim()
+  return fallback || '-'
+}
+
+function normalizeStaffSubjectMappingRows(rows: AnyRow[]): AnyRow[] {
+  return rows.map((r) => ({
+    ...r,
+    courseDisplay: buildStaffSubjectCourseDisplay(r),
+    subjectName: r.subjectName ?? '-',
+    subjectCode: r.subjectCode ?? '',
+    subjectType: r.subjectType ?? '-',
+    fromDate: r.fromDate ?? '',
+    toDate: r.toDate ?? '',
+    status: r.isActive === false ? 'inactive' : 'active',
+  }))
+}
+
+/**
+ * Angular `selectedEmployee` →
+ * `listDetailsById(StaffCourseyrSubject, employeeId, 'employeeDetail.employeeId')`
+ * → `result.data.resultList` (active + inactive; no college filter).
+ */
 export async function listEmployeeMappedSubjects(params: {
   collegeId: number
   employeeId: number
 }): Promise<AnyRow[]> {
   const { collegeId, employeeId } = params
-  if (!collegeId || !employeeId) return []
+  if (!employeeId) return []
+
+  // Primary path — matches Angular staff-subject-unmapping list
+  try {
+    const rows = await domainList<AnyRow>(
+      EMPLOYEE_API.STAFF_COURSE_YR_SUBJECT,
+      buildQuery({ 'employeeDetail.employeeId': employeeId }),
+    )
+    return normalizeStaffSubjectMappingRows(rows)
+  } catch {
+    // fall through to legacy paths only if domain list fails
+  }
 
   const flattenFromSubjectRows = (rows: AnyRow[]) => {
     const flattened: AnyRow[] = []
     for (const row of rows) {
       const mappings = Array.isArray(row?.staffCourseyrSubjects) ? row.staffCourseyrSubjects : []
       for (const map of mappings) {
-        const mappedEmpId = Number(map?.employeeId) || 0
+        const mappedEmpId = Number(map?.employeeId ?? map?.employeeDetail?.employeeId) || 0
+        if (mappedEmpId && mappedEmpId !== employeeId) continue
         const active = map?.isActive !== false
-        if (mappedEmpId !== employeeId || !active) continue
         flattened.push({
           ...map,
-          courseDisplay:
-            String(row?.courseDisplay ?? '').trim()
-            || [row?.collegeCode, row?.academicYear, row?.courseCode, row?.groupCode, row?.courseYearName, row?.section]
-              .filter((v) => v != null && String(v).trim() !== '')
-              .join(' / '),
+          collegeCode: map?.collegeCode ?? row?.collegeCode,
+          academicYear: map?.academicYear ?? row?.academicYear,
+          courseCode: map?.courseCode ?? row?.courseCode,
+          groupCode: map?.groupCode ?? row?.groupCode,
+          courseYearName: map?.courseYearName ?? row?.courseYearName,
+          section: map?.section ?? row?.section,
+          courseDisplay: buildStaffSubjectCourseDisplay({ ...row, ...map }),
           subjectName: row?.subjectName ?? map?.subjectName ?? '',
           subjectCode: row?.subjectCode ?? map?.subjectCode ?? '',
           subjectType: row?.subjectType ?? map?.subjectType ?? '',
@@ -144,17 +194,6 @@ export async function listEmployeeMappedSubjects(params: {
     }
     return flattened
   }
-
-  const normalizeDirectMappingRows = (rows: AnyRow[]) => rows.map((r) => ({
-    ...r,
-    courseDisplay: String(r.courseDisplay ?? r.courseName ?? '-'),
-    subjectName: r.subjectName ?? '-',
-    subjectCode: r.subjectCode ?? '',
-    subjectType: r.subjectType ?? '-',
-    fromDate: r.fromDate ?? '',
-    toDate: r.toDate ?? '',
-    status: r.isActive === false ? 'inactive' : 'active',
-  }))
 
   const tryFetchFirstSuccess = async <T extends AnyRow>(
     paths: string[],
@@ -175,9 +214,10 @@ export async function listEmployeeMappedSubjects(params: {
 
   const subjectPathVariants = [SUBJECT_API.SUBJECT_COURSE_YEARS, 'subjectcourseyears', 'subjectCourseYears']
   const subjectQueryVariants: Array<Record<string, string | number>> = [
-    { collegeId, employeeId },
-    { collegeId, employeeid: employeeId },
-    { college_id: collegeId, employee_id: employeeId },
+    ...(collegeId ? [{ collegeId, employeeId }] : []),
+    ...(collegeId ? [{ collegeId, employeeid: employeeId }] : []),
+    ...(collegeId ? [{ college_id: collegeId, employee_id: employeeId }] : []),
+    { employeeId },
   ]
   const subjectRows = await tryFetchFirstSuccess(subjectPathVariants, subjectQueryVariants)
   if (subjectRows.length > 0) {
@@ -185,14 +225,18 @@ export async function listEmployeeMappedSubjects(params: {
     if (flattened.length > 0) return flattened
   }
 
-  const mappingPathVariants = ['staffcourseyrsubjects', 'staffCourseyrSubjects']
+  const mappingPathVariants = [
+    EMPLOYEE_API.STAFFCOURSEYRSUBJECTS,
+    'staffcourseyrsubjects',
+    'staffCourseyrSubjects',
+  ]
   const mappingQueryVariants: Array<Record<string, string | number | boolean>> = [
-    { employeeId, collegeId, isActive: true },
-    { employeeId, collegeId },
-    { employeeid: employeeId, college_id: collegeId, is_active: true },
+    { employeeId },
+    ...(collegeId ? [{ employeeId, collegeId }] : []),
+    ...(collegeId ? [{ employeeid: employeeId, college_id: collegeId }] : []),
   ]
   const mappingRows = await tryFetchFirstSuccess(mappingPathVariants, mappingQueryVariants)
-  if (mappingRows.length > 0) return normalizeDirectMappingRows(mappingRows)
+  if (mappingRows.length > 0) return normalizeStaffSubjectMappingRows(mappingRows)
 
   return []
 }

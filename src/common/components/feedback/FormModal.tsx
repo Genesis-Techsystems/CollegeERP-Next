@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import { Loader2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -9,45 +9,45 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 // ─── Size map ─────────────────────────────────────────────────────────────────
 
-const sizeClass: Record<NonNullable<FormModalProps['size']>, string> = {
-  sm: 'sm:max-w-sm',
-  md: 'sm:max-w-lg',
-  lg: 'sm:max-w-2xl',
-  xl: 'sm:max-w-4xl',
-}
+const sizeClass: Record<NonNullable<FormModalProps["size"]>, string> = {
+  sm: "sm:max-w-sm",
+  md: "sm:max-w-lg",
+  lg: "sm:max-w-2xl",
+  xl: "sm:max-w-4xl",
+};
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface FormModalProps {
-  open: boolean
-  onClose: () => void
-  title: string
-  description?: string
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description?: string;
   /** Called when the <form> fires its submit event. */
-  onSubmit: (e: { preventDefault: () => void }) => void
-  isSubmitting?: boolean
-  submitLabel?: string
-  cancelLabel?: string
-  children: React.ReactNode
+  onSubmit: (e: { preventDefault: () => void }) => void;
+  isSubmitting?: boolean;
+  submitLabel?: string;
+  cancelLabel?: string;
+  children: React.ReactNode;
   /** Controls DialogContent max-width. Defaults to 'md'. */
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: "sm" | "md" | "lg" | "xl";
   /** Extra class applied to the inner form element. */
-  formClassName?: string
+  formClassName?: string;
   /** Extra class applied to DialogContent wrapper. */
-  contentClassName?: string
+  contentClassName?: string;
   /** Extra class applied to title. */
-  titleClassName?: string
+  titleClassName?: string;
   /** Hide top-right close icon when false. */
-  showCloseButton?: boolean
+  showCloseButton?: boolean;
   /** Render a full-width divider under modal header. */
-  showHeaderDivider?: boolean
+  showHeaderDivider?: boolean;
   /** Render a full-width divider above footer buttons. Defaults to true. */
-  showFooterDivider?: boolean
+  showFooterDivider?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -62,10 +62,10 @@ export function FormModal({
   description,
   onSubmit,
   isSubmitting = false,
-  submitLabel = 'Save',
-  cancelLabel = 'Cancel',
+  submitLabel = "Save",
+  cancelLabel = "Cancel",
   children,
-  size = 'md',
+  size = "md",
   formClassName,
   contentClassName,
   titleClassName,
@@ -74,25 +74,32 @@ export function FormModal({
   showFooterDivider = true,
 }: Readonly<FormModalProps>) {
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent
         closeOnOutsideClick={false}
         closeOnEscape={false}
         hasDescription
         className={cn(
-          'flex max-h-[90vh] flex-col overflow-hidden sm:max-h-[92vh]',
-          !showCloseButton && '[&>button]:hidden',
+          "flex max-h-[90vh] flex-col overflow-hidden sm:max-h-[92vh]",
+          !showCloseButton && "[&>button]:hidden",
           sizeClass[size],
           contentClassName,
         )}
       >
         <DialogHeader
           className={cn(
-            'shrink-0 text-left sm:text-left',
-            showHeaderDivider && 'border-b border-border pb-3',
+            "shrink-0 text-left sm:text-left",
+            showHeaderDivider && "border-b border-border pb-3",
           )}
         >
-          <DialogTitle className={cn('text-left', titleClassName)}>{title}</DialogTitle>
+          <DialogTitle className={cn("text-left", titleClassName)}>
+            {title}
+          </DialogTitle>
           {description ? (
             <DialogDescription>{description}</DialogDescription>
           ) : (
@@ -100,10 +107,16 @@ export function FormModal({
           )}
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit(e);
+          }}
+          className="flex min-h-0 flex-1 flex-col"
+        >
           <div
             className={cn(
-              'min-h-0 flex-1 space-y-4 overflow-y-auto py-2 scrollbar-hidden',
+              "min-h-0 flex-1 space-y-4 overflow-y-auto py-2 scrollbar-hidden",
               formClassName,
             )}
           >
@@ -112,8 +125,8 @@ export function FormModal({
 
           <DialogFooter
             className={cn(
-              'shrink-0 gap-2 bg-background pt-3 sm:justify-end',
-              showFooterDivider && 'border-t border-border/60',
+              "shrink-0 gap-2 bg-background pt-3 sm:justify-end",
+              showFooterDivider && "border-t border-border/60",
             )}
           >
             <Button
@@ -126,7 +139,12 @@ export function FormModal({
             >
               {cancelLabel}
             </Button>
-            <Button type="submit" size="sm" className="h-9 min-w-[5.5rem]" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-9 min-w-[5.5rem]"
+              disabled={isSubmitting}
+            >
               {isSubmitting && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
@@ -136,5 +154,5 @@ export function FormModal({
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
