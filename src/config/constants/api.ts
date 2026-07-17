@@ -967,8 +967,6 @@ export const FEE_API = {
   FEE_STUDENTWISE_DISCOUNT: "FeeStudentwiseDiscount",
   /** Angular `updateMinFeePerfeestudentdataUrl` */
   UPDATE_MIN_FEE_PERFEESTUDENTDATA: "updateMinFeePerfeestudentdata",
-  /** Angular `feeStudentWiseFinesUrl` */
-  FEE_STUDENT_WISE_FINES: "feestudentwisefines",
   /** Angular `feeParticularwisePaymentsforStudentRefundUrl` */
   FEE_PARTICULARWISE_PAYMENTSFOR_STUDENT_REFUND:
     "feeparticularwisepaymentsforstudentrefund",
