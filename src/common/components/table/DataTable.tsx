@@ -410,7 +410,8 @@ export function DataTable<T>({
 
   const resolvedTitle = title ?? inferredTitle;
 
-  const [filtersInternalOpen, setFiltersInternalOpen] = useState(filtersDefaultOpen);
+  const [filtersInternalOpen, setFiltersInternalOpen] =
+    useState(filtersDefaultOpen);
   const filtersOpen = filters
     ? filtersCollapsible
       ? (filtersOpenProp ?? filtersInternalOpen)
@@ -730,8 +731,12 @@ export function DataTable<T>({
         </div>
       )}
 
-      <div className={cn(rightRail && "grid grid-cols-1 gap-3 lg:grid-cols-12")}>
-        <div className={cn("min-w-0", rightRail && "lg:col-span-9")}>
+      <div
+        className={cn(
+          rightRail && "grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-start",
+        )}
+      >
+        <div className={cn("min-w-0", rightRail && "lg:col-span-8")}>
           <div
             className={cn(
               "ag-theme-quartz",
@@ -764,7 +769,9 @@ export function DataTable<T>({
             />
           </div>
         </div>
-        {rightRail ? <div className="lg:col-span-3">{rightRail}</div> : null}
+        {rightRail ? (
+          <div className="min-w-0 lg:col-span-4">{rightRail}</div>
+        ) : null}
       </div>
 
       {clientPaginationEnabled && (

@@ -1,56 +1,94 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import type { ColDef, ICellRendererParams, ValueGetterParams } from 'ag-grid-community'
-import { useQuery } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
-import { toastError } from '@/lib/toast'
-import { getErrorMessage } from '@/lib/errors'
-import { getAffiliatedUploadSummary } from '@/services'
-import type { AffiliatedSummaryRow } from '@/types/affiliated-colleges'
-import { getAffiliatedConfig } from '../_lib/route-config'
-import { enrichAffiliatedSummaryRows, pickAffiliatedText } from '../_lib/enrich-affiliated-summary-rows'
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import type {
+  ColDef,
+  ICellRendererParams,
+  ValueGetterParams,
+} from "ag-grid-community";
+import { useQuery } from "@tanstack/react-query";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { toastError } from "@/lib/toast";
+import { getErrorMessage } from "@/lib/errors";
+import { getAffiliatedUploadSummary } from "@/services";
+import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
+import { getAffiliatedConfig } from "../_lib/route-config";
+import {
+  enrichAffiliatedSummaryRows,
+  pickAffiliatedText,
+} from "../_lib/enrich-affiliated-summary-rows";
 import {
   buildAffiliatedSummaryContext,
   contextToInitialSelection,
   readAffiliatedSummaryContext,
   saveAffiliatedSummaryContext,
-} from '../_lib/affiliated-summary-context'
-import { useAffiliatedCascade } from '../_lib/use-affiliated-cascade'
-import { AffiliatedCollegeFilters } from './AffiliatedCollegeFilters'
+} from "../_lib/affiliated-summary-context";
+import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
+import { AffiliatedCollegeFilters } from "./AffiliatedCollegeFilters";
 
-function summaryText(p: ValueGetterParams<AffiliatedSummaryRow>, ...keys: string[]) {
-  return pickAffiliatedText(p.data ?? {}, keys)
+function summaryText(
+  p: ValueGetterParams<AffiliatedSummaryRow>,
+  ...keys: string[]
+) {
+  return pickAffiliatedText(p.data ?? {}, keys);
 }
 
 const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<AffiliatedSummaryRow>,
-  courseCode: { field: 'course_code', headerName: 'Course Code', minWidth: 110 } as ColDef<AffiliatedSummaryRow>,
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<AffiliatedSummaryRow>,
+  courseCode: {
+    field: "course_code",
+    headerName: "Course Code",
+    minWidth: 110,
+  } as ColDef<AffiliatedSummaryRow>,
   regulation: {
-    headerName: 'Regulation Code',
+    headerName: "Regulation Code",
     minWidth: 120,
-    valueGetter: (p) => summaryText(p, 'regulation_code', 'regulationCode', 'regulationcode'),
+    valueGetter: (p) =>
+      summaryText(p, "regulation_code", "regulationCode", "regulationcode"),
   } as ColDef<AffiliatedSummaryRow>,
   batch: {
-    headerName: 'Batch',
+    headerName: "Batch",
     minWidth: 90,
-    valueGetter: (p) => summaryText(p, 'batch_name', 'batchName'),
+    valueGetter: (p) => summaryText(p, "batch_name", "batchName"),
   } as ColDef<AffiliatedSummaryRow>,
-  year: { field: 'course_year_code', headerName: 'Course Year', minWidth: 110 } as ColDef<AffiliatedSummaryRow>,
+  year: {
+    field: "course_year_code",
+    headerName: "Course Year",
+    minWidth: 110,
+  } as ColDef<AffiliatedSummaryRow>,
   group: {
-    headerName: 'Group',
+    headerName: "Group",
     minWidth: 90,
-    valueGetter: (p) => summaryText(p, 'group_name', 'groupName', 'group_code', 'groupCode'),
+    valueGetter: (p) =>
+      summaryText(p, "group_name", "groupName", "group_code", "groupCode"),
   } as ColDef<AffiliatedSummaryRow>,
-  count: { field: 'uploaded_students_count', headerName: 'Students', minWidth: 90, flex: 0 } as ColDef<AffiliatedSummaryRow>,
-  uploaded: { field: 'total_students_with_uploads', headerName: 'Students Uploaded', minWidth: 130 } as ColDef<AffiliatedSummaryRow>,
-  actions: { headerName: 'Action', minWidth: 100, flex: 0, width: 100 } as ColDef<AffiliatedSummaryRow>,
-}
+  count: {
+    field: "uploaded_students_count",
+    headerName: "Students",
+    minWidth: 90,
+    flex: 0,
+  } as ColDef<AffiliatedSummaryRow>,
+  uploaded: {
+    field: "total_students_with_uploads",
+    headerName: "Students Uploaded",
+    minWidth: 130,
+  } as ColDef<AffiliatedSummaryRow>,
+  actions: {
+    headerName: "Action",
+    minWidth: 100,
+    flex: 0,
+    width: 100,
+  } as ColDef<AffiliatedSummaryRow>,
+};
 
 function makeUploadRenderer(
   uploadPath: string | undefined,
@@ -59,54 +97,67 @@ function makeUploadRenderer(
   academicYearId: number | null,
 ) {
   return (p: ICellRendererParams<AffiliatedSummaryRow>) => {
-    if (!uploadPath) return null
-    const row = p.data
+    if (!uploadPath) return null;
+    const row = p.data;
     return (
       <Button
         size="sm"
         variant="default"
         onClick={() => {
-          if (!row || !collegeId || !academicYearId) return
-          const ctx = buildAffiliatedSummaryContext(row, collegeId, academicYearId)
-          saveAffiliatedSummaryContext(ctx)
+          if (!row || !collegeId || !academicYearId) return;
+          const ctx = buildAffiliatedSummaryContext(
+            row,
+            collegeId,
+            academicYearId,
+          );
+          saveAffiliatedSummaryContext(ctx);
           const q = new URLSearchParams({
             collegeId: String(ctx.fk_college_id),
             academicYearId: String(ctx.fk_academic_year_id),
             courseId: String(ctx.fk_course_id),
             courseGroupId: String(ctx.fk_course_group_id),
             courseYearId: String(ctx.fk_course_year_id),
-          })
-          router.push(`/affiliated-colleges/${uploadPath}?${q.toString()}`)
+          });
+          router.push(`/affiliated-colleges/${uploadPath}?${q.toString()}`);
         }}
       >
         Upload
       </Button>
-    )
-  }
+    );
+  };
 }
 
-type AffiliatedSummaryPageProps = { slug: string }
+type AffiliatedSummaryPageProps = { slug: string };
 
 export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
-  const config = getAffiliatedConfig(slug)
-  const router = useRouter()
-  const summaryContext = useMemo(() => readAffiliatedSummaryContext(), [])
+  const config = getAffiliatedConfig(slug);
+  const router = useRouter();
+  const summaryContext = useMemo(() => readAffiliatedSummaryContext(), []);
   const cascade = useAffiliatedCascade({
     allowAllGroupYear: true,
     autoSelectFirst: !summaryContext,
-    initialSelection: summaryContext ? contextToInitialSelection(summaryContext) : undefined,
-  })
-  const [loadKey, setLoadKey] = useState<string | null>(null)
+    initialSelection: summaryContext
+      ? contextToInitialSelection(summaryContext)
+      : undefined,
+  });
+  const [loadKey, setLoadKey] = useState<string | null>(null);
 
-  const filterKey = cascade.filtersValid ? JSON.stringify(cascade.toFilterParams()) : null
-
-  const { data: rawRows = [], isFetching, error } = useQuery({
+  const {
+    data: rawRows = [],
+    isFetching,
+    error,
+  } = useQuery({
     queryKey: QK.affiliatedColleges.uploadSummary(
       loadKey ? (JSON.parse(loadKey) as Record<string, number>) : {},
     ),
-    queryFn: () => getAffiliatedUploadSummary(JSON.parse(loadKey!) as Parameters<typeof getAffiliatedUploadSummary>[0]),
+    queryFn: () =>
+      getAffiliatedUploadSummary(
+        JSON.parse(loadKey!) as Parameters<
+          typeof getAffiliatedUploadSummary
+        >[0],
+      ),
     enabled: loadKey != null,
-  })
+  });
 
   const rows = useMemo(
     () =>
@@ -117,7 +168,7 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
         cascade.regulationData,
       ),
     [rawRows, cascade.filtersData, cascade.batchesData, cascade.regulationData],
-  )
+  );
 
   const columnDefs = useMemo<ColDef<AffiliatedSummaryRow>[]>(
     () => [
@@ -140,45 +191,49 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
       },
     ],
     [config.uploadPath, router, cascade.collegeId, cascade.academicYearId],
-  )
+  );
 
   function handleGetDetails() {
     if (!cascade.filtersValid) {
-      toastError('Select college, academic year, course, group, and year.')
-      return
+      toastError("Select college, academic year, course, group, and year.");
+      return;
     }
-    setLoadKey(JSON.stringify(cascade.toFilterParams()))
+    setLoadKey(JSON.stringify(cascade.toFilterParams()));
   }
 
+  const showTable = loadKey != null;
+
   return (
-    <PageContainer>
-      <PageHeader title={config.title} />
-      <AffiliatedCollegeFilters
-        title={config.title}
-        cascade={cascade}
-        onGetDetails={handleGetDetails}
-        loadingDetails={isFetching}
-        allowAllGroupYear
-        showBack={config.showBackToHub}
-        onBack={() => router.push('/affiliated-colleges/college-bulk-uploads')}
-      />
-      {error ? (
-        <p className="text-sm text-destructive px-1">{getErrorMessage(error)}</p>
-      ) : null}
-      {loadKey && rows.length > 0 ? (
-        <div className="space-y-2">
-          <h2 className="text-sm font-semibold px-1">
-            {config.title}
-            {cascade.contextLabel ? ` — ${cascade.contextLabel}` : ''}
-          </h2>
-          <TableCard withHeaderBorder={false}>
-            <DataTable rowData={rows} columnDefs={columnDefs} />
-          </TableCard>
-        </div>
-      ) : null}
-      {loadKey && !isFetching && rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground px-1">No records found.</p>
-      ) : null}
-    </PageContainer>
-  )
+    <FilteredListPage
+      title={config.title}
+      notice={
+        error ? (
+          <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
+        ) : null
+      }
+      filters={
+        <AffiliatedCollegeFilters
+          title={config.title}
+          cascade={cascade}
+          onGetDetails={handleGetDetails}
+          loadingDetails={isFetching}
+          allowAllGroupYear
+          showBack={config.showBackToHub}
+          onBack={() =>
+            router.push("/affiliated-colleges/college-bulk-uploads")
+          }
+          bare
+        />
+      }
+      rowData={showTable ? rows : []}
+      columnDefs={columnDefs}
+      loading={isFetching}
+      pagination={showTable}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search…",
+        pdfDocumentTitle: config.title,
+      }}
+    />
+  );
 }

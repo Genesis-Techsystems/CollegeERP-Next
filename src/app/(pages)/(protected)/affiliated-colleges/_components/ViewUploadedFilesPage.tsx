@@ -1,174 +1,235 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
-import { ClipboardList, Eye } from 'lucide-react'
-import { UNIV_BULK_UPLOAD_TYPES } from '@/common/affiliated-colleges-constants'
-import { PageContainer } from '@/components/layout'
-import { QK } from '@/lib/query-keys'
-import { getErrorMessage } from '@/lib/errors'
-import { getAffiliatedCollegeSummaryReport } from '@/services'
-import type { AffiliatedSummaryRow } from '@/types/affiliated-colleges'
-import { exportHtmlTableAsExcel } from '../_lib/export-html-table'
-import { formatAffiliatedDateTime } from '../_lib/format-affiliated-datetime'
-import { useFilteredRows } from '../_lib/use-filtered-rows'
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import type {
+  ColDef,
+  ICellRendererParams,
+  ValueGetterParams,
+} from "ag-grid-community";
+import { useQuery } from "@tanstack/react-query";
+import { Eye, Printer } from "lucide-react";
+import { UNIV_BULK_UPLOAD_TYPES } from "@/common/affiliated-colleges-constants";
+import { ListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
+import { getAffiliatedCollegeSummaryReport } from "@/services";
+import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
+import { formatAffiliatedDateTime } from "../_lib/format-affiliated-datetime";
 import {
   buildUnivDataDetails,
   getUnivAffiliatedContext,
   setUnivAffiliatedContext,
   UNIV_AFFILIATED_STORAGE,
-} from '../_lib/univ-affiliated-storage'
-import { AffiliatedBulkBreadcrumb } from './AffiliatedBulkBreadcrumb'
-import { AffiliatedReportToolbar } from './AffiliatedReportToolbar'
+} from "../_lib/univ-affiliated-storage";
 
-type AnyRow = AffiliatedSummaryRow
-
-type ColDef = {
-  id: string
-  label: string
-  render?: (row: AnyRow) => React.ReactNode
-}
+type AnyRow = AffiliatedSummaryRow;
 
 function pickNum(row: AnyRow, key: string): number {
-  const n = Number(row[key] ?? 0)
-  return Number.isFinite(n) ? n : 0
+  const n = Number(row[key] ?? 0);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function fileTypeId(row: AnyRow): number {
-  return pickNum(row, 'fk_filetype_catdet_id')
+  return pickNum(row, "fk_filetype_catdet_id");
 }
 
 function routeForFileType(typeId: number): string | null {
   switch (typeId) {
     case UNIV_BULK_UPLOAD_TYPES.STUDENT:
-      return 'view-students-data'
+      return "view-students-data";
     case UNIV_BULK_UPLOAD_TYPES.SUBJECT:
-      return 'view-subjects-data'
+      return "view-subjects-data";
     case UNIV_BULK_UPLOAD_TYPES.ATTENDANCE:
-      return 'view-attendance-data'
+      return "view-attendance-data";
     case UNIV_BULK_UPLOAD_TYPES.EXAM_REGISTRATION:
-      return 'view-exam-reg-data'
+      return "view-exam-reg-data";
     case UNIV_BULK_UPLOAD_TYPES.EXAM_FEE:
-      return 'view-exam-fee-data'
+      return "view-exam-fee-data";
     case UNIV_BULK_UPLOAD_TYPES.STUDENT_FEE:
-      return 'view-student-fee-data'
+      return "view-student-fee-data";
     case UNIV_BULK_UPLOAD_TYPES.EXAM_MARKS:
-      return 'view-student-marks-data'
+      return "view-student-marks-data";
     default:
-      return null
+      return null;
   }
 }
 
-function storageKeyForFileType(typeId: number): (typeof UNIV_AFFILIATED_STORAGE)[keyof typeof UNIV_AFFILIATED_STORAGE] | null {
+function storageKeyForFileType(
+  typeId: number,
+):
+  | (typeof UNIV_AFFILIATED_STORAGE)[keyof typeof UNIV_AFFILIATED_STORAGE]
+  | null {
   switch (typeId) {
     case UNIV_BULK_UPLOAD_TYPES.STUDENT:
-      return UNIV_AFFILIATED_STORAGE.studentBulk
+      return UNIV_AFFILIATED_STORAGE.studentBulk;
     case UNIV_BULK_UPLOAD_TYPES.SUBJECT:
-      return UNIV_AFFILIATED_STORAGE.subjectBulk
+      return UNIV_AFFILIATED_STORAGE.subjectBulk;
     case UNIV_BULK_UPLOAD_TYPES.ATTENDANCE:
-      return UNIV_AFFILIATED_STORAGE.attendanceBulk
+      return UNIV_AFFILIATED_STORAGE.attendanceBulk;
     case UNIV_BULK_UPLOAD_TYPES.EXAM_REGISTRATION:
-      return UNIV_AFFILIATED_STORAGE.examRegBulk
+      return UNIV_AFFILIATED_STORAGE.examRegBulk;
     case UNIV_BULK_UPLOAD_TYPES.EXAM_FEE:
-      return UNIV_AFFILIATED_STORAGE.examFeeBulk
+      return UNIV_AFFILIATED_STORAGE.examFeeBulk;
     case UNIV_BULK_UPLOAD_TYPES.STUDENT_FEE:
-      return UNIV_AFFILIATED_STORAGE.studentFeeBulk
+      return UNIV_AFFILIATED_STORAGE.studentFeeBulk;
     case UNIV_BULK_UPLOAD_TYPES.EXAM_MARKS:
-      return UNIV_AFFILIATED_STORAGE.examMarksBulk
+      return UNIV_AFFILIATED_STORAGE.examMarksBulk;
     default:
-      return null
+      return null;
   }
 }
 
-function buildColumns(typeId: number): ColDef[] {
-  const base: ColDef[] = [
-    { id: 'sno', label: 'SNo' },
-    { id: 'count', label: 'Uploaded Count', render: (r) => String(r.total_records ?? '') },
-    {
-      id: 'studentcount',
-      label: 'Uploaded Students Count',
-      render: (r) => String(r.no_of_students_count ?? ''),
-    },
-    {
-      id: 'udate',
-      label: 'Uploaded Date & Time',
-      render: (r) => formatAffiliatedDateTime(r.upload_date),
-    },
-    {
-      id: 'vdate',
-      label: 'Verifyied Date & Time',
-      render: (r) => formatAffiliatedDateTime(r.verified_date),
-    },
-    {
-      id: 'sdate',
-      label: 'Submitted Date & Time',
-      render: (r) => formatAffiliatedDateTime(r.submitted_date),
-    },
-    {
-      id: 'Adate',
-      label: 'Approved Date & Time',
-      render: (r) => formatAffiliatedDateTime(r.approved_date),
-    },
-  ]
+function cellText(p: ValueGetterParams<AnyRow>, key: string): string {
+  return String(p.data?.[key] ?? "");
+}
 
-  const extra: ColDef[] = []
+function makeViewRenderer(
+  onView: (row: AnyRow) => void,
+): (p: ICellRendererParams<AnyRow>) => ReactNode {
+  return (p) => (
+    <Button
+      type="button"
+      size="sm"
+      variant="ghost"
+      className="h-8 w-8 p-0"
+      aria-label="View"
+      onClick={() => {
+        if (p.data) onView(p.data);
+      }}
+    >
+      <Eye className="h-4 w-4 text-primary" />
+    </Button>
+  );
+}
+
+function buildColumnDefs(
+  typeId: number,
+  onView: (row: AnyRow) => void,
+): ColDef<AnyRow>[] {
+  const cols: ColDef<AnyRow>[] = [
+    { headerName: "SNo", valueGetter: rowIndexGetter, width: 70, flex: 0 },
+    {
+      headerName: "Uploaded Count",
+      minWidth: 120,
+      valueGetter: (p) => cellText(p, "total_records"),
+    },
+    {
+      headerName: "Uploaded Students Count",
+      minWidth: 160,
+      valueGetter: (p) => cellText(p, "no_of_students_count"),
+    },
+  ];
+
   if (typeId === UNIV_BULK_UPLOAD_TYPES.ATTENDANCE) {
-    extra.push(
-      { id: 'fromDate', label: 'From Date', render: (r) => String(r.from_date ?? '') },
-      { id: 'toDate', label: 'To Date', render: (r) => String(r.to_date ?? '') },
-    )
-    base.splice(3, 0, ...extra)
-  } else if (typeId === UNIV_BULK_UPLOAD_TYPES.EXAM_FEE || typeId === UNIV_BULK_UPLOAD_TYPES.EXAM_MARKS) {
-    base.splice(3, 0, { id: 'examName', label: 'Exam Name', render: (r) => String(r.exam_name ?? '') })
+    cols.push(
+      {
+        headerName: "From Date",
+        minWidth: 110,
+        valueGetter: (p) => cellText(p, "from_date"),
+      },
+      {
+        headerName: "To Date",
+        minWidth: 110,
+        valueGetter: (p) => cellText(p, "to_date"),
+      },
+    );
+  } else if (
+    typeId === UNIV_BULK_UPLOAD_TYPES.EXAM_FEE ||
+    typeId === UNIV_BULK_UPLOAD_TYPES.EXAM_MARKS
+  ) {
+    cols.push({
+      headerName: "Exam Name",
+      minWidth: 140,
+      valueGetter: (p) => cellText(p, "exam_name"),
+    });
   } else if (typeId === UNIV_BULK_UPLOAD_TYPES.SUBJECT) {
-    base.splice(3, 0, {
-      id: 'regCode',
-      label: 'Regulation',
-      render: (r) => String(r.regulation_code ?? ''),
-    })
+    cols.push({
+      headerName: "Regulation",
+      minWidth: 120,
+      valueGetter: (p) => cellText(p, "regulation_code"),
+    });
   }
 
-  return [...base, { id: 'action', label: 'Action' }]
+  cols.push(
+    {
+      headerName: "Uploaded Date & Time",
+      minWidth: 160,
+      valueGetter: (p) => formatAffiliatedDateTime(p.data?.upload_date),
+    },
+    {
+      headerName: "Verified Date & Time",
+      minWidth: 160,
+      valueGetter: (p) => formatAffiliatedDateTime(p.data?.verified_date),
+    },
+    {
+      headerName: "Submitted Date & Time",
+      minWidth: 160,
+      valueGetter: (p) => formatAffiliatedDateTime(p.data?.submitted_date),
+    },
+    {
+      headerName: "Approved Date & Time",
+      minWidth: 160,
+      valueGetter: (p) => formatAffiliatedDateTime(p.data?.approved_date),
+    },
+    {
+      headerName: "Action",
+      minWidth: 90,
+      flex: 0,
+      width: 90,
+      cellRenderer: makeViewRenderer(onView),
+    },
+  );
+
+  return cols;
 }
 
 export function ViewUploadedFilesPage() {
-  const router = useRouter()
-  const tableRef = useRef<HTMLTableElement>(null)
-  const [params, setParams] = useState<AnyRow | null>(null)
-  const [search, setSearch] = useState('')
-  const [isPrintMode, setIsPrintMode] = useState(false)
+  const router = useRouter();
+  const [params, setParams] = useState<AnyRow | null>(null);
+  const [isPrintMode, setIsPrintMode] = useState(false);
   const orgCode =
-    typeof globalThis !== 'undefined' && 'localStorage' in globalThis
-      ? globalThis.localStorage.getItem('orgCode') ?? ''
-      : ''
+    typeof globalThis !== "undefined" && "localStorage" in globalThis
+      ? (globalThis.localStorage.getItem("orgCode") ?? "")
+      : "";
 
   useEffect(() => {
-    const ctx = getUnivAffiliatedContext(UNIV_AFFILIATED_STORAGE.uploadedFilesSummary)
+    const ctx = getUnivAffiliatedContext(
+      UNIV_AFFILIATED_STORAGE.uploadedFilesSummary,
+    );
     if (!ctx) {
-      router.replace('/affiliated-colleges/university-affiliated-colleges')
-      return
+      router.replace("/affiliated-colleges/university-affiliated-colleges");
+      return;
     }
-    setParams(ctx)
-  }, [router])
+    setParams(ctx);
+  }, [router]);
 
   const summaryParams = useMemo(() => {
-    if (!params) return null
+    if (!params) return null;
     return {
-      collegeId: pickNum(params, 'fk_college_id'),
-      academicYearId: pickNum(params, 'fk_academic_year_id'),
-      courseId: pickNum(params, 'fk_course_id'),
-      courseGroupId: pickNum(params, 'fk_course_group_id'),
-      courseYearId: pickNum(params, 'fk_course_year_id'),
-      filetypeCatdetId: pickNum(params, 'fk_filetype_catdet_id'),
-    }
-  }, [params])
+      collegeId: pickNum(params, "fk_college_id"),
+      academicYearId: pickNum(params, "fk_academic_year_id"),
+      courseId: pickNum(params, "fk_course_id"),
+      courseGroupId: pickNum(params, "fk_course_group_id"),
+      courseYearId: pickNum(params, "fk_course_year_id"),
+      filetypeCatdetId: pickNum(params, "fk_filetype_catdet_id"),
+    };
+  }, [params]);
 
-  const { data: rows = [], isFetching, error } = useQuery({
-    queryKey: QK.affiliatedColleges.collegeSummary('uploaded_file_details', summaryParams ?? {}),
+  const {
+    data: rows = [],
+    isFetching,
+    error,
+  } = useQuery({
+    queryKey: QK.affiliatedColleges.collegeSummary(
+      "uploaded_file_details",
+      summaryParams ?? {},
+    ),
     queryFn: () =>
       getAffiliatedCollegeSummaryReport({
-        inFlag: 'uploaded_file_details',
+        inFlag: "uploaded_file_details",
         collegeId: summaryParams!.collegeId,
         academicYearId: summaryParams!.academicYearId,
         courseId: summaryParams!.courseId,
@@ -177,144 +238,150 @@ export function ViewUploadedFilesPage() {
         filetypeCatdetId: summaryParams!.filetypeCatdetId,
       }),
     enabled: summaryParams != null && summaryParams.collegeId > 0,
-  })
+  });
 
-  const fileType = rows[0] ? fileTypeId(rows[0]) : pickNum(params ?? {}, 'fk_filetype_catdet_id')
-  const columns = useMemo(() => buildColumns(fileType), [fileType])
-  const filtered = useFilteredRows(rows, search)
-  const dataDetails = params ? buildUnivDataDetails(params) : ''
+  const fileType = rows[0]
+    ? fileTypeId(rows[0])
+    : pickNum(params ?? {}, "fk_filetype_catdet_id");
+  const dataDetails = params ? buildUnivDataDetails(params) : "";
 
   const openDetail = (row: AnyRow) => {
-    const typeId = fileTypeId(row)
-    const segment = routeForFileType(typeId)
-    const storageKey = storageKeyForFileType(typeId)
-    if (!segment || !storageKey) return
-    setUnivAffiliatedContext(storageKey, { ...params, ...row })
-    router.push(`/affiliated-colleges/university-affiliated-colleges/${segment}`)
-  }
+    const typeId = fileTypeId(row);
+    const segment = routeForFileType(typeId);
+    const storageKey = storageKeyForFileType(typeId);
+    if (!segment || !storageKey) return;
+    setUnivAffiliatedContext(storageKey, { ...params, ...row });
+    router.push(
+      `/affiliated-colleges/university-affiliated-colleges/${segment}`,
+    );
+  };
+
+  const columnDefs = useMemo(
+    () => buildColumnDefs(fileType, openDetail),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fileType, params],
+  );
+
+  const printColumns = useMemo(
+    () => columnDefs.filter((c) => c.headerName !== "Action"),
+    [columnDefs],
+  );
 
   const goBack = () => {
-    if (params) setUnivAffiliatedContext(UNIV_AFFILIATED_STORAGE.uploadedFilesSummary, params)
-    router.push('/affiliated-colleges/university-affiliated-colleges')
-  }
+    if (params)
+      setUnivAffiliatedContext(
+        UNIV_AFFILIATED_STORAGE.uploadedFilesSummary,
+        params,
+      );
+    router.push("/affiliated-colleges/university-affiliated-colleges");
+  };
 
-  const handlePrint = () => {
-    setIsPrintMode(true)
+  function handlePrint() {
+    if (rows.length === 0) return;
+    setIsPrintMode(true);
     setTimeout(() => {
-      window.print()
-      setIsPrintMode(false)
-    }, 500)
+      window.print();
+      setIsPrintMode(false);
+    }, 500);
   }
 
-  if (!params) return null
+  if (!params) return null;
 
   if (isPrintMode) {
     return (
       <div className="print-content p-4">
-        {orgCode === 'SUK' ? <p className="font-semibold text-center mb-2">SUK</p> : null}
+        {orgCode === "SUK" ? (
+          <p className="font-semibold text-center mb-2">SUK</p>
+        ) : null}
         <strong className="block">Affiliated Colleges Data</strong>
-        {dataDetails ? <strong className="block text-blue-600">— {dataDetails}</strong> : null}
+        {dataDetails ? (
+          <strong className="block text-blue-600">— {dataDetails}</strong>
+        ) : null}
         <table className="w-full border-collapse text-sm mt-4">
           <thead>
             <tr>
-              {columns
-                .filter((c) => c.id !== 'action')
-                .map((c) => (
-                  <th key={c.id} className="border p-2 text-left">
-                    {c.label}
-                  </th>
-                ))}
+              {printColumns.map((c) => (
+                <th key={String(c.headerName)} className="border p-2 text-left">
+                  {c.headerName}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.map((row, i) => (
+            {rows.map((row, i) => (
               <tr key={i}>
-                {columns
-                  .filter((c) => c.id !== 'action')
-                  .map((c) => (
-                    <td key={c.id} className="border p-2">
-                      {c.id === 'sno'
-                        ? i + 1
-                        : c.render
-                          ? c.render(row)
-                          : String(row[c.id] ?? '')}
+                {printColumns.map((c) => {
+                  const value =
+                    c.headerName === "SNo"
+                      ? i + 1
+                      : typeof c.valueGetter === "function"
+                        ? (
+                            c.valueGetter as (
+                              p: ValueGetterParams<AnyRow>,
+                            ) => string
+                          )({
+                            data: row,
+                          } as ValueGetterParams<AnyRow>)
+                        : "";
+                  return (
+                    <td key={String(c.headerName)} className="border p-2">
+                      {value}
                     </td>
-                  ))}
+                  );
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    )
+    );
   }
 
   return (
-    <PageContainer>
-      <AffiliatedBulkBreadcrumb current="University Affiliated Colleges" />
-
-      <div className="app-card mt-2">
-        <div className="flex items-center gap-2 border-b px-4 py-3">
-          <ClipboardList className="h-5 w-5 text-primary shrink-0" />
-          <h2 className="font-semibold text-base">
-            Affiliated Colleges Data
-            {dataDetails ? (
-              <span className="text-blue-600 font-medium"> — {dataDetails}</span>
-            ) : null}
-          </h2>
+    <ListPage
+      title={
+        dataDetails
+          ? `Affiliated Colleges Data — ${dataDetails}`
+          : "Affiliated Colleges Data"
+      }
+      notice={
+        error ? (
+          <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
+        ) : null
+      }
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isFetching}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search…",
+        exportPdf: false,
+        columnPicker: false,
+      }}
+      toolbarTrailing={
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
+            onClick={handlePrint}
+          >
+            <Printer className="mr-1.5 h-3.5 w-3.5" />
+            Print Report
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
+            onClick={goBack}
+          >
+            Back
+          </Button>
         </div>
-
-        <AffiliatedReportToolbar
-          search={search}
-          onSearchChange={setSearch}
-          onExport={() => exportHtmlTableAsExcel(tableRef.current, 'Affiliated_Colleges_Uploaded_Files')}
-          onPrint={handlePrint}
-          showBack
-          onBack={goBack}
-        />
-
-        {error ? <p className="text-sm text-destructive px-4 pb-2">{getErrorMessage(error)}</p> : null}
-        {isFetching ? <p className="text-sm text-muted-foreground px-4 pb-4">Loading…</p> : null}
-
-        <div className="overflow-x-auto p-4">
-          <table ref={tableRef} className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="border-b bg-muted/40">
-                {columns.map((c) => (
-                  <th key={c.id} className={`p-2 text-left font-medium ${c.id === 'action' ? 'action' : ''}`}>
-                    {c.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((row, i) => (
-                <tr key={i} className="border-b hover:bg-muted/20">
-                  {columns.map((c) => (
-                    <td key={c.id} className={`p-2 ${c.id === 'action' ? 'action' : ''}`}>
-                      {c.id === 'sno' ? (
-                        i + 1
-                      ) : c.id === 'action' ? (
-                        <button
-                          type="button"
-                          className="text-primary hover:opacity-80"
-                          title="Preview"
-                          onClick={() => openDetail(row)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                      ) : c.render ? (
-                        c.render(row)
-                      ) : (
-                        String(row[c.id] ?? '')
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </PageContainer>
-  )
+      }
+    />
+  );
 }

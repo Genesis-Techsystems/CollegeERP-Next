@@ -527,6 +527,8 @@ export const QK = {
       ["AffiliatedColleges", "examFilters", orgId, empId] as const,
     uploadSummary: (filters: Record<string, number>) =>
       ["AffiliatedColleges", "uploadSummary", filters] as const,
+    dostUploadSummary: (filters: Record<string, number>) =>
+      ["AffiliatedColleges", "dostUploadSummary", filters] as const,
     uploadsApprovalSummary: (filters: Record<string, number>) =>
       ["AffiliatedColleges", "uploadsApprovalSummary", filters] as const,
     uploadsApprovalDetail: (proc: string, uploadFileId: number) =>

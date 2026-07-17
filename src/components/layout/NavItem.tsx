@@ -2816,7 +2816,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       labelLower.includes("modify student batch") ||
       labelLower.includes("modify student batches")
     ) {
-      return "/academics/modify-student-batches";
+      return "/academics/modify-academic-batch";
     }
     if (
       labelLower === "regulations" ||

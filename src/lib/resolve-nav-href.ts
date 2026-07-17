@@ -1733,7 +1733,7 @@ export function resolveForcedNavRoute(
     labelLower.includes("modify student batch") ||
     labelLower.includes("modify student batches")
   ) {
-    return "/academics/modify-student-batches";
+    return "/academics/modify-academic-batch";
   }
   if (
     labelLower === "regulations" ||

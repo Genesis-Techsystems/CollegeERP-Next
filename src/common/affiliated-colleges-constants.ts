@@ -7,7 +7,8 @@ export const UNIV_BULK_UPLOAD_TYPES = {
   EXAM_REGISTRATION: 722,
   EXAM_FEE: 723,
   EXAM_MARKS: 724,
-} as const
+  DOST: 725,
+} as const;
 
 export type UnivBulkUploadTypeId =
-  (typeof UNIV_BULK_UPLOAD_TYPES)[keyof typeof UNIV_BULK_UPLOAD_TYPES]
+  (typeof UNIV_BULK_UPLOAD_TYPES)[keyof typeof UNIV_BULK_UPLOAD_TYPES];

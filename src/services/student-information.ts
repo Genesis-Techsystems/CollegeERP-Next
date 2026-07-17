@@ -50,6 +50,24 @@ export function normalizeStudentRow(row: AnyRow): AnyRow {
       "id",
       "studentDetailId",
     ]),
+    collegeId: num(row, ["collegeId", "fk_college_id"]) || row.collegeId,
+    academicYearId:
+      num(row, ["academicYearId", "fk_academic_year_id"]) || row.academicYearId,
+    courseYearId:
+      num(row, ["courseYearId", "fk_course_year_id"]) || row.courseYearId,
+    groupSectionId:
+      num(row, [
+        "groupSectionId",
+        "fk_group_section_id",
+        "group_section_id",
+        "sectionId",
+      ]) ||
+      num((row.groupSection as AnyRow) ?? (row.GroupSection as AnyRow) ?? {}, [
+        "groupSectionId",
+        "fk_group_section_id",
+        "id",
+      ]) ||
+      row.groupSectionId,
     hallticketNumber: text(row, [
       "hallticketNumber",
       "hallticket_number",
@@ -415,7 +433,7 @@ export async function submitStudentRollNumbers(
 
 /**
  * Angular student-subjects page:
- *   domain/list/StudentSubject?query=college+academicYear+student+courseYear
+ *   domain/list/StudentSubject?query=college+academicYear+student+courseYear+isActive
  */
 export async function listStudentSubjectsForStudent(params: {
   collegeId: number;
@@ -426,24 +444,28 @@ export async function listStudentSubjectsForStudent(params: {
   const { collegeId, academicYearId, studentId, courseYearId } = params;
   if (!collegeId || !academicYearId || !studentId || !courseYearId) return [];
 
+  // Exact Angular `listDetailsByFiveIds` shape (includes isActive==true).
   const queryVariants = [
     buildQuery({
       "college.collegeId": collegeId,
       "academicYear.academicYearId": academicYearId,
       "studentDetail.studentId": studentId,
       "courseYear.courseYearId": courseYearId,
+      isActive: true,
     }),
     buildQuery({
       "College.collegeId": collegeId,
       "AcademicYear.academicYearId": academicYearId,
       "StudentDetail.studentId": studentId,
       "CourseYear.courseYearId": courseYearId,
+      isActive: true,
     }),
     buildQuery({
       collegeId,
       academicYearId,
       studentId,
       courseYearId,
+      isActive: true,
     }),
   ];
 
