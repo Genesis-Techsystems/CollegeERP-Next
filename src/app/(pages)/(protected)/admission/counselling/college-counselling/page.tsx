@@ -1,39 +1,40 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import { PencilIcon, PlusIcon } from 'lucide-react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { useQuery } from '@tanstack/react-query'
-import { useCrudList } from '@/hooks/useCrudList'
-import { FilteredListPage } from '@/components/layout'
-import { StatusBadge } from '@/common/components/data-display'
-import { Select } from '@/common/components/select'
-import { Button } from '@/components/ui/button'
-import { useSessionContext } from '@/context/SessionContext'
-import { useLoginEmployeeId } from '@/hooks/useLoginEmployeeId'
-import { QK } from '@/lib/query-keys'
-import { resolveOrganizationId } from '@/lib/user-context'
-import { rowIndexGetter } from '@/lib/utils'
-import { getAdmissionUnivFilters, listCollegeCounselling } from '@/services'
-import type { CollegeCounsellingRow } from '@/types/admission'
+import { useMemo, useState } from "react";
+import { PencilIcon, PlusIcon } from "lucide-react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { useQuery } from "@tanstack/react-query";
+import { useCrudList } from "@/hooks/useCrudList";
+import { FilteredListPage } from "@/components/layout";
+import { StatusBadge } from "@/common/components/data-display";
+import { Select } from "@/common/components/select";
+import { Button } from "@/components/ui/button";
+import { useSessionContext } from "@/context/SessionContext";
+import { useLoginEmployeeId } from "@/hooks/useLoginEmployeeId";
+import { QK } from "@/lib/query-keys";
+import { resolveOrganizationId } from "@/lib/user-context";
+import { rowIndexGetter } from "@/lib/utils";
+import { getAdmissionUnivFilters, listCollegeCounselling } from "@/services";
+import type { CollegeCounsellingRow } from "@/types/admission";
 import {
   batchOption,
   collegeOption,
   courseGroupOption,
-  courseOption,
   filterBatchesByUniversityAndCourse,
   filterCollegesByUniversity,
   filterCourseGroupsByUniversityCollegeAndCourse,
   filterCoursesByUniversityAndCollege,
   filterUniversities,
+  pickNum,
+  pickText,
   universityOption,
-} from '../../_lib/admission-filters'
-import { CollegeCounsellingModal } from './CollegeCounsellingModal'
+} from "../../_lib/admission-filters";
+import { CollegeCounsellingModal } from "./CollegeCounsellingModal";
 
 /** Flex columns shrink to fit the viewport; fixed cols use suppressSizeToFit with sizeColumnsToFit. */
 const COL_DEFS = {
   siNo: {
-    headerName: 'SI.No',
+    headerName: "SI.No",
     valueGetter: rowIndexGetter,
     width: 52,
     minWidth: 52,
@@ -41,62 +42,82 @@ const COL_DEFS = {
     flex: 0,
     suppressSizeToFit: true,
   } as ColDef<CollegeCounsellingRow>,
-  casteQuota: { field: 'casteQuota', headerName: 'Quota', minWidth: 68, flex: 1.1 } as ColDef<CollegeCounsellingRow>,
-  gender: { field: 'genderCatDetailName', headerName: 'Gender', minWidth: 68, flex: 1 } as ColDef<CollegeCounsellingRow>,
-  intakes: { field: 'totalNoOfIntakes', headerName: 'Intakes', minWidth: 58, flex: 0.75 } as ColDef<CollegeCounsellingRow>,
+  casteQuota: {
+    field: "casteQuota",
+    headerName: "Quota",
+    minWidth: 68,
+    flex: 1.1,
+  } as ColDef<CollegeCounsellingRow>,
+  gender: {
+    field: "genderCatDetailName",
+    headerName: "Gender",
+    minWidth: 68,
+    flex: 1,
+  } as ColDef<CollegeCounsellingRow>,
+  intakes: {
+    field: "totalNoOfIntakes",
+    headerName: "Intakes",
+    minWidth: 58,
+    flex: 0.75,
+  } as ColDef<CollegeCounsellingRow>,
   tutionFee: {
-    field: 'tutionFee',
-    headerName: 'Tuition',
-    headerTooltip: 'Tuition Fee',
+    field: "tutionFee",
+    headerName: "Tuition",
+    headerTooltip: "Tuition Fee",
     minWidth: 62,
     flex: 0.8,
   } as ColDef<CollegeCounsellingRow>,
-  totalFilled: { field: 'totalFilled', headerName: 'Filled', minWidth: 54, flex: 0.7 } as ColDef<CollegeCounsellingRow>,
+  totalFilled: {
+    field: "totalFilled",
+    headerName: "Filled",
+    minWidth: 54,
+    flex: 0.7,
+  } as ColDef<CollegeCounsellingRow>,
   cutoffMarks: {
-    field: 'cutoffMarks',
-    headerName: 'Cut. Mk',
-    headerTooltip: 'Cutoff Marks',
+    field: "cutoffMarks",
+    headerName: "Cut. Mk",
+    headerTooltip: "Cutoff Marks",
     minWidth: 58,
     flex: 0.75,
   } as ColDef<CollegeCounsellingRow>,
   cutoffRank: {
-    field: 'cutoffRank',
-    headerName: 'Cut. Rk',
-    headerTooltip: 'Cutoff Ranks',
+    field: "cutoffRank",
+    headerName: "Cut. Rk",
+    headerTooltip: "Cutoff Ranks",
     minWidth: 58,
     flex: 0.75,
   } as ColDef<CollegeCounsellingRow>,
   minMarks: {
-    field: 'minMarks',
-    headerName: 'Min Mk',
-    headerTooltip: 'Min Marks',
+    field: "minMarks",
+    headerName: "Min Mk",
+    headerTooltip: "Min Marks",
     minWidth: 54,
     flex: 0.7,
   } as ColDef<CollegeCounsellingRow>,
   maxMarks: {
-    field: 'maxMarks',
-    headerName: 'Max Mk',
-    headerTooltip: 'Max Marks',
+    field: "maxMarks",
+    headerName: "Max Mk",
+    headerTooltip: "Max Marks",
     minWidth: 54,
     flex: 0.7,
   } as ColDef<CollegeCounsellingRow>,
   minRank: {
-    field: 'minRank',
-    headerName: 'Min Rk',
-    headerTooltip: 'Min Rank',
+    field: "minRank",
+    headerName: "Min Rk",
+    headerTooltip: "Min Rank",
     minWidth: 52,
     flex: 0.65,
   } as ColDef<CollegeCounsellingRow>,
   maxRank: {
-    field: 'maxRank',
-    headerName: 'Max Rk',
-    headerTooltip: 'Max Rank',
+    field: "maxRank",
+    headerName: "Max Rk",
+    headerTooltip: "Max Rank",
     minWidth: 52,
     flex: 0.65,
   } as ColDef<CollegeCounsellingRow>,
   isActive: {
-    field: 'isActive',
-    headerName: 'Status',
+    field: "isActive",
+    headerName: "Status",
     width: 82,
     minWidth: 82,
     maxWidth: 88,
@@ -104,55 +125,60 @@ const COL_DEFS = {
     suppressSizeToFit: true,
   } as ColDef<CollegeCounsellingRow>,
   actions: {
-    headerName: 'Actions',
+    headerName: "Actions",
     width: 68,
     minWidth: 68,
     maxWidth: 72,
     flex: 0,
     suppressSizeToFit: true,
   } as ColDef<CollegeCounsellingRow>,
-}
+};
 
 function statusRenderer(p: ICellRendererParams<CollegeCounsellingRow>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
 export default function CollegeCounsellingPage() {
-  const { user, isLoading: sessionLoading } = useSessionContext()
-  const orgId = resolveOrganizationId(user) || 1
-  const { employeeId: empId, isResolving: empResolving } = useLoginEmployeeId(user, sessionLoading)
+  const { user, isLoading: sessionLoading } = useSessionContext();
+  const orgId = resolveOrganizationId(user) || 1;
+  const { employeeId: empId, isResolving: empResolving } = useLoginEmployeeId(
+    user,
+    sessionLoading,
+  );
 
-  const [universityId, setUniversityId] = useState<string | null>(null)
-  const [collegeId, setCollegeId] = useState<string | null>(null)
-  const [courseId, setCourseId] = useState<string | null>(null)
-  const [batchId, setBatchId] = useState<string | null>(null)
-  const [courseGroupId, setCourseGroupId] = useState<string | null>(null)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<CollegeCounsellingRow | null>(null)
+  const [universityId, setUniversityId] = useState<string | null>(null);
+  const [collegeId, setCollegeId] = useState<string | null>(null);
+  const [courseId, setCourseId] = useState<string | null>(null);
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [courseGroupId, setCourseGroupId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<CollegeCounsellingRow | null>(null);
 
-  const filtersEnabled = !sessionLoading && !empResolving && orgId > 0 && empId > 0
+  const filtersEnabled =
+    !sessionLoading && !empResolving && orgId > 0 && empId > 0;
 
   const { data: filterBundle, isLoading: filtersLoading } = useQuery({
     queryKey: QK.admission.univFilters(orgId, empId),
     queryFn: () => getAdmissionUnivFilters(orgId, empId),
     enabled: filtersEnabled,
-  })
+  });
 
-  const filtersData = filterBundle?.filtersData ?? []
-  const batchesData = filterBundle?.batchesData ?? []
+  const filtersData = filterBundle?.filtersData ?? [];
+  const batchesData = filterBundle?.batchesData ?? [];
 
   const universityOptions = useMemo(
     () => filterUniversities(filtersData).map(universityOption),
     [filtersData],
-  )
+  );
 
   const collegeOptions = useMemo(
     () =>
-      filterCollegesByUniversity(filtersData, universityId ? Number(universityId) : null).map(
-        collegeOption,
-      ),
+      filterCollegesByUniversity(
+        filtersData,
+        universityId ? Number(universityId) : null,
+      ).map(collegeOption),
     [filtersData, universityId],
-  )
+  );
 
   const courseOptions = useMemo(
     () =>
@@ -160,9 +186,13 @@ export default function CollegeCounsellingPage() {
         filtersData,
         universityId ? Number(universityId) : null,
         collegeId ? Number(collegeId) : null,
-      ).map(courseOption),
+      ).map((row) => {
+        const id = pickNum(row, ["fk_course_id", "courseId", "fk_courseId"]);
+        const code = pickText(row, ["course_code", "courseCode"]);
+        return { value: String(id), label: code || String(id) };
+      }),
     [filtersData, universityId, collegeId],
-  )
+  );
 
   const batchOptions = useMemo(
     () =>
@@ -172,7 +202,7 @@ export default function CollegeCounsellingPage() {
         courseId ? Number(courseId) : null,
       ).map(batchOption),
     [batchesData, universityId, courseId],
-  )
+  );
 
   const courseGroupOptions = useMemo(
     () =>
@@ -183,12 +213,12 @@ export default function CollegeCounsellingPage() {
         courseId ? Number(courseId) : null,
       ).map(courseGroupOption),
     [filtersData, universityId, collegeId, courseId],
-  )
+  );
 
   /** Angular `flag == true` — list loads only after course group is chosen. */
   const listReady = Boolean(
     universityId && collegeId && courseId && batchId && courseGroupId,
-  )
+  );
 
   const listContext = useMemo(
     () => ({
@@ -198,7 +228,7 @@ export default function CollegeCounsellingPage() {
       courseGroupId: Number(courseGroupId),
     }),
     [collegeId, courseId, batchId, courseGroupId],
-  )
+  );
 
   const {
     data: rows,
@@ -212,7 +242,7 @@ export default function CollegeCounsellingPage() {
     }),
     queryFn: () => listCollegeCounselling(listContext),
     enabled: listReady,
-  })
+  });
 
   const columnDefs = useMemo<ColDef<CollegeCounsellingRow>[]>(
     () => [
@@ -237,8 +267,8 @@ export default function CollegeCounsellingPage() {
             variant="ghost"
             className="h-8 w-8 p-0"
             onClick={() => {
-              setEditing(p.data ?? null)
-              setModalOpen(true)
+              setEditing(p.data ?? null);
+              setModalOpen(true);
             }}
           >
             <PencilIcon className="h-3.5 w-3.5" />
@@ -247,42 +277,42 @@ export default function CollegeCounsellingPage() {
       },
     ],
     [],
-  )
+  );
 
   function resetBelowUniversity() {
-    setCollegeId(null)
-    setCourseId(null)
-    setBatchId(null)
-    setCourseGroupId(null)
+    setCollegeId(null);
+    setCourseId(null);
+    setBatchId(null);
+    setCourseGroupId(null);
   }
 
   function resetBelowCollege() {
-    setCourseId(null)
-    setBatchId(null)
-    setCourseGroupId(null)
+    setCourseId(null);
+    setBatchId(null);
+    setCourseGroupId(null);
   }
 
   function resetBelowCourse() {
-    setBatchId(null)
-    setCourseGroupId(null)
+    setBatchId(null);
+    setCourseGroupId(null);
   }
 
   function resetBelowBatch() {
-    setCourseGroupId(null)
+    setCourseGroupId(null);
   }
 
   return (
     <FilteredListPage
       title="College Counselling"
       className="college-counselling-table"
-      filters={(
+      filters={
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Select
             label="University"
             value={universityId}
             onChange={(v) => {
-              setUniversityId(v)
-              resetBelowUniversity()
+              setUniversityId(v);
+              resetBelowUniversity();
             }}
             options={universityOptions}
             isLoading={filtersLoading}
@@ -293,8 +323,8 @@ export default function CollegeCounsellingPage() {
             label="College"
             value={collegeId}
             onChange={(v) => {
-              setCollegeId(v)
-              resetBelowCollege()
+              setCollegeId(v);
+              resetBelowCollege();
             }}
             options={collegeOptions}
             searchable
@@ -305,8 +335,8 @@ export default function CollegeCounsellingPage() {
             label="Course"
             value={courseId}
             onChange={(v) => {
-              setCourseId(v)
-              resetBelowCourse()
+              setCourseId(v);
+              resetBelowCourse();
             }}
             options={courseOptions}
             searchable
@@ -317,8 +347,8 @@ export default function CollegeCounsellingPage() {
             label="Batch"
             value={batchId}
             onChange={(v) => {
-              setBatchId(v)
-              resetBelowBatch()
+              setBatchId(v);
+              resetBelowBatch();
             }}
             options={batchOptions}
             searchable
@@ -335,41 +365,41 @@ export default function CollegeCounsellingPage() {
             disabled={!batchId}
           />
         </div>
-      )}
+      }
       rowData={listReady ? rows : []}
       columnDefs={columnDefs}
       loading={isLoading || filtersLoading}
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search counselling…',
-        pdfDocumentTitle: 'College Counselling',
+        searchPlaceholder: "Search counselling…",
+        pdfDocumentTitle: "College Counselling",
       }}
-      toolbarTrailing={(
+      toolbarTrailing={
         <Button
           size="sm"
           className="h-[30px] px-3 text-[12px]"
           disabled={!listReady}
           onClick={() => {
-            setEditing(null)
-            setModalOpen(true)
+            setEditing(null);
+            setModalOpen(true);
           }}
         >
           <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
           Add College Counselling
         </Button>
-      )}
+      }
     >
       <CollegeCounsellingModal
         open={modalOpen}
         onClose={() => {
-          setModalOpen(false)
-          setEditing(null)
+          setModalOpen(false);
+          setEditing(null);
         }}
         row={editing}
         context={listContext}
         onSaved={invalidateList}
       />
     </FilteredListPage>
-  )
+  );
 }

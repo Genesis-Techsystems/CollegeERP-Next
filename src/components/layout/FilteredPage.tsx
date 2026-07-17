@@ -1,28 +1,30 @@
-'use client'
+"use client";
 
-import { useState, type ReactNode } from 'react'
-import { ChevronDown, Filter } from 'lucide-react'
-import { PageContainer } from './PageContainer'
-import { usePageNavLabel } from '@/common/components/breadcrumb'
-import { cn } from '@/lib/utils'
+import { useState, type ReactNode } from "react";
+import { ChevronDown, Filter } from "lucide-react";
+import { PageContainer } from "./PageContainer";
+import { usePageNavLabel } from "@/common/components/breadcrumb";
+import { cn } from "@/lib/utils";
 
 export interface FilteredPageProps {
   /** Single page title — defaults to the sidebar menu label when omitted. */
-  title?: string
+  title?: string;
   /** Filter fields rendered inside the card under the title. */
-  filters: ReactNode
+  filters: ReactNode;
   /** Optional notice / alert above the card. */
-  notice?: ReactNode
+  notice?: ReactNode;
   /**
    * Optional content rendered inside the same card below the filters
    * (custom grids, dual lists, editors — when there is no AG Grid DataTable).
    */
-  body?: ReactNode
+  body?: ReactNode;
+  /** Optional className for the body wrapper (default includes top border). */
+  bodyClassName?: string;
   /** Secondary panels, modals, or extra cards rendered after the filter card. */
-  children?: ReactNode
-  filtersCollapsible?: boolean
-  filtersDefaultOpen?: boolean
-  className?: string
+  children?: ReactNode;
+  filtersCollapsible?: boolean;
+  filtersDefaultOpen?: boolean;
+  className?: string;
 }
 
 /**
@@ -34,23 +36,24 @@ export function FilteredPage({
   filters,
   notice,
   body,
+  bodyClassName,
   children,
   filtersCollapsible = true,
   filtersDefaultOpen = true,
   className,
 }: FilteredPageProps) {
-  const navLabel = usePageNavLabel()
-  const displayTitle = navLabel ?? title ?? 'Page'
-  const [filtersOpen, setFiltersOpen] = useState(filtersDefaultOpen)
+  const navLabel = usePageNavLabel();
+  const displayTitle = navLabel ?? title ?? "Page";
+  const [filtersOpen, setFiltersOpen] = useState(filtersDefaultOpen);
 
   return (
-    <PageContainer className={cn('space-y-4', className)}>
+    <PageContainer className={cn("space-y-4", className)}>
       {notice}
       <div className="app-data-table app-data-table-card flex flex-col">
         <div
           className={cn(
-            'app-data-table-heading px-5',
-            filtersOpen ? 'pt-5 pb-0' : 'pt-5 pb-3',
+            "app-data-table-heading px-5",
+            filtersOpen ? "pt-5 pb-0" : "pt-5 pb-3",
           )}
         >
           <div className="flex items-start justify-between gap-2">
@@ -70,8 +73,8 @@ export function FilteredPage({
                     <Filter className="h-3.5 w-3.5" aria-hidden />
                     <ChevronDown
                       className={cn(
-                        'h-3.5 w-3.5 transition-transform duration-300',
-                        filtersOpen && 'rotate-180',
+                        "h-3.5 w-3.5 transition-transform duration-300",
+                        filtersOpen && "rotate-180",
                       )}
                       aria-hidden
                     />
@@ -88,14 +91,14 @@ export function FilteredPage({
 
         <div
           className={cn(
-            'grid transition-[grid-template-rows] duration-300 ease-in-out',
-            filtersOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+            "grid transition-[grid-template-rows] duration-300 ease-in-out",
+            filtersOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
           )}
         >
           <div
             className={cn(
-              'min-h-0',
-              filtersOpen ? 'overflow-visible' : 'overflow-hidden',
+              "min-h-0",
+              filtersOpen ? "overflow-visible" : "overflow-hidden",
             )}
           >
             <div className="global-filter-bar__inner px-5 pb-3 [&_.global-filter-bar__inner]:!pt-0">
@@ -104,9 +107,15 @@ export function FilteredPage({
           </div>
         </div>
 
-        {body ? <div className="border-t border-border px-5 py-4">{body}</div> : null}
+        {body ? (
+          <div
+            className={cn("border-t border-border px-5 py-4", bodyClassName)}
+          >
+            {body}
+          </div>
+        ) : null}
       </div>
       {children}
     </PageContainer>
-  )
+  );
 }

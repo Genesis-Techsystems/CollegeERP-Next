@@ -1,21 +1,24 @@
-'use client'
+"use client";
 
-import type { ReactNode } from 'react'
-import { PageContainer } from './PageContainer'
-import { DataTable, type DataTableProps } from '@/common/components/table'
-import { usePageNavLabel } from '@/common/components/breadcrumb'
-import { cn } from '@/lib/utils'
+import type { ReactNode } from "react";
+import { PageContainer } from "./PageContainer";
+import { DataTable, type DataTableProps } from "@/common/components/table";
+import { usePageNavLabel } from "@/common/components/breadcrumb";
+import { cn } from "@/lib/utils";
 
-export interface ListPageProps<T> extends Omit<DataTableProps<T>, 'title' | 'subtitle' | 'bordered'> {
+export interface ListPageProps<T> extends Omit<
+  DataTableProps<T>,
+  "title" | "subtitle" | "bordered"
+> {
   /** Page / table card title — defaults to the sidebar menu label when omitted. */
-  title?: string
+  title?: string;
   /** Optional notice / alert above the table card. */
-  notice?: ReactNode
+  notice?: ReactNode;
   /** Empty-state UI when there is no data and not loading (replaces the table). */
-  emptyState?: ReactNode
+  emptyState?: ReactNode;
   /** Modals and other page-level content rendered after the table. */
-  children?: ReactNode
-  className?: string
+  children?: ReactNode;
+  className?: string;
 }
 
 /**
@@ -32,12 +35,13 @@ export function ListPage<T>({
   rowData,
   ...tableProps
 }: ListPageProps<T>) {
-  const navLabel = usePageNavLabel()
-  const displayTitle = navLabel ?? title ?? 'Page'
-  const showEmpty = Boolean(emptyState) && !loading && (!rowData || rowData.length === 0)
+  const navLabel = usePageNavLabel();
+  const displayTitle = title ?? navLabel ?? "Page";
+  const showEmpty =
+    Boolean(emptyState) && !loading && (!rowData || rowData.length === 0);
 
   return (
-    <PageContainer className={cn('space-y-4', className)}>
+    <PageContainer className={cn("space-y-4", className)}>
       {notice}
       {showEmpty ? (
         emptyState
@@ -53,5 +57,5 @@ export function ListPage<T>({
       )}
       {children}
     </PageContainer>
-  )
+  );
 }

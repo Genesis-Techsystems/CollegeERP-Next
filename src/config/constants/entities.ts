@@ -93,7 +93,7 @@ export const ENTITIES = {
   UNIV_COLLEGE_COUNSELLING: { name: 'UnivCollegeCounselling',    pk: 'univCollegeCounsellingId'    },
   UNIV_STD_APPLICATIONS:    { name: 'UnivStdApplications',         pk: 'univAppId'                   },
   UNIV_ADMISSION_ALLOTMENT: { name: 'UnivAdmissionAllotment',      pk: 'univAdmissionAllotmentId'    },
-  UNIV_ADMISSION_ALLOTMENT_DETAILS: { name: 'UnivAdmissionAllotmentDetails', pk: 'univAdmissionAllotmentDetId' },
+  UNIV_ADMISSION_ALLOTMENT_DETAILS: { name: 'UnivAdmissionAllotmentDetails', pk: 'univAdmissionAllotmentDetailsId' },
   // ─── E-Office ────────────────────────────────────────────────────────────────
   OFFICE_LETTER_FORMATS:    { name: 'OfficeLetterFormats',    pk: 'officeLetterFormatsId' },
   INV_INTERNAL_INDENT:      { name: 'InvInternalIndent',      pk: 'internalIndId'         },

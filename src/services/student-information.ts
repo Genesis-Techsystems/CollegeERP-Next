@@ -1,4 +1,5 @@
 import { STUDENT_API } from "@/config/constants/api";
+import type { ApiResponse } from "@/types/api";
 import {
   buildQuery,
   domainCreate,
@@ -9,6 +10,7 @@ import {
   postDetails,
   postDetailsEnvelope,
   putDetails,
+  putDetailsEnvelope,
   uploadFile,
 } from "@/services/crud";
 
@@ -61,6 +63,8 @@ export function normalizeStudentRow(row: AnyRow): AnyRow {
     studentName: text(row, [
       "studentName",
       "student_name",
+      "studentFirstName",
+      "student_first_name",
       "firstName",
       "fullName",
       "name",
@@ -621,6 +625,99 @@ export async function submitStudentPassout(
   return putDetails<unknown>("passedout", rows);
 }
 
+/** Mirrors Angular `genericFunctions.momentWithTime()`. */
+export function modifyStudentSectionDateTime(d: Date | null): string {
+  if (!d) return "";
+  const p = (x: number) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+/**
+ * Angular modify-student-section `changeStudentSections` payload — PUT `studentsList`
+ * with `groupSectionId`, `fromDate`/`toDate`, and `isStudentModification: true`.
+ */
+export function buildModifyStudentSectionPayload(
+  row: AnyRow,
+  targetSectionId: number,
+  fromDate: Date | null,
+  toDate: Date | null = fromDate,
+): Record<string, unknown> {
+  const fromDateTime = modifyStudentSectionDateTime(fromDate);
+  const toDateTime = modifyStudentSectionDateTime(toDate ?? fromDate);
+  return {
+    academicYearId: num(row, ["academicYearId", "fk_academic_year_id"]),
+    admissionNumber: row.admissionNumber ?? null,
+    applicationNo: row.applicationNo ?? null,
+    batchId: row.batchId ?? null,
+    collegeId: num(row, ["collegeId", "fk_college_id"]),
+    courseGroupId: num(row, ["courseGroupId", "fk_course_group_id"]),
+    courseId: num(row, ["courseId", "fk_course_id"]),
+    courseYearId: num(row, ["courseYearId", "fk_course_year_id"]),
+    dateOfBirth: row.dateOfBirth ?? null,
+    fatherAddress: row.fatherAddress ?? null,
+    fatherEmailId: row.fatherEmailId ?? null,
+    fatherMobileNo: row.fatherMobileNo ?? null,
+    fatherName: row.fatherName ?? null,
+    fatherQualification: row.fatherQualification ?? null,
+    firstName: row.firstName ?? row.studentName ?? row.student_name ?? null,
+    genderId: row.genderId ?? null,
+    groupSectionId: targetSectionId,
+    guardianAddress: row.guardianAddress ?? null,
+    guardianEmailId: row.guardianEmailId ?? null,
+    guardianMobileNo: row.guardianMobileNo ?? null,
+    guardianName: row.guardianName ?? null,
+    hallticketNumber: row.hallticketNumber ?? null,
+    isActive: row.isActive ?? true,
+    isLateral: row.isLateral ?? null,
+    isMinority: row.isMinority ?? null,
+    isPresent: row.isPresent ?? true,
+    isScholarship: row.isScholarship ?? null,
+    isStudentModification: true,
+    lastName: row.lastName ?? null,
+    middleName: row.middleName ?? null,
+    mobile: row.mobile ?? null,
+    motherEmailId: row.motherEmailId ?? null,
+    motherMobileNo: row.motherMobileNo ?? null,
+    motherName: row.motherName ?? null,
+    permanentAddress: row.permanentAddress ?? null,
+    permanentPincode: row.permanentPincode ?? null,
+    permanentStreet: row.permanentStreet ?? null,
+    premanentMandal: row.premanentMandal ?? null,
+    presentAddress: row.presentAddress ?? null,
+    presentMandal: row.presentMandal ?? null,
+    presentPincode: row.presentPincode ?? null,
+    presentStreet: row.presentStreet ?? null,
+    primaryContact: row.primaryContact ?? null,
+    qualifyingId: row.qualifyingId ?? null,
+    quotaId: row.quotaId ?? null,
+    reason: row.reason ?? null,
+    regulationId: row.regulationId ?? null,
+    rfid: row.rfid ?? null,
+    rollNumber: row.rollNumber ?? null,
+    sscNo: row.sscNo ?? null,
+    stdEmailId: row.stdEmailId ?? null,
+    studentAppId: row.studentAppId ?? null,
+    studentEmailId: row.studentEmailId ?? null,
+    studentId: num(row, ["studentId", "fk_student_id"]),
+    studentPhotoPath: row.studentPhotoPath ?? null,
+    studentStatusId: row.studentStatusId ?? null,
+    toDate: toDateTime,
+    userId: row.userId ?? null,
+    fromDate: fromDateTime,
+  };
+}
+
+/**
+ * Angular modify-student-section — PUT `studentsList`.
+ * Returns the full envelope so the page can surface attendance / academic-batch conflicts.
+ */
+export async function submitModifyStudentSections(
+  rows: Record<string, unknown>[],
+): Promise<ApiResponse<unknown>> {
+  if (!rows.length) throw new Error("No students selected for section change");
+  return putDetailsEnvelope<unknown>(STUDENT_API.STUDENT, rows);
+}
+
 /** Section / cascade rows only — not the `clg_filters_ay` list (see `getStudentInfoCollegeFilters`). */
 export async function getStudentInfoFilters(
   orgId: number,
@@ -1032,6 +1129,93 @@ export async function listBatchwiseLabStudents(params: {
   }
 }
 
+/**
+ * Students in a section's LAB batch (source batch).
+ * Mirrors Angular `getBatchWiseStudents`: intersect section roster with
+ * `batchwisestudents` (subjectTypeCode=LAB, studentbatchId) by studentId.
+ */
+export async function listLabBatchStudentsForModify(params: {
+  collegeId: number;
+  courseGroupId: number;
+  groupSectionId: number;
+  studentbatchId: number;
+}): Promise<AnyRow[]> {
+  const { collegeId, courseGroupId, groupSectionId, studentbatchId } = params;
+  if (!collegeId || !courseGroupId || !groupSectionId || !studentbatchId)
+    return [];
+  try {
+    const [studentsRaw, batchRaw] = await Promise.all([
+      fetchDetails<any>(STUDENT_API.STUDENT, {
+        collegeId,
+        courseGroupId,
+        groupSectionId,
+      }),
+      fetchDetails<any>("batchwisestudents", {
+        collegeId,
+        groupSectionId,
+        subjectTypeCode: "LAB",
+        studentbatchId,
+      }),
+    ]);
+    const sectionStudents = asArray<AnyRow>(studentsRaw).map((r) =>
+      normalizeStudentRow(r),
+    );
+    const sectionStudentIds = new Set(
+      sectionStudents.map((r) => num(r, ["studentId", "fk_student_id", "student_id"])),
+    );
+    const sectionByStudentId = new Map(
+      sectionStudents.map((r) => [
+        num(r, ["studentId", "fk_student_id", "student_id"]),
+        r,
+      ]),
+    );
+    return asArray<AnyRow>(batchRaw)
+      .filter((b) =>
+        sectionStudentIds.has(
+          num(b, ["studentId", "fk_student_id", "student_id"]),
+        ),
+      )
+      .map((b) => {
+        const sid = num(b, ["studentId", "fk_student_id", "student_id"]);
+        const sectionRow = sectionByStudentId.get(sid) ?? {};
+        return {
+          ...sectionRow,
+          ...normalizeStudentRow(b),
+          studentFirstName:
+            text(b, ["studentFirstName", "student_first_name"]) ||
+            text(sectionRow, [
+              "studentFirstName",
+              "student_first_name",
+              "studentName",
+              "firstName",
+            ]),
+          rollNumber:
+            text(b, ["rollNumber", "roll_number"]) ||
+            text(sectionRow, [
+              "rollNumber",
+              "roll_number",
+              "hallticketNumber",
+              "registerNo",
+            ]),
+          checked: false,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Reassign selected students to a target LAB batch with date range.
+ * Mirrors Angular `changeBatchStudents` → `crudService.add('batchwisestudents', rows)`.
+ */
+export async function submitLabBatchChange(rows: AnyRow[]): Promise<unknown> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("No students selected for lab batch change");
+  }
+  return postDetails<unknown>(STUDENT_API.BATCH_WISE_STUDENTS, rows);
+}
+
 /** Elective groups mapped to a section (Angular `electivegroupyrmapping` listByThreeIds). */
 export async function listSectionElectiveGroups(params: {
   collegeId: number;
@@ -1074,7 +1258,7 @@ export async function listElectiveBatchStudents(params: {
     return [];
   try {
     const [studentsRaw, batchRaw] = await Promise.all([
-      fetchDetails<any>("StudentList", {
+      fetchDetails<any>(STUDENT_API.STUDENT, {
         collegeId,
         courseGroupId,
         groupSectionId,
@@ -1153,21 +1337,9 @@ export async function updateAcademicBatchRecord(
 ): Promise<AnyRow> {
   const id = num(record, ["studentAcademicbatchId", "studentAcademicBatchId"]);
   if (!id) throw new Error("Missing academic batch id");
-  try {
-    return await domainUpdate<AnyRow>(
-      "StudentAcademicbatch",
-      "studentAcademicbatchId",
-      id,
-      record,
-    );
-  } catch {
-    return domainUpdate<AnyRow>(
-      "StudentAcademicbatch",
-      "studentAcademicBatchId",
-      id,
-      record,
-    );
-  }
+  // Angular: PUT academicbatchupdate with [mutated StudentAcademicbatch row]
+  await putDetails(STUDENT_API.ACADEMIC_BATCH_UPDATE, [record]);
+  return record;
 }
 
 export async function listCourseGroupsForStudentCourseChange(params: {
@@ -1254,12 +1426,13 @@ export async function submitStudentBatchChange(
   throw lastError ?? new Error("Failed to change student batch");
 }
 
+/** Angular assign-student-to-section — PUT `assignsectiontostudents`. */
 export async function submitAssignedStudentSections(
   rows: AnyRow[],
 ): Promise<unknown> {
   if (!Array.isArray(rows) || rows.length === 0)
     throw new Error("No students selected for section assignment");
-  return postDetails<unknown>("addStudentslist", rows);
+  return putDetails<unknown>(STUDENT_API.ASSIGN_SECTION, rows);
 }
 
 export async function submitAssignedStudentRegulations(
