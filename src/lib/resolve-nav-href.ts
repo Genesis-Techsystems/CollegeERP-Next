@@ -800,6 +800,84 @@ export function resolveForcedNavRoute(
       return "/accounts-and-fees/fees-collection/update-online-receipt-status";
     }
     if (
+      hrefLower.includes("fees-collection/bus-payment") ||
+      hrefLower.includes("/bus-fee-payment") ||
+      (labelLower.includes("bus") &&
+        labelLower.includes("fee") &&
+        labelLower.includes("payment") &&
+        !labelLower.includes("faculty") &&
+        !hrefLower.includes("faculty-transport"))
+    ) {
+      return "/accounts-and-fees/fees-collection/bus-payment/bus-fee-payment";
+    }
+    if (
+      hrefLower.includes("fees-collection/library-payment") ||
+      hrefLower.includes("/library-fee-payment") ||
+      (labelLower.includes("library") &&
+        labelLower.includes("fee") &&
+        labelLower.includes("payment") &&
+        !labelLower.includes("fine") &&
+        !hrefLower.includes("/library/"))
+    ) {
+      return "/accounts-and-fees/fees-collection/library-payment/library-fee-payment";
+    }
+    if (
+      hrefLower.includes("fees-collection/allocate-student-fee") ||
+      hrefLower.includes("fees-collection/allocate-fee") ||
+      hrefLower.includes("/allocate-student-fee") ||
+      (labelLower.includes("allocate") &&
+        labelLower.includes("student") &&
+        labelLower.includes("fee") &&
+        !labelLower.includes("subject") &&
+        !labelLower.includes("structure to"))
+    ) {
+      return "/accounts-and-fees/fees-collection/allocate-student-fee";
+    }
+    if (
+      hrefLower.includes("fees-collection/fee-receipt-update") ||
+      hrefLower.includes("/fee-receipt-update") ||
+      (labelLower.includes("fee") &&
+        labelLower.includes("receipt") &&
+        (labelLower.includes("delete") || labelLower.includes("update")) &&
+        !labelLower.includes("exam"))
+    ) {
+      return "/accounts-and-fees/fees-collection/fee-receipt-update";
+    }
+    if (
+      hrefLower.includes("fees-collection/allocate-structure-to-student") ||
+      hrefLower.includes("/allocate-structure-to-student") ||
+      (labelLower.includes("allocate") &&
+        labelLower.includes("structure") &&
+        labelLower.includes("student") &&
+        !labelLower.includes("subject"))
+    ) {
+      return "/accounts-and-fees/fees-collection/allocate-structure-to-student";
+    }
+    if (
+      hrefLower.includes("fee-reports/scholarship-preceedings") ||
+      hrefLower.includes("fee-reports/scholarship-proceedings") ||
+      hrefLower.includes("/scholarship-preceedings") ||
+      (labelLower.includes("scholarship") &&
+        (labelLower.includes("preceeding") ||
+          labelLower.includes("proceeding")) &&
+        (labelLower.includes("report") || hrefLower.includes("fee-reports")))
+    ) {
+      return "/accounts-and-fees/fee-reports/scholarship-preceedings";
+    }
+    if (
+      hrefLower.includes("fee-reports/concession-list") ||
+      hrefLower.includes("/concession-list") ||
+      (labelLower.includes("institutional") &&
+        labelLower.includes("scholarship") &&
+        !labelLower.includes("preceeding") &&
+        !labelLower.includes("proceeding")) ||
+      (labelLower.includes("concession") &&
+        labelLower.includes("list") &&
+        hrefLower.includes("fee-reports"))
+    ) {
+      return "/accounts-and-fees/fee-reports/concession-list";
+    }
+    if (
       hrefLower.includes("university-payment-wallet-transactions") ||
       hrefLower.includes("university-wallet-transactions") ||
       (labelLower.includes("university") &&
@@ -1124,8 +1202,27 @@ export function resolveForcedNavRoute(
     return `${preExamBase}/${toNavSlug(label ?? labelLower)}`;
   if (labelLower.includes("internal exam registr"))
     return `${preExamBase}/internal-exam-registration-multiple`;
-  if (labelLower.includes("exam hallticket"))
+  if (
+    hrefLower.includes("student-exam-hallticket/print-hallticket") ||
+    hrefLower.includes("print-hallticket")
+  ) {
+    return "/examination-section/student-exam-hallticket/print-hallticket";
+  }
+  if (
+    hrefLower.includes("student-exam-hallticket") ||
+    hrefLower.includes("examination-section/student-exam-hallticket")
+  ) {
+    return "/examination-section/student-exam-hallticket";
+  }
+  if (labelLower.includes("exam hallticket")) {
+    if (
+      hrefLower.includes("examination-section") ||
+      hrefLower.includes("student-exam-hallticket")
+    ) {
+      return "/examination-section/student-exam-hallticket";
+    }
     return `${preExamBase}/exam-hallticket`;
+  }
   if (labelLower.includes("exam subject barcode"))
     return `${preExamBase}/exam-subject-barcode-generation`;
   if (labelLower.includes("exam forms")) return `${preExamBase}/exam-forms`;

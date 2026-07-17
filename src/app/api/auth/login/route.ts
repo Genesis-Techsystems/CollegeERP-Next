@@ -19,7 +19,7 @@ import { getIronSession } from 'iron-session'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 import { sessionOptions } from '@/lib/session'
-import { springLogin, springGetUserDetails, springGetEmployeeByUserId } from '@/integrations/spring-api'
+import { springLogin, springGetUserDetails, springGetEmployeeByUserId, springGetStudentByUserId } from '@/integrations/spring-api'
 import type { IronSessionData, SessionUser } from '@/types/user'
 import { APP_CONFIG } from '@/config/constants/app'
 
@@ -118,6 +118,13 @@ export async function POST(request: NextRequest) {
       const emp = await springGetEmployeeByUserId(jwt, Number(userDto.userId)).catch(() => null)
       const empId = Number(emp?.employeeId ?? 0)
       if (empId > 0) sessionUser.employeeId = empId
+    }
+
+    // Angular login getStudent() — authorization DTO often omits studentId.
+    if (isStudentLike && !sessionUser.studentId && userDto.userId) {
+      const student = await springGetStudentByUserId(jwt, Number(userDto.userId)).catch(() => null)
+      const sid = Number(student?.studentId ?? 0)
+      if (sid > 0) sessionUser.studentId = sid
     }
 
     // 6. Store { jwt, user, issuedAt } in Iron Session — JWT never leaves the server

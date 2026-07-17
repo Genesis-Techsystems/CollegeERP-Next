@@ -1748,6 +1748,18 @@ function coerceStudentDetail(data: unknown): AnyRow | null {
   return list[0] ?? null;
 }
 
+function pickStudentDetailRow(data: unknown): AnyRow | null {
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    const obj = data as AnyRow;
+    if (Array.isArray(obj.resultList) && obj.resultList.length > 0) {
+      return obj.resultList[0] as AnyRow;
+    }
+    return obj;
+  }
+  if (Array.isArray(data) && data.length > 0) return data[0] as AnyRow;
+  return null;
+}
+
 /** Legacy GET: /studentdetail?studentId= */
 export async function fetchStudentDetail(
   studentId: number,

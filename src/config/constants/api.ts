@@ -520,6 +520,12 @@ export const FEE_API = {
   FEE_RECEIPTS: "feereceipts",
   /** GET: student fee receipt PDF download (`?studentId=`). */
   STUDENT_FEE_RECEIPT_DOWNLOAD: "studentFeeReceiptDownload",
+  /** GET: fee receipt PDF by receipt id (`?receiptId=`). */
+  FEE_RECEIPT_DOWNLOAD: "feeReceiptDownload",
+  /** GET: particular-wise payment receipts (bus/hostel pay screen). */
+  FEE_PARTICULAR_WISE_PAYMENTS: "feeparticularwisepayments",
+  /** POST: create student-wise fee particulars before first category payment. */
+  FEE_STUDENT_WISE_PARTICULARS: "feestudentwiseparticularlists",
   /** GET: paginated fee concession list. */
   FEE_CONCESSION_LIST: "feeconsessionlist",
   /** POST: add institutional scholarship / student-wise fee discount. */
