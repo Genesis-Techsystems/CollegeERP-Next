@@ -8,8 +8,14 @@ import {
   mapTimetableNavRoute,
 } from "./timetable-navigation";
 import { mapAdminInstitutionalRoomRoute } from "./admin-institutional-navigation";
-import { applyExamReportSlugAliases, resolveExaminationReportHref } from "./exam-reports-navigation";
-import { resolveSidebarLabelPin, findSidebarLabelForRoute } from "./sidebar-route-pins";
+import {
+  applyExamReportSlugAliases,
+  resolveExaminationReportHref,
+} from "./exam-reports-navigation";
+import {
+  resolveSidebarLabelPin,
+  findSidebarLabelForRoute,
+} from "./sidebar-route-pins";
 import routeCanonicalAliases from "./generated/route-canonical-aliases.json";
 
 export {
@@ -807,8 +813,7 @@ function overrideLegacyPreExamHref(href: string, label: string): string {
   if (lower.includes("student exam fee"))
     return `${base}/student-exam-fee-registration`;
   if (lower.includes("exam scheduling")) return `${base}/exam-scheduling-forms`;
-  if (lower.includes("online exam fee"))
-    return `${base}/${toNavSlug(label)}`;
+  if (lower.includes("online exam fee")) return `${base}/${toNavSlug(label)}`;
   if (lower.includes("internal exam registr"))
     return `${base}/internal-exam-registration-multiple`;
   if (lower.includes('exam hallticket')) {
