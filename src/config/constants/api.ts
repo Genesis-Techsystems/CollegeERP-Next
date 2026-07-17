@@ -169,8 +169,6 @@ export const EXAM_API = {
   GET_EXAM_RESULT_MEMOS: "getAllRecords/s_get_exam_result_memos",
   /** GET: final internal marks */
   FINAL_INTERNAL_MARKS: "getAllRecords/s_get_exam_internal_final_marks",
-  /** GET: curriculum report (Angular `curriculumReportUrl`) */
-  CURRICULUM_REPORT: "getAllRecords/curriculum_report",
   /** GET: batch-wise SGPA report (Angular `batchwisesgpaUrl`) */
   BATCHWISE_SGPA: "getAllRecords/s_get_batchwise_sgpa",
   /** GET: evaluators bank / lab remuneration (Angular `getEvaluatorsBankCopy`) */
@@ -205,7 +203,8 @@ export const EXAM_API = {
   /** Angular `examFeeAdditionalStructureUrl` */
   EXAM_FEE_ADDITIONAL_STRUCTURE: "ExamFeeAdditionalStructure",
   /** Angular `addExamStudentAttendanceAndInternalMarksUrl` */
-  ADD_EXAM_STUDENT_ATTENDANCE_AND_INTERNAL_MARKS: "addExamStudentAttendanceAndInternalMarks",
+  ADD_EXAM_STUDENT_ATTENDANCE_AND_INTERNAL_MARKS:
+    "addExamStudentAttendanceAndInternalMarks",
   /** Angular `validateExamRegFormsurl` */
   VALIDATE_EXAM_REG_FORMS: "validateExamRegForms",
   /** Angular `getExamRegFormsUrl` */
@@ -333,7 +332,8 @@ export const EXAM_API = {
   /** Angular `finalInternalMarksListUrl` */
   FINAL_INTERNAL_MARKS_2: "finalinternalmarks",
   /** Angular `updateExamStudentRegistrationDetailsUrl` */
-  UPDATE_EXAM_STUDENT_REGISTRATION_DETAILS: "updateExamStudentRegistrationDetails",
+  UPDATE_EXAM_STUDENT_REGISTRATION_DETAILS:
+    "updateExamStudentRegistrationDetails",
   /** Angular `getUnivStgExamRegUrl` */
   GET_UNIV_STG_EXAM_REG: "api/tables/getUnivStgExamReg",
   /** Angular `getUnivStgExamStdFeeUrl` */
@@ -482,7 +482,8 @@ export const EXAM_EVAL_API = {
   /** GET: exam evaluation by codes (Angular getExamEvaluationCodesUrl) */
   EVALUATION_BYCODES: "getAllRecords/s_get_examevaluation_bycodes",
   /** GET: evaluators bank copy / remuneration report (Angular getEvaluatorsBankCopy) */
-  EVALUATORS_BANK_COPY_REPORT: "getAllRecords/s_get_evaluators_bank_copy_report",
+  EVALUATORS_BANK_COPY_REPORT:
+    "getAllRecords/s_get_evaluators_bank_copy_report",
   /** GET: exam pre-moderation reports (Angular ExamPreModerationUrl) */
   PREMODERATION_REPORTS_BYCODES:
     "getAllRecords/s_get_exam_premoderation_reports_bycodes",
@@ -959,11 +960,13 @@ export const FEE_API = {
   /** Angular `feeStudentWiseFinesUrl` */
   FEE_STUDENT_WISE_FINES: "feestudentwisefines",
   /** Angular `feeParticularwisePaymentsforStudentRefundUrl` */
-  FEE_PARTICULARWISE_PAYMENTSFOR_STUDENT_REFUND: "feeparticularwisepaymentsforstudentrefund",
+  FEE_PARTICULARWISE_PAYMENTSFOR_STUDENT_REFUND:
+    "feeparticularwisepaymentsforstudentrefund",
   /** Angular `daywisereceiptsPdfDownloadUrl` */
   DAYWISERECEIPTS_PDF: "daywisereceiptsPdfDownload",
   /** Angular `uploadFeeStgMerchantPaymentFileDetailsUrl` */
-  UPLOAD_FEE_STG_MERCHANT_PAYMENT_FILE_DETAILS: "uploadFeeStgMerchantPaymentFileDetails",
+  UPLOAD_FEE_STG_MERCHANT_PAYMENT_FILE_DETAILS:
+    "uploadFeeStgMerchantPaymentFileDetails",
   /** Angular `feeReceiptsListUrl` */
   FEE_RECEIPTS_2: "feereceiptsList",
   /** Angular `libFineCollectionUrl` */
@@ -1029,7 +1032,8 @@ export const SCHOLARSHIP_API = {
   /** Angular `academicyearwiseScholarshipDueListUrl` */
   ACADEMICYEARWISE_SCHOLARSHIP_DUE: "academicyearwisescholarshipduelist",
   /** Angular `academicyearwiseScholarshipDueListDownloadUrl` */
-  ACADEMICYEARWISE_SCHOLARSHIP_DUE_LIST: "academicyearwisescholarshipduelistDownload",
+  ACADEMICYEARWISE_SCHOLARSHIP_DUE_LIST:
+    "academicyearwisescholarshipduelistDownload",
   /** Angular `scholarshipStdPrecedingsUrl` */
   SCHOLARSHIP_STD_PRECEDINGS: "scholarshipStdPrecedings",
   /** Angular `scholarshipStdPrecedingsDownloadUrl` */
@@ -1159,7 +1163,8 @@ export const PAYMENT_GATEWAY_API = {
   /** Angular `admissionInitiatePaymentUrl` */
   ADMISSION_INITIATE_PAYMENT: "PayPhi/admissionInitiatePayment",
   /** Angular `getAdmissionStdPaymentOrderDetails` */
-  GET_ADMISSION_STD_PAYMENT_ORDER_DETAILS: "PayPhi/getAdmissionStdPaymentOrderDetails",
+  GET_ADMISSION_STD_PAYMENT_ORDER_DETAILS:
+    "PayPhi/getAdmissionStdPaymentOrderDetails",
 } as const;
 
 // ─── University Wallet ───────────────────────────────────────────────────────
@@ -1816,9 +1821,11 @@ export const ADMISSION_API = {
   /** Angular `univStdApplicationFormSearchUrl` */
   UNIV_STD_APPLICATION_FORM_SEARCH: "univStdApplicationFormSearch",
   /** Angular `getUnivStdApplicationsAndEducationDetailsUrl` */
-  GET_UNIV_STD_APPLICATIONS_AND_EDUCATION_DETAILS: "getUnivStdApplicationsAndEducationDetails",
+  GET_UNIV_STD_APPLICATIONS_AND_EDUCATION_DETAILS:
+    "getUnivStdApplicationsAndEducationDetails",
   /** Angular `getAdmissionStdApplicationsAndEducationDetailsUrl` */
-  GET_ADMISSION_STD_APPLICATIONS_AND_EDUCATION_DETAILS: "getAdmissionStdApplicationsAndEducationDetails",
+  GET_ADMISSION_STD_APPLICATIONS_AND_EDUCATION_DETAILS:
+    "getAdmissionStdApplicationsAndEducationDetails",
   /** Angular `getStudentApplicationDetailsByUrl` */
   GET_STUDENT_APPLICATION_DETAILS_BY: "getStudentApplicationDetailsBy",
   /** Angular `univStdApplicationFormPhotosUrl` */
@@ -1830,7 +1837,8 @@ export const ADMISSION_API = {
   /** Angular `stdLoginUrl` */
   STD_LOGIN: "stdLogin",
   /** Angular `uploadUnivStdApplicationFormDocumentsUrl` */
-  UPLOAD_UNIV_STD_APPLICATION_FORM_DOCUMENTS: "uploadUnivStdApplicationFormDocuments",
+  UPLOAD_UNIV_STD_APPLICATION_FORM_DOCUMENTS:
+    "uploadUnivStdApplicationFormDocuments",
   /** Angular `stdLoginOtpVerificationUrl` */
   STD_LOGIN_OTP_VERIFICATION: "stdLoginOtpVerification",
   /** Angular `addStdApplicationFormDetailsUrl` */
@@ -1980,7 +1988,8 @@ export const UNIV_EXAM_CENTER_API = {
   /** Angular `getBooksBarcodeNotGeneratedRecordsUrl` */
   GET_BOOKS_BARCODE_NOT_GENERATED_RECORDS: "getBooksBarcodeNotGeneratedRecords",
   /** Angular `getLibMemberBarcodeNotGeneratedRecordsUrl` */
-  GET_LIB_MEMBER_BARCODE_NOT_GENERATED_RECORDS: "getLibMemberBarcodeNotGeneratedRecords",
+  GET_LIB_MEMBER_BARCODE_NOT_GENERATED_RECORDS:
+    "getLibMemberBarcodeNotGeneratedRecords",
   /** Angular `updateOmrSerialnoAndOmrBarcodeUrl` */
   UPDATE_OMR_SERIALNO_AND_OMR_BARCODE: "updateOmrSerialnoAndOmrBarcode",
   /** Angular `generateBarCodeUrl` */
