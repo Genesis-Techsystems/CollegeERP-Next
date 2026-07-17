@@ -94,22 +94,20 @@ export async function listSubjectRegulationsByCourseYear(params: {
 }): Promise<AnyRow[]> {
   const { collegeId, academicYearId, courseGroupId, courseYearId } = params
   if (!collegeId || !academicYearId || !courseGroupId || !courseYearId) return []
-  const variants: Array<Record<string, string | number>> = [
-    { collegeId, academicYearId, courseGroupId, courseYearId },
-    { collegeId, academicYearId, coursegroupId: courseGroupId, courseyearId: courseYearId },
-  ]
-  for (const v of variants) {
-    try {
-      const raw = await fetchDetails<unknown>(SUBJECT_API.SUBJECT_REGULATIONS, v)
-      const rows = unwrapDataArray(raw)
-      if (rows.length > 0 || Array.isArray(raw) || (raw && typeof raw === 'object' && (Array.isArray((raw as AnyRow).resultList) || Array.isArray((raw as AnyRow).content)))) {
-        return rows
-      }
-    } catch {
-      // try next
-    }
+  // Exact Angular getSubjectRegulationDetails():
+  // subjectregulations/?collegeId=&academicYearId=&coursegroupId=&courseyearId=
+  // Browser calls /api/proxy/... ; Next.js forwards to SPRING_API_URL (.../cms/...).
+  try {
+    const raw = await fetchDetails<unknown>(SUBJECT_API.SUBJECT_REGULATIONS, {
+      collegeId,
+      academicYearId,
+      coursegroupId: courseGroupId,
+      courseyearId: courseYearId,
+    })
+    return unwrapDataArray(raw)
+  } catch {
+    return []
   }
-  return []
 }
 
 export async function saveSubjectRegulations(rows: AnyRow[]): Promise<void> {

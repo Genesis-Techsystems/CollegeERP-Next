@@ -23,6 +23,8 @@ import { APP_CONFIG } from "@/config/constants/app";
 interface AppShellProps {
   children: ReactNode;
   initialNavItems: NavItem[];
+  children: ReactNode;
+  initialNavItems: NavItem[];
 }
 
 export function AppShell({

@@ -937,6 +937,9 @@ export async function listStudentsForPromotionPreview(params: {
   return listStudentsBySection(groupSectionId);
 }
 
+/**
+ * Angular `selectedSection` → `listByFourIds(studentsList, collegeId, courseGroupId, groupSectionId, 'INCOLLEGE', …)`.
+ */
 export async function listStudentsForLabAssignment(params: {
   collegeId: number;
   courseGroupId: number;
@@ -951,10 +954,46 @@ export async function listStudentsForLabAssignment(params: {
       groupSectionId,
       statusCode: "INCOLLEGE",
     });
-    return asArray<AnyRow>(data).map(normalizeStudentRow);
+    return asArray<AnyRow>(data).map((row) => {
+      const normalized = normalizeStudentRow(row);
+      return {
+        ...normalized,
+        firstName: text(row, [
+          "firstName",
+          "studentName",
+          "student_name",
+          "fullName",
+          "name",
+        ]),
+        rollNumber: text(row, [
+          "rollNumber",
+          "roll_number",
+          "hallticketNumber",
+          "hallticket_number",
+          "admissionNumber",
+        ]),
+        genderDisplayName: text(row, [
+          "genderDisplayName",
+          "gender",
+          "genderCode",
+        ]),
+      };
+    });
   } catch {
     return [];
   }
+}
+
+/** Angular `getSubjectTypes` → GeneralDetail where master code is SUBTYPE; pick LAB. */
+export async function getLabSubjectTypeId(): Promise<number> {
+  const rows = await listGeneralDetailsByCode("SUBTYPE");
+  const lab = rows.find(
+    (r) =>
+      String(
+        r?.generalDetailCode ?? r?.general_detail_code ?? "",
+      ).toUpperCase() === "LAB",
+  );
+  return Number(lab?.generalDetailId ?? lab?.general_detail_id ?? 0) || 0;
 }
 
 export async function listStudentsForModifyStudentBatches(params: {
@@ -976,14 +1015,23 @@ export async function listStudentsForModifyStudentBatches(params: {
   }
 }
 
+/**
+ * Angular `getSections` → domain/list/Studentbatch?
+ * `subjecttype.generalDetailId==LAB.and.College.collegeId==….and.isActive==true.and.Course.courseId==…`
+ */
 export async function listStudentLabBatches(params: {
   collegeId: number;
   courseId: number;
+  subjectTypeId?: number;
 }): Promise<AnyRow[]> {
   const { collegeId, courseId } = params;
-  if (!collegeId || !courseId) return [];
+  const subjectTypeId =
+    params.subjectTypeId && params.subjectTypeId > 0
+      ? params.subjectTypeId
+      : await getLabSubjectTypeId();
+  if (!collegeId || !courseId || !subjectTypeId) return [];
   const query = buildQuery({
-    "subjecttype.generalDetailId": 5,
+    "subjecttype.generalDetailId": subjectTypeId,
     "College.collegeId": collegeId,
     isActive: true,
     "Course.courseId": courseId,
@@ -995,6 +1043,9 @@ export async function listStudentLabBatches(params: {
   }
 }
 
+/**
+ * Angular `getTimetable` → `timetablescurr?College.collegeId&AcademicYear.academicYearId&groupSectionId`.
+ */
 export async function listSectionTimetableCurr(params: {
   collegeId: number;
   academicYearId: number;
@@ -1014,6 +1065,9 @@ export async function listSectionTimetableCurr(params: {
   }
 }
 
+/**
+ * Angular `selectedSection` → `listByThreeIds(batchwisestudents, collegeId, groupSectionId, 'LAB', …)`.
+ */
 export async function listBatchwiseLabStudents(params: {
   collegeId: number;
   groupSectionId: number;
@@ -1026,10 +1080,73 @@ export async function listBatchwiseLabStudents(params: {
       groupSectionId,
       subjectTypeCode: "LAB",
     });
-    return asArray<AnyRow>(data).map((row) => normalizeStudentRow(row));
+    return asArray<AnyRow>(data);
   } catch {
     return [];
   }
+}
+
+/**
+ * Angular `selectedSection` data fan-out: studentsList + Studentbatch + batchwisestudents + timetablescurr.
+ * Loads batches first so distribution can match studentbatchId → Lab panels.
+ */
+export async function loadAssignStudentsToLabBatches(params: {
+  collegeId: number;
+  courseId: number;
+  courseGroupId: number;
+  groupSectionId: number;
+  academicYearId: number;
+}): Promise<LabBatchAssignmentBundle> {
+  const { collegeId, courseId, courseGroupId, groupSectionId, academicYearId } =
+    params;
+  if (
+    !collegeId ||
+    !courseId ||
+    !courseGroupId ||
+    !groupSectionId ||
+    !academicYearId
+  ) {
+    return {
+      students: [],
+      studentBatches: [],
+      batchWiseStudents: [],
+      timetables: [],
+    };
+  }
+
+  const subjectTypeId = await getLabSubjectTypeId();
+  const [students, studentBatches, batchWiseStudents, timetables] =
+    await Promise.all([
+      listStudentsForLabAssignment({
+        collegeId,
+        courseGroupId,
+        groupSectionId,
+      }),
+      listStudentLabBatches({ collegeId, courseId, subjectTypeId }),
+      listBatchwiseLabStudents({ collegeId, groupSectionId }),
+      listSectionTimetableCurr({ collegeId, academicYearId, groupSectionId }),
+    ]);
+
+  return { students, studentBatches, batchWiseStudents, timetables };
+}
+
+export type LabBatchAssignmentBundle = {
+  students: AnyRow[];
+  studentBatches: AnyRow[];
+  batchWiseStudents: AnyRow[];
+  timetables: AnyRow[];
+};
+
+/**
+ * Angular `assignStudents` → `crudService.add(batchwisestudents, batchStudents)`.
+ */
+export async function submitLabBatchStudentAssignments(
+  rows: AnyRow[],
+): Promise<unknown> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("No students to assign to lab batches");
+  }
+  return postDetails<unknown>("batchwisestudents", rows);
 }
 
 /** Elective groups mapped to a section (Angular `electivegroupyrmapping` listByThreeIds). */
@@ -1121,19 +1238,7 @@ export async function listStudentBatchesByCollegeCourse(params: {
   collegeId: number;
   courseId: number;
 }): Promise<AnyRow[]> {
-  const { collegeId, courseId } = params;
-  if (!collegeId || !courseId) return [];
-  const query = buildQuery({
-    "subjecttype.generalDetailId": 5,
-    "College.collegeId": collegeId,
-    isActive: true,
-    "Course.courseId": courseId,
-  });
-  try {
-    return await domainList<AnyRow>("Studentbatch", query);
-  } catch {
-    return [];
-  }
+  return listStudentLabBatches(params);
 }
 
 export async function listAcademicBatchesOfStudent(

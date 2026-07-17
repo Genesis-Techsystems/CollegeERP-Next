@@ -1,16 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import type { ColDef } from 'ag-grid-community'
+import { useSearchParams } from 'next/navigation'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { Select } from '@/common/components/select'
 import { FilteredListPage } from '@/components/layout'
+import { toastError } from '@/lib/toast'
 import {
-  enrichGroupYearRegulationRows,
-  getDigitalOnlineSyncFilters,
+  getUnivCurrFilters,
   listGroupYearRegulationDetails,
-  listRegulationsAdmin,
-  listStaffMappingSections,
 } from '@/services'
 
 type AnyRow = Record<string, any>
@@ -31,174 +30,69 @@ const uniq = (rows: AnyRow[], key: string) => {
   })
 }
 
-/** Merge nested Spring DTO fragments onto a flat row so columns and actions see familiar keys. */
-function flattenGroupYearRegulationRow(raw: AnyRow): AnyRow {
-  const r: AnyRow = { ...raw }
-  const mergeShallow = (obj: AnyRow | null | undefined) => {
-    if (!obj || typeof obj !== 'object') return
-    for (const [k, v] of Object.entries(obj)) {
-      if (v === undefined || v === null) continue
-      const cur = r[k]
-      if (cur === undefined || cur === null || cur === '') r[k] = v
-    }
-  }
-  mergeShallow(raw.subject)
-  mergeShallow(raw.Subject)
-  mergeShallow(raw.subjectregulation)
-  mergeShallow(raw.subjectRegulation)
-  mergeShallow(raw.Subjectregulation)
-  for (const key of ['subjectregulation', 'subjectRegulation', 'Subjectregulation'] as const) {
-    const v = raw[key]
-    if (Array.isArray(v) && v[0] && typeof v[0] === 'object') mergeShallow(v[0] as AnyRow)
-  }
-  const scr = raw.subjectCourseyear ?? raw.subjectCourseYear ?? raw.subjectCourseyr ?? raw.subjectcourseyear
-  if (scr && typeof scr === 'object') {
-    mergeShallow(scr as AnyRow)
-    const sro = (scr as AnyRow).subjectregulation ?? (scr as AnyRow).subjectRegulation ?? (scr as AnyRow).Subjectregulation
-    if (sro && typeof sro === 'object') mergeShallow(sro as AnyRow)
-  }
-  const gDetail = raw.groupYrRegulationDetail ?? raw.groupyrRegulationDetail ?? raw.GroupyrRegulationDetail
-  if (gDetail && typeof gDetail === 'object') {
-    mergeShallow(gDetail)
-    mergeShallow((gDetail as AnyRow).subject)
-    mergeShallow((gDetail as AnyRow).Subject)
-    mergeShallow((gDetail as AnyRow).subjectregulation)
-    mergeShallow((gDetail as AnyRow).subjectRegulation)
-    mergeShallow((gDetail as AnyRow).Subjectregulation)
-  }
-  const sid = n(
-    r.subjectRegulationId
-    ?? r.subjectregulationId
-    ?? r.pk_subject_regulation_id
-    ?? r.pkSubjectRegulationId
-    ?? r.fk_subject_regulation_id
-    ?? r.subjectRegulation?.subjectRegulationId
-    ?? r.subjectregulation?.subjectRegulationId
-    ?? r.Subjectregulation?.subjectRegulationId,
-  )
-  if (sid) r.subjectRegulationId = sid
-  return r
-}
-
-function subjectRegulationIdFromRow(row: AnyRow): number {
-  return n(
-    row.subjectRegulationId
-    ?? row.subjectregulationId
-    ?? row.pk_subject_regulation_id
-    ?? row.pkSubjectRegulationId
-    ?? row.fk_subject_regulation_id
-    ?? row.subjectRegulation?.subjectRegulationId
-    ?? row.subjectregulation?.subjectRegulationId
-    ?? row.Subjectregulation?.subjectRegulationId,
-  )
-}
-
-function subjectTypeFromRow(row: AnyRow): string {
-  const fromObj = (o: unknown) => {
-    if (!o || typeof o !== 'object') return ''
-    const x = o as AnyRow
-    return s(
-      x.generalDetailName
-      ?? x.generalDetailCode
-      ?? x.general_detail_name
-      ?? x.name
-      ?? x.description
-      ?? x.subjectTypeName
-      ?? x.subjecttypename,
-    )
-  }
-  const nested =
-    fromObj(row.subjectTypeGeneralDetail)
-    || fromObj(row.subjecttypeGeneralDetail)
-    || fromObj(row.generalDetail)
-    || (row.subjectType && typeof row.subjectType === 'object' ? fromObj(row.subjectType) : '')
-    || (row.subject_type && typeof row.subject_type === 'object' ? fromObj(row.subject_type) : '')
-    || fromObj(row.subjecttype)
-    || fromObj(row.subject?.subjectType)
-    || fromObj(row.Subject?.subjectType)
-  if (nested) return nested
-  const scalar = (v: unknown) => (typeof v === 'string' || typeof v === 'number' ? String(v) : undefined)
-  return s(
-    // Same field as university curriculum regulation-subjects grid (Angular "THEORY" / "LAB")
-    scalar(row.subjecttypeCode)
-    ?? scalar(row.subjectTypeCode)
-    ?? scalar(row.subjecttype_code)
-    ?? scalar(row.subjectType)
-    ?? scalar(row.subject_type)
-    ?? row.subjectTypeName
-    ?? row.subjecttypename
-    ?? row.subjectTypedesc
-    ?? row.subject_typedesc
-    ?? row.typeName
-    ?? row.subjectTypeCode
-    ?? row.generalDetailName
-    ?? row.general_detail_name
-    ?? scalar(row.fk_subjecttype_catdet_id),
-  )
-}
-
-type ActionsFilterCtx = {
-  contextLine: string
-  regulationId: number | null
+type ActionCtx = {
   collegeId: number | null
-  academicYearId: number | null
+  courseId: number | null
+  regulationId: number | null
   courseGroupId: number | null
   courseYearId: number | null
+  collegeCode: string
+  courseCode: string
+  courseGroupCode: string
+  courseYearName: string
 }
 
-function makeActionsRenderer(filters: ActionsFilterCtx) {
-  return (p: any) => {
+/** Angular `assignUnits` / `assignLessonPlanning` query params. */
+function buildSubjectActionQs(row: AnyRow, ctx: ActionCtx): string | null {
+  const subjectId = n(row.subjectId ?? row.fk_subject_id ?? row.pk_subject_id)
+  if (!subjectId || !ctx.collegeId || !ctx.courseId || !ctx.regulationId || !ctx.courseGroupId || !ctx.courseYearId) {
+    return null
+  }
+  const qs = new URLSearchParams({
+    collegeName: ctx.collegeCode,
+    collegeId: String(ctx.collegeId),
+    regulationCode: s(row.regulationCode ?? row.regulation_code),
+    subjectId: String(subjectId),
+    regulationId: String(ctx.regulationId),
+    courseYearId: String(n(row.courseYearId) || ctx.courseYearId),
+    courseGroupId: String(n(row.courseGroupId) || ctx.courseGroupId),
+    courseId: String(ctx.courseId),
+    courseGroupName: ctx.courseGroupCode,
+    // Angular lesson-planning reads `groupName` (legacy); keep both.
+    groupName: ctx.courseGroupCode,
+    courseYearName: ctx.courseYearName,
+    courseCode: ctx.courseCode,
+    subjectName: s(row.subjectName ?? row.subject_name),
+  })
+  return qs.toString()
+}
+
+function makeActionsRenderer(ctx: ActionCtx) {
+  return (p: ICellRendererParams<AnyRow>) => {
     const row = p.data ?? {}
-    const sid = subjectRegulationIdFromRow(row)
-    const subjectId = n(
-      row.subjectId
-      ?? row.fk_subject_id
-      ?? row.pk_subject_id
-      ?? row.subject?.subjectId
-      ?? row.Subject?.subjectId,
-    )
-    const sub = s(row.subjectName ?? row.subject_name)
-    const reg = s(row.regulationName ?? row.regulationCode ?? row.regulation_name)
-    const qs = new URLSearchParams({ sub, ctx: filters.contextLine, reg })
-    if (sid) {
-      qs.set('subjectRegulationId', String(sid))
-      if (subjectId) qs.set('subjectId', String(subjectId))
-      if (filters.regulationId) qs.set('regulationId', String(filters.regulationId))
-      if (filters.courseYearId) qs.set('courseYearId', String(filters.courseYearId))
-    } else if (
-      subjectId
-      && filters.regulationId
-      && filters.collegeId
-      && filters.academicYearId
-      && filters.courseGroupId
-      && filters.courseYearId
-    ) {
-      qs.set('subjectId', String(subjectId))
-      qs.set('regulationId', String(filters.regulationId))
-      qs.set('collegeId', String(filters.collegeId))
-      qs.set('academicYearId', String(filters.academicYearId))
-      qs.set('courseGroupId', String(filters.courseGroupId))
-      qs.set('courseYearId', String(filters.courseYearId))
-    } else {
-      return <span className="text-xs text-muted-foreground">—</span>
-    }
-    const unitsHref = `/academics/subject-mapping/add-subject-units?${qs.toString()}`
+    const qs = buildSubjectActionQs(row, ctx)
+    if (!qs) return <span className="text-xs text-muted-foreground">—</span>
+    const unitsHref = `/academics/subject-mapping/add-subject-units?${qs}`
+    const lessonHref = `/academics/subject-mapping/assign-subject-units/assign-lesson-planning?${qs}`
     return (
       <div className="text-xs inline-flex max-w-full flex-nowrap items-center gap-x-1.5 whitespace-nowrap">
         <Link href={unitsHref} className="shrink-0 text-blue-700 font-medium hover:underline">
           Assign Units
         </Link>
         <span className="shrink-0 text-muted-foreground">|</span>
-        <span className="shrink-0 text-muted-foreground">Assign Lesson Planning</span>
+        <Link href={lessonHref} className="shrink-0 text-blue-700 font-medium hover:underline">
+          Assign Lesson Planning
+        </Link>
       </div>
     )
   }
 }
 
 export default function SubjectUnitTopicsPage() {
+  const searchParams = useSearchParams()
+  const pageParamsApplied = useRef(false)
+
   const [filtersData, setFiltersData] = useState<AnyRow[]>([])
-  const [academicData, setAcademicData] = useState<AnyRow[]>([])
-  const [regulations, setRegulations] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(false)
 
   const [collegeId, setCollegeId] = useState<number | null>(null)
@@ -206,177 +100,327 @@ export default function SubjectUnitTopicsPage() {
   const [regulationId, setRegulationId] = useState<number | null>(null)
   const [courseGroupId, setCourseGroupId] = useState<number | null>(null)
   const [courseYearId, setCourseYearId] = useState<number | null>(null)
-  const [academicYearId, setAcademicYearId] = useState<number | null>(null)
-  const [groupSectionId, setGroupSectionId] = useState<number | null>(null)
-  const [sections, setSections] = useState<AnyRow[]>([])
 
   const [rows, setRows] = useState<AnyRow[]>([])
+
+  const pageParams = useMemo(() => ({
+    collegeId: n(searchParams.get('collegeId')),
+    courseId: n(searchParams.get('courseId')),
+    regulationId: n(searchParams.get('regulationId')),
+    courseGroupId: n(searchParams.get('courseGroupId')),
+    courseYearId: n(searchParams.get('courseYearId')),
+  }), [searchParams])
+
   useEffect(() => {
     const orgId = Number(localStorage.getItem('organizationId') ?? 0)
     const empId = Number(localStorage.getItem('employeeId') ?? 0)
-    Promise.all([
-      getDigitalOnlineSyncFilters(orgId, empId),
-      listRegulationsAdmin().catch(() => []),
-    ]).then(([d, regs]) => {
-      setFiltersData(d.filtersData as AnyRow[])
-      setAcademicData(d.academicYearData as AnyRow[])
-      setRegulations(Array.isArray(regs) ? regs : [])
-    }).catch(() => {
-      setFiltersData([])
-      setAcademicData([])
-      setRegulations([])
-    })
+    getUnivCurrFilters(orgId, empId)
+      .then((d) => setFiltersData(d.filtersData))
+      .catch(() => setFiltersData([]))
   }, [])
 
-  const colleges = useMemo(() => uniq(filtersData, 'fk_college_id').sort((a, b) => n(a.clg_sort_order) - n(b.clg_sort_order)), [filtersData])
-  const courses = useMemo(() => uniq(filtersData.filter((r) => n(r.fk_college_id) === (collegeId ?? 0)), 'fk_course_id'), [filtersData, collegeId])
-  const courseGroups = useMemo(() => uniq(filtersData.filter((r) => n(r.fk_college_id) === (collegeId ?? 0) && n(r.fk_course_id) === (courseId ?? 0)), 'fk_course_group_id'), [filtersData, collegeId, courseId])
-  const courseYears = useMemo(() => uniq(filtersData.filter((r) => n(r.fk_college_id) === (collegeId ?? 0) && n(r.fk_course_id) === (courseId ?? 0) && n(r.fk_course_group_id) === (courseGroupId ?? 0)), 'fk_course_year_id').sort((a, b) => n(a.year_order) - n(b.year_order)), [filtersData, collegeId, courseId, courseGroupId])
-  const academicYears = useMemo(() => {
-    const univId = n(filtersData.find((x) => n(x.fk_college_id) === (collegeId ?? 0))?.fk_university_id)
-    return uniq(academicData.filter((r) => n(r.fk_university_id) === univId), 'fk_academic_year_id')
-      .sort((a, b) => String(b.academic_year ?? '').localeCompare(String(a.academic_year ?? '')))
-  }, [academicData, filtersData, collegeId])
+  const colleges = useMemo(
+    () => uniq(filtersData, 'fk_college_id').sort((a, b) => n(a.clg_sort_order) - n(b.clg_sort_order)),
+    [filtersData],
+  )
+  const courses = useMemo(
+    () => uniq(filtersData.filter((r) => n(r.fk_college_id) === (collegeId ?? 0)), 'fk_course_id'),
+    [filtersData, collegeId],
+  )
+  const regulations = useMemo(
+    () =>
+      uniq(
+        filtersData.filter(
+          (r) => n(r.fk_college_id) === (collegeId ?? 0) && n(r.fk_course_id) === (courseId ?? 0),
+        ),
+        'fk_regulation_id',
+      ),
+    [filtersData, collegeId, courseId],
+  )
+  const courseGroups = useMemo(
+    () =>
+      uniq(
+        filtersData.filter(
+          (r) =>
+            n(r.fk_college_id) === (collegeId ?? 0)
+            && n(r.fk_course_id) === (courseId ?? 0)
+            && n(r.fk_regulation_id) === (regulationId ?? 0),
+        ),
+        'fk_course_group_id',
+      ),
+    [filtersData, collegeId, courseId, regulationId],
+  )
+  const courseYears = useMemo(
+    () =>
+      uniq(
+        filtersData.filter(
+          (r) =>
+            n(r.fk_college_id) === (collegeId ?? 0)
+            && n(r.fk_course_id) === (courseId ?? 0)
+            && n(r.fk_regulation_id) === (regulationId ?? 0)
+            && n(r.fk_course_group_id) === (courseGroupId ?? 0),
+        ),
+        'fk_course_year_id',
+      ).sort((a, b) => n(a.year_order) - n(b.year_order)),
+    [filtersData, collegeId, courseId, regulationId, courseGroupId],
+  )
 
-  useEffect(() => { if (!collegeId && colleges.length) setCollegeId(n(colleges[0].fk_college_id)) }, [colleges, collegeId])
-  useEffect(() => { setCourseId(null); setRegulationId(null); setCourseGroupId(null); setCourseYearId(null); setAcademicYearId(null); setGroupSectionId(null); setRows([]) }, [collegeId])
-  useEffect(() => { if (!courseId && courses.length) setCourseId(n(courses[0].fk_course_id)) }, [courses, courseId])
-  useEffect(() => { setRegulationId(null); setCourseGroupId(null); setCourseYearId(null); setAcademicYearId(null); setGroupSectionId(null); setRows([]) }, [courseId])
-  useEffect(() => { if (!regulationId && regulations.length) setRegulationId(n(regulations[0].regulationId)) }, [regulations, regulationId])
-  useEffect(() => { setCourseGroupId(null); setCourseYearId(null); setAcademicYearId(null); setGroupSectionId(null); setRows([]) }, [regulationId])
-  useEffect(() => { if (!courseGroupId && courseGroups.length) setCourseGroupId(n(courseGroups[0].fk_course_group_id)) }, [courseGroups, courseGroupId])
-  useEffect(() => { setCourseYearId(null); setAcademicYearId(null); setGroupSectionId(null); setRows([]) }, [courseGroupId])
-  // Course Year stays empty until the user selects one — do not auto-pick first option.
-  useEffect(() => { setAcademicYearId(null); setGroupSectionId(null); setRows([]) }, [courseYearId])
-  useEffect(() => { if (!academicYearId && academicYears.length) setAcademicYearId(n([...academicYears].sort((a, b) => n(b.is_curr_ay) - n(a.is_curr_ay))[0]?.fk_academic_year_id)) }, [academicYears, academicYearId])
-  useEffect(() => { setGroupSectionId(null); setRows([]); setSections([]) }, [academicYearId])
-  useEffect(() => { if (!groupSectionId && sections.length) setGroupSectionId(n(sections[0].pk_group_section_id ?? sections[0].groupSectionId)) }, [sections, groupSectionId])
-
+  // Angular cascade + optional return query params from Assign Units / Lesson Planning Back
   useEffect(() => {
-    async function loadSections() {
-      if (!collegeId || !courseId || !courseGroupId || !courseYearId || !academicYearId) {
-        setSections([])
-        return
-      }
-      const organizationId = Number(localStorage.getItem('organizationId') ?? 0)
-      const employeeId = Number(localStorage.getItem('employeeId') ?? 0)
-      const list = await listStaffMappingSections({
-        organizationId,
-        employeeId,
-        collegeId,
-        courseId,
-        courseGroupId,
-        courseYearId,
-        academicYearId,
-      }).catch(() => [])
-      setSections(list)
+    if (!colleges.length || collegeId) return
+    if (pageParams.collegeId && colleges.some((c) => n(c.fk_college_id) === pageParams.collegeId)) {
+      setCollegeId(pageParams.collegeId)
+      return
     }
-    void loadSections()
-  }, [collegeId, courseId, courseGroupId, courseYearId, academicYearId])
+    setCollegeId(n(colleges[0].fk_college_id))
+  }, [colleges, collegeId, pageParams.collegeId])
 
   useEffect(() => {
-    async function loadRows() {
-      if (!courseYearId || !courseGroupId || !regulationId) {
+    setCourseId(null)
+    setRegulationId(null)
+    setCourseGroupId(null)
+    setCourseYearId(null)
+    setRows([])
+  }, [collegeId])
+
+  useEffect(() => {
+    if (!courses.length || courseId) return
+    if (pageParams.courseId && courses.some((c) => n(c.fk_course_id) === pageParams.courseId)) {
+      setCourseId(pageParams.courseId)
+      return
+    }
+    setCourseId(n(courses[0].fk_course_id))
+  }, [courses, courseId, pageParams.courseId])
+
+  useEffect(() => {
+    setRegulationId(null)
+    setCourseGroupId(null)
+    setCourseYearId(null)
+    setRows([])
+  }, [courseId])
+
+  useEffect(() => {
+    if (!regulations.length || regulationId) return
+    if (pageParams.regulationId && regulations.some((r) => n(r.fk_regulation_id) === pageParams.regulationId)) {
+      setRegulationId(pageParams.regulationId)
+      return
+    }
+    setRegulationId(n(regulations[0].fk_regulation_id))
+  }, [regulations, regulationId, pageParams.regulationId])
+
+  useEffect(() => {
+    setCourseGroupId(null)
+    setCourseYearId(null)
+    setRows([])
+  }, [regulationId])
+
+  useEffect(() => {
+    if (!courseGroups.length || courseGroupId) return
+    if (pageParams.courseGroupId && courseGroups.some((g) => n(g.fk_course_group_id) === pageParams.courseGroupId)) {
+      setCourseGroupId(pageParams.courseGroupId)
+      return
+    }
+    setCourseGroupId(n(courseGroups[0].fk_course_group_id))
+  }, [courseGroups, courseGroupId, pageParams.courseGroupId])
+
+  useEffect(() => {
+    setCourseYearId(null)
+    setRows([])
+  }, [courseGroupId])
+
+  useEffect(() => {
+    if (!courseYears.length || courseYearId) return
+    if (pageParams.courseYearId && courseYears.some((y) => n(y.fk_course_year_id) === pageParams.courseYearId)) {
+      setCourseYearId(pageParams.courseYearId)
+      pageParamsApplied.current = true
+      return
+    }
+    setCourseYearId(n(courseYears[0].fk_course_year_id))
+    pageParamsApplied.current = true
+  }, [courseYears, courseYearId, pageParams.courseYearId])
+
+  useEffect(() => {
+    async function loadSubjects() {
+      if (!courseGroupId || !courseYearId || !regulationId) {
         setRows([])
         return
       }
       setLoading(true)
-      const list = await listGroupYearRegulationDetails({
-        coursegroupId: courseGroupId,
-        courseyearId: courseYearId,
-        regulationId,
-      }).catch(() => [])
-      const flat = Array.isArray(list) ? list.map(flattenGroupYearRegulationRow) : []
-      const enriched = regulationId
-        ? await enrichGroupYearRegulationRows(flat, {
+      try {
+        const list = await listGroupYearRegulationDetails({
+          coursegroupId: courseGroupId,
+          courseyearId: courseYearId,
           regulationId,
-          collegeId: collegeId ?? 0,
-          academicYearId: academicYearId ?? 0,
-          courseGroupId: courseGroupId ?? 0,
-          courseYearId: courseYearId ?? 0,
         })
-        : flat
-      setRows(enriched)
-      setLoading(false)
+        setRows(
+          (Array.isArray(list) ? list : []).map((row) => ({
+            ...row,
+            subjectCode: s(row.subjectCode ?? row.subject_code),
+            subjectName: s(row.subjectName ?? row.subject_name),
+            subjecttypeName: s(
+              row.subjecttypeName
+              ?? row.subjectTypeName
+              ?? row.subjecttypeCode
+              ?? row.subjectTypeCode
+              ?? row.subjectType,
+            ),
+            regulationCode: s(row.regulationCode ?? row.regulation_code ?? row.regulationName),
+            subjectId: n(row.subjectId ?? row.fk_subject_id ?? row.pk_subject_id),
+            courseYearId: n(row.courseYearId) || courseYearId,
+            courseGroupId: n(row.courseGroupId) || courseGroupId,
+          })),
+        )
+      } catch {
+        setRows([])
+        toastError('Failed to load subjects')
+      } finally {
+        setLoading(false)
+      }
     }
-    void loadRows()
-  }, [courseYearId, courseGroupId, regulationId, collegeId, academicYearId])
+    void loadSubjects()
+  }, [courseGroupId, courseYearId, regulationId])
+
+  const collegeCode = useMemo(
+    () => s(colleges.find((x) => n(x.fk_college_id) === (collegeId ?? 0))?.college_code),
+    [colleges, collegeId],
+  )
+  const courseCode = useMemo(
+    () => s(courses.find((x) => n(x.fk_course_id) === (courseId ?? 0))?.course_code),
+    [courses, courseId],
+  )
+  const courseGroupCode = useMemo(
+    () => s(courseGroups.find((x) => n(x.fk_course_group_id) === (courseGroupId ?? 0))?.group_code),
+    [courseGroups, courseGroupId],
+  )
+  const courseYearName = useMemo(
+    () =>
+      s(
+        courseYears.find((x) => n(x.fk_course_year_id) === (courseYearId ?? 0))?.course_year_name
+          ?? courseYears.find((x) => n(x.fk_course_year_id) === (courseYearId ?? 0))?.course_year_code,
+      ),
+    [courseYears, courseYearId],
+  )
 
   const contextLine = useMemo(() => {
-    const c = s(courses.find((x) => n(x.fk_course_id) === courseId)?.course_code)
-    const g = s(courseGroups.find((x) => n(x.fk_course_group_id) === courseGroupId)?.group_code)
-    const y = s(courseYears.find((x) => n(x.fk_course_year_id) === courseYearId)?.course_year_name)
-    return [s(colleges.find((x) => n(x.fk_college_id) === collegeId)?.college_code), c, g, y].filter(Boolean).join(' / ')
-  }, [colleges, courses, courseGroups, courseYears, collegeId, courseId, courseGroupId, courseYearId])
+    if (!courseYearId) return ''
+    return [collegeCode, courseCode, courseGroupCode, courseYearName].filter(Boolean).join(' / ')
+  }, [collegeCode, courseCode, courseGroupCode, courseYearName, courseYearId])
 
-  const columnDefs = useMemo<ColDef<AnyRow>[]>(() => [
-    { headerName: 'SI.No', valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1, minWidth: 70, maxWidth: 80, flex: 0 },
-    {
-      headerName: 'Subject',
-      minWidth: 240,
-      flex: 1.5,
-      valueGetter: (p: any) => s(p.data?.subjectName ?? p.data?.subject_name ?? p.data?.name),
-    },
-    {
-      headerName: 'Subject Code',
-      minWidth: 130,
-      flex: 0.8,
-      valueGetter: (p: any) => s(p.data?.subjectCode ?? p.data?.subject_code ?? p.data?.code),
-    },
-    {
-      headerName: 'Subject Type',
-      minWidth: 120,
-      flex: 0.8,
-      valueGetter: (p: any) => subjectTypeFromRow(p.data ?? {}),
-    },
-    {
-      headerName: 'Regulation',
-      minWidth: 120,
-      flex: 0.8,
-      valueGetter: (p: any) => s(
-        p.data?.regulationName
-        ?? p.data?.regulation_name
-        ?? p.data?.regulationCode
-        ?? p.data?.regulation_code,
-      ),
-    },
-    {
-      headerName: 'Actions',
-      minWidth: 240,
-      flex: 1.2,
-      cellRenderer: makeActionsRenderer({
-        contextLine,
-        regulationId,
-        collegeId,
-        academicYearId,
-        courseGroupId,
-        courseYearId,
-      }),
-    },
-  ], [contextLine, regulationId, collegeId, academicYearId, courseGroupId, courseYearId])
+  const actionCtx: ActionCtx = useMemo(
+    () => ({
+      collegeId,
+      courseId,
+      regulationId,
+      courseGroupId,
+      courseYearId,
+      collegeCode,
+      courseCode,
+      courseGroupCode,
+      courseYearName,
+    }),
+    [
+      collegeId,
+      courseId,
+      regulationId,
+      courseGroupId,
+      courseYearId,
+      collegeCode,
+      courseCode,
+      courseGroupCode,
+      courseYearName,
+    ],
+  )
+
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      {
+        headerName: 'SI.No',
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+        width: 70,
+        flex: 0,
+        sortable: false,
+        filter: false,
+      },
+      { field: 'subjectCode', headerName: 'Subject Code', minWidth: 120, flex: 0.8 },
+      { field: 'subjectName', headerName: 'Subject', minWidth: 240, flex: 1.5 },
+      { field: 'subjecttypeName', headerName: 'Subject Type', minWidth: 120, flex: 0.8 },
+      { field: 'regulationCode', headerName: 'Regulation', minWidth: 120, flex: 0.8 },
+      {
+        headerName: 'Actions',
+        minWidth: 260,
+        flex: 1.2,
+        sortable: false,
+        filter: false,
+        cellRenderer: makeActionsRenderer(actionCtx),
+      },
+    ],
+    [actionCtx],
+  )
 
   return (
     <FilteredListPage
       title="Subject Unit Topics"
       filters={(
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          <Select label="College *" value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))} searchable />
-          <Select label="Course *" value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))} searchable disabled={!collegeId} />
-          <Select label="Regulation *" value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulations.map((x) => ({ value: String(n(x.regulationId)), label: s(x.regulationCode || x.regulationName) }))} searchable disabled={!courseId} />
-          <Select label="Course Group *" value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={courseGroups.map((x) => ({ value: String(n(x.fk_course_group_id)), label: s(x.group_code) }))} searchable disabled={!regulationId} />
-          <Select label="Course Year *" value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYears.map((x) => ({ value: String(n(x.fk_course_year_id)), label: s(x.course_year_name) }))} searchable disabled={!courseGroupId} />
+          <Select
+            label="College *"
+            value={collegeId ? String(collegeId) : null}
+            onChange={(v) => setCollegeId(v ? Number(v) : null)}
+            options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))}
+            searchable
+          />
+          <Select
+            label="Course *"
+            value={courseId ? String(courseId) : null}
+            onChange={(v) => setCourseId(v ? Number(v) : null)}
+            options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))}
+            searchable
+            disabled={!collegeId}
+          />
+          <Select
+            label="Regulation *"
+            value={regulationId ? String(regulationId) : null}
+            onChange={(v) => setRegulationId(v ? Number(v) : null)}
+            options={regulations.map((x) => ({
+              value: String(n(x.fk_regulation_id)),
+              label: s(x.regulation_code) || s(x.regulation_name),
+            }))}
+            searchable
+            disabled={!courseId}
+          />
+          <Select
+            label="Course Group *"
+            value={courseGroupId ? String(courseGroupId) : null}
+            onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+            options={courseGroups.map((x) => ({
+              value: String(n(x.fk_course_group_id)),
+              label: s(x.group_code),
+            }))}
+            searchable
+            disabled={!regulationId}
+          />
+          <Select
+            label="Course Year *"
+            value={courseYearId ? String(courseYearId) : null}
+            onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+            options={courseYears.map((x) => ({
+              value: String(n(x.fk_course_year_id)),
+              label: s(x.course_year_name) || s(x.course_year_code),
+            }))}
+            searchable
+            disabled={!courseGroupId}
+          />
         </div>
       )}
-      notice={courseYearId ? (
+      notice={contextLine ? (
         <div className="px-1 text-[13px] text-blue-700 font-semibold">{contextLine}</div>
       ) : undefined}
-      rowData={courseYearId ? rows : []}
+      rowData={rows}
       columnDefs={columnDefs}
       loading={loading}
-      toolbar={{ search: true, searchPlaceholder: 'Search unit/topic' }}
+      toolbar={{ search: true, searchPlaceholder: 'Search' }}
       pagination
       paginationPageSize={10}
     />
   )
 }
-

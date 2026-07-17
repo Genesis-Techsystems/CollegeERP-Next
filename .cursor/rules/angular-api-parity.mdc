@@ -1,0 +1,44 @@
+---
+description: Angular API parity — match Spring paths/params exactly; browser uses /api/proxy which forwards to /cms
+alwaysApply: true
+---
+
+# Angular → React API parity
+
+When migrating or fixing APIs, **implement the same Spring Boot call Angular uses** — same path segment, same query param **names/casing**, same body shape, same when-to-call.
+
+## `/cms` vs `/api/proxy` (do not “fix” this)
+
+| Client | Browser URL | Upstream |
+|---|---|---|
+| Angular | `{MAINAPI}/…` e.g. `/cms/subjectregulations?…` | Same host `/cms` |
+| React | `/api/proxy/…` e.g. `/api/proxy/subjectregulations?…` | `SPRING_API_URL` (must end with `/cms`) + same path |
+
+- React **must** use `NEXT_API.PROXY(path)` / `fetchDetails` / `domainList` / services — **never** call `/cms/...` from the browser.
+- `/api/proxy` is the Next.js session+JWT bridge; it forwards to `/cms`. Seeing `/proxy` in DevTools is correct.
+- The path **after** the base must match Angular’s constant (e.g. `subjectregulations`, `ExamFeeReceipt`, `getStudentExamFeeStructure`).
+
+## Match Angular request details exactly
+
+1. Open Angular `constants.ts` + the component’s `crudService` call.
+2. Copy **query key casing** from Angular (e.g. `coursegroupId` / `courseyearId`, not `courseGroupId` / `courseYearId`) unless the Angular code literally uses camelCase.
+3. Prefer **one** Angular-exact request — do not fan out alternate query shapes unless Angular does.
+4. Pages import from `@/services` only; put the Angular-parity call in a service file and re-export from `src/services/index.ts`.
+
+```ts
+// Angular: subjectregulations/?collegeId=&academicYearId=&coursegroupId=&courseyearId=
+await fetchDetails('subjectregulations', {
+  collegeId,
+  academicYearId,
+  coursegroupId: courseGroupId, // keep Angular key names
+  courseyearId: courseYearId,
+})
+// Browser: GET /api/proxy/subjectregulations?...coursegroupId=…&courseyearId=…
+// Upstream: GET {SPRING_API_URL}/subjectregulations?...  (= …/cms/subjectregulations?…)
+```
+
+## Wrong
+
+- Changing React to hit `/cms/...` from the client
+- Renaming Angular query keys for “cleaner” camelCase when Angular used lowercase
+- Inventing a different endpoint than Angular’s `CONSTANTS.*` / crud method

@@ -1,38 +1,40 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { ChevronDown, Pencil } from 'lucide-react'
+import { Eye, Pencil, X } from 'lucide-react'
 import { DataTable } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
 import { FormField } from '@/common/components/forms'
-import { FilteredListPage, ListPage } from '@/components/layout'
+import { FilteredListPage, PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { cn } from '@/lib/utils'
-import {
-  listSubjectUnits,
-  resolveSubjectRegulationForAssignUnits,
-  saveSubjectUnit,
-  type ListSubjectUnitsParams,
-} from '@/services'
+import { toastError, toastInfo, toastSuccess } from '@/lib/toast'
+import { listSubjectUnits, saveSubjectUnitsBatch } from '@/services'
 
 type AnyRow = Record<string, any>
-type LocalUnitRow = AnyRow & { __dirty?: boolean; __rowKey: string }
-type LocalTopicRow = {
+type TopicRow = AnyRow & {
   topicName: string
-  description: string
-  noOfPeriods: number | null
-  fromPage: string
-  toPage: string
-  sortOrder: number
-  isActive: boolean
-  __dirty?: boolean
+  topicDescription?: string
+  noOfPeriods?: number | null
+  fromPage?: string | number
+  toPage?: string | number
+  sortOrder?: number
+  isActive?: boolean
+  subjectUnitTopicId?: number
+  subBookId?: number | null
+  collegeId?: number
+  subjectRegulationId?: number
+  __localKey?: string
+}
+
+type UnitRow = AnyRow & {
+  __rowKey: string
+  subjectUnitTopicsDTOs?: TopicRow[]
 }
 
 const n = (v: unknown) => Number(v) || 0
@@ -42,429 +44,530 @@ const s = (v: unknown) => {
   return ''
 }
 
-function subjectUnitPk(row: AnyRow): number {
-  return n(
-    row.subjectUnitId
-    ?? row.subjectunitId
-    ?? row.pk_subject_unit_id
-    ?? row.pkSubjectUnitId,
-  )
+function subjectUnitsIdOf(row: AnyRow): number {
+  return n(row.subjectUnitsId ?? row.subjectUnitId ?? row.subjectunitId ?? row.pk_subject_unit_id)
 }
 
 function makeRowKey(): string {
-  return `unit-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`
+  return `u-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
 }
 
-/** Merge server list with row we just saved so the grid updates even when list API is empty/stale */
-function mergeRowsAfterSave(server: LocalUnitRow[], saved: AnyRow, editingPk: number | null): LocalUnitRow[] {
-  const order = (xs: LocalUnitRow[]) =>
-    [...xs].sort((a, b) => n(a.sortOrder ?? a.sort_order) - n(b.sortOrder ?? b.sort_order))
-  const keyOf = (r: AnyRow) => `${s(r.unitCode ?? r.unit_code).trim()}|${n(r.sortOrder ?? r.sort_order)}`
-  const savedPk = subjectUnitPk(saved)
-  const kSaved = keyOf(saved)
+function sortTopics(topics: TopicRow[]): TopicRow[] {
+  return [...topics].sort((a, b) => {
+    if (a.sortOrder == null && b.sortOrder == null) return 0
+    if (a.sortOrder == null) return 1
+    if (b.sortOrder == null) return -1
+    return Number(a.sortOrder) - Number(b.sortOrder)
+  })
+}
 
-  if (editingPk != null && editingPk > 0) {
-    let hit = false
-    const mapped = server.map((r) => {
-      if (subjectUnitPk(r) === editingPk) {
-        hit = true
-        return { ...r, ...saved, __dirty: false, __rowKey: r.__rowKey ?? makeRowKey() }
-      }
-      return r
-    })
-    if (!hit) return order([...server, { ...saved, __dirty: false, __rowKey: makeRowKey() } as LocalUnitRow])
-    return order(mapped)
+/**
+ * Angular add-units-modal addTopic() topic object shape.
+ * Keep existing API fields (e.g. subjectUnitTopicId) for updates / soft-deletes.
+ */
+function toAngularTopicPayload(topic: TopicRow, fallbackCollegeId: number, fallbackSubjectRegulationId: number): AnyRow {
+  const { __localKey: _lk, ...rest } = topic
+  const out: AnyRow = { ...rest }
+
+  out.topicName = topic.topicName
+  out.topicDescription = topic.topicDescription ?? ''
+  out.toPage = topic.toPage ?? ''
+  out.fromPage = topic.fromPage ?? ''
+  out.noOfPeriods = topic.noOfPeriods == null ? 0 : Number(topic.noOfPeriods)
+  out.sortOrder = topic.sortOrder
+  out.isActive = topic.isActive !== false
+  out.subBookId = topic.subBookId ?? null
+  out.collegeId = n(topic.collegeId) || fallbackCollegeId
+  out.subjectRegulationId = n(topic.subjectRegulationId) || fallbackSubjectRegulationId || topic.subjectRegulationId
+
+  if (n(topic.subjectUnitTopicId)) {
+    out.subjectUnitTopicId = n(topic.subjectUnitTopicId)
   }
 
-  if (savedPk > 0) {
-    let hit = false
-    const mapped = server.map((r) => {
-      if (subjectUnitPk(r) === savedPk) {
-        hit = true
-        return { ...r, ...saved, __dirty: false, __rowKey: r.__rowKey ?? makeRowKey() }
-      }
-      return r
-    })
-    if (!hit) return order([...server, { ...saved, __dirty: false, __rowKey: makeRowKey() } as LocalUnitRow])
-    return order(mapped)
-  }
-
-  if (server.some((r) => keyOf(r) === kSaved)) {
-    return order(server.map((r) => (keyOf(r) === kSaved ? { ...r, ...saved, __dirty: false, __rowKey: r.__rowKey ?? makeRowKey() } : r)))
-  }
-
-  return order([...server, { ...saved, __dirty: false, __rowKey: makeRowKey() } as LocalUnitRow])
+  return out
 }
 
-function directSubjectRegulationIdFromSearch(search: URLSearchParams): number {
-  return n(
-    search.get('subjectRegulationId')
-    ?? search.get('subjectregulationId')
-    ?? search.get('sid'),
-  )
-}
+/**
+ * Angular addSubjectUnits() posts `this.units` as-is to POST subjectunits.
+ * Strip React-only keys; keep domain fields from the list API.
+ */
+function toAngularSubjectUnitsPayload(
+  units: UnitRow[],
+  fallback: { collegeId: number; subjectId: number; courseYearId: number; regulationId: number },
+): AnyRow[] {
+  return units.map((u) => {
+    const { __rowKey: _rk, description: _desc, ...rest } = u
+    const topicsSource = Array.isArray(rest.subjectUnitTopicsDTOs)
+      ? rest.subjectUnitTopicsDTOs
+      : Array.isArray(rest.subjectUnitTopics)
+        ? rest.subjectUnitTopics
+        : []
 
-function statusRenderer(p: ICellRendererParams<AnyRow>) {
-  return <StatusBadge status={p.data?.isActive !== false} />
-}
-
-function makeActionsRenderer(handlers: React.MutableRefObject<{
-  onAssignTopics: (row: AnyRow) => void
-  onEdit: (row: AnyRow) => void
-}>) {
-  return (p: ICellRendererParams<AnyRow>) => {
-    const row = p.data
-    if (!row) return null
-    return (
-      <div className="inline-flex items-center gap-2 text-xs whitespace-nowrap">
-        <button type="button" className="text-blue-700 font-medium hover:underline" onClick={() => handlers.current.onAssignTopics(row)}>
-          Assign Topics
-        </button>
-        <span className="text-muted-foreground">|</span>
-        <button
-          type="button"
-          className="inline-flex items-center justify-center rounded p-0.5 text-blue-700 hover:bg-blue-50"
-          onClick={() => handlers.current.onEdit(row)}
-          aria-label="Edit unit"
-          title="Edit"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
-      </div>
+    const collegeId = n(rest.collegeId) || fallback.collegeId
+    const subjectRegulationId = n(
+      rest.subjectRegulationId
+      ?? rest.subjectregulationId
+      ?? rest.subjectregulation?.subjectRegulationId
+      ?? rest.Subjectregulation?.subjectRegulationId,
     )
-  }
+
+    const payload: AnyRow = {
+      ...rest,
+      unitCode: rest.unitCode,
+      unitName: rest.unitName,
+      unitDescription: rest.unitDescription ?? '',
+      isActive: rest.isActive !== false,
+      collegeId,
+      subjectId: n(rest.subjectId) || fallback.subjectId,
+      sortOrder: rest.sortOrder,
+      courseYearId: n(rest.courseYearId) || fallback.courseYearId,
+      regulationId: n(rest.regulationId) || fallback.regulationId,
+      // Angular openDialog sets item.subject = params.subjectName before save
+      subject: rest.subject,
+      // Angular modal Save assigns subjectUnitTopicsDTOs only
+      subjectUnitTopicsDTOs: topicsSource.map((t) =>
+        toAngularTopicPayload(t as TopicRow, collegeId, subjectRegulationId),
+      ),
+    }
+
+    delete payload.__rowKey
+    delete payload.description
+
+    const pk = subjectUnitsIdOf(rest)
+    if (pk) {
+      payload.subjectUnitsId = pk
+    }
+
+    return payload
+  })
 }
 
 export default function AddSubjectUnitsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const directSrId = useMemo(() => directSubjectRegulationIdFromSearch(searchParams), [searchParams])
-  const [resolvedSrId, setResolvedSrId] = useState(0)
-  const [resolveDone, setResolveDone] = useState(false)
 
-  const subjectRegulationId = directSrId || resolvedSrId
+  const collegeId = n(searchParams.get('collegeId'))
+  const courseId = n(searchParams.get('courseId'))
+  const courseGroupId = n(searchParams.get('courseGroupId'))
+  const courseYearId = n(searchParams.get('courseYearId'))
+  const regulationId = n(searchParams.get('regulationId'))
+  const subjectId = n(searchParams.get('subjectId'))
 
-  const listUnitParams = useMemo((): ListSubjectUnitsParams => {
-    const sid = n(searchParams.get('subjectId'))
-    const regulationIdParam = n(searchParams.get('regulationId'))
-    const courseYearIdParam = n(searchParams.get('courseYearId'))
-    return {
-      subjectId: sid > 0 ? sid : undefined,
-      regulationId: regulationIdParam > 0 ? regulationIdParam : undefined,
-      courseYearId: courseYearIdParam > 0 ? courseYearIdParam : undefined,
-    }
-  }, [searchParams])
+  const collegeName = s(searchParams.get('collegeName'))
+  const courseCode = s(searchParams.get('courseCode'))
+  const courseGroupName = s(searchParams.get('courseGroupName') || searchParams.get('groupName'))
+  const courseYearName = s(searchParams.get('courseYearName'))
+  const subjectName = s(searchParams.get('subjectName'))
+  const regulationCode = s(searchParams.get('regulationCode'))
 
-  const hasUnitListTriple = !!(listUnitParams.courseYearId && listUnitParams.regulationId && listUnitParams.subjectId)
+  const contextTitle = useMemo(() => {
+    const parts = [collegeName, courseCode, courseGroupName, courseYearName, subjectName, regulationCode].filter(Boolean)
+    return parts.length ? parts.join(' / ') : ''
+  }, [collegeName, courseCode, courseGroupName, courseYearName, subjectName, regulationCode])
 
-  const canListUnits = useMemo(
-    () => resolveDone && hasUnitListTriple,
-    [resolveDone, hasUnitListTriple],
-  )
+  const backHref = useMemo(() => {
+    const qs = new URLSearchParams()
+    if (collegeId) qs.set('collegeId', String(collegeId))
+    if (courseId) qs.set('courseId', String(courseId))
+    if (courseGroupId) qs.set('courseGroupId', String(courseGroupId))
+    if (courseYearId) qs.set('courseYearId', String(courseYearId))
+    if (regulationId) qs.set('regulationId', String(regulationId))
+    const q = qs.toString()
+    return q ? `/academics/subject-unit-topics?${q}` : '/academics/subject-unit-topics'
+  }, [collegeId, courseId, courseGroupId, courseYearId, regulationId])
 
-  useEffect(() => {
-    if (directSrId) {
-      setResolvedSrId(0)
-      setResolveDone(true)
-      return
-    }
-    const subjectId = n(searchParams.get('subjectId'))
-    const regulationId = n(searchParams.get('regulationId'))
-    if (!subjectId || !regulationId) {
-      setResolvedSrId(0)
-      setResolveDone(true)
-      return
-    }
-    setResolveDone(false)
-    let cancelled = false
-    void resolveSubjectRegulationForAssignUnits({
-      subjectId,
-      regulationId,
-      collegeId: n(searchParams.get('collegeId')),
-      academicYearId: n(searchParams.get('academicYearId')),
-      courseGroupId: n(searchParams.get('courseGroupId')),
-      courseYearId: n(searchParams.get('courseYearId')),
-    })
-      .then((id) => {
-        if (!cancelled) setResolvedSrId(id)
-      })
-      .finally(() => {
-        if (!cancelled) setResolveDone(true)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [searchParams, directSrId])
+  const canLoad = !!(courseYearId && regulationId && subjectId)
 
-  const titleSuffix = useMemo(() => {
-    const ctx = searchParams.get('ctx')?.trim()
-    const sub = searchParams.get('sub')?.trim()
-    const reg = searchParams.get('reg')?.trim()
-    const parts = [ctx, sub, reg].filter(Boolean) as string[]
-    return parts.length ? parts.join(' / ') : subjectRegulationId ? `Regulation subject #${subjectRegulationId}` : ''
-  }, [searchParams, subjectRegulationId])
-
-  const [rows, setRows] = useState<LocalUnitRow[]>([])
+  const [units, setUnits] = useState<UnitRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [formOpen, setFormOpen] = useState(true)
+  const [saving, setSaving] = useState(false)
+
   const [unitCode, setUnitCode] = useState('')
   const [unitName, setUnitName] = useState('')
-  const [description, setDescription] = useState('')
-  const [sortOrder, setSortOrder] = useState<string>('1')
+  const [unitDescription, setUnitDescription] = useState('')
+  const [sortOrder, setSortOrder] = useState('')
   const [isActive, setIsActive] = useState(true)
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingUnitsId, setEditingUnitsId] = useState<number | null>(null)
   const [editingRowKey, setEditingRowKey] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [topicsByUnitKey, setTopicsByUnitKey] = useState<Record<number, LocalTopicRow[]>>({})
-  const [topicsModalOpen, setTopicsModalOpen] = useState(false)
-  const [selectedTopicUnit, setSelectedTopicUnit] = useState<LocalUnitRow | null>(null)
-  const [topicsDraft, setTopicsDraft] = useState<LocalTopicRow[]>([])
+
+  const [topicsOpen, setTopicsOpen] = useState(false)
+  const [viewTopicsOpen, setViewTopicsOpen] = useState(false)
+  const [topicsUnitKey, setTopicsUnitKey] = useState<string | null>(null)
+  const [topicsUnitName, setTopicsUnitName] = useState('')
+  const [topicsCollegeId, setTopicsCollegeId] = useState(0)
+  const [topicsSubjectRegulationId, setTopicsSubjectRegulationId] = useState(0)
+  const [topicsDraft, setTopicsDraft] = useState<TopicRow[]>([])
+  const [inactiveTopics, setInactiveTopics] = useState<TopicRow[]>([])
   const [topicName, setTopicName] = useState('')
   const [topicDescription, setTopicDescription] = useState('')
   const [topicNoOfPeriods, setTopicNoOfPeriods] = useState('')
   const [topicFromPage, setTopicFromPage] = useState('')
   const [topicToPage, setTopicToPage] = useState('')
-  const [topicSortOrder, setTopicSortOrder] = useState('1')
-  const [topicActive, setTopicActive] = useState(true)
+  const [topicSortOrder, setTopicSortOrder] = useState('')
+  const [topicNoOfPeriodsError, setTopicNoOfPeriodsError] = useState('')
 
-  const actionHandlers = useRef({
-    onAssignTopics: (_row: AnyRow) => {},
-    onEdit: (_row: AnyRow) => {},
-  })
-
-  const loadRows = useCallback(async (): Promise<number> => {
-    if (!canListUnits) {
-      if (!resolveDone) return 0
-      setRows([])
-      return 0
+  const loadUnits = useCallback(async () => {
+    if (!canLoad) {
+      setUnits([])
+      return
     }
     setLoading(true)
     try {
-      const list = await listSubjectUnits(listUnitParams)
-      const next = (Array.isArray(list) ? list : []).map((r) => ({ ...r, __dirty: false, __rowKey: makeRowKey() }))
-      setRows(next)
-      return next.length
+      const list = await listSubjectUnits({ courseYearId, regulationId, subjectId })
+      setUnits(
+        list.map((r) => ({
+          ...r,
+          __rowKey: makeRowKey(),
+          subjectUnitTopicsDTOs: Array.isArray(r.subjectUnitTopicsDTOs)
+            ? sortTopics(r.subjectUnitTopicsDTOs as TopicRow[])
+            : Array.isArray(r.subjectUnitTopics)
+              ? sortTopics(r.subjectUnitTopics as TopicRow[])
+              : [],
+        })),
+      )
     } catch {
-      setRows([])
+      setUnits([])
       toastError('Failed to load subject units')
-      return 0
     } finally {
       setLoading(false)
     }
-  }, [canListUnits, listUnitParams, resolveDone])
+  }, [canLoad, courseYearId, regulationId, subjectId])
 
   useEffect(() => {
-    void loadRows()
-  }, [loadRows])
+    void loadUnits()
+  }, [loadUnits])
 
-  function resetForm(nextSortOrder?: number) {
+  function resetForm() {
     setUnitCode('')
     setUnitName('')
-    setDescription('')
-    setSortOrder(String(nextSortOrder ?? rows.length + 1))
+    setUnitDescription('')
+    setSortOrder('')
     setIsActive(true)
-    setEditingId(null)
+    setEditingUnitsId(null)
     setEditingRowKey(null)
   }
 
-  useEffect(() => {
-    if (editingId == null && rows.length && !unitCode && !unitName) {
-      setSortOrder(String(rows.length + 1))
-    }
-  }, [rows.length, editingId, unitCode, unitName])
-
-  function performAddToTable() {
-    if (!resolveDone) {
-      toastError('Still loading subject regulation. Please wait.')
-      return
-    }
-    if (!subjectRegulationId) {
-      toastError('Missing subject regulation')
-      return
-    }
+  function addDetails() {
     const code = unitCode.trim()
     const name = unitName.trim()
     if (!code || !name) {
       toastError('Unit code and unit name are required')
       return
     }
-    const sortRaw = String(sortOrder).trim()
-    if (sortRaw === '') {
+    if (String(sortOrder).trim() === '') {
       toastError('Sort order is required')
       return
     }
-    const so = Number(sortRaw)
-    if (!Number.isFinite(so)) {
-      toastError('Sort order must be a valid number')
-      return
-    }
-    const editingPk = editingId != null && editingId > 0 ? editingId : null
-    const draft: LocalUnitRow = {
-      __rowKey: editingRowKey ?? makeRowKey(),
-      subjectRegulationId,
-      subjectUnitId: editingPk ?? -Math.abs(Date.now()),
-      subjectunitId: editingPk ?? -Math.abs(Date.now()),
-      unitCode: code,
-      unitName: name,
-      description: description.trim(),
-      sortOrder: so,
-      isActive,
-      __dirty: true,
-    }
 
-    if (editingRowKey) {
-      setRows((prev) => prev.map((r) => (r.__rowKey === editingRowKey ? { ...r, ...draft } : r)))
-      toastSuccess('Updated in table. Click Save to persist.')
+    if (editingUnitsId || editingRowKey) {
+      setUnits((prev) =>
+        prev.map((u) => {
+          const match = editingRowKey
+            ? u.__rowKey === editingRowKey
+            : subjectUnitsIdOf(u) === editingUnitsId
+          if (!match) return u
+          return {
+            ...u,
+            unitCode: code,
+            unitName: name,
+            unitDescription: unitDescription.trim(),
+            description: unitDescription.trim(),
+            sortOrder: Number(sortOrder) || 0,
+            isActive,
+          }
+        }),
+      )
     } else {
-      setRows((prev) => [...prev, draft])
-      toastSuccess('Added to table. Click Save to persist.')
+      setUnits((prev) => [
+        ...prev,
+        {
+          __rowKey: makeRowKey(),
+          unitCode: code,
+          unitName: name,
+          unitDescription: unitDescription.trim(),
+          description: unitDescription.trim(),
+          isActive,
+          collegeId,
+          subjectId,
+          sortOrder: Number(sortOrder) || 0,
+          courseYearId,
+          regulationId,
+          subjectUnitTopics: [],
+          subjectUnitTopicsDTOs: [],
+        },
+      ])
     }
-    resetForm(rows.length + 1)
+    resetForm()
   }
 
-  async function persistToDb() {
-    if (saving) return
-    if (!subjectRegulationId) {
-      toastError('Missing subject regulation')
-      return
-    }
-    const dirtyRows = rows.filter((r) => r.__dirty)
-    if (dirtyRows.length === 0) {
-      toastSuccess('No pending changes')
-      return
-    }
+  function deleteUnit(row: UnitRow, index: number) {
+    if (subjectUnitsIdOf(row)) return
+    setUnits((prev) => prev.filter((_, i) => i !== index))
+  }
 
+  function editUnit(row: UnitRow) {
+    setEditingUnitsId(subjectUnitsIdOf(row) || null)
+    setEditingRowKey(row.__rowKey)
+    setUnitCode(s(row.unitCode))
+    setUnitName(s(row.unitName))
+    setUnitDescription(s(row.unitDescription ?? row.description))
+    setSortOrder(String(row.sortOrder ?? ''))
+    setIsActive(row.isActive !== false)
+  }
+
+  async function addSubjectUnits(overrideUnits?: UnitRow[]) {
+    const payload = overrideUnits ?? units
+    if (payload.length === 0) {
+      toastInfo('No units to save')
+      return
+    }
     setSaving(true)
     try {
-      for (const row of dirtyRows) {
-        const pk = subjectUnitPk(row)
-        // eslint-disable-next-line no-await-in-loop
-        await saveSubjectUnit({
-          ...row,
-          subjectRegulationId,
-          subjectUnitId: pk > 0 ? pk : undefined,
-          sortOrder: n(row.sortOrder ?? row.sort_order),
-          isActive: row.isActive !== false,
-        })
-      }
-
-      const serverRows = await listSubjectUnits(listUnitParams)
-      const merged = (Array.isArray(serverRows) ? serverRows : []).map((r) => ({ ...r, __dirty: false, __rowKey: makeRowKey() }))
-      setRows(merged)
-      resetForm(merged.length + 1)
-      toastSuccess('Saved to database')
-    } catch {
-      toastError('Failed to save changes')
+      // Angular: crudService.add('subjectunits', this.units)
+      const body = toAngularSubjectUnitsPayload(payload, {
+        collegeId,
+        subjectId,
+        courseYearId,
+        regulationId,
+      })
+      await saveSubjectUnitsBatch(body)
+      toastSuccess('Subject units saved successfully')
+      await loadUnits()
+    } catch (err) {
+      toastError(err, 'Failed to save subject units')
     } finally {
       setSaving(false)
     }
   }
 
-  function handleFormSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    performAddToTable()
-  }
-
-  function resetTopicForm(nextSortOrder?: number) {
+  function resetTopicForm() {
     setTopicName('')
     setTopicDescription('')
     setTopicNoOfPeriods('')
     setTopicFromPage('')
     setTopicToPage('')
-    setTopicSortOrder(String(nextSortOrder ?? topicsDraft.length + 1))
-    setTopicActive(true)
+    // Angular addTopic does not clear sortOrder
+    setTopicNoOfPeriodsError('')
   }
 
-  function addTopicToDraft() {
+  function openTopics(row: UnitRow) {
+    if (!subjectUnitsIdOf(row)) {
+      toastInfo('Save the unit first, then assign topics.')
+      return
+    }
+    // Angular openDialog: item.subject = params.subjectName
+    setTopicsUnitKey(row.__rowKey)
+    setTopicsUnitName(subjectName || s(row.unitName))
+    setTopicsCollegeId(n(row.collegeId) || collegeId)
+    setTopicsSubjectRegulationId(
+      n(
+        row.subjectRegulationId
+        ?? row.subjectregulationId
+        ?? row.subjectregulation?.subjectRegulationId
+        ?? row.Subjectregulation?.subjectRegulationId,
+      ),
+    )
+    // Angular: this.topics = this.data.subjectUnitTopicsDTOs (all rows)
+    const existing = Array.isArray(row.subjectUnitTopicsDTOs)
+      ? [...row.subjectUnitTopicsDTOs]
+      : Array.isArray(row.subjectUnitTopics)
+        ? [...row.subjectUnitTopics]
+        : []
+    setTopicsDraft(sortTopics(existing))
+    setInactiveTopics([])
+    resetTopicForm()
+    setTopicSortOrder('')
+    setTopicsOpen(true)
+  }
+
+  function viewTopics(row: UnitRow) {
+    const active = sortTopics([...(row.subjectUnitTopicsDTOs ?? [])].filter((t) => t.isActive !== false))
+    setTopicsDraft(active)
+    setTopicsUnitName(subjectName || s(row.unitName))
+    setViewTopicsOpen(true)
+  }
+
+  /** Angular addTopic — fields + payload match add-units-modal.component.ts */
+  function addTopic() {
     const name = topicName.trim()
     if (!name) {
       toastError('Topic name is required')
       return
     }
-    const sort = Number(String(topicSortOrder).trim())
-    if (!Number.isFinite(sort)) {
-      toastError('Sort order is required')
+    const periodsRaw = topicNoOfPeriods.trim()
+    // Angular Validators.pattern(/^\d+\.\d+$/) when value present
+    if (periodsRaw !== '' && !/^\d+\.\d+$/.test(periodsRaw)) {
+      setTopicNoOfPeriodsError('Enter Decimal Number')
       return
     }
-    const periodsRaw = String(topicNoOfPeriods).trim()
-    const periods = periodsRaw === '' ? null : Number(periodsRaw)
-    if (periodsRaw !== '' && !Number.isFinite(periods)) {
-      toastError('No of periods must be a valid number')
-      return
-    }
-    setTopicsDraft((prev) => [
-      ...prev,
+    setTopicNoOfPeriodsError('')
+
+    const fromRaw = topicFromPage.trim()
+    const toRaw = topicToPage.trim()
+    const sortRaw = topicSortOrder.trim()
+
+    setTopicsDraft((prev) =>
+      sortTopics([
+        ...prev,
+        {
+          __localKey: makeRowKey(),
+          topicName: name,
+          topicDescription: topicDescription.trim(),
+          // Angular matInput type="number" → numeric when filled
+          toPage: toRaw === '' ? '' : Number(toRaw),
+          fromPage: fromRaw === '' ? '' : Number(fromRaw),
+          // Angular: noOfPeriods: +this.topicsForm.value.noOfPeriods
+          noOfPeriods: periodsRaw === '' ? 0 : Number(periodsRaw),
+          // Angular leaves sortOrder as form value (number input without type still string-ish)
+          sortOrder: sortRaw === '' ? undefined : Number(sortRaw),
+          isActive: true,
+          subBookId: null,
+          collegeId: topicsCollegeId || collegeId,
+          subjectRegulationId: topicsSubjectRegulationId || undefined,
+        },
+      ]),
+    )
+    resetTopicForm()
+  }
+
+  /** Angular deleteTopic — soft-deactivate persisted topics into inActiveTopics */
+  function deleteTopic(item: TopicRow) {
+    setTopicsDraft((prev) => {
+      const index = prev.findIndex(
+        (t) =>
+          t === item
+          || (t.__localKey && t.__localKey === item.__localKey)
+          || (n(t.subjectUnitTopicId) > 0 && n(t.subjectUnitTopicId) === n(item.subjectUnitTopicId)),
+      )
+      if (index < 0) return prev
+      const row = prev[index]
+      if (n(row.subjectUnitTopicId)) {
+        setInactiveTopics((inactive) => [...inactive, { ...row, isActive: false }])
+      }
+      return sortTopics(prev.filter((_, i) => i !== index))
+    })
+  }
+
+  /**
+   * Angular submit() → close modal with topics (+ inactive), then parent
+   * sets item.subjectUnitTopicsDTOs and calls addSubjectUnits() → POST subjectunits.
+   */
+  async function submitTopics() {
+    if (!topicsUnitKey) return
+    const merged = [...topicsDraft, ...inactiveTopics]
+    const nextUnits = units.map((u) =>
+      u.__rowKey === topicsUnitKey
+        ? {
+            ...u,
+            // Angular openDialog: item.subject = params.subjectName (stays on unit in POST body)
+            subject: subjectName,
+            // Angular only assigns subjectUnitTopicsDTOs
+            subjectUnitTopicsDTOs: merged,
+          }
+        : u,
+    )
+    setUnits(nextUnits)
+    setTopicsOpen(false)
+    await addSubjectUnits(nextUnits)
+  }
+
+  const columnDefs = useMemo<ColDef<UnitRow>[]>(
+    () => [
       {
-        topicName: name,
-        description: topicDescription.trim(),
-        noOfPeriods: periods,
-        fromPage: topicFromPage.trim(),
-        toPage: topicToPage.trim(),
-        sortOrder: sort,
-        isActive: topicActive,
-        __dirty: true,
+        headerName: 'SI.No',
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+        width: 70,
+        flex: 0,
       },
-    ])
-    resetTopicForm(topicsDraft.length + 2)
-  }
-
-  async function performSave() {
-    await persistToDb()
-  }
-
-  actionHandlers.current.onAssignTopics = (row: AnyRow) => {
-    const unit = row as LocalUnitRow
-    const key = subjectUnitPk(unit)
-    setSelectedTopicUnit(unit)
-    setTopicsDraft([...(topicsByUnitKey[key] ?? [])])
-    setTopicsModalOpen(true)
-    resetTopicForm((topicsByUnitKey[key]?.length ?? 0) + 1)
-  }
-  actionHandlers.current.onEdit = (row: AnyRow) => {
-    const id = subjectUnitPk(row)
-    setEditingId(id || null)
-    setEditingRowKey((row as LocalUnitRow).__rowKey ?? null)
-    setUnitCode(s(row.unitCode ?? row.unit_code))
-    setUnitName(s(row.unitName ?? row.unit_name))
-    setDescription(s(row.description ?? row.unitDescription))
-    setSortOrder(String(n(row.sortOrder ?? row.sort_order ?? 1)))
-    setIsActive(row.isActive !== false)
-    setFormOpen(true)
-  }
-  const columnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [
-      { headerName: 'Sl.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, minWidth: 72, maxWidth: 80, flex: 0 },
-      { field: 'unitCode', headerName: 'Unit Code', minWidth: 110, valueGetter: (p) => s(p.data?.unitCode ?? p.data?.unit_code) },
-      { field: 'unitName', headerName: 'Unit Name', minWidth: 160, flex: 1, valueGetter: (p) => s(p.data?.unitName ?? p.data?.unit_name) },
-      { field: 'description', headerName: 'Description', minWidth: 160, flex: 1.2 },
-      { field: 'sortOrder', headerName: 'sortOrder', minWidth: 100, valueGetter: (p) => n(p.data?.sortOrder ?? p.data?.sort_order) },
-      { headerName: 'Status', minWidth: 100, cellRenderer: statusRenderer },
-      { headerName: 'Actions', minWidth: 160, flex: 0, cellRenderer: makeActionsRenderer(actionHandlers) },
-    ],
-    [],
-  )
-
-  const topicColumnDefs = useMemo<ColDef<LocalTopicRow>[]>(
-    () => [
-      { headerName: 'No.', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, minWidth: 60, maxWidth: 70, flex: 0 },
-      { field: 'topicName', headerName: 'Topic Name', minWidth: 180, flex: 1.2 },
-      { field: 'noOfPeriods', headerName: 'No of Periods', minWidth: 110, flex: 0.8, valueGetter: (p) => s(p.data?.noOfPeriods ?? '') },
-      { field: 'fromPage', headerName: 'From Page', minWidth: 100, flex: 0.8 },
-      { field: 'toPage', headerName: 'To Page', minWidth: 90, flex: 0.8 },
-      { field: 'sortOrder', headerName: 'sortOrder', minWidth: 100, flex: 0.8 },
-      { headerName: 'Status', minWidth: 90, flex: 0.8, cellRenderer: (p: ICellRendererParams<LocalTopicRow>) => <StatusBadge status={p.data?.isActive ?? false} /> },
+      { field: 'unitCode', headerName: 'Unit Code', minWidth: 110 },
+      { field: 'unitName', headerName: 'Unit Name', minWidth: 160, flex: 1 },
+      {
+        headerName: 'Description',
+        minWidth: 160,
+        flex: 1,
+        valueGetter: (p) => s(p.data?.unitDescription ?? p.data?.description),
+      },
+      { field: 'sortOrder', headerName: 'sortOrder', minWidth: 100 },
+      {
+        headerName: 'Status',
+        minWidth: 100,
+        cellRenderer: (p: ICellRendererParams<UnitRow>) => (
+          <StatusBadge status={p.data?.isActive !== false} />
+        ),
+      },
       {
         headerName: 'Actions',
+        minWidth: 220,
+        flex: 0,
+        cellRenderer: (p: ICellRendererParams<UnitRow>) => {
+          const row = p.data
+          if (!row) return null
+          const savedId = subjectUnitsIdOf(row)
+          const idx = p.node?.rowIndex ?? -1
+          return (
+            <div className="inline-flex items-center gap-1.5 text-xs h-full whitespace-nowrap">
+              {savedId > 0 ? (
+                <>
+                  <button type="button" className="text-blue-700 font-medium hover:underline" onClick={() => openTopics(row)}>
+                    Assign Topics
+                  </button>
+                  <span className="text-muted-foreground">|</span>
+                  <button type="button" className="p-0.5 text-blue-700" title="Edit Unit" onClick={() => editUnit(row)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="text-muted-foreground">|</span>
+                  <button type="button" className="p-0.5 text-blue-700" title="View Topics" onClick={() => viewTopics(row)}>
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="p-0.5 text-red-600"
+                  title="Remove"
+                  onClick={() => deleteUnit(row, idx)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )
+        },
+      },
+    ],
+    [units],
+  )
+
+  const topicColumnDefs = useMemo<ColDef<TopicRow>[]>(
+    () => [
+      { headerName: 'No.', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 60, flex: 0 },
+      { field: 'topicName', headerName: 'Topic Name', minWidth: 180, flex: 1.2 },
+      {
+        field: 'noOfPeriods',
+        headerName: 'No of Periods',
+        minWidth: 110,
+        valueGetter: (p) => s(p.data?.noOfPeriods ?? ''),
+      },
+      { field: 'fromPage', headerName: 'From Page', minWidth: 100 },
+      { field: 'toPage', headerName: 'To Page', minWidth: 90 },
+      { field: 'sortOrder', headerName: 'sortOrder', minWidth: 90 },
+      {
+        headerName: 'Status',
         minWidth: 90,
-        flex: 0.8,
-        cellRenderer: (p: ICellRendererParams<LocalTopicRow>) => (
+        cellRenderer: (p: ICellRendererParams<TopicRow>) => (
+          <StatusBadge status={p.data?.isActive !== false} />
+        ),
+      },
+      {
+        headerName: 'Actions',
+        width: 80,
+        flex: 0,
+        cellRenderer: (p: ICellRendererParams<TopicRow>) => (
           <button
             type="button"
-            className="text-red-600 font-semibold hover:underline"
+            className="text-red-600 font-semibold"
             onClick={() => {
-              const idx = p.node?.rowIndex ?? -1
-              if (idx < 0) return
-              setTopicsDraft((prev) => prev.filter((_, i) => i !== idx))
+              if (p.data) deleteTopic(p.data)
             }}
           >
             X
@@ -475,199 +578,213 @@ export default function AddSubjectUnitsPage() {
     [],
   )
 
-  if (!resolveDone && !directSrId) {
-    return (
-      <ListPage
-        title="Subjects Units"
-        rowData={[]}
-        columnDefs={[]}
-        loading
-        toolbar={false}
-        pagination={false}
-      />
-    )
-  }
+  const viewTopicColumnDefs = useMemo<ColDef<TopicRow>[]>(
+    () => [
+      { headerName: 'No.', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 60, flex: 0 },
+      { field: 'topicName', headerName: 'Topic Name', minWidth: 160, flex: 1 },
+      {
+        headerName: 'Description',
+        minWidth: 140,
+        valueGetter: (p) => s(p.data?.topicDescription ?? p.data?.description),
+      },
+      { field: 'noOfPeriods', headerName: 'No of Periods', minWidth: 100 },
+      { field: 'fromPage', headerName: 'From Page', minWidth: 90 },
+      { field: 'toPage', headerName: 'To Page', minWidth: 90 },
+      { field: 'sortOrder', headerName: 'sortOrder', minWidth: 90 },
+    ],
+    [],
+  )
 
-  if (resolveDone && !subjectRegulationId) {
+  if (!canLoad) {
     return (
-      <ListPage
-        title="Subjects Units"
-        rowData={[]}
-        columnDefs={[]}
-        toolbar={false}
-        pagination={false}
-        emptyState={(
-          <div className="rounded-lg border p-6 text-sm text-muted-foreground">
-            <p className="mb-4">
-              No subject regulation could be resolved. Open this page from <strong>Subject Unit Topics</strong> via <strong>Assign Units</strong>,
-              or use <code className="text-xs">?subjectRegulationId=…</code> (or <code className="text-xs">?subjectId=…&amp;regulationId=…</code> with college / academic year / group / course year).
-            </p>
-            <Button variant="secondary" asChild>
-              <Link href="/academics/subject-unit-topics">Back to Subject Unit Topics</Link>
-            </Button>
-          </div>
-        )}
-      />
+      <PageContainer className="space-y-4">
+        <div className="app-card p-6 text-sm text-muted-foreground">
+          <p className="mb-4">
+            Open this page from <strong>Subject Unit Topics</strong> via <strong>Assign Units</strong>.
+          </p>
+          <Button variant="secondary" asChild>
+            <Link href="/academics/subject-unit-topics">Back to Subject Unit Topics</Link>
+          </Button>
+        </div>
+      </PageContainer>
     )
   }
 
   return (
     <>
       <FilteredListPage
-        title={titleSuffix ? `Subjects Units (${titleSuffix})` : 'Subjects Units'}
+        title={contextTitle ? `Subjects Units (${contextTitle})` : 'Subjects Units'}
+        notice={contextTitle ? (
+          <div className="px-1 text-[13px] font-semibold text-blue-700">
+            Subjects Units ({contextTitle})
+          </div>
+        ) : undefined}
         filters={(
-          <form
-            id="add-subject-units-form"
-            onSubmit={handleFormSubmit}
-            className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-12 md:items-end [&_label]:text-[11px]"
-          >
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
             <div className="md:col-span-2">
               <FormField label="Unit Code" required htmlFor="unitCode">
-                <Input id="unitCode" value={unitCode} onChange={(e) => setUnitCode(e.target.value)} autoComplete="off" />
+                <Input id="unitCode" value={unitCode} onChange={(e) => setUnitCode(e.target.value)} />
               </FormField>
             </div>
             <div className="md:col-span-3">
               <FormField label="Unit Name" required htmlFor="unitName">
-                <Input id="unitName" value={unitName} onChange={(e) => setUnitName(e.target.value)} autoComplete="off" />
+                <Input id="unitName" value={unitName} onChange={(e) => setUnitName(e.target.value)} />
               </FormField>
             </div>
             <div className="md:col-span-3">
-              <FormField label="Description" htmlFor="description">
-                <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} autoComplete="off" />
+              <FormField label="Description" htmlFor="unitDescription">
+                <Input id="unitDescription" value={unitDescription} onChange={(e) => setUnitDescription(e.target.value)} />
               </FormField>
             </div>
             <div className="md:col-span-2">
               <FormField label="Sort Order" required htmlFor="sortOrder">
-                <Input id="sortOrder" type="number" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} min={0} />
+                <Input id="sortOrder" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} />
               </FormField>
             </div>
-            <div className="md:col-span-2 flex flex-row flex-wrap items-center justify-end gap-x-4 gap-y-2 md:justify-end">
-              <label htmlFor="unit-active" className="flex cursor-pointer select-none items-center gap-2 text-sm text-foreground">
-                <Checkbox id="unit-active" checked={isActive} onCheckedChange={(v) => setIsActive(v === true)} />
+            <div className="md:col-span-2 flex items-center justify-end gap-3">
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(v === true)} />
                 Active
               </label>
-              <div className="ml-auto flex items-center gap-2">
-                {editingId != null && (
-                  <Button type="button" variant="outline" size="sm" className="h-9 shrink-0" onClick={() => resetForm()}>
-                    Cancel edit
-                  </Button>
-                )}
-                <Button
-                  type="submit"
-                  form="add-subject-units-form"
-                  size="sm"
-                  className="h-9 min-w-[4.25rem] shrink-0"
-                  disabled={saving || !subjectRegulationId || !resolveDone}
-                >
-                  {editingId != null ? 'Update' : 'Add'}
-                </Button>
-              </div>
-            </div>
-          </form>
-        )}
-        filtersCollapsible={false}
-        rowData={rows}
-        columnDefs={columnDefs}
-        loading={loading}
-        toolbar={{ search: true, searchPlaceholder: 'Search units' }}
-        pagination
-        paginationPageSize={15}
-      />
-
-      <div className="mt-3 flex justify-end gap-2">
-        <Button type="button" variant="secondary" onClick={() => router.back()}>
-          Back
-        </Button>
-        <Button
-          type="button"
-          onClick={() => void performSave()}
-          disabled={saving || rows.every((r) => !r.__dirty)}
-        >
-          Save
-        </Button>
-      </div>
-
-      <Dialog open={topicsModalOpen} onOpenChange={setTopicsModalOpen}>
-        <DialogContent className="max-w-[920px] p-0 overflow-hidden">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Assign Topics</DialogTitle>
-          </DialogHeader>
-          <div className="app-card border-0 rounded-none shadow-none text-[11px]">
-            <div className="px-3 py-2 border-b flex items-center justify-between">
-              <h3 className="text-base font-semibold text-primary">Assign Topics</h3>
-              <div className="text-base font-semibold">
-                Unit Name : <span className="font-semibold">{s(selectedTopicUnit?.unitName ?? selectedTopicUnit?.unit_name)}</span>
-              </div>
-            </div>
-            <div className="p-3">
-              <div className="rounded-md border p-3 bg-muted/20">
-                <h4 className="text-base font-semibold text-primary mb-1.5">Add Topic</h4>
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end [&_label]:text-[11px]">
-                  <div className="md:col-span-5">
-                    <FormField label="Topic Name" required htmlFor="topicName">
-                      <Input id="topicName" className="h-8 text-[11px]" value={topicName} onChange={(e) => setTopicName(e.target.value)} />
-                    </FormField>
-                  </div>
-                  <div className="md:col-span-4">
-                    <FormField label="Description" htmlFor="topicDescription">
-                      <Input id="topicDescription" className="h-8 text-[11px]" value={topicDescription} onChange={(e) => setTopicDescription(e.target.value)} />
-                    </FormField>
-                  </div>
-                  <div className="md:col-span-3">
-                    <FormField label="No of Periods" htmlFor="topicNoOfPeriods">
-                      <Input id="topicNoOfPeriods" className="h-8 text-[11px]" type="number" value={topicNoOfPeriods} onChange={(e) => setTopicNoOfPeriods(e.target.value)} min={0} />
-                    </FormField>
-                  </div>
-                  <div className="md:col-span-2">
-                    <FormField label="From Page" htmlFor="topicFromPage">
-                      <Input id="topicFromPage" className="h-8 text-[11px]" value={topicFromPage} onChange={(e) => setTopicFromPage(e.target.value)} />
-                    </FormField>
-                  </div>
-                  <div className="md:col-span-2">
-                    <FormField label="To Page" htmlFor="topicToPage">
-                      <Input id="topicToPage" className="h-8 text-[11px]" value={topicToPage} onChange={(e) => setTopicToPage(e.target.value)} />
-                    </FormField>
-                  </div>
-                  <div className="md:col-span-2">
-                    <FormField label="Sort Order" required htmlFor="topicSortOrder">
-                      <Input id="topicSortOrder" className="h-8 text-[11px]" type="number" value={topicSortOrder} onChange={(e) => setTopicSortOrder(e.target.value)} min={0} />
-                    </FormField>
-                  </div>
-                  <div className="md:col-span-3 flex items-center justify-end gap-2.5">
-                    <label htmlFor="topicActive" className="flex items-center gap-2 text-[11px] cursor-pointer">
-                      <Checkbox id="topicActive" checked={topicActive} onCheckedChange={(v) => setTopicActive(v === true)} />
-                      Active
-                    </label>
-                    <Button type="button" size="sm" className="ml-auto h-8 text-[11px] px-3" onClick={addTopicToDraft}>Add</Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-2.5 text-xs">
-                <DataTable rowData={topicsDraft} columnDefs={topicColumnDefs} pagination paginationPageSize={10} />
-              </div>
-              <div className="mt-3 flex justify-end gap-2.5">
-                <Button type="button" size="sm" className="h-8 text-[11px] px-3" variant="outline" onClick={() => setTopicsModalOpen(false)}>Close</Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8 text-[11px] px-3"
-                  onClick={() => {
-                    const key = subjectUnitPk(selectedTopicUnit ?? {})
-                    if (!key) {
-                      toastError('Please save unit first')
-                      return
-                    }
-                    setTopicsByUnitKey((prev) => ({ ...prev, [key]: topicsDraft }))
-                    setTopicsModalOpen(false)
-                    toastSuccess('Topics saved in this screen')
-                  }}
-                >
-                  Save
-                </Button>
-              </div>
+              <Button type="button" size="sm" onClick={addDetails}>
+                {editingUnitsId || editingRowKey ? 'Update' : 'Add'}
+              </Button>
             </div>
           </div>
+        )}
+        filtersCollapsible
+        filtersDefaultOpen
+        rowData={units}
+        columnDefs={columnDefs}
+        loading={loading}
+        toolbar={{
+          search: true,
+          searchPlaceholder: 'Search units',
+          columnFilters: true,
+          columnPicker: true,
+          exportExcel: true,
+          exportPdf: true,
+        }}
+        pagination
+        paginationPageSize={10}
+        getRowId={(p) => p.data?.__rowKey ?? String(subjectUnitsIdOf(p.data ?? {}))}
+      >
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => router.push(backHref)}>
+            Back
+          </Button>
+          {units.length > 0 ? (
+            <Button type="button" disabled={saving} onClick={() => { void addSubjectUnits() }}>
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          ) : null}
+        </div>
+      </FilteredListPage>
+
+      <Dialog open={topicsOpen} onOpenChange={setTopicsOpen}>
+        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden">
+          <DialogHeader className="border-b px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 pr-6">
+              <DialogTitle className="text-base text-primary">Assign Topics</DialogTitle>
+              {topicsUnitName ? (
+                <p className="text-sm text-muted-foreground">
+                  Unit Name : <span className="font-medium text-foreground">{topicsUnitName}</span>
+                </p>
+              ) : null}
+            </div>
+          </DialogHeader>
+          <div className="space-y-3 p-4">
+            <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-3">
+              <p className="text-sm font-semibold text-primary">Add Topic</p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
+                <div className="md:col-span-4">
+                  <FormField label="Topic Name" required htmlFor="topicName">
+                    <Input id="topicName" value={topicName} onChange={(e) => setTopicName(e.target.value)} />
+                  </FormField>
+                </div>
+                <div className="md:col-span-4">
+                  <FormField label="Description" htmlFor="topicDescription">
+                    <Input
+                      id="topicDescription"
+                      value={topicDescription}
+                      onChange={(e) => setTopicDescription(e.target.value)}
+                    />
+                  </FormField>
+                </div>
+                <div className="md:col-span-4">
+                  <FormField
+                    label="No of Periods"
+                    htmlFor="topicNoOfPeriods"
+                    error={topicNoOfPeriodsError || undefined}
+                  >
+                    <Input
+                      id="topicNoOfPeriods"
+                      value={topicNoOfPeriods}
+                      placeholder="e.g. 1.5"
+                      onChange={(e) => {
+                        setTopicNoOfPeriods(e.target.value)
+                        if (topicNoOfPeriodsError) setTopicNoOfPeriodsError('')
+                      }}
+                    />
+                  </FormField>
+                </div>
+                <div className="md:col-span-2">
+                  <FormField label="From Page" htmlFor="topicFromPage">
+                    <Input
+                      id="topicFromPage"
+                      type="number"
+                      value={topicFromPage}
+                      onChange={(e) => setTopicFromPage(e.target.value)}
+                    />
+                  </FormField>
+                </div>
+                <div className="md:col-span-2">
+                  <FormField label="To Page" htmlFor="topicToPage">
+                    <Input
+                      id="topicToPage"
+                      type="number"
+                      value={topicToPage}
+                      onChange={(e) => setTopicToPage(e.target.value)}
+                    />
+                  </FormField>
+                </div>
+                <div className="md:col-span-2">
+                  <FormField label="Sort Order" required htmlFor="topicSortOrder">
+                    <Input
+                      id="topicSortOrder"
+                      type="number"
+                      value={topicSortOrder}
+                      onChange={(e) => setTopicSortOrder(e.target.value)}
+                    />
+                  </FormField>
+                </div>
+                <div className="md:col-span-2 flex justify-end">
+                  <Button type="button" size="sm" onClick={addTopic}>
+                    Add
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <DataTable rowData={topicsDraft} columnDefs={topicColumnDefs} pagination={false} toolbar={false} />
+          </div>
+          <DialogFooter className="px-4 pb-4">
+            <Button variant="outline" onClick={() => setTopicsOpen(false)}>Close</Button>
+            <Button disabled={saving} onClick={() => { void submitTopics() }}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={viewTopicsOpen} onOpenChange={setViewTopicsOpen}>
+        <DialogContent className="sm:max-w-3xl p-0 overflow-hidden">
+          <DialogHeader className="border-b px-4 py-3">
+            <DialogTitle className="text-base text-primary">View Topics</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <DataTable rowData={topicsDraft} columnDefs={viewTopicColumnDefs} pagination={false} toolbar={false} />
+          </div>
+          <DialogFooter className="px-4 pb-4">
+            <Button variant="outline" onClick={() => setViewTopicsOpen(false)}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

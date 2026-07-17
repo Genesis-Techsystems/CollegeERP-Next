@@ -3,6 +3,11 @@ import { buildQuery, domainList, fetchDetails, getAllRecords, postDetails } from
 
 type AnyRow = Record<string, any>
 
+/**
+ * Angular getSubjectCourseYears / Staff Subject Mapping list:
+ * GET subjectcourseyrs/?collegeid=&academicYearId=&groupSectionid=
+ * Browser: /api/proxy/subjectcourseyrs?... → upstream …/cms/subjectcourseyrs?...
+ */
 export async function listStaffSubjectRows(params: {
   collegeId: number
   academicYearId: number
@@ -11,25 +16,16 @@ export async function listStaffSubjectRows(params: {
   const { collegeId, academicYearId, groupSectionId } = params
   if (!collegeId || !academicYearId || !groupSectionId) return []
 
-  const paramVariants: Array<Record<string, string | number>> = [
-    { collegeId, academicYearId, groupSectionId },
-    { collegeId, academicYearId, groupsectionId: groupSectionId },
-    { collegeId, academicYearId, group_section_id: groupSectionId },
-  ]
-  const paths = [SUBJECT_API.SUBJECT_COURSE_YEARS, 'subjectcourseyears', 'subjectCourseYears']
-
-  for (const path of paths) {
-    for (const query of paramVariants) {
-      try {
-        const rows = await fetchDetails<AnyRow[]>(path, query)
-        if (Array.isArray(rows)) return rows
-      } catch {
-        // try next combination
-      }
-    }
+  try {
+    const rows = await fetchDetails<AnyRow[]>(SUBJECT_API.SUBJECT_COURSE_YEARS, {
+      collegeid: collegeId,
+      academicYearId,
+      groupSectionid: groupSectionId,
+    })
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
   }
-
-  return []
 }
 
 export async function listActiveEmployeesByCollege(collegeId: number): Promise<AnyRow[]> {
