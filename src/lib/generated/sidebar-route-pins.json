@@ -363,7 +363,7 @@
   },
   {
     "label": "modify student batches",
-    "route": "/academics/modify-academic-batch"
+    "route": "/academics/modify-student-batches"
   },
   {
     "label": "my complaints",

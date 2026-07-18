@@ -2810,11 +2810,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return "/academics/modify-course-group";
     }
+    if (labelLower.includes("modify student batch")) {
+      return "/academics/modify-student-batches";
+    }
     if (
       labelLower.includes("modify academic batch") ||
-      labelLower.includes("modify acadamic batch") ||
-      labelLower.includes("modify student batch") ||
-      labelLower.includes("modify student batches")
+      labelLower.includes("modify acadamic batch")
     ) {
       return "/academics/modify-academic-batch";
     }

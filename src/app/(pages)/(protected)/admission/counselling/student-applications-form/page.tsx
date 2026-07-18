@@ -1,12 +1,12 @@
-import { AdmissionScreenPlaceholder } from '../../_components/AdmissionScreenPlaceholder'
+'use client'
+
+import { Suspense } from 'react'
+import { StudentApplicationsForm } from './StudentApplicationsForm'
 
 export default function StudentApplicationsFormPage() {
   return (
-    <AdmissionScreenPlaceholder
-      title="Student Applications Form"
-      description="University-facing student application form (public/portal flow) will be migrated from Angular student-applications-form."
-      backHref="/admission/counselling/student-applications"
-      backLabel="Back to Student Applications"
-    />
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+      <StudentApplicationsForm />
+    </Suspense>
   )
 }

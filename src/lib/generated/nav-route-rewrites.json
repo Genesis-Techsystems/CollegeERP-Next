@@ -16,10 +16,6 @@
     "destination": "/academics/college-curriculum/subject-allocation-sem-regulation"
   },
   {
-    "source": "/academics/modify-student-batches",
-    "destination": "/academics/modify-academic-batch"
-  },
-  {
     "source": "/academics/subject-mapping/subjects-units",
     "destination": "/academics/subject-mapping/add-subject-units"
   },
