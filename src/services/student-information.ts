@@ -1538,6 +1538,74 @@ export async function submitStudentCourseGroupChange(
   throw lastError ?? new Error("Failed to change student course group");
 }
 
+/**
+ * Angular Modify Academic Batch `getfilterDetails`:
+ * `getAllRecords/s_get_collegewisedetails_bycode` with `in_flag=clg_filters`,
+ * `in_college_id=0`, `in_course_id=<student.courseId>`, then take the
+ * `clg_filters_batches` result set filtered by course.
+ */
+export async function listBatchesForModifyAcademicBatch(params: {
+  organizationId: number;
+  employeeId: number;
+  courseId: number;
+}): Promise<AnyRow[]> {
+  const { organizationId, employeeId, courseId } = params;
+  if (!organizationId || !courseId) return [];
+  try {
+    const data = await getAllRecords<{ result: AnyRow[][] }>(
+      "s_get_collegewisedetails_bycode",
+      {
+        in_flag: "clg_filters",
+        in_org_id: organizationId,
+        in_college_id: 0,
+        in_course_id: courseId,
+        in_course_group_id: 0,
+        in_course_year_id: 0,
+        in_group_section_id: 0,
+        in_academic_year_id: 0,
+        in_dept_id: 0,
+        in_isadmin: 0,
+        in_loginuser_empid: employeeId || 0,
+        in_loginuser_roleid: 0,
+        in_subject: "",
+        in_employee: "",
+        in_gm_codes: "",
+      },
+    );
+    const groups = Array.isArray(data?.result) ? data.result : [];
+    let batches =
+      groups.find(
+        (arr) =>
+          Array.isArray(arr) &&
+          arr.length > 0 &&
+          (arr[0]?.clg_filters_batches === "clg_filters_batches" ||
+            arr[0]?.flag === "clg_filters_batches"),
+      ) ?? [];
+    if (batches.length === 0) {
+      batches =
+        groups.find(
+          (arr) =>
+            Array.isArray(arr) &&
+            arr.some(
+              (r) =>
+                num(r, ["fk_batch_id", "batchId"]) > 0 &&
+                String(r?.batch_name ?? r?.batchName ?? "").trim() !== "",
+            ),
+        ) ?? [];
+    }
+    const unique = new Map<number, AnyRow>();
+    for (const row of batches) {
+      if (num(row, ["fk_course_id", "courseId"]) !== courseId) continue;
+      const id = num(row, ["fk_batch_id", "batchId", "batch_id"]);
+      if (id <= 0 || unique.has(id)) continue;
+      unique.set(id, row);
+    }
+    return [...unique.values()];
+  } catch {
+    return [];
+  }
+}
+
 export async function submitStudentBatchChange(
   payloadRows: Record<string, unknown>[],
 ): Promise<unknown> {

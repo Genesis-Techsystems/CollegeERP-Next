@@ -604,7 +604,7 @@ export function CollegeStudentBulkUploadPage() {
         open={submitOpen}
         onClose={() => setSubmitOpen(false)}
         title="Verify Students Upload"
-        cancelLabel="Close"
+        // cancelLabel="Close"
         submitLabel="Submit To University"
         isSubmitting={submitting}
         onSubmit={(e) => {

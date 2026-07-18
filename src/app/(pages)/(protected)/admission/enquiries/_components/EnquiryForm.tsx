@@ -1,12 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Controller, useForm, type Resolver } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Laptop } from 'lucide-react'
+import { usePageNavLabel } from '@/common/components/breadcrumb'
 import { DatePicker } from '@/common/components/date-picker'
+import { FormField } from '@/common/components/forms'
 import { Select, type SelectOption } from '@/common/components/select'
 import { PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
@@ -29,40 +30,39 @@ import {
   listStatesByCountry,
   updateStudentEnquiry,
 } from '@/services'
-import type { StudentEnquiryPayload } from '@/types/admission'
+import type { StudentEnquiryPayload, StudentEnquiryRow } from '@/types/admission'
 import type { GeneralDetail } from '@/types/exam-master'
 import { toastError, toastSuccess } from '@/lib/toast'
 
 const PHONE_REGEX = /^[6-9]\d{9}$/
 const ALPHA_REGEX = /^[a-zA-Z0-9\s]+$/
 
-const optionalId = z.preprocess(
-  (value) => {
-    if (value === '' || value === null || value === undefined) return undefined
-    const n = Number(value)
-    return Number.isNaN(n) ? undefined : n
-  },
-  z.number().optional(),
-)
+function toOptionalNumber(value: unknown): number | undefined {
+  if (value === '' || value === null || value === undefined) return undefined
+  const n = Number(value)
+  return Number.isNaN(n) ? undefined : n
+}
 
-const optionalNumber = z.preprocess(
-  (value) => {
-    if (value === '' || value === null || value === undefined) return undefined
-    const n = Number(value)
-    return Number.isNaN(n) ? undefined : n
-  },
-  z.number().optional(),
-)
+const optionalId = z.preprocess(toOptionalNumber, z.number().optional())
+const optionalNumber = z.preprocess(toOptionalNumber, z.number().optional())
+
+/** Required select id — avoids Zod's raw "expected number, received undefined". */
+function requiredId(message: string) {
+  return z.preprocess(
+    toOptionalNumber,
+    z.number({ error: message }).min(1, message),
+  )
+}
 
 const schema = z.object({
   mobileNumber: z
     .string()
     .min(1, 'Phone number is required')
     .regex(PHONE_REGEX, 'Enter a valid 10-digit mobile number'),
-  modeofenquiryId: z.number().min(1, 'Mode of enquiry is required'),
-  organizationId: z.number().min(1, 'Organization is required'),
-  collegeId: z.number().min(1, 'College is required'),
-  courseId: z.number().min(1, 'Course is required'),
+  modeofenquiryId: requiredId('Mode of enquiry is required'),
+  organizationId: requiredId('Organization is required'),
+  collegeId: requiredId('College is required'),
+  courseId: requiredId('Course is required'),
   studentName: z
     .string()
     .min(1, 'Candidate name is required')
@@ -92,7 +92,10 @@ const schema = z.object({
     .string()
     .optional()
     .refine((v) => !v || PHONE_REGEX.test(v), 'Enter a valid 10-digit mobile number'),
-  emailid: z.string().min(1, 'Email is required').email('Enter a valid email'),
+  emailid: z
+    .string()
+    .min(1, 'Email is required')
+    .email('Enter a valid email address'),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -148,6 +151,8 @@ export function EnquiryForm({
 }: Readonly<EnquiryFormProps>) {
   const router = useRouter()
   const isEdit = mode === 'edit'
+  const navLabel = usePageNavLabel()
+  const pageTitle = navLabel ?? (isEdit ? 'Edit Enquiry Form' : 'Add Enquiry Form')
   const today = useMemo(() => new Date(), [])
 
   const [loading, setLoading] = useState(isEdit)
@@ -251,14 +256,21 @@ export function EnquiryForm({
     [districts],
   )
 
+  // Ref keeps loadCourses identity stable — depending on `colleges` state here
+  // caused an effect loop that refetched College/Course endlessly and reset courseId.
+  const collegesRef = useRef<Record<string, unknown>[]>([])
+  // Original row in edit mode — update payload must echo createdDt (Angular parity).
+  const loadedRowRef = useRef<StudentEnquiryRow | null>(null)
+
   const loadColleges = useCallback(async (orgId: number) => {
     const rows = await listCollegesByOrganization(orgId)
+    collegesRef.current = rows
     setColleges(rows)
     return rows
   }, [])
 
   const loadCourses = useCallback(async (clgId: number, collegeRows?: Record<string, unknown>[]) => {
-    const list = collegeRows ?? colleges
+    const list = collegeRows ?? collegesRef.current
     const college = list.find((c) => pickNum(c, 'collegeId', 'fk_college_id') === clgId)
     const universityId = pickNum(college ?? {}, 'universityId', 'fk_university_id', 'university_id')
     if (!universityId) {
@@ -268,7 +280,7 @@ export function EnquiryForm({
     const rows = await listCoursesByUniversity(universityId)
     setCourses(rows)
     return rows
-  }, [colleges])
+  }, [])
 
   const loadQualifications = useCallback(async (orgId: number) => {
     const rows = await listQualificationsByOrganization(orgId)
@@ -319,6 +331,7 @@ export function EnquiryForm({
           toastError(new Error('Enquiry not found'))
           return
         }
+        loadedRowRef.current = row
         const orgId = row.organizationId
         const clgId = row.collegeId
         let collegeRows: Record<string, unknown>[] = []
@@ -397,27 +410,46 @@ export function EnquiryForm({
     setValue,
   ])
 
+  // Track previous values so cascades only clear children on a real change
+  // (not on mount / URL-param prefill, which was wiping the selected course).
+  const prevOrgIdRef = useRef<number | undefined>(undefined)
+  const prevCollegeIdRef = useRef<number | undefined>(undefined)
+
   useEffect(() => {
+    const prev = prevOrgIdRef.current
+    prevOrgIdRef.current = organizationId
     if (!organizationId) {
       setColleges([])
       return
     }
-    if (!isEdit) {
+    if (prev === organizationId) return
+    // First value came from the edit load / URL-param prefill effect, which
+    // already fetched colleges + qualifications — don't fetch (or clear) again.
+    if (prev === undefined && (isEdit || organizationId === initialOrgId)) return
+    if (!isEdit && prev !== undefined) {
       setValue('collegeId', undefined as unknown as number)
       setValue('courseId', undefined as unknown as number)
     }
     void loadColleges(organizationId)
     void loadQualifications(organizationId)
-  }, [organizationId, isEdit, loadColleges, loadQualifications, setValue])
+  }, [organizationId, isEdit, initialOrgId, loadColleges, loadQualifications, setValue])
 
   useEffect(() => {
+    const prev = prevCollegeIdRef.current
+    prevCollegeIdRef.current = collegeId
     if (!collegeId) {
       setCourses([])
       return
     }
-    if (!isEdit) setValue('courseId', undefined as unknown as number)
+    if (prev === collegeId) return
+    // First value came from the edit load / URL-param prefill effect — courses
+    // are already being fetched there with the right college rows.
+    if (prev === undefined && (isEdit || collegeId === initialCollegeId)) return
+    if (!isEdit && prev !== undefined) {
+      setValue('courseId', undefined as unknown as number)
+    }
     void loadCourses(collegeId)
-  }, [collegeId, isEdit, loadCourses, setValue])
+  }, [collegeId, isEdit, initialCollegeId, loadCourses, setValue])
 
   useEffect(() => {
     if (!countryId) {
@@ -448,6 +480,8 @@ export function EnquiryForm({
   }, [qualificationId, setValue])
 
   function buildPayload(data: FormValues): StudentEnquiryPayload {
+    // Angular sends the full row with explicit nulls (undefined fields get
+    // stripped from JSON and Spring rejects the partial entity with a 422).
     return {
       mobileNumber: data.mobileNumber,
       modeofenquiryId: data.modeofenquiryId,
@@ -455,28 +489,34 @@ export function EnquiryForm({
       collegeId: data.collegeId,
       courseId: data.courseId,
       studentName: data.studentName,
-      enquiryDate: data.enquiryDate ? toDateOnlyISO(data.enquiryDate) : undefined,
-      knowaboutusId: data.knowaboutusId,
-      sourceofenquiry: data.sourceofenquiry?.trim() || undefined,
-      counseledBy: data.counseledBy?.trim() || undefined,
-      remarks: data.remarks?.trim() || undefined,
-      returnDate: data.returnDate ? toDateOnlyISO(data.returnDate) : undefined,
-      countryId: data.countryId,
-      stateId: data.stateId,
-      districtId: data.districtId,
-      resultstatus: data.resultstatus || undefined,
-      enquirystatusId: data.enquirystatusId,
-      qualificationId: data.qualificationId,
-      qualificationGroupId: data.qualificationGroupId,
-      genderId: data.genderId,
-      percentage: data.percentage,
-      emcetrank: data.emcetrank,
-      mobileNumber1: data.mobileNumber1?.trim() || undefined,
-      parentname: data.parentname?.trim() || undefined,
-      parentmobile: data.parentmobile?.trim() || undefined,
+      enquiryDate: data.enquiryDate ? toDateOnlyISO(data.enquiryDate) : null,
+      knowaboutusId: data.knowaboutusId ?? null,
+      sourceofenquiry: data.sourceofenquiry?.trim() || null,
+      counseledBy: data.counseledBy?.trim() || null,
+      remarks: data.remarks?.trim() || null,
+      returnDate: data.returnDate ? toDateOnlyISO(data.returnDate) : null,
+      countryId: data.countryId ?? null,
+      stateId: data.stateId ?? null,
+      districtId: data.districtId ?? null,
+      resultstatus: data.resultstatus || null,
+      enquirystatusId: data.enquirystatusId ?? null,
+      qualificationId: data.qualificationId ?? null,
+      qualificationGroupId: data.qualificationGroupId ?? null,
+      genderId: data.genderId ?? null,
+      percentage: data.percentage ?? null,
+      emcetrank: data.emcetrank ?? null,
+      mobileNumber1: data.mobileNumber1?.trim() || null,
+      parentname: data.parentname?.trim() || null,
+      parentmobile: data.parentmobile?.trim() || null,
       emailid: data.emailid.trim(),
       isActive: true,
-      ...(isEdit ? {} : { createdDt: new Date().toISOString() }),
+      ...(isEdit
+        ? {
+            enquiryId,
+            createdDt: loadedRowRef.current?.createdDt,
+            updatedDt: new Date().toISOString(),
+          }
+        : { createdDt: new Date().toISOString() }),
     }
   }
 
@@ -510,41 +550,31 @@ export function EnquiryForm({
     { value: 'F', label: 'Fail/WithHeld' },
   ]
 
-  const fieldClass = 'space-y-1'
-  const inputClass = 'h-9 text-[12px]'
+  const fieldClass = 'space-y-1.5'
+  const inputClass = 'h-9'
 
   return (
-    <PageContainer className="space-y-5">
-      <div className="app-card overflow-hidden">
+    <PageContainer className="space-y-4">
+      {/* Same card chrome as the enquiry list table card (1rem radius); the
+          heading stays black — data-no-page-name blocks the injected blue bar. */}
+      <div className="app-data-table-card" data-no-page-name>
+        <div className="border-b border-border px-4 py-3 md:px-5">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">
+            {pageTitle}
+          </h2>
+        </div>
         <form
           onSubmit={(e) => {
             e.preventDefault()
             void handleSubmit(onSubmit)()
           }}
-          className="p-4 md:p-5"
+          className="space-y-5 p-4 md:p-5"
         >
-          <div className="mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
-            <Laptop className="h-4 w-4 text-[#5da394]" aria-hidden />
-            <h1 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">
-              {isEdit ? 'Edit Enquiry' : 'Add New Enquiry'}
-            </h1>
-          </div>
-
-          <div className="mb-4 rounded-md bg-slate-50 px-3 py-2">
-            <p className="text-[13px] font-medium text-muted-foreground">Please fill in details below</p>
-          </div>
-
           <fieldset disabled={loading || isSubmitting} className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className={fieldClass}>
-                <Label className="text-[12px]">
-                  Phone No.<span className="text-destructive ml-0.5">*</span>
-                </Label>
-                <Input className={inputClass} maxLength={10} {...register('mobileNumber')} />
-                {errors.mobileNumber && (
-                  <p className="text-[11px] text-destructive">{errors.mobileNumber.message}</p>
-                )}
-              </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <FormField label="Phone No." required htmlFor="enquiry-phone" error={errors.mobileNumber?.message}>
+                <Input id="enquiry-phone" className={inputClass} maxLength={10} placeholder="Enter phone number" {...register('mobileNumber')} />
+              </FormField>
               <Controller
                 name="modeofenquiryId"
                 control={control}
@@ -555,7 +585,7 @@ export function EnquiryForm({
                     value={field.value ? String(field.value) : null}
                     onChange={(v) => field.onChange(v ? Number(v) : undefined)}
                     options={modeOptions}
-                    placeholder="Select mode"
+                    placeholder="Select mode of enquiry"
                     error={errors.modeofenquiryId?.message}
                   />
                 )}
@@ -610,18 +640,12 @@ export function EnquiryForm({
                   />
                 )}
               />
-              <div className={fieldClass}>
-                <Label className="text-[12px]">
-                  Candidate Name<span className="text-destructive ml-0.5">*</span>
-                </Label>
-                <Input className={inputClass} {...register('studentName')} />
-                {errors.studentName && (
-                  <p className="text-[11px] text-destructive">{errors.studentName.message}</p>
-                )}
-              </div>
+              <FormField label="Candidate Name" required htmlFor="enquiry-candidate" error={errors.studentName?.message}>
+                <Input id="enquiry-candidate" className={inputClass} placeholder="Enter candidate name" {...register('studentName')} />
+              </FormField>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Controller
                 name="enquiryDate"
                 control={control}
@@ -643,22 +667,19 @@ export function EnquiryForm({
                     onChange={(v) => field.onChange(v ? Number(v) : undefined)}
                     options={knowOptions}
                     clearable
-                    placeholder="Select"
+                    placeholder="Select option"
                   />
                 )}
               />
-              <div className={fieldClass}>
-                <Label className="text-[12px]">Source Group</Label>
-                <Input className={inputClass} {...register('sourceofenquiry')} />
-              </div>
-              <div className={fieldClass}>
-                <Label className="text-[12px]">Counselled By</Label>
-                <Input className={inputClass} {...register('counseledBy')} />
-              </div>
-              <div className={fieldClass}>
-                <Label className="text-[12px]">Remarks</Label>
-                <Input className={inputClass} {...register('remarks')} />
-              </div>
+              <FormField label="Source Group" htmlFor="enquiry-source">
+                <Input id="enquiry-source" className={inputClass} placeholder="Enter source group" {...register('sourceofenquiry')} />
+              </FormField>
+              <FormField label="Counselled By" htmlFor="enquiry-counselled">
+                <Input id="enquiry-counselled" className={inputClass} placeholder="Enter counselor name" {...register('counseledBy')} />
+              </FormField>
+              <FormField label="Remarks" htmlFor="enquiry-remarks">
+                <Input id="enquiry-remarks" className={inputClass} placeholder="Enter remarks" {...register('remarks')} />
+              </FormField>
               <Controller
                 name="returnDate"
                 control={control}
@@ -778,7 +799,7 @@ export function EnquiryForm({
                 )}
               />
               <div className={`${fieldClass} sm:col-span-2 lg:col-span-1`}>
-                <Label className="text-[12px] mb-2 block">Gender</Label>
+                <Label className="mb-2 block text-sm font-medium">Gender</Label>
                 <Controller
                   name="genderId"
                   control={control}
@@ -786,7 +807,7 @@ export function EnquiryForm({
                     <RadioGroup
                       value={field.value ? String(field.value) : ''}
                       onValueChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                      className="flex flex-wrap gap-4"
+                      className="flex flex-wrap gap-4 pt-1"
                     >
                       {genderOptions.map((g) => (
                         <div key={g.generalDetailId} className="flex items-center gap-1.5">
@@ -794,7 +815,7 @@ export function EnquiryForm({
                             value={String(g.generalDetailId)}
                             id={`gender-${g.generalDetailId}`}
                           />
-                          <Label htmlFor={`gender-${g.generalDetailId}`} className="text-[12px] font-normal">
+                          <Label htmlFor={`gender-${g.generalDetailId}`} className="text-sm font-normal">
                             {(g as GeneralDetail & { generalDetailDisplayName?: string })
                               .generalDetailDisplayName ?? g.generalDetailName ?? g.generalDetailCode}
                           </Label>
@@ -804,45 +825,28 @@ export function EnquiryForm({
                   )}
                 />
               </div>
-              <div className={fieldClass}>
-                <Label className="text-[12px]">Percentage (%)</Label>
-                <Input type="number" maxLength={5} className={inputClass} {...register('percentage')} />
-              </div>
-              <div className={fieldClass}>
-                <Label className="text-[12px]">Eamcet Rank</Label>
-                <Input type="number" className={inputClass} {...register('emcetrank')} />
-              </div>
-              <div className={fieldClass}>
-                <Label className="text-[12px]">Alt.Ph.No.</Label>
-                <Input className={inputClass} maxLength={10} {...register('mobileNumber1')} />
-                {errors.mobileNumber1 && (
-                  <p className="text-[11px] text-destructive">{errors.mobileNumber1.message}</p>
-                )}
-              </div>
-              <div className={fieldClass}>
-                <Label className="text-[12px]">Parent / Guardian Name</Label>
-                <Input className={inputClass} {...register('parentname')} />
-              </div>
-              <div className={fieldClass}>
-                <Label className="text-[12px]">Parent Ph.No.</Label>
-                <Input className={inputClass} maxLength={10} {...register('parentmobile')} />
-                {errors.parentmobile && (
-                  <p className="text-[11px] text-destructive">{errors.parentmobile.message}</p>
-                )}
-              </div>
-              <div className={fieldClass}>
-                <Label className="text-[12px]">
-                  Email Id<span className="text-destructive ml-0.5">*</span>
-                </Label>
-                <Input type="email" className={inputClass} {...register('emailid')} />
-                {errors.emailid && (
-                  <p className="text-[11px] text-destructive">{errors.emailid.message}</p>
-                )}
-              </div>
+              <FormField label="Percentage (%)" htmlFor="enquiry-percentage">
+                <Input id="enquiry-percentage" type="number" maxLength={5} className={inputClass} placeholder="Enter percentage" {...register('percentage')} />
+              </FormField>
+              <FormField label="Eamcet Rank" htmlFor="enquiry-eamcet">
+                <Input id="enquiry-eamcet" type="number" className={inputClass} placeholder="Enter EAMCET rank" {...register('emcetrank')} />
+              </FormField>
+              <FormField label="Alt. Ph. No." htmlFor="enquiry-alt-phone" error={errors.mobileNumber1?.message}>
+                <Input id="enquiry-alt-phone" className={inputClass} maxLength={10} placeholder="Enter alternate phone" {...register('mobileNumber1')} />
+              </FormField>
+              <FormField label="Parent / Guardian Name" htmlFor="enquiry-parent">
+                <Input id="enquiry-parent" className={inputClass} placeholder="Enter parent / guardian name" {...register('parentname')} />
+              </FormField>
+              <FormField label="Parent Ph. No." htmlFor="enquiry-parent-phone" error={errors.parentmobile?.message}>
+                <Input id="enquiry-parent-phone" className={inputClass} maxLength={10} placeholder="Enter parent phone" {...register('parentmobile')} />
+              </FormField>
+              <FormField label="Email Id" required htmlFor="enquiry-email" error={errors.emailid?.message}>
+                <Input id="enquiry-email" type="email" className={inputClass} placeholder="Enter email address" {...register('emailid')} />
+              </FormField>
             </div>
           </fieldset>
 
-          <div className="mt-6 flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
             <Button
               type="button"
               variant="outline"
@@ -852,7 +856,7 @@ export function EnquiryForm({
               Back
             </Button>
             <Button type="submit" className="h-9" disabled={loading || isSubmitting}>
-              Save Details
+              {isSubmitting ? 'Saving...' : 'Save Details'}
             </Button>
           </div>
         </form>

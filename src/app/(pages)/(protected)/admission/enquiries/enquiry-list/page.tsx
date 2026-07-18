@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { format } from 'date-fns'
 import { PencilIcon, PlusIcon } from 'lucide-react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
+import { Select } from '@/common/components/select'
 import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
@@ -21,15 +23,38 @@ import { useSessionContext } from '@/context/SessionContext'
 import { useLoginEmployeeId } from '@/hooks/useLoginEmployeeId'
 import { resolveOrganizationId } from '@/lib/user-context'
 
+/** Angular date pipe display: "Jul 18, 2026". */
+function formatEnquiryDate(value: unknown): string {
+  if (value == null || value === '') return ''
+  const d = new Date(String(value))
+  if (Number.isNaN(d.getTime())) return String(value)
+  return format(d, 'MMM d, yyyy')
+}
+
+function dateFormatter(p: ValueFormatterParams<StudentEnquiryRow>) {
+  return formatEnquiryDate(p.value)
+}
+
+// Header names mirror Angular enquiry-list table columns.
 const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<StudentEnquiryRow>,
-  studentName: { field: 'studentName', headerName: 'Student', minWidth: 140, flex: 1 } as ColDef<StudentEnquiryRow>,
-  parentname: { field: 'parentname', headerName: 'Parent', minWidth: 120 } as ColDef<StudentEnquiryRow>,
-  enquiryDate: { field: 'enquiryDate', headerName: 'Enquiry Date', minWidth: 110 } as ColDef<StudentEnquiryRow>,
-  returnDate: { field: 'returnDate', headerName: 'Return Date', minWidth: 110 } as ColDef<StudentEnquiryRow>,
-  sourceofenquiry: { field: 'sourceofenquiry', headerName: 'Source', minWidth: 100 } as ColDef<StudentEnquiryRow>,
-  mobileNumber: { field: 'mobileNumber', headerName: 'Mobile', minWidth: 110, flex: 0 } as ColDef<StudentEnquiryRow>,
-  mobileNumber1: { field: 'mobileNumber1', headerName: 'Mobile 2', minWidth: 110, flex: 0 } as ColDef<StudentEnquiryRow>,
+  siNo: { headerName: 'No.', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<StudentEnquiryRow>,
+  studentName: { field: 'studentName', headerName: 'Candidate Name', minWidth: 150, flex: 1 } as ColDef<StudentEnquiryRow>,
+  parentname: { field: 'parentname', headerName: 'Parent/Guardian', minWidth: 140 } as ColDef<StudentEnquiryRow>,
+  enquiryDate: {
+    field: 'enquiryDate',
+    headerName: 'Enquiry Date',
+    minWidth: 120,
+    valueFormatter: dateFormatter,
+  } as ColDef<StudentEnquiryRow>,
+  returnDate: {
+    field: 'returnDate',
+    headerName: 'Return Date',
+    minWidth: 120,
+    valueFormatter: dateFormatter,
+  } as ColDef<StudentEnquiryRow>,
+  sourceofenquiry: { field: 'sourceofenquiry', headerName: 'Enquired Source', minWidth: 130 } as ColDef<StudentEnquiryRow>,
+  mobileNumber: { field: 'mobileNumber', headerName: 'Phone', minWidth: 110, flex: 0 } as ColDef<StudentEnquiryRow>,
+  mobileNumber1: { field: 'mobileNumber1', headerName: 'Alternate Phone', minWidth: 130, flex: 0 } as ColDef<StudentEnquiryRow>,
   actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<StudentEnquiryRow>,
 }
 
@@ -54,13 +79,18 @@ function makeActionsRenderer(router: ReturnType<typeof useRouter>) {
 
 export default function EnquiryListPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, isLoading: sessionLoading } = useSessionContext()
   const orgId = resolveOrganizationId(user) || 1
   const { employeeId: empId, isResolving: empResolving } = useLoginEmployeeId(user, sessionLoading)
 
-  const [organizationId, setOrganizationId] = useState<string | null>(null)
-  const [collegeId, setCollegeId] = useState<string | null>(null)
-  const [courseId, setCourseId] = useState<string | null>(null)
+  // Seed filters from URL params so returning from the add/edit form restores
+  // the same Organization / College / Course selection.
+  const [organizationId, setOrganizationId] = useState<string | null>(
+    () => searchParams.get('organizationId'),
+  )
+  const [collegeId, setCollegeId] = useState<string | null>(() => searchParams.get('collegeId'))
+  const [courseId, setCourseId] = useState<string | null>(() => searchParams.get('courseId'))
 
   const filtersEnabled = !sessionLoading && !empResolving && orgId > 0 && empId > 0
 

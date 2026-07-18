@@ -9,8 +9,8 @@ import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
+  listBatchesForModifyAcademicBatch,
   listStudents,
-  listStudentBatchesByCollegeCourse,
   submitStudentBatchChange,
 } from "@/services";
 
@@ -147,10 +147,13 @@ export default function ModifyAcademicBatchPage() {
     setStudent(row);
     setLoadingBatches(true);
     try {
-      // Angular getfilterDetails → college-wise batches filtered by student course.
-      const rows = await listStudentBatchesByCollegeCourse({
-        collegeId: pickNum(row, ["collegeId", "fk_college_id"]),
-        courseId: pickNum(row, ["courseId", "fk_course_id"]),
+      // Angular selectedStudent → getfilterDetails:
+      // getAllRecords/s_get_collegewisedetails_bycode?in_flag=clg_filters&in_course_id=<courseId>
+      const courseId = pickNum(row, ["courseId", "fk_course_id"]);
+      const rows = await listBatchesForModifyAcademicBatch({
+        organizationId: Number(localStorage.getItem("organizationId") ?? 0),
+        employeeId: Number(localStorage.getItem("employeeId") ?? 0),
+        courseId,
       });
       setBatchRows(Array.isArray(rows) ? rows : []);
     } catch {

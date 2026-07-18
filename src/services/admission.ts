@@ -1,5 +1,6 @@
-import { ADMISSION_API, UNIVERSITY_API } from '@/config/constants/api'
+import { ADMISSION_API, NEXT_API, STUDENT_API, UNIVERSITY_API } from '@/config/constants/api'
 import { ENTITIES } from '@/config/constants/entities'
+import { GM_CODES } from '@/config/constants/ui'
 import type { ApiResponse } from '@/types/api'
 import type {
   AdmissionAllotmentDetailRow,
@@ -23,6 +24,9 @@ import {
   domainUpdate,
   fetchDetails,
   getAllRecords,
+  postDetails,
+  putDetails,
+  uploadFile,
 } from './crud'
 import { getFeeMasterCollegeFilters } from './fee-masters'
 
@@ -111,15 +115,16 @@ export async function listStudentApplicationForms(params: {
   academicYearId: number
   courseId: number
 }): Promise<StudentApplicationFormRow[]> {
+  // Angular: domain/list/StudentApplication?query=College.collegeId==..and.
+  // AcademicYear.academicYearId==..and.Course.courseId==.. (the trailing
+  // `&status==true` is a separate ignored URL param, not part of the query).
   const query = buildQuery({
     'College.collegeId': params.collegeId,
     'AcademicYear.academicYearId': params.academicYearId,
     'Course.courseId': params.courseId,
-    status: true,
-    isActive: true,
   })
   const rows = await domainList<StudentApplicationFormRow>(
-    ADMISSION_API.STUDENT_APPLICATION_FORMS,
+    ADMISSION_API.STUDENT_APPLICATION,
     query,
   )
   return rows.sort((a, b) => Number(b.studentAppId ?? 0) - Number(a.studentAppId ?? 0))
@@ -131,11 +136,11 @@ export async function listStudentEnquiries(filters?: {
   courseId?: number
 }): Promise<StudentEnquiryRow[]> {
   if (filters?.organizationId && filters.collegeId && filters.courseId) {
+    // Angular: Organization.organizationId==&College.collegeId==&Course.courseId== (no isActive)
     const query = buildQuery({
-      organizationId: filters.organizationId,
+      'Organization.organizationId': filters.organizationId,
       'College.collegeId': filters.collegeId,
       'Course.courseId': filters.courseId,
-      isActive: true,
     })
     return domainList<StudentEnquiryRow>(ADMISSION_API.STUDENT_ENQUIRY, query)
   }
@@ -382,4 +387,148 @@ export async function downloadAdmissionReport(
   a.download = fileName || 'admission-report.pdf'
   a.click()
   URL.revokeObjectURL(url)
+}
+
+/** Angular `POST studentapplicationform` — create new admission application. */
+export async function createStudentApplicationForm(
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  return postDetails<AnyRow>(ADMISSION_API.STUDENT_APPLICATION_FORM, payload)
+}
+
+/** Angular `PUT studentapplicationform` — update existing application. */
+export async function updateStudentApplicationForm(
+  payload: Record<string, unknown>,
+): Promise<AnyRow> {
+  return putDetails<AnyRow>(ADMISSION_API.STUDENT_APPLICATION_FORM, payload)
+}
+
+/**
+ * Angular `GET studentapplicationform/{applicationNumber}/{collegeId}`.
+ * Response `data` is an array — return the first row.
+ */
+export async function getStudentApplicationFormById(
+  applicationNumber: string,
+  collegeId: number,
+): Promise<AnyRow | null> {
+  if (!applicationNumber || !collegeId) return null
+  const url = NEXT_API.PROXY(
+    `${ADMISSION_API.STUDENT_APPLICATION_FORM}/${encodeURIComponent(applicationNumber)}/${collegeId}`,
+  )
+  const res = await fetch(url, { credentials: 'include', cache: 'no-store' })
+  if (!res.ok) {
+    throw parseApiError(res, await res.json().catch(() => null))
+  }
+  const body = (await res.json()) as ApiResponse<AnyRow[] | AnyRow>
+  if (!body.success) {
+    throw new AppError(
+      'API_ERROR',
+      body.message ?? 'Failed to load student application form',
+    )
+  }
+  const data = body.data
+  if (Array.isArray(data)) return (data[0] as AnyRow) ?? null
+  return (data as AnyRow) ?? null
+}
+
+/** Angular `POST studentapplicationformphotos` — photos + soft-copy docs after create. */
+export async function uploadStudentApplicationFormPhotos(
+  formData: FormData,
+): Promise<void> {
+  await uploadFile(STUDENT_API.UPLOAD_PHOTOS, formData)
+}
+
+/** Angular `POST updatestudentapplicationformphotos` — after update. */
+export async function uploadUpdatedStudentApplicationFormPhotos(
+  formData: FormData,
+): Promise<void> {
+  await uploadFile(STUDENT_API.UPDATE_PHOTOS, formData)
+}
+
+/** Angular post-save: `s_pop_user_accounts` for the created/updated student. */
+export async function popStudentUserAccounts(studentId: number): Promise<void> {
+  if (!studentId) return
+  await getAllRecords('s_pop_user_accounts', {
+    in_flag: 'student',
+    in_university_id: 0,
+    in_college_id: 0,
+    in_std_id: studentId,
+  })
+}
+
+/** Angular post-save: `s_pop_student_fee_Structure` for the student. */
+export async function popStudentFeeStructure(studentId: number): Promise<void> {
+  if (!studentId) return
+  await getAllRecords('s_pop_student_fee_Structure', {
+    in_flag: 'batch_fee_load_std',
+    in_structure_ids: '',
+    in_course_group_ids: '',
+    in_student_ids: studentId,
+  })
+}
+
+/**
+ * Angular DocumentRepository filter for application form:
+ * College.collegeId + Course.courseId + isForStudent + isActive.
+ */
+export async function listDocumentRepositoriesForApplication(params: {
+  collegeId: number
+  courseId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, courseId } = params
+  if (!collegeId || !courseId) return []
+  const queries = [
+    buildQuery({
+      'College.collegeId': collegeId,
+      'Course.courseId': courseId,
+      isForStudent: true,
+      isActive: true,
+    }),
+    buildQuery({
+      collegeId,
+      courseId,
+      isForStudent: true,
+      isActive: true,
+    }),
+  ]
+  for (const query of queries) {
+    try {
+      const rows = await domainList<AnyRow>('DocumentRepository', query)
+      if (rows.length > 0) return rows
+    } catch {
+      // next shape
+    }
+  }
+  return []
+}
+
+/**
+ * Angular WorkflowStage for StdAppForm:
+ * isActive + wfForCode==StdAppForm + College.collegeId.
+ */
+export async function listWorkflowStagesForStdAppForm(
+  collegeId: number,
+): Promise<AnyRow[]> {
+  if (!collegeId) return []
+  const queries = [
+    buildQuery({
+      isActive: true,
+      wfForCode: GM_CODES.STD_APP_WF,
+      'College.collegeId': collegeId,
+    }),
+    buildQuery({
+      isActive: true,
+      wfForCode: GM_CODES.STD_APP_WF,
+      collegeId,
+    }),
+  ]
+  for (const query of queries) {
+    try {
+      const rows = await domainList<AnyRow>('WorkflowStage', query)
+      if (rows.length > 0) return rows
+    } catch {
+      // next shape
+    }
+  }
+  return []
 }

@@ -55,6 +55,8 @@ export type StudentEnquiryRow = {
   collegeName?: string
   courseName?: string
   isActive?: boolean
+  createdDt?: string
+  updatedDt?: string
 }
 
 export type StudentEnquiryPayload = {
@@ -65,28 +67,29 @@ export type StudentEnquiryPayload = {
   collegeId: number
   courseId: number
   studentName: string
-  enquiryDate?: string
-  knowaboutusId?: number
-  sourceofenquiry?: string
-  counseledBy?: string
-  parentname?: string
-  parentmobile?: string
-  emailid?: string
-  genderId?: number
-  qualificationId?: number
-  qualificationGroupId?: number
-  countryId?: number
-  stateId?: number
-  districtId?: number
-  enquirystatusId?: number
-  resultstatus?: string
-  returnDate?: string
-  remarks?: string
-  percentage?: number
-  emcetrank?: number
-  mobileNumber1?: string
+  enquiryDate?: string | null
+  knowaboutusId?: number | null
+  sourceofenquiry?: string | null
+  counseledBy?: string | null
+  parentname?: string | null
+  parentmobile?: string | null
+  emailid?: string | null
+  genderId?: number | null
+  qualificationId?: number | null
+  qualificationGroupId?: number | null
+  countryId?: number | null
+  stateId?: number | null
+  districtId?: number | null
+  enquirystatusId?: number | null
+  resultstatus?: string | null
+  returnDate?: string | null
+  remarks?: string | null
+  percentage?: number | null
+  emcetrank?: number | null
+  mobileNumber1?: string | null
   isActive?: boolean
   createdDt?: string
+  updatedDt?: string
 }
 
 export type CasteQuotaRow = {

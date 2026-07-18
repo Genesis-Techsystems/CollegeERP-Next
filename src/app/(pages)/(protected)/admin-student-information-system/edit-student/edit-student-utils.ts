@@ -39,6 +39,8 @@ export type StudentDocumentRow = {
   filePath?: string | null;
   path?: File | null;
   stdDocCollId?: number;
+  /** Application-form document collection PK (Angular `appDocCollId`). */
+  appDocCollId?: number;
   createdDt?: string;
   docRepId?: number;
   isActive?: boolean;
@@ -184,6 +186,7 @@ export function mergeStudentDocuments(
       rackNumber: txt(coll, ["rackNumber"]),
       filePath: coll.filePath ? photoSrc(String(coll.filePath)) : null,
       stdDocCollId: num(coll, ["stdDocCollId"]) || undefined,
+      appDocCollId: num(coll, ["appDocCollId"]) || undefined,
       createdDt: coll.createdDt ? String(coll.createdDt) : undefined,
     };
   }
