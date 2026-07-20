@@ -1,28 +1,50 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import { PencilIcon, PlusIcon } from 'lucide-react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { useCrudList } from '@/hooks/useCrudList'
-import { DataTable, TableCard } from '@/common/components/table'
-import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
-import { listEventTypes, type EventTypeRow } from '@/services'
-import { EventTypeModal } from './EventTypeModal'
+import { useMemo, useState } from "react";
+import { PencilIcon, PlusIcon } from "lucide-react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { useCrudList } from "@/hooks/useCrudList";
+import { StatusBadge } from "@/common/components/data-display";
+import { ListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { listEventTypes, type EventTypeRow } from "@/services";
+import { EventTypeModal } from "./EventTypeModal";
 
 const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<EventTypeRow>,
-  college: { field: 'collegeCode', headerName: 'College', minWidth: 110 } as ColDef<EventTypeRow>,
-  name: { field: 'eventTypeName', headerName: 'Event Type Name', minWidth: 200 } as ColDef<EventTypeRow>,
-  isActive: { field: 'isActive', headerName: 'Status', minWidth: 100, flex: 0 } as ColDef<EventTypeRow>,
-  actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<EventTypeRow>,
-}
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<EventTypeRow>,
+  college: {
+    field: "collegeCode",
+    headerName: "College",
+    minWidth: 110,
+  } as ColDef<EventTypeRow>,
+  name: {
+    field: "eventTypeName",
+    headerName: "Event Type Name",
+    minWidth: 200,
+  } as ColDef<EventTypeRow>,
+  isActive: {
+    field: "isActive",
+    headerName: "Status",
+    minWidth: 100,
+    flex: 0,
+  } as ColDef<EventTypeRow>,
+  actions: {
+    headerName: "Actions",
+    minWidth: 86,
+    width: 86,
+    flex: 0,
+  } as ColDef<EventTypeRow>,
+};
 
 function statusRenderer(p: ICellRendererParams<EventTypeRow>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
 function makeActionsRenderer(
@@ -36,23 +58,27 @@ function makeActionsRenderer(
       className="h-8 w-8 p-0"
       aria-label="Edit event type"
       onClick={() => {
-        setEditing(p.data ?? null)
-        setModalOpen(true)
+        setEditing(p.data ?? null);
+        setModalOpen(true);
       }}
     >
       <PencilIcon className="h-3.5 w-3.5" />
     </Button>
-  )
+  );
 }
 
 export function EventTypePage() {
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<EventTypeRow | null>(null)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<EventTypeRow | null>(null);
 
-  const { data: rows, isLoading, invalidate } = useCrudList({
+  const {
+    data: rows,
+    isLoading,
+    invalidate,
+  } = useCrudList({
     queryKey: QK.events.eventTypes(),
     queryFn: listEventTypes,
-  })
+  });
 
   const columnDefs = useMemo<ColDef<EventTypeRow>[]>(
     () => [
@@ -60,54 +86,50 @@ export function EventTypePage() {
       COL_DEFS.college,
       COL_DEFS.name,
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
-      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditing, setModalOpen) },
+      {
+        ...COL_DEFS.actions,
+        cellRenderer: makeActionsRenderer(setEditing, setModalOpen),
+      },
     ],
     [],
-  )
+  );
 
   return (
-    <PageContainer className="space-y-5">
-      <div className="app-card overflow-hidden px-4 py-3">
-        <h1 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">Event Type</h1>
-      </div>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={isLoading}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search event types…',
-            pdfDocumentTitle: 'Event Types',
+    <ListPage
+      title="Event Type"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search event types…",
+        pdfDocumentTitle: "Event Types",
+      }}
+      toolbarTrailing={
+        <Button
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          onClick={() => {
+            setEditing(null);
+            setModalOpen(true);
           }}
-          toolbarTrailing={(
-            <Button
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={() => {
-                setEditing(null)
-                setModalOpen(true)
-              }}
-            >
-              <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-              Add Event Type
-            </Button>
-          )}
-        />
-      </TableCard>
-
+        >
+          <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+          Add Event Type
+        </Button>
+      }
+    >
       <EventTypeModal
         open={modalOpen}
         onClose={() => {
-          setModalOpen(false)
-          setEditing(null)
+          setModalOpen(false);
+          setEditing(null);
         }}
         row={editing}
         existingRows={rows}
         onSaved={invalidate}
       />
-    </PageContainer>
-  )
+    </ListPage>
+  );
 }

@@ -10,27 +10,25 @@ import type {
 import { useQuery } from "@tanstack/react-query";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/common/components/date-picker";
+import { toDateOnlyISO } from "@/common/generic-functions";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
-import { getAffiliatedUploadSummary } from "@/services";
+import { getAffiliatedAttendanceUploadSummary } from "@/services";
 import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
 import { getAffiliatedConfig } from "../_lib/route-config";
+import { pickAffiliatedText } from "../_lib/enrich-affiliated-summary-rows";
 import {
-  enrichAffiliatedSummaryRows,
-  pickAffiliatedText,
-} from "../_lib/enrich-affiliated-summary-rows";
-import {
-  buildAffiliatedSummaryContext,
-  contextToInitialSelection,
-  readAffiliatedSummaryContext,
-  saveAffiliatedSummaryContext,
-} from "../_lib/affiliated-summary-context";
+  buildAffiliatedAttendanceSummaryContext,
+  contextToAttendanceInitialSelection,
+  parseAttendanceContextDate,
+  readAffiliatedAttendanceSummaryContext,
+  saveAffiliatedAttendanceSummaryContext,
+} from "../_lib/affiliated-attendance-summary-context";
 import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
 import { AffiliatedCollegeFilters } from "./AffiliatedCollegeFilters";
-
-type AnyRow = Record<string, unknown>;
 
 function summaryText(
   p: ValueGetterParams<AffiliatedSummaryRow>,
@@ -41,7 +39,7 @@ function summaryText(
 
 const COL_DEFS = {
   siNo: {
-    headerName: "SI.No",
+    headerName: "SNo",
     valueGetter: rowIndexGetter,
     width: 70,
     flex: 0,
@@ -51,38 +49,36 @@ const COL_DEFS = {
     headerName: "Course Code",
     minWidth: 110,
   } as ColDef<AffiliatedSummaryRow>,
-  regulation: {
-    headerName: "Regulation Code",
-    minWidth: 120,
+  groupCode: {
+    headerName: "Course Group Code",
+    minWidth: 150,
     valueGetter: (p) =>
-      summaryText(p, "regulation_code", "regulationCode", "regulationcode"),
+      summaryText(p, "group_code", "groupCode", "group_name", "groupName"),
   } as ColDef<AffiliatedSummaryRow>,
-  batch: {
-    headerName: "Batch",
-    minWidth: 90,
-    valueGetter: (p) => summaryText(p, "batch_name", "batchName"),
-  } as ColDef<AffiliatedSummaryRow>,
-  year: {
+  courseYearCode: {
     field: "course_year_code",
-    headerName: "Course Year",
-    minWidth: 110,
-  } as ColDef<AffiliatedSummaryRow>,
-  group: {
-    headerName: "Group",
-    minWidth: 90,
-    valueGetter: (p) =>
-      summaryText(p, "group_name", "groupName", "group_code", "groupCode"),
-  } as ColDef<AffiliatedSummaryRow>,
-  count: {
-    field: "uploaded_students_count",
-    headerName: "Students",
-    minWidth: 90,
-    flex: 0,
-  } as ColDef<AffiliatedSummaryRow>,
-  uploaded: {
-    field: "total_students_with_uploads",
-    headerName: "Students Uploaded",
+    headerName: "Course Year Code",
     minWidth: 130,
+  } as ColDef<AffiliatedSummaryRow>,
+  subjectsUploaded: {
+    headerName: "Total Subjects Attendance Uploaded Count",
+    minWidth: 220,
+    valueGetter: (p) =>
+      summaryText(
+        p,
+        "total_subjects_attendance_uploaded_count",
+        "totalSubjectsAttendanceUploadedCount",
+      ),
+  } as ColDef<AffiliatedSummaryRow>,
+  studentSubjectsUploaded: {
+    headerName: "Total Student Subject Attendance Uploaded Count",
+    minWidth: 260,
+    valueGetter: (p) =>
+      summaryText(
+        p,
+        "total_student_subject_attendance_uploaded_count",
+        "totalStudentSubjectAttendanceUploadedCount",
+      ),
   } as ColDef<AffiliatedSummaryRow>,
   actions: {
     headerName: "Action",
@@ -97,9 +93,8 @@ function makeUploadRenderer(
   router: ReturnType<typeof useRouter>,
   collegeId: number | null,
   academicYearId: number | null,
-  regulationData: AnyRow[],
-  filtersData: AnyRow[],
-  selectedRegulationId: number | null,
+  fromDate: string,
+  toDate: string,
 ) {
   return (p: ICellRendererParams<AffiliatedSummaryRow>) => {
     if (!uploadPath) return null;
@@ -110,34 +105,23 @@ function makeUploadRenderer(
         variant="default"
         onClick={() => {
           if (!row || !collegeId || !academicYearId) return;
-          const collegeRow = filtersData.find(
-            (c) => Number(c.fk_college_id ?? c.collegeId ?? 0) === collegeId,
-          );
-          const universityId = Number(
-            collegeRow?.fk_university_id ?? collegeRow?.universityId ?? 0,
-          );
-          const ctx = buildAffiliatedSummaryContext(
+          const ctx = buildAffiliatedAttendanceSummaryContext(
             row,
             collegeId,
             academicYearId,
-            {
-              regulationData,
-              filtersData,
-              universityId,
-              selectedRegulationId: selectedRegulationId ?? undefined,
-            },
+            fromDate,
+            toDate,
           );
-          saveAffiliatedSummaryContext(ctx);
+          saveAffiliatedAttendanceSummaryContext(ctx);
           const q = new URLSearchParams({
             collegeId: String(ctx.fk_college_id),
             academicYearId: String(ctx.fk_academic_year_id),
             courseId: String(ctx.fk_course_id),
             courseGroupId: String(ctx.fk_course_group_id),
             courseYearId: String(ctx.fk_course_year_id),
+            fromDate: ctx.fdate,
+            toDate: ctx.tdate,
           });
-          if (ctx.fk_regulation_id) {
-            q.set("regulationId", String(ctx.fk_regulation_id));
-          }
           router.push(`/affiliated-colleges/${uploadPath}?${q.toString()}`);
         }}
       >
@@ -147,62 +131,67 @@ function makeUploadRenderer(
   };
 }
 
-type AffiliatedSummaryPageProps = { slug: string };
-
-export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
-  const config = getAffiliatedConfig(slug);
-  const trackRegulation = config.trackRegulation === true;
+export function StudentAttendanceSummaryPage() {
+  const config = getAffiliatedConfig("student-attendance-summary");
   const router = useRouter();
-  const summaryContext = useMemo(() => readAffiliatedSummaryContext(), []);
+  const summaryContext = useMemo(
+    () => readAffiliatedAttendanceSummaryContext(),
+    [],
+  );
   const cascade = useAffiliatedCascade({
     allowAllGroupYear: true,
     autoSelectFirst: !summaryContext,
-    trackRegulation,
+    timetableFilters: true,
+    scopeByAcademicYear: true,
     initialSelection: summaryContext
-      ? contextToInitialSelection(summaryContext)
+      ? contextToAttendanceInitialSelection(summaryContext)
       : undefined,
   });
+
+  const [fromDate, setFromDate] = useState<Date | null>(() => {
+    const seeded = parseAttendanceContextDate(summaryContext?.fdate);
+    return seeded ?? new Date();
+  });
+  const [toDate, setToDate] = useState<Date | null>(() => {
+    const seeded = parseAttendanceContextDate(summaryContext?.tdate);
+    return seeded ?? new Date();
+  });
   const [loadKey, setLoadKey] = useState<string | null>(null);
+
+  const fromDateYmd = fromDate ? toDateOnlyISO(fromDate) : "";
+  const toDateYmd = toDate ? toDateOnlyISO(toDate) : "";
 
   const {
     data: rawRows = [],
     isFetching,
     error,
   } = useQuery({
-    queryKey: QK.affiliatedColleges.uploadSummary(
-      loadKey ? (JSON.parse(loadKey) as Record<string, number>) : {},
+    queryKey: QK.affiliatedColleges.attendanceUploadSummary(
+      loadKey ? (JSON.parse(loadKey) as Record<string, string | number>) : {},
     ),
-    queryFn: () =>
-      getAffiliatedUploadSummary(
-        JSON.parse(loadKey!) as Parameters<
-          typeof getAffiliatedUploadSummary
-        >[0],
-        trackRegulation ? { subjectsSummary: true } : undefined,
-      ),
+    queryFn: () => {
+      const parsed = JSON.parse(loadKey!) as {
+        collegeId: number;
+        academicYearId: number;
+        courseId: number;
+        courseGroupId: number;
+        courseYearId: number;
+        fromDate: string;
+        toDate: string;
+      };
+      return getAffiliatedAttendanceUploadSummary(parsed);
+    },
     enabled: loadKey != null,
   });
-
-  const rows = useMemo(
-    () =>
-      enrichAffiliatedSummaryRows(
-        rawRows,
-        cascade.filtersData,
-        cascade.batchesData,
-        cascade.regulationData,
-      ),
-    [rawRows, cascade.filtersData, cascade.batchesData, cascade.regulationData],
-  );
 
   const columnDefs = useMemo<ColDef<AffiliatedSummaryRow>[]>(
     () => [
       COL_DEFS.siNo,
       COL_DEFS.courseCode,
-      COL_DEFS.regulation,
-      COL_DEFS.batch,
-      COL_DEFS.year,
-      COL_DEFS.group,
-      COL_DEFS.count,
-      COL_DEFS.uploaded,
+      COL_DEFS.groupCode,
+      COL_DEFS.courseYearCode,
+      COL_DEFS.subjectsUploaded,
+      COL_DEFS.studentSubjectsUploaded,
       {
         ...COL_DEFS.actions,
         cellRenderer: makeUploadRenderer(
@@ -210,9 +199,8 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
           router,
           cascade.collegeId,
           cascade.academicYearId,
-          cascade.regulationData,
-          cascade.filtersData,
-          cascade.regulationId,
+          fromDateYmd,
+          toDateYmd,
         ),
       },
     ],
@@ -221,22 +209,27 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
       router,
       cascade.collegeId,
       cascade.academicYearId,
-      cascade.regulationData,
-      cascade.filtersData,
-      cascade.regulationId,
+      fromDateYmd,
+      toDateYmd,
     ],
   );
 
   function handleGetDetails() {
     if (!cascade.filtersValid) {
-      toastError(
-        trackRegulation
-          ? "Select college, academic year, course, regulation, group, and year."
-          : "Select college, academic year, course, group, and year.",
-      );
+      toastError("Select college, academic year, course, group, and year.");
       return;
     }
-    setLoadKey(JSON.stringify(cascade.toFilterParams()));
+    if (!fromDate || !toDate) {
+      toastError("Select from date and to date.");
+      return;
+    }
+    setLoadKey(
+      JSON.stringify({
+        ...cascade.toFilterParams(),
+        fromDate: toDateOnlyISO(fromDate),
+        toDate: toDateOnlyISO(toDate),
+      }),
+    );
   }
 
   const showTable = loadKey != null;
@@ -256,15 +249,33 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
           onGetDetails={handleGetDetails}
           loadingDetails={isFetching}
           allowAllGroupYear
-          showRegulation={trackRegulation}
           showBack={config.showBackToHub}
           onBack={() =>
             router.push("/affiliated-colleges/college-bulk-uploads")
           }
+          footerExtraAlign="start"
+          footerExtra={
+            <>
+              <DatePicker
+                label="From Date"
+                value={fromDate}
+                onChange={setFromDate}
+                displayFormat="dd/MM/yyyy"
+                clearable={false}
+              />
+              <DatePicker
+                label="To Date"
+                value={toDate}
+                onChange={setToDate}
+                displayFormat="dd/MM/yyyy"
+                clearable={false}
+              />
+            </>
+          }
           bare
         />
       }
-      rowData={showTable ? rows : []}
+      rowData={showTable ? rawRows : []}
       columnDefs={columnDefs}
       loading={isFetching}
       pagination={showTable}

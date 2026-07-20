@@ -1,17 +1,20 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen, Loader2, User } from 'lucide-react'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
-import { Select, type SelectOption } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { getErrorMessage } from '@/lib/errors'
-import { toast } from 'sonner'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { useSessionContext } from '@/context/SessionContext'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Loader2, User } from "lucide-react";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
+import { Select, type SelectOption } from "@/common/components/select";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { getErrorMessage } from "@/lib/errors";
+import { toast } from "sonner";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { useSessionContext } from "@/context/SessionContext";
 import {
   buildLeaveAllotmentTypeRows,
   getLeaveYears,
@@ -21,213 +24,232 @@ import {
   saveLeaveEntitlements,
   searchEmployeesForHr,
   type LeaveAllotmentTypeRow,
-} from '@/services'
-import type { SessionUser } from '@/types/user'
+} from "@/services";
+import type { SessionUser } from "@/types/user";
 
 function readStorage(key: string): string {
-  if (typeof globalThis.window === 'undefined') return ''
-  return globalThis.localStorage.getItem(key) ?? ''
+  if (typeof globalThis.window === "undefined") return "";
+  return globalThis.localStorage.getItem(key) ?? "";
 }
 
 function isStaffOrPrincipal(user: SessionUser | null | undefined): boolean {
-  if (user?.isPrincipal) return true
+  if (user?.isPrincipal) return true;
   return (
-    readStorage('isPRINCIPAL') === 'true' ||
-    readStorage('isPrincipal') === 'true' ||
-    readStorage('dataSecStaff') === 'true'
-  )
+    readStorage("isPRINCIPAL") === "true" ||
+    readStorage("isPrincipal") === "true" ||
+    readStorage("dataSecStaff") === "true"
+  );
 }
 
 function employeeOptionLabel(row: Record<string, unknown>): string {
-  const name = String(row.firstName ?? '')
-  const num = row.empNumber != null ? ` (${String(row.empNumber)})` : ''
-  return name + num || String(row.employeeId ?? '')
+  const name = String(row.firstName ?? "");
+  const num = row.empNumber != null ? ` (${String(row.empNumber)})` : "";
+  return name + num || String(row.employeeId ?? "");
 }
 
 export function EmployeeLeaveAllotmentPage() {
-  const { user } = useSessionContext()
-  const sessionCollegeId = user?.collegeId ?? Number(readStorage('collegeId') || 0)
-  const isPrincipal = user?.isPrincipal ?? readStorage('isPRINCIPAL') === 'true'
-  const showCollegeContext = isStaffOrPrincipal(user)
+  const { user } = useSessionContext();
+  const sessionCollegeId =
+    user?.collegeId ?? Number(readStorage("collegeId") || 0);
+  const isPrincipal =
+    user?.isPrincipal ?? readStorage("isPRINCIPAL") === "true";
+  const showCollegeContext = isStaffOrPrincipal(user);
 
-  const [collegeId, setCollegeId] = useState<number | null>(null)
-  const [leaveYear, setLeaveYear] = useState<string | null>(null)
-  const [collegeCode, setCollegeCode] = useState('')
+  const [collegeId, setCollegeId] = useState<number | null>(null);
+  const [leaveYear, setLeaveYear] = useState<string | null>(null);
+  const [collegeCode, setCollegeCode] = useState("");
 
-  const [colleges, setColleges] = useState<SelectOption[]>([])
-  const [collegeRows, setCollegeRows] = useState<Record<string, unknown>[]>([])
-  const [years, setYears] = useState<SelectOption[]>([])
+  const [colleges, setColleges] = useState<SelectOption[]>([]);
+  const [collegeRows, setCollegeRows] = useState<Record<string, unknown>[]>([]);
+  const [years, setYears] = useState<SelectOption[]>([]);
 
-  const [employeeOptions, setEmployeeOptions] = useState<SelectOption[]>([])
-  const [employeeRows, setEmployeeRows] = useState<Record<string, unknown>[]>([])
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null)
-  const [selectedEmployee, setSelectedEmployee] = useState<Record<string, unknown> | null>(null)
+  const [employeeOptions, setEmployeeOptions] = useState<SelectOption[]>([]);
+  const [employeeRows, setEmployeeRows] = useState<Record<string, unknown>[]>(
+    [],
+  );
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(
+    null,
+  );
+  const [selectedEmployee, setSelectedEmployee] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
 
-  const [allotmentRows, setAllotmentRows] = useState<LeaveAllotmentTypeRow[]>([])
-  const [collegesLoading, setCollegesLoading] = useState(true)
-  const [employeeSearchLoading, setEmployeeSearchLoading] = useState(false)
-  const [allotmentLoading, setAllotmentLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [allotmentRows, setAllotmentRows] = useState<LeaveAllotmentTypeRow[]>(
+    [],
+  );
+  const [collegesLoading, setCollegesLoading] = useState(true);
+  const [employeeSearchLoading, setEmployeeSearchLoading] = useState(false);
+  const [allotmentLoading, setAllotmentLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const organizationId = useMemo(() => {
-    if (typeof globalThis.window === 'undefined') return 0
-    return Number(globalThis.localStorage.getItem('organizationId') ?? 0)
-  }, [])
+    if (typeof globalThis.window === "undefined") return 0;
+    return Number(globalThis.localStorage.getItem("organizationId") ?? 0);
+  }, []);
 
-  const collegeLocked = isPrincipal && sessionCollegeId > 0
+  const collegeLocked = isPrincipal && sessionCollegeId > 0;
 
   useEffect(() => {
     void (async () => {
-      setCollegesLoading(true)
+      setCollegesLoading(true);
       try {
         const [collegeList, yearList] = await Promise.all([
           listActiveCollegesForGeneralSettings(),
           getLeaveYears(),
-        ])
-        const orgId = organizationId
+        ]);
+        const orgId = organizationId;
         const filtered = orgId
           ? collegeList.filter((c) => Number(c.organizationId) === orgId)
-          : collegeList
-        setCollegeRows(filtered as unknown as Record<string, unknown>[])
+          : collegeList;
+        setCollegeRows(filtered as unknown as Record<string, unknown>[]);
         setColleges(
           filtered.map((c) => ({
             value: String(c.collegeId),
             label: String(c.collegeCode ?? c.collegeName ?? c.collegeId),
           })),
-        )
-        setYears(yearList.map((y) => ({ value: y, label: y })))
+        );
+        setYears(yearList.map((y) => ({ value: y, label: y })));
 
-        let cid: number | null = null
+        let cid: number | null = null;
         if (collegeLocked) {
-          cid = sessionCollegeId
+          cid = sessionCollegeId;
         } else if (filtered.length > 0) {
-          cid = Number(filtered[0]!.collegeId)
+          cid = Number(filtered[0]!.collegeId);
         }
         if (cid) {
-          setCollegeId(cid)
-          const row = filtered.find((c) => Number(c.collegeId) === cid)
-          setCollegeCode(String(row?.collegeCode ?? ''))
+          setCollegeId(cid);
+          const row = filtered.find((c) => Number(c.collegeId) === cid);
+          setCollegeCode(String(row?.collegeCode ?? ""));
         }
-        if (yearList.length > 0) setLeaveYear(yearList[0]!)
+        if (yearList.length > 0) setLeaveYear(yearList[0]!);
       } catch (e) {
-        toastError(e, 'Failed to load filters')
+        toastError(e, "Failed to load filters");
       } finally {
-        setCollegesLoading(false)
+        setCollegesLoading(false);
       }
-    })()
-  }, [organizationId, collegeLocked, sessionCollegeId])
+    })();
+  }, [organizationId, collegeLocked, sessionCollegeId]);
 
   const loadAllotment = useCallback(
     async (employeeId: number) => {
       if (!collegeId || !leaveYear || !employeeId || !organizationId) {
-        setAllotmentRows([])
-        return
+        setAllotmentRows([]);
+        return;
       }
-      setAllotmentLoading(true)
+      setAllotmentLoading(true);
       try {
         const [types, entitlements] = await Promise.all([
           listLeaveTypesForEntitlement(organizationId),
           listLeaveEntitlementsForEmployee(collegeId, employeeId, leaveYear),
-        ])
+        ]);
         setAllotmentRows(
-          buildLeaveAllotmentTypeRows(types, entitlements, collegeId, leaveYear, employeeId),
-        )
+          buildLeaveAllotmentTypeRows(
+            types,
+            entitlements,
+            collegeId,
+            leaveYear,
+            employeeId,
+          ),
+        );
       } catch (e) {
-        toastError(e, 'Failed to load leave allotment')
-        setAllotmentRows([])
+        toastError(e, "Failed to load leave allotment");
+        setAllotmentRows([]);
       } finally {
-        setAllotmentLoading(false)
+        setAllotmentLoading(false);
       }
     },
     [collegeId, leaveYear, organizationId],
-  )
+  );
 
   const onEmployeeSearch = useCallback(
     async (term: string) => {
-      if (!collegeId) return
-      const q = term.trim()
+      if (!collegeId) return;
+      const q = term.trim();
       if (q.length < 4) {
-        setEmployeeRows([])
-        setEmployeeOptions([])
-        return
+        setEmployeeRows([]);
+        setEmployeeOptions([]);
+        return;
       }
-      setEmployeeSearchLoading(true)
+      setEmployeeSearchLoading(true);
       try {
-        const list = await searchEmployeesForHr(q, collegeId)
-        setEmployeeRows(list as Record<string, unknown>[])
+        const list = await searchEmployeesForHr(q, collegeId);
+        setEmployeeRows(list as Record<string, unknown>[]);
         setEmployeeOptions(
           list.map((e) => ({
             value: String(e.employeeId),
             label: employeeOptionLabel(e as Record<string, unknown>),
           })),
-        )
+        );
       } catch (e) {
-        toastError(e, 'Employee search failed')
-        setEmployeeRows([])
-        setEmployeeOptions([])
+        toastError(e, "Employee search failed");
+        setEmployeeRows([]);
+        setEmployeeOptions([]);
       } finally {
-        setEmployeeSearchLoading(false)
+        setEmployeeSearchLoading(false);
       }
     },
     [collegeId],
-  )
+  );
 
   function handleCollegeChange(v: string | null) {
-    if (collegeLocked) return
-    const cid = v ? Number(v) : null
-    setCollegeId(cid)
-    const row = collegeRows.find((c) => Number(c.collegeId) === cid)
-    setCollegeCode(String(row?.collegeCode ?? ''))
-    setSelectedEmployeeId(null)
-    setSelectedEmployee(null)
-    setAllotmentRows([])
-    setEmployeeRows([])
-    setEmployeeOptions([])
+    if (collegeLocked) return;
+    const cid = v ? Number(v) : null;
+    setCollegeId(cid);
+    const row = collegeRows.find((c) => Number(c.collegeId) === cid);
+    setCollegeCode(String(row?.collegeCode ?? ""));
+    setSelectedEmployeeId(null);
+    setSelectedEmployee(null);
+    setAllotmentRows([]);
+    setEmployeeRows([]);
+    setEmployeeOptions([]);
   }
 
   function handleLeaveYearChange(v: string | null) {
-    setLeaveYear(v)
-    setSelectedEmployeeId(null)
-    setSelectedEmployee(null)
-    setAllotmentRows([])
-    setEmployeeRows([])
-    setEmployeeOptions([])
+    setLeaveYear(v);
+    setSelectedEmployeeId(null);
+    setSelectedEmployee(null);
+    setAllotmentRows([]);
+    setEmployeeRows([]);
+    setEmployeeOptions([]);
   }
 
   function handleEmployeeChange(v: string | null) {
     if (!v) {
-      setSelectedEmployeeId(null)
-      setSelectedEmployee(null)
-      setAllotmentRows([])
-      return
+      setSelectedEmployeeId(null);
+      setSelectedEmployee(null);
+      setAllotmentRows([]);
+      return;
     }
     if (!leaveYear) {
-      toast.info('Please select the given filters')
-      return
+      toast.info("Please select the given filters");
+      return;
     }
-    const id = Number(v)
-    const row = employeeRows.find((e) => Number(e.employeeId) === id)
-    if (!row) return
-    setSelectedEmployeeId(id)
-    setSelectedEmployee(row)
-    void loadAllotment(id)
+    const id = Number(v);
+    const row = employeeRows.find((e) => Number(e.employeeId) === id);
+    if (!row) return;
+    setSelectedEmployeeId(id);
+    setSelectedEmployee(row);
+    void loadAllotment(id);
   }
 
   function updateAllocated(leavetypeId: number, value: string) {
-    const n = value === '' ? 0 : Number(value)
+    const n = value === "" ? 0 : Number(value);
     setAllotmentRows((prev) =>
       prev.map((r) =>
-        r.leavetypeId === leavetypeId ? { ...r, allocatedLeaves: Number.isNaN(n) ? 0 : n } : r,
+        r.leavetypeId === leavetypeId
+          ? { ...r, allocatedLeaves: Number.isNaN(n) ? 0 : n }
+          : r,
       ),
-    )
+    );
   }
 
   async function handleSave() {
     if (!collegeId || !leaveYear || !selectedEmployeeId) {
-      toast.info('Please select the given filters')
-      return
+      toast.info("Please select the given filters");
+      return;
     }
-    setSaving(true)
+    setSaving(true);
     try {
       const payload = allotmentRows.map((r) => ({
         ...r,
@@ -237,139 +259,171 @@ export function EmployeeLeaveAllotmentPage() {
         leaveYear: r.leaveYear,
         employeeId: r.employeeId,
         leaveEntitlementId: r.leaveEntitlementId,
-      }))
+      }));
       const result = (await saveLeaveEntitlements(payload)) as {
-        success?: boolean
-        message?: string
-      }
+        success?: boolean;
+        message?: string;
+      };
       if (result?.success === false) {
-        toastError(result.message ?? 'Save failed')
-        return
+        toastError(result.message ?? "Save failed");
+        return;
       }
-      toastSuccess(result?.message ?? 'Leave allotment saved')
-      await loadAllotment(selectedEmployeeId)
+      toastSuccess(result?.message ?? "Leave allotment saved");
+      await loadAllotment(selectedEmployeeId);
     } catch (e) {
-      toastError(getErrorMessage(e), 'Save failed')
+      toastError(getErrorMessage(e), "Save failed");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
-  const filterTitle = (
-    <span className="inline-flex items-center gap-2">
-      <BookOpen className="h-4 w-4" aria-hidden />
-      Leave Allotment
-      {showCollegeContext && collegeCode ? (
-        <span className="text-[15px] font-semibold text-slate-700">For : {collegeCode}</span>
-      ) : null}
-    </span>
-  )
+  const collegeNotice =
+    showCollegeContext && collegeCode ? (
+      <p className="text-sm text-muted-foreground px-1">
+        College:{" "}
+        <span className="font-medium text-foreground">{collegeCode}</span>
+      </p>
+    ) : null;
 
   return (
-    <PageContainer>
-      <FilterCard title={filterTitle}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Select
-            label="College"
-            value={collegeId != null ? String(collegeId) : null}
-            onChange={handleCollegeChange}
-            options={colleges}
-            placeholder="College"
-            isLoading={collegesLoading}
-            disabled={collegeLocked}
-            className={FILTER_CARD_SELECT_CLASS}
-          />
-          <Select
-            label="Leave Year"
-            value={leaveYear}
-            onChange={handleLeaveYearChange}
-            options={years}
-            placeholder="Leave Year"
-            disabled={!collegeId}
-            className={FILTER_CARD_SELECT_CLASS}
-          />
-          <Select
-            label="Employee"
-            value={selectedEmployeeId != null ? String(selectedEmployeeId) : null}
-            onChange={handleEmployeeChange}
-            options={employeeOptions}
-            placeholder="Search by Employee name or Id."
-            searchable
-            onSearch={onEmployeeSearch}
-            isLoading={employeeSearchLoading}
-            disabled={!collegeId || !leaveYear}
-            className={FILTER_CARD_SELECT_CLASS}
-          />
-        </div>
-      </FilterCard>
+    <FilteredListPage
+      title="Employee Leave Allotment"
+      bodyClassName="border-t-0"
+      notice={collegeNotice}
+      filters={
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="College">
+            <Select
+              value={collegeId != null ? String(collegeId) : null}
+              onChange={handleCollegeChange}
+              options={colleges}
+              placeholder="Select college"
+              searchable
+              isLoading={collegesLoading}
+              disabled={collegeLocked}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Leave Year">
+            <Select
+              value={leaveYear}
+              onChange={handleLeaveYearChange}
+              options={years}
+              placeholder="Select year"
+              searchable
+              disabled={!collegeId}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Employee">
+            <Select
+              value={
+                selectedEmployeeId != null ? String(selectedEmployeeId) : null
+              }
+              onChange={handleEmployeeChange}
+              options={employeeOptions}
+              placeholder="Search by name or ID (min 4 chars)"
+              searchable
+              onSearch={onEmployeeSearch}
+              isLoading={employeeSearchLoading}
+              disabled={!collegeId || !leaveYear}
+            />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      }
+      body={
+        selectedEmployee ? (
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-foreground">
+              Leaves Entitled
+            </p>
 
-      {selectedEmployee ? (
-        <div className="mt-4 overflow-hidden rounded-[10px] border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-          <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/80 px-4 py-2.5">
-            <span className="text-sm font-medium text-slate-700">Leaves Entitled</span>
-          </div>
-
-          <div className="flex gap-4 border-b border-slate-100 p-4">
-            <div
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-100"
-              aria-hidden
-            >
-              <User className="h-10 w-10 text-slate-400" strokeWidth={1.25} />
-            </div>
-            <div className="space-y-0.5 text-sm">
-              <p className="font-medium text-blue-600">{String(selectedEmployee.firstName ?? '')}</p>
-              <p className="text-slate-500">{String(selectedEmployee.empNumber ?? '')}</p>
-              <p className="text-slate-500">{String(selectedEmployee.empDeptName ?? '')}</p>
-              <p className="text-slate-500">{String(selectedEmployee.mobile ?? '')}</p>
-            </div>
-          </div>
-
-          {allotmentLoading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading leave types…
-            </div>
-          ) : allotmentRows.length > 0 ? (
-            <div className="space-y-3 px-4 pb-4 pt-2">
-              {allotmentRows.map((leave) => (
-                <div
-                  key={leave.leavetypeId}
-                  className="flex flex-wrap items-end gap-4 border-b border-slate-100 pb-3 last:border-0"
-                >
-                  <p className="min-w-[200px] flex-1 text-sm text-slate-800">
-                    {leave.leaveName}{' '}
-                    <span className="text-blue-600">({leave.leaveCode})</span>
-                  </p>
-                  <div className="w-full max-w-[180px]">
-                    <Label htmlFor={`alloc-${leave.leavetypeId}`} className="text-xs text-slate-600">
-                      Allocated Leaves
-                    </Label>
-                    <Input
-                      id={`alloc-${leave.leavetypeId}`}
-                      type="number"
-                      min={0}
-                      value={leave.allocatedLeaves}
-                      onChange={(e) => updateAllocated(leave.leavetypeId, e.target.value)}
-                    />
-                  </div>
-                </div>
-              ))}
-              <div className="flex justify-end pt-2">
-                <Button onClick={() => void handleSave()} disabled={saving}>
-                  {saving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    'Save'
-                  )}
-                </Button>
+            <div className="flex gap-4 rounded-md border border-border bg-muted/30 p-4">
+              <div
+                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-border bg-muted"
+                aria-hidden
+              >
+                <User
+                  className="h-8 w-8 text-muted-foreground"
+                  strokeWidth={1.25}
+                />
+              </div>
+              <div className="space-y-0.5 text-[12px]">
+                <p className="font-medium text-primary">
+                  {String(selectedEmployee.firstName ?? "")}
+                </p>
+                <p className="text-muted-foreground">
+                  {String(selectedEmployee.empNumber ?? "")}
+                </p>
+                <p className="text-muted-foreground">
+                  {String(selectedEmployee.empDeptName ?? "")}
+                </p>
+                <p className="text-muted-foreground">
+                  {String(selectedEmployee.mobile ?? "")}
+                </p>
               </div>
             </div>
-          ) : null}
-        </div>
-      ) : null}
-    </PageContainer>
-  )
+
+            {allotmentLoading ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading leave types…
+              </div>
+            ) : allotmentRows.length > 0 ? (
+              <div className="space-y-3">
+                {allotmentRows.map((leave) => (
+                  <div
+                    key={leave.leavetypeId}
+                    className="flex flex-wrap items-end gap-4 border-b border-border pb-3 last:border-0"
+                  >
+                    <p className="min-w-[200px] flex-1 text-[12px] text-foreground">
+                      {leave.leaveName}{" "}
+                      <span className="text-primary">({leave.leaveCode})</span>
+                    </p>
+                    <div className="w-full max-w-[180px]">
+                      <Label
+                        htmlFor={`alloc-${leave.leavetypeId}`}
+                        className="text-xs text-muted-foreground"
+                      >
+                        Allocated Leaves
+                      </Label>
+                      <Input
+                        id={`alloc-${leave.leavetypeId}`}
+                        type="number"
+                        min={0}
+                        className="h-8 text-[12px]"
+                        value={leave.allocatedLeaves}
+                        onChange={(e) =>
+                          updateAllocated(leave.leavetypeId, e.target.value)
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+                <div className="flex justify-end pt-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void handleSave()}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      "Save"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No leave types found for this employee.
+              </p>
+            )}
+          </div>
+        ) : null
+      }
+    />
+  );
 }

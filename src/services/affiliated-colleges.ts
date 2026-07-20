@@ -20,6 +20,7 @@ import {
   domainUpdate,
   fetchDetails,
   getAllRecords,
+  getAllRecordsEnvelope,
   postDetails,
   putDetails,
 } from "./crud";
@@ -125,26 +126,29 @@ export type AffiliatedUploadSummaryParams = {
   regulationId?: number;
   univUploadfileId?: number;
   comments?: string;
+  fromDate?: string;
+  toDate?: string;
 };
 
-/** `s_pop_univ_upload_std_bulk` with `in_flag=summary` — affiliated college summary grids. */
+/** `s_pop_univ_upload_std_bulk` or `s_pop_univ_upload_std_subjects` with `in_flag=summary`. */
 export async function getAffiliatedUploadSummary(
   params: AffiliatedUploadSummaryParams,
+  options?: { subjectsSummary?: boolean },
 ): Promise<AffiliatedSummaryRow[]> {
-  const data = await getAllRecords<{ result: AffiliatedSummaryRow[][] }>(
-    "s_pop_univ_upload_std_bulk",
-    {
-      in_flag: "summary",
-      in_college_id: params.collegeId,
-      in_academic_year_id: params.academicYearId,
-      in_course_id: params.courseId,
-      in_course_group_id: params.courseGroupId,
-      in_course_year_id: params.courseYearId,
-      in_regulation_id: params.regulationId ?? 0,
-      in_univ_uploadfile_id: params.univUploadfileId ?? 0,
-      in_comments: params.comments ?? "",
-    },
-  );
+  const proc = options?.subjectsSummary
+    ? "s_pop_univ_upload_std_subjects"
+    : "s_pop_univ_upload_std_bulk";
+  const data = await getAllRecords<{ result: AffiliatedSummaryRow[][] }>(proc, {
+    in_flag: "summary",
+    in_college_id: params.collegeId,
+    in_academic_year_id: params.academicYearId,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId,
+    in_course_year_id: params.courseYearId,
+    in_regulation_id: params.regulationId ?? 0,
+    in_univ_uploadfile_id: params.univUploadfileId ?? 0,
+    in_comments: params.comments ?? "",
+  });
 
   const rows = data?.result?.[0];
   return Array.isArray(rows) ? rows : [];
@@ -196,6 +200,76 @@ async function postAffiliatedMultipart<T>(
   return body.data as T;
 }
 
+/** Angular `result.data.insertedRecords` — tolerate nested / alternate shapes from proxy. */
+function extractInsertedRecords(data: unknown, depth = 0): AnyRow[] {
+  if (depth > 6) return [];
+  if (Array.isArray(data)) {
+    if (
+      data.length > 0 &&
+      data[0] &&
+      typeof data[0] === "object" &&
+      !Array.isArray(data[0])
+    ) {
+      return data as AnyRow[];
+    }
+    if (data.length > 0 && Array.isArray(data[0])) {
+      return extractInsertedRecords(data[0], depth + 1);
+    }
+    return data as AnyRow[];
+  }
+  if (typeof data === "string") {
+    const trimmed = data.trim();
+    if (!trimmed || (trimmed[0] !== "{" && trimmed[0] !== "[")) return [];
+    try {
+      return extractInsertedRecords(JSON.parse(trimmed), depth + 1);
+    } catch {
+      return [];
+    }
+  }
+  if (!data || typeof data !== "object") return [];
+  const obj = data as Record<string, unknown>;
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (
+      /inserted_?records/i.test(key) &&
+      Array.isArray(value) &&
+      value.length > 0
+    ) {
+      return value as AnyRow[];
+    }
+  }
+
+  if (Array.isArray(obj.resultList) && obj.resultList.length > 0) {
+    return obj.resultList as AnyRow[];
+  }
+  if (Array.isArray(obj.content) && obj.content.length > 0) {
+    return obj.content as AnyRow[];
+  }
+
+  if (Array.isArray(obj.result)) {
+    const result = obj.result as unknown[];
+    if (result.length > 0 && Array.isArray(result[0])) {
+      const nested = result[0] as AnyRow[];
+      if (nested.length > 0) return nested;
+    }
+    if (
+      result.length > 0 &&
+      result[0] &&
+      typeof result[0] === "object" &&
+      !Array.isArray(result[0])
+    ) {
+      return result as AnyRow[];
+    }
+  }
+
+  if (obj.data != null) {
+    const nested = extractInsertedRecords(obj.data, depth + 1);
+    if (nested.length > 0) return nested;
+  }
+
+  return [];
+}
+
 export type AffiliatedStudentImportMeta = {
   universityCode: string;
   collegeCode: string;
@@ -213,7 +287,8 @@ export type AffiliatedStudentImportMeta = {
 function normalizeUnivUploadTemplateResult(data: unknown): unknown[][] {
   if (Array.isArray(data)) return data as unknown[][];
   if (data && typeof data === "object") {
-    const result = (data as { result?: unknown }).result;
+    const obj = data as { result?: unknown; data?: { result?: unknown } };
+    const result = obj.result ?? obj.data?.result;
     if (Array.isArray(result)) return result as unknown[][];
   }
   return [];
@@ -628,6 +703,550 @@ export async function submitAffiliatedStudentUpload(
   return firstResultGroup(groups);
 }
 
+const SUBJECT_UPLOAD_PROC = "s_pop_univ_upload_std_subjects";
+
+/** Angular `studentSubjectTemplateUrl` / `in_flag=template`. */
+export async function getAffiliatedStudentSubjectsUploadTemplate(
+  params: AffiliatedUploadSummaryParams,
+): Promise<unknown[][]> {
+  const data = await getAllRecords<unknown>(SUBJECT_UPLOAD_PROC, {
+    in_flag: "template",
+    in_college_id: params.collegeId,
+    in_academic_year_id: params.academicYearId,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId,
+    in_course_year_id: params.courseYearId,
+    in_regulation_id: params.regulationId ?? 0,
+    in_univ_uploadfile_id: params.univUploadfileId ?? 0,
+    in_comments: params.comments ?? "",
+  });
+  return normalizeUnivUploadTemplateResult(data);
+}
+
+export type AffiliatedStudentSubjectsImportMeta = {
+  collegeId: number;
+  academicYearId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  regulationId: number;
+  fileDescription: string;
+  fileUploadedByEmpId: number;
+};
+
+/** Angular `studentSubjectsStagingUrl` — JSON `data` blob + Excel file. */
+export async function importAffiliatedStudentSubjectsFile(
+  file: File,
+  meta: AffiliatedStudentSubjectsImportMeta,
+): Promise<AnyRow[]> {
+  const payload = {
+    collegeId: meta.collegeId,
+    academicYearId: meta.academicYearId,
+    courseId: meta.courseId,
+    courseGroupId: meta.courseGroupId,
+    courseYearId: meta.courseYearId,
+    fileTypeCatDetId: UNIV_BULK_UPLOAD_TYPES.SUBJECT,
+    fileDescription: meta.fileDescription,
+    fileUploadedByEmpId: meta.fileUploadedByEmpId,
+    regulationId: meta.regulationId,
+  };
+  const formData = new FormData();
+  formData.append(
+    "data",
+    new Blob([JSON.stringify(payload)], { type: "application/json" }),
+  );
+  formData.append("file", file, file.name);
+  const data = await postAffiliatedMultipart<
+    { insertedRecords?: AnyRow[] } | AnyRow[]
+  >(STUDENT_API.STUDENT_SUBJECTS_STAGING, formData);
+  if (Array.isArray(data)) return data;
+  const inserted = (data as { insertedRecords?: AnyRow[] })?.insertedRecords;
+  return Array.isArray(inserted) ? inserted : [];
+}
+
+/** Angular `verifyStaging` on subject proc — `in_flag=verify`. */
+export async function verifyAffiliatedStudentSubjectsUpload(
+  params: AffiliatedUploadSummaryParams & { univUploadfileId: number },
+): Promise<AnyRow[]> {
+  const groups = await callUnivUploadStoredProc<AnyRow>(SUBJECT_UPLOAD_PROC, {
+    inFlag: "verify",
+    collegeId: params.collegeId,
+    academicYearId: params.academicYearId,
+    courseId: params.courseId,
+    courseGroupId: params.courseGroupId,
+    courseYearId: params.courseYearId,
+    regulationId: params.regulationId ?? 0,
+    univUploadfileId: params.univUploadfileId,
+    comments: params.comments ?? "",
+  });
+  return firstResultGroup(groups);
+}
+
+/** Angular `loadStaging` on subject proc — `in_flag=submit_univ`. */
+export async function submitAffiliatedStudentSubjectsUpload(
+  params: AffiliatedUploadSummaryParams & {
+    univUploadfileId: number;
+    comments: string;
+  },
+): Promise<AnyRow[]> {
+  const groups = await callUnivUploadStoredProc<AnyRow>(SUBJECT_UPLOAD_PROC, {
+    inFlag: "submit_univ",
+    collegeId: params.collegeId,
+    academicYearId: params.academicYearId,
+    courseId: params.courseId,
+    courseGroupId: params.courseGroupId,
+    courseYearId: params.courseYearId,
+    regulationId: params.regulationId ?? 0,
+    univUploadfileId: params.univUploadfileId,
+    comments: params.comments,
+  });
+  return firstResultGroup(groups);
+}
+
+const ATTENDANCE_UPLOAD_PROC = "s_pop_univ_upload_std_attendance";
+
+/** Angular `unvStudentAttendenceUploadUrl` / `in_flag=summary`. */
+export async function getAffiliatedAttendanceUploadSummary(
+  params: AffiliatedUploadSummaryParams & {
+    fromDate: string;
+    toDate: string;
+  },
+): Promise<AffiliatedSummaryRow[]> {
+  const groups = await callUnivUploadStoredProc<AffiliatedSummaryRow>(
+    ATTENDANCE_UPLOAD_PROC,
+    {
+      inFlag: "summary",
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      courseId: params.courseId,
+      courseGroupId: params.courseGroupId,
+      courseYearId: params.courseYearId,
+      regulationId: 0,
+      fromDate: params.fromDate,
+      toDate: params.toDate,
+    },
+  );
+  return firstResultGroup(groups);
+}
+
+/** Angular attendance upload `in_flag=template`. */
+export async function getAffiliatedStudentAttendanceUploadTemplate(
+  params: AffiliatedUploadSummaryParams & {
+    fromDate: string;
+    toDate: string;
+  },
+): Promise<unknown[][]> {
+  const data = await getAllRecords<unknown>(ATTENDANCE_UPLOAD_PROC, {
+    in_flag: "template",
+    in_college_id: params.collegeId,
+    in_academic_year_id: params.academicYearId,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId,
+    in_course_year_id: params.courseYearId,
+    in_regulation_id: 0,
+    in_univ_uploadfile_id: params.univUploadfileId ?? 0,
+    in_comments: params.comments ?? "",
+    in_from_date: params.fromDate,
+    in_to_date: params.toDate,
+  });
+  return normalizeUnivUploadTemplateResult(data);
+}
+
+export type AffiliatedStudentAttendanceImportMeta = {
+  collegeId: number;
+  academicYearId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  fileDescription: string;
+  fileUploadedByEmpId: number;
+  fromDate: string;
+  toDate: string;
+};
+
+/** Angular `studentAttendenceStageingUrl` — JSON `data` blob + Excel file. */
+export async function importAffiliatedStudentAttendanceFile(
+  file: File,
+  meta: AffiliatedStudentAttendanceImportMeta,
+): Promise<AnyRow[]> {
+  const payload = {
+    collegeId: meta.collegeId,
+    academicYearId: meta.academicYearId,
+    courseId: meta.courseId,
+    courseGroupId: meta.courseGroupId,
+    courseYearId: meta.courseYearId,
+    fileTypeCatDetId: UNIV_BULK_UPLOAD_TYPES.ATTENDANCE,
+    fileDescription: meta.fileDescription,
+    fileUploadedByEmpId: meta.fileUploadedByEmpId,
+    fromDate: meta.fromDate,
+    toDate: meta.toDate,
+  };
+  const formData = new FormData();
+  formData.append(
+    "data",
+    new Blob([JSON.stringify(payload)], { type: "application/json" }),
+  );
+  formData.append("file", file, file.name);
+  const data = await postAffiliatedMultipart<
+    { insertedRecords?: AnyRow[] } | AnyRow[]
+  >(AFFILIATED_COLLEGES_API.STUDENT_ATTENDENCE_STAGEING, formData);
+  if (Array.isArray(data)) return data;
+  const inserted = (data as { insertedRecords?: AnyRow[] })?.insertedRecords;
+  return Array.isArray(inserted) ? inserted : [];
+}
+
+/** Angular `verifyStaging` on attendance proc — `in_flag=verify`. */
+export async function verifyAffiliatedStudentAttendanceUpload(
+  params: AffiliatedUploadSummaryParams & {
+    univUploadfileId: number;
+    fromDate: string;
+    toDate: string;
+  },
+): Promise<AnyRow[]> {
+  const groups = await callUnivUploadStoredProc<AnyRow>(
+    ATTENDANCE_UPLOAD_PROC,
+    {
+      inFlag: "verify",
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      courseId: params.courseId,
+      courseGroupId: params.courseGroupId,
+      courseYearId: params.courseYearId,
+      regulationId: 0,
+      univUploadfileId: params.univUploadfileId,
+      comments: params.comments ?? "",
+      fromDate: params.fromDate,
+      toDate: params.toDate,
+    },
+  );
+  return firstResultGroup(groups);
+}
+
+/** Angular `loadStaging` on attendance proc — `in_flag=submit_univ`. */
+export async function submitAffiliatedStudentAttendanceUpload(
+  params: AffiliatedUploadSummaryParams & {
+    univUploadfileId: number;
+    comments: string;
+    fromDate: string;
+    toDate: string;
+  },
+): Promise<AnyRow[]> {
+  const groups = await callUnivUploadStoredProc<AnyRow>(
+    ATTENDANCE_UPLOAD_PROC,
+    {
+      inFlag: "submit_univ",
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      courseId: params.courseId,
+      courseGroupId: params.courseGroupId,
+      courseYearId: params.courseYearId,
+      regulationId: 0,
+      univUploadfileId: params.univUploadfileId,
+      comments: params.comments,
+      fromDate: params.fromDate,
+      toDate: params.toDate,
+    },
+  );
+  return firstResultGroup(groups);
+}
+
+const EXAM_REGISTRATION_UPLOAD_PROC = "s_pop_univ_upload_std_exam_registration";
+
+/** Angular `studentExamRegistrationUrl` / `in_flag=summary`. */
+export async function getAffiliatedExamRegistrationSummary(
+  params: AffiliatedUploadSummaryParams & { examId: number },
+): Promise<AffiliatedSummaryRow[]> {
+  const groups = await callUnivUploadStoredProc<AffiliatedSummaryRow>(
+    EXAM_REGISTRATION_UPLOAD_PROC,
+    {
+      inFlag: "summary",
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      courseId: params.courseId,
+      courseGroupId: params.courseGroupId,
+      courseYearId: params.courseYearId,
+      regulationId: params.regulationId ?? 0,
+      examId: params.examId,
+      studentId: 0,
+      univUploadfileId: params.univUploadfileId ?? 0,
+      comments: params.comments ?? "",
+    },
+  );
+  return firstResultGroup(groups);
+}
+
+/** Angular exam registration upload `in_flag=template`. */
+export async function getAffiliatedExamRegistrationUploadTemplate(
+  params: AffiliatedUploadSummaryParams & { examId: number },
+): Promise<unknown[][]> {
+  const data = await getAllRecords<unknown>(EXAM_REGISTRATION_UPLOAD_PROC, {
+    in_flag: "template",
+    in_college_id: params.collegeId,
+    in_academic_year_id: params.academicYearId,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId,
+    in_course_year_id: params.courseYearId,
+    in_regulation_id: params.regulationId ?? 0,
+    in_exam_id: params.examId,
+    in_student_id: 0,
+    in_univ_uploadfile_id: params.univUploadfileId ?? 0,
+    in_comments: params.comments ?? "",
+  });
+  return normalizeUnivUploadTemplateResult(data);
+}
+
+export type AffiliatedExamRegistrationImportMeta = {
+  collegeId: number;
+  academicYearId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  examId: number;
+  fileDescription: string;
+  fileUploadedByEmpId: number;
+};
+
+/** Angular `uploadUnivStgExamRegUrl` — JSON `data` blob + Excel file. */
+export async function importAffiliatedExamRegistrationFile(
+  file: File,
+  meta: AffiliatedExamRegistrationImportMeta,
+): Promise<AnyRow[]> {
+  const payload = {
+    collegeId: meta.collegeId,
+    academicYearId: meta.academicYearId,
+    courseId: meta.courseId,
+    courseGroupId: meta.courseGroupId,
+    courseYearId: meta.courseYearId,
+    examId: meta.examId,
+    fileTypeCatDetId: UNIV_BULK_UPLOAD_TYPES.EXAM_REGISTRATION,
+    fileDescription: meta.fileDescription,
+    fileUploadedByEmpId: meta.fileUploadedByEmpId,
+  };
+  const formData = new FormData();
+  formData.append(
+    "data",
+    new Blob([JSON.stringify(payload)], { type: "application/json" }),
+  );
+  formData.append("file", file, file.name);
+  const res = await fetch(
+    NEXT_API.PROXY(AFFILIATED_COLLEGES_API.UPLOAD_UNIV_STG_EXAM_REG),
+    { method: "POST", body: formData },
+  );
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => null);
+    throw parseApiError(res, errBody);
+  }
+  const body = (await res
+    .json()
+    .catch(() => null)) as ApiResponse<unknown> | null;
+  if (!body?.success) {
+    throw new AppError("API_ERROR", body?.message ?? "Upload failed");
+  }
+  // Angular: result.data.insertedRecords — also accept top-level / nested shapes
+  const rows = extractInsertedRecords(body);
+  if (rows.length > 0) return rows;
+  return extractInsertedRecords(body.data);
+}
+
+/** Angular `verifyStaging` on exam registration proc — `in_flag=verify`. */
+export async function verifyAffiliatedExamRegistrationUpload(
+  params: AffiliatedUploadSummaryParams & {
+    examId: number;
+    univUploadfileId: number;
+  },
+): Promise<AnyRow[]> {
+  const groups = await callUnivUploadStoredProc<AnyRow>(
+    EXAM_REGISTRATION_UPLOAD_PROC,
+    {
+      inFlag: "verify",
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      courseId: params.courseId,
+      courseGroupId: params.courseGroupId,
+      courseYearId: params.courseYearId,
+      regulationId: params.regulationId ?? 0,
+      examId: params.examId,
+      studentId: 0,
+      univUploadfileId: params.univUploadfileId,
+      comments: params.comments ?? "",
+    },
+  );
+  return firstResultGroup(groups);
+}
+
+/** Angular `loadStaging` on exam registration proc — `in_flag=submit_univ`. */
+export async function submitAffiliatedExamRegistrationUpload(
+  params: AffiliatedUploadSummaryParams & {
+    examId: number;
+    univUploadfileId: number;
+    comments: string;
+  },
+): Promise<AnyRow[]> {
+  const groups = await callUnivUploadStoredProc<AnyRow>(
+    EXAM_REGISTRATION_UPLOAD_PROC,
+    {
+      inFlag: "submit_univ",
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      courseId: params.courseId,
+      courseGroupId: params.courseGroupId,
+      courseYearId: params.courseYearId,
+      regulationId: params.regulationId ?? 0,
+      examId: params.examId,
+      studentId: 0,
+      univUploadfileId: params.univUploadfileId,
+      comments: params.comments,
+    },
+  );
+  return firstResultGroup(groups);
+}
+
+const EXAM_MARKS_UPLOAD_PROC = "s_pop_univ_upload_std_exam_marks";
+
+/** Angular `studentExamMarksTemplateUrl` / `in_flag=summary`. */
+export async function getAffiliatedExamMarksSummary(
+  params: AffiliatedUploadSummaryParams & { examId: number },
+): Promise<AffiliatedSummaryRow[]> {
+  const groups = await callUnivUploadStoredProc<AffiliatedSummaryRow>(
+    EXAM_MARKS_UPLOAD_PROC,
+    {
+      inFlag: "summary",
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      courseId: params.courseId,
+      courseGroupId: params.courseGroupId,
+      courseYearId: params.courseYearId,
+      regulationId: params.regulationId ?? 0,
+      examId: params.examId,
+      univUploadfileId: params.univUploadfileId ?? 0,
+      comments: params.comments ?? "",
+    },
+  );
+  return firstResultGroup(groups);
+}
+
+/** Angular exam marks upload `in_flag=template`. */
+export async function getAffiliatedExamMarksUploadTemplate(
+  params: AffiliatedUploadSummaryParams & { examId: number },
+): Promise<unknown[][]> {
+  const data = await getAllRecords<unknown>(EXAM_MARKS_UPLOAD_PROC, {
+    in_flag: "template",
+    in_exam_id: params.examId,
+    in_college_id: params.collegeId,
+    in_course_id: params.courseId,
+    in_academic_year_id: params.academicYearId,
+    in_course_group_id: params.courseGroupId,
+    in_course_year_id: params.courseYearId,
+    in_regulation_id: params.regulationId ?? 0,
+    in_univ_uploadfile_id: params.univUploadfileId ?? 0,
+    in_comments: params.comments ?? "",
+  });
+  return normalizeUnivUploadTemplateResult(data);
+}
+
+export type AffiliatedExamMarksImportMeta = {
+  collegeId: number;
+  academicYearId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  examId: number;
+  fileDescription: string;
+  fileUploadedByEmpId: number;
+};
+
+/** Angular `uploadStudentMarksUrl` — JSON `data` blob + Excel file. */
+export async function importAffiliatedExamMarksFile(
+  file: File,
+  meta: AffiliatedExamMarksImportMeta,
+): Promise<AnyRow[]> {
+  const payload = {
+    collegeId: meta.collegeId,
+    academicYearId: meta.academicYearId,
+    courseId: meta.courseId,
+    examId: meta.examId,
+    courseGroupId: meta.courseGroupId,
+    courseYearId: meta.courseYearId,
+    fileTypeCatDetId: UNIV_BULK_UPLOAD_TYPES.EXAM_MARKS,
+    fileDescription: meta.fileDescription,
+    fileUploadedByEmpId: meta.fileUploadedByEmpId,
+  };
+  const formData = new FormData();
+  formData.append(
+    "data",
+    new Blob([JSON.stringify(payload)], { type: "application/json" }),
+  );
+  formData.append("file", file, file.name);
+  const res = await fetch(
+    NEXT_API.PROXY(AFFILIATED_COLLEGES_API.UPLOAD_STUDENT_MARKS),
+    { method: "POST", body: formData },
+  );
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => null);
+    throw parseApiError(res, errBody);
+  }
+  const body = (await res
+    .json()
+    .catch(() => null)) as ApiResponse<unknown> | null;
+  if (!body?.success) {
+    throw new AppError("API_ERROR", body?.message ?? "Upload failed");
+  }
+  const rows = extractInsertedRecords(body);
+  if (rows.length > 0) return rows;
+  return extractInsertedRecords(body.data);
+}
+
+/** Angular `verifyStaging` on exam marks proc — `in_flag=verify`. */
+export async function verifyAffiliatedExamMarksUpload(
+  params: AffiliatedUploadSummaryParams & {
+    examId: number;
+    univUploadfileId: number;
+  },
+): Promise<AnyRow[]> {
+  const groups = await callUnivUploadStoredProc<AnyRow>(
+    EXAM_MARKS_UPLOAD_PROC,
+    {
+      inFlag: "verify",
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      courseId: params.courseId,
+      courseGroupId: params.courseGroupId,
+      courseYearId: params.courseYearId,
+      regulationId: params.regulationId ?? 0,
+      examId: params.examId,
+      univUploadfileId: params.univUploadfileId,
+      comments: params.comments ?? "",
+    },
+  );
+  return firstResultGroup(groups);
+}
+
+/** Angular `loadStaging` on exam marks proc — `in_flag=submit_univ`. */
+export async function submitAffiliatedExamMarksUpload(
+  params: AffiliatedUploadSummaryParams & {
+    examId: number;
+    univUploadfileId: number;
+    comments: string;
+  },
+): Promise<AnyRow[]> {
+  const groups = await callUnivUploadStoredProc<AnyRow>(
+    EXAM_MARKS_UPLOAD_PROC,
+    {
+      inFlag: "submit_univ",
+      collegeId: params.collegeId,
+      academicYearId: params.academicYearId,
+      courseId: params.courseId,
+      courseGroupId: params.courseGroupId,
+      courseYearId: params.courseYearId,
+      regulationId: params.regulationId ?? 0,
+      examId: params.examId,
+      univUploadfileId: params.univUploadfileId,
+      comments: params.comments,
+    },
+  );
+  return firstResultGroup(groups);
+}
+
 /** Angular college-uploads-approval `getDeatils` — `s_get_univ_uploads_approval` / `summary`. */
 export async function getCollegeUploadsApprovalSummary(params: {
   collegeId: number;
@@ -758,6 +1377,142 @@ export async function verifyAffiliatedDostUpload(params: {
     },
   );
   return firstResultGroup(groups);
+}
+
+/** Angular `getStdAdditionalDetailsSummaryUrl` — signature/photo summaries. */
+export type AffiliatedAdditionalDetailsFlag =
+  | "std_signature"
+  | "std_photo_path";
+
+export async function getAffiliatedStdAdditionalDetailsSummary(params: {
+  flag: AffiliatedAdditionalDetailsFlag;
+  collegeId: number;
+  academicYearId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+}): Promise<AffiliatedSummaryRow[]> {
+  // Angular surfaces `result.message` (e.g. "No Records(s) found.") as info toast
+  // when success:false — do not throw for empty-result responses.
+  const envelope = await getAllRecordsEnvelope<{
+    result?: AffiliatedSummaryRow[][];
+  }>("s_get_std_additional_details_summary", {
+    in_flag: params.flag,
+    in_college_id: params.collegeId,
+    in_academic_year_id: params.academicYearId,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId,
+    in_course_year_id: params.courseYearId,
+    in_exam_id: 0,
+  });
+
+  const rows = envelope.data?.result?.[0];
+  if (Array.isArray(rows) && rows.length > 0) return rows;
+
+  const msg = (envelope.message ?? "").trim();
+  if (!envelope.success || /no record/i.test(msg)) {
+    return [];
+  }
+  if (msg) {
+    throw new AppError("API_ERROR", msg, envelope);
+  }
+  return [];
+}
+
+/** Angular signature-bulk-upload — Organization list (`isActive=true`). */
+export async function listAffiliatedOrganizationsForUpload(): Promise<
+  { orgCode: string; orgName?: string; organizationId?: number }[]
+> {
+  const rows = await domainList<{
+    orgCode?: string;
+    orgName?: string;
+    organizationId?: number;
+  }>(ENTITIES.ORGANIZATION.name, buildQuery({ isActive: true }));
+  return (Array.isArray(rows) ? rows : []).filter(
+    (r) => r.orgCode != null && String(r.orgCode).trim() !== "",
+  ) as { orgCode: string; orgName?: string; organizationId?: number }[];
+}
+
+export type AffiliatedMediaVerifyRow = {
+  fileName: string;
+  status: string;
+  message: string;
+};
+
+export type AffiliatedMediaUploadRow = {
+  fileName: string;
+  status?: string;
+  message?: string;
+  studentSignaturePath?: string;
+};
+
+async function postAffiliatedMediaFormData<T>(
+  path: string,
+  formData: FormData,
+): Promise<{ message: string; data: T }> {
+  const res = await fetch(NEXT_API.PROXY(path), {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw parseApiError(res, body);
+  }
+  const body = (await res.json().catch(() => null)) as ApiResponse<T> | null;
+  if (!body) return { message: "Success", data: null as T };
+  if (!body.success) {
+    throw new AppError("API_ERROR", body.message ?? "Request failed", body);
+  }
+  return { message: body.message ?? "Success", data: body.data as T };
+}
+
+/** Angular `validateStudentSignatureUrl`. */
+export async function validateAffiliatedStudentSignatures(
+  formData: FormData,
+): Promise<AffiliatedMediaVerifyRow[]> {
+  const { data } = await postAffiliatedMediaFormData<
+    AffiliatedMediaVerifyRow[] | { result?: AffiliatedMediaVerifyRow[] }
+  >(STUDENT_API.VALIDATE_STUDENT_SIGNATURE, formData);
+  if (Array.isArray(data)) return data;
+  if (
+    data &&
+    typeof data === "object" &&
+    Array.isArray((data as { result?: unknown }).result)
+  ) {
+    return (data as { result: AffiliatedMediaVerifyRow[] }).result;
+  }
+  return [];
+}
+
+/** Angular `bulkUploadStudentSignaturesUrl` — returns `uploadedSuccess`. */
+export async function bulkUploadAffiliatedStudentSignatures(
+  formData: FormData,
+): Promise<{ message: string; files: AffiliatedMediaUploadRow[] }> {
+  const { message, data } = await postAffiliatedMediaFormData<
+    | AffiliatedMediaUploadRow[]
+    | {
+        uploadedSuccess?: AffiliatedMediaUploadRow[];
+        additionalDetails?: unknown;
+      }
+  >(STUDENT_API.BULK_UPLOAD_STUDENT_SIGNATURES, formData);
+  if (Array.isArray(data)) return { message, files: data };
+  const uploaded = (data as { uploadedSuccess?: AffiliatedMediaUploadRow[] })
+    ?.uploadedSuccess;
+  return { message, files: Array.isArray(uploaded) ? uploaded : [] };
+}
+
+/** Angular `uploadPhotosAndSignaturesUrl` — direct upload (no verify). */
+export async function uploadAffiliatedPhotosAndSignatures(
+  formData: FormData,
+): Promise<{ message: string; files: AffiliatedMediaUploadRow[] }> {
+  const { message, data } = await postAffiliatedMediaFormData<
+    | AffiliatedMediaUploadRow[]
+    | { uploadedSuccess?: AffiliatedMediaUploadRow[] }
+  >(STUDENT_API.UPLOAD_PHOTOS_AND_SIGNATURES, formData);
+  if (Array.isArray(data)) return { message, files: data };
+  const uploaded = (data as { uploadedSuccess?: AffiliatedMediaUploadRow[] })
+    ?.uploadedSuccess;
+  return { message, files: Array.isArray(uploaded) ? uploaded : [] };
 }
 
 export { UNIV_BULK_UPLOAD_TYPES };

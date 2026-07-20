@@ -1,16 +1,16 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Controller, useForm, type Resolver } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { format } from 'date-fns'
-import { ActiveStatusField } from '@/common/components/forms'
-import { FormModal } from '@/common/components/feedback'
-import { DatePicker } from '@/common/components/date-picker'
-import { Select, type SelectOption } from '@/common/components/select'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { format } from "date-fns";
+import { ActiveStatusField } from "@/common/components/forms";
+import { FormModal } from "@/common/components/feedback";
+import { DatePicker } from "@/common/components/date-picker";
+import { Select, type SelectOption } from "@/common/components/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   createDepartmentHead,
   listActiveCollegesForGeneralSettings,
@@ -20,71 +20,77 @@ import {
   listRoomsByRoomType,
   listCoursesByUniversity,
   searchEmployeesForHr,
-} from '@/services'
-import { toastError, toastSuccess } from '@/lib/toast'
+  updateDepartmentHead,
+} from "@/services";
+import { toastError, toastSuccess } from "@/lib/toast";
 
-const optionalId = z.preprocess(
-  (value) => {
-    if (value === '' || value === null || value === undefined) return undefined
-    const n = Number(value)
-    return Number.isNaN(n) ? undefined : n
-  },
-  z.number().optional(),
-)
+const optionalId = z.preprocess((value) => {
+  if (value === "" || value === null || value === undefined) return undefined;
+  const n = Number(value);
+  return Number.isNaN(n) ? undefined : n;
+}, z.number().optional());
 
 const schema = z.object({
-  collegeId: z.number().min(1, 'College is required'),
-  employeeId: z.number().min(1, 'Employee is required'),
-  departmentId: z.number().min(1, 'Department is required'),
+  collegeId: z.number().min(1, "College is required"),
+  employeeId: z.number().min(1, "Employee is required"),
+  departmentId: z.number().min(1, "Department is required"),
   courseId: optionalId,
   courseGroupId: optionalId,
   roomTypeId: optionalId,
   roomId: optionalId,
-  fromDate: z.date({ message: 'From date is required' }),
-  toDate: z.date({ message: 'To date is required' }),
+  fromDate: z.date({ message: "From date is required" }),
+  toDate: z.date({ message: "To date is required" }),
   comments: z.string().optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
-type DeptHeadRow = Record<string, unknown>
+type DeptHeadRow = Record<string, unknown>;
 
 function employeeLabel(row: Record<string, unknown>): string {
-  const name = String(row.firstName ?? row.employeeName ?? '')
-  const num = row.empNumber != null ? ` (${String(row.empNumber)})` : ''
-  return `${name}${num}`.trim() || String(row.employeeId ?? '')
+  const name = String(row.firstName ?? row.employeeName ?? "");
+  const num = row.empNumber != null ? ` (${String(row.empNumber)})` : "";
+  return `${name}${num}`.trim() || String(row.employeeId ?? "");
 }
 
 function orgIdFromStorage(): number {
-  if (typeof globalThis.window === 'undefined') return 0
-  return Number(globalThis.localStorage.getItem('organizationId') ?? 0)
+  if (typeof globalThis.window === "undefined") return 0;
+  return Number(globalThis.localStorage.getItem("organizationId") ?? 0);
 }
 
 interface DepartmentHeadsModalProps {
-  open: boolean
-  onClose: () => void
-  existingRows: DeptHeadRow[]
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  row: DeptHeadRow | null;
+  existingRows: DeptHeadRow[];
+  onSaved: () => void;
 }
 
 export function DepartmentHeadsModal({
   open,
   onClose,
+  row,
   existingRows,
   onSaved,
 }: Readonly<DepartmentHeadsModalProps>) {
-  const [colleges, setColleges] = useState<SelectOption[]>([])
-  const [courses, setCourses] = useState<SelectOption[]>([])
-  const [courseGroups, setCourseGroups] = useState<SelectOption[]>([])
-  const [departments, setDepartments] = useState<SelectOption[]>([])
-  const [roomTypes, setRoomTypes] = useState<SelectOption[]>([])
-  const [rooms, setRooms] = useState<SelectOption[]>([])
-  const [employeeOptions, setEmployeeOptions] = useState<SelectOption[]>([])
-  const [employeeRows, setEmployeeRows] = useState<Record<string, unknown>[]>([])
-  const [employeeSearchLoading, setEmployeeSearchLoading] = useState(false)
-  const [universityId, setUniversityId] = useState(0)
+  const editingId = row
+    ? Number(row.empDeptHeadId ?? row.emp_dept_head_id ?? 0)
+    : 0;
+  const isEditing = editingId > 0;
+  const [colleges, setColleges] = useState<SelectOption[]>([]);
+  const [courses, setCourses] = useState<SelectOption[]>([]);
+  const [courseGroups, setCourseGroups] = useState<SelectOption[]>([]);
+  const [departments, setDepartments] = useState<SelectOption[]>([]);
+  const [roomTypes, setRoomTypes] = useState<SelectOption[]>([]);
+  const [rooms, setRooms] = useState<SelectOption[]>([]);
+  const [employeeOptions, setEmployeeOptions] = useState<SelectOption[]>([]);
+  const [employeeRows, setEmployeeRows] = useState<Record<string, unknown>[]>(
+    [],
+  );
+  const [employeeSearchLoading, setEmployeeSearchLoading] = useState(false);
+  const [universityId, setUniversityId] = useState(0);
 
   const {
     control,
@@ -106,102 +112,154 @@ export function DepartmentHeadsModal({
       roomId: undefined,
       fromDate: new Date(),
       toDate: new Date(),
-      comments: '',
+      comments: "",
       isActive: true,
-      reason: 'active',
+      reason: "active",
     },
-  })
-
-  const collegeId = watch('collegeId')
-  const courseId = watch('courseId')
-  const roomTypeId = watch('roomTypeId')
-  const fromDate = watch('fromDate')
-  const isActive = watch('isActive')
+  });
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     void (async () => {
-      const orgId = orgIdFromStorage()
-      const all = await listActiveCollegesForGeneralSettings()
+      const orgId = orgIdFromStorage();
+      const all = await listActiveCollegesForGeneralSettings();
       const filtered = orgId
         ? all.filter((c) => Number(c.organizationId) === orgId)
-        : all
+        : all;
       setColleges(
         filtered.map((c) => ({
           value: String(c.collegeId),
           label: c.collegeCode ?? c.collegeName ?? String(c.collegeId),
         })),
-      )
-      const rt = await listActiveRoomTypes()
+      );
+      const rt = await listActiveRoomTypes();
       setRoomTypes(
         rt.map((r) => ({
           value: String(r.roomTypeId),
           label: r.roomType ?? String(r.roomTypeId),
         })),
-      )
-    })()
-    reset({
-      collegeId: undefined,
-      employeeId: undefined,
-      departmentId: undefined,
-      courseId: undefined,
-      courseGroupId: undefined,
-      roomTypeId: undefined,
-      roomId: undefined,
-      fromDate: new Date(),
-      toDate: new Date(),
-      comments: '',
-      isActive: true,
-      reason: 'active',
-    })
-    setCourses([])
-    setCourseGroups([])
-    setDepartments([])
-    setRooms([])
-    setEmployeeOptions([])
-    setEmployeeRows([])
-    setUniversityId(0)
-  }, [open, reset])
+      );
+    })();
+
+    if (isEditing && row) {
+      const editCollegeId = Number(row.collegeId ?? 0);
+      const editEmployeeId = Number(row.employeeId ?? 0);
+      const editFromDate = row.fromDate
+        ? new Date(String(row.fromDate))
+        : new Date();
+      const editToDate = row.toDate ? new Date(String(row.toDate)) : new Date();
+
+      reset({
+        collegeId: editCollegeId || undefined,
+        employeeId: editEmployeeId || undefined,
+        departmentId: row.departmentId ? Number(row.departmentId) : undefined,
+        courseId: row.courseId ? Number(row.courseId) : undefined,
+        courseGroupId: row.courseGroupId
+          ? Number(row.courseGroupId)
+          : undefined,
+        roomTypeId: row.roomTypeId ? Number(row.roomTypeId) : undefined,
+        roomId: row.roomId ? Number(row.roomId) : undefined,
+        fromDate: editFromDate,
+        toDate: editToDate,
+        comments: String(row.comments ?? ""),
+        isActive: row.isActive !== false,
+        reason: String(
+          row.reason ?? (row.isActive === false ? "inactive" : "active"),
+        ),
+      });
+
+      if (editEmployeeId) {
+        const empRow = {
+          employeeId: editEmployeeId,
+          employeeName: row.employeeName,
+          firstName: row.employeeName,
+          empNumber: row.empNumber,
+        };
+        setEmployeeRows([empRow]);
+        setEmployeeOptions([
+          {
+            value: String(editEmployeeId),
+            label: employeeLabel(empRow),
+          },
+        ]);
+      } else {
+        setEmployeeRows([]);
+        setEmployeeOptions([]);
+      }
+    } else {
+      reset({
+        collegeId: undefined,
+        employeeId: undefined,
+        departmentId: undefined,
+        courseId: undefined,
+        courseGroupId: undefined,
+        roomTypeId: undefined,
+        roomId: undefined,
+        fromDate: new Date(),
+        toDate: new Date(),
+        comments: "",
+        isActive: true,
+        reason: "active",
+      });
+      setEmployeeRows([]);
+      setEmployeeOptions([]);
+    }
+
+    if (!isEditing) {
+      setCourses([]);
+      setCourseGroups([]);
+      setDepartments([]);
+      setRooms([]);
+      setUniversityId(0);
+    }
+  }, [open, isEditing, row, reset]);
+
+  const formCollegeId = watch("collegeId");
+  const courseId = watch("courseId");
+  const roomTypeId = watch("roomTypeId");
+  const fromDate = watch("fromDate");
+  const isActive = watch("isActive");
 
   useEffect(() => {
-    if (!collegeId) return
-    const college = colleges.find((c) => c.value === String(collegeId))
+    if (!formCollegeId) return;
     void (async () => {
-      const allColleges = await listActiveCollegesForGeneralSettings()
-      const match = allColleges.find((c) => c.collegeId === collegeId)
-      const univId = Number(match?.universityId ?? 0)
-      setUniversityId(univId)
-      setValue('courseId', undefined)
-      setValue('courseGroupId', undefined)
-      setValue('departmentId', undefined as unknown as number)
-      setValue('employeeId', undefined as unknown as number)
-      setEmployeeOptions([])
-      setEmployeeRows([])
+      const allColleges = await listActiveCollegesForGeneralSettings();
+      const match = allColleges.find((c) => c.collegeId === formCollegeId);
+      const univId = Number(match?.universityId ?? 0);
+      setUniversityId(univId);
+      if (!isEditing) {
+        setValue("courseId", undefined);
+        setValue("courseGroupId", undefined);
+        setValue("departmentId", undefined as unknown as number);
+        setValue("employeeId", undefined as unknown as number);
+        setEmployeeOptions([]);
+        setEmployeeRows([]);
+      }
       if (univId) {
-        const courseList = await listCoursesByUniversity(univId)
+        const courseList = await listCoursesByUniversity(univId);
         setCourses(
           courseList.map((c) => ({
             value: String(c.courseId),
             label: String(c.courseCode ?? c.courseName ?? c.courseId),
           })),
-        )
+        );
       } else {
-        setCourses([])
+        setCourses([]);
       }
-      const deptList = await listDepartmentsByCollege(collegeId)
+      const deptList = await listDepartmentsByCollege(formCollegeId);
       setDepartments(
         deptList.map((d) => ({
           value: String(d.departmentId),
           label: d.deptCode ?? d.deptName ?? String(d.departmentId),
         })),
-      )
-    })()
-  }, [collegeId, colleges, setValue])
+      );
+    })();
+  }, [formCollegeId, isEditing, setValue]);
 
   useEffect(() => {
     if (!courseId) {
-      setCourseGroups([])
-      return
+      if (!isEditing) setCourseGroups([]);
+      return;
     }
     void listCourseGroupsByCourse(courseId).then((rows) => {
       setCourseGroups(
@@ -209,15 +267,17 @@ export function DepartmentHeadsModal({
           value: String(g.courseGroupId),
           label: String(g.groupCode ?? g.courseGroupId),
         })),
-      )
-    })
-  }, [courseId])
+      );
+    });
+  }, [courseId, isEditing]);
 
   useEffect(() => {
     if (!roomTypeId) {
-      setRooms([])
-      setValue('roomId', undefined)
-      return
+      if (!isEditing) {
+        setRooms([]);
+        setValue("roomId", undefined);
+      }
+      return;
     }
     void listRoomsByRoomType(roomTypeId).then((rows) => {
       setRooms(
@@ -225,62 +285,68 @@ export function DepartmentHeadsModal({
           value: String(r.roomId),
           label: String(r.roomName ?? r.roomId),
         })),
-      )
-    })
-  }, [roomTypeId, setValue])
+      );
+    });
+  }, [roomTypeId, isEditing, setValue]);
 
   useEffect(() => {
-    if (fromDate && watch('toDate') && fromDate > watch('toDate')) {
-      setValue('toDate', fromDate)
+    if (fromDate && watch("toDate") && fromDate > watch("toDate")) {
+      setValue("toDate", fromDate);
     }
-  }, [fromDate, setValue, watch])
+  }, [fromDate, setValue, watch]);
 
   const onEmployeeSearch = useCallback(async (term: string) => {
-    const q = term.trim()
+    const q = term.trim();
     if (q.length < 4) {
-      setEmployeeRows([])
-      setEmployeeOptions([])
-      return
+      setEmployeeRows([]);
+      setEmployeeOptions([]);
+      return;
     }
-    setEmployeeSearchLoading(true)
+    setEmployeeSearchLoading(true);
     try {
-      const list = await searchEmployeesForHr(q)
-      setEmployeeRows(list)
+      const list = await searchEmployeesForHr(q);
+      setEmployeeRows(list);
       setEmployeeOptions(
         list.map((e) => ({
           value: String(e.employeeId),
           label: employeeLabel(e),
         })),
-      )
+      );
     } catch (e) {
-      toastError(e, 'Employee search failed')
-      setEmployeeRows([])
-      setEmployeeOptions([])
+      toastError(e, "Employee search failed");
+      setEmployeeRows([]);
+      setEmployeeOptions([]);
     } finally {
-      setEmployeeSearchLoading(false)
+      setEmployeeSearchLoading(false);
     }
-  }, [])
+  }, []);
 
-  const employeeId = watch('employeeId')
+  const employeeId = watch("employeeId");
   const employeeSelectOptions = useMemo(() => {
-    if (!employeeId) return employeeOptions
-    const id = String(employeeId)
-    if (employeeOptions.some((o) => o.value === id)) return employeeOptions
-    const row = employeeRows.find((e) => String(e.employeeId) === id)
-    if (!row) return employeeOptions
-    return [{ value: id, label: employeeLabel(row) }, ...employeeOptions]
-  }, [employeeId, employeeOptions, employeeRows])
+    if (!employeeId) return employeeOptions;
+    const id = String(employeeId);
+    if (employeeOptions.some((o) => o.value === id)) return employeeOptions;
+    const row = employeeRows.find((e) => String(e.employeeId) === id);
+    if (!row) return employeeOptions;
+    return [{ value: id, label: employeeLabel(row) }, ...employeeOptions];
+  }, [employeeId, employeeOptions, employeeRows]);
 
   async function onSubmit(data: FormValues) {
-    const duplicate = existingRows.some(
-      (r) =>
-        Number(r.departmentId) === data.departmentId &&
-        r.isActive === true &&
-        data.isActive === true,
-    )
-    if (duplicate) {
-      toastError(new Error('Already allocated department head for this department.'))
-      return
+    // Angular behavior:
+    // - On ADD: block if any ACTIVE department head already exists for the department.
+    //   (It does not depend on the new record's isActive value.)
+    // - On EDIT: do NOT run this duplicate guard.
+    if (!isEditing) {
+      const duplicate = existingRows.some(
+        (r) =>
+          Number(r.departmentId) === data.departmentId && r.isActive === true,
+      );
+      if (duplicate) {
+        toastError(
+          new Error("Already allocated department head for department."),
+        );
+        return;
+      }
     }
 
     const payload: Record<string, unknown> = {
@@ -295,16 +361,36 @@ export function DepartmentHeadsModal({
       toDate: format(data.toDate, "yyyy-MM-dd'T'00:00:00"),
       comments: data.comments?.trim() || undefined,
       isActive: data.isActive,
-      reason: data.isActive ? 'active' : (data.reason?.trim() || 'inactive'),
-    }
+      reason: data.isActive ? "active" : data.reason?.trim() || "inactive",
+    };
 
     try {
-      await createDepartmentHead(payload)
-      toastSuccess('Department head created')
-      onSaved()
-      onClose()
+      if (isEditing && editingId) {
+        // Angular edit behavior: force collegeId + employeeId from the original row.
+        // Even though the React UI shows these fields, backend expects them to stay fixed.
+        if (row) {
+          payload.collegeId = Number(row.collegeId ?? payload.collegeId);
+          payload.employeeId = Number(row.employeeId ?? payload.employeeId);
+        }
+
+        await updateDepartmentHead(editingId, {
+          ...payload,
+          empDeptHeadId: editingId,
+        });
+        toastSuccess("Department head updated");
+      } else {
+        await createDepartmentHead(payload);
+        toastSuccess("Department head created");
+      }
+      onSaved();
+      onClose();
     } catch (err) {
-      toastError(err, 'Failed to create department head')
+      toastError(
+        err,
+        isEditing
+          ? "Failed to update department head"
+          : "Failed to create department head",
+      );
     }
   }
 
@@ -312,15 +398,15 @@ export function DepartmentHeadsModal({
     <FormModal
       open={open}
       onClose={onClose}
-      title="Add Department Head"
+      title={isEditing ? "Edit Department Head" : "Add Department Head"}
       titleClassName="text-[15px] font-semibold leading-none text-[#5da394]"
       showHeaderDivider
       size="xl"
       onSubmit={(e) => {
-        e.preventDefault()
+        e.preventDefault();
         void handleSubmit(onSubmit, () => {
-          toastError(new Error('Please fill in all required fields'))
-        })()
+          toastError(new Error("Please fill in all required fields"));
+        })();
       }}
       isSubmitting={isSubmitting}
       submitLabel="Save"
@@ -357,7 +443,7 @@ export function DepartmentHeadsModal({
                 searchable
                 onSearch={onEmployeeSearch}
                 isLoading={employeeSearchLoading}
-                disabled={!collegeId}
+                disabled={!formCollegeId}
                 error={errors.employeeId?.message}
               />
             )}
@@ -371,8 +457,8 @@ export function DepartmentHeadsModal({
               label="Course"
               value={field.value ? String(field.value) : null}
               onChange={(v) => {
-                field.onChange(v ? Number(v) : undefined)
-                setValue('courseGroupId', undefined)
+                field.onChange(v ? Number(v) : undefined);
+                setValue("courseGroupId", undefined);
               }}
               options={courses}
               placeholder="Select course"
@@ -410,7 +496,7 @@ export function DepartmentHeadsModal({
               options={departments}
               placeholder="Select department"
               searchable
-              disabled={!collegeId}
+              disabled={!formCollegeId}
               error={errors.departmentId?.message}
             />
           )}
@@ -423,14 +509,14 @@ export function DepartmentHeadsModal({
               label="Room Type"
               value={field.value ? String(field.value) : null}
               onChange={(v) => {
-                field.onChange(v ? Number(v) : undefined)
-                setValue('roomId', undefined)
+                field.onChange(v ? Number(v) : undefined);
+                setValue("roomId", undefined);
               }}
               options={roomTypes}
               placeholder="Select room type"
               searchable
               clearable
-              disabled={!collegeId}
+              disabled={!formCollegeId}
             />
           )}
         />
@@ -479,7 +565,7 @@ export function DepartmentHeadsModal({
         />
         <div className="space-y-1 sm:col-span-3">
           <Label className="text-[12px]">Comments</Label>
-          <Input className="h-9 text-[12px]" {...register('comments')} />
+          <Input className="h-9 text-[12px]" {...register("comments")} />
         </div>
         <div className="sm:col-span-3">
           <Controller
@@ -488,9 +574,9 @@ export function DepartmentHeadsModal({
             render={({ field }) => (
               <ActiveStatusField
                 isActive={field.value}
-                reason={watch('reason') ?? ''}
+                reason={watch("reason") ?? ""}
                 onActiveChange={field.onChange}
-                onReasonChange={(v) => setValue('reason', String(v))}
+                onReasonChange={(v) => setValue("reason", String(v))}
                 reasonError={!isActive ? errors.reason?.message : undefined}
               />
             )}
@@ -498,5 +584,5 @@ export function DepartmentHeadsModal({
         </div>
       </div>
     </FormModal>
-  )
+  );
 }

@@ -1,5 +1,5 @@
-import { EVENTS_API } from '@/config/constants/api'
-import { ENTITIES } from '@/config/constants/entities'
+import { EVENTS_API } from "@/config/constants/api";
+import { ENTITIES } from "@/config/constants/entities";
 import {
   buildQuery,
   domainCreate,
@@ -8,55 +8,133 @@ import {
   domainUpdate,
   fetchDetails,
   postDetails,
-} from './crud'
-import { listAcademicYearsForCollege } from './timetable-management'
+  uploadFile,
+} from "./crud";
+import { listAcademicYearsForCollege } from "./timetable-management";
 import type {
   CollegeEventRow,
+  DepartmentEventAudienceRow,
+  DepartmentEventPhotoRow,
+  DepartmentEventResourceRow,
   DepartmentEventRow,
   EventTypeRow,
-} from '@/types/events'
+} from "@/types/events";
 
-export type { CollegeEventRow, DepartmentEventRow, EventTypeRow }
+export type {
+  CollegeEventRow,
+  DepartmentEventAudienceRow,
+  DepartmentEventPhotoRow,
+  DepartmentEventResourceRow,
+  DepartmentEventRow,
+  EventTypeRow,
+};
 
 function asRows<T>(data: unknown): T[] {
-  if (Array.isArray(data)) return data as T[]
-  if (data && typeof data === 'object' && 'resultList' in data) {
-    const list = (data as { resultList?: unknown }).resultList
-    if (Array.isArray(list)) return list as T[]
+  if (Array.isArray(data)) return data as T[];
+  if (data && typeof data === "object" && "resultList" in data) {
+    const list = (data as { resultList?: unknown }).resultList;
+    if (Array.isArray(list)) return list as T[];
   }
-  return []
+  return [];
 }
 
 /** Angular `d/M/yyyy` style date param for college calendar APIs. */
 export function formatEventCalendarDate(d: Date): string {
-  const day = d.getDate()
-  const month = d.getMonth() + 1
-  const year = d.getFullYear()
-  const monthStr = month < 10 ? `0${month}` : String(month)
-  const yearStr = year < 10 ? `0${year}` : String(year)
-  return `${day}/${monthStr}/${yearStr}`
+  const day = d.getDate();
+  const month = d.getMonth() + 1;
+  const year = d.getFullYear();
+  const monthStr = month < 10 ? `0${month}` : String(month);
+  const yearStr = year < 10 ? `0${year}` : String(year);
+  return `${day}/${monthStr}/${yearStr}`;
+}
+
+function pickEventTypeCollegeId(
+  row: Partial<EventTypeRow> & Record<string, unknown>,
+): number {
+  const nested = (row.college ?? row.College) as
+    | { collegeId?: number }
+    | undefined;
+  const n = Number(row.collegeId ?? nested?.collegeId ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Flatten nested College FK fields Spring returns on list payloads. */
+function normalizeEventTypeRow(row: EventTypeRow): EventTypeRow {
+  const r = row as EventTypeRow & Record<string, unknown>;
+  const nested = (r.college ?? r.College) as
+    | { collegeId?: number; collegeCode?: string; collegeName?: string }
+    | undefined;
+  const collegeId = pickEventTypeCollegeId(r);
+  return {
+    ...row,
+    collegeId: collegeId || row.collegeId,
+    collegeCode: row.collegeCode ?? nested?.collegeCode ?? nested?.collegeName,
+  };
+}
+
+/** Angular EventType create/update body — PK + flat + nested College. */
+function buildEventTypePayload(
+  data: Partial<EventTypeRow>,
+  eventTypeId?: number,
+): Record<string, unknown> {
+  const collegeId = pickEventTypeCollegeId(
+    data as Partial<EventTypeRow> & Record<string, unknown>,
+  );
+  const isActive = data.isActive !== false;
+  const payload: Record<string, unknown> = {
+    collegeId,
+    college: { collegeId },
+    eventTypeName: String(data.eventTypeName ?? "").trim(),
+    isActive,
+    reason: isActive
+      ? "active"
+      : typeof data.reason === "string" && data.reason.trim()
+        ? data.reason.trim()
+        : "inactive",
+  };
+  if (eventTypeId != null) {
+    payload.eventTypeId = eventTypeId;
+  }
+  return payload;
 }
 
 export async function listEventTypes(): Promise<EventTypeRow[]> {
-  return domainList<EventTypeRow>(ENTITIES.EVENT_TYPE.name, buildQuery({}))
-}
-
-export async function listEventTypesByCollege(collegeId: number): Promise<EventTypeRow[]> {
-  return domainList<EventTypeRow>(
+  const rows = await domainList<EventTypeRow>(
     ENTITIES.EVENT_TYPE.name,
-    buildQuery({ 'College.collegeId': collegeId, isActive: true }),
-  )
+    buildQuery({}),
+  );
+  return rows.map(normalizeEventTypeRow);
 }
 
-export async function createEventType(data: EventTypeRow): Promise<EventTypeRow> {
-  return domainCreate<EventTypeRow>(ENTITIES.EVENT_TYPE.name, data)
+export async function listEventTypesByCollege(
+  collegeId: number,
+): Promise<EventTypeRow[]> {
+  const rows = await domainList<EventTypeRow>(
+    ENTITIES.EVENT_TYPE.name,
+    buildQuery({ "College.collegeId": collegeId, isActive: true }),
+  );
+  return rows.map(normalizeEventTypeRow);
+}
+
+export async function createEventType(
+  data: EventTypeRow,
+): Promise<EventTypeRow> {
+  return domainCreate<EventTypeRow>(
+    ENTITIES.EVENT_TYPE.name,
+    buildEventTypePayload(data),
+  );
 }
 
 export async function updateEventType(
   eventTypeId: number,
   data: Partial<EventTypeRow>,
 ): Promise<EventTypeRow> {
-  return domainUpdate<EventTypeRow>(ENTITIES.EVENT_TYPE.name, ENTITIES.EVENT_TYPE.pk, eventTypeId, data)
+  return domainUpdate<EventTypeRow>(
+    ENTITIES.EVENT_TYPE.name,
+    ENTITIES.EVENT_TYPE.pk,
+    eventTypeId,
+    buildEventTypePayload(data, eventTypeId),
+  );
 }
 
 export function eventTypeDuplicate(
@@ -65,13 +143,15 @@ export function eventTypeDuplicate(
   name: string,
   excludeId?: number,
 ): boolean {
-  const key = name.trim().toLowerCase()
+  const key = name.trim().toLowerCase();
   return rows.some(
     (r) =>
       Number(r.collegeId) === collegeId &&
-      String(r.eventTypeName ?? '').trim().toLowerCase() === key &&
+      String(r.eventTypeName ?? "")
+        .trim()
+        .toLowerCase() === key &&
       Number(r.eventTypeId) !== excludeId,
-  )
+  );
 }
 
 /** All events for college + academic year — `domain/list/Event`. */
@@ -82,27 +162,27 @@ export async function listEventsByCollegeAndYear(
   return domainList<CollegeEventRow>(
     ENTITIES.EVENT.name,
     buildQuery({
-      'College.collegeId': collegeId,
-      'AcademicYear.academicYearId': academicYearId,
+      "College.collegeId": collegeId,
+      "AcademicYear.academicYearId": academicYearId,
       isActive: true,
     }),
-  )
+  );
 }
 
 /** Month/day events — `collegecalendar` five-param (Angular add-event). */
 export async function listCollegeCalendarMonthEvents(params: {
-  collegeId: number
-  academicYearId: number
-  date: Date
+  collegeId: number;
+  academicYearId: number;
+  date: Date;
 }): Promise<CollegeEventRow[]> {
   const data = await fetchDetails<unknown>(EVENTS_API.COLLEGE_CALENDAR, {
     collegeId: params.collegeId,
     academicYearId: params.academicYearId,
-    eventsFor: 'month',
+    eventsFor: "month",
     date: formatEventCalendarDate(params.date),
-    isActive: 'true',
-  })
-  return asRows<CollegeEventRow>(data)
+    isActive: "true",
+  });
+  return asRows<CollegeEventRow>(data);
 }
 
 /** School calendar / holidays list — `collegecalendar` with isHoliday. */
@@ -113,69 +193,85 @@ export async function listSchoolCalendarEvents(
   const data = await fetchDetails<unknown>(EVENTS_API.COLLEGE_CALENDAR, {
     collegeId,
     academicYearId,
-    isHoliday: 'true',
-  })
-  return asRows<CollegeEventRow>(data)
+    isHoliday: "true",
+  });
+  return asRows<CollegeEventRow>(data);
 }
 
 /** Staff audience events — `eventsByAudience` seven-param. */
 export async function listStaffAudienceEvents(params: {
-  collegeId: number
-  academicYearId: number
-  departmentId: number
-  audienceTypeId: number
-  date: Date
+  collegeId: number;
+  academicYearId: number;
+  departmentId: number;
+  audienceTypeId: number;
+  date: Date;
 }): Promise<CollegeEventRow[]> {
   const data = await fetchDetails<unknown>(EVENTS_API.EVENTS_BY_AUDIENCE, {
-    eventsFor: 'E',
+    eventsFor: "E",
     collegeId: params.collegeId,
     deptId: params.departmentId,
     eventAudienceId: params.audienceTypeId,
     date: formatEventCalendarDate(params.date),
     academicYearId: params.academicYearId,
-    status: 'true',
-  })
-  return asRows<CollegeEventRow>(data)
+    status: "true",
+  });
+  return asRows<CollegeEventRow>(data);
 }
 
 /** Student audience events — `eventsByAudience` for student section. */
 export async function listStudentAudienceEvents(params: {
-  collegeId: number
-  academicYearId: number
-  groupSectionId: number
-  audienceTypeId: number
-  date: Date
+  collegeId: number;
+  academicYearId: number;
+  groupSectionId: number;
+  audienceTypeId: number;
+  date: Date;
 }): Promise<CollegeEventRow[]> {
   const data = await fetchDetails<unknown>(EVENTS_API.EVENTS_BY_AUDIENCE, {
-    eventsFor: 'S',
+    eventsFor: "S",
     collegeId: params.collegeId,
     academicYearId: params.academicYearId,
     sectionId: params.groupSectionId,
     eventAudienceId: params.audienceTypeId,
     date: formatEventCalendarDate(params.date),
-    status: 'true',
-  })
-  return asRows<CollegeEventRow>(data)
+    status: "true",
+  });
+  return asRows<CollegeEventRow>(data);
 }
 
-export async function saveCollegeEvents(rows: CollegeEventRow[]): Promise<void> {
-  await postDetails(EVENTS_API.EVENTS, rows)
+export async function saveCollegeEvents(
+  rows: CollegeEventRow[],
+): Promise<void> {
+  await postDetails(EVENTS_API.EVENTS, rows);
 }
 
 export async function deleteCollegeEvent(eventId: number): Promise<void> {
-  await domainSoftDelete(ENTITIES.EVENT.name, ENTITIES.EVENT.pk, eventId)
+  await domainSoftDelete(ENTITIES.EVENT.name, ENTITIES.EVENT.pk, eventId);
 }
 
 export async function listDepartmentEvents(): Promise<DepartmentEventRow[]> {
-  return domainList<DepartmentEventRow>(ENTITIES.DEPARTMENT_EVENT.name, buildQuery({}))
+  return domainList<DepartmentEventRow>(
+    ENTITIES.DEPARTMENT_EVENT.name,
+    buildQuery({}),
+  );
 }
 
-export async function createDepartmentEvent(data: DepartmentEventRow): Promise<DepartmentEventRow> {
-  return postDetails<DepartmentEventRow>(EVENTS_API.DEPARTMENT_EVENT, data)
+export async function createDepartmentEvent(
+  data: DepartmentEventRow,
+): Promise<DepartmentEventRow> {
+  return postDetails<DepartmentEventRow>(EVENTS_API.DEPARTMENT_EVENT, data);
 }
 
-export async function updateDepartmentEvent(data: DepartmentEventRow): Promise<DepartmentEventRow> {
-  return postDetails<DepartmentEventRow>(EVENTS_API.DEPARTMENT_EVENT, data)
+export async function updateDepartmentEvent(
+  data: DepartmentEventRow,
+): Promise<DepartmentEventRow> {
+  return postDetails<DepartmentEventRow>(EVENTS_API.DEPARTMENT_EVENT, data);
 }
 
-export { listAcademicYearsForCollege }
+/** Angular `departmentEvent/uploadFiles` multipart after save. */
+export async function uploadDepartmentEventFiles(
+  formData: FormData,
+): Promise<unknown> {
+  return uploadFile(EVENTS_API.DEPARTMENT_EVENT_UPLOAD, formData);
+}
+
+export { listAcademicYearsForCollege };

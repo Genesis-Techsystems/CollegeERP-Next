@@ -1,5 +1,7 @@
-﻿import { AffiliatedRoutePage } from '../_components/AffiliatedRoutePage'
+﻿"use client";
+
+import { CollegeStudentExamFeeRegistrationPage } from "../_components/CollegeStudentExamFeeRegistrationPage";
 
 export default function Page() {
-  return <AffiliatedRoutePage slug="college-student-exam-fee-registration" />
+  return <CollegeStudentExamFeeRegistrationPage />;
 }

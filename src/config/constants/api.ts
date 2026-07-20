@@ -1455,6 +1455,8 @@ export const AFFILIATED_COLLEGES_API = {
   UNIV_UPLOADS_APPROVAL: "getAllRecords/s_get_univ_uploads_approval",
   /** Angular `studentAttendenceStageingUrl` */
   STUDENT_ATTENDENCE_STAGEING: "api/tables/uploadStudentAttendance",
+  /** Angular `uploadUnivStgExamRegUrl` */
+  UPLOAD_UNIV_STG_EXAM_REG: "api/tables/uploadUnivStgExamReg",
   /** Angular `uploadStudentMarksUrl` */
   UPLOAD_STUDENT_MARKS: "api/tables/uploadStudentMarks",
   /** Angular `getStudentAttendanceUrl` */
