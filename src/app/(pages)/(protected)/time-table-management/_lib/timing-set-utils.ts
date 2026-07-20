@@ -81,3 +81,104 @@ export function buildClassWeekdaysPayload(
       classTimings: activeSlots,
     }))
 }
+
+/**
+ * Angular `timing-slots.component.ts` `addSlot()` — builds POST `addTimingSet` body.
+ * Mirrors weekdy / classWeekdays assignment before `crudService.add(addTimingSetUrl, timingSlots)`.
+ */
+export function buildAddTimingSetPayload(
+  form: {
+    timingsetName: string
+    collegeId: number
+    academicYearId: number
+    isActive?: boolean
+    reason?: string | null
+  },
+  weekdays: WeekdayDraft[],
+  slots: TimingSlotDraft[],
+): Record<string, unknown> {
+  const collegeId = form.collegeId
+  const classTimings = slots
+    .filter((s) => s.name.trim())
+    .map((s, idx) => ({
+      ...(s.classTimingsId ? { classTimingsId: s.classTimingsId } : {}),
+      name: s.name.trim(),
+      startTime: s.startTime,
+      endTime: s.endTime,
+      isBreak: s.isBreak,
+      sortOrder: s.sortOrder || idx + 1,
+      isActive: s.isActive !== false,
+      collegeId,
+    }))
+
+  const classWeekdays: Record<string, unknown>[] = []
+  for (const wd of weekdays) {
+    if (wd.classWeekdayId) {
+      if (!wd.checked) {
+        classWeekdays.push({
+          weekdayId: wd.weekdayId,
+          name: wd.name,
+          weekdayName: wd.name,
+          classWeekdayId: wd.classWeekdayId,
+          collegeId: wd.collegeId ?? collegeId,
+          isActive: false,
+          classTimings,
+        })
+      } else {
+        classWeekdays.push({
+          weekdayId: wd.weekdayId,
+          name: wd.name,
+          weekdayName: wd.name,
+          classWeekdayId: wd.classWeekdayId,
+          collegeId: wd.collegeId ?? collegeId,
+          isActive: wd.isActive ?? true,
+          classTimings,
+        })
+      }
+    } else if (wd.checked) {
+      classWeekdays.push({
+        weekdayId: wd.weekdayId,
+        name: wd.name,
+        weekdayName: wd.name,
+        isActive: true,
+        collegeId,
+        classTimings,
+      })
+    }
+  }
+
+  for (const cw of classWeekdays) {
+    if (!Array.isArray(cw.classTimings) || (cw.classTimings as unknown[]).length === 0) {
+      cw.classTimings = classTimings
+    }
+  }
+
+  return {
+    isActive: form.isActive ?? true,
+    collegeId: form.collegeId,
+    academicYearId: form.academicYearId,
+    timingsetName: form.timingsetName.trim(),
+    reason: form.reason ?? null,
+    classWeekdays,
+  }
+}
+
+/**
+ * Angular `updateTimingSet()` — PUT full `timingSlots` from GET timingsets/{id}
+ * with form fields merged on top.
+ */
+export function buildUpdateTimingSetPayload(
+  timingSlots: Record<string, unknown>,
+  form: {
+    timingsetName: string
+    collegeId: number
+    academicYearId: number
+  },
+): Record<string, unknown> {
+  return {
+    ...timingSlots,
+    timingsetName: form.timingsetName.trim(),
+    collegeId: form.collegeId,
+    academicYearId: form.academicYearId,
+  }
+}

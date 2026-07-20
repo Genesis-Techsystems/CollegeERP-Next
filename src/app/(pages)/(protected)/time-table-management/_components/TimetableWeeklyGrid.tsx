@@ -22,12 +22,14 @@ type TimetableWeeklyGridProps = {
   /** Screen uses 140px/hour; print layout uses 90px/hour (Angular parity). */
   variant?: 'screen' | 'print'
   className?: string
+  onTimingClick?: (timing: TimetableDayTiming, weekday: TimetableDayColumn) => void
 }
 
 export function TimetableWeeklyGrid({
   timetable,
   variant = 'screen',
   className = '',
+  onTimingClick,
 }: TimetableWeeklyGridProps) {
   const weekdays = timetable.weekdays ?? []
   if (weekdays.length === 0) return null
@@ -36,7 +38,12 @@ export function TimetableWeeklyGrid({
     <div className={`overflow-x-auto ${className}`}>
       <div className="mar flex min-w-[920px] justify-center gap-0 print:min-w-0">
         {weekdays.map((weekday) => (
-          <DayColumn key={weekday.weekdayId || weekday.weekdayName} weekday={weekday} variant={variant} />
+          <DayColumn
+            key={weekday.weekdayId || weekday.weekdayName}
+            weekday={weekday}
+            variant={variant}
+            onTimingClick={onTimingClick}
+          />
         ))}
       </div>
     </div>
@@ -46,9 +53,11 @@ export function TimetableWeeklyGrid({
 function DayColumn({
   weekday,
   variant,
+  onTimingClick,
 }: {
   weekday: TimetableDayColumn
   variant: 'screen' | 'print'
+  onTimingClick?: (timing: TimetableDayTiming, weekday: TimetableDayColumn) => void
 }) {
   const headerName = weekday.timings[0]?.weekdayName || weekday.weekdayName
   return (
@@ -64,6 +73,8 @@ function DayColumn({
           key={`${timing.weekdayId}-${timing.startTime}-${index}`}
           timing={timing}
           variant={variant}
+          weekday={weekday}
+          onTimingClick={onTimingClick}
         />
       ))}
     </div>
@@ -73,9 +84,13 @@ function DayColumn({
 function TimingCell({
   timing,
   variant,
+  weekday,
+  onTimingClick,
 }: {
   timing: TimetableDayTiming
   variant: 'screen' | 'print'
+  weekday: TimetableDayColumn
+  onTimingClick?: (timing: TimetableDayTiming, weekday: TimetableDayColumn) => void
 }) {
   const heightPx =
     variant === 'print'
@@ -92,11 +107,22 @@ function TimingCell({
 
   return (
     <div
-      className={`table-td border-b border-slate-200/90 px-2 py-2 text-center ${isBreak ? 'timetable-break-cell' : ''}`}
+      role={!isBreak && onTimingClick ? 'button' : undefined}
+      tabIndex={!isBreak && onTimingClick ? 0 : undefined}
+      className={`table-td border-b border-slate-200/90 px-2 py-2 text-center ${isBreak ? 'timetable-break-cell' : ''} ${!isBreak && onTimingClick ? 'cursor-pointer hover:brightness-95' : ''}`}
       style={{
         backgroundColor: cellBg,
         minHeight: heightPx,
         gridColumn: timing.colspan > 1 ? `span ${timing.colspan}` : undefined,
+      }}
+      onClick={() => {
+        if (!isBreak) onTimingClick?.(timing, weekday)
+      }}
+      onKeyDown={(e) => {
+        if (!isBreak && onTimingClick && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onTimingClick(timing, weekday)
+        }
       }}
     >
       <div className="flex h-full flex-col justify-between" style={{ minHeight: heightPx }}>

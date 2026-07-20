@@ -1154,12 +1154,17 @@ export type TimetableDayTiming = {
   colorCode: string
   cellGroupId: string
   subBatches: TimetableSubBatch[]
+  /** Raw schedule id — used by assign-resource dialog (Angular parity). */
+  timetableScheduleId?: number
+  subjectResource?: AnyRow[]
 }
 
 export type TimetableDayColumn = {
   weekdayId: number
   weekdayName: string
   timings: TimetableDayTiming[]
+  /** Non-merged period rows for the weekday (assign-resource periods picker). */
+  classTimings?: AnyRow[]
 }
 
 export type AngularStudentTimetable = {
@@ -1251,6 +1256,8 @@ function mapScheduleTiming(timing: AnyRow, subBatches: TimetableSubBatch[]): Tim
       : dayColorFromWeekdayName(weekdayName),
     cellGroupId,
     subBatches,
+    timetableScheduleId: num(timing, ['timetableScheduleId', 'timetable_schedule_id']),
+    subjectResource: resources,
   }
 }
 
@@ -1306,6 +1313,7 @@ export function buildAngularStudentTimetable(
         weekdayId: weekday.weekdayId,
         weekdayName: timings[0].weekdayName || weekday.weekdayName,
         timings,
+        classTimings: weekday.classTimings,
       })
     }
   }

@@ -1,4 +1,4 @@
-import { TIMETABLE_MGMT_API } from '@/config/constants/api'
+import { EMPLOYEE_API, SUBJECT_API, TIMETABLE_MGMT_API } from '@/config/constants/api'
 import {
   buildQuery,
   domainCreate,
@@ -8,9 +8,12 @@ import {
   fetchDetailsById,
   getAllRecords,
   postDetails,
+  postDetailsEnvelope,
   putDetails,
+  putDetailsEnvelope,
 } from './crud'
 import { listActiveCollegesForGeneralSettings } from './admin/college'
+import { listStaffSubjectRows } from './admin/staff-subject-mapping'
 import { listAcademicYearsByUniversity } from './pre-examination'
 import {
   buildAngularStudentTimetable,
@@ -70,11 +73,53 @@ export type TimetableFormPayload = {
   collegeId: number
   academicYearId: number
   timetableName: string
-  startDate: string
-  endDate: string
+  startDate: string | Date
+  endDate: string | Date
   isActive: boolean
   reason?: string
   timetableId?: number
+  /** When editing — preserve API ISO timestamps if calendar date unchanged (Angular round-trip). */
+  originalStartDate?: string
+  originalEndDate?: string
+}
+
+/** Angular manage-timetable: `new Date(details.startDate + 'UTC')`. */
+function angularDateConvert(value: Date | string): string {
+  const converted = new Date(String(value) + 'UTC')
+  if (!Number.isNaN(converted.getTime())) {
+    return converted.toISOString()
+  }
+  return new Date(value).toISOString()
+}
+
+function sameCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate()
+  )
+}
+
+/**
+ * Angular edit keeps existing API timestamps (e.g. startDate `…T05:30:00.000Z`)
+ * when the user does not change the calendar date; new/changed dates use `+ 'UTC'`.
+ */
+function resolveTimetableDate(
+  picked: string | Date,
+  original?: string,
+): string {
+  const pickedDate = picked instanceof Date ? picked : new Date(String(picked))
+  if (original) {
+    const origDate = new Date(original)
+    if (
+      !Number.isNaN(pickedDate.getTime())
+      && !Number.isNaN(origDate.getTime())
+      && sameCalendarDay(pickedDate, origDate)
+    ) {
+      return origDate.toISOString()
+    }
+  }
+  return angularDateConvert(pickedDate)
 }
 
 /** Angular `addDetails` / `updateDetails` on Timetable. */
@@ -83,12 +128,14 @@ export async function saveTimetable(payload: TimetableFormPayload): Promise<unkn
     collegeId: payload.collegeId,
     academicYearId: payload.academicYearId,
     timetableName: payload.timetableName.trim(),
-    startDate: payload.startDate,
-    endDate: payload.endDate,
+    startDate: resolveTimetableDate(payload.startDate, payload.originalStartDate),
+    endDate: resolveTimetableDate(payload.endDate, payload.originalEndDate),
     isActive: payload.isActive,
     reason: payload.isActive ? 'active' : (payload.reason ?? ''),
   }
   if (payload.timetableId) {
+    // Angular updateDetails sends timetableId in the PUT body as well as query
+    body.timetableId = payload.timetableId
     return domainUpdate(
       TIMETABLE_MGMT_API.TIMETABLE_ENTITY,
       'timetableId',
@@ -158,21 +205,15 @@ export async function listMasterWeekdays(): Promise<AnyRow[]> {
   )
 }
 
-export type TimingSetSavePayload = {
-  timingsetName: string
-  collegeId: number
-  academicYearId: number
-  isActive?: boolean
-  timingsetId?: number
-  classWeekdays: Record<string, unknown>[]
-}
+/** Angular POST `addTimingSet` / PUT `updateTimingsets` body — full timingSlots object. */
+export type TimingSetSavePayload = Record<string, unknown>
 
 /** Angular `add(addTimingSetUrl, timingSlots)`. */
 export async function addTimingSet(payload: TimingSetSavePayload): Promise<unknown> {
   return postDetails(TIMETABLE_MGMT_API.ADD_TIMING_SET, payload)
 }
 
-/** Angular `update(updateTimingsetsUrl, timingSlots)`. */
+/** Angular `update(updateTimingsetsUrl, timingSlots)` — full GET object + form fields. */
 export async function updateTimingSet(payload: TimingSetSavePayload): Promise<unknown> {
   return putDetails(TIMETABLE_MGMT_API.UPDATE_TIMING_SETS, payload)
 }
@@ -370,28 +411,24 @@ export async function saveTimetableAllocation(payload: TimetableAllocationPayloa
   return postDetails(TIMETABLE_MGMT_API.SCHEDULE_LIST_BY_TIMING_SET, payload)
 }
 
-/** Angular manage-timetable `schedulesections` — allocated section list in view modal. */
+/** Angular manage-timetable `schedulesections?collegeId=&timetableId=`. */
 export async function listScheduleSectionsForTimetable(
   collegeId: number,
   timetableId: number,
 ): Promise<AnyRow[]> {
   if (!collegeId || !timetableId) return []
-  const paramSets: Record<string, string | number>[] = [
-    { collegeId, timetableId },
-    { 'College.collegeId': collegeId, 'Timetable.timetableId': timetableId },
-    { collegeId, timetableId: timetableId },
-  ]
-  for (const params of paramSets) {
-    try {
-      const data = await fetchDetails<unknown>('schedulesections', params)
-      const rows = normalizeListPayload(data)
-      if (rows.length > 0) return rows
-      if (data && typeof data === 'object' && !Array.isArray(data)) return [data as AnyRow]
-    } catch {
-      // try next
-    }
+  try {
+    const data = await fetchDetails<unknown>(TIMETABLE_MGMT_API.SCHEDULE_SECTION, {
+      collegeId,
+      timetableId,
+    })
+    const rows = normalizeListPayload(data)
+    if (rows.length > 0) return rows
+    if (data && typeof data === 'object' && !Array.isArray(data)) return [data as AnyRow]
+    return []
+  } catch {
+    return []
   }
-  return []
 }
 
 /** Angular view-timetable `schedules` five-id GET → column grid. */
@@ -420,4 +457,156 @@ export async function fetchViewClassTimetable(params: {
   let meta = timetableMeta ?? null
   if (!meta) meta = await getTimetableById(timetableId)
   return buildAngularStudentTimetable(scheduleTimings, meta)
+}
+
+/** Angular create-timetable `listByFiveIds(schedules, ...isActive=true)` for assign-resource grid. */
+export async function fetchAssignResourceSchedules(params: {
+  collegeId: number
+  academicYearId: number
+  groupSectionId: number
+  timetableId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, groupSectionId, timetableId } = params
+  if (!collegeId || !academicYearId || !groupSectionId || !timetableId) return []
+  try {
+    const data = await fetchDetails<unknown>(TIMETABLE_MGMT_API.SCHEDULE, {
+      collegeId,
+      academicYearId,
+      groupSectionId,
+      timetableId,
+      isActive: 'true',
+    })
+    const rows = normalizeListPayload(data)
+    if (rows.length > 0) return rows
+  } catch {
+    // ignore and fallback
+  }
+  return fetchScheduleRowsForSection({
+    collegeId,
+    academicYearId,
+    courseId: 0,
+    courseGroupId: 0,
+    courseYearId: 0,
+    groupSectionId,
+    timetableId,
+  })
+}
+
+export type AssignResourceTimetableView = {
+  grid: AngularStudentTimetable | null
+  scheduleTimings: AnyRow[]
+}
+
+export async function fetchAssignResourceTimetableView(params: {
+  collegeId: number
+  academicYearId: number
+  groupSectionId: number
+  timetableId: number
+  timetableMeta?: AnyRow | null
+}): Promise<AssignResourceTimetableView> {
+  const scheduleTimings = await fetchAssignResourceSchedules(params)
+  if (scheduleTimings.length === 0) return { grid: null, scheduleTimings: [] }
+  let meta = params.timetableMeta ?? null
+  if (!meta) meta = await getTimetableById(params.timetableId)
+  return {
+    grid: buildAngularStudentTimetable(scheduleTimings, meta),
+    scheduleTimings,
+  }
+}
+
+/** Angular create-timetable `staffproxies?collegeId=&groupSectionId=&isActive=true`. */
+export async function listStaffProxiesForSection(
+  collegeId: number,
+  groupSectionId: number,
+): Promise<AnyRow[]> {
+  if (!collegeId || !groupSectionId) return []
+  try {
+    const data = await fetchDetails<unknown>(EMPLOYEE_API.STAFF_PROXIES, {
+      collegeId,
+      groupSectionId,
+      isActive: 'true',
+    })
+    return normalizeListPayload(data)
+  } catch {
+    return []
+  }
+}
+
+/** Angular add-resource `subjectcourseyrs` three-id fetch. */
+export async function listSubjectCourseYearsForAssign(params: {
+  collegeId: number
+  academicYearId: number
+  groupSectionId: number
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, groupSectionId } = params
+  if (!collegeId || !academicYearId || !groupSectionId) return []
+  try {
+    const data = await fetchDetails<unknown>(SUBJECT_API.SUBJECT_COURSE_YEARS, {
+      collegeid: collegeId,
+      academicYearId,
+      groupSectionid: groupSectionId,
+    })
+    const rows = normalizeListPayload(data)
+    if (rows.length > 0) return rows
+  } catch {
+    // fallback to mapped helper
+  }
+  return listStaffSubjectRows({ collegeId, academicYearId, groupSectionId })
+}
+
+/** Angular add-resource `SubjectResource` by `schedule.timetableScheduleId`. */
+export async function listSubjectResourcesBySchedule(
+  timetableScheduleId: number,
+): Promise<AnyRow[]> {
+  if (!timetableScheduleId) return []
+  const queries = [
+    buildQuery({ 'schedule.timetableScheduleId': timetableScheduleId, isActive: true }),
+    buildQuery({ timetableScheduleId, isActive: true }),
+  ]
+  for (const query of queries) {
+    try {
+      const rows = await domainList<AnyRow>(SUBJECT_API.SUBJECT_RESOURCE_ENTITY, query)
+      if (rows.length > 0) return rows
+    } catch {
+      // next
+    }
+  }
+  return []
+}
+
+/** Angular add-resource `Studentbatch` by college + subjectType + course. */
+export async function listStudentBatchesForLabAssign(
+  collegeId: number,
+  subjectTypeId: number,
+  courseId: number,
+): Promise<AnyRow[]> {
+  if (!collegeId || !subjectTypeId || !courseId) return []
+  const queries = [
+    buildQuery({
+      'college.collegeId': collegeId,
+      'subjecttype.generalDetailId': subjectTypeId,
+      'course.courseId': courseId,
+      isActive: true,
+    }),
+    buildQuery({ collegeId, subjectTypeId, courseId, isActive: true }),
+  ]
+  for (const query of queries) {
+    try {
+      const rows = await domainList<AnyRow>('Studentbatch', query)
+      if (rows.length > 0) return rows
+    } catch {
+      // next
+    }
+  }
+  return []
+}
+
+/** Angular POST `subjectresources`. */
+export function saveSubjectResources(resources: AnyRow[]) {
+  return postDetailsEnvelope<unknown>(SUBJECT_API.SUBJECT_RESOURCE, resources)
+}
+
+/** Angular PUT `deletestaffs`. */
+export function deleteSubjectResourceStaff(items: AnyRow[]) {
+  return putDetailsEnvelope<unknown>(EMPLOYEE_API.DELETE_STAFFS, items)
 }

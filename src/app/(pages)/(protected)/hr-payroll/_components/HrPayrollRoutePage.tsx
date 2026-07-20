@@ -27,6 +27,9 @@ import { PerformanceAssessmentPage } from './PerformanceAssessmentPage'
 import { ReportingManagerPage } from './ReportingManagerPage'
 import { SelfAppraisalPage } from './SelfAppraisalPage'
 import { BiometricEmployeesPage } from './BiometricEmployeesPage'
+import { AssignEmployeeToGroupPage } from './AssignEmployeeToGroupPage'
+import { EmployeePayrollAssignPage } from './EmployeePayrollAssignPage'
+import { EditAssignedEmployeePage } from './EditAssignedEmployeePage'
 
 const LIST_PAGES: Record<string, () => React.ReactElement> = {
   'department-heads': () => <DepartmentHeadsPage />,
@@ -90,6 +93,18 @@ export function HrPayrollRoutePage({ slug }: HrPayrollRoutePageProps) {
 
   if (slug === 'payroll/payroll-group/edit-payroll-group') {
     return <PayrollGroupFormPage mode="edit" />
+  }
+
+  if (slug === 'payroll/payroll-group/assigned-employees/add-employee') {
+    return <AssignEmployeeToGroupPage />
+  }
+
+  if (slug === 'payroll/payroll-group/assigned-employees/add-employee/emp-payroll') {
+    return <EmployeePayrollAssignPage />
+  }
+
+  if (slug === 'payroll/payroll-group/assigned-employees/edit-employee') {
+    return <EditAssignedEmployeePage />
   }
 
   const ListPage = LIST_PAGES[slug]

@@ -7,7 +7,7 @@ import { Select, type SelectOption } from '@/common/components/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { toastError, toastSuccess } from '@/lib/toast'
+import { toastError, toastInfo, toastSuccess } from '@/lib/toast'
 import {
   listAcademicYearsForCollege,
   listCollegesForTimetable,
@@ -117,6 +117,24 @@ export function TimetableFormModal({
     else setAcademicYears([])
   }
 
+  /** Angular add-timetable-modal `calDays()`. */
+  const handleStartDateChange = (d: Date | null) => {
+    setStartDate(d)
+    if (d && endDate && d.getTime() > endDate.getTime()) {
+      toastInfo('From date should be less then To date.')
+      setEndDate(d)
+    }
+  }
+
+  const handleEndDateChange = (d: Date | null) => {
+    if (d && startDate && startDate.getTime() > d.getTime()) {
+      toastInfo('From date should be less then To date.')
+      setEndDate(startDate)
+      return
+    }
+    setEndDate(d)
+  }
+
   const handleSave = async () => {
     if (!collegeId || !academicYearId || !timetableName.trim() || !startDate || !endDate) {
       toastError(null, 'Please fill all required fields')
@@ -130,7 +148,7 @@ export function TimetableFormModal({
       return String(row?.timetableName ?? '').toLowerCase() !== nameLower
     })
     if (duplicate) {
-      toastError(null, 'A timetable with this name already exists')
+      toastInfo('Already Timetable exists with same name.')
       return
     }
 
@@ -140,11 +158,17 @@ export function TimetableFormModal({
         collegeId,
         academicYearId,
         timetableName: timetableName.trim(),
-        startDate: startDate.toISOString().slice(0, 10),
-        endDate: endDate.toISOString().slice(0, 10),
+        startDate,
+        endDate,
         isActive,
         reason: isActive ? 'active' : reason.trim() || 'inactive',
-        ...(editing ? { timetableId: Number(row?.timetableId) } : {}),
+        ...(editing
+          ? {
+              timetableId: Number(row?.timetableId),
+              originalStartDate: String(row?.startDate ?? ''),
+              originalEndDate: String(row?.endDate ?? ''),
+            }
+          : {}),
       }
       await saveTimetable(payload)
       toastSuccess(editing ? 'Timetable updated' : 'Timetable created')
@@ -207,13 +231,13 @@ export function TimetableFormModal({
             />
           </div>
           <div className="space-y-1 [&_button]:h-9">
-            <DatePicker label="Start Date" value={startDate} onChange={setStartDate} />
+            <DatePicker label="Start Date" value={startDate} onChange={handleStartDateChange} />
           </div>
           <div className="space-y-1 [&_button]:h-9">
             <DatePicker
               label="End Date"
               value={endDate}
-              onChange={setEndDate}
+              onChange={handleEndDateChange}
               minDate={startDate ?? undefined}
             />
           </div>
@@ -225,7 +249,7 @@ export function TimetableFormModal({
                 onCheckedChange={(v) => setIsActive(v === true)}
               />
               <Label htmlFor="timetable-is-active" className="cursor-pointer text-[12px] font-medium">
-                Is Active
+                Active
               </Label>
             </div>
             {!isActive ? (

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
+import { Monitor } from 'lucide-react'
 import { ActiveStatusField } from '@/common/components/forms'
 import { Select, type SelectOption } from '@/common/components/select'
 import { PageContainer } from '@/components/layout'
@@ -24,6 +24,8 @@ import { useQueryClient } from '@tanstack/react-query'
 type CatRow = Record<string, unknown>
 type PayrollCategoryType = 'E' | 'D' | 'M'
 type ValueType = '' | 'N' | 'F'
+
+const LIST_HREF = '/hr-payroll/payroll/payroll-category'
 
 function categoryTypeLabel(t: unknown): string {
   if (t === 'E') return 'Earning'
@@ -48,6 +50,7 @@ export function PayrollCategoryFormPage({ mode }: PayrollCategoryFormPageProps) 
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [payrollCategoryName, setPayrollCategoryName] = useState('')
   const [payrollCategoryCode, setPayrollCategoryCode] = useState('')
+  /** Angular default: `payrollCategoryType: ['E']` */
   const [payrollCategoryType, setPayrollCategoryType] = useState<PayrollCategoryType>('E')
   const [valueType, setValueType] = useState<ValueType>('')
   const [value, setValue] = useState('')
@@ -90,7 +93,7 @@ export function PayrollCategoryFormPage({ mode }: PayrollCategoryFormPageProps) 
         const row = await getPayrollCategoryById(payrollCategoryId)
         if (!row) {
           toastError(null, 'Payroll category not found')
-          router.push('/hr-payroll/payroll/payroll-category')
+          router.push(LIST_HREF)
           return
         }
         const cid = Number(row.collegeId ?? 0)
@@ -123,22 +126,25 @@ export function PayrollCategoryFormPage({ mode }: PayrollCategoryFormPageProps) 
       toastError(null, 'Please fill all required fields')
       return
     }
+    // Angular add/update posts form value to POST payrollcategory
+    const payload: Record<string, unknown> = {
+      collegeId,
+      payrollCategoryName: payrollCategoryName.trim(),
+      payrollCategoryCode: payrollCategoryCode.trim(),
+      payrollCategoryType,
+      valueType,
+      value: valueType === 'N' ? (value === '' ? null : Number(value)) : value,
+      isActive: mode === 'edit' ? isActive : true,
+      reason: mode === 'edit' ? (isActive ? 'active' : reason) : 'active',
+    }
+    if (mode === 'edit') payload.payrollCategoryId = payrollCategoryId
+
     setSaving(true)
     try {
-      await savePayrollCategory({
-        collegeId,
-        payrollCategoryId: mode === 'edit' ? payrollCategoryId : undefined,
-        payrollCategoryName: payrollCategoryName.trim(),
-        payrollCategoryCode: payrollCategoryCode.trim(),
-        payrollCategoryType,
-        valueType,
-        value: valueType === 'N' ? Number(value) : value,
-        isActive,
-        reason: isActive ? 'active' : reason,
-      })
+      await savePayrollCategory(payload)
       toastSuccess(mode === 'add' ? 'Payroll category created' : 'Payroll category updated')
       void queryClient.invalidateQueries({ queryKey: QK.hrPayroll.payrollCategories() })
-      router.push('/hr-payroll/payroll/payroll-category')
+      router.push(LIST_HREF)
     } catch (e) {
       toastError(e, 'Save failed')
     } finally {
@@ -146,12 +152,21 @@ export function PayrollCategoryFormPage({ mode }: PayrollCategoryFormPageProps) 
     }
   }
 
+  function goBack() {
+    // Angular goBack() → location.back(); fall back to list if no history
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+      return
+    }
+    router.push(LIST_HREF)
+  }
+
   if (mode === 'edit' && !payrollCategoryId) {
     return (
       <PageContainer className="space-y-4">
         <p className="text-sm text-muted-foreground">Missing payroll category id.</p>
         <Button asChild variant="outline" size="sm">
-          <Link href="/hr-payroll/payroll/payroll-category">Back</Link>
+          <Link href={LIST_HREF}>Back</Link>
         </Button>
       </PageContainer>
     )
@@ -159,22 +174,33 @@ export function PayrollCategoryFormPage({ mode }: PayrollCategoryFormPageProps) 
 
   return (
     <PageContainer className="space-y-4">
-      <FilterCard title={title}>
-        {loading ? (
-          <p className="text-sm text-muted-foreground py-4">Loading…</p>
-        ) : (
-          <div className="space-y-6">
-            <Select
-              label="College"
-              required
-              className={FILTER_CARD_SELECT_CLASS}
-              value={collegeId != null ? String(collegeId) : ''}
-              onChange={handleCollegeChange}
-              options={colleges}
-              placeholder="College"
-            />
+      <div className="app-card overflow-hidden">
+        {/* Angular: computer icon + table-heads title + accent rule */}
+        <div className="border-b border-[#e8c547] px-4 py-3">
+          <h1 className="inline-flex items-center gap-2 text-[15px] font-semibold text-[hsl(var(--card-title))]">
+            <Monitor className="h-4 w-4 shrink-0" aria-hidden />
+            {title}
+          </h1>
+        </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+        {loading ? (
+          <p className="px-4 py-6 text-sm text-muted-foreground">Loading…</p>
+        ) : (
+          <div className="space-y-5 p-4 sm:p-5">
+            {/* College — Angular fxFlex ~20% */}
+            <div className="max-w-xs">
+              <Select
+                label="College"
+                required
+                value={collegeId != null ? String(collegeId) : ''}
+                onChange={handleCollegeChange}
+                options={colleges}
+                placeholder="College"
+              />
+            </div>
+
+            {/* Name + Code — Angular same row, ~25% each */}
+            <div className="grid max-w-3xl gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>
                   Payroll Category Name <span className="text-destructive">*</span>
@@ -197,8 +223,9 @@ export function PayrollCategoryFormPage({ mode }: PayrollCategoryFormPageProps) 
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="font-medium">Category Type</Label>
+            {/* Category Type : + radios (Angular default Earnings) */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span className="text-[15px] font-medium">Category Type :</span>
               <RadioGroup
                 value={payrollCategoryType}
                 onValueChange={(v) => setPayrollCategoryType(v as PayrollCategoryType)}
@@ -206,38 +233,44 @@ export function PayrollCategoryFormPage({ mode }: PayrollCategoryFormPageProps) 
               >
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="E" id="cat-e" />
-                  <Label htmlFor="cat-e" className="font-normal cursor-pointer">
+                  <Label htmlFor="cat-e" className="cursor-pointer font-normal">
                     Earnings
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="D" id="cat-d" />
-                  <Label htmlFor="cat-d" className="font-normal cursor-pointer">
+                  <Label htmlFor="cat-d" className="cursor-pointer font-normal">
                     Deductions
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="M" id="cat-m" />
-                  <Label htmlFor="cat-m" className="font-normal cursor-pointer">
+                  <Label htmlFor="cat-m" className="cursor-pointer font-normal">
                     Management Deductions
                   </Label>
                 </div>
               </RadioGroup>
             </div>
 
-            <div className="space-y-3 border-t pt-4">
-              <h3 className="text-sm font-semibold">Category Value</h3>
-              <p className="text-xs text-muted-foreground">
-                Specify how the payroll amount for this category is to be calculated. It can be a
+            {/* Category Value */}
+            <div className="space-y-3">
+              <h2 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">
+                Category Value
+              </h2>
+              <p className="max-w-3xl font-mono text-[12px] leading-relaxed text-[#9e9e9e]">
+                Specify how the payroll amount for this category is to be calculated. It can be
                 fixed amount or can be calculated using formulas based on other payroll categories.
               </p>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+              <div className="grid max-w-3xl gap-4 sm:grid-cols-2">
                 <Select
                   label="Value Type"
                   required
-                  className={FILTER_CARD_SELECT_CLASS}
                   value={valueType}
-                  onChange={(v) => setValueType((v ?? '') as ValueType)}
+                  onChange={(v) => {
+                    setValueType((v ?? '') as ValueType)
+                    setValue('')
+                  }}
                   options={[
                     { value: 'N', label: 'Numeric' },
                     { value: 'F', label: 'Formula' },
@@ -256,7 +289,7 @@ export function PayrollCategoryFormPage({ mode }: PayrollCategoryFormPageProps) 
                   </div>
                 ) : null}
                 {valueType === 'F' ? (
-                  <div className="space-y-1.5 sm:col-span-2">
+                  <div className="space-y-1.5">
                     <Label>Formula</Label>
                     <Input
                       value={value}
@@ -271,11 +304,11 @@ export function PayrollCategoryFormPage({ mode }: PayrollCategoryFormPageProps) 
                 <div className="overflow-x-auto rounded-md border">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="p-2 text-center">S.No</th>
-                        <th className="p-2 text-left">Category Type</th>
-                        <th className="p-2 text-left">Category Name</th>
-                        <th className="p-2 text-left">Category Code</th>
+                      <tr className="border-b bg-[#c3d9ff]">
+                        <th className="p-2 text-center font-medium">S.No</th>
+                        <th className="p-2 text-left font-medium">Category Type</th>
+                        <th className="p-2 text-left font-medium">Category Name</th>
+                        <th className="p-2 text-left font-medium">Category Code</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -302,9 +335,15 @@ export function PayrollCategoryFormPage({ mode }: PayrollCategoryFormPageProps) 
               />
             ) : null}
 
-            <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" size="sm" asChild>
-                <Link href="/hr-payroll/payroll/payroll-category">Back</Link>
+            {/* Angular form-btn: Back (amber) + Save (primary), right-aligned */}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                size="sm"
+                className="bg-[#f0ad4e] text-black hover:bg-[#ec9c2c]"
+                onClick={goBack}
+              >
+                Back
               </Button>
               <Button type="button" size="sm" onClick={() => void handleSave()} disabled={saving}>
                 {saving ? 'Saving…' : 'Save'}
@@ -312,7 +351,7 @@ export function PayrollCategoryFormPage({ mode }: PayrollCategoryFormPageProps) 
             </div>
           </div>
         )}
-      </FilterCard>
+      </div>
     </PageContainer>
   )
 }

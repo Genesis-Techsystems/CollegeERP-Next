@@ -26,21 +26,22 @@ function normalizeListPayload(data: unknown): AnyRow[] {
   return []
 }
 
-/** Angular `listAllDetails` on PayrollCategory — all categories for list page. */
+/**
+ * Angular `listAllDetails(PayrollCategory)`
+ * → `domain/list/PayrollCategory?query=order(createdDt=desc)&size=99999`
+ * (no isActive filter — inactive rows appear in list Status column)
+ */
 export async function listPayrollCategories(): Promise<AnyRow[]> {
-  try {
-    const data = await fetchDetails<{ resultList?: AnyRow[] }>(ENTITIES.PAYROLL_CATEGORY.name, {
-      isActive: 'true',
-    })
-    if (Array.isArray(data?.resultList) && data.resultList.length > 0) return data.resultList
-  } catch {
-    // fall through to domain list
-  }
-  const rows = await domainList<AnyRow>(ENTITIES.PAYROLL_CATEGORY.name, buildQuery({ isActive: true }))
-  if (rows.length > 0) return rows
-  return domainList<AnyRow>(ENTITIES.PAYROLL_CATEGORY.name, buildQuery({}))
+  return domainList<AnyRow>(
+    ENTITIES.PAYROLL_CATEGORY.name,
+    buildQuery({}, { field: 'createdDt', direction: 'DESC' }),
+  )
 }
 
+/**
+ * Angular `listDetailsById(PayrollCategory, id, 'payrollCategoryId')`
+ * → `domain/list/PayrollCategory?query=payrollCategoryId=={id}`
+ */
 export async function getPayrollCategoryById(payrollCategoryId: number): Promise<AnyRow | null> {
   if (!payrollCategoryId) return null
   const rows = await domainList<AnyRow>(
@@ -50,42 +51,31 @@ export async function getPayrollCategoryById(payrollCategoryId: number): Promise
   return rows[0] ?? null
 }
 
-/** Categories in a college — formula helper table on add/edit form. */
+/**
+ * Angular `listDetailsByTwoIds(PayrollCategory, collegeId, 'true', 'College.collegeId', isActive)`
+ * → `College.collegeId=={id}.and.isActive==true`
+ */
 export async function listPayrollCategoriesByCollege(collegeId: number): Promise<AnyRow[]> {
   if (!collegeId) return []
-  const queries = [
+  return domainList<AnyRow>(
+    ENTITIES.PAYROLL_CATEGORY.name,
     buildQuery({ 'College.collegeId': collegeId, isActive: true }),
-    buildQuery({ collegeId, isActive: true }),
-  ]
-  for (const q of queries) {
-    try {
-      const rows = await domainList<AnyRow>(ENTITIES.PAYROLL_CATEGORY.name, q)
-      if (rows.length > 0) return rows
-    } catch {
-      // try next query shape
-    }
-  }
-  return []
+  )
 }
 
-/** Angular edit guard — category assigned to payroll groups. */
+/**
+ * Angular edit guard:
+ * `listDetailsById(PayrollCategoryGroup, id, 'payrollCategory.payrollCategoryId')`
+ * → `payrollCategory.payrollCategoryId=={id}`
+ */
 export async function listPayrollCategoryGroupsByCategoryId(
   payrollCategoryId: number,
 ): Promise<AnyRow[]> {
   if (!payrollCategoryId) return []
-  const queries = [
+  return domainList<AnyRow>(
+    HR_PAYROLL_API.PAYROLL_CATEGORY_GROUP,
     buildQuery({ 'payrollCategory.payrollCategoryId': payrollCategoryId }),
-    buildQuery({ payrollCategoryId }),
-  ]
-  for (const q of queries) {
-    try {
-      const rows = await domainList<AnyRow>(HR_PAYROLL_API.PAYROLL_CATEGORY_GROUP, q)
-      if (rows.length > 0) return rows
-    } catch {
-      // try next query shape
-    }
-  }
-  return []
+  )
 }
 
 /** Angular `add(payRollCategoryUrl, …)` — used for both create and update. */
@@ -109,10 +99,33 @@ export async function listPayrollGroups(): Promise<AnyRow[]> {
   return enrichPayrollGroupCategories(normalizeListPayload(data))
 }
 
+/**
+ * Angular `listDetailsById(PayrollGroup, id, 'payrollGroupId')`.
+ * Nested `payrollCategoryGroups` come from the domain list; if empty, fall back to
+ * `GET payrollgroups` (same as list page) which includes the association.
+ */
 export async function getPayrollGroupById(payrollGroupId: number): Promise<AnyRow | null> {
   if (!payrollGroupId) return null
   const rows = await domainList<AnyRow>('PayrollGroup', buildQuery({ payrollGroupId }))
-  return rows[0] ?? null
+  let row = rows[0] ?? null
+  const groups = row?.payrollCategoryGroups
+  if (row && (!Array.isArray(groups) || groups.length === 0)) {
+    try {
+      const all = await listPayrollGroups()
+      const fromList = all.find((g) => Number(g.payrollGroupId) === payrollGroupId)
+      if (fromList) {
+        row = {
+          ...row,
+          ...fromList,
+          payrollCategoryGroups:
+            (fromList.payrollCategoryGroups as unknown[]) ?? groups ?? [],
+        }
+      }
+    } catch {
+      // keep domain row
+    }
+  }
+  return row
 }
 
 export async function listPaymentFrequencies(): Promise<AnyRow[]> {
@@ -440,6 +453,98 @@ export async function listEmployeePayrollGroupByPayrollGroup(
   })
   return normalizeListPayload(data)
 }
+
+/** POST employeepayrollgroup — Angular add() for assign/update/remove (isActive:false). */
+export async function saveEmployeePayrollGroup(payload: AnyRow): Promise<unknown> {
+  return postDetails(HR_PAYROLL_API.EMPLOYEE_PAYROLL_GROUP, payload)
+}
+
+/** Angular listByTwoIds(employeepayrollgroup, 'true', '999', isActive, size) — all active assignments. */
+export async function listAllActiveEmployeePayrollGroups(size = 999): Promise<AnyRow[]> {
+  const data = await fetchDetails<unknown>(HR_PAYROLL_API.EMPLOYEE_PAYROLL_GROUP, {
+    isActive: 'true',
+    size,
+  })
+  return normalizeListPayload(data)
+}
+
+const PAYROLL_ASSIGN_EXCLUDED_ROLES = new Set(['SUPERADMIN', 'ADMIN'])
+
+/**
+ * Active employees by college (+ optional dept). Angular EmployeeDetail queries with ACTV status.
+ * deptId: College.collegeId + employeeDepartment.departmentId + employeeStatus.generalDetailCode==ACTV + isActive
+ * no dept: College.collegeId + employeeStatus.generalDetailCode==ACTV + isActive
+ * Filters out roleName SUPERADMIN and ADMIN client-side.
+ */
+export async function listActiveEmployeesForPayrollAssign(params: {
+  collegeId: number
+  departmentId?: number | null
+}): Promise<AnyRow[]> {
+  const { collegeId, departmentId } = params
+  if (!collegeId) return []
+
+  const hasDept = departmentId != null && Number(departmentId) !== 0
+  const query = hasDept
+    ? buildQuery({
+        'College.collegeId': collegeId,
+        'employeeDepartment.departmentId': Number(departmentId),
+        'employeeStatus.generalDetailCode': GM_CODES.EMP_ACTIVE_STATUS,
+        isActive: true,
+      })
+    : buildQuery({
+        'College.collegeId': collegeId,
+        'employeeStatus.generalDetailCode': GM_CODES.EMP_ACTIVE_STATUS,
+        isActive: true,
+      })
+
+  const rows = await domainList<AnyRow>(ENTITIES.EMPLOYEE_DETAIL.name, query)
+  return rows.filter((r) => !PAYROLL_ASSIGN_EXCLUDED_ROLES.has(String(r.roleName ?? '')))
+}
+
+/** POST calculatepayroll — Angular calculatePayrollUrl (payload is category amount array). */
+export async function calculatePayroll(payload: AnyRow | AnyRow[]): Promise<AnyRow[]> {
+  const data = await postDetails<unknown>(HR_PAYROLL_API.CALCULATE_PAYROLL, payload)
+  if (Array.isArray(data)) return data as AnyRow[]
+  return normalizeListPayload(data)
+}
+
+/** Angular listDetailsByTwoIds(EmployeeDetail, empId, ACTV, employeeId, employeeStatus.generalDetailCode). */
+export async function getActiveEmployeeDetailById(employeeId: number): Promise<AnyRow | null> {
+  if (!employeeId) return null
+  const rows = await domainList<AnyRow>(
+    ENTITIES.EMPLOYEE_DETAIL.name,
+    buildQuery({
+      employeeId,
+      'employeeStatus.generalDetailCode': GM_CODES.EMP_ACTIVE_STATUS,
+    }),
+  )
+  return rows[0] ?? null
+}
+
+/** Angular listDetailsById(EmployeeDetail, empId, 'employeeId'). */
+export async function getEmployeeDetailById(employeeId: number): Promise<AnyRow | null> {
+  if (!employeeId) return null
+  const rows = await domainList<AnyRow>(
+    ENTITIES.EMPLOYEE_DETAIL.name,
+    buildQuery({ employeeId }),
+  )
+  return rows[0] ?? null
+}
+
+/** Angular listDetailsById(EmployeePayrollGroup, empPayrollGroupId, 'empPayrollGroupId'). */
+export async function getEmployeePayrollGroupById(
+  empPayrollGroupId: number,
+): Promise<AnyRow | null> {
+  if (!empPayrollGroupId) return null
+  const rows = await domainList<AnyRow>(
+    'EmployeePayrollGroup',
+    buildQuery({ empPayrollGroupId }),
+  )
+  return rows[0] ?? null
+}
+
+/** Angular CONSTANTS.esi — used when recalculating ESI after calculatePayroll. */
+export const PAYROLL_ESI_PERCENT = 0.75
 
 export async function listEmployeePayrollGroupByCollege(
   collegeId: number,
