@@ -456,34 +456,48 @@ export default function ExamMarksEntryPage() {
   return (
     <FilteredListPage
       title="Exam Marks Entry"
-      notice={hasFetched ? (
-        <div className="app-card overflow-hidden border border-[#c3d9ff]">
-          <div className="flex items-start gap-4 p-3">
-            <div className="flex h-20 w-24 items-center justify-center bg-[#c3d9ff] text-slate-700"><GraduationCap className="h-10 w-10" /></div>
-            <div className="space-y-1 text-[13px]">
-              <p className="text-slate-700">{selectedExam?.exam_name ?? '-'} {examDate ? <span className="text-blue-700">({examDate})</span> : null}</p>
-              <p className="text-muted-foreground">/ {selectedCollege?.college_code ?? '-'} / {selectedCourse?.course_code ?? '-'} / {selectedGroup?.group_code ?? '-'} / {selectedYear?.course_year_code ?? '-'} / <span className="text-blue-700">({selectedAy?.academic_year ?? '-'})</span></p>
-              <p className="font-semibold text-slate-800">{selectedSubject?.subject_name ?? '-'} ({selectedRegulation?.regulation_code ?? '-'}) - <span className="text-blue-700">{selectedSubject?.subject_type ?? '-'}</span></p>
-            </div>
-          </div>
-        </div>
-      ) : null}
       filters={(
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2"><Label>Course *</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Academic Year" /></div>
-          <div className="space-y-1 md:col-span-6"><Label>Exam *</Label><CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam" searchable /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Type *</Label><CommonSelect value={String(examTypeId)} onChange={(v) => setExamTypeId(Number(v || 0))} options={examTypeOptions} placeholder="Exam Type" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Faculty *</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="Faculty" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={groupOptions} placeholder="Course Group" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><CommonSelect value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><CommonSelect value={subjectTypeId ? String(subjectTypeId) : null} onChange={(v) => setSubjectTypeId(v ? Number(v) : null)} options={subjectTypeOptions} placeholder="Subject Type" /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Subject</Label><CommonSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectOptions} placeholder="Subject" searchable /></div>
-          {labBatches.length > 0 && <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><CommonSelect value={String(labBatchId)} onChange={(v) => setLabBatchId(Number(v || 0))} options={labBatchOptions} placeholder="All" /></div>}
-          <div className="space-y-1 md:col-span-2"><Label>Employee</Label><Input className="h-8 text-[12px]" value={employeeDisplay} readOnly /></div>
-          <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
-          <div className="md:col-span-2"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loading}>{loading ? 'Loading...' : 'Get List'}</Button></div>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+            <div className="space-y-1 md:col-span-2"><Label>Course *</Label><CommonSelect value={courseId ? String(courseId) : null} onChange={(v) => setCourseId(v ? Number(v) : null)} options={courseOptions} placeholder="Course" /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Academic Year *</Label><CommonSelect value={academicYearId ? String(academicYearId) : null} onChange={(v) => setAcademicYearId(v ? Number(v) : null)} options={academicYearOptions} placeholder="Academic Year" /></div>
+            <div className="space-y-1 md:col-span-6"><Label>Exam *</Label><CommonSelect value={examId ? String(examId) : null} onChange={(v) => setExamId(v ? Number(v) : null)} options={examOptions} placeholder="Exam" searchable /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Exam Type *</Label><CommonSelect value={String(examTypeId)} onChange={(v) => setExamTypeId(Number(v || 0))} options={examTypeOptions} placeholder="Exam Type" /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Faculty *</Label><CommonSelect value={collegeId ? String(collegeId) : null} onChange={(v) => setCollegeId(v ? Number(v) : null)} options={collegeOptions} placeholder="Faculty" /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Course Group *</Label><CommonSelect value={courseGroupId ? String(courseGroupId) : null} onChange={(v) => setCourseGroupId(v ? Number(v) : null)} options={groupOptions} placeholder="Course Group" /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Course Year *</Label><CommonSelect value={courseYearId ? String(courseYearId) : null} onChange={(v) => setCourseYearId(v ? Number(v) : null)} options={courseYearOptions} placeholder="Course Year" /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Regulation</Label><CommonSelect value={regulationId ? String(regulationId) : null} onChange={(v) => setRegulationId(v ? Number(v) : null)} options={regulationOptions} placeholder="Regulation" /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Subject Type</Label><CommonSelect value={subjectTypeId ? String(subjectTypeId) : null} onChange={(v) => setSubjectTypeId(v ? Number(v) : null)} options={subjectTypeOptions} placeholder="Subject Type" /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Subject</Label><CommonSelect value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectOptions} placeholder="Subject" searchable /></div>
+            {labBatches.length > 0 && <div className="space-y-1 md:col-span-2"><Label>Lab Batch</Label><CommonSelect value={String(labBatchId)} onChange={(v) => setLabBatchId(Number(v || 0))} options={labBatchOptions} placeholder="All" /></div>}
+            <div className="space-y-1 md:col-span-2"><Label>Employee</Label><Input className="h-8 text-[12px]" value={employeeDisplay} readOnly /></div>
+            <div className="space-y-1 md:col-span-2"><Label>Exam Date</Label><Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} /></div>
+            <div className="md:col-span-2"><Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loading}>{loading ? 'Loading...' : 'Get List'}</Button></div>
+          </div>
+          {hasFetched ? (
+            <div className="overflow-hidden rounded-md border border-[#c3d9ff]">
+              <div className="flex items-start gap-4 p-3">
+                <div className="flex h-20 w-24 shrink-0 items-center justify-center bg-[#c3d9ff] text-slate-700">
+                  <GraduationCap className="h-10 w-10" />
+                </div>
+                <div className="space-y-1 text-[13px]">
+                  <p className="text-slate-700">
+                    {selectedExam?.exam_name ?? '-'}{' '}
+                    {examDate ? <span className="text-blue-700">({examDate})</span> : null}
+                  </p>
+                  <p className="text-muted-foreground">
+                    / {selectedCollege?.college_code ?? '-'} / {selectedCourse?.course_code ?? '-'} /{' '}
+                    {selectedGroup?.group_code ?? '-'} / {selectedYear?.course_year_code ?? '-'} /{' '}
+                    <span className="text-blue-700">({selectedAy?.academic_year ?? '-'})</span>
+                  </p>
+                  <p className="font-semibold text-slate-800">
+                    {selectedSubject?.subject_name ?? '-'} ({selectedRegulation?.regulation_code ?? '-'}) -{' '}
+                    <span className="text-blue-700">{selectedSubject?.subject_type ?? '-'}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
       rowData={hasFetched ? rows : []}

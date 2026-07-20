@@ -107,19 +107,31 @@ export function EventsMonthCalendar({
           const inMonth = isSameMonth(day, viewMonth)
           const isSelected = selectedDate ? isSameDay(day, selectedDate) : false
 
+          const isDaySelectable = Boolean(onSelectDate) && !(readOnly && !onSelectDate)
+
           return (
-            <button
+            <div
               key={key}
-              type="button"
-              disabled={readOnly && !onSelectDate}
-              onClick={() => onSelectDate?.(day)}
+              role={isDaySelectable ? 'button' : undefined}
+              tabIndex={isDaySelectable ? 0 : undefined}
+              onClick={isDaySelectable ? () => onSelectDate?.(day) : undefined}
+              onKeyDown={
+                isDaySelectable
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onSelectDate?.(day)
+                      }
+                    }
+                  : undefined
+              }
               className={cn(
                 'min-h-[72px] border-b border-r border-border/60 p-1 text-left align-top transition-colors',
                 !inMonth && 'bg-muted/20 text-muted-foreground',
                 inMonth && 'bg-background',
                 isSelected && 'ring-2 ring-inset ring-[hsl(var(--primary))]',
-                onSelectDate && inMonth && 'hover:bg-muted/40 cursor-pointer',
-                readOnly && !onSelectDate && 'cursor-default',
+                isDaySelectable && inMonth && 'hover:bg-muted/40 cursor-pointer',
+                !isDaySelectable && 'cursor-default',
               )}
             >
               <span className="text-[11px] font-medium">{format(day, 'd')}</span>
@@ -161,7 +173,7 @@ export function EventsMonthCalendar({
                   <span className="text-[10px] text-muted-foreground">+{dayEvents.length - 2} more</span>
                 ) : null}
               </div>
-            </button>
+            </div>
           )
         })}
       </div>

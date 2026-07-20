@@ -4,9 +4,8 @@ import { useMemo, useState } from 'react'
 import { PencilIcon, PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useCrudList } from '@/hooks/useCrudList'
-import { DataTable, TableCard } from '@/common/components/table'
 import { StatusBadge } from '@/common/components/data-display'
-import { PageContainer } from '@/components/layout'
+import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
@@ -66,38 +65,31 @@ export function EventTypePage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <div className="app-card overflow-hidden px-4 py-3">
-        <h1 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">Event Type</h1>
-      </div>
-
-      <TableCard withHeaderBorder={false}>
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={isLoading}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: 'Search event types…',
-            pdfDocumentTitle: 'Event Types',
+    <ListPage
+      title="Event Type"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search event types…',
+        pdfDocumentTitle: 'Event Types',
+      }}
+      toolbarTrailing={(
+        <Button
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          onClick={() => {
+            setEditing(null)
+            setModalOpen(true)
           }}
-          toolbarTrailing={(
-            <Button
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={() => {
-                setEditing(null)
-                setModalOpen(true)
-              }}
-            >
-              <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-              Add Event Type
-            </Button>
-          )}
-        />
-      </TableCard>
-
+        >
+          <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+          Add Event Type
+        </Button>
+      )}
+    >
       <EventTypeModal
         open={modalOpen}
         onClose={() => {
@@ -108,6 +100,6 @@ export function EventTypePage() {
         existingRows={rows}
         onSaved={invalidate}
       />
-    </PageContainer>
+    </ListPage>
   )
 }

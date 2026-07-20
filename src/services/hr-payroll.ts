@@ -1,4 +1,4 @@
-import { APPRAISAL_API, EMPLOYEE_API, HR_PAYROLL_API, LEAVE_API } from '@/config/constants/api'
+import { APPRAISAL_API, EMPLOYEE_API, HR_PAYROLL_API, LEAVE_API, NEXT_API } from '@/config/constants/api'
 import { GM_CODES } from '@/config/constants/ui'
 import { ENTITIES } from '@/config/constants/entities'
 import {
@@ -133,7 +133,10 @@ export async function listPayslipSettings(): Promise<AnyRow[]> {
 }
 
 export async function listDepartmentHeads(): Promise<AnyRow[]> {
-  return domainList<AnyRow>(ENTITIES.EMP_DEPT_HEADS.name, buildQuery({ isActive: true }))
+  return domainList<AnyRow>(
+    ENTITIES.EMP_DEPT_HEADS.name,
+    buildQuery({}, { field: 'createdDt', direction: 'DESC' }),
+  )
 }
 
 export async function createDepartmentHead(payload: AnyRow): Promise<unknown> {
@@ -222,6 +225,7 @@ export async function listLeaveTypesForEntitlement(organizationId: number): Prom
   return listLeaveTypes()
 }
 
+/** Angular `listDetailsByFourIds(EmployeeDetail, collegeId, departmentId, true, ACTV, …)`. */
 export async function listEmployeesForLeaveEntitlement(
   collegeId: number,
   departmentId: number,
@@ -240,12 +244,6 @@ export async function listEmployeesForLeaveEntitlement(
       isActive: true,
       'employeeStatus.generalDetailCode': GM_CODES.EMP_ACTIVE_STATUS,
     }),
-    buildQuery({
-      collegeId,
-      departmentId,
-      isActive: true,
-      employeeStatus: GM_CODES.EMP_ACTIVE_STATUS,
-    }),
   ]
   for (const q of queries) {
     try {
@@ -258,19 +256,7 @@ export async function listEmployeesForLeaveEntitlement(
   return []
 }
 
-/** GET `leaveentitlementbydept?collegeId&leaveYear&departmentId&status=true`. */
-export async function listLeaveEntitlementsByDept(
-  collegeId: number,
-  leaveYear: string,
-  departmentId: number,
-): Promise<AnyRow[]> {
-  if (!collegeId || !leaveYear || !departmentId) return []
-  const raw = await fetchDetails<unknown>(LEAVE_API.LEAVE_ENTITLEMENT_BY_DEPT, {
-    collegeId,
-    leaveYear,
-    departmentId,
-    status: 'true',
-  })
+function normalizeLeaveEntitlementRows(raw: unknown): AnyRow[] {
   if (Array.isArray(raw)) return raw as AnyRow[]
   if (raw && typeof raw === 'object') {
     const obj = raw as Record<string, unknown>
@@ -278,6 +264,44 @@ export async function listLeaveEntitlementsByDept(
     if (Array.isArray(obj.resultList)) return obj.resultList as AnyRow[]
   }
   return []
+}
+
+/** GET `leaveentitlementbydept?collegeId&leaveYear&departmentId&status=true`. */
+export async function listLeaveEntitlementsByDept(
+  collegeId: number,
+  leaveYear: string,
+  departmentId: number,
+): Promise<AnyRow[]> {
+  if (!collegeId || !leaveYear || !departmentId) return []
+
+  const params = new URLSearchParams({
+    collegeId: String(collegeId),
+    leaveYear,
+    departmentId: String(departmentId),
+    status: 'true',
+  })
+
+  let path = LEAVE_API.LEAVE_ENTITLEMENT_BY_DEPT
+  let res = await fetch(`${NEXT_API.PROXY(path)}?${params.toString()}`, {
+    credentials: 'include',
+  })
+  if (res.status === 404 && /[A-Z]/.test(path)) {
+    path = path.toLowerCase()
+    res = await fetch(`${NEXT_API.PROXY(path)}?${params.toString()}`, {
+      credentials: 'include',
+    })
+  }
+  if (!res.ok) return []
+
+  const body = (await res.json()) as {
+    success?: boolean
+    data?: unknown
+  }
+
+  // Angular treats success:false (e.g. "No records found") as empty entitlements — not an error.
+  if (body.success === false) return []
+
+  return normalizeLeaveEntitlementRows(body.data)
 }
 
 export async function saveLeaveEntitlements(rows: AnyRow[]): Promise<unknown> {
@@ -388,7 +412,7 @@ export function buildLeaveEntitlementEmployeeRows(
       firstName: String(emp.firstName ?? ''),
       empNumber: String(emp.empNumber ?? ''),
       counts,
-      isUpdate: existing.length === 0,
+      isUpdate: false,
       leaveEntitlementId,
       createdDt,
     }

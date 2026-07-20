@@ -8,15 +8,26 @@ import {
   domainUpdate,
   fetchDetails,
   postDetails,
+  uploadFile,
 } from './crud'
 import { listAcademicYearsForCollege } from './timetable-management'
 import type {
   CollegeEventRow,
+  DepartmentEventAudienceRow,
+  DepartmentEventPhotoRow,
+  DepartmentEventResourceRow,
   DepartmentEventRow,
   EventTypeRow,
 } from '@/types/events'
 
-export type { CollegeEventRow, DepartmentEventRow, EventTypeRow }
+export type {
+  CollegeEventRow,
+  DepartmentEventAudienceRow,
+  DepartmentEventPhotoRow,
+  DepartmentEventResourceRow,
+  DepartmentEventRow,
+  EventTypeRow,
+}
 
 function asRows<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data as T[]
@@ -37,26 +48,75 @@ export function formatEventCalendarDate(d: Date): string {
   return `${day}/${monthStr}/${yearStr}`
 }
 
+function pickEventTypeCollegeId(row: Partial<EventTypeRow> & Record<string, unknown>): number {
+  const nested = (row.college ?? row.College) as { collegeId?: number } | undefined
+  const n = Number(row.collegeId ?? nested?.collegeId ?? 0)
+  return Number.isFinite(n) ? n : 0
+}
+
+/** Flatten nested College FK fields Spring returns on list payloads. */
+function normalizeEventTypeRow(row: EventTypeRow): EventTypeRow {
+  const r = row as EventTypeRow & Record<string, unknown>
+  const nested = (r.college ?? r.College) as
+    | { collegeId?: number; collegeCode?: string; collegeName?: string }
+    | undefined
+  const collegeId = pickEventTypeCollegeId(r)
+  return {
+    ...row,
+    collegeId: collegeId || row.collegeId,
+    collegeCode: row.collegeCode ?? nested?.collegeCode ?? nested?.collegeName,
+  }
+}
+
+/** Angular EventType create/update body — PK + flat + nested College. */
+function buildEventTypePayload(
+  data: Partial<EventTypeRow>,
+  eventTypeId?: number,
+): Record<string, unknown> {
+  const collegeId = pickEventTypeCollegeId(data as Partial<EventTypeRow> & Record<string, unknown>)
+  const isActive = data.isActive !== false
+  const payload: Record<string, unknown> = {
+    collegeId,
+    college: { collegeId },
+    eventTypeName: String(data.eventTypeName ?? '').trim(),
+    isActive,
+    reason: isActive
+      ? 'active'
+      : (typeof data.reason === 'string' && data.reason.trim() ? data.reason.trim() : 'inactive'),
+  }
+  if (eventTypeId != null) {
+    payload.eventTypeId = eventTypeId
+  }
+  return payload
+}
+
 export async function listEventTypes(): Promise<EventTypeRow[]> {
-  return domainList<EventTypeRow>(ENTITIES.EVENT_TYPE.name, buildQuery({}))
+  const rows = await domainList<EventTypeRow>(ENTITIES.EVENT_TYPE.name, buildQuery({}))
+  return rows.map(normalizeEventTypeRow)
 }
 
 export async function listEventTypesByCollege(collegeId: number): Promise<EventTypeRow[]> {
-  return domainList<EventTypeRow>(
+  const rows = await domainList<EventTypeRow>(
     ENTITIES.EVENT_TYPE.name,
     buildQuery({ 'College.collegeId': collegeId, isActive: true }),
   )
+  return rows.map(normalizeEventTypeRow)
 }
 
 export async function createEventType(data: EventTypeRow): Promise<EventTypeRow> {
-  return domainCreate<EventTypeRow>(ENTITIES.EVENT_TYPE.name, data)
+  return domainCreate<EventTypeRow>(ENTITIES.EVENT_TYPE.name, buildEventTypePayload(data))
 }
 
 export async function updateEventType(
   eventTypeId: number,
   data: Partial<EventTypeRow>,
 ): Promise<EventTypeRow> {
-  return domainUpdate<EventTypeRow>(ENTITIES.EVENT_TYPE.name, ENTITIES.EVENT_TYPE.pk, eventTypeId, data)
+  return domainUpdate<EventTypeRow>(
+    ENTITIES.EVENT_TYPE.name,
+    ENTITIES.EVENT_TYPE.pk,
+    eventTypeId,
+    buildEventTypePayload(data, eventTypeId),
+  )
 }
 
 export function eventTypeDuplicate(
@@ -176,6 +236,11 @@ export async function createDepartmentEvent(data: DepartmentEventRow): Promise<D
 
 export async function updateDepartmentEvent(data: DepartmentEventRow): Promise<DepartmentEventRow> {
   return postDetails<DepartmentEventRow>(EVENTS_API.DEPARTMENT_EVENT, data)
+}
+
+/** Angular `departmentEvent/uploadFiles` multipart after save. */
+export async function uploadDepartmentEventFiles(formData: FormData): Promise<unknown> {
+  return uploadFile(EVENTS_API.DEPARTMENT_EVENT_UPLOAD, formData)
 }
 
 export { listAcademicYearsForCollege }

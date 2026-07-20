@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen, Loader2, User } from 'lucide-react'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
+import { Loader2, User } from 'lucide-react'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select, type SelectOption } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -255,121 +255,128 @@ export function EmployeeLeaveAllotmentPage() {
     }
   }
 
-  const filterTitle = (
-    <span className="inline-flex items-center gap-2">
-      <BookOpen className="h-4 w-4" aria-hidden />
-      Leave Allotment
-      {showCollegeContext && collegeCode ? (
-        <span className="text-[15px] font-semibold text-slate-700">For : {collegeCode}</span>
-      ) : null}
-    </span>
-  )
+  const collegeNotice =
+    showCollegeContext && collegeCode ? (
+      <p className="text-sm text-muted-foreground px-1">
+        College: <span className="font-medium text-foreground">{collegeCode}</span>
+      </p>
+    ) : null
 
   return (
-    <PageContainer>
-      <FilterCard title={filterTitle}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Select
-            label="College"
-            value={collegeId != null ? String(collegeId) : null}
-            onChange={handleCollegeChange}
-            options={colleges}
-            placeholder="College"
-            isLoading={collegesLoading}
-            disabled={collegeLocked}
-            className={FILTER_CARD_SELECT_CLASS}
-          />
-          <Select
-            label="Leave Year"
-            value={leaveYear}
-            onChange={handleLeaveYearChange}
-            options={years}
-            placeholder="Leave Year"
-            disabled={!collegeId}
-            className={FILTER_CARD_SELECT_CLASS}
-          />
-          <Select
-            label="Employee"
-            value={selectedEmployeeId != null ? String(selectedEmployeeId) : null}
-            onChange={handleEmployeeChange}
-            options={employeeOptions}
-            placeholder="Search by Employee name or Id."
-            searchable
-            onSearch={onEmployeeSearch}
-            isLoading={employeeSearchLoading}
-            disabled={!collegeId || !leaveYear}
-            className={FILTER_CARD_SELECT_CLASS}
-          />
-        </div>
-      </FilterCard>
+    <FilteredListPage
+      title="Employee Leave Allotment"
+      bodyClassName="border-t-0"
+      notice={collegeNotice}
+      filters={
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="College">
+            <Select
+              value={collegeId != null ? String(collegeId) : null}
+              onChange={handleCollegeChange}
+              options={colleges}
+              placeholder="Select college"
+              searchable
+              isLoading={collegesLoading}
+              disabled={collegeLocked}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Leave Year">
+            <Select
+              value={leaveYear}
+              onChange={handleLeaveYearChange}
+              options={years}
+              placeholder="Select year"
+              searchable
+              disabled={!collegeId}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Employee">
+            <Select
+              value={selectedEmployeeId != null ? String(selectedEmployeeId) : null}
+              onChange={handleEmployeeChange}
+              options={employeeOptions}
+              placeholder="Search by name or ID (min 4 chars)"
+              searchable
+              onSearch={onEmployeeSearch}
+              isLoading={employeeSearchLoading}
+              disabled={!collegeId || !leaveYear}
+            />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      }
+      body={
+        selectedEmployee ? (
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-foreground">Leaves Entitled</p>
 
-      {selectedEmployee ? (
-        <div className="mt-4 overflow-hidden rounded-[10px] border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.08)]">
-          <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/80 px-4 py-2.5">
-            <span className="text-sm font-medium text-slate-700">Leaves Entitled</span>
-          </div>
-
-          <div className="flex gap-4 border-b border-slate-100 p-4">
-            <div
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-100"
-              aria-hidden
-            >
-              <User className="h-10 w-10 text-slate-400" strokeWidth={1.25} />
-            </div>
-            <div className="space-y-0.5 text-sm">
-              <p className="font-medium text-blue-600">{String(selectedEmployee.firstName ?? '')}</p>
-              <p className="text-slate-500">{String(selectedEmployee.empNumber ?? '')}</p>
-              <p className="text-slate-500">{String(selectedEmployee.empDeptName ?? '')}</p>
-              <p className="text-slate-500">{String(selectedEmployee.mobile ?? '')}</p>
-            </div>
-          </div>
-
-          {allotmentLoading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading leave types…
-            </div>
-          ) : allotmentRows.length > 0 ? (
-            <div className="space-y-3 px-4 pb-4 pt-2">
-              {allotmentRows.map((leave) => (
-                <div
-                  key={leave.leavetypeId}
-                  className="flex flex-wrap items-end gap-4 border-b border-slate-100 pb-3 last:border-0"
-                >
-                  <p className="min-w-[200px] flex-1 text-sm text-slate-800">
-                    {leave.leaveName}{' '}
-                    <span className="text-blue-600">({leave.leaveCode})</span>
-                  </p>
-                  <div className="w-full max-w-[180px]">
-                    <Label htmlFor={`alloc-${leave.leavetypeId}`} className="text-xs text-slate-600">
-                      Allocated Leaves
-                    </Label>
-                    <Input
-                      id={`alloc-${leave.leavetypeId}`}
-                      type="number"
-                      min={0}
-                      value={leave.allocatedLeaves}
-                      onChange={(e) => updateAllocated(leave.leavetypeId, e.target.value)}
-                    />
-                  </div>
-                </div>
-              ))}
-              <div className="flex justify-end pt-2">
-                <Button onClick={() => void handleSave()} disabled={saving}>
-                  {saving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    'Save'
-                  )}
-                </Button>
+            <div className="flex gap-4 rounded-md border border-border bg-muted/30 p-4">
+              <div
+                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md border border-border bg-muted"
+                aria-hidden
+              >
+                <User className="h-8 w-8 text-muted-foreground" strokeWidth={1.25} />
+              </div>
+              <div className="space-y-0.5 text-[12px]">
+                <p className="font-medium text-primary">{String(selectedEmployee.firstName ?? '')}</p>
+                <p className="text-muted-foreground">{String(selectedEmployee.empNumber ?? '')}</p>
+                <p className="text-muted-foreground">{String(selectedEmployee.empDeptName ?? '')}</p>
+                <p className="text-muted-foreground">{String(selectedEmployee.mobile ?? '')}</p>
               </div>
             </div>
-          ) : null}
-        </div>
-      ) : null}
-    </PageContainer>
+
+            {allotmentLoading ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading leave types…
+              </div>
+            ) : allotmentRows.length > 0 ? (
+              <div className="space-y-3">
+                {allotmentRows.map((leave) => (
+                  <div
+                    key={leave.leavetypeId}
+                    className="flex flex-wrap items-end gap-4 border-b border-border pb-3 last:border-0"
+                  >
+                    <p className="min-w-[200px] flex-1 text-[12px] text-foreground">
+                      {leave.leaveName}{' '}
+                      <span className="text-primary">({leave.leaveCode})</span>
+                    </p>
+                    <div className="w-full max-w-[180px]">
+                      <Label
+                        htmlFor={`alloc-${leave.leavetypeId}`}
+                        className="text-xs text-muted-foreground"
+                      >
+                        Allocated Leaves
+                      </Label>
+                      <Input
+                        id={`alloc-${leave.leavetypeId}`}
+                        type="number"
+                        min={0}
+                        className="h-8 text-[12px]"
+                        value={leave.allocatedLeaves}
+                        onChange={(e) => updateAllocated(leave.leavetypeId, e.target.value)}
+                      />
+                    </div>
+                  </div>
+                ))}
+                <div className="flex justify-end pt-2">
+                  <Button type="button" size="sm" onClick={() => void handleSave()} disabled={saving}>
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      'Save'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No leave types found for this employee.</p>
+            )}
+          </div>
+        ) : null
+      }
+    />
   )
 }

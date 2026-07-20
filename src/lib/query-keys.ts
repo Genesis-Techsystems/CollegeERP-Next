@@ -566,7 +566,10 @@ export const QK = {
     payrollCategories: () => ["HrPayroll", "payrollCategories"] as const,
     payrollGroups: () => ["HrPayroll", "payrollGroups"] as const,
     payslipSettings: () => ["HrPayroll", "payslipSettings"] as const,
-    departmentHeads: () => ["HrPayroll", "departmentHeads"] as const,
+    departmentHeads: (collegeId?: number) =>
+      collegeId != null
+        ? (["HrPayroll", "departmentHeads", collegeId] as const)
+        : (["HrPayroll", "departmentHeads"] as const),
     leaveTypes: () => ["HrPayroll", "leaveTypes"] as const,
     leaveApplications: () => ["HrPayroll", "leaveApplications"] as const,
     employees: () => ["HrPayroll", "employees"] as const,

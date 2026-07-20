@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { SearchIcon } from 'lucide-react'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { DatePicker } from '@/common/components/date-picker'
+import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { SearchInput } from '@/common/components/search'
 import { Select, type SelectOption } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { DATE_FORMATS } from '@/config/constants/app'
 import { getErrorMessage } from '@/lib/errors'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -133,12 +132,14 @@ export function LeaveEntitlementPage() {
     setGridLoading(true)
     setLoadError(null)
     try {
-      const [empRows, entRows, types] = await Promise.all([
+      const [empRows, types] = await Promise.all([
         listEmployeesForLeaveEntitlement(collegeId, departmentId),
-        listLeaveEntitlementsByDept(collegeId, leaveYear, departmentId),
         listLeaveTypesForEntitlement(organizationId),
       ])
       setLeaveTypes(types)
+
+      const entRows = await listLeaveEntitlementsByDept(collegeId, leaveYear, departmentId)
+
       setEntitlements(entRows)
       const grid = buildLeaveEntitlementEmployeeRows(empRows, types, entRows)
       setEmployees(grid)
@@ -165,6 +166,7 @@ export function LeaveEntitlementPage() {
     const cid = v ? Number(v) : null
     setCollegeId(cid)
     setDepartmentId(null)
+    setLeaveYear(null)
     setEmployees([])
     setEntitlements([])
     if (cid) void loadCollegeDependents(cid)
@@ -245,7 +247,6 @@ export function LeaveEntitlementPage() {
           leaveYear,
           employeeId: emp.employeeId,
           leavetypeId: typeId,
-          leaveTypeId: typeId,
           isActive: true,
           isUpdate: emp.isUpdate,
           allocatedLeaves: emp.counts[j] ?? 0,
@@ -278,8 +279,15 @@ export function LeaveEntitlementPage() {
 
     setSaving(true)
     try {
-      await saveLeaveEntitlements(payload)
-      toastSuccess('Leave entitlements saved')
+      const result = (await saveLeaveEntitlements(payload)) as {
+        success?: boolean
+        message?: string
+      }
+      if (result?.success === false) {
+        toastError(result.message ?? 'Failed to save leave entitlements')
+        return
+      }
+      toastSuccess(result?.message ?? 'Leave entitlements saved')
       await loadEntitlementGrid()
     } catch (e) {
       toastError(e, 'Failed to save leave entitlements')
@@ -288,145 +296,151 @@ export function LeaveEntitlementPage() {
     }
   }
 
+  const showGrid = employees.length > 0 || gridLoading
+  const showEmptyState = Boolean(departmentId && !gridLoading && employees.length === 0)
+
   return (
-    <PageContainer className="space-y-5">
-      <FilterCard title="Leave Entitlement" defaultOpen>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Select
-            className={FILTER_CARD_SELECT_CLASS}
-            label="College"
-            required
-            value={collegeId != null ? String(collegeId) : null}
-            onChange={handleCollegeChange}
-            options={colleges}
-            placeholder="Select college"
-            searchable
-            isLoading={collegesLoading}
-          />
-          <Select
-            className={FILTER_CARD_SELECT_CLASS}
-            label="Leave Year"
-            required
-            value={leaveYear}
-            onChange={handleLeaveYearChange}
-            options={years}
-            placeholder="Select year"
-            searchable
-          />
-          <Select
-            className={FILTER_CARD_SELECT_CLASS}
-            label="Department"
-            required
-            value={departmentId != null ? String(departmentId) : null}
-            onChange={handleDepartmentChange}
-            options={departments}
-            placeholder="Select department"
-            searchable
-            isLoading={departmentsLoading}
-            disabled={!collegeId}
-          />
-          <div className="space-y-1">
-            <Label className="text-[12px]">
-              Valid From <span className="text-destructive">*</span>
-            </Label>
+    <FilteredListPage
+      title="Leave Entitlement"
+      bodyClassName="border-t-0"
+      notice={loadError ? <p className="text-sm text-destructive px-1">{loadError}</p> : null}
+      filters={
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="College">
+            <Select
+              value={collegeId != null ? String(collegeId) : null}
+              onChange={handleCollegeChange}
+              options={colleges}
+              placeholder="Select college"
+              searchable
+              isLoading={collegesLoading}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Leave Year">
+            <Select
+              value={leaveYear}
+              onChange={handleLeaveYearChange}
+              options={years}
+              placeholder="Select year"
+              searchable
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Department">
+            <Select
+              value={departmentId != null ? String(departmentId) : null}
+              onChange={handleDepartmentChange}
+              options={departments}
+              placeholder="Select department"
+              searchable
+              isLoading={departmentsLoading}
+              disabled={!collegeId}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="Valid From">
             <DatePicker value={validFrom} onChange={onValidFromChange} className="h-9 text-[12px]" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[12px]">
-              Valid To <span className="text-destructive">*</span>
-            </Label>
+          </GlobalFilterField>
+          <GlobalFilterField label="Valid To">
             <DatePicker
               value={validTo}
-              onChange={(date) => { if (date) setValidTo(date) }}
+              onChange={(date) => {
+                if (date) setValidTo(date)
+              }}
               minDate={validFrom}
               className="h-9 text-[12px]"
             />
-          </div>
-        </div>
-      </FilterCard>
-
-      {loadError ? <p className="text-sm text-destructive px-1">{loadError}</p> : null}
-
-      {employees.length > 0 ? (
-        <div className="app-card overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-            <div className="relative flex items-center min-w-[200px] max-w-sm flex-1">
-              <SearchIcon className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      }
+      body={
+        showGrid ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <SearchInput
                 value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                placeholder="Search"
-                className="h-8 pl-8 text-[12px]"
+                onChange={setSearchText}
+                placeholder="Search employees…"
+                className="max-w-sm flex-1 min-w-[200px]"
               />
+              {assignedDatesLabel ? (
+                <p className="text-[12px] text-muted-foreground">
+                  Leave Assigned Dates:{' '}
+                  <span className="font-medium text-foreground">{assignedDatesLabel}</span>
+                </p>
+              ) : null}
             </div>
-            {assignedDatesLabel ? (
-              <p className="text-[12px] text-muted-foreground">
-                Leave Assigned Dates:{' '}
-                <span className="font-medium text-foreground">{assignedDatesLabel}</span>
-              </p>
-            ) : null}
-          </div>
 
-          <div className="overflow-x-auto scrollbar-hidden">
-            <table className="w-full min-w-[640px] text-[12px]">
-              <thead>
-                <tr className="border-b bg-muted/50 text-left">
-                  <th className="px-3 py-2 font-medium w-14">SI.No</th>
-                  <th className="px-3 py-2 font-medium min-w-[160px]">Employee</th>
-                  {leaveTypes.map((lt) => (
-                    <th key={String(resolveLeaveTypeId(lt))} className="px-3 py-2 font-medium min-w-[90px]">
-                      {String(lt.leaveName ?? lt.leaveCode ?? '')}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {gridLoading ? (
-                  <tr>
-                    <td colSpan={2 + leaveTypes.length} className="px-3 py-8 text-center text-muted-foreground">
-                      Loading…
-                    </td>
+            <div className="overflow-x-auto rounded-md border border-border scrollbar-hidden">
+              <table className="w-full min-w-[640px] text-[12px]">
+                <thead>
+                  <tr className="border-b bg-muted/50 text-left">
+                    <th className="px-3 py-2 font-medium w-14">SI.No</th>
+                    <th className="px-3 py-2 font-medium min-w-[160px]">Employee</th>
+                    {leaveTypes.map((lt) => (
+                      <th
+                        key={String(resolveLeaveTypeId(lt))}
+                        className="px-3 py-2 font-medium min-w-[90px]"
+                      >
+                        {String(lt.leaveName ?? lt.leaveCode ?? '')}
+                      </th>
+                    ))}
                   </tr>
-                ) : (
-                  filteredEmployees.map((emp, index) => (
-                    <tr key={emp.employeeId} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="px-3 py-2">{index + 1}</td>
-                      <td className="px-3 py-2">
-                        {emp.firstName}
-                        {emp.empNumber ? (
-                          <>
-                            {' '}
-                            (<span className="font-medium text-[hsl(var(--primary))]">{emp.empNumber}</span>)
-                          </>
-                        ) : null}
+                </thead>
+                <tbody>
+                  {gridLoading ? (
+                    <tr>
+                      <td
+                        colSpan={2 + leaveTypes.length}
+                        className="px-3 py-8 text-center text-muted-foreground"
+                      >
+                        Loading…
                       </td>
-                      {emp.counts.map((count, j) => (
-                        <td key={`${emp.employeeId}-${j}`} className="px-3 py-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            className="h-8 w-20 text-[12px]"
-                            value={count}
-                            onChange={(e) => updateCount(emp.employeeId, j, e.target.value)}
-                          />
-                        </td>
-                      ))}
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    filteredEmployees.map((emp, index) => (
+                      <tr key={emp.employeeId} className="border-b last:border-0 hover:bg-muted/30">
+                        <td className="px-3 py-2">{index + 1}</td>
+                        <td className="px-3 py-2">
+                          {emp.firstName}
+                          {emp.empNumber ? (
+                            <>
+                              {' '}
+                              (<span className="font-medium text-primary">{emp.empNumber}</span>)
+                            </>
+                          ) : null}
+                        </td>
+                        {emp.counts.map((count, j) => (
+                          <td key={`${emp.employeeId}-${j}`} className="px-3 py-2">
+                            <Input
+                              type="number"
+                              min={0}
+                              className="h-8 w-20 text-[12px]"
+                              value={count}
+                              onChange={(e) => updateCount(emp.employeeId, j, e.target.value)}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-          <div className="flex justify-end border-t px-4 py-3">
-            <Button type="button" size="sm" disabled={!canSave || saving} onClick={() => void handleSave()}>
-              Save
-            </Button>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                size="sm"
+                disabled={!canSave || saving}
+                onClick={() => void handleSave()}
+              >
+                Save
+              </Button>
+            </div>
           </div>
-        </div>
-      ) : departmentId && !gridLoading ? (
-        <p className="text-sm text-muted-foreground px-1">No employees found for the selected filters.</p>
-      ) : null}
-    </PageContainer>
+        ) : showEmptyState ? (
+          <p className="text-sm text-muted-foreground">No employees found for the selected filters.</p>
+        ) : null
+      }
+    />
   )
 }

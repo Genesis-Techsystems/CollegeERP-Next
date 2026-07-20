@@ -20,6 +20,7 @@ import {
   listRoomsByRoomType,
   listCoursesByUniversity,
   searchEmployeesForHr,
+  updateDepartmentHead,
 } from '@/services'
 import { toastError, toastSuccess } from '@/lib/toast'
 
@@ -65,6 +66,7 @@ function orgIdFromStorage(): number {
 interface DepartmentHeadsModalProps {
   open: boolean
   onClose: () => void
+  row: DeptHeadRow | null
   existingRows: DeptHeadRow[]
   onSaved: () => void
 }
@@ -72,9 +74,12 @@ interface DepartmentHeadsModalProps {
 export function DepartmentHeadsModal({
   open,
   onClose,
+  row,
   existingRows,
   onSaved,
 }: Readonly<DepartmentHeadsModalProps>) {
+  const editingId = row ? Number(row.empDeptHeadId ?? row.emp_dept_head_id ?? 0) : 0
+  const isEditing = editingId > 0
   const [colleges, setColleges] = useState<SelectOption[]>([])
   const [courses, setCourses] = useState<SelectOption[]>([])
   const [courseGroups, setCourseGroups] = useState<SelectOption[]>([])
@@ -112,12 +117,6 @@ export function DepartmentHeadsModal({
     },
   })
 
-  const collegeId = watch('collegeId')
-  const courseId = watch('courseId')
-  const roomTypeId = watch('roomTypeId')
-  const fromDate = watch('fromDate')
-  const isActive = watch('isActive')
-
   useEffect(() => {
     if (!open) return
     void (async () => {
@@ -140,43 +139,95 @@ export function DepartmentHeadsModal({
         })),
       )
     })()
-    reset({
-      collegeId: undefined,
-      employeeId: undefined,
-      departmentId: undefined,
-      courseId: undefined,
-      courseGroupId: undefined,
-      roomTypeId: undefined,
-      roomId: undefined,
-      fromDate: new Date(),
-      toDate: new Date(),
-      comments: '',
-      isActive: true,
-      reason: 'active',
-    })
-    setCourses([])
-    setCourseGroups([])
-    setDepartments([])
-    setRooms([])
-    setEmployeeOptions([])
-    setEmployeeRows([])
-    setUniversityId(0)
-  }, [open, reset])
+
+    if (isEditing && row) {
+      const editCollegeId = Number(row.collegeId ?? 0)
+      const editEmployeeId = Number(row.employeeId ?? 0)
+      const editFromDate = row.fromDate ? new Date(String(row.fromDate)) : new Date()
+      const editToDate = row.toDate ? new Date(String(row.toDate)) : new Date()
+
+      reset({
+        collegeId: editCollegeId || undefined,
+        employeeId: editEmployeeId || undefined,
+        departmentId: row.departmentId ? Number(row.departmentId) : undefined,
+        courseId: row.courseId ? Number(row.courseId) : undefined,
+        courseGroupId: row.courseGroupId ? Number(row.courseGroupId) : undefined,
+        roomTypeId: row.roomTypeId ? Number(row.roomTypeId) : undefined,
+        roomId: row.roomId ? Number(row.roomId) : undefined,
+        fromDate: editFromDate,
+        toDate: editToDate,
+        comments: String(row.comments ?? ''),
+        isActive: row.isActive !== false,
+        reason: String(row.reason ?? (row.isActive === false ? 'inactive' : 'active')),
+      })
+
+      if (editEmployeeId) {
+        const empRow = {
+          employeeId: editEmployeeId,
+          employeeName: row.employeeName,
+          firstName: row.employeeName,
+          empNumber: row.empNumber,
+        }
+        setEmployeeRows([empRow])
+        setEmployeeOptions([
+          {
+            value: String(editEmployeeId),
+            label: employeeLabel(empRow),
+          },
+        ])
+      } else {
+        setEmployeeRows([])
+        setEmployeeOptions([])
+      }
+    } else {
+      reset({
+        collegeId: undefined,
+        employeeId: undefined,
+        departmentId: undefined,
+        courseId: undefined,
+        courseGroupId: undefined,
+        roomTypeId: undefined,
+        roomId: undefined,
+        fromDate: new Date(),
+        toDate: new Date(),
+        comments: '',
+        isActive: true,
+        reason: 'active',
+      })
+      setEmployeeRows([])
+      setEmployeeOptions([])
+    }
+
+    if (!isEditing) {
+      setCourses([])
+      setCourseGroups([])
+      setDepartments([])
+      setRooms([])
+      setUniversityId(0)
+    }
+  }, [open, isEditing, row, reset])
+
+  const formCollegeId = watch('collegeId')
+  const courseId = watch('courseId')
+  const roomTypeId = watch('roomTypeId')
+  const fromDate = watch('fromDate')
+  const isActive = watch('isActive')
 
   useEffect(() => {
-    if (!collegeId) return
-    const college = colleges.find((c) => c.value === String(collegeId))
+    if (!formCollegeId) return
     void (async () => {
       const allColleges = await listActiveCollegesForGeneralSettings()
-      const match = allColleges.find((c) => c.collegeId === collegeId)
+      const match = allColleges.find((c) => c.collegeId === formCollegeId)
       const univId = Number(match?.universityId ?? 0)
       setUniversityId(univId)
-      setValue('courseId', undefined)
-      setValue('courseGroupId', undefined)
-      setValue('departmentId', undefined as unknown as number)
-      setValue('employeeId', undefined as unknown as number)
-      setEmployeeOptions([])
-      setEmployeeRows([])
+      if (!isEditing) {
+        setValue('courseId', undefined)
+        setValue('courseGroupId', undefined)
+        setValue('departmentId', undefined as unknown as number)
+        setValue('employeeId', undefined as unknown as number)
+        setEmployeeOptions([])
+        setEmployeeRows([])
+      }
       if (univId) {
         const courseList = await listCoursesByUniversity(univId)
         setCourses(
@@ -188,7 +239,7 @@ export function DepartmentHeadsModal({
       } else {
         setCourses([])
       }
-      const deptList = await listDepartmentsByCollege(collegeId)
+      const deptList = await listDepartmentsByCollege(formCollegeId)
       setDepartments(
         deptList.map((d) => ({
           value: String(d.departmentId),
@@ -196,11 +247,11 @@ export function DepartmentHeadsModal({
         })),
       )
     })()
-  }, [collegeId, colleges, setValue])
+  }, [formCollegeId, isEditing, setValue])
 
   useEffect(() => {
     if (!courseId) {
-      setCourseGroups([])
+      if (!isEditing) setCourseGroups([])
       return
     }
     void listCourseGroupsByCourse(courseId).then((rows) => {
@@ -211,12 +262,14 @@ export function DepartmentHeadsModal({
         })),
       )
     })
-  }, [courseId])
+  }, [courseId, isEditing])
 
   useEffect(() => {
     if (!roomTypeId) {
-      setRooms([])
-      setValue('roomId', undefined)
+      if (!isEditing) {
+        setRooms([])
+        setValue('roomId', undefined)
+      }
       return
     }
     void listRoomsByRoomType(roomTypeId).then((rows) => {
@@ -227,7 +280,7 @@ export function DepartmentHeadsModal({
         })),
       )
     })
-  }, [roomTypeId, setValue])
+  }, [roomTypeId, isEditing, setValue])
 
   useEffect(() => {
     if (fromDate && watch('toDate') && fromDate > watch('toDate')) {
@@ -272,15 +325,18 @@ export function DepartmentHeadsModal({
   }, [employeeId, employeeOptions, employeeRows])
 
   async function onSubmit(data: FormValues) {
-    const duplicate = existingRows.some(
-      (r) =>
-        Number(r.departmentId) === data.departmentId &&
-        r.isActive === true &&
-        data.isActive === true,
-    )
-    if (duplicate) {
-      toastError(new Error('Already allocated department head for this department.'))
-      return
+    // Angular behavior:
+    // - On ADD: block if any ACTIVE department head already exists for the department.
+    //   (It does not depend on the new record's isActive value.)
+    // - On EDIT: do NOT run this duplicate guard.
+    if (!isEditing) {
+      const duplicate = existingRows.some(
+        (r) => Number(r.departmentId) === data.departmentId && r.isActive === true,
+      )
+      if (duplicate) {
+        toastError(new Error('Already allocated department head for department.'))
+        return
+      }
     }
 
     const payload: Record<string, unknown> = {
@@ -299,12 +355,24 @@ export function DepartmentHeadsModal({
     }
 
     try {
-      await createDepartmentHead(payload)
-      toastSuccess('Department head created')
+      if (isEditing && editingId) {
+        // Angular edit behavior: force collegeId + employeeId from the original row.
+        // Even though the React UI shows these fields, backend expects them to stay fixed.
+        if (row) {
+          payload.collegeId = Number(row.collegeId ?? payload.collegeId)
+          payload.employeeId = Number(row.employeeId ?? payload.employeeId)
+        }
+
+        await updateDepartmentHead(editingId, { ...payload, empDeptHeadId: editingId })
+        toastSuccess('Department head updated')
+      } else {
+        await createDepartmentHead(payload)
+        toastSuccess('Department head created')
+      }
       onSaved()
       onClose()
     } catch (err) {
-      toastError(err, 'Failed to create department head')
+      toastError(err, isEditing ? 'Failed to update department head' : 'Failed to create department head')
     }
   }
 
@@ -312,7 +380,7 @@ export function DepartmentHeadsModal({
     <FormModal
       open={open}
       onClose={onClose}
-      title="Add Department Head"
+      title={isEditing ? 'Edit Department Head' : 'Add Department Head'}
       titleClassName="text-[15px] font-semibold leading-none text-[#5da394]"
       showHeaderDivider
       size="xl"
@@ -357,7 +425,7 @@ export function DepartmentHeadsModal({
                 searchable
                 onSearch={onEmployeeSearch}
                 isLoading={employeeSearchLoading}
-                disabled={!collegeId}
+                disabled={!formCollegeId}
                 error={errors.employeeId?.message}
               />
             )}
@@ -410,7 +478,7 @@ export function DepartmentHeadsModal({
               options={departments}
               placeholder="Select department"
               searchable
-              disabled={!collegeId}
+              disabled={!formCollegeId}
               error={errors.departmentId?.message}
             />
           )}
@@ -430,7 +498,7 @@ export function DepartmentHeadsModal({
               placeholder="Select room type"
               searchable
               clearable
-              disabled={!collegeId}
+              disabled={!formCollegeId}
             />
           )}
         />

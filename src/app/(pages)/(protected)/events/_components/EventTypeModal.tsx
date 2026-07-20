@@ -41,6 +41,16 @@ type EventTypeModalProps = {
   onSaved: () => void
 }
 
+function resolveCollegeId(row: EventTypeRow | null): number | undefined {
+  if (!row) return undefined
+  const nested = row as EventTypeRow & {
+    college?: { collegeId?: number }
+    College?: { collegeId?: number }
+  }
+  const n = Number(row.collegeId ?? nested.college?.collegeId ?? nested.College?.collegeId ?? 0)
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
 export function EventTypeModal({
   open,
   onClose,
@@ -82,7 +92,7 @@ export function EventTypeModal({
     reset(
       row
         ? {
-            collegeId: Number(row.collegeId),
+            collegeId: resolveCollegeId(row),
             eventTypeName: String(row.eventTypeName ?? ''),
             isActive: row.isActive !== false,
             reason: String(row.reason ?? 'active'),
@@ -108,13 +118,15 @@ export function EventTypeModal({
       toastError('Event type name already exists for this college.')
       return
     }
-    const payload = {
-      ...values,
+    const payload: EventTypeRow = {
+      collegeId: values.collegeId,
+      eventTypeName: values.eventTypeName.trim(),
+      isActive: values.isActive,
       reason: values.isActive ? 'active' : (values.reason?.trim() || 'inactive'),
     }
     try {
       if (isEditing && row?.eventTypeId) {
-        await updateEventType(row.eventTypeId, payload)
+        await updateEventType(Number(row.eventTypeId), payload)
         toastSuccess('Event type updated')
       } else {
         await createEventType(payload)
