@@ -4,15 +4,18 @@
  *
  * Angular dependencies removed:
  *   - @angular/router -> use Next.js router in calling components
- *   - EncryptionService -> replaced with browser Web Crypto / sessionStorage wrappers
- *   - CryptoJS -> removed; encryption handled by iron-session on the server
  *
  * Session storage helpers retain the same API surface for compatibility.
- * Encryption is intentionally omitted — secrets are managed server-side via
- * iron-session. Client code should only store non-sensitive identifiers.
+ * Payment-gateway payloads still use Angular's double AES (CryptoJS) so the
+ * Spring Boot decryptor accepts the same OpenSSL-salted ciphertext.
  */
 
+import CryptoJS from 'crypto-js'
+import { format, parseISO } from 'date-fns'
 import { GENERALCONSTANTS } from './general-constants'
+
+/** Angular EncryptionService.secretKey */
+const ENCRYPTION_SECRET = '@GenesisAdmin@'
 
 /** Coerce an API payload field to a record array for safe iteration. */
 export function asRecordArray(value: unknown): Record<string, unknown>[] {
@@ -57,9 +60,22 @@ export function removeSecuredValue(key: string): void {
   sessionStorage.removeItem(key)
 }
 
-// ─── Date Helpers ────────────────────────────────────────────────────────────
+/**
+ * Angular EncryptionService.encrypt — `yes` JSON.stringifies first; `no` encrypts the string as-is.
+ */
+export function encryptAes(data: unknown, stringifyJson: boolean): string {
+  const plain = stringifyJson ? JSON.stringify(data) : String(data)
+  return CryptoJS.AES.encrypt(plain, ENCRYPTION_SECRET).toString()
+}
 
-import { format, parseISO } from 'date-fns'
+/**
+ * Angular GenericFunctions.getEncryptedValue — double AES for payment gateway FormData.
+ */
+export function getEncryptedValue(value: unknown): string {
+  return encryptAes(encryptAes(value, true), false)
+}
+
+// ─── Date Helpers ────────────────────────────────────────────────────────────
 
 /**
  * Extract a YYYY-MM-DD string from a date-like value (ISO string, Date, etc.).
@@ -94,6 +110,14 @@ export function toExamApiDate(value: string | Date | null | undefined): string {
  */
 export function toDateOnlyISO(d: Date): string {
   return format(d, 'yyyy-MM-dd')
+}
+
+/**
+ * Angular `moment()` for receiptDate — UTC midnight as `YYYY-MM-DDTHH:mm:ssZ`.
+ * Uses the local calendar day (same as presentDate-driven Angular when clocks match).
+ */
+export function utcMidnightIso(date: Date = new Date()): string {
+  return `${toDateOnlyISO(date)}T00:00:00Z`
 }
 
 /**

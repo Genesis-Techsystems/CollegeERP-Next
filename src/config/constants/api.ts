@@ -1140,9 +1140,9 @@ export const PAYMENT_GATEWAY_API = {
   RAZORPAY_CREATE_ORDER: "RazorPay/payment",
   /** RazorPay: charge */
   RAZORPAY_CHARGE: "RazorPay/charge",
-  /** Generic: initiate payment */
+  /** Demo / Angular `initaitePaymentUrl` — exam fee student portal (PayPhi) */
   INITIATE_PAYMENT: "paymentGateway/initiatePayment",
-  /** BillDesk / PayPhi — exam fee & student portal payments (Angular initiatePaymentUrl) */
+  /** BillDesk path — 404 on demo.skolo.in; used on some other tenants */
   BILLDESK_INITIATE: "BillDesk/initiatePayment",
   /** Generic: encrypt form data */
   ENCRYPT_FORM_DATA: "paymentGateway/encryptFormData",

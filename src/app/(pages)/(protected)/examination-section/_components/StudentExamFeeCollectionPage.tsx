@@ -23,23 +23,30 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useSessionContext } from "@/context/SessionContext";
+import {
+  setSecuredValue,
+  utcMidnightIso,
+} from "@/common/generic-functions";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import {
+  buildStudentExamFeeStagingPayload,
   fetchStudentDetail,
-  searchStudentsByKeyword,
-} from "@/services/student-information";
-import { getExamCourseYearSubjects } from "@/services/result-processing";
-import {
+  getExamCourseYearSubjects,
   getExamMasterDetailsByGroup,
   getStudentAcademicBatches,
   getStudentExamFeeStructure,
   getStudentSubjectsForRegularExam,
   getStudentSubjectsForSupplyExam,
+  initiatePayment,
   listExamFeeReceipts,
   listExamFeeTypes,
+  listPaymentModes,
   listStudentPortalExams,
   resolveExamTypeCategoryId,
-} from "@/services/pre-examination";
+  resolveOnlinePaymentModeId,
+  saveStgOnlineExamFeeReceipt,
+  searchStudentsByKeyword,
+} from "@/services";
 import type { StudentFeeSearchRow } from "@/types/fees-collection";
 
 const DEFAULT_STUDENT_PHOTO = "/assets/images/avatars/default_Student.png";
@@ -459,6 +466,7 @@ function StudentExamFeeCollectionContent() {
   const [feeReceipts, setFeeReceipts] = useState<AnyRow[]>([]);
   const [examFeeTypes, setExamFeeTypes] = useState<AnyRow[]>([]);
   const [payDialogOpen, setPayDialogOpen] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [viewSubjOpen, setViewSubjOpen] = useState(false);
   const [viewSubjRows, setViewSubjRows] = useState<SubjectListRow[]>([]);
 
@@ -921,6 +929,86 @@ function StudentExamFeeCollectionContent() {
     setPayDialogOpen(true);
   }
 
+  /**
+   * Angular saveExamFeeDetails() on dialog PAY:
+   * 1) POST stgOnlineExamFeeReceipts
+   * 2) POST paymentGateway/initiatePayment (encrypted FormData) → PhiCommerce
+   */
+  async function confirmPay() {
+    if (!student || !selectedExam || courseYearFee.length === 0) return;
+
+    setPaying(true);
+    try {
+      const examMasterId = num(selectedExam, ["examId", "id"]);
+      setSecuredValue(
+        "paymentRedirectUrl",
+        "/examination-section/exam-fee-registration",
+      );
+      setSecuredValue("payFeeDueDetails", { examId: examMasterId });
+
+      const paymentModes = await listPaymentModes();
+      const paymentModeCatId =
+        resolveOnlinePaymentModeId(paymentModes) ?? 132;
+
+      // Angular overwrites examFeePayload in the loop — last course-year wins.
+      const row = courseYearFee[courseYearFee.length - 1];
+      const receiptDate = utcMidnightIso(new Date());
+      const payload = buildStudentExamFeeStagingPayload({
+        student: {
+          collegeId: student.collegeId,
+          studentId: student.studentId,
+          firstName: student.firstName,
+          rollNumber: student.rollNumber ?? student.hallticketNumber,
+          hallticketNumber: student.hallticketNumber,
+          groupCode: student.groupCode,
+          regulationId: student.regulationId,
+        },
+        exam: {
+          examId: examMasterId,
+          examName: txt(selectedExam, ["examName", "name"]),
+          fromDate: selectedExam.fromDate,
+          toDate: selectedExam.toDate,
+        },
+        row,
+        paymentModeCatId,
+        receiptDate,
+      });
+
+      const result = await saveStgOnlineExamFeeReceipt(payload);
+      if (!result.success || !result.data) {
+        toastError(result.message || "Failed to save exam fee details.");
+        return;
+      }
+
+      let collegeId = Number(result.data.collegeId ?? student.collegeId ?? 0);
+      let feeType = "EXAMFEE";
+      if (String(student.courseCode ?? "").toUpperCase() === "PHD") {
+        collegeId = 0;
+        feeType = "PHD";
+      }
+
+      const orderId = result.data.orderId;
+      if (orderId == null || orderId === "") {
+        toastError("Order id missing from fee receipt response.");
+        return;
+      }
+
+      setPayDialogOpen(false);
+      await initiatePayment(
+        Number(payload.examTotalAmount),
+        orderId,
+        collegeId,
+        feeType,
+      );
+    } catch (err) {
+      toastError(
+        err instanceof Error ? err.message : "Payment initiation failed.",
+      );
+    } finally {
+      setPaying(false);
+    }
+  }
+
   if (sessionLoading) {
     return (
       <FilteredPage
@@ -1249,10 +1337,16 @@ function StudentExamFeeCollectionContent() {
           </div>
 
           <DialogFooter className="border-t px-4 py-3">
-            <Button variant="outline" onClick={() => setPayDialogOpen(false)}>
+            <Button
+              variant="outline"
+              disabled={paying}
+              onClick={() => setPayDialogOpen(false)}
+            >
               Close
             </Button>
-            <Button onClick={() => setPayDialogOpen(false)}>Pay</Button>
+            <Button disabled={paying} onClick={() => void confirmPay()}>
+              {paying ? "Processing…" : "Pay"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

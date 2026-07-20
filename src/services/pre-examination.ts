@@ -10,9 +10,20 @@ import {
   postDetailsEnvelope,
   uploadFile,
 } from "@/services/crud";
-import { EXAM_API, FEE_API, NEXT_API, SETUP_API } from "@/config/constants/api";
+import {
+  EXAM_API,
+  FEE_API,
+  NEXT_API,
+  PAYMENT_GATEWAY_API,
+  SETUP_API,
+} from "@/config/constants/api";
 import { GM_CODES } from "@/config/constants/ui";
-import { toDateStr, toExamApiDate } from "@/common/generic-functions";
+import {
+  getEncryptedValue,
+  toDateStr,
+  toExamApiDate,
+} from "@/common/generic-functions";
+import type { ApiResponse } from "@/types/api";
 import {
   fetchStudentDetail,
   fetchStudentDetailByUserId,
@@ -1994,14 +2005,128 @@ export async function listStudentPortalExams(
 
 /**
  * Angular saveExamFeeDetails(): POST flat `examFeePayload` to stgOnlineExamFeeReceipts.
+ * Returns the full envelope so callers can read `orderId` / soft-failure messages.
  */
 export async function saveStgOnlineExamFeeReceipt(
   payload: AnyRow,
-): Promise<AnyRow> {
+): Promise<ApiResponse<AnyRow>> {
   return postDetailsEnvelope<AnyRow>(
     FEE_API.STG_ONLINE_EXAM_FEE_RECEIPTS,
     payload,
   );
+}
+
+/**
+ * Angular GenericFunctions.callBillDesk — POST merchant form to gateway action URL.
+ * (Do not remove the form after submit — matches Angular.)
+ */
+export function callBillDesk(
+  actionurl: string,
+  merchantid: string,
+  bdorderid: string,
+  rdata: string,
+): void {
+  if (typeof document === "undefined") return;
+
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = actionurl;
+  form.target = "_blank";
+
+  const fields: Record<string, string> = {
+    merchantid,
+    bdorderid,
+    rdata,
+  };
+
+  for (const [key, value] of Object.entries(fields)) {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = key;
+    input.value = value ?? "";
+    form.appendChild(input);
+  }
+
+  document.body.appendChild(form);
+  form.submit();
+}
+
+/**
+ * Angular GenericFunctions.initiatePayment (student exam fee / fee-due):
+ * encrypt { amount, collegeId, order_id, feeType } → FormData `data` →
+ * POST `paymentGateway/initiatePayment` → open PhiCommerce / BillDesk gateway.
+ *
+ * Demo (`demo.skolo.in`) exposes `paymentGateway/initiatePayment` (Angular
+ * `initaitePaymentUrl` / older `initiatePaymentUrl`). `BillDesk/initiatePayment`
+ * returns 404 on that host.
+ *
+ * Response handling:
+ * - object with `actionurl` → callBillDesk (form POST → PhiCommerce)
+ * - string URL → window.open `_self` (Angular commented PayPhi fallback)
+ */
+export async function initiatePayment(
+  receiptAmount: number,
+  orderId: string | number,
+  collegeId: number,
+  feeType: string,
+): Promise<void> {
+  const request = {
+    amount: Number(receiptAmount).toFixed(2),
+    collegeId,
+    order_id: String(orderId),
+    feeType,
+  };
+
+  const formData = new FormData();
+  formData.append("data", getEncryptedValue(request));
+
+  const body = (await uploadFile(
+    PAYMENT_GATEWAY_API.INITIATE_PAYMENT,
+    formData,
+  )) as ApiResponse<AnyRow | string>;
+
+  if (body?.success === false) {
+    throw new Error(body.message || "Payment initiation failed");
+  }
+
+  const data = body?.data;
+
+  // Angular commented fallback: window.open(result.data, '_self')
+  if (typeof data === "string" && /^https?:\/\//i.test(data)) {
+    window.open(data, "_self");
+    return;
+  }
+
+  if (data && typeof data === "object") {
+    const actionurl = String(
+      (data as AnyRow).actionurl ?? (data as AnyRow).actionUrl ?? "",
+    );
+    if (actionurl) {
+      callBillDesk(
+        actionurl,
+        String(
+          (data as AnyRow).merchantid ?? (data as AnyRow).merchantId ?? "",
+        ),
+        String((data as AnyRow).bdorderid ?? (data as AnyRow).bdOrderId ?? ""),
+        String((data as AnyRow).rdata ?? (data as AnyRow).rData ?? ""),
+      );
+      return;
+    }
+
+    // Some PayPhi builds return the redirect URL under a single field
+    const redirect = String(
+      (data as AnyRow).redirectUrl ??
+        (data as AnyRow).paymentUrl ??
+        (data as AnyRow).url ??
+        "",
+    );
+    if (/^https?:\/\//i.test(redirect)) {
+      window.open(redirect, "_self");
+      return;
+    }
+  }
+
+  throw new Error(body?.message || "Payment initiation failed");
 }
 
 /** Resolve exam fee type GeneralDetail id — Angular payExamFees() examtypeCatId lookup. */
@@ -2110,6 +2235,9 @@ export function buildStudentExamFeeStagingPayload(input: {
   const examFeeAmount = Number(row.examFeeAmount ?? 0);
   const examFineAmount = Number(row.examFineAmount ?? 0);
   const examTotalAmount = examFeeAmount + examFineAmount + addFeeAmt;
+  // Angular: receiptDate = moment() (ISO UTC), receiptDt = momentYMD() (YYYY-MM-DD)
+  const receiptDt =
+    toDateStr(receiptDate) || String(receiptDate ?? "").slice(0, 10);
 
   return {
     tranCatDetailsId: 686,
@@ -2153,7 +2281,7 @@ export function buildStudentExamFeeStagingPayload(input: {
     subjectIds: subjectIdsList.join(","),
     paymentModeCatDetId: 132,
     collectedEmpDetailsId: null,
-    receiptDt: receiptDate,
+    receiptDt,
     examStdRegPaymentIds: null,
     examStdRegTxnIds: null,
     isRefund: false,
